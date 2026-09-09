@@ -13,7 +13,7 @@ import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 export class DbVcpmDefinitionQueryService implements VcpmDefinitionQueryService {
   constructor(private readonly dataSource: DataSource) {}
 
-  async getVcpmModuleDefinitionsWithParams(
+  async getAllVcpmModuleDefinitions(
     fileSystemId: number,
   ): Promise<VcpmModuleDefinitionWithParamsReadModel[]> {
     const rows = await this.dataSource.manager

@@ -422,48 +422,81 @@ export function serializeDefaultParameterData(definition: {
   } catch {
     return {ok: false, error: 'Failed to parse elementsStructure JSON'};
   }
-  const defaultInputs = schema.map(def => buildDefaultElement(def));
-  const syntheticDef = {
-    systemId: definition.systemId,
-    isReadOnly: false,
-    elementsStructure: definition.elementsStructure,
-  };
-  return serializeParameterData(syntheticDef, defaultInputs);
+  try {
+    const parsedSoFar = new Map<string, number>();
+    const defaultInputs = buildDefaultElements(schema, parsedSoFar);
+    const syntheticDef = {
+      systemId: definition.systemId,
+      isReadOnly: false,
+      elementsStructure: definition.elementsStructure,
+    };
+    return serializeParameterData(syntheticDef, defaultInputs);
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Missing default value',
+    };
+  }
 }
 
-function buildDefaultElement(def: DefinitionElement): ElementCalData {
+function buildDefaultElements(
+  schema: DefinitionElement[],
+  parsedSoFar: Map<string, number>,
+): ElementCalData[] {
+  return schema.map(def => buildDefaultElement(def, parsedSoFar));
+}
+
+function buildDefaultElement(
+  def: DefinitionElement,
+  parsedSoFar: Map<string, number>,
+): ElementCalData {
   switch (def.elementType) {
     case PARAMETER_ELEMENT_TYPE.ConfigElement: {
+      if (def.defaultValue === undefined) {
+        throw new Error(
+          `Missing defaultValue for element "${def.name ?? '<unnamed>'}"`,
+        );
+      }
+      if (def.name !== undefined) {
+        const numericValue = Number(def.defaultValue);
+        if (Number.isFinite(numericValue)) {
+          parsedSoFar.set(def.name, numericValue);
+        }
+      }
       return {
-        name: def.name ?? '',
-        description: def.description ?? '',
-        isReadOnly: def.isReadOnly ?? false,
         type: PARAMETER_ELEMENT_TYPE.ConfigElement,
-        dataType: def.dataType,
-        value: def.defaultValue ?? '0',
-      } satisfies ConfigElementData;
+        value: def.defaultValue,
+      } as ConfigElementData;
     }
     case PARAMETER_ELEMENT_TYPE.Struct: {
       return {
-        name: def.name,
-        description: def.description ?? '',
-        isReadOnly: false,
         type: PARAMETER_ELEMENT_TYPE.Struct,
-        structType: def.structureType,
-        value: def.elements.map(e => buildDefaultElement(e)),
-      } satisfies StructData;
+        value: buildDefaultElements(def.elements, parsedSoFar),
+      } as StructData;
     }
     case PARAMETER_ELEMENT_TYPE.ElementArray:
     case PARAMETER_ELEMENT_TYPE.StructArray: {
-      const length = def.arrayLength ?? 0;
+      const length = resolveDefaultArrayLength(def, parsedSoFar);
       return {
-        name: def.name,
-        description: def.description ?? '',
-        isReadOnly: false,
         type: PARAMETER_ELEMENT_TYPE.ElementArray,
-        template: [],
-        value: Array.from({length}, () => buildDefaultElement(def.template)),
-      } satisfies ElementArrayData;
+        value: Array.from({length}, () =>
+          buildDefaultElement(def.template, parsedSoFar),
+        ),
+      } as ElementArrayData;
     }
   }
+}
+
+function resolveDefaultArrayLength(
+  element: ElementArray | StructArray,
+  parsedSoFar: Map<string, number>,
+): number {
+  const length = element.arrayLenFormulaStr
+    ? evaluateFormula(element.arrayLenFormulaStr, parsedSoFar)
+    : (element.arrayLength ?? 0);
+
+  if (!Number.isInteger(length) || length < 0) {
+    throw new Error(`Invalid default array length: ${length}`);
+  }
+  return length;
 }

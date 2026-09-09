@@ -6,8 +6,8 @@
 import type {Container} from '../../../domain/entities/usecase-data/container/container.js';
 import {Container as ContainerClass} from '../../../domain/entities/usecase-data/container/container.js';
 import {ContainerPropertyValue} from '../../../domain/entities/usecase-data/container/value-objects/container-property.js';
-import {CONTAINER_PROP_ID_STACK_SIZE} from '../../file-operations/shared/constants/spf-ids.js';
-import {encodeStackSize} from '../../../domain/services/container-property/container-stack-size-codec.js';
+import {CONTAINER_PROP_ID_STACK_SIZE} from '../../../domain/entities/definitions/spf-ids.js';
+import {encodeStackSize} from '../shared/utils/container-stack-size-codec.js';
 
 /**
  * Creates a new container by copying all properties from the source container.

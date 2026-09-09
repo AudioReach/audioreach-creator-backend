@@ -13,7 +13,7 @@ import {
 import {SubgraphPair} from '../../../../../../../src/shared/types/subgraph-pair.js';
 import {DatapoolChunk} from '../../../../../../../src/application/file-operations/shared/acdb-chunks/datapool-chunk.js';
 import {BinaryUtils} from '../../../../../../../src/shared/utilities/binary-utils.js';
-import {SPF_APM_MODULE_ID} from '../../../../../../../src/application/file-operations/shared/constants/spf-ids.js';
+import {SPF_APM_MODULE_ID} from '../../../../../../../src/domain/entities/definitions/spf-ids.js';
 import type {
   SubgraphDownloadModel,
   ContainerDownloadModel,

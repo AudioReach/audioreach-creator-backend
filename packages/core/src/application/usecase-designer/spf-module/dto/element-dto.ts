@@ -11,6 +11,20 @@ import type {
   StructData,
 } from '../../../../domain/entities/definitions/common/types/element-data.js';
 import {PARAMETER_ELEMENT_TYPE} from '../../shared/element-definition.js';
+import * as ParameterElementSummaryDtoModels from '../../shared/dto/parameter-element-summary.dto.js';
+
+export {
+  ConfigElementSummaryDtoSchema,
+  ElementTemplateArraySummaryDtoSchema,
+  StructSummaryDtoSchema,
+  ParameterElementSummaryDtoSchema,
+} from '../../shared/dto/parameter-element-summary.dto.js';
+export type {
+  ConfigElementSummaryDto,
+  ElementTemplateArraySummaryDto,
+  StructSummaryDto,
+  ParameterElementSummaryDto,
+} from '../../shared/dto/parameter-element-summary.dto.js';
 
 export const NameValuePairSchema = z.object({
   name: z.string().describe('Display name'),
@@ -18,61 +32,28 @@ export const NameValuePairSchema = z.object({
 });
 
 // Summary schemas — write-side shape (type + name + value only)
-export const ConfigElementSummaryDtoSchema = z.object({
-  type: z.literal('ConfigElement'),
-  name: z.string().describe('Element name').optional(),
-  value: z.unknown().describe('Value to write'),
-});
-export type ConfigElementSummaryDto = z.infer<
-  typeof ConfigElementSummaryDtoSchema
->;
-
-export const ElementTemplateArraySummaryDtoSchema = z.object({
-  type: z.literal('ElementTemplateArray'),
-  name: z.string().describe('Array element name').optional(),
-  value: z.unknown().describe('Array value to write'),
-});
-export type ElementTemplateArraySummaryDto = z.infer<
-  typeof ElementTemplateArraySummaryDtoSchema
->;
-
-export const StructSummaryDtoSchema = z.object({
-  type: z.literal('Struct'),
-  name: z.string().describe('Struct element name').optional(),
-  value: z.unknown().describe('Struct value to write'),
-});
-export type StructSummaryDto = z.infer<typeof StructSummaryDtoSchema>;
-
-export const ParameterElementSummaryDtoSchema = z.discriminatedUnion('type', [
-  ConfigElementSummaryDtoSchema,
-  ElementTemplateArraySummaryDtoSchema,
-  StructSummaryDtoSchema,
-]);
-export type ParameterElementSummaryDto = z.infer<
-  typeof ParameterElementSummaryDtoSchema
->;
-
 // Full read-side schemas — extend summary schemas to avoid duplicating type/name/value
-export const ConfigElementSchema = ConfigElementSummaryDtoSchema.extend({
-  value: z.string(),
-  dataType: z.string(),
-  isReadOnly: z.boolean(),
-  description: z.string().optional(),
-  group: z.string().optional(),
-  subgroup: z.string().optional(),
-  unit: z.string().optional(),
-  displayType: z.string().optional(),
-  policy: z.string().optional(),
-  qFormat: z.string().optional(),
-  precision: z.number().optional(),
-  min: z.number().optional(),
-  max: z.number().optional(),
-  allowedValues: z.array(NameValuePairSchema).optional(),
-});
+export const ConfigElementSchema =
+  ParameterElementSummaryDtoModels.ConfigElementSummaryDtoSchema.extend({
+    value: z.string(),
+    dataType: z.string(),
+    isReadOnly: z.boolean(),
+    description: z.string().optional(),
+    group: z.string().optional(),
+    subgroup: z.string().optional(),
+    unit: z.string().optional(),
+    displayType: z.string().optional(),
+    policy: z.string().optional(),
+    qFormat: z.string().optional(),
+    precision: z.number().optional(),
+    min: z.number().optional(),
+    max: z.number().optional(),
+    allowedValues: z.array(NameValuePairSchema).optional(),
+  });
 
 // ElementTemplateArray and Struct use unknown[] for nested value/template to avoid infinite recursion
 export const ElementTemplateArraySchema =
-  ElementTemplateArraySummaryDtoSchema.extend({
+  ParameterElementSummaryDtoModels.ElementTemplateArraySummaryDtoSchema.extend({
     value: z.array(z.unknown()),
     isReadOnly: z.boolean(),
     template: z.array(z.unknown()),
@@ -83,14 +64,15 @@ export const ElementTemplateArraySchema =
     lengthFormula: z.string().optional(),
   });
 
-export const StructSchema = StructSummaryDtoSchema.extend({
-  value: z.array(z.unknown()),
-  isReadOnly: z.boolean(),
-  structType: z.string(),
-  description: z.string().optional(),
-  group: z.string().optional(),
-  subgroup: z.string().optional(),
-});
+export const StructSchema =
+  ParameterElementSummaryDtoModels.StructSummaryDtoSchema.extend({
+    value: z.array(z.unknown()),
+    isReadOnly: z.boolean(),
+    structType: z.string(),
+    description: z.string().optional(),
+    group: z.string().optional(),
+    subgroup: z.string().optional(),
+  });
 
 export const ParameterElementDtoSchema = z.discriminatedUnion('type', [
   ConfigElementSchema,

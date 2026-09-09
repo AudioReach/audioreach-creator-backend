@@ -10,13 +10,13 @@ import type {
   EditOptions,
   SpfModuleBase,
   PayloadUpdate,
+  WipeCalDataResult,
 } from '@arc/core';
 import {
   CONFIGURATION_INCLUDES,
   SpfModule,
   DataPort,
   ControlPort,
-  serializeDefaultParameterData,
 } from '@arc/core';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
@@ -691,21 +691,11 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     subgraphSystemId: number,
     fileSystemId: number,
   ): Promise<SpfModuleBase[]> {
-    const {session} = this.uow.getWriteContext();
-    const nodeIds = await this.moduleNodeFetcher.loadBaselineNodeIdsForSubgraph(
-      subgraphSystemId,
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const rows = await this.spfModuleFetcher.fetchMany(
       fileSystemId,
-    );
-    await this.moduleNodeFetcher.applySessionOverlayToNodesForSubgraph(
-      subgraphSystemId,
-      nodeIds,
-      session.sessionId,
-    );
-    if (nodeIds.size === 0) return [];
-    const rows = await this.moduleNodeFetcher.fetchOverLayedSpfModules(
-      [...nodeIds],
-      fileSystemId,
-      session.sessionId,
+      sessionId,
+      {subgraphSystemId},
     );
     return rows.map(r => ({
       systemId: r.systemId,
@@ -717,53 +707,80 @@ export class TypeOrmModuleRepository implements ModuleRepository {
 
   async wipeCalData(
     moduleSystemId: number,
-    fileSystemId: number,
+    _fileSystemId: number,
   ): Promise<WipeCalDataResult> {
     const {session, groupId} = this.uow.getWriteContext();
 
-    const ckvs = await this.ckvOverlayFetcher.fetchForModule(
-      moduleSystemId,
-      session.sessionId,
-    );
-    const ckvDeletePlans = await this.readCkvDeletePlans(ckvs);
+    /**
+     * Compatibility operation used by the current scenario transition.
+     *
+     * TODO(subgraph-write-review): Replace this method with the core-owned
+     * CKV reset-plan flow. Until then, CKV deletion and zero-CKV reset code
+     * remains commented out below; only TKV/tag cleanup is staged here.
+     */
+    // TODO(subgraph-write-review): Move zero-CKV classification, default
+    // payload serialization, and reset-plan creation into packages/core.
+    // The zero-CKV implementation is commented out for this PR. The future
+    // design will pass an explicit reset plan to the adapter, leaving this
+    // layer responsible only for applying staged deletes and updates.
+
+    /*
+     * Deferred CKV logic:
+     * - read effective CKVs through the overlay;
+     * - identify non-zero CKVs;
+     * - delete CKV payloads and CKV rows in FK order;
+     * - identify and reset the existing zero CKV.
+     *
+     * const ckvs = await this.ckvOverlayFetcher.fetchMany(...);
+     * const ckvDeletePlans = await this.readCkvDeletePlans(ckvs);
+     */
+    // TKV/tag calibration data is handled independently from CKV data.
     const tkvDeletePlans = await this.readTkvDeletePlans(
       moduleSystemId,
       session.sessionId,
     );
-    const zeroCkvResets = await this.readZeroCkvResets(
-      ckvs,
-      moduleSystemId,
-      fileSystemId,
-      session.sessionId,
-    );
-    const zeroCkv = ckvs.find(c => c.values.length === 0);
+    /*
+     * Deferred zero-CKV logic:
+     * - identify the zero CKV;
+     * - load its existing parameter payloads;
+     * - serialize factory-default payloads;
+     * - preserve the zero-CKV system ID while resetting its payloads.
+     *
+     * const zeroCkvResets = await this.readZeroCkvResets(...);
+     * const zeroCkv = ckvs.find(c => c.values.length === 0);
+     */
 
-    const ckvsDeleted = await this.writeCkvDeletes(
-      ckvDeletePlans,
-      moduleSystemId,
-      session.sessionId,
-      groupId,
-    );
+    /*
+     * Deferred CKV deletion. This will be replaced by applying the reset plan
+     * produced in core in the follow-up implementation.
+     *
+     * const ckvsDeleted = await this.writeCkvDeletes(...);
+     */
+    const ckvsDeleted: number[] = [];
     await this.writeTkvDeletes(
       tkvDeletePlans,
       moduleSystemId,
       session.sessionId,
       groupId,
     );
-    const zeroCkvsAdded = await this.writeZeroCkvResets(
-      zeroCkvResets,
-      zeroCkv?.systemId,
-      moduleSystemId,
-      session.sessionId,
-      groupId,
-    );
+    /*
+     * Deferred zero-CKV payload reset. This will consume the reset plan
+     * generated in core after the follow-up refactor.
+     *
+     * const zeroCkvsAdded = await this.writeZeroCkvResets(...);
+     */
+    const zeroCkvsAdded: number[] = [];
 
     return {ckvsDeleted, zeroCkvsAdded};
   }
 
+  /* Deferred until the core CKV reset-plan refactor.
   private async readCkvDeletePlans(
-    ckvs: Awaited<ReturnType<typeof this.ckvOverlayFetcher.fetchForModule>>,
+    ckvs: Awaited<ReturnType<typeof this.ckvOverlayFetcher.fetchMany>>,
   ): Promise<Array<{ckvId: number; payloadIds: number[]}>> {
+    // A CKV with at least one key/value pair is non-zero and is removed during
+    // calibration reset. The payload IDs are collected first so persistence
+    // can delete payload rows before their parent CKV rows.
     const nonZeroCkvs = ckvs.filter(c => c.values.length > 0);
     if (nonZeroCkvs.length === 0) return [];
 
@@ -789,6 +806,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       payloadIds: payloadsByCkv.get(ckv.systemId) ?? [],
     }));
   }
+  */
 
   private async readTkvDeletePlans(
     moduleSystemId: number,
@@ -799,7 +817,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       tkvs: Array<{tkvId: number; payloadIds: number[]}>;
     }>
   > {
-    const tagMaps = await this.tkvOverlayFetcher.fetchForModule(
+    const tagMaps = await this.tkvOverlayFetcher.fetchMany(
       moduleSystemId,
       sessionId,
       CONFIGURATION_INCLUDES.FullDetails,
@@ -837,34 +855,38 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     }));
   }
 
+  /* Deferred until the core zero-CKV reset-plan refactor.
   private async readZeroCkvResets(
-    ckvs: Awaited<ReturnType<typeof this.ckvOverlayFetcher.fetchForModule>>,
+    ckvs: Awaited<ReturnType<typeof this.ckvOverlayFetcher.fetchMany>>,
     moduleSystemId: number,
     fileSystemId: number,
     sessionId: number,
   ): Promise<
     Array<{payloadSystemId: number; defaultValue: Uint8Array | null}>
   > {
+    // The zero CKV is the CKV with no key/value pairs. Its system ID is kept;
+    // only its existing parameter payloads are replaced with factory defaults.
     const zeroCkv = ckvs.find(c => c.values.length === 0);
     if (!zeroCkv) return [];
-    const mod = await this.moduleNodeFetcher.fetchOne(
-      moduleSystemId,
-      fileSystemId,
-      sessionId,
-    );
+    const mod = (
+      await this.spfModuleFetcher.fetchMany(fileSystemId, sessionId, {
+        systemId: moduleSystemId,
+      })
+    ).at(0);
     if (!mod) return [];
     const resets: Array<{
       payloadSystemId: number;
       defaultValue: Uint8Array | null;
     }> = [];
-    const existingPayloads = await this.ckvOverlayFetcher.fetchCkvPayloads(
+    const existingPayloads = await this.ckvOverlayFetcher.fetchPayloads(
       zeroCkv.systemId,
       moduleSystemId,
       sessionId,
     );
     if (existingPayloads.length === 0) return [];
 
-    // Batch-fetch all parameter definitions in one query
+    // Resolve all parameter definitions in one query so each existing payload
+    // can be serialized using its definition's element structure.
     const paramSystemIds = existingPayloads.map(p => p.parameterSystemId);
     const allDefs = await this.uow
       .getModuleDefinitionRepository()
@@ -874,6 +896,8 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     for (const payload of existingPayloads) {
       const def = defsByParamId.get(payload.parameterSystemId);
       if (!def) continue;
+      // Default serialization currently lives here for compatibility. The
+      // planned core reset-plan function will produce these bytes instead.
       const serialized = serializeDefaultParameterData(def);
       resets.push({
         payloadSystemId: payload.systemId,
@@ -882,13 +906,16 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     }
     return resets;
   }
+  */
 
+  /* Deferred until the core CKV reset-plan refactor.
   private async writeCkvDeletes(
     plans: Array<{ckvId: number; payloadIds: number[]}>,
     moduleSystemId: number,
     sessionId: number,
     groupId: string,
   ): Promise<number[]> {
+    // Apply the delete plan in FK order: parameter payloads first, then CKV.
     const deleted: number[] = [];
     await Promise.all(
       plans.map(async plan => {
@@ -922,6 +949,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     );
     return deleted;
   }
+  */
 
   private async writeTkvDeletes(
     plans: Array<{
@@ -977,6 +1005,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     );
   }
 
+  /* Deferred until the core zero-CKV reset-plan refactor.
   private async writeZeroCkvResets(
     resets: Array<{payloadSystemId: number; defaultValue: Uint8Array | null}>,
     zeroCkvSystemId: number | undefined,
@@ -985,6 +1014,8 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     groupId: string,
   ): Promise<number[]> {
     if (!zeroCkvSystemId) return [];
+    // Update the existing zero-CKV payload rows so the zero-CKV system ID is
+    // preserved across the calibration reset.
     let anyReset = false;
     for (const reset of resets) {
       await this.writer.writeDelta(
@@ -1002,4 +1033,5 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     }
     return anyReset ? [zeroCkvSystemId] : [];
   }
+  */
 }

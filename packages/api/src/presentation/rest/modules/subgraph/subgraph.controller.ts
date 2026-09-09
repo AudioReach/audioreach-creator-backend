@@ -65,10 +65,10 @@ import {
   GetComponentsQuery,
   GetSubgraphPropertiesQuery,
   GetSubgraphPropertyQuery,
-  UpdateSubgraphScenarioCommand,
-  UpdateSubgraphVsidCommand,
-  PatchSubgraphCommand,
-  UpdateSubgraphPropertyCommand,
+  SetSubgraphScenarioCommand,
+  SetSubgraphVsidCommand,
+  SetSubgraphCommand,
+  SetSubgraphPropertyCommand,
   UpdateSubgraphContainerIdCommand,
   GetVcpmCkvQuery,
   GetVcpmCalDataQuery,
@@ -289,7 +289,7 @@ export class SubgraphController extends BaseController {
   /**
    * Set scenario property for a subgraph (Audio/Voice).
    */
-  @Patch('/:subgraphSystemId/scenario')
+  @Put('/:subgraphSystemId/scenario')
   @ApiParam({
     name: 'subgraphSystemId',
     required: true,
@@ -305,7 +305,7 @@ export class SubgraphController extends BaseController {
     responses: [
       {
         status: HttpStatus.OK,
-        description: 'Scenario updated',
+        description: 'Scenario replaced',
         dto: UpdateScenarioResponseDto,
       },
       {
@@ -314,7 +314,7 @@ export class SubgraphController extends BaseController {
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
-        description: 'Failed to update scenario',
+        description: 'Failed to replace scenario',
       },
     ],
   })
@@ -324,7 +324,7 @@ export class SubgraphController extends BaseController {
     @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<UpdateScenarioResponseDto>> {
     const result = await this.commandBus.execute<ScenarioChangeDto>(
-      new UpdateSubgraphScenarioCommand(subgraphSystemId, dto.elements),
+      new SetSubgraphScenarioCommand(subgraphSystemId, dto.elements),
       session,
     );
     return toApiResult(Result.ok(result));
@@ -333,7 +333,7 @@ export class SubgraphController extends BaseController {
   /**
    * Set VSID for a subgraph — propagates via BFS to all connected subgraphs.
    */
-  @Patch('/:subgraphSystemId/vsid')
+  @Put('/:subgraphSystemId/vsid')
   @ApiParam({
     name: 'subgraphSystemId',
     required: true,
@@ -348,7 +348,7 @@ export class SubgraphController extends BaseController {
     responses: [
       {
         status: HttpStatus.OK,
-        description: 'VSID updated',
+        description: 'VSID replaced',
         dto: UpdateVsidResponseDto,
       },
       {
@@ -357,7 +357,7 @@ export class SubgraphController extends BaseController {
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
-        description: 'Failed to update VSID',
+        description: 'Failed to replace VSID',
       },
     ],
   })
@@ -367,16 +367,16 @@ export class SubgraphController extends BaseController {
     @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<UpdateVsidResponseDto>> {
     const result = await this.commandBus.execute<VsidUpdateDto>(
-      new UpdateSubgraphVsidCommand(subgraphSystemId, dto.elements),
+      new SetSubgraphVsidCommand(subgraphSystemId, dto.elements),
       session,
     );
     return toApiResult(Result.ok(result));
   }
 
   /**
-   * Patch a subgraph — currently supports `name`.
+   * Set subgraph properties — currently supports `name`.
    */
-  @Patch('/:subgraphSystemId')
+  @Put('/:subgraphSystemId')
   @ApiParam({
     name: 'subgraphSystemId',
     required: true,
@@ -385,7 +385,7 @@ export class SubgraphController extends BaseController {
   })
   @UseGuards(SessionGuard)
   @ApiDocumentationWithExample({
-    summary: 'Patch a subgraph',
+    summary: 'Set subgraph properties',
     requestDto: PatchSubgraphRequestDto,
     responses: [
       {
@@ -403,14 +403,14 @@ export class SubgraphController extends BaseController {
       },
     ],
   })
-  async patchSubgraph(
+  async setSubgraph(
     @Param('projectId') projectId: string,
     @Param('subgraphSystemId', ParseIntPipe) subgraphSystemId: number,
     @Body() dto: PatchSubgraphRequestDto,
     @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<SubgraphPropertiesResponseDto>> {
     await this.commandBus.execute<{groupId: string}>(
-      new PatchSubgraphCommand(subgraphSystemId, dto.name),
+      new SetSubgraphCommand(subgraphSystemId, dto.name),
       session,
     );
     const query = new GetSubgraphPropertiesQuery(
@@ -424,10 +424,10 @@ export class SubgraphController extends BaseController {
   }
 
   /**
-   * Update a low-cascading subgraph property.
+   * Replace a low-cascading subgraph property.
    * Returns 400 if propSystemId maps to a reserved property (scenario, VSID, ASoC).
    */
-  @Patch('/:subgraphSystemId/properties/:propSystemId')
+  @Put('/:subgraphSystemId/properties/:propSystemId')
   @ApiParam({
     name: 'subgraphSystemId',
     required: true,
@@ -438,18 +438,18 @@ export class SubgraphController extends BaseController {
     name: 'propSystemId',
     required: true,
     type: String,
-    description: 'System id of the property to update',
+    description: 'System id of the property to replace',
   })
   @UseGuards(SessionGuard)
   @ApiDocumentationWithExample({
-    summary: 'Update a low-cascading subgraph property',
+    summary: 'Replace a low-cascading subgraph property',
     description:
-      'Returns 400 if propSystemId maps to a reserved property (scenario, VSID, ASoC) — use the dedicated endpoint instead.',
+      'Returns 400 if propSystemId maps to a reserved property (scenario, VSID, ASoC) — use the dedicated PUT endpoint instead.',
     requestDto: UpdatePropertyRequestDto,
     responses: [
       {
         status: HttpStatus.OK,
-        description: 'Property updated',
+        description: 'Property replaced',
         dto: PropertyResponseDto,
       },
       {
@@ -462,11 +462,11 @@ export class SubgraphController extends BaseController {
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
-        description: 'Failed to update property',
+        description: 'Failed to replace property',
       },
     ],
   })
-  async updateSubgraphProperty(
+  async putSubgraphProperty(
     @Param('projectId') projectId: string,
     @Param('subgraphSystemId', ParseIntPipe) subgraphSystemId: number,
     @Param('propSystemId', ParseIntPipe) propSystemId: number,
@@ -474,7 +474,7 @@ export class SubgraphController extends BaseController {
     @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<PropertyResponseDto>> {
     await this.commandBus.execute<void>(
-      new UpdateSubgraphPropertyCommand(
+      new SetSubgraphPropertyCommand(
         subgraphSystemId,
         propSystemId,
         dto.elements,

@@ -160,8 +160,16 @@ export interface ModuleRepository {
   ): Promise<SpfModuleBase[]>;
 
   /**
-   * Wipes all CKV/TKV/tag cal data for a module and resets zero-CKV payloads
-   * to their factory defaults. Returns a mutation log.
+   * TODO(subgraph-write-review): This contract still reflects the deferred
+   * zero-CKV reset-plan design. The reset behavior is intentionally disabled
+   * for this PR and will be reintroduced when core creates the plan.
+   *
+   * TODO(subgraph-write-review): CKV deletion is also temporarily disabled.
+   * The follow-up implementation will replace this compatibility operation
+   * with separate reset-plan read/application methods.
+   *
+   * Currently wipes only TKV/tag calibration data for a module. The returned
+   * CKV mutation lists remain for compatibility and are empty.
    */
   wipeCalData(
     moduleSystemId: number,

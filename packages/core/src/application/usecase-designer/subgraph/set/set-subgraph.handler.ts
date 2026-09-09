@@ -6,20 +6,22 @@
 import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
-import type {PatchSubgraphCommand} from './patch-subgraph.command.js';
+import type {SetSubgraphCommand} from './set-subgraph.command.js';
 
-export class PatchSubgraphHandler implements CommandHandler<
-  PatchSubgraphCommand,
+export class SetSubgraphHandler implements CommandHandler<
+  SetSubgraphCommand,
   {groupId: string}
 > {
   constructor(private readonly uow: UnitOfWork) {}
 
-  async handle(command: PatchSubgraphCommand): Promise<{groupId: string}> {
+  async handle(command: SetSubgraphCommand): Promise<{groupId: string}> {
     const {session, groupId} = this.uow.getWriteContext();
+    const repository = this.uow.getSubgraphRepository();
 
-    const exists = await this.uow
-      .getSubgraphRepository()
-      .subgraphExists(command.subgraphSystemId, session.fileSystemId);
+    const exists = await repository.subgraphExists(
+      command.subgraphSystemId,
+      session.fileSystemId,
+    );
     if (!exists) {
       throw new ResourceNotFoundException(
         `Subgraph ${command.subgraphSystemId} not found`,
@@ -27,9 +29,7 @@ export class PatchSubgraphHandler implements CommandHandler<
     }
 
     if (command.name !== undefined) {
-      await this.uow
-        .getSubgraphRepository()
-        .setName(command.subgraphSystemId, command.name);
+      await repository.rename(command.subgraphSystemId, command.name);
     }
 
     return {groupId};

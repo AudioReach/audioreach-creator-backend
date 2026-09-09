@@ -60,7 +60,31 @@ const ARRAY_DEF = {
   ]),
 };
 
-const BAD_DEF = {systemId: 5, elementsStructure: 'not-json'};
+const FORMULA_ARRAY_DEF = {
+  systemId: 5,
+  elementsStructure: JSON.stringify([
+    {
+      elementType: 'ConfigElement',
+      name: 'count',
+      dataType: 'UInt8',
+      defaultValue: '3',
+    },
+    {
+      elementType: 'ElementArray',
+      name: 'arr',
+      arrayLength: 0,
+      arrayLenFormulaStr: 'count',
+      template: {
+        elementType: 'ConfigElement',
+        name: 'item',
+        dataType: 'UInt8',
+        defaultValue: '1',
+      },
+    },
+  ]),
+};
+
+const BAD_DEF = {systemId: 6, elementsStructure: 'not-json'};
 
 describe('serializeDefaultParameterData', () => {
   it('serializes a single UInt32 ConfigElement using its defaultValue', () => {
@@ -72,11 +96,12 @@ describe('serializeDefaultParameterData', () => {
     expect(result.value[1]).toBe(0x00);
   });
 
-  it('uses 0 when defaultValue is absent', () => {
+  it('returns ok:false when defaultValue is absent', () => {
     const result = serializeDefaultParameterData(UINT32_DEF_NO_DEFAULT);
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.value[0]).toBe(0x00);
+    expect(result).toEqual({
+      ok: false,
+      error: 'Missing defaultValue for element "val"',
+    });
   });
 
   it('recurses into Struct children', () => {
@@ -95,6 +120,13 @@ describe('serializeDefaultParameterData', () => {
     expect(result.value[0]).toBe(1);
     expect(result.value[1]).toBe(1);
     expect(result.value[2]).toBe(1);
+  });
+
+  it('uses preceding config defaults to resolve formula-sized arrays', () => {
+    const result = serializeDefaultParameterData(FORMULA_ARRAY_DEF);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect([...result.value.slice(0, 4)]).toEqual([3, 1, 1, 1]);
   });
 
   it('returns ok:false for malformed elementsStructure', () => {
