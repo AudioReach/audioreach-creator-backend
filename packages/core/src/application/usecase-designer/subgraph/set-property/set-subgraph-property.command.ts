@@ -6,9 +6,9 @@
 import {BaseCommand} from '../../../shared/base-command.js';
 import {SESSION_MODE} from '../../../shared/change-vocabulary.js';
 import type {SessionMode} from '../../../shared/change-vocabulary.js';
-import type {ParameterElementSummaryDto} from '../../spf-module/dto/element-dto.js';
+import type {ParameterElementSummaryDto} from '../../shared/dto/parameter-element-summary.dto.js';
 
-export class UpdateSubgraphScenarioCommand extends BaseCommand {
+export class SetSubgraphPropertyCommand extends BaseCommand {
   static override readonly requiresSession = true;
   static override readonly allowedModes: readonly SessionMode[] = [
     SESSION_MODE.Designer,
@@ -17,6 +17,7 @@ export class UpdateSubgraphScenarioCommand extends BaseCommand {
 
   constructor(
     public readonly subgraphSystemId: number,
+    public readonly propertySystemId: number,
     public readonly elements: ParameterElementSummaryDto[],
   ) {
     super();

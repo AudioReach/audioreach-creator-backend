@@ -42,17 +42,17 @@ export class GetSubgraphPropertyHandler implements QueryHandler<
       );
     }
 
-    const payload = payloadsResult.data.find(
+    const parameterPayload = payloadsResult.data.find(
       p => p.propertySystemId === query.propertySystemId,
     );
-    if (!payload) {
+    if (!parameterPayload) {
       throw new ResourceNotFoundException(
         `Property ${query.propertySystemId} not found on subgraph ${query.subgraphSystemId}`,
       );
     }
 
     const defResult =
-      await this.queryServices.subgraphPropertyDefQueryService.getSubgraphPropertyDefinitionWithElements(
+      await this.queryServices.subgraphPropertyDefQueryService.getSubgraphPropertyWithElements(
         query.propertySystemId,
         fileSystemId,
       );
@@ -63,13 +63,16 @@ export class GetSubgraphPropertyHandler implements QueryHandler<
     }
 
     const elements =
-      payload.payload !== null
-        ? parseParameterData(payload.payload, defResult.data.elementsStructure)
+      parameterPayload.payload !== null
+        ? parseParameterData(
+            parameterPayload.payload,
+            defResult.data.elementsStructure,
+          )
         : [];
 
     return Result.ok({
-      systemId: payload.systemId,
-      propertyId: defResult.data.propertyId,
+      systemId: parameterPayload.systemId,
+      naturalId: defResult.data.naturalId,
       propertyName: defResult.data.name,
       elements,
     });

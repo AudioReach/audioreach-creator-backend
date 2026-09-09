@@ -24,7 +24,7 @@ import {
 } from '../../../../../../../src/shared/types/branded-ids.js';
 import {Subgraph} from '../../../../../../../src/domain/entities/usecase-data/subgraph/subgraph.js';
 import {VcpmInstance} from '../../../../../../../src/domain/entities/usecase-data/subgraph/entities/vcpm-module-instance.js';
-import {SPF_VCPM_MODULE_ID} from '../../../../../../../src/application/file-operations/shared/constants/spf-ids.js';
+import {SPF_VCPM_MODULE_ID} from '../../../../../../../src/domain/entities/definitions/spf-ids.js';
 import {KvData} from '../../../../../../../src/domain/entities/common/entities/kv-data.js';
 
 describe('CalibrationDataBuilder', () => {

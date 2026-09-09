@@ -169,7 +169,7 @@ flowchart TD
     D -->|Not allowed| C
     D -->|OK| E[subgraphExists → 404]
     E -->|Not found| F([HTTP 404])
-    E -->|Found| G[getSubgraphPropertyDefinitionWithElements → 404 if not found]
+    E -->|Found| G[getSubgraphPropertyWithElements → 404 if not found]
     G -->|Not found| F
     G -->|Found| H{Reserved property?}
     H -->|scenario or VSID| I([HTTP 400 — use dedicated endpoint])
@@ -220,22 +220,22 @@ packages/core/src/application/usecase-designer/
 ```
 packages/core/src/application/
 ├── ports/persistence/repositories/subgraph/
-│   └── subgraph.repository.ts                                    (modified — add setName, setPropertyData, getSubgraphWithProperties, getSubgraphIdsInSameUsecases)
+│   └── subgraph.repository.ts                                    (modified — add rename, setPropertyData, getAggregate, getSubgraphIdsInSameUsecases)
 ├── ports/persistence/query-services/subgraph-property-definition/
-│   └── subgraph-property-def-query-service.ts                    (modified — add getSubgraphPropertyDefinitionWithElements)
+│   └── subgraph-property-def-query-service.ts                    (modified — add getSubgraphPropertyWithElements)
 ├── orchestration/cqrs/registries/
 │   ├── command-handler-registry.ts                               (modified — inject queryServices into UpdateSubgraphPropertyHandler and UpdateSubgraphVsidHandler)
 │   └── query-handler-registry.ts                                 (modified — register GetSubgraphPropertyHandler)
 └── usecase-designer/subgraph/
-    ├── subgraph-property-ids/
-    │   └── subgraph-property-ids.ts                              (new — SUB_GRAPH_PROP_ID_SCENARIO_ID, SUB_GRAPH_PROP_ID_VSID, scenario value constants)
+    ├── file-operations/shared/constants/
+    │   └── spf-ids.ts                                             (canonical SUB_GRAPH_PROP_ID_SCENARIO_ID, SUB_GRAPH_PROP_ID_VSID, scenario value constants)
     ├── dto/
     │   └── subgraph-write-result-types.ts                        (modified — add groupId to VsidUpdateDtoSchema)
     ├── get-property/
     │   ├── get-subgraph-property.query.ts                        (new — single property by propertyDefinitionSystemId)
     │   └── get-subgraph-property.handler.ts                      (new — returns PropertyDataDto for single property)
     ├── patch/
-    │   └── patch-subgraph.handler.ts                             (modified — implement setName logic, return { groupId })
+    │   └── patch-subgraph.handler.ts                             (modified — implement rename logic, return { groupId })
     ├── update-property/
     │   ├── update-subgraph-property.command.ts                   (modified — data: unknown[] → elements: ParameterElementSummaryDto[])
     │   └── update-subgraph-property.handler.ts                   (modified — implement logic + reserved guard)
@@ -248,9 +248,9 @@ packages/core/src/application/
 ```
 packages/infrastructure/persistence/src/persistence-typeorm-sqllite/
 ├── repositories/subgraph/
-│   └── subgraph.repository.ts                                    (modified — implement setName, setPropertyData, getSubgraphWithProperties, getSubgraphIdsInSameUsecases)
+│   └── subgraph.repository.ts                                    (modified — implement rename, setPropertyData, getAggregate, getSubgraphIdsInSameUsecases)
 └── queries/subgraph-property-definition/
-    └── db-subgraph-property-def-query-service.ts                 (modified — implement getSubgraphPropertyDefinitionWithElements)
+    └── db-subgraph-property-def-query-service.ts                 (modified — implement getSubgraphPropertyWithElements)
 ```
 
 No schema changes — no migration needed.
@@ -278,16 +278,16 @@ Presentation (API)
     → toApiResult(Result.ok(result)) → UpdateVsidResponseDto → 200
 
 Core (Application)
-  PatchSubgraphHandler (implements setName):
+  PatchSubgraphHandler (implements rename):
     fileSystemId = uow.getWriteContext().session.fileSystemId
     1. subgraphExists(subgraphSystemId, fileSystemId) → 404 if false
-    2. uow.getSubgraphRepository().setName(subgraphSystemId, command.name)
+    2. uow.getSubgraphRepository().rename(subgraphSystemId, command.name)
     — no transaction needed (single delta write)
 
   UpdateSubgraphPropertyHandler:
     fileSystemId = uow.getWriteContext().session.fileSystemId
     1. subgraphExists(subgraphSystemId, fileSystemId) → 404 if false
-    2. queryServices.subgraphPropertyDefQueryService.getSubgraphPropertyDefinitionWithElements(
+    2. queryServices.subgraphPropertyDefQueryService.getSubgraphPropertyWithElements(
          propertySystemId, fileSystemId) → 404 if fail
     3. Reserved guard: if propertyId === SCENARIO_ID or VSID_ID → throw InvalidOperationException → 400
     4. serializeParameterData(propDef, command.elements) → 400 if fail
@@ -296,7 +296,7 @@ Core (Application)
 
   UpdateSubgraphVsidHandler:
     fileSystemId = uow.getWriteContext().session.fileSystemId
-    1. getSubgraphWithProperties(subgraphSystemId, fileSystemId) → 404 if null
+    1. getAggregate(subgraphSystemId, fileSystemId) → 404 if null
     2. Resolve VSID + Scenario property definitions via subgraphPropertyDefQueryService
     3. No-op if current VSID === requested VSID → return VsidUpdateDto { groupId, affectedSubgraphSystemIds: [] }
     4. BFS: getSubgraphIdsInSameUsecases(subgraphSystemId, fileSystemId)
@@ -312,7 +312,7 @@ Core (Application)
     6. Return VsidUpdateDto { groupId, affectedSubgraphSystemIds }
 
 Infrastructure (Persistence)
-  TypeOrmSubgraphRepository.setName:
+  TypeOrmSubgraphRepository.rename:
     → writeDelta({ targetTable: Subgraph, targetSystemId: subgraphSystemId,
                    aggregateId: subgraphSystemId, delta: { name } })
 
@@ -322,7 +322,7 @@ Infrastructure (Persistence)
     → writeDelta({ targetTable: SubgraphPropertyData, targetSystemId: prop.systemId,
                    aggregateId: subgraphSystemId, delta: { payload: data } })
 
-  TypeOrmSubgraphRepository.getSubgraphWithProperties:
+  TypeOrmSubgraphRepository.getAggregate:
     → delegates to SubgraphOverlayFetcher.fetchOne(subgraphSystemId, fileSystemId, sessionId)
     → returns OverlaidSubgraph | null (properties array included)
 ```
@@ -419,7 +419,7 @@ async setSubgraphVsid(
 
 ### 3.1 SubgraphPropertyIds constants
 
-**File:** `packages/core/src/application/usecase-designer/subgraph/subgraph-property-ids/subgraph-property-ids.ts` (new)
+**File:** `packages/core/src/domain/entities/definitions/spf-ids.ts`
 
 ```typescript
 export const SUB_GRAPH_PROP_ID_SCENARIO_ID = 0x08001010;
@@ -432,7 +432,7 @@ export const SUB_GRAPH_PROP_ID_SCENARIO_VALUE_VOICE_CALL      = 0x00000003;
 
 The guard uses `propDef.propertyId` (natural key from the definition row), not `propertySystemId`.
 
-### 3.2 PatchSubgraphHandler (setName)
+### 3.2 PatchSubgraphHandler (rename)
 
 **File:** `packages/core/src/application/usecase-designer/subgraph/patch/patch-subgraph.handler.ts` (modified)
 
@@ -454,7 +454,7 @@ export class PatchSubgraphHandler implements CommandHandler<PatchSubgraphCommand
 
     if (command.name !== undefined) {
       await this.uow.getSubgraphRepository()
-        .setName(command.subgraphSystemId, command.name);
+        .rename(command.subgraphSystemId, command.name);
     }
 
     return {groupId};
@@ -515,7 +515,7 @@ export class UpdateSubgraphPropertyHandler implements CommandHandler<
 
     // Step 2: property definition existence (with elementsStructure for serialization)
     const defResult = await this.queryServices.subgraphPropertyDefQueryService
-      .getSubgraphPropertyDefinitionWithElements(command.propertySystemId, fileSystemId);
+      .getSubgraphPropertyWithElements(command.propertySystemId, fileSystemId);
     if (defResult.kind === RESULT_KIND.Fail) {
       throw new ResourceNotFoundException(
         `Property definition ${command.propertySystemId} not found`,
@@ -611,7 +611,7 @@ export class UpdateSubgraphVsidHandler implements CommandHandler<
 
     // Step 1: subgraph existence + load properties
     const subgraph = await this.uow.getSubgraphRepository()
-      .getSubgraphWithProperties(command.subgraphSystemId, fileSystemId);
+      .getAggregate(command.subgraphSystemId, fileSystemId);
     if (!subgraph) {
       throw new ResourceNotFoundException(
         `Subgraph ${command.subgraphSystemId} not found`,
@@ -650,7 +650,7 @@ export class UpdateSubgraphVsidHandler implements CommandHandler<
 
     // Step 6: serialize new VSID payload
     const vsidDefWithElements = await this.queryServices.subgraphPropertyDefQueryService
-      .getSubgraphPropertyDefinitionWithElements(vsidDef.systemId, fileSystemId);
+      .getSubgraphPropertyWithElements(vsidDef.systemId, fileSystemId);
     if (vsidDefWithElements.kind === RESULT_KIND.Fail) {
       throw new ResourceNotFoundException('VSID property definition (with elements) not found');
     }
@@ -676,7 +676,7 @@ export class UpdateSubgraphVsidHandler implements CommandHandler<
 
         // Load subgraph properties to check scenario + current VSID
         const linkedSg = await this.uow.getSubgraphRepository()
-          .getSubgraphWithProperties(linkedId, fileSystemId);
+          .getAggregate(linkedId, fileSystemId);
         if (!linkedSg) continue;
 
         // Skip non-voice subgraphs
@@ -754,7 +754,9 @@ This encapsulates:
 
 ### 3.7 SubgraphRepository Port Extensions
 
-**File:** `packages/core/src/application/ports/persistence/repositories/subgraph/subgraph.repository.ts` (modified)
+**Read model:** `packages/core/src/application/ports/persistence/query-services/subgraph-property-definition/subgraph-property-definition-with-elements-read-model.ts`
+
+**Repository port:** `packages/core/src/application/ports/persistence/repositories/subgraph/subgraph.repository.ts` (modified)
 
 ```typescript
 export interface SubgraphWithProperties {
@@ -771,13 +773,13 @@ export interface SubgraphRepository {
   createSubgraph(subgraph: Subgraph, options?: EditOptions): Promise<void>;
 
   // Returns subgraph with property rows (overlay-aware). null if not found.
-  getSubgraphWithProperties(
+  getAggregate(
     subgraphSystemId: number,
     fileSystemId: number,
   ): Promise<SubgraphWithProperties | null>;
 
   // Stages a name delta on the Subgraph row.
-  setName(
+  rename(
     subgraphSystemId: number,
     name: string,
   ): Promise<void>;
@@ -817,7 +819,7 @@ export interface SubgraphPropertyDefQueryService {
 
   // Returns a single subgraph property definition including elementsStructure.
   // Result.fail with ERROR_CODES.ENTITY_NOT_FOUND if not found.
-  getSubgraphPropertyDefinitionWithElements(
+  getSubgraphPropertyWithElements(
     propertySystemId: number,
     fileSystemId: number,
   ): Promise<Result<SubgraphPropertyDefinitionWithElementsReadModel>>;
@@ -834,7 +836,7 @@ No new types needed.
 Delegates to the existing `fetcher.fetchAll`, filters in memory — same pattern as the existing `getSubgraphPropertyDefinition` method in the same class:
 
 ```typescript
-async getSubgraphPropertyDefinitionWithElements(
+async getSubgraphPropertyWithElements(
   propertySystemId: number,
   fileSystemId: number,
 ): Promise<Result<SubgraphPropertyDefinitionWithElementsReadModel>> {
@@ -924,7 +926,7 @@ export class GetSubgraphPropertyHandler implements QueryHandler<
 
     // Step 3: load definition with elementsStructure for parsing
     const defResult = await this.queryServices.subgraphPropertyDefQueryService
-      .getSubgraphPropertyDefinitionWithElements(query.propertySystemId, fileSystemId);
+      .getSubgraphPropertyWithElements(query.propertySystemId, fileSystemId);
     if (defResult.kind === RESULT_KIND.Fail) {
       throw new ResourceNotFoundException(`Property definition ${query.propertySystemId} not found`);
     }
@@ -957,13 +959,13 @@ this.queryHandlerFactories.set(GetSubgraphPropertyQuery, {
 
 **File:** `packages/infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/subgraph/subgraph.repository.ts` (modified)
 
-### 4.1 getSubgraphWithProperties
+### 4.1 getAggregate
 
 Delegates to `SubgraphOverlayFetcher.fetchOne` — properties now returned as `SubgraphPropertyDataBase[]`
 via the injected `SubgraphPropertyDataFetcher`.
 
 ```typescript
-async getSubgraphWithProperties(
+async getAggregate(
   subgraphSystemId: number,
   fileSystemId: number,
 ): Promise<SubgraphWithProperties | null> {
@@ -989,10 +991,10 @@ async getSubgraphWithProperties(
 `manager, editActionsSvc, SubgraphPropertyDataFetcher, SubgraphSgkvFetcher`.
 The repository constructor must inject all four — same pattern as `TypeOrmContainerRepository`.
 
-### 4.2 setName
+### 4.2 rename
 
 ```typescript
-async setName(
+async rename(
   subgraphSystemId: number,
   name: string,
 ): Promise<void> {
@@ -1054,7 +1056,7 @@ async setPropertyData(
 
 ### 4.4 PendingChangeWriter Specs
 
-**`setName`:**
+**`rename`:**
 
 | Field | Value |
 |---|---|
@@ -1154,8 +1156,8 @@ async getSubgraphIdsInSameUsecases(
 | Scenario | Expected outcome |
 |---|---|
 | Subgraph not found | throws `ResourceNotFoundException` → 404 |
-| Name provided | `setName` called with correct args |
-| Name undefined | `setName` NOT called |
+| Name provided | `rename` called with correct args |
+| Name undefined | `rename` NOT called |
 
 #### UpdateSubgraphPropertyHandler
 
@@ -1192,14 +1194,14 @@ async getSubgraphIdsInSameUsecases(
 
 | Scenario | Expected outcome |
 |---|---|
-| `setName` — writes delta on Subgraph row | `edit_actions` row with `targetTable=Subgraph`, `delta={ name }` |
-| `setName` — prior pending change exists | old row superseded; new merged row inserted |
+| `rename` — writes delta on Subgraph row | `edit_actions` row with `targetTable=Subgraph`, `delta={ name }` |
+| `rename` — prior pending change exists | old row superseded; new merged row inserted |
 | `setPropertyData` — writes delta on SubgraphPropertyData row | `edit_actions` row with `targetTable=SubgraphPropertyData`, `delta={ payload }` |
 | `setPropertyData` — property row not on subgraph | throws |
-| `getSubgraphWithProperties` — base row | returns subgraph with property array |
-| `getSubgraphWithProperties` — pending CREATE overlay | includes staged property |
-| `getSubgraphWithProperties` — pending DELETE overlay | excludes deleted property |
-| `getSubgraphWithProperties` — not found | returns null |
+| `getAggregate` — base row | returns subgraph with property array |
+| `getAggregate` — pending CREATE overlay | includes staged property |
+| `getAggregate` — pending DELETE overlay | excludes deleted property |
+| `getAggregate` — not found | returns null |
 | `getSubgraphIdsInSameUsecases` — no usecases | returns `[]` |
 | `getSubgraphIdsInSameUsecases` — all usecases are zero-GKV | returns `[]` |
 | `getSubgraphIdsInSameUsecases` — one non-zero-GKV usecase with two subgraphs | returns the other subgraph ID |
@@ -1210,9 +1212,9 @@ async getSubgraphIdsInSameUsecases(
 
 | Scenario | Expected outcome |
 |---|---|
-| `getSubgraphPropertyDefinitionWithElements` — found | returns `SubgraphPropertyDefinitionWithElementsReadModel` with `elementsStructure` populated |
-| `getSubgraphPropertyDefinitionWithElements` — not found | returns `Result.fail` with `ENTITY_NOT_FOUND` |
-| `getSubgraphPropertyDefinitionWithElements` — session overlay creates definition | returns created row |
+| `getSubgraphPropertyWithElements` — found | returns `SubgraphPropertyDefinitionWithElementsReadModel` with `elementsStructure` populated |
+| `getSubgraphPropertyWithElements` — not found | returns `Result.fail` with `ENTITY_NOT_FOUND` |
+| `getSubgraphPropertyWithElements` — session overlay creates definition | returns created row |
 
 ### End-to-End Tests
 
@@ -1242,5 +1244,5 @@ async getSubgraphIdsInSameUsecases(
 | OQ-1 | ~~Exact natural-key `propertyId` values~~ — **Resolved:** `SUB_GRAPH_PROP_ID_SCENARIO_ID = 0x08001010`, `SUB_GRAPH_PROP_ID_VSID = 0x080010CC`. |
 | OQ-2 | ~~BFS algorithm~~ — **Resolved:** BFS uses `use_case_subgraphs` + `usecase_gkv_values`. For each subgraph in queue: find usecases containing it, skip zero-GKV usecases, find all other subgraphs in those usecases, filter to Voice only, skip if VSID already matches. Encapsulated in `getSubgraphIdsInSameUsecases`. |
 | OQ-3 | ~~`getSgkvs` port extension~~ — **Resolved:** Not needed. BFS uses `getSubgraphIdsInSameUsecases` on `SubgraphRepository` instead. |
-| OQ-4 | ~~`elementsStructure` for VSID serialization~~ — **Resolved:** Add `getSubgraphPropertyDefinitionWithElements(propertySystemId, fileSystemId)` to `SubgraphPropertyDefQueryService` port (Section 3.8). Infra delegates to existing `fetcher.fetchAll` + filter in memory. |
+| OQ-4 | ~~`elementsStructure` for VSID serialization~~ — **Resolved:** Add `getSubgraphPropertyWithElements(propertySystemId, fileSystemId)` to `SubgraphPropertyDefQueryService` port (Section 3.8). Infra delegates to existing `fetcher.fetchAll` + filter in memory. |
 | OQ-5 | ~~Voice scenario value~~ — **Resolved:** `SUB_GRAPH_PROP_ID_SCENARIO_VALUE_VOICE_CALL = 0x00000003`. Also defined: `AUDIO_PLAYBACK = 0x00000001`, `AUDIO_RECORDING = 0x00000002`. |

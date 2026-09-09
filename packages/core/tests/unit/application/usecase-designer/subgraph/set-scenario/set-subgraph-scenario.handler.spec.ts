@@ -3,12 +3,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 import {jest, describe, it, expect} from '@jest/globals';
-import {UpdateSubgraphScenarioHandler} from '../../../../../../src/application/usecase-designer/subgraph/update-scenario/update-subgraph-scenario.handler.js';
-import {UpdateSubgraphScenarioCommand} from '../../../../../../src/application/usecase-designer/subgraph/update-scenario/update-subgraph-scenario.command.js';
+import {SetSubgraphScenarioHandler} from '../../../../../../src/application/usecase-designer/subgraph/set-scenario/set-subgraph-scenario.handler.js';
+import {SetSubgraphScenarioCommand} from '../../../../../../src/application/usecase-designer/subgraph/set-scenario/set-subgraph-scenario.command.js';
 import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
-import {InvalidOperationException} from '../../../../../../src/shared/exceptions/invalid-operation.exception.js';
-import {Result} from '../../../../../../src/application/shared/result/result.js';
-import {SUB_GRAPH_PROP_ID_SCENARIO_VALUE_AUDIO_PLAYBACK} from '../../../../../../src/application/file-operations/shared/constants/spf-ids.js';
+import {InvalidInputException} from '../../../../../../src/shared/exceptions/invalid-input.exception.js';
+import {SUB_GRAPH_PROP_ID_SCENARIO_VALUE_AUDIO_PLAYBACK} from '../../../../../../src/domain/entities/definitions/subgraph/subgraph-ids.js';
 
 const SESSION = {sessionId: 1, fileSystemId: 7};
 const GROUP_ID = 'g1';
@@ -32,7 +31,7 @@ function uint32Payload(v: number) {
 function makeScenarioDef() {
   return {
     systemId: SCENARIO_DEF_SYS_ID,
-    propertyId: SCENARIO_NATURAL_ID,
+    naturalId: SCENARIO_NATURAL_ID,
     name: 'scenario',
     description: '',
     propertyType: 'SPF',
@@ -67,18 +66,21 @@ function makeUow(subgraph: any) {
       .fn()
       .mockReturnValue({session: SESSION, groupId: GROUP_ID}),
     getSubgraphRepository: jest.fn().mockReturnValue({
-      getSubgraphWithProperties: jest.fn().mockResolvedValue(subgraph),
+      getAggregate: jest.fn().mockResolvedValue(subgraph),
       setPropertyData,
       addProperty: jest.fn().mockResolvedValue(999),
       removeProperty: jest.fn().mockResolvedValue(undefined),
       removeAllVcpmCfgData: jest.fn().mockResolvedValue(undefined),
+      getPropertyDefinitions: jest.fn().mockResolvedValue([makeScenarioDef()]),
+    }),
+    getVcpmDefinitionRepository: jest.fn().mockReturnValue({
+      getAllVcpmModuleDefinitions: jest.fn().mockResolvedValue([]),
       addVcpmCfgDefaultData: jest.fn().mockResolvedValue(undefined),
     }),
     getModuleRepository: jest.fn().mockReturnValue({
       getModulesBySubgraphId: jest.fn().mockResolvedValue([]),
-      wipeCalData: jest
-        .fn()
-        .mockResolvedValue({ckvsDeleted: [], zeroCkvsAdded: []}),
+      wipeAllCkvData: jest.fn().mockResolvedValue(undefined),
+      wipeAllTkvData: jest.fn().mockResolvedValue(undefined),
     }),
     startTransaction,
     commit,
@@ -87,26 +89,6 @@ function makeUow(subgraph: any) {
     _setPropertyData: setPropertyData,
     _commit: commit,
     _rollback: rollback,
-  };
-}
-
-function makeQueryServices() {
-  const scenarioDef = makeScenarioDef();
-  return {
-    subgraphPropertyDefQueryService: {
-      getAllSubgraphPropertyDefinitionsSummary: jest
-        .fn()
-        .mockResolvedValue(Result.ok([scenarioDef])),
-      getAllDetailedSubgraphPropertyDefinitionsWithElements: jest
-        .fn()
-        .mockResolvedValue(Result.ok([scenarioDef])),
-      getSubgraphPropertyDefinitionWithElements: jest
-        .fn()
-        .mockResolvedValue(Result.ok(scenarioDef)),
-    },
-    vcpmDefinitionQueryService: {
-      getVcpmModuleDefinitionsWithParams: jest.fn().mockResolvedValue([]),
-    },
   };
 }
 
@@ -121,16 +103,13 @@ const AUDIO_RECORDING_ELEMENTS = [
   },
 ] as any;
 
-describe('UpdateSubgraphScenarioHandler', () => {
+describe('SetSubgraphScenarioHandler', () => {
   it('throws ResourceNotFoundException when subgraph not found', async () => {
     const uow = makeUow(null) as any;
-    const handler = new UpdateSubgraphScenarioHandler(
-      uow,
-      makeQueryServices() as any,
-    );
+    const handler = new SetSubgraphScenarioHandler(uow);
     await expect(
       handler.handle(
-        new UpdateSubgraphScenarioCommand(10, AUDIO_RECORDING_ELEMENTS),
+        new SetSubgraphScenarioCommand(10, AUDIO_RECORDING_ELEMENTS),
       ),
     ).rejects.toBeInstanceOf(ResourceNotFoundException);
   });
@@ -149,12 +128,9 @@ describe('UpdateSubgraphScenarioHandler', () => {
         description: '',
       },
     ] as any;
-    const handler = new UpdateSubgraphScenarioHandler(
-      uow,
-      makeQueryServices() as any,
-    );
+    const handler = new SetSubgraphScenarioHandler(uow);
     const result = await handler.handle(
-      new UpdateSubgraphScenarioCommand(10, audioPlaybackElements),
+      new SetSubgraphScenarioCommand(10, audioPlaybackElements),
     );
     expect(result.propertiesAdded).toHaveLength(0);
     expect(uow._setPropertyData).not.toHaveBeenCalled();
@@ -164,12 +140,9 @@ describe('UpdateSubgraphScenarioHandler', () => {
     const uow = makeUow(
       makeSubgraph(SUB_GRAPH_PROP_ID_SCENARIO_VALUE_AUDIO_PLAYBACK),
     ) as any;
-    const handler = new UpdateSubgraphScenarioHandler(
-      uow,
-      makeQueryServices() as any,
-    );
+    const handler = new SetSubgraphScenarioHandler(uow);
     const result = await handler.handle(
-      new UpdateSubgraphScenarioCommand(10, AUDIO_RECORDING_ELEMENTS),
+      new SetSubgraphScenarioCommand(10, AUDIO_RECORDING_ELEMENTS),
     );
     expect(uow._commit).toHaveBeenCalled();
     expect(result.groupId).toBe(GROUP_ID);
@@ -183,19 +156,16 @@ describe('UpdateSubgraphScenarioHandler', () => {
       .getSubgraphRepository()
       .setPropertyData.mockRejectedValueOnce(new Error('fail'));
     uow.isInTransaction.mockReturnValue(true);
-    const handler = new UpdateSubgraphScenarioHandler(
-      uow,
-      makeQueryServices() as any,
-    );
+    const handler = new SetSubgraphScenarioHandler(uow);
     await expect(
       handler.handle(
-        new UpdateSubgraphScenarioCommand(10, AUDIO_RECORDING_ELEMENTS),
+        new SetSubgraphScenarioCommand(10, AUDIO_RECORDING_ELEMENTS),
       ),
     ).rejects.toThrow('fail');
     expect(uow._rollback).toHaveBeenCalled();
   });
 
-  it('throws InvalidOperationException when scenario serialization fails', async () => {
+  it('throws InvalidInputException when scenario serialization fails', async () => {
     const badElements = [
       {
         type: 'ConfigElement',
@@ -209,12 +179,9 @@ describe('UpdateSubgraphScenarioHandler', () => {
     const uow = makeUow(
       makeSubgraph(SUB_GRAPH_PROP_ID_SCENARIO_VALUE_AUDIO_PLAYBACK),
     ) as any;
-    const handler = new UpdateSubgraphScenarioHandler(
-      uow,
-      makeQueryServices() as any,
-    );
+    const handler = new SetSubgraphScenarioHandler(uow);
     await expect(
-      handler.handle(new UpdateSubgraphScenarioCommand(10, badElements)),
-    ).rejects.toBeInstanceOf(InvalidOperationException);
+      handler.handle(new SetSubgraphScenarioCommand(10, badElements)),
+    ).rejects.toBeInstanceOf(InvalidInputException);
   });
 });

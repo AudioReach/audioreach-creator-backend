@@ -119,13 +119,8 @@ export class SubgraphOverlayFetcher {
 
     if (sessionId === null) {
       if (!baseRow) return null;
-      const properties = this.propertyDataFetcher
-        ? await this.propertyDataFetcher.fetchMany(
-            [subgraphSystemId],
-            sessionId,
-          )
-        : [];
-      return {...baseRow, properties};
+      const [assembled] = await this.attachProperties([baseRow], sessionId);
+      return assembled ?? null;
     }
 
     const actions = await this.editActionsSvc.getByAggregateAndTable(
@@ -139,10 +134,39 @@ export class SubgraphOverlayFetcher {
     });
     if (!result) return null;
 
-    const properties = this.propertyDataFetcher
-      ? await this.propertyDataFetcher.fetchMany([subgraphSystemId], sessionId)
-      : [];
-    return {...result.effective, properties};
+    const [assembled] = await this.attachProperties(
+      [result.effective],
+      sessionId,
+    );
+    return assembled ?? null;
+  }
+
+  private async attachProperties(
+    rows: SubgraphBase[],
+    sessionId: number | null,
+  ): Promise<OverlaidSubgraph[]> {
+    if (rows.length === 0) return [];
+
+    if (!this.propertyDataFetcher) {
+      return rows.map(row => ({...row, properties: []}));
+    }
+
+    const allProperties = await this.propertyDataFetcher.fetchMany(
+      rows.map(row => row.systemId),
+      sessionId,
+    );
+    const propertiesBySubgraph = new Map<number, SubgraphPropertyDataBase[]>();
+    for (const property of allProperties) {
+      const properties =
+        propertiesBySubgraph.get(property.subgraphSystemId) ?? [];
+      properties.push(property);
+      propertiesBySubgraph.set(property.subgraphSystemId, properties);
+    }
+
+    return rows.map(row => ({
+      ...row,
+      properties: propertiesBySubgraph.get(row.systemId) ?? [],
+    }));
   }
 
   /**

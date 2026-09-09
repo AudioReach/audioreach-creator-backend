@@ -21,7 +21,7 @@ import {
   SPF_APM_MODULE_ID,
   PARAM_ID_MODULE_DATA_LINK,
   PARAM_ID_MODULE_CTRL_LINK,
-} from '../../../shared/constants/spf-ids.js';
+} from '../../../../../domain/entities/definitions/spf-ids.js';
 import {
   extractHeapId,
   extractIntents,

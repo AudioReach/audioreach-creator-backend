@@ -150,7 +150,10 @@ function makeRepo(
       groupId: 'test-group',
     }),
   } as any;
-  return new TypeOrmSubgraphRepository(writer, manager, uow);
+  const idGeneration = {
+    getNextId: async () => 10_000,
+  } as any;
+  return new TypeOrmSubgraphRepository(writer, manager, uow, idGeneration);
 }
 
 describe('TypeOrmSubgraphRepository (integration)', () => {

@@ -26,7 +26,7 @@ const BAD_DEF: SubgraphPropertyDefinitionRecord = {
 describe('buildSubgraphWithDefaults', () => {
   it('sets a non-null Uint8Array payload for a valid elementsStructure', () => {
     const sg = buildSubgraphWithDefaults(
-      {systemId: 1, subgraphId: 100, name: 'test', fileSystemId: 7},
+      {systemId: 1, subgraphNaturalId: 100, name: 'test', fileSystemId: 7},
       [VALID_DEF],
     );
     const prop = sg.properties[0];
@@ -36,7 +36,7 @@ describe('buildSubgraphWithDefaults', () => {
 
   it('falls back to null payload when elementsStructure is malformed', () => {
     const sg = buildSubgraphWithDefaults(
-      {systemId: 2, subgraphId: 101, name: 'bad', fileSystemId: 7},
+      {systemId: 2, subgraphNaturalId: 101, name: 'bad', fileSystemId: 7},
       [BAD_DEF],
     );
     expect(sg.properties[0].getPayloadCopy()).toBeNull();

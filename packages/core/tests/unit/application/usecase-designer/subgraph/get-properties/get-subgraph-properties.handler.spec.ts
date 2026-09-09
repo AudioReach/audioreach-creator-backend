@@ -53,7 +53,7 @@ function makeServices(
     >;
     definitionsResult?: Awaited<
       ReturnType<
-        QueryServices['subgraphPropertyDefQueryService']['getAllDetailedSubgraphPropertyDefinitionsWithElements']
+        QueryServices['subgraphPropertyDefQueryService']['getSubgraphPropertiesWithElements']
       >
     >;
   } = {},
@@ -72,7 +72,7 @@ function makeServices(
       findPropertyPayloads: jest.fn().mockResolvedValue(payloadsResult),
     },
     subgraphPropertyDefQueryService: {
-      getAllDetailedSubgraphPropertyDefinitionsWithElements: jest
+      getSubgraphPropertiesWithElements: jest
         .fn()
         .mockResolvedValue(definitionsResult),
     },

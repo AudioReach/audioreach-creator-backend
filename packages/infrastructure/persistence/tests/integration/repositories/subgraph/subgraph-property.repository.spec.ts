@@ -103,14 +103,14 @@ function makeRepo(
   return new TypeOrmSubgraphRepository(writer, ds.manager, uow, idGeneration);
 }
 
-describe('TypeOrmSubgraphRepository — setName', () => {
+describe('TypeOrmSubgraphRepository — rename', () => {
   it('writes a delta edit_action row on the Subgraph row', async () => {
     const ds = getTestDataSource();
     await seedBase(ds);
     const sessionId = await seedSession(ds);
     const repo = makeRepo(ds, sessionId);
 
-    await repo.setName(SG_ID, 'renamed');
+    await repo.rename(SG_ID, 'renamed');
 
     const rows = await ds.manager
       .getRepository(ENTITY_NAMES.EditAction)
@@ -162,14 +162,58 @@ describe('TypeOrmSubgraphRepository — setPropertyData', () => {
   });
 });
 
-describe('TypeOrmSubgraphRepository — getSubgraphWithProperties', () => {
+describe('TypeOrmSubgraphRepository — addProperty', () => {
+  it('writes the prepared payload without loading a property definition', async () => {
+    const ds = getTestDataSource();
+    await seedBase(ds);
+    const sessionId = await seedSession(ds);
+    const repo = makeRepo(ds, sessionId);
+    const payload = new Uint8Array([0xde, 0xad, 0xbe, 0xef]);
+
+    const propertyDataSystemId = await repo.addProperty(
+      SG_ID,
+      PROP_DEF_SYS_ID,
+      payload,
+    );
+
+    const rows: Array<{
+      target_table: string;
+      aggregate_id: number;
+      target_system_id: number;
+      new_value: string;
+    }> = await ds.query(
+      `SELECT target_table, aggregate_id, target_system_id, new_value FROM edit_actions WHERE session_id = ?`,
+      [sessionId],
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      target_table: ENTITY_NAMES.SubgraphPropertyData,
+      aggregate_id: SG_ID,
+      target_system_id: propertyDataSystemId,
+    });
+    const value = JSON.parse(rows[0]!.new_value) as {
+      subgraphSystemId: number;
+      propertySystemId: number;
+      payload: {__blob: string};
+    };
+    expect(value).toMatchObject({
+      subgraphSystemId: SG_ID,
+      propertySystemId: PROP_DEF_SYS_ID,
+    });
+    expect(Buffer.from(value.payload.__blob, 'base64')).toEqual(
+      Buffer.from(payload),
+    );
+  });
+});
+
+describe('TypeOrmSubgraphRepository — getAggregate', () => {
   it('returns subgraph with property rows from base data', async () => {
     const ds = getTestDataSource();
     await seedBase(ds);
     const sessionId = await seedSession(ds);
     const repo = makeRepo(ds, sessionId);
 
-    const result = await repo.getSubgraphWithProperties(SG_ID, FILE_ID);
+    const result = await repo.getAggregate(SG_ID, FILE_ID);
     expect(result).not.toBeNull();
     expect(result!.systemId).toBe(SG_ID);
     expect(result!.properties).toHaveLength(1);
@@ -181,19 +225,52 @@ describe('TypeOrmSubgraphRepository — getSubgraphWithProperties', () => {
     const sessionId = await seedSession(ds);
     const repo = makeRepo(ds, sessionId);
 
-    const result = await repo.getSubgraphWithProperties(9999, FILE_ID);
+    const result = await repo.getAggregate(9999, FILE_ID);
     expect(result).toBeNull();
   });
 });
 
-describe('TypeOrmSubgraphRepository — getSubgraphIdsInSameUsecases', () => {
+describe('TypeOrmSubgraphRepository — getAggregates', () => {
+  it('returns each requested subgraph with its properties', async () => {
+    const ds = getTestDataSource();
+    await seedBase(ds);
+    await ds.query(
+      `INSERT INTO subgraphs (system_id, subgraph_id, name, is_imported, file_system_id) VALUES (?, 11, 'sg-2', 0, ?)`,
+      [51, FILE_ID],
+    );
+    await ds.query(
+      `INSERT INTO subgraph_property_definitions (system_id, property_id, name, property_type, is_voice, file_system_id, max_size, elements_structure) VALUES (?, 56, 'gain-2', 'SPF', 0, ?, 4, '[]')`,
+      [102, FILE_ID],
+    );
+    await ds.query(
+      `INSERT INTO subgraph_property_data (system_id, subgraph_system_id, subgraph_property_system_id, payload) VALUES (?, ?, ?, X'01020304')`,
+      [302, 51, 102],
+    );
+    const sessionId = await seedSession(ds);
+    const repo = makeRepo(ds, sessionId);
+
+    const result = await repo.getAggregates([SG_ID, 51], FILE_ID);
+
+    expect(result.get(SG_ID)?.properties).toEqual([
+      expect.objectContaining({systemId: PROP_DATA_SYS_ID}),
+    ]);
+    expect(result.get(51)?.properties).toEqual([
+      expect.objectContaining({systemId: 302, propertySystemId: 102}),
+    ]);
+  });
+});
+
+describe('TypeOrmSubgraphRepository — getSubgraphIdsInSameUsecasesForMany', () => {
   it('returns empty array when subgraph has no usecases', async () => {
     const ds = getTestDataSource();
     await seedBase(ds);
     const sessionId = await seedSession(ds);
     const repo = makeRepo(ds, sessionId);
 
-    const result = await repo.getSubgraphIdsInSameUsecases(SG_ID, FILE_ID);
+    const result = await repo.getSubgraphIdsInSameUsecasesForMany(
+      [SG_ID],
+      FILE_ID,
+    );
     expect(result).toEqual([]);
   });
 });

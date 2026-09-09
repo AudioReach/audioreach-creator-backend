@@ -4,6 +4,7 @@
  */
 
 import {parseId} from '../../../../../src/application/usecase-designer/shared/parse-id.js';
+import {InvalidInputException} from '../../../../../src/shared/exceptions/invalid-input.exception.js';
 
 describe('parseId', () => {
   it.each([
@@ -18,7 +19,7 @@ describe('parseId', () => {
   it.each(['', '0', '-1', '1.2', '1abc', '0x1g', '9007199254740992'])(
     'rejects invalid ID %s',
     value => {
-      expect(() => parseId(value, 'id')).toThrow();
+      expect(() => parseId(value, 'id')).toThrow(InvalidInputException);
     },
   );
 });

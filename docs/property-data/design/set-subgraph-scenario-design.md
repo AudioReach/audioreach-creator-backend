@@ -64,7 +64,7 @@ flowchart TD
     B -->|No session| C([HTTP 403])
     B -->|OK| D[CommandBus: check allowedModes]
     D -->|Not allowed| C
-    D -->|OK| E[getSubgraphWithProperties → 404 if null]
+    D -->|OK| E[getAggregate → 404 if null]
     E -->|Not found| F([HTTP 404])
     E -->|Found| G[Read current scenario from overlay]
     G -->|Same value| H([HTTP 200 empty ScenarioChangeDto])
@@ -99,7 +99,8 @@ packages/core/src/application/usecase-designer/
 ```
 packages/core/src/application/
 ├── ports/persistence/query-services/vcpm-definition/
-│   └── vcpm-definition-query-service.ts                                 (new — VcpmDefinitionQueryService port + VcpmModuleDefinitionWithParamsReadModel)
+│   ├── vcpm-definition-query-service.ts                                 (new — VcpmDefinitionQueryService port)
+│   └── vcpm-definition-read-model.ts                                    (new — VcpmModuleDefinitionWithParamsReadModel)
 ├── ports/persistence/query-services/
 │   └── query-services.ts                                                (modified — add vcpmDefinitionQueryService: VcpmDefinitionQueryService)
 ├── ports/persistence/repositories/subgraph/
@@ -109,8 +110,8 @@ packages/core/src/application/
 ├── orchestration/cqrs/registries/
 │   └── command-handler-registry.ts                                      (modified — inject queryServices into UpdateSubgraphScenarioHandler)
 └── usecase-designer/subgraph/
-    ├── subgraph-property-ids/
-    │   └── subgraph-property-ids.ts                                     (modified — add SUB_GRAPH_PROP_CLOCK_SCALE_FACTOR)
+    ├── file-operations/shared/constants/
+    │   └── spf-ids.ts                                                    (modified — add SUB_GRAPH_PROP_CLOCK_SCALE_FACTOR)
     ├── dto/
     │   └── subgraph-write-result-types.ts                               (modified — add groupId to ScenarioChangeDtoSchema)
     └── update-scenario/
@@ -144,7 +145,7 @@ Core (Application)
     fileSystemId = uow.getWriteContext().session.fileSystemId
 
     Read phase (no transaction):
-      1. getSubgraphWithProperties(subgraphSystemId, fileSystemId) → 404 if null
+      1. getAggregate(subgraphSystemId, fileSystemId) → 404 if null
       2. Resolve scenario property definition → get systemId
       3. Read current scenario value from subgraph properties
       4. No-op if current === requested → return empty ScenarioChangeDto
@@ -266,7 +267,7 @@ export class UpdateSubgraphScenarioCommand extends BaseCommand {
 
 ### 3.3 Subgraph Property ID additions
 
-**File:** `packages/core/src/application/usecase-designer/subgraph/subgraph-property-ids/subgraph-property-ids.ts` (modified)
+**File:** `packages/core/src/domain/entities/definitions/spf-ids.ts` (modified)
 
 Add:
 ```typescript
@@ -295,7 +296,7 @@ export class UpdateSubgraphScenarioHandler implements CommandHandler<
 
     // Step 1: load subgraph with properties
     const subgraph = await this.uow.getSubgraphRepository()
-      .getSubgraphWithProperties(command.subgraphSystemId, fileSystemId);
+      .getAggregate(command.subgraphSystemId, fileSystemId);
     if (!subgraph) {
       throw new ResourceNotFoundException(
         `Subgraph ${command.subgraphSystemId} not found`,
@@ -342,7 +343,7 @@ export class UpdateSubgraphScenarioHandler implements CommandHandler<
 
     // Step 7: load all property definitions (needed for IsVoice filter + clock scale factor)
     const allDefsResult = await this.queryServices.subgraphPropertyDefQueryService
-      .getAllDetailedSubgraphPropertyDefinitionsWithElements(fileSystemId);
+      .getSubgraphPropertiesWithElements(fileSystemId);
     if (allDefsResult.kind === RESULT_KIND.Fail) {
       throw new Error('Failed to load subgraph property definitions');
     }
@@ -362,7 +363,7 @@ export class UpdateSubgraphScenarioHandler implements CommandHandler<
 
     // ── Serialize scenario payload (before transaction) ───────────────────────
     const scenarioDefWithElements = await this.queryServices.subgraphPropertyDefQueryService
-      .getSubgraphPropertyDefinitionWithElements(scenarioDef.systemId, fileSystemId);
+      .getSubgraphPropertyWithElements(scenarioDef.systemId, fileSystemId);
     if (scenarioDefWithElements.kind === RESULT_KIND.Fail) {
       throw new ResourceNotFoundException('Scenario property definition (with elements) not found');
     }
@@ -428,7 +429,7 @@ export class UpdateSubgraphScenarioHandler implements CommandHandler<
 
         // e. Add default VCPM cfg data for this subgraph
         const vcpmDefs = await this.queryServices.vcpmDefinitionQueryService
-          .getVcpmModuleDefinitionsWithParams(fileSystemId);
+          .getAllVcpmModuleDefinitions(fileSystemId);
         await this.uow.getSubgraphRepository()
           .addVcpmCfgDefaultData(command.subgraphSystemId, vcpmDefs);
 
@@ -504,7 +505,7 @@ export class UpdateSubgraphScenarioHandler implements CommandHandler<
         processedIds.add(linkedId);
 
         const linked = await this.uow.getSubgraphRepository()
-          .getSubgraphWithProperties(linkedId, fileSystemId);
+          .getAggregate(linkedId, fileSystemId);
         if (!linked) continue;
 
         // Filter to Voice subgraphs only
@@ -979,11 +980,11 @@ async addVcpmCfgDefaultData(
 
 | # | Question |
 |---|---|
-| OQ-1 | ~~VCPM cfg definition source~~ — **Resolved:** All rows in `vcpm_module_definitions` for a given `fileSystemId` are VCPM cfg definitions — no filtering needed. Add a new `VcpmDefinitionQueryService` port with one method: `getVcpmModuleDefinitionsWithParams(fileSystemId): Promise<VcpmModuleDefinitionWithParamsReadModel[]>`. Read model: `{ systemId, moduleDefinitionId, parameters: { systemId, paramId, elementsStructure }[] }`. Infra: simple SQL join of `vcpm_module_definitions` + `vcpm_module_parameter_definitions` filtered by `fileSystemId`. Audio→Voice step e uses this to create one `VcpmInstance` row per definition and one zero-CKV `VcpmParameterPayload` per parameter with default payload derived from `elementsStructure`. |
+| OQ-1 | ~~VCPM cfg definition source~~ — **Resolved:** All rows in `vcpm_module_definitions` for a given `fileSystemId` are VCPM cfg definitions — no filtering needed. Add a new `VcpmDefinitionQueryService` port with one method: `getAllVcpmModuleDefinitions(fileSystemId): Promise<VcpmModuleDefinitionWithParamsReadModel[]>`. The result includes parameter definitions. Read model: `{ systemId, moduleDefinitionId, parameters: { systemId, paramId, elementsStructure }[] }`. Infra: simple SQL join of `vcpm_module_definitions` + `vcpm_module_parameter_definitions` filtered by `fileSystemId`. Audio→Voice step e uses this to create one `VcpmInstance` row per definition and one zero-CKV `VcpmParameterPayload` per parameter with default payload derived from `elementsStructure`. |
 | OQ-2 | ~~Remove all VCPM cfg data~~ — **Resolved:** VCPM data is owned by the subgraph aggregate (`aggregateId = subgraphSystemId`). Add `removeAllVcpmCfgData(subgraphSystemId: number): Promise<void>` to `SubgraphRepository`. Infra: query all `VcpmInstance` WHERE `subgraphSystemId = X`; for each instance → for each `VcpmCkv` → stage DELETE on `VcpmParameterPayload` rows, `VcpmCkvValues` rows, the `VcpmCkv` row; then stage DELETE on the `VcpmInstance` row. Distinct from the existing `delete-vcpm-ckv` handler which deletes a single CKV entry. |
 | OQ-3 | ~~`SUB_GRAPH_PROP_CLOCK_SCALE_FACTOR` property ID~~ — **Resolved:** `SUB_GRAPH_PROP_CLOCK_SCALE_FACTOR = 0x08001374`. |
 | OQ-4 | ~~VSID payload construction inside cascade~~ — **Resolved:** Use `BinaryDataWriter` directly. `const writer = new BinaryDataWriter(); writer.writeUInt32(optimalVsid); writer.align(8); const payload = writer.toUint8Array();`. No need to go through `serializeParameterData` since the value is a computed `number`, not user-supplied `elements`. |
 | OQ-5 | ~~Default payload for `addProperty`~~ — **Resolved:** Use `serializeDefaultParameterData(definition)` from `packages/core/src/application/usecase-designer/shared/serialize-elements.ts` (added in PR a54340d). It builds default `ElementData[]` from each `ConfigElement.defaultValue ?? '0'` then calls `serializeParameterData` internally. The `definition` is a `ParameterDefinitionBase` object (already available at all call sites). No new file required. |
-| OQ-6 | ~~`getOptimalVsid` implementation~~ — **Resolved:** Private method on `UpdateSubgraphScenarioHandler`. Uses `getSubgraphIdsInSameUsecases` (already designed) for BFS, `getSubgraphWithProperties` to read each linked subgraph's scenario + VSID, filters to Voice only. If no voice subgraphs found: parse `vsidDef.elementsStructure` via `convertParamDefinition`, read `defaultValue` from the first `ConfigElement`, return `Number(defaultValue)`. If one distinct VSID found: use it. If multiple distinct VSIDs found: throw `DomainRuleViolationException` → 422. No shared service needed — `UpdateSubgraphVsidHandler` does not call this. |
+| OQ-6 | ~~`getOptimalVsid` implementation~~ — **Resolved:** Private method on `UpdateSubgraphScenarioHandler`. Uses `getSubgraphIdsInSameUsecases` (already designed) for BFS, `getAggregate` to read each linked subgraph's scenario + VSID, filters to Voice only. If no voice subgraphs found: parse `vsidDef.elementsStructure` via `convertParamDefinition`, read `defaultValue` from the first `ConfigElement`, return `Number(defaultValue)`. If one distinct VSID found: use it. If multiple distinct VSIDs found: throw `DomainRuleViolationException` → 422. No shared service needed — `UpdateSubgraphVsidHandler` does not call this. |
 | OQ-7 | ~~TKV and tagged module wipe~~ — **Resolved:** Full hierarchy per module: `ModuleTagIdMap` (tagged entries, `aggregateId=spfModuleSystemId`) → `Tkv` (`aggregateId=moduleTagIdMapSystemId`) → `TkvParameterPayload`. `TkvValues` and `CkvValues` are composite-PK join tables — they cascade DELETE automatically when their parent is deleted, no explicit write needed. Fetchers already exist: `CkvOverlayFetcher` for CKV reads, `TkvOverlayFetcher` for `ModuleTagIdMap` + TKV reads. `wipeCalData` infra steps: (1) fetch all CKVs via `CkvOverlayFetcher`, skip zero-CKV, DELETE payloads + CKV rows; (2) fetch all `ModuleTagIdMap` via `TkvOverlayFetcher`, DELETE `TkvParameterPayload` + `Tkv` + `ModuleTagIdMap` rows. All writes use `aggregateId = spfModuleSystemId` for CKV level and `aggregateId = moduleTagIdMapSystemId` for TKV level. |
 | OQ-8 | ~~Zero-CKV default payload source for `wipeCalData`~~ — **Resolved:** The zero-CKV row (empty `CkvValues`) always exists — `wipeCalData` only deletes non-zero CKVs, so the zero-CKV survives. Step 5 resets each existing `CkvParameterPayload` row under the zero-CKV back to its factory default. No tool-policy filter needed — every payload row that exists under the zero-CKV was created at module creation and must be reset. Steps: (1) `ckvOverlayFetcher.fetchCkvPayloads(zeroCkv.systemId, moduleSystemId, sessionId)` → existing rows; (2) for each: `getModuleDefinitionRepository().getParameterDefinitions(moduleDefSystemId, [payload.parameterSystemId])` to get the definition; (3) `serializeDefaultParameterData(def)` → `writeDelta` on the existing payload row. |

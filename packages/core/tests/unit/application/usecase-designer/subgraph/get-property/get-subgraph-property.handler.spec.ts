@@ -28,7 +28,7 @@ const ELEMENTS_STRUCTURE = JSON.stringify([
 
 const mockDef = {
   systemId: PROP_DEF_ID,
-  propertyId: 55,
+  naturalId: 55,
   name: 'gain',
   description: '',
   propertyType: 'SPF',
@@ -64,9 +64,7 @@ function makeServices(
       findPropertyPayloads: jest.fn().mockResolvedValue(payloadsResult),
     },
     subgraphPropertyDefQueryService: {
-      getSubgraphPropertyDefinitionWithElements: jest
-        .fn()
-        .mockResolvedValue(defResult),
+      getSubgraphPropertyWithElements: jest.fn().mockResolvedValue(defResult),
     },
   } as unknown as QueryServices;
 }
@@ -114,7 +112,7 @@ describe('GetSubgraphPropertyHandler', () => {
     const result = await handler.handle(query);
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data.propertyId).toBe(55);
+    expect(result.data.naturalId).toBe(55);
     expect(result.data.elements).toHaveLength(1);
   });
 });

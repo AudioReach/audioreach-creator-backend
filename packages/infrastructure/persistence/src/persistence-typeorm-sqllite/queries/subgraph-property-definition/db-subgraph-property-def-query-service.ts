@@ -119,7 +119,7 @@ export class DbSubgraphPropertyDefQueryService implements SubgraphPropertyDefQue
     }
   }
 
-  async getAllDetailedSubgraphPropertyDefinitionsWithElements(
+  async getSubgraphPropertiesWithElements(
     fileSystemId: number,
   ): Promise<Result<SubgraphPropertyDefinitionWithElementsReadModel[]>> {
     try {
@@ -142,7 +142,7 @@ export class DbSubgraphPropertyDefQueryService implements SubgraphPropertyDefQue
     }
   }
 
-  async getSubgraphPropertyDefinitionWithElements(
+  async getSubgraphPropertyWithElements(
     propertySystemId: number,
     fileSystemId: number,
   ): Promise<Result<SubgraphPropertyDefinitionWithElementsReadModel>> {
