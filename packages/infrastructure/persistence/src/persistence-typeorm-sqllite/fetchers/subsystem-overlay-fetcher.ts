@@ -8,29 +8,31 @@ import {CHANGE_OPERATION} from '@arc/core';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
 import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
-import {NODE_TYPE} from '../entity-schema/usecase-data/node/node.schema.js';
-import type {SubsystemBase} from '../entity-schema/usecase-data/subsystem/subsystem.js';
+import type {NodeOverlayFetcher} from './node-overlay-fetcher.js';
+import type {
+  SubsystemBase,
+  SubsystemFilteredKeyRow,
+} from '../entity-schema/usecase-data/subsystem/subsystem.js';
 
 export interface OverlaidSubsystem extends SubsystemBase {
-  /** parentId from Node.parentId — undefined when the subsystem is a root. */
+  /** parentId from the effective Node row; undefined when the subsystem is a root. */
   parentId: number | undefined;
+  /**
+   * System IDs of key definitions in this subsystem's filtered-key relation.
+   * These IDs are matched against usecase GKV key system IDs by the core
+   * subsystem-filtered GKV algorithm.
+   */
+  filteredKeySystemIds: number[];
 }
 
+type FilteredKeyActionValue = {
+  subsystemsSystemId?: number;
+  keyDefinitionSystemIds?: unknown;
+};
+
 /**
- * Fetches subsystems with session overlay applied (FR-3).
- *
- * The Subsystem entity shares a PK with Node (one-to-one, same system_id).
- * parentId lives on Node, not Subsystem — the base query JOINs Node to
- * retrieve it alongside the subsystem name.
- *
- * Two overlay passes:
- *   1. Subsystem table — handles name UPDATE, entity DELETE, entity CREATE.
- *   2. Node table — supplements parentId for session-created subsystems.
- *      CREATE actions on Node of type Subsystem carry parentId in the payload;
- *      these are not in the Subsystem action since parentId is a Node column.
- *
- * Both passes use getByTable (one call each) so the total overlay cost is
- * fixed at two DB calls regardless of subsystem count (FR-5).
+ * Fetches subsystems, parent topology, filtered-key relations, and their
+ * edit-session overlays in one persistence boundary.
  */
 export class SubsystemOverlayFetcher {
   private readonly overlay = new OverlayMergeImpl();
@@ -38,96 +40,120 @@ export class SubsystemOverlayFetcher {
   constructor(
     private readonly manager: EntityManager,
     private readonly editActionsSvc: EditActionsQueryService,
+    private readonly nodeFetcher: NodeOverlayFetcher,
   ) {}
 
-  /**
-   * Returns all overlaid subsystems for the given file with their parentId.
-   */
   async fetchAll(
     fileSystemId: number,
     sessionId: number | null,
   ): Promise<OverlaidSubsystem[]> {
-    // Base query — JOIN Node to pick up parentId (Node column, not Subsystem).
-    const rawRows = await this.manager
-      .getRepository(ENTITY_NAMES.Subsystem)
-      .createQueryBuilder('sub')
-      .innerJoin(ENTITY_NAMES.Node, 'n', 'n.system_id = sub.system_id')
-      .addSelect('n.parentId', 'parentId')
-      .where('n.fileSystemId = :fileSystemId', {fileSystemId})
-      .getRawAndEntities();
-
-    // Build parentId lookup from the JOIN result.
-    const parentIdBySystemId = new Map<number, number | undefined>(
-      rawRows.raw.map((r: Record<string, unknown>) => [
-        Number(r['sub_system_id']),
-        r['parentId'] == null ? undefined : Number(r['parentId']),
-      ]),
-    );
-
-    let rows = rawRows.entities as SubsystemBase[];
-
-    if (sessionId === null) {
-      return this.buildResult(rows, parentIdBySystemId);
-    }
-
-    // Pass 1 — Subsystem overlay (name UPDATE, CREATE, DELETE).
-    const [subsystemActions, nodeActions] = await Promise.all([
-      this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.Subsystem),
-      this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.Node),
+    const [rawSubsystemRows, nodeRows, filteredKeyRows] = await Promise.all([
+      this.manager
+        .getRepository(ENTITY_NAMES.Subsystem)
+        .createQueryBuilder('sub')
+        .innerJoin(ENTITY_NAMES.Node, 'n', 'n.system_id = sub.system_id')
+        .where('n.fileSystemId = :fileSystemId', {fileSystemId})
+        .getMany() as Promise<SubsystemBase[]>,
+      this.nodeFetcher.fetchAll(fileSystemId, sessionId),
+      this.loadFilteredKeyRows(fileSystemId),
     ]);
 
-    if (subsystemActions.length > 0) {
-      rows = this.overlay
-        .applyToCollection(rows, subsystemActions)
-        .map(r => r.effective);
+    let subsystemRows = rawSubsystemRows;
+    let filteredIdsBySubsystem = this.groupFilteredKeyRows(filteredKeyRows);
+
+    if (sessionId !== null) {
+      const [subsystemActions, filteredKeyActions] = await Promise.all([
+        this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.Subsystem),
+        this.editActionsSvc.getByTable(
+          sessionId,
+          ENTITY_NAMES.SubsystemFilteredKey,
+        ),
+      ]);
+
+      subsystemRows = this.overlay
+        .applyToCollection(subsystemRows, subsystemActions)
+        .map(result => result.effective);
+      filteredIdsBySubsystem = this.applyFilteredKeyActions(
+        filteredIdsBySubsystem,
+        filteredKeyActions,
+      );
     }
 
-    // Pass 2 — supplement parentId for session-created subsystems.
-    // CREATE actions on Node of type Subsystem carry parentId in the payload;
-    // the Subsystem CREATE action itself does not include parentId because it
-    // lives on the Node table.
-    this.supplementParentIds(parentIdBySystemId, nodeActions);
+    const parentBySystemId = new Map<number, number | undefined>(
+      nodeRows.map(node => [node.systemId, node.parentId]),
+    );
 
-    return this.buildResult(rows, parentIdBySystemId);
-  }
-
-  // ── Private helpers ────────────────────────────────────────────────────────
-
-  /**
-   * Populates parentIdBySystemId from Node CREATE actions for subsystems.
-   * Called after the Subsystem overlay is applied so newly added subsystem
-   * systemIds are present in the map.
-   */
-  private supplementParentIds(
-    parentIdBySystemId: Map<number, number | undefined>,
-    nodeActions: Awaited<ReturnType<EditActionsQueryService['getByTable']>>,
-  ): void {
-    for (const action of nodeActions) {
-      if (
-        action.operation !== CHANGE_OPERATION.Create ||
-        action.fieldPath !== '$'
-      )
-        continue;
-      const payload = action.newValue as Record<string, unknown>;
-      if (
-        payload.type === NODE_TYPE.Subsystem &&
-        !parentIdBySystemId.has(action.targetSystemId)
-      ) {
-        parentIdBySystemId.set(
-          action.targetSystemId,
-          payload.parentId == null ? undefined : Number(payload.parentId),
-        );
-      }
-    }
-  }
-
-  private buildResult(
-    rows: SubsystemBase[],
-    parentIdBySystemId: Map<number, number | undefined>,
-  ): OverlaidSubsystem[] {
-    return rows.map(row => ({
-      ...row,
-      parentId: parentIdBySystemId.get(row.systemId),
+    return subsystemRows.map(subsystem => ({
+      ...subsystem,
+      parentId: parentBySystemId.get(subsystem.systemId),
+      filteredKeySystemIds: [
+        ...(filteredIdsBySubsystem.get(subsystem.systemId) ?? []),
+      ],
     }));
+  }
+
+  private async loadFilteredKeyRows(
+    fileSystemId: number,
+  ): Promise<SubsystemFilteredKeyRow[]> {
+    return this.manager
+      .getRepository<SubsystemFilteredKeyRow>(ENTITY_NAMES.SubsystemFilteredKey)
+      .createQueryBuilder('filtered')
+      .innerJoin(
+        ENTITY_NAMES.Node,
+        'n',
+        'n.system_id = filtered.subsystems_system_id',
+      )
+      .select(['filtered.subsystemsSystemId', 'filtered.keyDefinitionSystemId'])
+      .where('n.fileSystemId = :fileSystemId', {fileSystemId})
+      .getMany();
+  }
+
+  private groupFilteredKeyRows(
+    rows: SubsystemFilteredKeyRow[],
+  ): Map<number, number[]> {
+    const result = new Map<number, number[]>();
+    for (const row of rows) {
+      const ids = result.get(row.subsystemsSystemId) ?? [];
+      ids.push(row.keyDefinitionSystemId);
+      result.set(row.subsystemsSystemId, ids);
+    }
+    return result;
+  }
+
+  private applyFilteredKeyActions(
+    baseline: Map<number, number[]>,
+    actions: Awaited<ReturnType<EditActionsQueryService['getByTable']>>,
+  ): Map<number, number[]> {
+    const result = new Map(
+      [...baseline].map(([subsystemId, keyIds]) => [subsystemId, [...keyIds]]),
+    );
+
+    for (const action of actions) {
+      if (
+        action.operation === CHANGE_OPERATION.Delete &&
+        action.fieldPath === null
+      ) {
+        result.delete(action.targetSystemId);
+        continue;
+      }
+
+      if (
+        action.operation !== CHANGE_OPERATION.Update ||
+        action.fieldPath !== null
+      ) {
+        continue;
+      }
+
+      const value = action.newValue as FilteredKeyActionValue;
+      if (!Array.isArray(value.keyDefinitionSystemIds)) continue;
+      result.set(
+        action.targetSystemId,
+        value.keyDefinitionSystemIds
+          .map(Number)
+          .filter(value => Number.isFinite(value)),
+      );
+    }
+
+    return result;
   }
 }

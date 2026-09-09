@@ -49,6 +49,8 @@ import {UseCaseCategoryFetcher} from '../fetchers/usecase-category-fetcher.js';
 import {UsecaseGkvValuesFetcher} from '../fetchers/usecase-gkv-values-fetcher.js';
 import {UsecaseOverlayFetcher} from '../fetchers/usecase-overlay-fetcher.js';
 import {LinkOverlayFetcher} from '../fetchers/link-overlay-fetcher.js';
+import {NodeOverlayFetcher} from '../fetchers/node-overlay-fetcher.js';
+import {SubsystemOverlayFetcher} from '../fetchers/subsystem-overlay-fetcher.js';
 import {SubgraphOverlayFetcher} from '../fetchers/subgraph-overlay-fetcher.js';
 import {SubgraphPropertyDataFetcher} from '../fetchers/subgraph-property-data-fetcher.js';
 import {SubgraphSgkvFetcher} from '../fetchers/subgraph-sgkv-fetcher.js';
@@ -147,6 +149,15 @@ export class DbQueryServices implements QueryServices {
       dataSource.manager,
       editActionsQueryService,
     );
+    const nodeOverlayFetcher = new NodeOverlayFetcher(
+      dataSource.manager,
+      editActionsQueryService,
+    );
+    const subsystemOverlayFetcher = new SubsystemOverlayFetcher(
+      dataSource.manager,
+      editActionsQueryService,
+      nodeOverlayFetcher,
+    );
     const spfModuleParamDefinitionFetcher =
       new SpfModuleParameterDefinitionFetcher(
         dataSource.manager,
@@ -242,6 +253,9 @@ export class DbQueryServices implements QueryServices {
       sessionRepo,
       usecaseOverlayFetcher,
       linkOverlayFetcher,
+      subsystemOverlayFetcher,
+      spfModuleOverlayFetcher,
+      nodeOverlayFetcher,
     );
 
     // Individual link + subsystem query services
@@ -258,6 +272,7 @@ export class DbQueryServices implements QueryServices {
     this.subsystemQueryService = new DbSubsystemQueryService(
       dataSource,
       editActionsQueryService,
+      subsystemOverlayFetcher,
     );
 
     this.logQueryService = logQueryService;

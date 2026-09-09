@@ -25,6 +25,39 @@ export class NodeOverlayFetcher {
     private readonly editActionsSvc: EditActionsQueryService,
   ) {}
 
+  /**
+   * Fetches the complete effective node topology for a file.
+   * Session-created nodes are included only when their payload belongs to the
+   * requested file; this prevents a session overlay from crossing file scope.
+   */
+  async fetchAll(
+    fileSystemId: number,
+    sessionId: number | null,
+  ): Promise<NodeBase[]> {
+    const baseRows = (await this.manager
+      .getRepository<NodeRow>(ENTITY_NAMES.Node)
+      .createQueryBuilder('n')
+      .select(['n.systemId', 'n.parentId', 'n.type', 'n.fileSystemId'])
+      .where('n.fileSystemId = :fileSystemId', {fileSystemId})
+      .getMany()) as NodeBase[];
+
+    if (sessionId === null) return baseRows;
+
+    const actions = await this.editActionsSvc.getByTable(
+      sessionId,
+      ENTITY_NAMES.Node,
+    );
+    if (actions.length === 0) return baseRows;
+
+    return this.overlay
+      .applyToCollection(
+        baseRows,
+        actions,
+        value => Number(value.fileSystemId) === fileSystemId,
+      )
+      .map(result => result.effective);
+  }
+
   // ── Core entry point ─────────────────────────────────────────────────────────
 
   /**
