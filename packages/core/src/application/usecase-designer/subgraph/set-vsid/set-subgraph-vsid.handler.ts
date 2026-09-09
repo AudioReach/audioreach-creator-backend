@@ -3,68 +3,58 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {RESULT_KIND} from '../../../shared/result/result.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
-import {InvalidOperationException} from '../../../../shared/exceptions/invalid-operation.exception.js';
+import {InvalidInputException} from '../../../../shared/exceptions/invalid-input.exception.js';
 import {serializeParameterData} from '../../shared/serialize-elements.js';
-import type {ElementData as ElementCalData} from '../../../../domain/entities/definitions/common/types/element-data.js';
+import type {ElementData} from '../../../../domain/entities/definitions/common/types/element-data.js';
 import {BinaryDataReader} from '../../shared/utils/binary-data-reader.js';
 import {
   SUB_GRAPH_PROP_ID_VSID,
   SUB_GRAPH_PROP_ID_SCENARIO_ID,
   SUB_GRAPH_PROP_ID_SCENARIO_VALUE_VOICE_CALL,
-} from '../../../file-operations/shared/constants/spf-ids.js';
+} from '../../../../domain/entities/definitions/subgraph/subgraph-ids.js';
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
-import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
-import type {UpdateSubgraphVsidCommand} from './update-subgraph-vsid.command.js';
+import type {SetSubgraphVsidCommand} from './set-subgraph-vsid.command.js';
 import type {VsidUpdateDto} from '../dto/subgraph-write-result-types.js';
-import type {SubgraphWithProperties} from '../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
+import type {
+  SubgraphRepository,
+  SubgraphWithProperties,
+} from '../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
 
-export class UpdateSubgraphVsidHandler implements CommandHandler<
-  UpdateSubgraphVsidCommand,
+export class SetSubgraphVsidHandler implements CommandHandler<
+  SetSubgraphVsidCommand,
   VsidUpdateDto
 > {
-  constructor(
-    private readonly uow: UnitOfWork,
-    private readonly queryServices: QueryServices,
-  ) {}
+  constructor(private readonly uow: UnitOfWork) {}
 
-  async handle(command: UpdateSubgraphVsidCommand): Promise<VsidUpdateDto> {
+  async handle(command: SetSubgraphVsidCommand): Promise<VsidUpdateDto> {
     const {session, groupId} = this.uow.getWriteContext();
     const {fileSystemId} = session;
+    const subgraphRepository = this.uow.getSubgraphRepository();
 
-    const subgraph = await this.uow
-      .getSubgraphRepository()
-      .getSubgraphWithProperties(command.subgraphSystemId, fileSystemId);
+    const subgraph = await subgraphRepository.getAggregate(
+      command.subgraphSystemId,
+      fileSystemId,
+    );
     if (!subgraph) {
       throw new ResourceNotFoundException(
         `Subgraph ${command.subgraphSystemId} not found`,
       );
     }
 
-    const vsidDefsResult =
-      await this.queryServices.subgraphPropertyDefQueryService.getAllSubgraphPropertyDefinitionsSummary(
-        fileSystemId,
-        SUB_GRAPH_PROP_ID_VSID,
-      );
-    if (
-      vsidDefsResult.kind === RESULT_KIND.Fail ||
-      vsidDefsResult.data.length === 0
-    ) {
+    const definitions =
+      await subgraphRepository.getPropertyDefinitions(fileSystemId);
+    const vsidDef = definitions.find(
+      definition => definition.naturalId === SUB_GRAPH_PROP_ID_VSID,
+    );
+    if (!vsidDef) {
       throw new ResourceNotFoundException('VSID property definition not found');
     }
-    const vsidDef = vsidDefsResult.data[0];
 
-    const scenarioDefsResult =
-      await this.queryServices.subgraphPropertyDefQueryService.getAllSubgraphPropertyDefinitionsSummary(
-        fileSystemId,
-        SUB_GRAPH_PROP_ID_SCENARIO_ID,
-      );
-    const scenarioDef =
-      scenarioDefsResult.kind !== RESULT_KIND.Fail
-        ? scenarioDefsResult.data[0]
-        : undefined;
+    const scenarioDef = definitions.find(
+      definition => definition.naturalId === SUB_GRAPH_PROP_ID_SCENARIO_ID,
+    );
 
     const vsidProp = subgraph.properties.find(
       p => p.propertySystemId === vsidDef.systemId,
@@ -79,26 +69,15 @@ export class UpdateSubgraphVsidHandler implements CommandHandler<
       return {groupId, affectedSubgraphSystemIds: []};
     }
 
-    const vsidDefWithElements =
-      await this.queryServices.subgraphPropertyDefQueryService.getSubgraphPropertyDefinitionWithElements(
-        vsidDef.systemId,
-        fileSystemId,
-      );
-    if (vsidDefWithElements.kind === RESULT_KIND.Fail) {
-      throw new ResourceNotFoundException(
-        'VSID property definition (with elements) not found',
-      );
-    }
     const serialized = serializeParameterData(
       {
-        systemId: vsidDefWithElements.data.systemId,
-        isReadOnly: false,
-        elementsStructure: vsidDefWithElements.data.elementsStructure,
+        systemId: vsidDef.systemId,
+        elementsStructure: vsidDef.elementsStructure,
       },
-      command.elements as unknown as ElementCalData[],
+      command.elements as unknown as ElementData[],
     );
     if (!serialized.ok) {
-      throw new InvalidOperationException(serialized.error);
+      throw new InvalidInputException(serialized.error);
     }
 
     // BFS across usecases
@@ -109,15 +88,18 @@ export class UpdateSubgraphVsidHandler implements CommandHandler<
       scenarioDef?.systemId,
       requestedVsid,
       subgraph,
+      subgraphRepository,
     );
 
     await this.uow.startTransaction();
     try {
       await Promise.all(
         [...toWrite].map(sgId =>
-          this.uow
-            .getSubgraphRepository()
-            .setPropertyData(sgId, vsidDef.systemId, serialized.value),
+          subgraphRepository.setPropertyData(
+            sgId,
+            vsidDef.systemId,
+            serialized.value,
+          ),
         ),
       );
       await this.uow.commit();
@@ -136,17 +118,20 @@ export class UpdateSubgraphVsidHandler implements CommandHandler<
     scenarioDefSystemId: number | undefined,
     requestedVsid: number,
     startSubgraph: SubgraphWithProperties,
+    subgraphRepository: SubgraphRepository,
   ): Promise<Set<number>> {
     // Pass 1: BFS to collect all reachable IDs
-    const reachableIds = await this.bfsReachableIds(startId, fileSystemId);
+    const reachableIds = await this.bfsReachableIds(
+      startId,
+      fileSystemId,
+      subgraphRepository,
+    );
 
     // Pass 2: batch-fetch properties for linked subgraphs only (startId already fetched)
     const linkedIds = [...reachableIds].filter(id => id !== startId);
     const subgraphMap =
       linkedIds.length > 0
-        ? await this.uow
-            .getSubgraphRepository()
-            .getSubgraphsWithProperties(linkedIds, fileSystemId)
+        ? await subgraphRepository.getAggregates(linkedIds, fileSystemId)
         : new Map<number, SubgraphWithProperties>();
 
     // Seed the map with the already-fetched start subgraph
@@ -198,14 +183,17 @@ export class UpdateSubgraphVsidHandler implements CommandHandler<
   private async bfsReachableIds(
     startId: number,
     fileSystemId: number,
+    subgraphRepository: SubgraphRepository,
   ): Promise<Set<number>> {
     const visited = new Set<number>([startId]);
     let frontier = [startId];
 
     while (frontier.length > 0) {
-      const linked = await this.uow
-        .getSubgraphRepository()
-        .getSubgraphIdsInSameUsecasesForMany(frontier, fileSystemId);
+      const linked =
+        await subgraphRepository.getSubgraphIdsInSameUsecasesForMany(
+          frontier,
+          fileSystemId,
+        );
       frontier = linked.filter(id => !visited.has(id));
       for (const id of frontier) visited.add(id);
     }

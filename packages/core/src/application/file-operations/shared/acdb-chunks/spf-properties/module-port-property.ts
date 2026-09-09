@@ -13,7 +13,7 @@ import type {
 import {
   MODULE_PROP_ID_PORT_INFO,
   MODULE_PROP_ID_HEAP_ID,
-} from '../../constants/spf-ids.js';
+} from '../../../../../domain/entities/definitions/spf-ids.js';
 import {ModulePropertyConfigImpl} from './module-property-config-impl.js';
 
 /**

@@ -73,14 +73,14 @@ import {PatchSpfModuleCommand} from '../../../usecase-designer/spf-module/patch/
 import {PatchSpfModuleHandler} from '../../../usecase-designer/spf-module/patch/patch-spf-module.handler.js';
 import {CreateModuleCommand} from '../../../usecase-designer/spf-module/create-module/create-module.command.js';
 import {CreateModuleHandler} from '../../../usecase-designer/spf-module/create-module/create-module.handler.js';
-import {UpdateSubgraphScenarioCommand} from '../../../usecase-designer/subgraph/update-scenario/update-subgraph-scenario.command.js';
-import {UpdateSubgraphScenarioHandler} from '../../../usecase-designer/subgraph/update-scenario/update-subgraph-scenario.handler.js';
-import {UpdateSubgraphVsidCommand} from '../../../usecase-designer/subgraph/update-vsid/update-subgraph-vsid.command.js';
-import {UpdateSubgraphVsidHandler} from '../../../usecase-designer/subgraph/update-vsid/update-subgraph-vsid.handler.js';
-import {PatchSubgraphCommand} from '../../../usecase-designer/subgraph/patch/patch-subgraph.command.js';
-import {PatchSubgraphHandler} from '../../../usecase-designer/subgraph/patch/patch-subgraph.handler.js';
-import {UpdateSubgraphPropertyCommand} from '../../../usecase-designer/subgraph/update-property/update-subgraph-property.command.js';
-import {UpdateSubgraphPropertyHandler} from '../../../usecase-designer/subgraph/update-property/update-subgraph-property.handler.js';
+import {SetSubgraphScenarioCommand} from '../../../usecase-designer/subgraph/set-scenario/set-subgraph-scenario.command.js';
+import {SetSubgraphScenarioHandler} from '../../../usecase-designer/subgraph/set-scenario/set-subgraph-scenario.handler.js';
+import {SetSubgraphVsidCommand} from '../../../usecase-designer/subgraph/set-vsid/set-subgraph-vsid.command.js';
+import {SetSubgraphVsidHandler} from '../../../usecase-designer/subgraph/set-vsid/set-subgraph-vsid.handler.js';
+import {SetSubgraphCommand} from '../../../usecase-designer/subgraph/set/set-subgraph.command.js';
+import {SetSubgraphHandler} from '../../../usecase-designer/subgraph/set/set-subgraph.handler.js';
+import {SetSubgraphPropertyCommand} from '../../../usecase-designer/subgraph/set-property/set-subgraph-property.command.js';
+import {SetSubgraphPropertyHandler} from '../../../usecase-designer/subgraph/set-property/set-subgraph-property.handler.js';
 import {UpdateSubgraphContainerIdCommand} from '../../../usecase-designer/subgraph/update-container-id/update-subgraph-container-id.command.js';
 import {UpdateSubgraphContainerIdHandler} from '../../../usecase-designer/subgraph/update-container-id/update-subgraph-container-id.handler.js';
 import {CreateVcpmCkvCommand} from '../../../usecase-designer/subgraph/create-vcpm-ckv/create-vcpm-ckv.command.js';
@@ -234,23 +234,20 @@ export class CommandHandlerRegistry {
         ),
     });
 
-    this.commandHandlerFactories.set(UpdateSubgraphScenarioCommand, {
-      create: deps =>
-        new UpdateSubgraphScenarioHandler(deps.uow, deps.queryServices),
+    this.commandHandlerFactories.set(SetSubgraphScenarioCommand, {
+      create: deps => new SetSubgraphScenarioHandler(deps.uow),
     });
 
-    this.commandHandlerFactories.set(UpdateSubgraphVsidCommand, {
-      create: deps =>
-        new UpdateSubgraphVsidHandler(deps.uow, deps.queryServices),
+    this.commandHandlerFactories.set(SetSubgraphVsidCommand, {
+      create: deps => new SetSubgraphVsidHandler(deps.uow),
     });
 
-    this.commandHandlerFactories.set(PatchSubgraphCommand, {
-      create: deps => new PatchSubgraphHandler(deps.uow),
+    this.commandHandlerFactories.set(SetSubgraphCommand, {
+      create: deps => new SetSubgraphHandler(deps.uow),
     });
 
-    this.commandHandlerFactories.set(UpdateSubgraphPropertyCommand, {
-      create: deps =>
-        new UpdateSubgraphPropertyHandler(deps.uow, deps.queryServices),
+    this.commandHandlerFactories.set(SetSubgraphPropertyCommand, {
+      create: deps => new SetSubgraphPropertyHandler(deps.uow),
     });
 
     this.commandHandlerFactories.set(UpdateSubgraphContainerIdCommand, {

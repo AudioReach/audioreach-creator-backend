@@ -4,10 +4,8 @@
  */
 
 import {z} from 'zod';
-import {
-  ParameterElementDtoSchema,
-  ParameterElementSummaryDtoSchema,
-} from './element-dto.js';
+import {ParameterElementDtoSchema} from './element-dto.js';
+import {ParameterElementSummaryDtoSchema} from '../../shared/dto/parameter-element-summary.dto.js';
 
 export const ParameterDtoSchema = z.object({
   systemId: z.string().describe('System identifier'),

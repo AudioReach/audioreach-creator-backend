@@ -182,16 +182,13 @@ export interface ModuleRepository {
   ): Promise<SpfModuleBase[]>;
 
   /**
-   * Wipes all CKV/TKV/tag cal data for a module and resets zero-CKV payloads
-   * to their factory defaults. Returns a mutation log.
+   * Deletes CKV calibration data for a module.
+   *
+   * Zero-CKV creation/reset is business logic owned by core and is not part
+   * of this persistence operation.
    */
-  wipeCalData(
-    moduleSystemId: number,
-    fileSystemId: number,
-  ): Promise<WipeCalDataResult>;
-}
+  wipeAllCkvData(moduleSystemId: number, fileSystemId: number): Promise<void>;
 
-export interface WipeCalDataResult {
-  ckvsDeleted: number[];
-  zeroCkvsAdded: number[];
+  /** Deletes TKV/tag calibration data for a module. */
+  wipeAllTkvData(moduleSystemId: number, fileSystemId: number): Promise<void>;
 }

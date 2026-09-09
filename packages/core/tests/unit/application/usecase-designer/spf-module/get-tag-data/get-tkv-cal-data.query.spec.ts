@@ -4,7 +4,7 @@
  */
 import {describe, it, expect} from '@jest/globals';
 import {GetTkvCalibrationDataQuery} from '../../../../../../src/application/usecase-designer/spf-module/get-tag-data/get-tkv-cal-data.query.js';
-import {InvalidOperationException} from '../../../../../../src/shared/exceptions/invalid-operation.exception.js';
+import {InvalidInputException} from '../../../../../../src/shared/exceptions/invalid-input.exception.js';
 
 describe('GetTkvCalibrationDataQuery', () => {
   it('parses all decimal IDs correctly', () => {
@@ -40,15 +40,15 @@ describe('GetTkvCalibrationDataQuery', () => {
     expect(q.paramSystemIds).toEqual([]);
   });
 
-  it('throws InvalidOperationException for non-numeric tagSystemId', () => {
+  it('throws InvalidInputException for non-numeric tagSystemId', () => {
     expect(
       () => new GetTkvCalibrationDataQuery('1', '2', 'abc', '4', 'c'),
-    ).toThrow(InvalidOperationException);
+    ).toThrow(InvalidInputException);
   });
 
-  it('throws InvalidOperationException for non-numeric tkvSystemId', () => {
+  it('throws InvalidInputException for non-numeric tkvSystemId', () => {
     expect(
       () => new GetTkvCalibrationDataQuery('1', '2', '3', 'xyz', 'c'),
-    ).toThrow(InvalidOperationException);
+    ).toThrow(InvalidInputException);
   });
 });

@@ -6,6 +6,7 @@
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {
   ResourceNotFoundException,
+  InvalidInputException,
   InvalidOperationException,
 } from '../../../../shared/exceptions/index.js';
 import type {PutCkvCalDataCommand} from './put-ckv-cal-data.command.js';
@@ -123,7 +124,7 @@ export class PutCkvCalDataHandler {
       this.logger,
     );
     if (!serialized.ok) {
-      throw new InvalidOperationException(
+      throw new InvalidInputException(
         `Parameter ${param.systemId} serialization failed: ${serialized.error}`,
       );
     }
