@@ -5920,7 +5920,7 @@
       }
     },
     "/arc-api/v1/projects/{projectId}/subgraphs/{subgraphSystemId}/scenario": {
-      "patch": {
+      "put": {
         "description": "Triggers a 4–7 step cascade. Returns a mutation log of properties and module CKVs added/removed.",
         "operationId": "SubgraphController_setSubgraphScenario",
         "parameters": [
@@ -5957,7 +5957,7 @@
         },
         "responses": {
           "200": {
-            "description": "Scenario updated",
+            "description": "Scenario replaced",
             "content": {
               "application/json": {
                 "schema": {
@@ -5981,7 +5981,7 @@
             "description": "Subgraph not found"
           },
           "422": {
-            "description": "Failed to update scenario"
+            "description": "Failed to replace scenario"
           }
         },
         "summary": "Set scenario property for a subgraph (Audio/Voice)",
@@ -5991,7 +5991,7 @@
       }
     },
     "/arc-api/v1/projects/{projectId}/subgraphs/{subgraphSystemId}/vsid": {
-      "patch": {
+      "put": {
         "operationId": "SubgraphController_setSubgraphVsid",
         "parameters": [
           {
@@ -6027,7 +6027,7 @@
         },
         "responses": {
           "200": {
-            "description": "VSID updated",
+            "description": "VSID replaced",
             "content": {
               "application/json": {
                 "schema": {
@@ -6051,7 +6051,7 @@
             "description": "Subgraph not found"
           },
           "422": {
-            "description": "Failed to update VSID"
+            "description": "Failed to replace VSID"
           }
         },
         "summary": "Set VSID for a subgraph — propagates via BFS to all connected subgraphs",
@@ -6061,8 +6061,8 @@
       }
     },
     "/arc-api/v1/projects/{projectId}/subgraphs/{subgraphSystemId}": {
-      "patch": {
-        "operationId": "SubgraphController_patchSubgraph",
+      "put": {
+        "operationId": "SubgraphController_setSubgraph",
         "parameters": [
           {
             "name": "projectId",
@@ -6124,16 +6124,16 @@
             "description": "Subgraph not found"
           }
         },
-        "summary": "Patch a subgraph",
+        "summary": "Set subgraph properties",
         "tags": [
           "subgraphs"
         ]
       }
     },
     "/arc-api/v1/projects/{projectId}/subgraphs/{subgraphSystemId}/properties/{propSystemId}": {
-      "patch": {
-        "description": "Returns 400 if propSystemId maps to a reserved property (scenario, VSID, ASoC) — use the dedicated endpoint instead.",
-        "operationId": "SubgraphController_updateSubgraphProperty",
+      "put": {
+        "description": "Returns 400 if propSystemId maps to a reserved property (scenario, VSID, ASoC) — use the dedicated PUT endpoint instead.",
+        "operationId": "SubgraphController_putSubgraphProperty",
         "parameters": [
           {
             "name": "projectId",
@@ -6158,7 +6158,7 @@
             "name": "propSystemId",
             "required": true,
             "in": "path",
-            "description": "System id of the property to update",
+            "description": "System id of the property to replace",
             "schema": {
               "type": "string"
             }
@@ -6177,7 +6177,7 @@
         },
         "responses": {
           "200": {
-            "description": "Property updated",
+            "description": "Property replaced",
             "content": {
               "application/json": {
                 "schema": {
@@ -6204,10 +6204,10 @@
             "description": "Subgraph or property not found"
           },
           "422": {
-            "description": "Failed to update property"
+            "description": "Failed to replace property"
           }
         },
-        "summary": "Update a low-cascading subgraph property",
+        "summary": "Replace a low-cascading subgraph property",
         "tags": [
           "subgraphs"
         ]
@@ -7272,7 +7272,7 @@
       },
       "delete": {
         "description": "Deletes the specified subsystem. The subsystem must have no child components or nested subsystems.\n\nReturns the removed subsystem.",
-        "operationId": "SubsystemController_removeSubsystem",
+        "operationId": "SubsystemController_deleteSubsystem",
         "parameters": [
           {
             "name": "projectId",
@@ -7923,7 +7923,7 @@
     },
     "/arc-api/v1/projects/{projectId}/data-links/{dataLinkSystemId}": {
       "delete": {
-        "description": "Deletes a data link by systemId. Returns the deleted link snapshot for undo support.",
+        "description": "Accepts any data-link system ID: a canonical module-to-module DataLink or a SubsystemDataLink segment. The service resolves the ID type and returns only affected deleted entities.",
         "operationId": "DataLinkController_deleteDataLink",
         "parameters": [
           {
@@ -7940,7 +7940,7 @@
             "name": "dataLinkSystemId",
             "required": true,
             "in": "path",
-            "description": "System id of the data link to delete",
+            "description": "Any data-link system ID: either a canonical module-to-module DataLink or a SubsystemDataLink segment. The service detects the ID type automatically.",
             "schema": {
               "type": "string"
             }
@@ -7959,7 +7959,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/DataLinkResponseDto"
+                          "$ref": "#/components/schemas/DeleteDataLinkResponseDto"
                         }
                       }
                     }
@@ -8315,7 +8315,7 @@
     },
     "/arc-api/v1/projects/{projectId}/control-links/{controlLinkSystemId}": {
       "delete": {
-        "description": "Deletes a control link by systemId. Returns the deleted link snapshot for undo support.",
+        "description": "Accepts any control-link system ID: a canonical module-to-module ControlLink or a SubsystemControlLink segment. Returns deleted entities and affected subsystems with cleared port intents.",
         "operationId": "ControlLinkController_deleteControlLink",
         "parameters": [
           {
@@ -8332,7 +8332,7 @@
             "name": "controlLinkSystemId",
             "required": true,
             "in": "path",
-            "description": "System id of the control link to delete",
+            "description": "Any control-link system ID: either a canonical module-to-module ControlLink or a SubsystemControlLink segment. The service detects the ID type automatically.",
             "schema": {
               "type": "string"
             }
@@ -8351,7 +8351,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/ControlLinkResponseDto"
+                          "$ref": "#/components/schemas/DeleteControlLinkResponseDto"
                         }
                       }
                     }
@@ -11594,13 +11594,12 @@
                 },
                 "name": {
                   "type": "string",
-                  "description": "Port name"
+                  "description": "Port name",
+                  "nullable": true
                 },
                 "portIoType": {
                   "type": "string",
                   "enum": [
-                    "Input",
-                    "Output",
                     "InputOutput",
                     "OutputInput"
                   ],
@@ -11649,7 +11648,8 @@
                 },
                 "name": {
                   "type": "string",
-                  "description": "Component name"
+                  "description": "Component name",
+                  "nullable": true
                 },
                 "portType": {
                   "type": "string",
@@ -11835,15 +11835,14 @@
                       },
                       "name": {
                         "type": "string",
-                        "description": "Port name"
+                        "description": "Port name",
+                        "nullable": true
                       },
                       "portIoType": {
                         "type": "string",
                         "enum": [
                           "Input",
-                          "Output",
-                          "InputOutput",
-                          "OutputInput"
+                          "Output"
                         ],
                         "description": "Port IO type"
                       },
@@ -11890,7 +11889,8 @@
                       },
                       "name": {
                         "type": "string",
-                        "description": "Component name"
+                        "description": "Component name",
+                        "nullable": true
                       },
                       "portType": {
                         "type": "string",
@@ -12273,15 +12273,14 @@
                       },
                       "name": {
                         "type": "string",
-                        "description": "Port name"
+                        "description": "Port name",
+                        "nullable": true
                       },
                       "portIoType": {
                         "type": "string",
                         "enum": [
                           "Input",
-                          "Output",
-                          "InputOutput",
-                          "OutputInput"
+                          "Output"
                         ],
                         "description": "Port IO type"
                       },
@@ -12328,7 +12327,8 @@
                       },
                       "name": {
                         "type": "string",
-                        "description": "Component name"
+                        "description": "Component name",
+                        "nullable": true
                       },
                       "portType": {
                         "type": "string",
@@ -12705,16 +12705,21 @@
                             "description": "Port definition natural ID"
                           },
                           "name": {
-                            "type": "string",
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
                             "description": "Port name"
                           },
                           "portIoType": {
                             "type": "string",
                             "enum": [
                               "Input",
-                              "Output",
-                              "InputOutput",
-                              "OutputInput"
+                              "Output"
                             ],
                             "description": "Port IO type"
                           },
@@ -12760,7 +12765,14 @@
                             "description": "Control port definition natural ID"
                           },
                           "name": {
-                            "type": "string",
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
                             "description": "Component name"
                           },
                           "portType": {
@@ -13099,13 +13111,12 @@
                 },
                 "name": {
                   "type": "string",
-                  "description": "Port name"
+                  "description": "Port name",
+                  "nullable": true
                 },
                 "portIoType": {
                   "type": "string",
                   "enum": [
-                    "Input",
-                    "Output",
                     "InputOutput",
                     "OutputInput"
                   ],
@@ -13154,7 +13165,8 @@
                 },
                 "name": {
                   "type": "string",
-                  "description": "Component name"
+                  "description": "Component name",
+                  "nullable": true
                 },
                 "portType": {
                   "type": "string",
@@ -14805,15 +14817,14 @@
                 },
                 "name": {
                   "type": "string",
-                  "description": "Port name"
+                  "description": "Port name",
+                  "nullable": true
                 },
                 "portIoType": {
                   "type": "string",
                   "enum": [
                     "Input",
-                    "Output",
-                    "InputOutput",
-                    "OutputInput"
+                    "Output"
                   ],
                   "description": "Port IO type"
                 },
@@ -14860,7 +14871,8 @@
                 },
                 "name": {
                   "type": "string",
-                  "description": "Component name"
+                  "description": "Component name",
+                  "nullable": true
                 },
                 "portType": {
                   "type": "string",
@@ -16705,6 +16717,9 @@
       "UpdateScenarioResponseDto": {
         "type": "object",
         "properties": {
+          "groupId": {
+            "type": "string"
+          },
           "propertiesAdded": {
             "type": "array",
             "items": {
@@ -16791,6 +16806,7 @@
           }
         },
         "required": [
+          "groupId",
           "propertiesAdded",
           "propertiesRemoved",
           "moduleCkvsAdded",
@@ -16800,6 +16816,9 @@
       "UpdateVsidResponseDto": {
         "type": "object",
         "properties": {
+          "groupId": {
+            "type": "string"
+          },
           "affectedSubgraphSystemIds": {
             "type": "array",
             "items": {
@@ -16808,6 +16827,7 @@
           }
         },
         "required": [
+          "groupId",
           "affectedSubgraphSystemIds"
         ]
       },
@@ -17181,13 +17201,12 @@
                 },
                 "name": {
                   "type": "string",
-                  "description": "Port name"
+                  "description": "Port name",
+                  "nullable": true
                 },
                 "portIoType": {
                   "type": "string",
                   "enum": [
-                    "Input",
-                    "Output",
                     "InputOutput",
                     "OutputInput"
                   ],
@@ -17236,7 +17255,8 @@
                 },
                 "name": {
                   "type": "string",
-                  "description": "Component name"
+                  "description": "Component name",
+                  "nullable": true
                 },
                 "portType": {
                   "type": "string",
@@ -17310,8 +17330,9 @@
         "type": "object",
         "properties": {
           "name": {
-            "type": "string",
-            "description": "Subsystem name. Must be unique within the project. If not provided, a name will be auto-generated.",
+            "type": "object",
+            "description": "Subsystem name. Must be unique within the project. Null or blank uses an auto-generated name.",
+            "nullable": true,
             "maxLength": 255
           },
           "parentSystemId": {
@@ -17543,13 +17564,12 @@
                       },
                       "name": {
                         "type": "string",
-                        "description": "Port name"
+                        "description": "Port name",
+                        "nullable": true
                       },
                       "portIoType": {
                         "type": "string",
                         "enum": [
-                          "Input",
-                          "Output",
                           "InputOutput",
                           "OutputInput"
                         ],
@@ -17605,7 +17625,8 @@
                       },
                       "name": {
                         "type": "string",
-                        "description": "Component name"
+                        "description": "Component name",
+                        "nullable": true
                       },
                       "portType": {
                         "type": "string",
@@ -17714,8 +17735,9 @@
         "type": "object",
         "properties": {
           "name": {
-            "type": "string",
-            "description": "Subsystem name. Max 255 characters.",
+            "type": "object",
+            "description": "Subsystem name. Null or blank resets the auto-generated name. Max 255 characters.",
+            "nullable": true,
             "maxLength": 255
           },
           "inputDataPortCount": {
@@ -17785,7 +17807,6 @@
         "required": [
           "relatedEndPointLinks",
           "systemId",
-          "naturalId"
           "naturalId"
         ]
       },
@@ -18080,48 +18101,49 @@
           "linkType"
         ]
       },
-      "DataLinkResponseDto": {
+      "DeleteDataLinkResponseDto": {
         "type": "object",
         "properties": {
-          "relatedEndPointLinks": {
-            "description": "Related endpoint links",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/EndPointLink"
-            }
-          },
-          "systemId": {
-            "type": "string",
-            "description": "Data link system ID"
-          },
-          "sourceSystemId": {
-            "type": "string",
-            "description": "Source component system ID"
-          },
-          "sourcePortSystemId": {
-            "type": "string",
-            "description": "Source port system ID"
-          },
-          "destinationSystemId": {
-            "type": "string",
-            "description": "Destination component system ID"
-          },
-          "destinationPortSystemId": {
-            "type": "string",
-            "description": "Destination port system ID"
-          },
-          "linkType": {
-            "type": "string",
-            "description": "Topology classification of the link"
+          "deleted": {
+            "type": "object",
+            "properties": {
+              "dataLinks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "systemId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "systemId"
+                  ]
+                }
+              },
+              "subsystemDataLinks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "systemId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "systemId"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "dataLinks",
+              "subsystemDataLinks"
+            ]
           }
         },
         "required": [
-          "systemId",
-          "sourceSystemId",
-          "sourcePortSystemId",
-          "destinationSystemId",
-          "destinationPortSystemId",
-          "linkType"
+          "deleted"
         ]
       },
       "ControlLinkWithUsecasesResponseDto": {
@@ -18369,6 +18391,89 @@
           "destinationSystemId",
           "destinationPortSystemId",
           "linkType"
+        ]
+      },
+      "DeleteControlLinkResponseDto": {
+        "type": "object",
+        "properties": {
+          "deleted": {
+            "type": "object",
+            "properties": {
+              "controlLinks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "systemId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "systemId"
+                  ]
+                }
+              },
+              "subsystemControlLinks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "systemId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "systemId"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "controlLinks",
+              "subsystemControlLinks"
+            ]
+          },
+          "updated": {
+            "type": "object",
+            "properties": {
+              "subsystems": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "systemId": {
+                      "type": "string"
+                    },
+                    "intentsClearedControlPorts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "systemId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "systemId"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "systemId",
+                    "intentsClearedControlPorts"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "subsystems"
+            ]
+          }
+        },
+        "required": [
+          "deleted",
+          "updated"
         ]
       },
       "SubgraphLinksResponseDto": {

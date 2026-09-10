@@ -6,21 +6,16 @@
 import type {EntityManager} from 'typeorm';
 import type {
   ControlLinkRepository,
+  ControlLinkTopology,
   UnitOfWork,
   SessionChanged,
   EditOptions,
 } from '@arc/core';
-import {
-  ControlLink,
-  CONTROL_LINK_TYPE,
-  NodeType,
-  SubsystemControlLink,
-} from '@arc/core';
+import {ControlLink, CONTROL_LINK_TYPE, SubsystemControlLink} from '@arc/core';
 import type {ControlLinkBase} from '../../entity-schema/usecase-data/Links/control-link.js';
 import type {EffectiveSubsystemControlLinkRow} from '../../fetchers/link-overlay-fetcher.js';
 import {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
-import {NodeOverlayFetcher} from '../../fetchers/node-overlay-fetcher.js';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 
@@ -61,7 +56,6 @@ function baseToControlLink(
 
 export class TypeOrmControlLinkRepository implements ControlLinkRepository {
   private readonly linkFetcher: LinkOverlayFetcher;
-  private readonly nodeFetcher: NodeOverlayFetcher;
   private readonly writer: PendingChangeWriter;
   private readonly manager: EntityManager;
   private readonly uow: UnitOfWork;
@@ -76,7 +70,6 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
     this.uow = uow;
     const editActions = new EditActionsQueryService(this.manager);
     this.linkFetcher = new LinkOverlayFetcher(this.manager, editActions);
-    this.nodeFetcher = new NodeOverlayFetcher(this.manager, editActions);
   }
 
   private getWriter(): PendingChangeWriter {
@@ -105,9 +98,10 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
     );
     const segmentsByLink = new Map<number, SubsystemControlLink[]>();
     for (const segment of segments) {
-      const list = segmentsByLink.get(segment.controlLinkSystemId ?? 0) ?? [];
+      if (segment.controlLinkSystemId === null) continue;
+      const list = segmentsByLink.get(segment.controlLinkSystemId) ?? [];
       list.push(baseToSubsystemControlLink(segment));
-      segmentsByLink.set(segment.controlLinkSystemId ?? 0, list);
+      segmentsByLink.set(segment.controlLinkSystemId, list);
     }
     return rows.map(row =>
       baseToControlLink(row, segmentsByLink.get(row.systemId) ?? []),
@@ -158,30 +152,30 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
       .map(row => baseToSubsystemControlLink(row));
   }
 
-  async findSubsystemControlRouteContext(fileSystemId: number): Promise<{
-    subsystemControlLinks: SubsystemControlLink[];
-    nodeTypeBySystemId: ReadonlyMap<number, NodeType>;
-  }> {
+  async findAllLinks(fileSystemId: number): Promise<ControlLinkTopology> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
-    const rows = await this.linkFetcher.loadSubsystemControlLinkRows(
-      fileSystemId,
-      sessionId,
-    );
-    const nodeIds = [
-      ...new Set(
-        rows.flatMap(row => [row.peerNodeASystemId, row.peerNodeBSystemId]),
-      ),
-    ];
-    const nodes = await this.nodeFetcher.fetchMany(
-      nodeIds,
-      fileSystemId,
-      sessionId,
-    );
+    const [rows, controlLinkRows] = await Promise.all([
+      this.linkFetcher.loadSubsystemControlLinkRows(fileSystemId, sessionId),
+      this.linkFetcher.loadControlLinkRows(fileSystemId, sessionId),
+    ]);
+    const segmentsByLinkId = new Map<number, SubsystemControlLink[]>();
+    const unresolvedSubsystemControlLinks: SubsystemControlLink[] = [];
+    for (const row of rows) {
+      const segment = baseToSubsystemControlLink(row);
+      if (segment.controlLinkSystemId === null) {
+        unresolvedSubsystemControlLinks.push(segment);
+        continue;
+      }
+      const segments = segmentsByLinkId.get(segment.controlLinkSystemId) ?? [];
+      segments.push(segment);
+      segmentsByLinkId.set(segment.controlLinkSystemId, segments);
+    }
+
     return {
-      subsystemControlLinks: rows.map(row => baseToSubsystemControlLink(row)),
-      nodeTypeBySystemId: new Map(
-        nodes.map(node => [node.systemId, node.type]),
+      controlLinks: controlLinkRows.map(row =>
+        baseToControlLink(row, segmentsByLinkId.get(row.systemId) ?? []),
       ),
+      unresolvedSubsystemControlLinks,
     };
   }
 
@@ -190,14 +184,14 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
     fileSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const {session, groupId} = this.uow.getWriteContext();
+    const sessionId = session.sessionId;
     const resolvedSegments =
       await this.linkFetcher.loadSubsystemControlLinkRows(
         fileSystemId,
         sessionId,
         {controlLinkSystemId},
       );
-    const {session, groupId} = this.uow.getWriteContext();
     await this.getWriter().writeDelete(
       {
         targetTable: ENTITY_NAMES.ControlLink,
@@ -205,7 +199,7 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
         aggregateId: controlLinkSystemId,
         ...options,
       },
-      session.sessionId,
+      sessionId,
       groupId,
       this.manager,
     );
@@ -217,118 +211,67 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
           aggregateId: controlLinkSystemId,
           ...options,
         },
-        session.sessionId,
+        sessionId,
         groupId,
         this.manager,
       );
     }
   }
 
-  async deleteSubsystemControlLinks(
-    subsystemLinkSystemIds: number[],
+  async createAggregate(
+    controlLink: ControlLink,
     fileSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    if (subsystemLinkSystemIds.length === 0) return;
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-
-    // 1. Load the requested segments in their effective session state.
-    const targets = await this.linkFetcher.loadSubsystemControlLinkRows(
-      fileSystemId,
-      sessionId,
-      {systemId: subsystemLinkSystemIds},
-    );
-    const targetIds = new Set(targets.map(target => target.systemId));
-
-    // 2. Collect unique canonical links; null means the segment is unresolved.
-    const resolvedControlLinkSystemIds = [
-      ...new Set(
-        targets.flatMap(target =>
-          target.controlLinkSystemId === null
-            ? []
-            : [target.controlLinkSystemId],
-        ),
-      ),
-    ];
-
-    // 3. Find all segments sharing the canonical links.
-    const siblings =
-      resolvedControlLinkSystemIds.length === 0
-        ? []
-        : await this.linkFetcher.loadSubsystemControlLinkRows(
-            fileSystemId,
-            sessionId,
-            {controlLinkSystemId: resolvedControlLinkSystemIds},
-          );
     const {session, groupId} = this.uow.getWriteContext();
-    const writer = this.getWriter();
-
-    // 4. Delete the requested subsystem segments.
-    for (const target of targets) {
-      await writer.writeDelete(
-        {
-          targetTable: ENTITY_NAMES.SubsystemControlLink,
-          targetSystemId: target.systemId,
-          aggregateId: target.systemId,
-          ...options,
+    await this.getWriter().writeCreate(
+      {
+        targetTable: ENTITY_NAMES.ControlLink,
+        targetSystemId: controlLink.systemId,
+        aggregateId: controlLink.systemId,
+        payload: {
+          fileSystemId,
+          peerNodeASystemId: controlLink.peerNodeASystemId,
+          peerNodeBSystemId: controlLink.peerNodeBSystemId,
+          nodeAPortSystemId: controlLink.nodeAPortSystemId,
+          nodeBPortSystemId: controlLink.nodeBPortSystemId,
+          heapId: controlLink.heapId,
+          linkType: controlLink.linkType,
+          sourceSubgraphSystemId: controlLink.sourceSubgraphSystemId,
+          destSubgraphSystemId: controlLink.destSubgraphSystemId,
         },
-        session.sessionId,
-        groupId,
-        this.manager,
-      );
-    }
-
-    // 5. Delete each referenced canonical control link once.
-    for (const controlLinkSystemId of resolvedControlLinkSystemIds) {
-      await writer.writeDelete(
-        {
-          targetTable: ENTITY_NAMES.ControlLink,
-          targetSystemId: controlLinkSystemId,
-          aggregateId: controlLinkSystemId,
-          ...options,
-        },
-        session.sessionId,
-        groupId,
-        this.manager,
-      );
-    }
-
-    // 6. Detach non-target siblings for later unresolved-link resolution.
-    for (const sibling of siblings) {
-      if (targetIds.has(sibling.systemId)) continue;
-      await writer.writeDelta(
-        {
-          targetTable: ENTITY_NAMES.SubsystemControlLink,
-          targetSystemId: sibling.systemId,
-          aggregateId: sibling.systemId,
-          delta: {controlLinkSystemId: null},
-          ...options,
-        },
-        session.sessionId,
-        groupId,
-        this.manager,
-      );
-    }
+        ...options,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
   }
 
   async getLinksByPortSystemIds(
     portSystemIds: number[],
     fileSystemId: number,
   ): Promise<{linkSystemId: number; portSystemId: number}[]> {
+    if (portSystemIds.length === 0) return [];
+
     const sessionId = this.uow.getWriteContext().session.sessionId;
-    const links = await this.linkFetcher.loadControlLinkRows(
-      fileSystemId,
-      sessionId,
-      {
-        $or: [
-          {nodeAPortSystemId: portSystemIds},
-          {nodeBPortSystemId: portSystemIds},
-        ],
-      },
-    );
+    const filters = {
+      $or: [
+        {nodeAPortSystemId: portSystemIds},
+        {nodeBPortSystemId: portSystemIds},
+      ],
+    };
+    const [links, subsystemLinks] = await Promise.all([
+      this.linkFetcher.loadControlLinkRows(fileSystemId, sessionId, filters),
+      this.linkFetcher.loadSubsystemControlLinkRows(
+        fileSystemId,
+        sessionId,
+        filters,
+      ),
+    ]);
     const portSet = new Set(portSystemIds);
     const entries: {linkSystemId: number; portSystemId: number}[] = [];
-    for (const link of links) {
+    for (const link of [...links, ...subsystemLinks]) {
       if (portSet.has(link.nodeAPortSystemId))
         entries.push({
           linkSystemId: link.systemId,
@@ -378,6 +321,121 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
       {linkType: CONTROL_LINK_TYPE.Normal},
     );
     return rows.map(row => baseToControlLink(row));
+  }
+
+  async createSubsystemControlLinks(
+    subsystemControlLinks: readonly SubsystemControlLink[],
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    for (const segment of subsystemControlLinks) {
+      await this.writer.writeCreate(
+        {
+          targetTable: ENTITY_NAMES.SubsystemControlLink,
+          targetSystemId: segment.systemId,
+          aggregateId: segment.controlLinkSystemId ?? segment.systemId,
+          payload: {
+            peerNodeASystemId: segment.peerNodeASystemId,
+            peerNodeBSystemId: segment.peerNodeBSystemId,
+            nodeAPortSystemId: segment.nodeAPortSystemId,
+            nodeBPortSystemId: segment.nodeBPortSystemId,
+            controlLinkSystemId: segment.controlLinkSystemId,
+            fileSystemId,
+          },
+          ...options,
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+  }
+
+  async deleteSubsystemControlLinks(
+    subsystemControlLinks: readonly SubsystemControlLink[],
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void> {
+    if (subsystemControlLinks.length === 0) return;
+
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const requestedIds = [
+      ...new Set(subsystemControlLinks.map(segment => segment.systemId)),
+    ];
+    const effectiveSegments =
+      await this.linkFetcher.loadSubsystemControlLinkRows(
+        fileSystemId,
+        sessionId,
+        {systemId: requestedIds},
+      );
+    if (effectiveSegments.length === 0) return;
+
+    const {session, groupId} = this.uow.getWriteContext();
+    for (const segment of effectiveSegments) {
+      await this.writer.writeDelete(
+        {
+          targetTable: ENTITY_NAMES.SubsystemControlLink,
+          targetSystemId: segment.systemId,
+          aggregateId: segment.controlLinkSystemId ?? segment.systemId,
+          ...options,
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+
+    const canonicalIds = [
+      ...new Set(
+        effectiveSegments
+          .map(segment => segment.controlLinkSystemId)
+          .filter((systemId): systemId is number => systemId !== null),
+      ),
+    ];
+    if (canonicalIds.length === 0) return;
+
+    const canonicalLinks = await this.linkFetcher.loadControlLinkRows(
+      fileSystemId,
+      sessionId,
+      {systemId: canonicalIds},
+    );
+    for (const canonical of canonicalLinks) {
+      const remainingSegments =
+        await this.linkFetcher.loadSubsystemControlLinkRows(
+          fileSystemId,
+          sessionId,
+          {controlLinkSystemId: canonical.systemId},
+        );
+      if (remainingSegments.length > 0) {
+        await this.detachRemainingSubsystemControlLinks(
+          remainingSegments.map(segment => baseToSubsystemControlLink(segment)),
+          options,
+        );
+      }
+      await this.deleteAggregate(canonical.systemId, fileSystemId, options);
+    }
+  }
+
+  private async detachRemainingSubsystemControlLinks(
+    subsystemControlLinks: readonly SubsystemControlLink[],
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    for (const segment of subsystemControlLinks) {
+      await this.writer.writeDelta(
+        {
+          targetTable: ENTITY_NAMES.SubsystemControlLink,
+          targetSystemId: segment.systemId,
+          aggregateId: segment.controlLinkSystemId ?? segment.systemId,
+          delta: {controlLinkSystemId: null},
+          ...options,
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
   }
 
   async findChangedInSession(

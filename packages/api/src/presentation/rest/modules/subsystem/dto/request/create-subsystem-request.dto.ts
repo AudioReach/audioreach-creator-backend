@@ -4,7 +4,7 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {IsOptional, IsString} from 'class-validator';
+import {IsOptional, IsString, MaxLength} from 'class-validator';
 
 /**
  * Request DTO for creating an empty subsystem.
@@ -12,13 +12,15 @@ import {IsOptional, IsString} from 'class-validator';
 export class CreateSubsystemRequestDto {
   @ApiProperty({
     description:
-      'Subsystem name. Must be unique within the project. If not provided, a name will be auto-generated.',
+      'Subsystem name. Must be unique within the project. Null or blank uses an auto-generated name.',
     required: false,
+    nullable: true,
     maxLength: 255,
   })
   @IsOptional()
   @IsString()
-  name?: string;
+  @MaxLength(255)
+  name?: string | null;
 
   @ApiProperty({
     description:

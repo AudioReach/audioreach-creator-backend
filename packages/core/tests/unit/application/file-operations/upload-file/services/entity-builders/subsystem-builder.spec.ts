@@ -114,7 +114,7 @@ describe('SubsystemBuilder', () => {
     };
     const {subsystems} = await builder.build(meta.subsystems, 100, [], []);
     expect(subsystems).toHaveLength(1);
-    expect(subsystems[0].parentSystemId).toBeUndefined();
+    expect(subsystems[0].parentSystemId).toBeNull();
     expect(subsystems[0].name).toBe('StreamRx');
     expect(subsystems[0].naturalId).toBe(0xf0100001);
   });

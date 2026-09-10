@@ -21,11 +21,12 @@ const subsystems = [
 ];
 
 function createController() {
+  const commandBus = {execute: jest.fn()};
   const queryBus = {
     execute: jest.fn().mockResolvedValue(Result.ok(subsystems)),
   };
   return {
-    controller: new SubsystemController(queryBus as never),
+    controller: new SubsystemController(commandBus as never, queryBus as never),
     queryBus,
   };
 }

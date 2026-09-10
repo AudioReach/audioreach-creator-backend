@@ -9,6 +9,10 @@ import {
   mapDataPort,
   mapControlPort,
 } from '../../spf-module/query/spf-module-dto.js';
+import {
+  SubsystemDataPortDtoSchema,
+  mapSubsystemDataPort,
+} from '../../subsystem/dto/subsystem-dto.js';
 import type {ComponentsReadModel} from '../../../ports/persistence/query-services/usecase/query-models/components-read-model.js';
 import type {SpfModuleReadModel} from '../../../ports/persistence/query-services/spf-module/spf-module-read-model.js';
 import type {DataLinkReadModel} from '../../../ports/persistence/query-services/link/data-link-read-model.js';
@@ -85,7 +89,7 @@ export type SubsystemComponentsDto = {
   systemId: string;
   naturalId: number;
   name: string;
-  dataPorts: z.infer<typeof SpfModuleDtoSchema>['dataPorts'];
+  dataPorts: z.infer<typeof SubsystemDataPortDtoSchema>[];
   controlPorts: z.infer<typeof SpfModuleDtoSchema>['controlPorts'];
   filteredKeys: z.infer<typeof FilteredKeyDtoSchema>[];
   children: ComponentCollectionWithSubsystemsDto;
@@ -101,9 +105,9 @@ export const SubsystemComponentsDtoSchema: z.ZodType<SubsystemComponentsDto> =
       systemId: z.string().describe('Subsystem system ID'),
       naturalId: z.number().int().describe('Subsystem natural ID'),
       name: z.string().describe('Subsystem name'),
-      dataPorts: SpfModuleDtoSchema.shape.dataPorts.describe(
-        'Subsystem data ports',
-      ),
+      dataPorts: z
+        .array(SubsystemDataPortDtoSchema)
+        .describe('Subsystem data ports'),
       controlPorts: SpfModuleDtoSchema.shape.controlPorts.describe(
         'Subsystem control ports',
       ),
@@ -187,7 +191,7 @@ function mapSubsystemNode(sub: SubsystemNodeReadModel): SubsystemComponentsDto {
     systemId: String(sub.systemId),
     naturalId: sub.naturalId,
     name: sub.name,
-    dataPorts: sub.dataPorts.map(port => mapDataPort(port)),
+    dataPorts: sub.dataPorts.map(port => mapSubsystemDataPort(port)),
     controlPorts: sub.controlPorts.map(port => mapControlPort(port)),
     filteredKeys: sub.filteredKeys.map(k => ({
       systemId: String(k.systemId),

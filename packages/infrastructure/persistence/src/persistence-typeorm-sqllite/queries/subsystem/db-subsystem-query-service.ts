@@ -24,6 +24,8 @@ import type {ControlLinkBase} from '../../entity-schema/usecase-data/Links/contr
 import type {DataLinkBase} from '../../entity-schema/usecase-data/Links/data-link.js';
 import type {UsecaseOverlayFetcher} from '../../fetchers/usecase-overlay-fetcher.js';
 import type {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
+import {NODE_TYPE} from '../../entity-schema/usecase-data/node/node.schema.js';
+import type {KeyValueDefinitionFetcher} from '../../fetchers/definitions/key-value/key-value-definition-fetcher.js';
 
 /**
  * Database implementation of SubsystemQueryService.
@@ -36,9 +38,10 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
     private readonly dataSource: DataSource,
     private readonly subsystemFetcher: SubsystemOverlayFetcher,
     private readonly nodeFetcher: NodeOverlayFetcher,
-    private readonly portFetcher: PortOverlayFetcher,
     private readonly usecaseFetcher: UsecaseOverlayFetcher,
     private readonly linkFetcher: LinkOverlayFetcher,
+    private readonly portFetcher: PortOverlayFetcher,
+    private readonly keyValueDefinitionFetcher: KeyValueDefinitionFetcher,
   ) {}
 
   async findAll(
@@ -76,11 +79,7 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
 
       const [nodes, dataPorts, controlPorts, dataSegments, controlSegments] =
         await Promise.all([
-          this.nodeFetcher.fetchMany(
-            subsystemSystemIds,
-            fileSystemId,
-            sessionId,
-          ),
+          this.nodeFetcher.fetchAll(fileSystemId, sessionId),
           this.portFetcher.fetchDataPortsForNodes(
             subsystemSystemIds,
             fileSystemId,
@@ -99,6 +98,38 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
         ]);
 
       const nodeBySystemId = new Map(nodes.map(node => [node.systemId, node]));
+      const childIdsByParent = new Map<
+        number,
+        {moduleSystemIds: number[]; subsystemSystemIds: number[]}
+      >();
+      for (const node of nodes) {
+        if (node.parentSystemId === null) continue;
+        const childIds = childIdsByParent.get(node.parentSystemId) ?? {
+          moduleSystemIds: [],
+          subsystemSystemIds: [],
+        };
+        if (node.type === NODE_TYPE.Module) {
+          childIds.moduleSystemIds.push(node.systemId);
+        } else if (node.type === NODE_TYPE.Subsystem) {
+          childIds.subsystemSystemIds.push(node.systemId);
+        }
+        childIdsByParent.set(node.parentSystemId, childIds);
+      }
+      const filteredKeySystemIds = [
+        ...new Set(
+          selectedSubsystems.flatMap(
+            subsystem => subsystem.filteredKeySystemIds,
+          ),
+        ),
+      ];
+      const filteredKeys = await this.keyValueDefinitionFetcher.fetchMany(
+        filteredKeySystemIds,
+        fileSystemId,
+        sessionId,
+      );
+      const filteredKeyBySystemId = new Map(
+        filteredKeys.map(key => [key.systemId, key]),
+      );
       const dataPortsByNode = this.groupPortsByNode(dataPorts);
       const controlPortsByNode = this.groupPortsByNode(controlPorts);
       const dataLinkCounts = this.countPortReferences(
@@ -131,9 +162,13 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
 
           return {
             systemId: subsystem.systemId,
-            subsystemNaturalId: naturalId,
+            naturalId,
             name: subsystem.name,
             parentSystemId: node.parentSystemId,
+            ...(childIdsByParent.get(subsystem.systemId) ?? {
+              moduleSystemIds: [],
+              subsystemSystemIds: [],
+            }),
             dataPorts: (dataPortsByNode.get(subsystem.systemId) ?? []).map(
               port => ({
                 systemId: port.systemId,
@@ -158,8 +193,21 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
               })),
               totalLinksAtPort: controlLinkCounts.get(port.systemId) ?? 0,
             })),
-            filteredKeys: [],
-            filteredKeySystemIds: subsystem.filteredKeySystemIds,
+            filteredKeys: subsystem.filteredKeySystemIds.flatMap(systemId => {
+              const key = filteredKeyBySystemId.get(systemId);
+              return key === undefined
+                ? []
+                : [
+                    {
+                      systemId: key.systemId,
+                      naturalId: key.naturalId,
+                      name: key.name,
+                      ...(key.description === undefined
+                        ? {}
+                        : {description: key.description}),
+                    },
+                  ];
+            }),
           };
         }),
       );

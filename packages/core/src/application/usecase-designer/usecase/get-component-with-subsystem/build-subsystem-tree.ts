@@ -12,7 +12,7 @@ import type {SubsystemDataLinkReadModel} from '../../../ports/persistence/query-
  * Builds a recursive subsystem tree from flat loaded data.
  *
  * Every level (root and each SubsystemNodeReadModel.children) holds:
- *   modules[]      — modules whose parentId = this level's nodeSystemId
+ *   modules[]      — modules whose parentSystemId = this level's nodeSystemId
  *                    (or undefined for the top level)
  *   dataLinks[]    — links where both endpoint modules are direct children of this level
  *   controlLinks[] — same
@@ -33,7 +33,7 @@ export function buildSubsystemTree(
 
   // Build lookup maps for in-memory traversal
   const subsystemById = new Map(subsystems.map(s => [s.systemId, s]));
-  const childrenOf = new Map<number | undefined, number[]>(); // parentId → child subsystem IDs
+  const childrenOf = new Map<number | null, number[]>(); // parentSystemId → child subsystem IDs
 
   for (const sub of subsystems) {
     const key = sub.parentSystemId;
@@ -55,15 +55,17 @@ export function buildSubsystemTree(
     );
   };
 
-  // Build one level of the tree (top level: parentId = undefined)
+  // Build one level of the tree (top level: parentSystemId = null)
   const buildLevel = (
-    parentId?: number,
+    parentSystemId: number | null = null,
     visited = new Set<number>(),
   ): ComponentsWithSubsystemsReadModel => {
-    const levelModules = modules.filter(m => m.parentSystemId === parentId);
+    const levelModules = modules.filter(
+      m => (m.parentSystemId ?? null) === parentSystemId,
+    );
 
     // Child subsystems of this level — pruned to those with in-scope descendants
-    const directChildIds = (childrenOf.get(parentId) ?? []).filter(id =>
+    const directChildIds = (childrenOf.get(parentSystemId) ?? []).filter(id =>
       hasInScopeDescendant(id),
     );
 
@@ -75,7 +77,7 @@ export function buildSubsystemTree(
     const levelNodeIds = new Set<number>([
       ...levelModules.map(m => m.systemId),
       ...directChildIds,
-      ...(parentId !== undefined ? [parentId] : []),
+      ...(parentSystemId !== null ? [parentSystemId] : []),
     ]);
 
     // Place a virtual segment at this level only when both peerNode endpoints are in levelNodeIds.
@@ -102,15 +104,12 @@ export function buildSubsystemTree(
       if (visited.has(id)) return []; // skip cycles
       const sub = subsystemById.get(id);
       if (!sub) return []; // skip orphaned IDs
-      if (sub.subsystemNaturalId === undefined) {
-        throw new Error(`Subsystem ${sub.systemId} is missing its natural ID`);
-      }
       const nextVisited = new Set(visited);
       nextVisited.add(id);
       return [
         {
           systemId: sub.systemId,
-          naturalId: sub.subsystemNaturalId,
+          naturalId: sub.naturalId,
           name: sub.name,
           dataPorts: sub.dataPorts,
           controlPorts: sub.controlPorts,

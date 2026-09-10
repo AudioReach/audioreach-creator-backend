@@ -49,6 +49,8 @@ import {UseCaseCategoryFetcher} from '../fetchers/usecase-category-fetcher.js';
 import {UsecaseGkvValuesFetcher} from '../fetchers/usecase-gkv-values-fetcher.js';
 import {UsecaseOverlayFetcher} from '../fetchers/usecase-overlay-fetcher.js';
 import {LinkOverlayFetcher} from '../fetchers/link-overlay-fetcher.js';
+import {PortOverlayFetcher} from '../fetchers/port-overlay-fetcher.js';
+import {IntentFetcher} from '../fetchers/intent-fetcher.js';
 import {SubgraphOverlayFetcher} from '../fetchers/subgraph-overlay-fetcher.js';
 import {SubgraphPropertyDataFetcher} from '../fetchers/subgraph-property-data-fetcher.js';
 import {SubgraphSgkvFetcher} from '../fetchers/subgraph-sgkv-fetcher.js';
@@ -64,8 +66,8 @@ import {VcpmParameterPayloadFetcher} from '../fetchers/vcpm-parameter-payload-fe
 import {VcpmModuleParameterDefinitionFetcher} from '../fetchers/definitions/vcpm-module-definitions/vcpm-module-parameter-definition-fetcher.js';
 import {SubsystemOverlayFetcher} from '../fetchers/subsystem-overlay-fetcher.js';
 import {NodeOverlayFetcher} from '../fetchers/node-overlay-fetcher.js';
-import {PortOverlayFetcher} from '../fetchers/port-overlay-fetcher.js';
-import {IntentFetcher} from '../fetchers/intent-fetcher.js';
+import {KeyValueDefinitionFetcher} from '../fetchers/definitions/key-value/key-value-definition-fetcher.js';
+import {ValueDefinitionFetcher} from '../fetchers/definitions/key-value/value-definition-fetcher.js';
 
 class DbModuleQueryService implements ModuleQueryService {}
 
@@ -136,6 +138,11 @@ export class DbQueryServices implements QueryServices {
     const subsystemOverlayFetcher = new SubsystemOverlayFetcher(
       dataSource.manager,
       editActionsQueryService,
+    );
+    const keyValueDefinitionFetcher = new KeyValueDefinitionFetcher(
+      dataSource.manager,
+      editActionsQueryService,
+      new ValueDefinitionFetcher(dataSource.manager, editActionsQueryService),
     );
     const nodeOverlayFetcher = new NodeOverlayFetcher(
       dataSource.manager,
@@ -298,9 +305,10 @@ export class DbQueryServices implements QueryServices {
       dataSource,
       subsystemOverlayFetcher,
       nodeOverlayFetcher,
-      portOverlayFetcher,
       usecaseOverlayFetcher,
       linkOverlayFetcher,
+      portOverlayFetcher,
+      keyValueDefinitionFetcher,
     );
 
     this.logQueryService = logQueryService;

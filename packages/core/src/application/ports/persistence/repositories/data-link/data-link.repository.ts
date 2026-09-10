@@ -6,14 +6,13 @@
 import type {DataLink} from '../../../../../domain/entities/usecase-data/links/data-link.js';
 import type {SubsystemDataLink} from '../../../../../domain/entities/usecase-data/links/subsystem-data-link.js';
 import type {PortIoType} from '../../../../../domain/entities/common/enums/port-io-type.js';
-import type {NodeType} from '../../../../../domain/entities/usecase-data/node/node.js';
 import type {EditOptions} from '../../edit-options.js';
 import type {LinksForPair, SubgraphPair} from '../shared/links-for-pair.js';
 import type {SessionChanged} from '../shared/session-changed.js';
 
-export interface SubsystemDataRouteContext {
-  subsystemDataLinks: SubsystemDataLink[];
-  nodeTypeBySystemId: ReadonlyMap<number, NodeType>;
+export interface DataLinkTopology {
+  dataLinks: DataLink[];
+  unresolvedSubsystemDataLinks: SubsystemDataLink[];
 }
 
 export interface BoundaryPortPayload {
@@ -36,9 +35,7 @@ export interface DataLinkRepository {
     fileSystemId: number,
   ): Promise<SubsystemDataLink[]>;
 
-  findSubsystemDataRouteContext(
-    fileSystemId: number,
-  ): Promise<SubsystemDataRouteContext>;
+  findAllLinks(fileSystemId: number): Promise<DataLinkTopology>;
 
   /**
    * Deletes the canonical link and every currently resolved subsystem segment
@@ -51,19 +48,8 @@ export interface DataLinkRepository {
   ): Promise<void>;
 
   /**
-   * Deletes the specified subsystem segments. An unresolved segment is deleted
-   * directly. For a resolved segment, the canonical DataLink is deleted and
-   * non-target sibling segments are updated to have a null DataLink FK in the
-   * edit-action overlay so chain resolution can process them later.
-   */
-  deleteSubsystemDataLinks(
-    subsystemLinkSystemIds: number[],
-    fileSystemId: number,
-    options?: EditOptions,
-  ): Promise<void>;
-
-  /**
-   * Returns all data links whose src or dst port is in portSystemIds.
+   * Returns canonical data links and subsystem segments whose src or dst port
+   * is in portSystemIds. linkSystemId identifies the matching link or segment.
    * Empty input short-circuits — returns [] without querying the DB.
    */
   getLinksByPortSystemIds(
@@ -102,6 +88,23 @@ export interface DataLinkRepository {
    * Empty file → [].
    */
   findIntraUcLinksByFile(fileSystemId: number): Promise<DataLink[]>;
+
+  createSubsystemDataLinks(
+    subsystemDataLinks: readonly SubsystemDataLink[],
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
+
+  /**
+   * Deletes the specified effective subsystem segments. When a deleted segment
+   * belongs to an existing canonical DataLink, the canonical link is deleted
+   * and surviving segments are detached from it.
+   */
+  deleteSubsystemDataLinks(
+    subsystemDataLinks: readonly SubsystemDataLink[],
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
 
   /**
    * Returns DataLinks added or deleted in the current session — a
