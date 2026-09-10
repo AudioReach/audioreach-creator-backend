@@ -6,11 +6,40 @@
 import {z} from 'zod';
 import {KeyInfoDtoSchema} from '../../../../shared/dto/key-value-info-dto.js';
 import {
-  DataPortDtoSchema,
   ControlPortDtoSchema,
-  mapDataPort,
   mapControlPort,
 } from '../../spf-module/query/spf-module-dto.js';
+import {PORT_IO_TYPE} from '../../../../domain/entities/common/enums/port-io-type.js';
+
+export const SubsystemDataPortDtoSchema = z.object({
+  systemId: z.string().describe('Port system ID'),
+  naturalId: z.number().int().describe('Port definition natural ID'),
+  name: z.string().nullable().describe('Port name'),
+  portIoType: z.enum(['InputOutput', 'OutputInput']).describe('Port IO type'),
+  portType: z.enum(['Static', 'Dynamic']).describe('Port type'),
+  totalLinksAtPort: z
+    .number()
+    .int()
+    .describe('Number of active data links at this port'),
+});
+
+export type SubsystemDataPortDto = z.infer<typeof SubsystemDataPortDtoSchema>;
+
+export function mapSubsystemDataPort(
+  port: SubsystemReadModel['dataPorts'][number],
+): SubsystemDataPortDto {
+  return {
+    systemId: String(port.systemId),
+    naturalId: port.naturalId,
+    name: port.name,
+    portIoType:
+      port.portIoType === PORT_IO_TYPE.InputOutput
+        ? 'InputOutput'
+        : 'OutputInput',
+    portType: port.isStatic ? 'Static' : 'Dynamic',
+    totalLinksAtPort: port.totalLinksAtPort,
+  };
+}
 import type {SubsystemReadModel} from '../../../ports/persistence/query-services/subsystem/subsystem-read-model.js';
 
 export const SubsystemDtoSchema = z.object({
@@ -21,7 +50,7 @@ export const SubsystemDtoSchema = z.object({
     .string()
     .optional()
     .describe('System ID of the parent subsystem, if nested'),
-  dataPorts: z.array(DataPortDtoSchema).describe('Data ports'),
+  dataPorts: z.array(SubsystemDataPortDtoSchema).describe('Data ports'),
   controlPorts: z.array(ControlPortDtoSchema).describe('Control ports'),
   filteredKeys: z
     .array(KeyInfoDtoSchema)
@@ -31,17 +60,14 @@ export const SubsystemDtoSchema = z.object({
 export type SubsystemDto = z.infer<typeof SubsystemDtoSchema>;
 
 export function mapSubsystem(s: SubsystemReadModel): SubsystemDto {
-  if (s.subsystemNaturalId === undefined) {
-    throw new Error(`Subsystem ${s.systemId} is missing its natural ID`);
-  }
-
   return {
     systemId: String(s.systemId),
-    naturalId: s.subsystemNaturalId,
+    naturalId: s.naturalId,
     name: s.name,
-    parentSystemId:
-      s.parentSystemId === undefined ? undefined : String(s.parentSystemId),
-    dataPorts: s.dataPorts.map(port => mapDataPort(port)),
+    ...(s.parentSystemId === null
+      ? {}
+      : {parentSystemId: String(s.parentSystemId)}),
+    dataPorts: s.dataPorts.map(port => mapSubsystemDataPort(port)),
     controlPorts: s.controlPorts.map(port => mapControlPort(port)),
     filteredKeys: s.filteredKeys.map(key => ({
       naturalId: key.naturalId,

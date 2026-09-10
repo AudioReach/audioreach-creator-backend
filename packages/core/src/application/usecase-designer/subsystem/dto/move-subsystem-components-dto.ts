@@ -8,10 +8,8 @@ import {
   DataLinkDtoSchema,
   ControlLinkDtoSchema,
 } from '../../usecase/dto/component-collection-dto.js';
-import {
-  DataPortDtoSchema,
-  ControlPortDtoSchema,
-} from '../../spf-module/query/spf-module-dto.js';
+import {ControlPortDtoSchema} from '../../spf-module/query/spf-module-dto.js';
+import {SubsystemDataPortDtoSchema} from './subsystem-dto.js';
 
 const UpdatedComponentItemSchema = z.object({
   systemId: z.string().describe('System ID of the component'),
@@ -26,7 +24,7 @@ const SubsystemPortChangesSchema = z.object({
     .string()
     .describe('System ID of the subsystem whose ports changed'),
   addedDataPorts: z
-    .array(DataPortDtoSchema)
+    .array(SubsystemDataPortDtoSchema)
     .optional()
     .describe('Data ports added as a result of the move'),
   removedDataPorts: z

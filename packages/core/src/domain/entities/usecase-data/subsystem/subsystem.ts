@@ -9,7 +9,7 @@ import type {ControlPort} from '../node/entities/control-port.js';
 export interface SubsystemInit {
   systemId: number;
   fileSystemId: number;
-  parentSystemId?: number;
+  parentSystemId: number | null;
   name: string;
   naturalId: number;
   filteredKeySystemIds: number[];
@@ -17,7 +17,19 @@ export interface SubsystemInit {
   controlPorts: ControlPort[];
 }
 
-export class Subsystem extends Node {
+export interface SubsystemBase {
+  readonly systemId: number;
+  readonly naturalId: number;
+  readonly name: string;
+  readonly parentSystemId: number | null;
+}
+
+export interface SubsystemHierarchy extends SubsystemBase {
+  readonly moduleSystemIds: readonly number[];
+  readonly subsystemSystemIds: readonly number[];
+}
+
+export class Subsystem extends Node implements SubsystemBase {
   readonly name: string;
   readonly naturalId: number;
   readonly filteredKeySystemIds: number[];

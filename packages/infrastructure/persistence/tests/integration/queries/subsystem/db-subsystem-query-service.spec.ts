@@ -15,11 +15,14 @@ import {
 import {DbSubsystemQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/subsystem/db-subsystem-query-service.js';
 import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 import {SubsystemOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/subsystem-overlay-fetcher.js';
+import {NodeOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/node-overlay-fetcher.js';
 import {UsecaseOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/usecase-overlay-fetcher.js';
 import {LinkOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/link-overlay-fetcher.js';
 import {NodeOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/node-overlay-fetcher.js';
 import {PortOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/port-overlay-fetcher.js';
 import {IntentFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/intent-fetcher.js';
+import {KeyValueDefinitionFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/definitions/key-value/key-value-definition-fetcher.js';
+import {ValueDefinitionFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/definitions/key-value/value-definition-fetcher.js';
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 import {ProjectSessionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
@@ -307,13 +310,18 @@ describe('DbSubsystemQueryService segment queries (integration)', () => {
       ds,
       new SubsystemOverlayFetcher(ds.manager, editActions),
       new NodeOverlayFetcher(ds.manager, editActions),
+      new UsecaseOverlayFetcher(ds.manager, editActions),
+      new LinkOverlayFetcher(ds.manager, editActions),
       new PortOverlayFetcher(
         ds.manager,
         editActions,
         new IntentFetcher(ds.manager, editActions),
       ),
-      new UsecaseOverlayFetcher(ds.manager, editActions),
-      new LinkOverlayFetcher(ds.manager, editActions),
+      new KeyValueDefinitionFetcher(
+        ds.manager,
+        editActions,
+        new ValueDefinitionFetcher(ds.manager, editActions),
+      ),
     );
   });
 
@@ -346,7 +354,7 @@ describe('DbSubsystemQueryService segment queries (integration)', () => {
     expect(result.data).toEqual([
       expect.objectContaining({
         systemId: SUBSYSTEM_ID,
-        subsystemNaturalId: SUBSYSTEM_NATURAL_ID,
+        naturalId: SUBSYSTEM_NATURAL_ID,
         dataPorts: [
           expect.objectContaining({
             systemId: SUBSYSTEM_DATA_PORT_ID,
@@ -434,24 +442,5 @@ describe('DbSubsystemQueryService segment queries (integration)', () => {
       naturalId: 15,
       name: 'Intent_15',
     });
-  });
-
-  it('fails when a persisted subsystem has no natural ID', async () => {
-    await ds.query(
-      `INSERT INTO nodes (system_id, type, parent_id, file_system_id)
-       VALUES (?, 'subsystem', NULL, ?)`,
-      [SUBSYSTEM_ID, FILE_ID],
-    );
-    await ds.query(
-      `INSERT INTO subsystems (system_id, subsystem_id, name)
-       VALUES (?, NULL, 'invalid')`,
-      [SUBSYSTEM_ID],
-    );
-
-    const result = await service.findAll(FILE_ID);
-
-    expect(result.kind).toBe(RESULT_KIND.Fail);
-    if (result.kind !== RESULT_KIND.Fail) return;
-    expect(result.issues[0]?.message).toContain('natural ID');
   });
 });

@@ -18,9 +18,11 @@ const FILE_SYSTEM_ID = 42;
 const readModels = [
   {
     systemId: 10,
-    subsystemNaturalId: 100,
+    naturalId: 100,
     name: 'Subsystem_100',
     parentSystemId: 20,
+    moduleSystemIds: [],
+    subsystemSystemIds: [],
     dataPorts: [
       {
         systemId: 40,

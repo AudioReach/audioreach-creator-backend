@@ -312,7 +312,7 @@ findUnresolvedSubsystemLinksFromModule(
   fileSystemId: number,
 ): Promise<SubsystemDataLink[]>;
 
-findSubsystemDataRouteContext(
+findDataLinkRouteContext(
   fileSystemId: number,
 ): Promise<SubsystemDataRouteContext>;
 
@@ -329,7 +329,7 @@ deleteSubsystemDataLinks(
 ): Promise<void>;
 ```
 
-The repository applies effective-state overlay before returning links. It returns existing domain entities rather than delete-specific DTO types. `DataLink.subsystemDataLinks` carries resolved subsystem segments for response reporting and explicit deletion. Unresolved subsystem links are returned separately because they are not attached to a canonical link. `findSubsystemDataRouteContext` returns every effective subsystem segment and types for every referenced node so core can classify unresolved paths without persistence-specific joins. Canonical DataLink discovery matches the deleted module's `sourceNodeSystemId` or `destinationNodeSystemId`; port IDs identify the interface but do not determine whether a valid canonical link belongs in the module-delete cascade.
+The repository applies effective-state overlay before returning links. It returns existing domain entities rather than delete-specific DTO types. `DataLink.subsystemDataLinks` carries resolved subsystem segments for response reporting and explicit deletion. Unresolved subsystem links are returned separately because they are not attached to a canonical link. `findDataLinkRouteContext` returns every effective subsystem segment and types for every referenced node so core can classify unresolved paths without persistence-specific joins. Canonical DataLink discovery matches the deleted module's `sourceNodeSystemId` or `destinationNodeSystemId`; port IDs identify the interface but do not determine whether a valid canonical link belongs in the module-delete cascade.
 
 ### 6.3 `ControlLinkRepository`
 
@@ -355,7 +355,7 @@ findUnresolvedSubsystemLinksFromModule(
   fileSystemId: number,
 ): Promise<SubsystemControlLink[]>;
 
-findSubsystemControlRouteContext(
+findControlLinkRouteContext(
   fileSystemId: number,
 ): Promise<SubsystemControlRouteContext>;
 

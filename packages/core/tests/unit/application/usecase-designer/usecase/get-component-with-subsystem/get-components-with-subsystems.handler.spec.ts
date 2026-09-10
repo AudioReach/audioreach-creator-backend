@@ -54,10 +54,13 @@ const BASE_PORT = 5000;
 // Minimal factories
 // =============================================================================
 
-function makeModule(id: number, parentId?: number): SpfModuleReadModel {
+function makeModule(
+  id: number,
+  parentSystemId: number | null = null,
+): SpfModuleReadModel {
   return {
     systemId: id,
-    parentSystemId: parentId,
+    parentSystemId,
     naturalId: id,
     alias: `mod_${id}`,
     definitionSystemId: id + 1000,
@@ -117,12 +120,17 @@ function makeSlsSegment(
   };
 }
 
-function makeSub(id: number, parentId?: number): SubsystemReadModel {
+function makeSub(
+  id: number,
+  parentSystemId: number | null = null,
+): SubsystemReadModel {
   return {
     systemId: id,
-    subsystemNaturalId: id + 1000,
+    naturalId: id + 1000,
     name: `SS_${id}`,
-    parentSystemId: parentId,
+    parentSystemId,
+    moduleSystemIds: [],
+    subsystemSystemIds: [],
     dataPorts: [
       {
         systemId: id + 2000,

@@ -74,11 +74,7 @@ export class SubsystemFilteredGkvService {
     );
     const topologyByUsecase = this.buildTopology(data);
     const knownSubsystemIds = new Set(
-      data.subsystems.flatMap(subsystem =>
-        subsystem.subsystemNaturalId === undefined
-          ? []
-          : [subsystem.subsystemNaturalId],
-      ),
+      data.subsystems.map(subsystem => subsystem.naturalId),
     );
     const invalidSubsystemId = filter
       ? findInvalidSubsystemId(filter, knownSubsystemIds)
@@ -151,9 +147,7 @@ export class SubsystemFilteredGkvService {
     for (const subsystemSystemId of topology.ancestors) {
       const subsystem = subsystemBySystemId.get(subsystemSystemId);
       if (!subsystem) continue;
-      const filteredKeyIds =
-        subsystem.filteredKeySystemIds ??
-        subsystem.filteredKeys.map(key => key.systemId);
+      const filteredKeyIds = subsystem.filteredKeys.map(key => key.systemId);
       if (filteredKeyIds.length === 0) continue;
 
       const matches = usecase.gkv.some(pair =>
@@ -171,10 +165,10 @@ export class SubsystemFilteredGkvService {
     );
     const subsystems = [...displaySubsystemIds].flatMap(systemId => {
       const subsystem = subsystemBySystemId.get(systemId);
-      if (!subsystem || subsystem.subsystemNaturalId === undefined) return [];
+      if (!subsystem) return [];
       return [
         {
-          subsystemNaturalId: subsystem.subsystemNaturalId,
+          subsystemNaturalId: subsystem.naturalId,
           name: subsystem.name,
         },
       ];
@@ -199,15 +193,14 @@ function createTopologyIndexes(data: UsecaseFilteredGkvData): TopologyIndexes {
     parentBySubsystem: new Map(
       data.subsystems.map(subsystem => [
         subsystem.systemId,
-        subsystem.parentSystemId,
+        subsystem.parentSystemId ?? undefined,
       ]),
     ),
     naturalIdBySubsystem: new Map(
-      data.subsystems.flatMap(subsystem =>
-        subsystem.subsystemNaturalId === undefined
-          ? []
-          : [[subsystem.systemId, subsystem.subsystemNaturalId] as const],
-      ),
+      data.subsystems.map(subsystem => [
+        subsystem.systemId,
+        subsystem.naturalId,
+      ]),
     ),
     modulesBySubgraph,
   };
