@@ -4,6 +4,7 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
+import {IsInt, IsOptional, IsString, MaxLength, Min} from 'class-validator';
 
 /**
  * Request DTO for partially updating subsystem properties.
@@ -15,6 +16,9 @@ export class PatchSubsystemRequestDto {
     required: false,
     maxLength: 255,
   })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
   name?: string;
 
   @ApiProperty({
@@ -22,6 +26,9 @@ export class PatchSubsystemRequestDto {
       'Target number of input data ports. The API will add or remove input DataPort entities to reach this count.',
     required: false,
   })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
   inputDataPortCount?: number;
 
   @ApiProperty({
@@ -29,6 +36,9 @@ export class PatchSubsystemRequestDto {
       'Target number of output data ports. The API will add or remove output DataPort entities to reach this count.',
     required: false,
   })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
   outputDataPortCount?: number;
 
   @ApiProperty({
@@ -36,5 +46,8 @@ export class PatchSubsystemRequestDto {
       'Target number of control ports. The API will add or remove ControlPort entities to reach this count.',
     required: false,
   })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
   controlPortCount?: number;
 }

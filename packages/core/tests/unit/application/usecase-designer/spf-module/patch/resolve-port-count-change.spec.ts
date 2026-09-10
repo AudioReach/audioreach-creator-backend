@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {resolvePortCountChange} from '../../../../../../src/application/usecase-designer/spf-module/patch/resolve-port-count-change.js';
+import {resolvePortCountChange} from '../../../../../../src/application/usecase-designer/shared/resolve-port-count-change.js';
 import {RESULT_KIND} from '../../../../../../src/application/shared/result/result.js';
 import {ISSUE_CODE} from '../../../../../../src/shared/issues/operational-codes.js';
 import {ISSUE_ENTITY_TYPE} from '../../../../../../src/shared/issues/impacted-entity.js';
