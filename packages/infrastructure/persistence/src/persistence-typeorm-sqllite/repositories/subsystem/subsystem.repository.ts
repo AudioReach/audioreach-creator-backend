@@ -4,11 +4,16 @@
  */
 
 import type {EntityManager} from 'typeorm';
-import type {
-  EditOptions,
-  SubsystemControlPortRef,
-  SubsystemRepository,
-  UnitOfWork,
+import {
+  ControlPort,
+  DataPort,
+  Subsystem,
+  type EditOptions,
+  type SubsystemControlPortRef,
+  type SubsystemKeyDefinition,
+  type SubsystemRepository,
+  type SubsystemSummary,
+  type UnitOfWork,
 } from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
@@ -16,12 +21,21 @@ import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-q
 import {IntentFetcher} from '../../fetchers/intent-fetcher.js';
 import {PortOverlayFetcher} from '../../fetchers/port-overlay-fetcher.js';
 import {SubsystemOverlayFetcher} from '../../fetchers/subsystem-overlay-fetcher.js';
+import {SpfModuleOverlayFetcher} from '../../fetchers/spf-module-overlay-fetcher.js';
+import {NodeOverlayFetcher} from '../../fetchers/node-overlay-fetcher.js';
+import {KeyValueDefinitionFetcher} from '../../fetchers/definitions/key-value/key-value-definition-fetcher.js';
+import {ValueDefinitionFetcher} from '../../fetchers/definitions/key-value/value-definition-fetcher.js';
 
 export class TypeOrmSubsystemRepository implements SubsystemRepository {
   private readonly writer: PendingChangeWriter;
   private readonly uow: UnitOfWork;
-  private readonly portFetcher: PortOverlayFetcher;
-  private readonly subsystemFetcher: SubsystemOverlayFetcher;
+  private readonly editActions: EditActionsQueryService;
+  private readonly intents: IntentFetcher;
+  private readonly ports: PortOverlayFetcher;
+  private readonly subsystems: SubsystemOverlayFetcher;
+  private readonly modules: SpfModuleOverlayFetcher;
+  private readonly nodes: NodeOverlayFetcher;
+  private readonly keyDefinitions: KeyValueDefinitionFetcher;
 
   constructor(
     writer: PendingChangeWriter,
@@ -31,43 +45,145 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     this.writer = writer;
     this.manager = manager;
     this.uow = uow;
-    const editActions = new EditActionsQueryService(this.manager);
-    this.subsystemFetcher = new SubsystemOverlayFetcher(
+    this.editActions = new EditActionsQueryService(this.manager);
+    this.intents = new IntentFetcher(this.manager, this.editActions);
+    this.ports = new PortOverlayFetcher(
       this.manager,
-      editActions,
+      this.editActions,
+      this.intents,
     );
-    this.portFetcher = new PortOverlayFetcher(
-      this.manager,
-      editActions,
-      new IntentFetcher(this.manager, editActions),
+    this.subsystems = new SubsystemOverlayFetcher(manager, this.editActions);
+    this.modules = new SpfModuleOverlayFetcher(manager, this.editActions);
+    this.nodes = new NodeOverlayFetcher(manager, this.editActions);
+    this.keyDefinitions = new KeyValueDefinitionFetcher(
+      manager,
+      this.editActions,
+      new ValueDefinitionFetcher(manager, this.editActions),
     );
   }
 
   private readonly manager: EntityManager;
 
+  async findSubsystems(fileSystemId: number): Promise<SubsystemSummary[]> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const rows = await this.subsystems.fetchAll(fileSystemId, sessionId);
+    const modules = await this.modules.fetchMany(fileSystemId, sessionId);
+    const nodeRows = await this.nodes.fetchMany(
+      modules.map(module => module.systemId),
+      fileSystemId,
+      sessionId,
+    );
+    const parentByNode = new Map(
+      nodeRows.map(node => [node.systemId, node.parentSystemId]),
+    );
+    const childrenBySubsystem = new Map<number, Set<number>>();
+    for (const module of modules) {
+      const parentId = parentByNode.get(module.systemId);
+      if (parentId === undefined) continue;
+      const subgraphs = childrenBySubsystem.get(parentId) ?? new Set<number>();
+      subgraphs.add(module.subgraphSystemId);
+      childrenBySubsystem.set(parentId, subgraphs);
+    }
+    return rows.map(row => ({
+      systemId: row.systemId,
+      naturalId: row.subsystemId ?? 0,
+      name: row.name,
+      parentId: row.parentSystemId,
+      subgraphSystemIds: [
+        ...(childrenBySubsystem.get(row.systemId) ?? new Set<number>()),
+      ],
+    }));
+  }
+
+  async findNodeTopology(fileSystemId: number) {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const rows = await this.nodes.fetchAll(fileSystemId, sessionId);
+    return rows.map(row => ({
+      systemId: row.systemId,
+      parentId: row.parentSystemId ?? null,
+      type: row.type,
+    }));
+  }
+
+  async findSubsystemForPatch(
+    systemId: number,
+    fileSystemId: number,
+  ): Promise<Subsystem | null> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const rows = await this.subsystems.fetchAll(fileSystemId, sessionId);
+    const row = rows.find(subsystem => subsystem.systemId === systemId);
+    if (!row) return null;
+    const [dataPorts, controlPorts] = await Promise.all([
+      this.ports.fetchDataPorts(systemId, fileSystemId, sessionId),
+      this.ports.fetchControlPortsWithIntents(
+        systemId,
+        fileSystemId,
+        sessionId,
+      ),
+    ]);
+    return new Subsystem({
+      systemId,
+      fileSystemId,
+      parentSystemId: row.parentSystemId,
+      name: row.name,
+      naturalId: row.subsystemId ?? 0,
+      filteredKeySystemIds: row.filteredKeySystemIds ?? [],
+      dataPorts: dataPorts.map(
+        port =>
+          new DataPort({
+            systemId: port.systemId,
+            naturalId: port.naturalId,
+            portIoType: port.portIoType,
+            isStatic: port.isStatic,
+            name: port.name ?? undefined,
+          }),
+      ),
+      controlPorts: controlPorts.map(
+        port =>
+          new ControlPort({
+            systemId: port.systemId,
+            naturalId: port.naturalId,
+            isStatic: port.isStatic,
+            nodeSystemId: systemId,
+            name: port.name ?? undefined,
+            intentSystemIds: port.intents.map(intent => intent.systemId),
+            intentTypeIds: port.intents.map(intent => intent.naturalId),
+          }),
+      ),
+    });
+  }
+
+  async findKeyDefinitionsByIds(
+    keySystemIds: readonly number[],
+    fileSystemId: number,
+  ): Promise<SubsystemKeyDefinition[]> {
+    if (keySystemIds.length === 0) return [];
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const keys = await this.keyDefinitions.fetchMany(
+      [...keySystemIds],
+      fileSystemId,
+      sessionId,
+    );
+    return keys.map(key => ({
+      systemId: key.systemId,
+      keyId: key.naturalId,
+      name: key.name,
+    }));
+  }
+
   async subsystemExists(
     systemId: number,
     fileSystemId: number,
   ): Promise<boolean> {
-    const count = await this.manager
-      .createQueryBuilder()
-      .select('1')
-      .from(ENTITY_NAMES.Node, 'n')
-      .where(
-        'n.systemId = :systemId AND n.fileSystemId = :fileSystemId AND n.type = :type',
-        {systemId, fileSystemId, type: 'subsystem'},
-      )
-      .getCount();
-    return count > 0;
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const rows = await this.subsystems.fetchAll(fileSystemId, sessionId);
+    return rows.some(row => row.systemId === systemId);
   }
 
   async hasSubsystems(fileSystemId: number): Promise<boolean> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
-    const subsystems = await this.subsystemFetcher.fetchAll(
-      fileSystemId,
-      sessionId,
-    );
-    return subsystems.length > 0;
+    const rows = await this.subsystems.fetchAll(fileSystemId, sessionId);
+    return rows.length > 0;
   }
 
   async clearControlPortIntents(
@@ -77,32 +193,26 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
   ): Promise<void> {
     if (ports.length === 0) return;
     const {session, groupId} = this.uow.getWriteContext();
-    const subsystemByControlPortId = new Map(
-      ports.map(port => [port.controlPortSystemId, port.subsystemSystemId]),
+    const controlPortSystemIds = new Set(
+      ports.map(port => port.controlPortSystemId),
     );
-    const effectiveSubsystems = await this.subsystemFetcher.fetchAll(
-      fileSystemId,
-      session.sessionId,
-    );
-    const effectiveSubsystemIds = new Set(
-      effectiveSubsystems.map(subsystem => subsystem.systemId),
-    );
-    const controlPorts = await Promise.all(
-      [...subsystemByControlPortId.entries()]
-        .filter(([, subsystemSystemId]) =>
-          effectiveSubsystemIds.has(subsystemSystemId),
-        )
-        .map(([controlPortSystemId, subsystemSystemId]) =>
-          this.portFetcher.fetchControlPortsWithIntents(
-            subsystemSystemId,
-            fileSystemId,
-            session.sessionId,
-            {systemId: controlPortSystemId},
-          ),
+    const subsystemSystemIds = [
+      ...new Set(ports.map(port => port.subsystemSystemId)),
+    ];
+    const fetchedRows = await Promise.all(
+      subsystemSystemIds.map(subsystemSystemId =>
+        this.ports.fetchControlPortsWithIntents(
+          subsystemSystemId,
+          fileSystemId,
+          session.sessionId,
         ),
+      ),
     );
+    const rows = fetchedRows
+      .flat()
+      .filter(port => controlPortSystemIds.has(port.systemId));
 
-    for (const port of controlPorts.flat()) {
+    for (const port of rows) {
       for (const intent of port.intents) {
         await this.writer.writeDelete(
           {
@@ -117,5 +227,292 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
         );
       }
     }
+  }
+
+  async createSubsystem(
+    subsystem: Subsystem,
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    const fileSystemId = subsystem.fileSystemId;
+
+    await this.writer.writeCreate(
+      {
+        targetTable: ENTITY_NAMES.Node,
+        targetSystemId: subsystem.systemId,
+        aggregateId: subsystem.systemId,
+        payload: {
+          type: 'subsystem',
+          parentSystemId: subsystem.parentSystemId ?? null,
+          fileSystemId,
+        },
+        ...options,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+    await this.writer.writeCreate(
+      {
+        targetTable: ENTITY_NAMES.Subsystem,
+        targetSystemId: subsystem.systemId,
+        aggregateId: subsystem.systemId,
+        payload: {
+          subsystemId: subsystem.naturalId,
+          name: subsystem.name,
+          fileSystemId,
+        },
+        ...options,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+
+    for (const port of subsystem.dataPorts) {
+      await this.addDataPort(port, subsystem.systemId, options);
+    }
+    for (const port of subsystem.controlPorts) {
+      await this.addControlPort(port, subsystem.systemId, options);
+    }
+    if (subsystem.filteredKeySystemIds.length > 0) {
+      await this.setFilteredKeys(
+        subsystem.systemId,
+        subsystem.filteredKeySystemIds,
+        options,
+      );
+    }
+  }
+
+  async deleteSubsystem(
+    systemId: number,
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    const sessionId = session.sessionId;
+    const fileSystemId = session.fileSystemId;
+    const [dataPorts, controlPorts] = await Promise.all([
+      this.ports.fetchDataPorts(systemId, fileSystemId, sessionId),
+      this.ports.fetchControlPortsWithIntents(
+        systemId,
+        fileSystemId,
+        sessionId,
+      ),
+    ]);
+
+    for (const port of controlPorts) {
+      for (const intent of port.intents) {
+        await this.writer.writeDelete(
+          {
+            targetTable: ENTITY_NAMES.Intent,
+            targetSystemId: intent.systemId,
+            aggregateId: systemId,
+            ...options,
+          },
+          sessionId,
+          groupId,
+          this.manager,
+        );
+      }
+    }
+    for (const port of dataPorts) {
+      await this.writer.writeDelete(
+        {
+          targetTable: ENTITY_NAMES.DataPort,
+          targetSystemId: port.systemId,
+          aggregateId: systemId,
+          ...options,
+        },
+        sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+    for (const port of controlPorts) {
+      await this.writer.writeDelete(
+        {
+          targetTable: ENTITY_NAMES.ControlPort,
+          targetSystemId: port.systemId,
+          aggregateId: systemId,
+          ...options,
+        },
+        sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+    await this.writer.writeDelete(
+      {
+        targetTable: ENTITY_NAMES.Subsystem,
+        targetSystemId: systemId,
+        aggregateId: systemId,
+        ...options,
+      },
+      sessionId,
+      groupId,
+      this.manager,
+    );
+    await this.writer.writeDelete(
+      {
+        targetTable: ENTITY_NAMES.Node,
+        targetSystemId: systemId,
+        aggregateId: systemId,
+        ...options,
+      },
+      sessionId,
+      groupId,
+      this.manager,
+    );
+  }
+
+  async renameSubsystem(
+    systemId: number,
+    name: string,
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    await this.writer.writeDelta(
+      {
+        targetTable: ENTITY_NAMES.Subsystem,
+        targetSystemId: systemId,
+        aggregateId: systemId,
+        delta: {name},
+        ...options,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+  }
+
+  async setFilteredKeys(
+    systemId: number,
+    keySystemIds: number[],
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    await this.writer.writeDelta(
+      {
+        targetTable: ENTITY_NAMES.Subsystem,
+        targetSystemId: systemId,
+        aggregateId: systemId,
+        delta: {filteredKeySystemIds: keySystemIds},
+        ...options,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+  }
+
+  async addDataPort(
+    port: DataPort,
+    subsystemSystemId: number,
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    await this.writer.writeCreate(
+      {
+        targetTable: ENTITY_NAMES.DataPort,
+        targetSystemId: port.systemId,
+        aggregateId: subsystemSystemId,
+        payload: {
+          naturalId: port.naturalId,
+          portIoType: port.portIoType,
+          isStatic: port.isStatic,
+          name: port.name ?? '',
+          nodeSystemId: subsystemSystemId,
+          fileSystemId: session.fileSystemId,
+        },
+        ...options,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+  }
+
+  async removeDataPort(
+    portSystemId: number,
+    subsystemSystemId: number,
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    await this.writer.writeDelete(
+      {
+        targetTable: ENTITY_NAMES.DataPort,
+        targetSystemId: portSystemId,
+        aggregateId: subsystemSystemId,
+        ...options,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+  }
+
+  async addControlPort(
+    port: ControlPort,
+    subsystemSystemId: number,
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    await this.writer.writeCreate(
+      {
+        targetTable: ENTITY_NAMES.ControlPort,
+        targetSystemId: port.systemId,
+        aggregateId: subsystemSystemId,
+        payload: {
+          naturalId: port.naturalId,
+          isStatic: port.isStatic,
+          name: port.name ?? '',
+          nodeSystemId: subsystemSystemId,
+          fileSystemId: session.fileSystemId,
+        },
+        ...options,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+  }
+
+  async removeControlPort(
+    portSystemId: number,
+    subsystemSystemId: number,
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    await this.writer.writeDelete(
+      {
+        targetTable: ENTITY_NAMES.ControlPort,
+        targetSystemId: portSystemId,
+        aggregateId: subsystemSystemId,
+        ...options,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+  }
+
+  async updateParentId(
+    subsystemSystemId: number,
+    parentSubsystemSystemId: number | null,
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    await this.writer.writeDelta(
+      {
+        targetTable: ENTITY_NAMES.Node,
+        targetSystemId: subsystemSystemId,
+        aggregateId: subsystemSystemId,
+        delta: {parentSystemId: parentSubsystemSystemId},
+        ...options,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
   }
 }

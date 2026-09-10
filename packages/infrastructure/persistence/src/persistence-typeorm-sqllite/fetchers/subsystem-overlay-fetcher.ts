@@ -11,11 +11,16 @@ import {
   NODE_TYPE,
   type NodeBase,
 } from '../entity-schema/usecase-data/node/node.schema.js';
-import type {SubsystemBase} from '../entity-schema/usecase-data/subsystem/subsystem.js';
+import type {
+  SubsystemBase,
+  SubsystemFilteredKeyRow,
+} from '../entity-schema/usecase-data/subsystem/subsystem.js';
 
 export interface OverlaidSubsystem extends SubsystemBase {
   /** parentSystemId from Node.parentSystemId — undefined when the subsystem is a root. */
   parentSystemId: number | undefined;
+  /** Effective filtered key-definition IDs for the subsystem. */
+  filteredKeySystemIds: number[];
 }
 
 /**
@@ -56,6 +61,24 @@ export class SubsystemOverlayFetcher {
       .where('n.fileSystemId = :fileSystemId', {fileSystemId})
       .getRawAndEntities();
 
+    const keyRows = await this.manager
+      .getRepository<SubsystemFilteredKeyRow>(ENTITY_NAMES.SubsystemFilteredKey)
+      .createQueryBuilder('fk')
+      .innerJoin(
+        ENTITY_NAMES.Node,
+        'n',
+        'n.system_id = fk.subsystems_system_id',
+      )
+      .where('n.file_system_id = :fileSystemId', {fileSystemId})
+      .getMany();
+    const filteredKeyIdsBySubsystem = new Map<number, number[]>();
+    for (const keyRow of keyRows) {
+      const ids =
+        filteredKeyIdsBySubsystem.get(keyRow.subsystemsSystemId) ?? [];
+      ids.push(keyRow.keyDefinitionSystemId);
+      filteredKeyIdsBySubsystem.set(keyRow.subsystemsSystemId, ids);
+    }
+
     // Build parentSystemId lookup from the JOIN result.
     const parentSystemIdBySystemId = new Map<number, number | undefined>(
       rawRows.raw.map((r: Record<string, unknown>) => [
@@ -64,7 +87,14 @@ export class SubsystemOverlayFetcher {
       ]),
     );
 
-    let rows = rawRows.entities as SubsystemBase[];
+    const subsystemRows = rawRows.entities as SubsystemBase[];
+    let rows: Array<SubsystemBase & {filteredKeySystemIds?: number[]}> =
+      subsystemRows.map(row => ({
+        ...row,
+        filteredKeySystemIds: [
+          ...(filteredKeyIdsBySubsystem.get(row.systemId) ?? []),
+        ],
+      }));
 
     if (sessionId === null) {
       return this.buildResult(rows, parentSystemIdBySystemId);
@@ -107,12 +137,13 @@ export class SubsystemOverlayFetcher {
   }
 
   private buildResult(
-    rows: SubsystemBase[],
+    rows: Array<SubsystemBase & {filteredKeySystemIds?: number[]}>,
     parentSystemIdBySystemId: Map<number, number | undefined>,
   ): OverlaidSubsystem[] {
     return rows.map(row => ({
       ...row,
       parentSystemId: parentSystemIdBySystemId.get(row.systemId),
+      filteredKeySystemIds: row.filteredKeySystemIds ?? [],
     }));
   }
 }

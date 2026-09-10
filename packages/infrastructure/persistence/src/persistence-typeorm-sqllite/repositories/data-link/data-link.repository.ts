@@ -385,6 +385,77 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     return rows.map(row => baseToDataLink(row));
   }
 
+  async findAllWithSegments(fileSystemId: number): Promise<DataLink[]> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const rows = await this.linkFetcher.loadDataLinkRows(
+      fileSystemId,
+      sessionId,
+    );
+    if (rows.length === 0) return [];
+    const segments = await this.linkFetcher.loadSubsystemDataLinkRows(
+      fileSystemId,
+      sessionId,
+      {dataLinkSystemId: rows.map(row => row.systemId)},
+    );
+    const segmentsByLink = new Map<number, SubsystemDataLink[]>();
+    for (const segment of segments) {
+      const list = segmentsByLink.get(segment.dataLinkSystemId ?? 0) ?? [];
+      list.push(baseToSubsystemDataLink(segment));
+      segmentsByLink.set(segment.dataLinkSystemId ?? 0, list);
+    }
+    return rows.map(row =>
+      baseToDataLink(row, segmentsByLink.get(row.systemId) ?? []),
+    );
+  }
+
+  async replaceSubsystemDataLinkSegments(
+    dataLinkSystemId: number,
+    segments: SubsystemDataLink[],
+    options?: EditOptions,
+  ): Promise<void> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const current = await this.linkFetcher.loadSubsystemDataLinkRows(
+      this.uow.getWriteContext().session.fileSystemId,
+      sessionId,
+      {dataLinkSystemId},
+    );
+    const {session, groupId} = this.uow.getWriteContext();
+    for (const segment of current) {
+      await this.writer.writeDelete(
+        {
+          targetTable: ENTITY_NAMES.SubsystemDataLink,
+          targetSystemId: segment.systemId,
+          aggregateId: dataLinkSystemId,
+          ...options,
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+    for (const segment of segments) {
+      await this.writer.writeCreate(
+        {
+          targetTable: ENTITY_NAMES.SubsystemDataLink,
+          targetSystemId: segment.systemId,
+          aggregateId: dataLinkSystemId,
+          payload: {
+            sourceNodeSystemId: segment.sourceNodeSystemId,
+            destinationNodeSystemId: segment.destinationNodeSystemId,
+            sourcePortSystemId: segment.sourcePortSystemId,
+            destinationPortSystemId: segment.destinationPortSystemId,
+            dataLinkSystemId,
+            fileSystemId: segment.fileSystemId,
+          },
+          ...options,
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+  }
+
   async findChangedInSession(
     fileSystemId: number,
   ): Promise<SessionChanged<DataLink>> {

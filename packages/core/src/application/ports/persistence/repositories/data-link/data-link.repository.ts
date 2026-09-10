@@ -93,6 +93,14 @@ export interface DataLinkRepository {
    */
   findIntraUcLinksByFile(fileSystemId: number): Promise<DataLink[]>;
 
+  findAllWithSegments(fileSystemId: number): Promise<DataLink[]>;
+
+  replaceSubsystemDataLinkSegments(
+    dataLinkSystemId: number,
+    segments: SubsystemDataLink[],
+    options?: EditOptions,
+  ): Promise<void>;
+
   /**
    * Returns DataLinks added or deleted in the current session — a
    * `SessionChanged<DataLink>` split. No `source` filter is applied; MANUAL

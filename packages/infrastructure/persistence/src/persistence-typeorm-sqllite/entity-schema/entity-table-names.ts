@@ -79,6 +79,7 @@ export const ENTITY_NAMES = {
 
   // ── Subsystem / UseCase ───────────────────────────────────────────────────
   Subsystem: 'Subsystem',
+  SubsystemFilteredKey: 'SubsystemFilteredKey',
   UseCase: 'UseCase',
   UseCaseCategory: 'UseCaseCategory',
   UsecaseGkvValues: 'UsecaseGkvValues',
