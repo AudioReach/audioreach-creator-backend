@@ -58,16 +58,31 @@ export class SubsystemOverlayFetcher {
     sessionId: number | null,
   ): Promise<OverlaidSubsystem[]> {
     // Base query — JOIN Node to pick up parentSystemId (Node column, not Subsystem).
-    const [rawRows, filteredKeyRows] = await Promise.all([
-      this.manager
-        .getRepository(ENTITY_NAMES.Subsystem)
-        .createQueryBuilder('sub')
-        .innerJoin(ENTITY_NAMES.Node, 'n', 'n.system_id = sub.system_id')
-        .addSelect('n.parentSystemId', 'parentSystemId')
-        .where('n.fileSystemId = :fileSystemId', {fileSystemId})
-        .getRawAndEntities(),
-      this.loadFilteredKeyRows(fileSystemId),
-    ]);
+    const rawRows = await this.manager
+      .getRepository(ENTITY_NAMES.Subsystem)
+      .createQueryBuilder('sub')
+      .innerJoin(ENTITY_NAMES.Node, 'n', 'n.system_id = sub.system_id')
+      .addSelect('n.parentSystemId', 'parentSystemId')
+      .where('n.fileSystemId = :fileSystemId', {fileSystemId})
+      .getRawAndEntities();
+
+    const keyRows = await this.manager
+      .getRepository<SubsystemFilteredKeyRow>(ENTITY_NAMES.SubsystemFilteredKey)
+      .createQueryBuilder('fk')
+      .innerJoin(
+        ENTITY_NAMES.Node,
+        'n',
+        'n.system_id = fk.subsystems_system_id',
+      )
+      .where('n.file_system_id = :fileSystemId', {fileSystemId})
+      .getMany();
+    const filteredKeyIdsBySubsystem = new Map<number, number[]>();
+    for (const keyRow of keyRows) {
+      const ids =
+        filteredKeyIdsBySubsystem.get(keyRow.subsystemsSystemId) ?? [];
+      ids.push(keyRow.keyDefinitionSystemId);
+      filteredKeyIdsBySubsystem.set(keyRow.subsystemsSystemId, ids);
+    }
 
     // Build parentSystemId lookup from the JOIN result.
     const parentSystemIdBySystemId = new Map<number, number | undefined>(
@@ -77,8 +92,15 @@ export class SubsystemOverlayFetcher {
       ]),
     );
 
-    let rows = rawRows.entities as SubsystemBase[];
+    const subsystemRows = rawRows.entities as SubsystemBase[];
     let filteredIdsBySubsystem = this.groupFilteredKeyRows(filteredKeyRows);
+    let rows: Array<SubsystemBase & {filteredKeySystemIds?: number[]}> =
+      subsystemRows.map(row => ({
+        ...row,
+        filteredKeySystemIds: [
+          ...(filteredKeyIdsBySubsystem.get(row.systemId) ?? []),
+        ],
+      }));
 
     if (sessionId === null) {
       return this.buildResult(
@@ -204,7 +226,7 @@ export class SubsystemOverlayFetcher {
   }
 
   private buildResult(
-    rows: SubsystemBase[],
+    rows: Array<SubsystemBase & {filteredKeySystemIds?: number[]}>,
     parentSystemIdBySystemId: Map<number, number | undefined>,
     filteredIdsBySubsystem: ReadonlyMap<number, readonly number[]>,
   ): OverlaidSubsystem[] {

@@ -22,7 +22,7 @@ import {CONTAINER_PROP_ID_STACK_SIZE} from '../../../file-operations/shared/cons
 import {buildContainerCopy} from '../../container/build-container-copy.js';
 import {DataPort} from '../../../../domain/entities/usecase-data/node/entities/data-port.js';
 import {ControlPort} from '../../../../domain/entities/usecase-data/node/entities/control-port.js';
-import {resolvePortCountChange} from './resolve-port-count-change.js';
+import {resolvePortCountChange} from '../../shared/resolve-port-count-change.js';
 import {RESULT_KIND} from '../../../shared/result/result.js';
 import {ContainerStackSizeService} from '../../container/services/container-stack-size.service.js';
 import {
