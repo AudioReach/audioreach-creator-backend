@@ -14,6 +14,7 @@ export * from './migration-index.js';
 export * from './services/pending-change-cache.js';
 export * from './services/pending-change-writer.js';
 export {EditActionsQueryService} from './queries/edit-session/edit-actions-query-service.js';
+export {OverlayMergeImpl} from './queries/edit-session/overlay-merge.js';
 
 // Session repository
 export {TypeOrmSessionRepository} from './repositories/session/typeorm-session.repository.js';

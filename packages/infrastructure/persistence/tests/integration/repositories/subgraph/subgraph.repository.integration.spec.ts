@@ -4,6 +4,7 @@
  */
 
 import type {DataSource, QueryRunner} from 'typeorm';
+import type {IdGenerationPort} from '@arc/core';
 import {
   setupIntegrationTest,
   teardownIntegrationTest,
@@ -110,7 +111,12 @@ function makeRepo(
       groupId: 'test-group',
     }),
   } as any;
-  return new TypeOrmSubgraphRepository(writer, manager, uow);
+  const idGeneration: IdGenerationPort = {
+    getNextId: async () => 1,
+    reserveBlock: async () => 1,
+    persistLastUsedId: async () => {},
+  };
+  return new TypeOrmSubgraphRepository(writer, manager, uow, idGeneration);
 }
 
 describe('TypeOrmSubgraphRepository (integration)', () => {
