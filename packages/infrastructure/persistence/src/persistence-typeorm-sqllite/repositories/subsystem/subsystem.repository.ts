@@ -14,15 +14,14 @@ import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
 import {IntentFetcher} from '../../fetchers/intent-fetcher.js';
-import {OverlayMergeImpl} from '../../queries/edit-session/overlay-merge.js';
-import type {ControlPortBase} from '../../entity-schema/usecase-data/node/control-port.js';
+import {PortOverlayFetcher} from '../../fetchers/port-overlay-fetcher.js';
+import {SubsystemOverlayFetcher} from '../../fetchers/subsystem-overlay-fetcher.js';
 
 export class TypeOrmSubsystemRepository implements SubsystemRepository {
   private readonly writer: PendingChangeWriter;
   private readonly uow: UnitOfWork;
-  private readonly editActions: EditActionsQueryService;
-  private readonly intents: IntentFetcher;
-  private readonly overlay = new OverlayMergeImpl();
+  private readonly portFetcher: PortOverlayFetcher;
+  private readonly subsystemFetcher: SubsystemOverlayFetcher;
 
   constructor(
     writer: PendingChangeWriter,
@@ -32,8 +31,16 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     this.writer = writer;
     this.manager = manager;
     this.uow = uow;
-    this.editActions = new EditActionsQueryService(this.manager);
-    this.intents = new IntentFetcher(this.manager, this.editActions);
+    const editActions = new EditActionsQueryService(this.manager);
+    this.subsystemFetcher = new SubsystemOverlayFetcher(
+      this.manager,
+      editActions,
+    );
+    this.portFetcher = new PortOverlayFetcher(
+      this.manager,
+      editActions,
+      new IntentFetcher(this.manager, editActions),
+    );
   }
 
   private readonly manager: EntityManager;
@@ -55,24 +62,12 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
   }
 
   async hasSubsystems(fileSystemId: number): Promise<boolean> {
-    const baseRows = (await this.manager
-      .getRepository(ENTITY_NAMES.Node)
-      .createQueryBuilder('n')
-      .select(['n.systemId', 'n.type'])
-      .where('n.fileSystemId = :fileSystemId', {fileSystemId})
-      .getMany()) as Array<{systemId: number; type: string}>;
     const sessionId = this.uow.getWriteContext().session.sessionId;
-    const actions = await this.editActions.getByTable(
+    const subsystems = await this.subsystemFetcher.fetchAll(
+      fileSystemId,
       sessionId,
-      ENTITY_NAMES.Node,
     );
-    return this.overlay
-      .applyToCollection(
-        baseRows,
-        actions,
-        payload => payload.fileSystemId === fileSystemId,
-      )
-      .some(result => result.effective.type === 'subsystem');
+    return subsystems.length > 0;
   }
 
   async clearControlPortIntents(
@@ -82,53 +77,33 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
   ): Promise<void> {
     if (ports.length === 0) return;
     const {session, groupId} = this.uow.getWriteContext();
-    const controlPortSystemIds = [
-      ...new Set(ports.map(port => port.controlPortSystemId)),
-    ];
     const subsystemByControlPortId = new Map(
       ports.map(port => [port.controlPortSystemId, port.subsystemSystemId]),
     );
-    const baseRows = (await this.manager
-      .getRepository(ENTITY_NAMES.ControlPort)
-      .createQueryBuilder('cp')
-      .innerJoin(
-        ENTITY_NAMES.Node,
-        'n',
-        'n.systemId = cp.nodeSystemId AND n.fileSystemId = :fileSystemId',
-        {fileSystemId},
-      )
-      .where(
-        'cp.systemId IN (:...controlPortSystemIds) AND n.type = :nodeType',
-        {controlPortSystemIds, nodeType: 'subsystem'},
-      )
-      .getMany()) as ControlPortBase[];
-    const actions = await this.editActions.getByTable(
+    const effectiveSubsystems = await this.subsystemFetcher.fetchAll(
+      fileSystemId,
       session.sessionId,
-      ENTITY_NAMES.ControlPort,
     );
-    const rows = this.overlay
-      .applyToCollection(
-        baseRows,
-        actions.filter(action =>
-          controlPortSystemIds.includes(action.targetSystemId),
+    const effectiveSubsystemIds = new Set(
+      effectiveSubsystems.map(subsystem => subsystem.systemId),
+    );
+    const controlPorts = await Promise.all(
+      [...subsystemByControlPortId.entries()]
+        .filter(([, subsystemSystemId]) =>
+          effectiveSubsystemIds.has(subsystemSystemId),
+        )
+        .map(([controlPortSystemId, subsystemSystemId]) =>
+          this.portFetcher.fetchControlPortsWithIntents(
+            subsystemSystemId,
+            fileSystemId,
+            session.sessionId,
+            {systemId: controlPortSystemId},
+          ),
         ),
-        payload =>
-          subsystemByControlPortId.get(payload.systemId as number) ===
-          payload.nodeSystemId,
-      )
-      .map(result => result.effective)
-      .filter(
-        port =>
-          subsystemByControlPortId.get(port.systemId) === port.nodeSystemId,
-      );
+    );
 
-    for (const port of rows) {
-      const portIntents = await this.intents.fetchMany(
-        [port.systemId],
-        port.nodeSystemId,
-        session.sessionId,
-      );
-      for (const intent of portIntents) {
+    for (const port of controlPorts.flat()) {
+      for (const intent of port.intents) {
         await this.writer.writeDelete(
           {
             targetTable: ENTITY_NAMES.Intent,

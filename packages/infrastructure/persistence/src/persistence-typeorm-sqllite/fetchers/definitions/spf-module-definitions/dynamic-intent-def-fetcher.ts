@@ -53,12 +53,16 @@ export class DynamicIntentDefFetcher {
     const dynamicIntentActions = actions.filter(
       action => action.targetTable === ENTITY_NAMES.DynamicIntentDefinition,
     );
-    const createFilter = (newValue: Record<string, unknown>) =>
-      newValue.moduleDefinitionSystemId === defSystemId &&
-      (filters === undefined || matchesEntityFilters(newValue, filters));
-
     return this.overlay
-      .applyToCollection(baseRows, dynamicIntentActions, createFilter)
+      .applyToCollection(baseRows, dynamicIntentActions, {
+        matchesEffective: row =>
+          row.moduleDefinitionSystemId === defSystemId &&
+          (filters === undefined ||
+            matchesEntityFilters(
+              row as unknown as Record<string, unknown>,
+              filters,
+            )),
+      })
       .map(row => row.effective);
   }
 }

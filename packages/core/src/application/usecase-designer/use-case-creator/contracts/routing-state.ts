@@ -54,8 +54,5 @@ export interface OrphanCandidate {
 
 /** Internal write result retained until ResponseBuilder groups it by operation. */
 export interface EmittedUsecaseChange extends UsecaseChangeRef {
-  readonly operation: Exclude<
-    ChangeOperation,
-    typeof CHANGE_OPERATION.None
-  >;
+  readonly operation: Exclude<ChangeOperation, typeof CHANGE_OPERATION.None>;
 }

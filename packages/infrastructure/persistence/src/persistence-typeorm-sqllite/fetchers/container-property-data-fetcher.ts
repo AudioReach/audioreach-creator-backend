@@ -46,30 +46,50 @@ export class ContainerPropertyDataFetcher {
     sessionId: number | null,
     filters?: ContainerPropertyDataFilters,
   ): Promise<ContainerPropertyDataBase[]> {
+    const aggregateActions =
+      sessionId === null
+        ? []
+        : await this.editActionsSvc.getByAggregateId(
+            sessionId,
+            containerSystemId,
+          );
+    const propActions = aggregateActions.filter(
+      action => action.targetTable === ENTITY_NAMES.ContainerPropertyData,
+    );
     const qb = this.manager
       .getRepository(ENTITY_NAMES.ContainerPropertyData)
       .createQueryBuilder('cpd')
       .where('cpd.containerSystemId = :containerSystemId', {containerSystemId});
-    if (filters) applyEntityFilters(qb, 'cpd', filters);
+    if (sessionId === null && filters) applyEntityFilters(qb, 'cpd', filters);
     const baseRows = (await qb.getMany()) as ContainerPropertyDataRow[];
 
     if (sessionId === null) return baseRows;
-
-    const actions = await this.editActionsSvc.getByAggregateId(
-      sessionId,
-      containerSystemId,
-    );
-    const propActions = actions.filter(
-      a => a.targetTable === ENTITY_NAMES.ContainerPropertyData,
-    );
-    if (propActions.length === 0) return baseRows;
-
-    const createFilter = filters
-      ? (nv: Record<string, unknown>) => matchesEntityFilters(nv, filters)
-      : undefined;
+    if (propActions.length === 0) return this.filterRows(baseRows, filters);
 
     return this.overlay
-      .applyToCollection(baseRows, propActions, createFilter)
+      .applyToCollection(baseRows, propActions, {
+        matchesEffective: row =>
+          row.containerSystemId === containerSystemId &&
+          (filters === undefined ||
+            matchesEntityFilters(
+              row as unknown as Record<string, unknown>,
+              filters,
+            )),
+      })
       .map(r => r.effective);
+  }
+
+  private filterRows(
+    rows: ContainerPropertyDataBase[],
+    filters: ContainerPropertyDataFilters | undefined,
+  ): ContainerPropertyDataBase[] {
+    return filters === undefined
+      ? rows
+      : rows.filter(row =>
+          matchesEntityFilters(
+            row as unknown as Record<string, unknown>,
+            filters,
+          ),
+        );
   }
 }

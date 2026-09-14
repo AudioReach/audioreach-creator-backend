@@ -11,34 +11,27 @@ import type {
   DataLinkReadModel,
 } from '@arc/core';
 import {Result, IssueFactory} from '@arc/core';
-import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
 import {UseCaseQueryMappers} from '../usecase/usecase-query-mappers.js';
 import {SubsystemOverlayFetcher} from '../../fetchers/subsystem-overlay-fetcher.js';
-import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
-import {OverlayMergeImpl} from '../../queries/edit-session/overlay-merge.js';
 import type {ControlLinkBase} from '../../entity-schema/usecase-data/Links/control-link.js';
 import type {DataLinkBase} from '../../entity-schema/usecase-data/Links/data-link.js';
+import type {UsecaseOverlayFetcher} from '../../fetchers/usecase-overlay-fetcher.js';
+import type {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
 
 /**
  * Database implementation of SubsystemQueryService.
  *
- * Subsystem link segment queries (raw SQL cross-table JOINs) live here.
- * Standard link overlay delegated to LinkOverlayFetcher (FR-3).
+ * Composes effective usecase membership, canonical links, and subsystem-link
+ * segments provided by their respective fetchers.
  */
 export class DbSubsystemQueryService implements SubsystemQueryService {
-  private readonly subsystemFetcher: SubsystemOverlayFetcher;
-  private readonly overlayMerge = new OverlayMergeImpl();
-
   constructor(
     private readonly dataSource: DataSource,
-    private readonly editActionsQuerySvc: EditActionsQueryService,
-  ) {
-    this.subsystemFetcher = new SubsystemOverlayFetcher(
-      dataSource.manager,
-      editActionsQuerySvc,
-    );
-  }
+    private readonly subsystemFetcher: SubsystemOverlayFetcher,
+    private readonly usecaseFetcher: UsecaseOverlayFetcher,
+    private readonly linkFetcher: LinkOverlayFetcher,
+  ) {}
 
   async findAll(fileSystemId: number): Promise<Result<SubsystemReadModel[]>> {
     try {
@@ -85,59 +78,43 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
         fileSystemId,
       );
 
-      // Raw SQL cross-table query: subsystem_control_links JOIN control_links
-      const baseRows: ControlLinkBase[] = await this.dataSource.manager
-        .createQueryBuilder()
-        .distinct(true)
-        .select([
-          'scl.system_id            AS "systemId"',
-          'scl.peer_nodeA_system_id AS "peerNodeASystemId"',
-          'scl.peer_nodeB_system_id AS "peerNodeBSystemId"',
-          'scl.nodeA_port_system_id AS "nodeAPortSystemId"',
-          'scl.nodeB_port_system_id AS "nodeBPortSystemId"',
-          'cl.heap_id               AS "heapId"',
-          'cl.link_type             AS "linkType"',
-          'cl.source_subgraph_system_id AS "sourceSubgraphSystemId"',
-          'cl.dest_subgraph_system_id   AS "destSubgraphSystemId"',
-        ])
-        .addSelect(`${JSON.stringify(fileSystemId)}`, '"fileSystemId"')
-        .from('subsystem_control_links', 'scl')
-        .innerJoin(
-          'control_links',
-          'cl',
-          'cl.system_id = scl.control_link_system_id',
-        )
-        .innerJoin(
-          'use_case_subgraph_pairs',
-          'ucsp',
-          'ucsp.subgraph_system_id = cl.source_subgraph_system_id OR ucsp.subgraph_system_id = cl.dest_subgraph_system_id',
-        )
-        .where('ucsp.use_case_system_id IN (:...usecaseSystemIds)', {
+      const usecaseSubgraphIds =
+        await this.usecaseFetcher.getSubgraphSystemIdsForUsecases(
           usecaseSystemIds,
-        })
-        .andWhere('scl.file_system_id = :fileSystemId', {fileSystemId})
-        .getRawMany();
-
-      let rows: ControlLinkBase[];
-      if (sessionId !== null) {
-        const actions = await this.editActionsQuerySvc.getByTable(
           sessionId,
-          ENTITY_NAMES.SubsystemControlLink,
         );
-        rows =
-          actions.length > 0
-            ? this.overlayMerge
-                .applyToCollection(baseRows, actions)
-                .map(r => r.effective)
-            : baseRows;
-      } else {
-        rows = baseRows;
-      }
+      if (usecaseSubgraphIds.length === 0) return Result.ok([]);
 
-      const seen = new Set<number>();
-      const links = rows.filter(
-        r => !seen.has(r.systemId) && seen.add(r.systemId),
+      const [controlLinks, segments] = await Promise.all([
+        this.linkFetcher.loadControlLinkRows(fileSystemId, sessionId),
+        this.linkFetcher.loadSubsystemControlLinkRows(fileSystemId, sessionId),
+      ]);
+      const usecaseSubgraphIdSet = new Set(usecaseSubgraphIds);
+      const controlLinkBySystemId = new Map(
+        controlLinks.map(link => [link.systemId, link]),
       );
+      const links: ControlLinkBase[] = segments.flatMap(segment => {
+        const link =
+          segment.controlLinkSystemId === null
+            ? undefined
+            : controlLinkBySystemId.get(segment.controlLinkSystemId);
+        if (
+          link === undefined ||
+          !this.isLinkInUsecaseScope(link, usecaseSubgraphIdSet)
+        ) {
+          return [];
+        }
+        return [
+          {
+            ...link,
+            systemId: segment.systemId,
+            peerNodeASystemId: segment.peerNodeASystemId,
+            peerNodeBSystemId: segment.peerNodeBSystemId,
+            nodeAPortSystemId: segment.nodeAPortSystemId,
+            nodeBPortSystemId: segment.nodeBPortSystemId,
+          },
+        ];
+      });
       return Result.ok(
         links.map(cl =>
           UseCaseQueryMappers.mapToComponentControlLinkReadModel(cl),
@@ -165,55 +142,43 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
         fileSystemId,
       );
 
-      // Raw SQL cross-table query: subsystem_data_links JOIN data_links
-      const baseRows: DataLinkBase[] = await this.dataSource.manager
-        .createQueryBuilder()
-        .distinct(true)
-        .select([
-          'sdl.system_id                  AS "systemId"',
-          'sdl.source_node_system_id      AS "sourceNodeSystemId"',
-          'sdl.destination_node_system_id AS "destinationNodeSystemId"',
-          'sdl.source_port_system_id      AS "sourcePortSystemId"',
-          'sdl.destination_port_system_id AS "destinationPortSystemId"',
-          'dl.link_type                   AS "linkType"',
-          'dl.is_ec                       AS "isEc"',
-          'dl.source_subgraph_system_id   AS "sourceSubgraphSystemId"',
-          'dl.dest_subgraph_system_id     AS "destSubgraphSystemId"',
-        ])
-        .addSelect(`${JSON.stringify(fileSystemId)}`, '"fileSystemId"')
-        .from('subsystem_data_links', 'sdl')
-        .innerJoin('data_links', 'dl', 'dl.system_id = sdl.data_link_system_id')
-        .innerJoin(
-          'use_case_subgraph_pairs',
-          'ucsp',
-          'ucsp.subgraph_system_id = dl.source_subgraph_system_id OR ucsp.subgraph_system_id = dl.dest_subgraph_system_id',
-        )
-        .where('ucsp.use_case_system_id IN (:...usecaseSystemIds)', {
+      const usecaseSubgraphIds =
+        await this.usecaseFetcher.getSubgraphSystemIdsForUsecases(
           usecaseSystemIds,
-        })
-        .andWhere('sdl.file_system_id = :fileSystemId', {fileSystemId})
-        .getRawMany();
-
-      let rows: DataLinkBase[];
-      if (sessionId !== null) {
-        const actions = await this.editActionsQuerySvc.getByTable(
           sessionId,
-          ENTITY_NAMES.SubsystemDataLink,
         );
-        rows =
-          actions.length > 0
-            ? this.overlayMerge
-                .applyToCollection(baseRows, actions)
-                .map(r => r.effective)
-            : baseRows;
-      } else {
-        rows = baseRows;
-      }
+      if (usecaseSubgraphIds.length === 0) return Result.ok([]);
 
-      const seen = new Set<number>();
-      const links = rows.filter(
-        r => !seen.has(r.systemId) && seen.add(r.systemId),
+      const [dataLinks, segments] = await Promise.all([
+        this.linkFetcher.loadDataLinkRows(fileSystemId, sessionId),
+        this.linkFetcher.loadSubsystemDataLinkRows(fileSystemId, sessionId),
+      ]);
+      const usecaseSubgraphIdSet = new Set(usecaseSubgraphIds);
+      const dataLinkBySystemId = new Map(
+        dataLinks.map(link => [link.systemId, link]),
       );
+      const links: DataLinkBase[] = segments.flatMap(segment => {
+        const link =
+          segment.dataLinkSystemId === null
+            ? undefined
+            : dataLinkBySystemId.get(segment.dataLinkSystemId);
+        if (
+          link === undefined ||
+          !this.isLinkInUsecaseScope(link, usecaseSubgraphIdSet)
+        ) {
+          return [];
+        }
+        return [
+          {
+            ...link,
+            systemId: segment.systemId,
+            sourceNodeSystemId: segment.sourceNodeSystemId,
+            destinationNodeSystemId: segment.destinationNodeSystemId,
+            sourcePortSystemId: segment.sourcePortSystemId,
+            destinationPortSystemId: segment.destinationPortSystemId,
+          },
+        ];
+      });
       return Result.ok(
         links.map(dl =>
           UseCaseQueryMappers.mapToComponentDataLinkReadModel(dl),
@@ -230,5 +195,16 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
     }
   }
 
-  // ── Private helpers ────────────────────────────────────────────────────────
+  private isLinkInUsecaseScope(
+    link: Pick<
+      DataLinkBase | ControlLinkBase,
+      'sourceSubgraphSystemId' | 'destSubgraphSystemId'
+    >,
+    usecaseSubgraphIds: ReadonlySet<number>,
+  ): boolean {
+    return (
+      usecaseSubgraphIds.has(link.sourceSubgraphSystemId) ||
+      usecaseSubgraphIds.has(link.destSubgraphSystemId)
+    );
+  }
 }

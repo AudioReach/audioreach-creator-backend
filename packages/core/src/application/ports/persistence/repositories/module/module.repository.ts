@@ -41,8 +41,8 @@ export interface ModuleRepository {
     fileSystemId: number,
   ): Promise<SpfModuleBase[]>;
 
-  findModulesBySubgraphId(
-    subgraphSystemId: number,
+  findModulesBySubgraphIds(
+    subgraphSystemIds: readonly number[],
     fileSystemId: number,
   ): Promise<SpfModuleBase[]>;
 

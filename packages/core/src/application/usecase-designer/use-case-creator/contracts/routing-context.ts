@@ -43,6 +43,8 @@ export class RoutingContext {
   readonly islandTransitions: UseCase[] = [];
   /** Resolved SGKV selections. */
   readonly kvResolutions: KvResolution[] = [];
+  /** Subgraphs classified as MDF from the effective routing scope. */
+  readonly mdfSubgraphSystemIds = new Set<number>();
   /** Graph-edit routing starting points. */
   readonly seeds: RoutingSeed[] = [];
   /** Search bounds around each seed. */
@@ -66,15 +68,10 @@ export class RoutingContext {
 
   constructor(input: RoutingInput) {
     this.input = input;
-    this.excludedDataLinkSystemIds = new Set(
-      input.excludedDataLinkSystemIds,
-    );
+    this.excludedDataLinkSystemIds = new Set(input.excludedDataLinkSystemIds);
     this.excludedControlLinkSystemIds = new Set(
       input.excludedControlLinkSystemIds,
     );
-    this.excludedSubgraphSystemIds = new Set(
-      input.excludedSubgraphSystemIds,
-    );
+    this.excludedSubgraphSystemIds = new Set(input.excludedSubgraphSystemIds);
   }
-
 }

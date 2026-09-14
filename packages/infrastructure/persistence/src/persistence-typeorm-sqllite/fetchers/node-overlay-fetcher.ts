@@ -62,7 +62,10 @@ export class NodeOverlayFetcher {
     if (actions.length === 0) return baseRows;
 
     return this.overlay
-      .applyToCollection(baseRows, actions)
+      .applyToCollection(baseRows, actions, {
+        matchesEffective: row =>
+          row.fileSystemId === fileSystemId && nodeIdSet.has(row.systemId),
+      })
       .map(r => r.effective);
   }
 }

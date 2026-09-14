@@ -57,13 +57,10 @@ export class IntentFetcher {
     if (intentActions.length === 0) return baseRows;
 
     const cpIdSet = new Set(controlPortSystemIds);
-    const createFilter = (nv: Record<string, unknown>) => {
-      const cpId = (nv as {controlPortSystemId?: number}).controlPortSystemId;
-      return cpId !== undefined && cpIdSet.has(cpId);
-    };
-
     return this.overlay
-      .applyToCollection(baseRows, intentActions, createFilter)
+      .applyToCollection(baseRows, intentActions, {
+        matchesEffective: row => cpIdSet.has(row.controlPortSystemId),
+      })
       .map(r => r.effective);
   }
 }

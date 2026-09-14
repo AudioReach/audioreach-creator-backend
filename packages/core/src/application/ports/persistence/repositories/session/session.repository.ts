@@ -3,7 +3,10 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {SessionMode, Source} from '../../../../shared/change-vocabulary.js';
+import type {
+  SessionMode,
+  Source,
+} from '../../../../shared/change-vocabulary.js';
 
 /**
  * Read-side snapshot of a project session row.

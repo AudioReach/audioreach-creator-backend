@@ -59,17 +59,6 @@ export interface SubgraphRepository {
   ): Promise<Subgraph[]>;
 
   /**
-   * Returns Subgraphs qualifying as MDF — exactly 2 modules:
-   * IPC_TX (module_definition_id = 0x7001184) + IPC_RX (0x7001185).
-   * isMdf is NOT a persisted column; computed from module composition.
-   * Consumer: LLD1 §6.3 FR-KV-03 IsMdf auto-population (Phase 4).
-   */
-  findIsMdfInScope(
-    fileSystemId: number,
-    sgSystemIds: readonly number[],
-  ): Promise<Subgraph[]>;
-
-  /**
    * Returns Subgraphs added or deleted in the current session — a
    * `SessionChanged<Subgraph>` split. No `source` filter is applied; MANUAL
    * and DIFF_TOOL edit_actions are both included, and routing itself never

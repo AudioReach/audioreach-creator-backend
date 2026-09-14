@@ -14,13 +14,9 @@ import type {
   KeyValueDefQueryService,
   ISessionRepository,
   SpfModuleQueryService,
+  KeyValuePairReadModel,
 } from '@arc/core';
-import {
-  CHANGE_OPERATION,
-  Result,
-  IssueFactory,
-  RESULT_KIND,
-} from '@arc/core';
+import {CHANGE_OPERATION, Result, IssueFactory, RESULT_KIND} from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {USECASE_PARAM_FILTER} from './usecase-param-filter.js';
 import {UseCaseQueryMappers} from './usecase-query-mappers.js';
@@ -100,7 +96,7 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
         restrictToIds,
       );
 
-      const pairsMap = await this.getGkvPairMap(overlaidUsecases, fileId);
+      const pairsMap = await this.getGkvPairMap(overlaidUsecases, fileSystemId);
 
       const readModels: UseCaseReadModel[] = overlaidUsecases.map(uc => {
         const gkv = uc.gkvEntries
@@ -160,11 +156,14 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
       const usecaseIds = [
         ...new Set(usecaseGroupActions.map(action => action.aggregateId)),
       ];
-      const historyRows = await this.editActionsQuerySvc.getHistoryByAggregateIds(
-        session.sessionId,
-        usecaseIds,
+      const historyRows =
+        await this.editActionsQuerySvc.getHistoryByAggregateIds(
+          session.sessionId,
+          usecaseIds,
+        );
+      const history = historyRows.filter(action =>
+        this.isUsecaseAction(action),
       );
-      const history = historyRows.filter(action => this.isUsecaseAction(action));
       const groupActionIds = new Set(
         usecaseGroupActions.map(action => action.changeId),
       );
@@ -210,8 +209,7 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
           return {
             systemId,
             changeId: anchor.changeId,
-            operation:
-              rootAction?.operation ?? CHANGE_OPERATION.Update,
+            operation: rootAction?.operation ?? CHANGE_OPERATION.Update,
             before: beforeSnapshots.get(systemId) ?? null,
             after: afterSnapshots.get(systemId) ?? null,
           };
@@ -370,15 +368,7 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
   private async getGkvPairMap(
     usecases: readonly OverlaidUseCase[],
     fileId: number,
-  ): Promise<
-    Map<
-      number,
-      {
-        key: {systemId: number; keyId: number; name: string};
-        value: {systemId: number; valueId: number; name: string};
-      }
-    >
-  > {
+  ): Promise<Map<number, KeyValuePairReadModel>> {
     const valueDefSystemIds = [
       ...new Set(
         usecases.flatMap(usecase =>
@@ -393,33 +383,25 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
       );
     if (pairsResult.kind === RESULT_KIND.Fail) return new Map();
 
-    return new Map(
-      pairsResult.data.map(pair => [pair.value.systemId, pair]),
-    );
+    return new Map(pairsResult.data.map(pair => [pair.value.systemId, pair]));
   }
 
   private toGkvReadModel(
     usecase: OverlaidUseCase,
-    pairsByValueId: ReadonlyMap<
-      number,
-      {
-        key: {systemId: number; keyId: number; name: string};
-        value: {systemId: number; valueId: number; name: string};
-      }
-    >,
-  ) {
+    pairsByValueId: ReadonlyMap<number, KeyValuePairReadModel>,
+  ): KeyValuePairReadModel[] {
     return usecase.gkvEntries
       .map(entry => pairsByValueId.get(entry.valueDefSystemId))
       .filter((pair): pair is NonNullable<typeof pair> => pair !== undefined)
       .map(pair => ({
         key: {
           systemId: pair.key.systemId,
-          keyId: pair.key.keyId,
+          naturalId: pair.key.naturalId,
           name: pair.key.name,
         },
         value: {
           systemId: pair.value.systemId,
-          valueId: pair.value.valueId,
+          naturalId: pair.value.naturalId,
           name: pair.value.name,
         },
       }));

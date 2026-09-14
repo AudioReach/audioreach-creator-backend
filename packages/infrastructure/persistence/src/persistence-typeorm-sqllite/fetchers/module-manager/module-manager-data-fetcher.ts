@@ -73,18 +73,17 @@ export class ModuleManagerDataFetcher {
     const relevantActions = allActions.filter(action =>
       definitionIdSet.has(action.aggregateId),
     );
-    const createFilter = (newValue: Record<string, unknown>) => {
-      const definitionId = newValue.moduleDefinitionSystemId;
-      return (
-        typeof definitionId === 'number' &&
-        definitionIdSet.has(definitionId) &&
-        newValue.fileSystemId === fileSystemId &&
-        (filters === undefined || matchesEntityFilters(newValue, filters))
-      );
-    };
-
     return this.overlay
-      .applyToCollection(baseRows, relevantActions, createFilter)
+      .applyToCollection(baseRows, relevantActions, {
+        matchesEffective: row =>
+          definitionIdSet.has(row.moduleDefinitionSystemId) &&
+          row.fileSystemId === fileSystemId &&
+          (filters === undefined ||
+            matchesEntityFilters(
+              row as unknown as Record<string, unknown>,
+              filters,
+            )),
+      })
       .map(row => row.effective);
   }
 

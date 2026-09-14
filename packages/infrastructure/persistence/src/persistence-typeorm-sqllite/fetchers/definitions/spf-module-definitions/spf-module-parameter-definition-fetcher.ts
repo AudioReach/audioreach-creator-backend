@@ -64,17 +64,16 @@ export class SpfModuleParameterDefinitionFetcher {
     const relevantActions = allActions.filter(action =>
       definitionIdSet.has(action.aggregateId),
     );
-    const createFilter = (newValue: Record<string, unknown>) => {
-      const ownerId = newValue.spfModuleDefinitionSystemId;
-      return (
-        typeof ownerId === 'number' &&
-        definitionIdSet.has(ownerId) &&
-        (filters === undefined || matchesEntityFilters(newValue, filters))
-      );
-    };
-
     return this.overlay
-      .applyToCollection(baseRows, relevantActions, createFilter)
+      .applyToCollection(baseRows, relevantActions, {
+        matchesEffective: row =>
+          definitionIdSet.has(row.spfModuleDefinitionSystemId) &&
+          (filters === undefined ||
+            matchesEntityFilters(
+              row as unknown as Record<string, unknown>,
+              filters,
+            )),
+      })
       .map(row => row.effective);
   }
 

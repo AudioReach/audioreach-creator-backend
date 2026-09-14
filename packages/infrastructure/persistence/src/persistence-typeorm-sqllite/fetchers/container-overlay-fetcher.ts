@@ -10,6 +10,7 @@ import type {EditActionsQueryService} from '../queries/edit-session/edit-actions
 import type {ContainerBase} from '../entity-schema/usecase-data/container/container.schema.js';
 import type {ContainerPropertyDataBase} from '../entity-schema/usecase-data/container/container-property-data.js';
 import {
+  applyCandidateFilters,
   applyEntityFilters,
   matchesEntityFilters,
 } from '../queries/shared/filter-utils.js';
@@ -67,27 +68,43 @@ export class ContainerOverlayFetcher {
     sessionId: number | null,
     filters?: ContainerFilters,
   ): Promise<ContainerBase[]> {
-    const qb = this.manager
-      .getRepository(ENTITY_NAMES.Container)
-      .createQueryBuilder('c')
-      .where('c.fileSystemId = :fileSystemId', {fileSystemId});
-    if (filters) applyEntityFilters(qb, 'c', filters);
-    const baseRows = (await qb.getMany()) as ContainerBase[];
-
-    if (sessionId === null) return baseRows;
+    if (sessionId === null) {
+      const qb = this.manager
+        .getRepository(ENTITY_NAMES.Container)
+        .createQueryBuilder('c')
+        .where('c.fileSystemId = :fileSystemId', {fileSystemId});
+      if (filters) applyEntityFilters(qb, 'c', filters);
+      return (await qb.getMany()) as ContainerBase[];
+    }
 
     const actions = await this.editActionsSvc.getByTable(
       sessionId,
       ENTITY_NAMES.Container,
     );
+    const qb = this.manager
+      .getRepository(ENTITY_NAMES.Container)
+      .createQueryBuilder('c')
+      .where('c.fileSystemId = :fileSystemId', {fileSystemId});
+    applyCandidateFilters(
+      qb,
+      'c',
+      filters,
+      actions.map(action => action.targetSystemId),
+    );
+    const baseRows = (await qb.getMany()) as ContainerBase[];
+
     if (actions.length === 0) return baseRows;
 
-    const createFilter = filters
-      ? (nv: Record<string, unknown>) => matchesEntityFilters(nv, filters)
-      : undefined;
-
     return this.overlay
-      .applyToCollection(baseRows, actions, createFilter)
+      .applyToCollection(baseRows, actions, {
+        matchesEffective: row =>
+          row.fileSystemId === fileSystemId &&
+          (filters === undefined ||
+            matchesEntityFilters(
+              row as unknown as Record<string, unknown>,
+              filters,
+            )),
+      })
       .map(r => r.effective);
   }
 }

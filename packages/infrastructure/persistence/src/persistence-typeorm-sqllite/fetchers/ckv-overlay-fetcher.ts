@@ -6,7 +6,6 @@
 import type {EntityManager} from 'typeorm';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
 import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
-import {applyTableOverlay} from '../queries/edit-session/overlay-utils.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
 import type {
   CkvBase,
@@ -73,7 +72,7 @@ export class CkvOverlayFetcher {
   /**
    * Returns all overlaid Ckv rows for the given SpfModule.
    * Optional column-level filters (applied to SQL and to session-created rows
-   * via createFilter so both paths enforce the same predicate).
+   * through one final effective-row predicate).
    * Loads ckv_values via JOIN (baseline only — composite PK, not overlaid).
    * All Ckv actions (CREATE/UPDATE/DELETE) are passed together to applyToCollection.
    */
@@ -82,31 +81,45 @@ export class CkvOverlayFetcher {
     sessionId: number | null,
     filters?: CkvFilters,
   ): Promise<OverlaidCkv[]> {
+    const aggregateActions =
+      sessionId === null
+        ? []
+        : await this.editActionsSvc.getByAggregateId(sessionId, moduleSystemId);
+    const ckvActions = aggregateActions.filter(
+      action => action.targetTable === ENTITY_NAMES.Ckv,
+    );
     const qb = this.manager
       .getRepository(ENTITY_NAMES.Ckv)
       .createQueryBuilder('ckv')
       .leftJoinAndSelect('ckv.values', 'ckvValues')
-      .where('ckv.spfModuleSystemId = :moduleSystemId', {moduleSystemId});
-    if (filters) applyEntityFilters(qb, 'ckv', filters);
+      .where('ckv.spfModuleSystemId = :id', {id: moduleSystemId});
+    if (sessionId === null && filters) applyEntityFilters(qb, 'ckv', filters);
     const baseRows = (await qb.getMany()) as CkvRow[];
 
     if (sessionId === null) return baseRows.map(r => this.toOverlaidCkv(r));
 
-    const actions = await this.editActionsSvc.getByAggregateId(
-      sessionId,
-      moduleSystemId,
-    );
-    const ckvActions = actions.filter(a => a.targetTable === ENTITY_NAMES.Ckv);
-
-    if (ckvActions.length === 0)
-      return baseRows.map(r => this.toOverlaidCkv(r));
-
-    const createFilter = filters
-      ? (nv: Record<string, unknown>) => matchesEntityFilters(nv, filters)
-      : undefined;
+    if (ckvActions.length === 0) {
+      const ckvs = baseRows.map(r => this.toOverlaidCkv(r));
+      return filters === undefined
+        ? ckvs
+        : ckvs.filter(ckv =>
+            matchesEntityFilters(
+              ckv as unknown as Record<string, unknown>,
+              filters,
+            ),
+          );
+    }
 
     return this.overlay
-      .applyToCollection(baseRows, ckvActions, createFilter)
+      .applyToCollection(baseRows, ckvActions, {
+        matchesEffective: row =>
+          row.spfModuleSystemId === moduleSystemId &&
+          (filters === undefined ||
+            matchesEntityFilters(
+              row as unknown as Record<string, unknown>,
+              filters,
+            )),
+      })
       .map(r => this.toOverlaidCkv(r.effective));
   }
 
@@ -128,6 +141,7 @@ export class CkvOverlayFetcher {
       .createQueryBuilder('ckv')
       .leftJoinAndSelect('ckv.values', 'ckvValues')
       .where('ckv.systemId = :ckvSystemId', {ckvSystemId})
+      .andWhere('ckv.spfModuleSystemId = :moduleSystemId', {moduleSystemId})
       .getOne()) as CkvRow | null;
 
     if (sessionId === null) {
@@ -143,16 +157,16 @@ export class CkvOverlayFetcher {
         a.targetTable === ENTITY_NAMES.Ckv && a.targetSystemId === ckvSystemId,
     );
 
-    const overlaid = applyTableOverlay(
-      baseRow as {systemId: number} | null,
-      ckvActions,
-      ENTITY_NAMES.Ckv,
-    ) as CkvRow | null;
+    const overlaid = this.overlay.applyToSingle(baseRow, ckvActions, {
+      matchesEffective: row =>
+        row.spfModuleSystemId === moduleSystemId &&
+        row.systemId === ckvSystemId,
+    });
 
     if (overlaid === null) return null;
 
     return {
-      ...this.toOverlaidCkv(overlaid),
+      ...this.toOverlaidCkv(overlaid.effective),
       values: (baseRow?.values ?? []).map(v => ({
         ckvSystemId: v.ckvSystemId,
         valueDefSystemId: v.valueDefSystemId,
@@ -178,8 +192,6 @@ export class CkvOverlayFetcher {
       filters,
     );
   }
-
-  // ── Private helpers ────────────────────────────────────────────────────────
 
   private toOverlaidCkv(row: CkvRow): OverlaidCkv {
     return {

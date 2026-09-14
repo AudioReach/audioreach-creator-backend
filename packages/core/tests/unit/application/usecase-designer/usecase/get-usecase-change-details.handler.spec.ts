@@ -27,9 +27,8 @@ describe('GetUsecaseChangeDetailsHandler', () => {
     expect(
       queryServices.projectQueryService.getFileIdByProjectId,
     ).toHaveBeenCalledWith(7);
-    expect(queryServices.useCaseQueryService.getChangeDetails).toHaveBeenCalledWith(
-      42,
-      'routing-group',
-    );
+    expect(
+      queryServices.useCaseQueryService.getChangeDetails,
+    ).toHaveBeenCalledWith(42, 'routing-group');
   });
 });

@@ -47,7 +47,7 @@ function createFixture(options?: {
         subgraphSystemId: 300,
       })),
     ),
-    findModulesBySubgraphId: jest.fn().mockResolvedValue(
+    findModulesBySubgraphIds: jest.fn().mockResolvedValue(
       (options?.remainingModules ?? []).map(systemId => ({
         systemId,
         definitionSystemId: 10,

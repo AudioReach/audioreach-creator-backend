@@ -13,10 +13,7 @@ import type {
   IntentBase,
 } from '../entity-schema/usecase-data/node/control-port.js';
 import type {IntentFetcher} from './intent-fetcher.js';
-import {
-  applyEntityFilters,
-  matchesEntityFilters,
-} from '../queries/shared/filter-utils.js';
+import {matchesEntityFilters} from '../queries/shared/filter-utils.js';
 
 /**
  * Optional column-level filters for DataPort queries.
@@ -71,7 +68,6 @@ export class PortOverlayFetcher {
       .getRepository(ENTITY_NAMES.DataPort)
       .createQueryBuilder('dp')
       .where('dp.nodeSystemId = :nodeSystemId', {nodeSystemId});
-    if (filters) applyEntityFilters(qb, 'dp', filters);
     const baseRows = (await qb.getMany()) as DataPortBase[];
 
     const base: OverlaidDataPort[] = baseRows.map(r => ({
@@ -80,7 +76,7 @@ export class PortOverlayFetcher {
       fileSystemId,
     }));
 
-    if (sessionId === null) return base;
+    if (sessionId === null) return this.filterPorts(base, filters);
 
     const allActions = await this.editActionsSvc.getByAggregateId(
       sessionId,
@@ -89,14 +85,18 @@ export class PortOverlayFetcher {
     const dpActions = allActions.filter(
       a => a.targetTable === ENTITY_NAMES.DataPort,
     );
-    if (dpActions.length === 0) return base;
-
-    const createFilter = filters
-      ? (nv: Record<string, unknown>) => matchesEntityFilters(nv, filters)
-      : undefined;
+    if (dpActions.length === 0) return this.filterPorts(base, filters);
 
     return this.overlay
-      .applyToCollection(base, dpActions, createFilter)
+      .applyToCollection(base, dpActions, {
+        matchesEffective: row =>
+          row.nodeSystemId === nodeSystemId &&
+          (filters === undefined ||
+            matchesEntityFilters(
+              row as unknown as Record<string, unknown>,
+              filters,
+            )),
+      })
       .map(r => ({...r.effective, fileSystemId}));
   }
 
@@ -110,7 +110,6 @@ export class PortOverlayFetcher {
       .getRepository(ENTITY_NAMES.ControlPort)
       .createQueryBuilder('cp')
       .where('cp.nodeSystemId = :nodeSystemId', {nodeSystemId});
-    if (filters) applyEntityFilters(qb, 'cp', filters);
     const basePortRows = (await qb.getMany()) as ControlPortBase[];
 
     const basePorts: OverlaidControlPort[] = basePortRows.map(r => ({
@@ -121,13 +120,14 @@ export class PortOverlayFetcher {
     }));
 
     if (sessionId === null) {
-      const cpIds = basePorts.map(p => p.systemId);
+      const filteredBasePorts = this.filterPorts(basePorts, filters);
+      const cpIds = filteredBasePorts.map(p => p.systemId);
       const intents = await this.intentFetcher.fetchMany(
         cpIds,
         nodeSystemId,
         null,
       );
-      return basePorts.map(cp => ({
+      return filteredBasePorts.map(cp => ({
         ...cp,
         intents: intents.filter(i => i.controlPortSystemId === cp.systemId),
       }));
@@ -141,16 +141,20 @@ export class PortOverlayFetcher {
       a => a.targetTable === ENTITY_NAMES.ControlPort,
     );
 
-    const createFilter = filters
-      ? (nv: Record<string, unknown>) => matchesEntityFilters(nv, filters)
-      : undefined;
-
     const overlaidPorts =
       cpActions.length > 0
         ? this.overlay
-            .applyToCollection(basePorts, cpActions, createFilter)
+            .applyToCollection(basePorts, cpActions, {
+              matchesEffective: row =>
+                row.nodeSystemId === nodeSystemId &&
+                (filters === undefined ||
+                  matchesEntityFilters(
+                    row as unknown as Record<string, unknown>,
+                    filters,
+                  )),
+            })
             .map(r => ({...r.effective, fileSystemId}))
-        : basePorts;
+        : this.filterPorts(basePorts, filters);
 
     const cpIds = overlaidPorts.map(p => p.systemId);
     const intents = await this.intentFetcher.fetchMany(
@@ -163,5 +167,19 @@ export class PortOverlayFetcher {
       ...cp,
       intents: intents.filter(i => i.controlPortSystemId === cp.systemId),
     }));
+  }
+
+  private filterPorts<T>(
+    ports: T[],
+    filters: Record<string, unknown> | undefined,
+  ): T[] {
+    return filters === undefined
+      ? ports
+      : ports.filter(port =>
+          matchesEntityFilters(
+            port as unknown as Record<string, unknown>,
+            filters,
+          ),
+        );
   }
 }

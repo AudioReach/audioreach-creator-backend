@@ -51,7 +51,7 @@ export class CkvParameterPayloadFetcher {
   /**
    * Returns overlaid CkvParameterPayload rows for the given ckvSystemId.
    * Optional column-level filters applied to both the SQL query and session-created
-   * rows via createFilter so both paths enforce the same predicate.
+   * rows through one final effective-row predicate.
    * aggregateId = moduleSystemId — payload edit_actions are scoped to the owning SpfModule.
    */
   async fetchMany(
@@ -60,34 +60,35 @@ export class CkvParameterPayloadFetcher {
     sessionId: number | null,
     filters?: CkvParameterPayloadFilters,
   ): Promise<CkvParameterPayloadBase[]> {
+    const aggregateActions =
+      sessionId === null
+        ? []
+        : await this.editActionsSvc.getByAggregateId(sessionId, moduleSystemId);
+    const payloadActions = aggregateActions.filter(
+      action => action.targetTable === ENTITY_NAMES.CkvParameterPayload,
+    );
     const qb = this.manager
       .getRepository(ENTITY_NAMES.CkvParameterPayload)
       .createQueryBuilder('payload')
       .where('payload.ckvSystemId = :ckvSystemId', {ckvSystemId});
-    if (filters) applyEntityFilters(qb, 'payload', filters);
+    if (sessionId === null && filters)
+      applyEntityFilters(qb, 'payload', filters);
     const baseRows = (await qb.getMany()) as CkvParameterPayloadRow[];
 
     if (sessionId === null) return baseRows.map(r => this.toBase(r));
-
-    const actions = await this.editActionsSvc.getByAggregateId(
-      sessionId,
-      moduleSystemId,
-    );
-    const payloadActions = actions.filter(
-      a => a.targetTable === ENTITY_NAMES.CkvParameterPayload,
-    );
-    if (payloadActions.length === 0) return baseRows.map(r => this.toBase(r));
-
-    const createFilter = filters
-      ? (nv: Record<string, unknown>) => matchesEntityFilters(nv, filters)
-      : undefined;
+    const base = baseRows.map(r => this.toBase(r));
+    if (payloadActions.length === 0) return this.filterPayloads(base, filters);
 
     return this.overlay
-      .applyToCollection(
-        baseRows.map(r => this.toBase(r)),
-        payloadActions,
-        createFilter,
-      )
+      .applyToCollection(base, payloadActions, {
+        matchesEffective: row =>
+          row.ckvSystemId === ckvSystemId &&
+          (filters === undefined ||
+            matchesEntityFilters(
+              row as unknown as Record<string, unknown>,
+              filters,
+            )),
+      })
       .map(r => r.effective);
   }
 
@@ -100,5 +101,19 @@ export class CkvParameterPayloadFetcher {
       parameterSystemId: row.parameterSystemId,
       payload: row.payload ?? null,
     };
+  }
+
+  private filterPayloads(
+    payloads: CkvParameterPayloadBase[],
+    filters: CkvParameterPayloadFilters | undefined,
+  ): CkvParameterPayloadBase[] {
+    return filters === undefined
+      ? payloads
+      : payloads.filter(payload =>
+          matchesEntityFilters(
+            payload as unknown as Record<string, unknown>,
+            filters,
+          ),
+        );
   }
 }

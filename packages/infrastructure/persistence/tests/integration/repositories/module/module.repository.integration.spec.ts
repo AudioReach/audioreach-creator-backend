@@ -4,7 +4,12 @@
  */
 
 import type {DataSource, QueryRunner} from 'typeorm';
-import {CHANGE_OPERATION, CHANGE_STATUS, SOURCE} from '@arc/core';
+import {
+  CHANGE_OPERATION,
+  CHANGE_STATUS,
+  SOURCE,
+  SpfModuleDefinition,
+} from '@arc/core';
 import {
   SESSION_MODE,
   SESSION_STATUS,
@@ -17,6 +22,7 @@ import {
   getTestRepository,
 } from '../../helpers/test-database-setup.js';
 import {TypeOrmModuleRepository} from '../../../../src/persistence-typeorm-sqllite/repositories/module/module.repository.js';
+import {TypeOrmModuleDefinitionRepository} from '../../../../src/persistence-typeorm-sqllite/repositories/module/module-definition.repository.js';
 import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 import {PendingChangeWriter} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
 import {PendingChangeCache} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
@@ -156,6 +162,13 @@ function makeRepo(
   );
 }
 
+function makeDefinitionRepo(
+  manager: QueryRunner['manager'],
+  sessionId: number,
+): TypeOrmModuleDefinitionRepository {
+  return new TypeOrmModuleDefinitionRepository(manager, makeUow(sessionId));
+}
+
 async function getActiveActions(qr: QueryRunner, sessionId: number) {
   return qr.manager
     .getRepository(EditActionSchema)
@@ -262,6 +275,37 @@ describe('TypeOrmModuleRepository (integration)', () => {
           FILE_ID,
         ),
       ).toBeNull();
+    });
+  });
+
+  describe('module definition reads', () => {
+    it('returns deduplicated, overlaid full definitions and omits missing IDs', async () => {
+      await seedModule(ds);
+      const sessionId = await seedSession(ds);
+      await makeWriter(qr.manager).writeDelta(
+        {
+          targetTable: ENTITY_NAMES.SpfModuleDefinition,
+          targetSystemId: DEF_ID,
+          aggregateId: DEF_ID,
+          delta: {stackSize: 12},
+        },
+        sessionId,
+        'definition-update',
+        qr.manager,
+      );
+
+      const definitions = await makeDefinitionRepo(
+        qr.manager,
+        sessionId,
+      ).findBySystemIds([DEF_ID, DEF_ID, 9999], FILE_ID);
+
+      expect(definitions).toHaveLength(1);
+      expect(definitions[0]).toBeInstanceOf(SpfModuleDefinition);
+      expect(definitions[0]).toMatchObject({
+        systemId: DEF_ID,
+        naturalId: 1,
+        stackSize: 12,
+      });
     });
   });
 

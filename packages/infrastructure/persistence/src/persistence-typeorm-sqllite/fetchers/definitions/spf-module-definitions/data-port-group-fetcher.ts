@@ -70,6 +70,9 @@ export class DataPortGroupFetcher {
       .applyToCollection(
         baseGroups.map(g => ({...g})),
         groupActions,
+        {
+          matchesEffective: row => row.moduleDefinitionSystemId === defSystemId,
+        },
       )
       .map(r => r.effective as OverlaidDataPortGroup);
 
@@ -78,6 +81,12 @@ export class DataPortGroupFetcher {
       .applyToCollection(
         basePortDefRows.map(p => ({...p})),
         portDefActions,
+        {
+          matchesEffective: row =>
+            allGroups.some(
+              group => group.systemId === row.dataPortGroupSystemId,
+            ),
+        },
       )
       .map(r => r.effective as DataPortDefinitionBase);
 

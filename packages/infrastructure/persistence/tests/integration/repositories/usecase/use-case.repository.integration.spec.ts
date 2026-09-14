@@ -672,9 +672,14 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
         ],
         keyVector: {valueSystemIds: []},
       });
-      const result = await repo.reverseSgPairDirection(uc.systemId, SG_ID_1, SG_ID_2, {
-        source: SOURCE.AutoRouting,
-      });
+      const result = await repo.reverseSgPairDirection(
+        uc.systemId,
+        SG_ID_1,
+        SG_ID_2,
+        {
+          source: SOURCE.AutoRouting,
+        },
+      );
       await qr.commitTransaction();
 
       const rows: any[] = await ds.query(
@@ -693,9 +698,7 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
         `SELECT change_id, new_value FROM edit_actions WHERE session_id = ? AND aggregate_id = ? AND target_table = 'UseCase'`,
         [sessionId, 1000],
       );
-      expect(rootRows).toEqual([
-        expect.objectContaining({new_value: '{}'}),
-      ]);
+      expect(rootRows).toEqual([expect.objectContaining({new_value: '{}'})]);
       expect(result).toEqual({systemId: 1000, changeId: rootRows[0].change_id});
 
       const [overlaid] = await repo.findBySystemIds(FILE_ID, [1000]);
@@ -709,12 +712,13 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       await linkPair(ds, 1000, SG_ID_1, SG_ID_2);
       await qr.startTransaction();
 
-      const result = await makeRepo(qr.manager, sessionId).reverseSgPairDirection(
-        1000,
-        SG_ID_1,
-        SG_ID_2,
-        {cache: true, source: SOURCE.AutoRouting},
-      );
+      const result = await makeRepo(
+        qr.manager,
+        sessionId,
+      ).reverseSgPairDirection(1000, SG_ID_1, SG_ID_2, {
+        cache: true,
+        source: SOURCE.AutoRouting,
+      });
       await qr.commitTransaction();
 
       expect(result).toBeNull();
@@ -780,11 +784,10 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
     it('returns null without emitting a marker for a structural no-op', async () => {
       await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
       await qr.startTransaction();
-      const result = await makeRepo(qr.manager, sessionId).applyStructuralChange(
-        1000,
-        {},
-        {source: SOURCE.AutoRouting},
-      );
+      const result = await makeRepo(
+        qr.manager,
+        sessionId,
+      ).applyStructuralChange(1000, {}, {source: SOURCE.AutoRouting});
       await qr.commitTransaction();
 
       expect(result).toBeNull();
@@ -799,7 +802,10 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
       await qr.startTransaction();
 
-      const result = await makeRepo(qr.manager, sessionId).applyStructuralChange(
+      const result = await makeRepo(
+        qr.manager,
+        sessionId,
+      ).applyStructuralChange(
         1000,
         {addedSgSystemIds: [SG_ID_1]},
         {cache: true, source: SOURCE.AutoRouting},

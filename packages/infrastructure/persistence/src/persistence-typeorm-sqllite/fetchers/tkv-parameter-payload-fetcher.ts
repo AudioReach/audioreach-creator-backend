@@ -60,6 +60,7 @@ export class TkvParameterPayloadFetcher {
       this.overlay.applyToCollection(
         baseRows.map(r => ({...r})),
         relevantActions,
+        {matchesEffective: row => row.tkvSystemId === tkvSystemId},
       ) as Array<{effective: TkvParameterPayloadBase}>
     ).map(r => r.effective);
   }

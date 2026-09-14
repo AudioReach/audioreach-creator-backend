@@ -80,8 +80,8 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
             valueSystemIds.includes(700)
               ? [
                   {
-                    key: {systemId: 70, keyId: 7, name: 'Device'},
-                    value: {systemId: 700, valueId: 70, name: 'Speaker'},
+                    key: {systemId: 70, naturalId: 7, name: 'Device'},
+                    value: {systemId: 700, naturalId: 70, name: 'Speaker'},
                   },
                 ]
               : [],
@@ -127,8 +127,8 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
           aliasId: 91,
           gkv: [
             {
-              key: {systemId: 70, keyId: 7, name: 'Device'},
-              value: {systemId: 700, valueId: 70, name: 'Speaker'},
+              key: {systemId: 70, naturalId: 7, name: 'Device'},
+              value: {systemId: 700, naturalId: 70, name: 'Speaker'},
             },
           ],
           categories: ['voice'],

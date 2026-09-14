@@ -87,23 +87,18 @@ export class KeyValueDefinitionFetcher {
           ? true
           : requestedKeyIds.has(action.targetSystemId),
       );
-      const createFilter = (newValue: Record<string, unknown>) => {
-        const rowFileSystemId = newValue.fileSystemId;
-        const rowSystemId = newValue.systemId;
-        const inScope =
-          typeof rowFileSystemId === 'number' &&
-          rowFileSystemId === fileSystemId &&
-          (requestedKeyIds === undefined ||
-            (typeof rowSystemId === 'number' &&
-              requestedKeyIds.has(rowSystemId)));
-        return (
-          inScope &&
-          (filters === undefined || matchesEntityFilters(newValue, filters))
-        );
-      };
-
       keys = this.overlay
-        .applyToCollection(baseRows, relevantActions, createFilter)
+        .applyToCollection(baseRows, relevantActions, {
+          matchesEffective: row =>
+            row.fileSystemId === fileSystemId &&
+            (requestedKeyIds === undefined ||
+              requestedKeyIds.has(row.systemId)) &&
+            (filters === undefined ||
+              matchesEntityFilters(
+                row as unknown as Record<string, unknown>,
+                filters,
+              )),
+        })
         .map(row => row.effective);
     }
 

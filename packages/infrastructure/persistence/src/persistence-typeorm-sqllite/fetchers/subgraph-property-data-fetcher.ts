@@ -50,7 +50,9 @@ export class SubgraphPropertyDataFetcher {
     if (actions.length === 0) return baseRows;
 
     return this.overlay
-      .applyToCollection(baseRows, actions)
+      .applyToCollection(baseRows, actions, {
+        matchesEffective: row => subgraphIdSet.has(row.subgraphSystemId),
+      })
       .map(r => r.effective);
   }
 }
