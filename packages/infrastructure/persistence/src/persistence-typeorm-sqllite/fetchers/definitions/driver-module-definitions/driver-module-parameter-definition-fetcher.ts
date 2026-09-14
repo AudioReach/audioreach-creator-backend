@@ -56,7 +56,7 @@ export class DriverModuleParameterDefinitionFetcher {
       .where('param.driverModuleDefinitionSystemId IN (:...defSystemIds)', {
         defSystemIds: driverModuleDefinitionSystemIds,
       });
-    if (filters) applyEntityFilters(qb, 'param', filters);
+    if (sessionId === null && filters) applyEntityFilters(qb, 'param', filters);
     const baseRows =
       (await qb.getMany()) as DriverModuleParameterDefinitionBase[];
 
@@ -70,13 +70,16 @@ export class DriverModuleParameterDefinitionFetcher {
     const relevantActions = allActions.filter(action =>
       definitionIdSet.has(action.aggregateId),
     );
-    const createFilter = filters
-      ? (newValue: Record<string, unknown>) =>
-          matchesEntityFilters(newValue, filters)
-      : undefined;
-
     return this.overlay
-      .applyToCollection(baseRows, relevantActions, createFilter)
+      .applyToCollection(baseRows, relevantActions, {
+        matchesEffective: row =>
+          definitionIdSet.has(row.driverModuleDefinitionSystemId) &&
+          (filters === undefined ||
+            matchesEntityFilters(
+              row as unknown as Record<string, unknown>,
+              filters,
+            )),
+      })
       .map(row => row.effective);
   }
 

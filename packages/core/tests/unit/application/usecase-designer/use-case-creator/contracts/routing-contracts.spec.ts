@@ -116,9 +116,7 @@ describe('routing contracts', () => {
 
     expect(scope.missingSelectedScopeSubgraphs).toEqual(new Set());
     expect(scope.effectiveRoutingScope).toEqual(new Set([10]));
-    expect(scope.effectiveActiveSubgraphs).toEqual([
-      {systemId: 10, sgkvs: []},
-    ]);
+    expect(scope.effectiveActiveSubgraphs).toEqual([{systemId: 10, sgkvs: []}]);
   });
 
   it('removes excluded and deleted stale selections from routable input', () => {
@@ -193,17 +191,21 @@ describe('routing contracts', () => {
       },
     });
 
-    expect(new RoutingContext(input)).toEqual(
+    const context = new RoutingContext(input);
+    expect(context).toEqual(
       expect.objectContaining({
         input,
         affectedUcSystemIds: new Set(),
         allUcs: [],
         combinations: [],
         emittedChanges: [],
+        mdfSubgraphSystemIds: new Set(),
         warnings: [],
         response: null,
       }),
     );
+    context.mdfSubgraphSystemIds.add(31);
+    expect(context.mdfSubgraphSystemIds).toEqual(new Set([31]));
     expect(new RoutingContext(input)).not.toHaveProperty('selectedUsecases');
     expect(new RoutingContext(input)).not.toHaveProperty('mode');
     expect(new RoutingContext(input)).not.toHaveProperty('stagedChanges');

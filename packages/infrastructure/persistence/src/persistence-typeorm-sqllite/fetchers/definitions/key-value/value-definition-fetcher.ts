@@ -67,11 +67,17 @@ export class ValueDefinitionFetcher {
         ? true
         : requestedValueIds.has(action.targetSystemId),
     );
-    const createFilter = (newValue: Record<string, unknown>) =>
-      filters === undefined || matchesEntityFilters(newValue, filters);
-
     return this.overlay
-      .applyToCollection(baseRows, relevantActions, createFilter)
+      .applyToCollection(baseRows, relevantActions, {
+        matchesEffective: row =>
+          (requestedValueIds === undefined ||
+            requestedValueIds.has(row.systemId)) &&
+          (filters === undefined ||
+            matchesEntityFilters(
+              row as unknown as Record<string, unknown>,
+              filters,
+            )),
+      })
       .map(row => row.effective);
   }
 

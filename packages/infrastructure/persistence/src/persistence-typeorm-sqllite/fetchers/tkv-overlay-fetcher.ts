@@ -82,7 +82,7 @@ export class TkvOverlayFetcher {
    * their Tkv children and tkv_values.
    *
    * Optional column-level filters applied to both the SQL query and session-created
-   * rows via createFilter so both paths enforce the same predicate.
+   * rows through one final effective-row predicate.
    *
    * When includes=FullDetails, tkv_parameter_payload rows are also loaded via
    * the base JOIN (binary data — payload overlay is handled by fetchPayloads).
@@ -102,7 +102,9 @@ export class TkvOverlayFetcher {
       .leftJoinAndSelect('tagMap.tkvs', 'tkv')
       .leftJoinAndSelect('tkv.values', 'tkvValues')
       .where('tagMap.spfModuleSystemId = :moduleSystemId', {moduleSystemId});
-    if (filters) applyEntityFilters(qb, 'tagMap', filters);
+    if (sessionId === null && filters) {
+      applyEntityFilters(qb, 'tagMap', filters);
+    }
 
     if (includes === CONFIGURATION_INCLUDES.FullDetails) {
       qb = qb
@@ -133,20 +135,17 @@ export class TkvOverlayFetcher {
         moduleTagMapIds.has(a.targetSystemId),
     );
 
-    const tagMapCreateFilter = filters
-      ? (nv: Record<string, unknown>) => matchesEntityFilters(nv, filters)
-      : undefined;
-
-    const allTagMaps =
-      relevantTagMapActions.length > 0
-        ? (
-            this.overlay.applyToCollection(
-              baseTagMaps,
-              relevantTagMapActions,
-              tagMapCreateFilter,
-            ) as Array<{effective: ModuleTagIdMapRow}>
-          ).map(r => r.effective)
-        : baseTagMaps;
+    const allTagMaps = (
+      this.overlay.applyToCollection(baseTagMaps, relevantTagMapActions, {
+        matchesEffective: row =>
+          row.spfModuleSystemId === moduleSystemId &&
+          (filters === undefined ||
+            matchesEntityFilters(
+              row as unknown as Record<string, unknown>,
+              filters,
+            )),
+      }) as Array<{effective: ModuleTagIdMapRow}>
+    ).map(r => r.effective);
 
     // For each tag map, apply TKV overlay using the pre-loaded tkvActions
     // filtered to this tag map's aggregateId (= moduleTagIdMapSystemId).
@@ -160,9 +159,10 @@ export class TkvOverlayFetcher {
         mapTkvActions.length === 0
           ? baseTkvs
           : (
-              this.overlay.applyToCollection(baseTkvs, mapTkvActions) as Array<{
-                effective: TkvRow;
-              }>
+              this.overlay.applyToCollection(baseTkvs, mapTkvActions, {
+                matchesEffective: row =>
+                  row.moduleTagIdMapSystemId === tagMap.systemId,
+              }) as Array<{effective: TkvRow}>
             ).map(r => r.effective);
 
       return {
@@ -206,7 +206,9 @@ export class TkvOverlayFetcher {
       return baseRow ? this.toOverlaidTkv(baseRow) : null;
     }
 
-    const result = this.overlay.applyToSingle(baseRow, relevantActions);
+    const result = this.overlay.applyToSingle(baseRow, relevantActions, {
+      matchesEffective: row => row.systemId === tkvSystemId,
+    });
     return result
       ? this.toOverlaidTkv({...result.effective, values: baseRow?.values ?? []})
       : null;
@@ -234,30 +236,30 @@ export class TkvOverlayFetcher {
     spfModuleSystemId: number,
     sessionId: number | null,
   ): Promise<boolean> {
-    const baseRow = await this.manager
+    const baseRows = (await this.manager
       .getRepository(ENTITY_NAMES.ModuleTagIdMap)
-      .findOne({
-        where: {tagDefinitionSystemId: tagSystemId, spfModuleSystemId},
-        select: ['systemId'],
-      });
-
-    if (baseRow === null) return false;
-
-    if (sessionId !== null) {
-      const actions = await this.editActionsSvc.getByAggregateAndTable(
-        sessionId,
+      .createQueryBuilder('tagMap')
+      .where('tagMap.spfModuleSystemId = :spfModuleSystemId', {
         spfModuleSystemId,
-        ENTITY_NAMES.ModuleTagIdMap,
-      );
-      const filteredActions = actions.filter(
-        a => a.targetSystemId === baseRow.systemId,
-      );
-      if (filteredActions.length > 0) {
-        return this.overlay.applyToSingle(null, filteredActions) !== null;
-      }
+      })
+      .getMany()) as ModuleTagIdMapRow[];
+
+    if (sessionId === null) {
+      return baseRows.some(row => row.tagDefinitionSystemId === tagSystemId);
     }
 
-    return true;
+    const actions = await this.editActionsSvc.getByAggregateAndTable(
+      sessionId,
+      spfModuleSystemId,
+      ENTITY_NAMES.ModuleTagIdMap,
+    );
+    return (
+      this.overlay.applyToCollection(baseRows, actions, {
+        matchesEffective: row =>
+          row.spfModuleSystemId === spfModuleSystemId &&
+          row.tagDefinitionSystemId === tagSystemId,
+      }).length > 0
+    );
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────

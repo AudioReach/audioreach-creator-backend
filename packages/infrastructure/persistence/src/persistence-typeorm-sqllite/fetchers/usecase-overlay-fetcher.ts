@@ -17,6 +17,7 @@ import type {
 import type {UseCaseSubgraphBase} from '../entity-schema/usecase-data/use-case-subgraph.schema.js';
 import type {UseCaseSubgraphPairBase} from '../entity-schema/usecase-data/use-case-subgraph-pair.schema.js';
 import {
+  applyCandidateFilters,
   applyEntityFilters,
   matchesEntityFilters,
 } from '../queries/shared/filter-utils.js';
@@ -95,21 +96,29 @@ export class UsecaseOverlayFetcher {
       .getRepository(ENTITY_NAMES.UseCase)
       .createQueryBuilder('uc')
       .where('uc.fileSystemId = :fileSystemId', {fileSystemId});
-    if (actions.length === 0 && filters) applyEntityFilters(qb, 'uc', filters);
+    if (actions.length === 0) {
+      if (filters) applyEntityFilters(qb, 'uc', filters);
+    } else {
+      applyCandidateFilters(
+        qb,
+        'uc',
+        filters,
+        actions.map(action => action.targetSystemId),
+      );
+    }
     const baseRows = (await qb.getMany()) as UseCaseBase[];
 
-    const effectiveRows = this.overlay
-      .applyToCollection(baseRows, [...actions])
-      .map(r => r.effective);
-
-    return filters
-      ? effectiveRows.filter(row =>
-          matchesEntityFilters(
-            row as unknown as Record<string, unknown>,
-            filters,
-          ),
-        )
-      : effectiveRows;
+    return this.overlay
+      .applyToCollection(baseRows, [...actions], {
+        matchesEffective: row =>
+          row.fileSystemId === fileSystemId &&
+          (filters === undefined ||
+            matchesEntityFilters(
+              row as unknown as Record<string, unknown>,
+              filters,
+            )),
+      })
+      .map(result => result.effective);
   }
 
   // ── Assembled entry points (scalars + GKV + categories + junctions) ──────────
@@ -124,8 +133,8 @@ export class UsecaseOverlayFetcher {
     filters?: UseCaseFilters,
   ): Promise<OverlaidUseCase | null> {
     const usecases = await this.fetchMany(fileSystemId, sessionId, {
-      systemId: usecaseSystemId,
       ...filters,
+      systemId: usecaseSystemId,
     });
     if (usecases.length === 0) return null;
     const baseRow = usecases[0];
@@ -208,8 +217,9 @@ export class UsecaseOverlayFetcher {
     if (usecaseSystemIds.length === 0) return [];
 
     const usecaseIdSet = new Set(usecaseSystemIds);
-    const actionsFor = (table: (typeof ENTITY_NAMES)[keyof typeof ENTITY_NAMES]) =>
-      actions.filter(action => action.targetTable === table);
+    const actionsFor = (
+      table: (typeof ENTITY_NAMES)[keyof typeof ENTITY_NAMES],
+    ) => actions.filter(action => action.targetTable === table);
     const usecases = await this.fetchManyWithActions(
       fileSystemId,
       {systemId: [...usecaseSystemIds]},
@@ -351,9 +361,9 @@ export class UsecaseOverlayFetcher {
           ));
     if (relevantActions.length === 0) return baseRows;
     return this.overlay
-      .applyToCollection(baseRows, [...relevantActions], payload =>
-        usecaseIdSet.has(payload.usecaseSystemId as number),
-      )
+      .applyToCollection(baseRows, [...relevantActions], {
+        matchesEffective: row => usecaseIdSet.has(row.usecaseSystemId),
+      })
       .map(result => result.effective);
   }
 
@@ -409,9 +419,9 @@ export class UsecaseOverlayFetcher {
           ));
     if (relevantActions.length === 0) return baseRows;
     return this.overlay
-      .applyToCollection(baseRows, [...relevantActions], payload =>
-        usecaseIdSet.has(payload.usecaseSystemId as number),
-      )
+      .applyToCollection(baseRows, [...relevantActions], {
+        matchesEffective: row => usecaseIdSet.has(row.usecaseSystemId),
+      })
       .map(result => result.effective);
   }
 
@@ -451,7 +461,10 @@ export class UsecaseOverlayFetcher {
                 sessionId,
                 ENTITY_NAMES.UseCaseSubgraph,
               ),
-              payload => usecaseIds.includes(payload.usecaseSystemId as number),
+              {
+                matchesEffective: row =>
+                  usecaseIds.includes(row.usecaseSystemId),
+              },
             )
             .map(result => result.effective);
 
@@ -493,7 +506,10 @@ export class UsecaseOverlayFetcher {
                 sessionId,
                 ENTITY_NAMES.UseCaseSubgraphPair,
               ),
-              payload => usecaseIds.includes(payload.usecaseSystemId as number),
+              {
+                matchesEffective: row =>
+                  usecaseIds.includes(row.usecaseSystemId),
+              },
             )
             .map(result => result.effective);
 
@@ -544,5 +560,4 @@ export class UsecaseOverlayFetcher {
       subgraphPairs,
     };
   }
-
 }

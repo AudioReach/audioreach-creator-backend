@@ -330,7 +330,12 @@ export class DbNodeQueryService implements NodeQueryService {
     const portDefRows = (await this.dataSource
       .getRepository(ENTITY_NAMES.DataPortDefinition)
       .createQueryBuilder('pd')
-      .select(['pd.systemId', 'pd.naturalId', 'pd.name'])
+      .select([
+        'pd.systemId',
+        'pd.naturalId',
+        'pd.name',
+        'pd.dataPortGroupSystemId',
+      ])
       .innerJoin(
         'pd.dataPortGroup',
         'pg',
@@ -342,10 +347,23 @@ export class DbNodeQueryService implements NodeQueryService {
     const portDefActions = [...draftMap.values()].filter(
       a => a.targetTable === ENTITY_NAMES.DataPortDefinition,
     );
+    const inScopeGroupIds = new Set(
+      portDefRows.map(row => row.dataPortGroupSystemId),
+    );
+    for (const action of draftMap.values()) {
+      if (action.targetTable !== ENTITY_NAMES.DataPortGroup) continue;
+      const payload = action.newValue as Record<string, unknown>;
+      if (payload.moduleDefinitionSystemId === definitionSystemId) {
+        inScopeGroupIds.add(action.targetSystemId);
+      }
+    }
     const overlaid =
       portDefActions.length > 0
         ? this.overlay
-            .applyToCollection(portDefRows, portDefActions)
+            .applyToCollection(portDefRows, portDefActions, {
+              matchesEffective: row =>
+                inScopeGroupIds.has(row.dataPortGroupSystemId),
+            })
             .map(r => r.effective)
         : portDefRows;
 
@@ -382,7 +400,10 @@ export class DbNodeQueryService implements NodeQueryService {
     const overlaidPorts =
       staticPortActions.length > 0
         ? this.overlay
-            .applyToCollection(staticPortDefRows, staticPortActions)
+            .applyToCollection(staticPortDefRows, staticPortActions, {
+              matchesEffective: row =>
+                row.moduleDefinitionSystemId === definitionSystemId,
+            })
             .map(r => r.effective)
         : staticPortDefRows;
 
@@ -394,7 +415,10 @@ export class DbNodeQueryService implements NodeQueryService {
         const intents =
           intentDefActions.length > 0
             ? this.overlay
-                .applyToCollection(p.staticIntents ?? [], intentDefActions)
+                .applyToCollection(p.staticIntents ?? [], intentDefActions, {
+                  matchesEffective: row =>
+                    row.staticControlPortDefinitionSystemId === p.systemId,
+                })
                 .map(r => r.effective)
             : (p.staticIntents ?? []);
         return (intents ?? []).map(

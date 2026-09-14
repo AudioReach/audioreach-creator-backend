@@ -75,9 +75,15 @@ export class SubgraphSgkvFetcher {
       ENTITY_NAMES.Sgkv,
     );
     if (actions.length === 0) return baseRows.map(r => toOverlaid(r));
+    const requestedSubgraphIds =
+      sgSystemIds === undefined ? undefined : new Set(sgSystemIds);
 
     return this.overlay
-      .applyToCollection(baseRows, actions)
+      .applyToCollection(baseRows, actions, {
+        matchesEffective: row =>
+          requestedSubgraphIds === undefined ||
+          requestedSubgraphIds.has(row.subgraphSystemId),
+      })
       .map(r =>
         toOverlaid(r.effective as SgkvBase & {values?: SgkvValuesBase[]}),
       );

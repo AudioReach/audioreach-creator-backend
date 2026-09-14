@@ -92,14 +92,16 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     return rows.map(row => this.toModuleBase(row));
   }
 
-  async findModulesBySubgraphId(
-    subgraphSystemId: number,
+  async findModulesBySubgraphIds(
+    subgraphSystemIds: readonly number[],
     fileSystemId: number,
   ): Promise<SpfModuleBase[]> {
+    if (subgraphSystemIds.length === 0) return [];
+
     const rows = await this.spfModuleFetcher.fetchMany(
       fileSystemId,
       this.uow.getWriteContext().session.sessionId,
-      {subgraphSystemId},
+      {subgraphSystemId: [...new Set(subgraphSystemIds)]},
     );
     return rows.map(row => this.toModuleBase(row));
   }

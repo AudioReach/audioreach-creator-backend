@@ -4,7 +4,6 @@
  */
 
 import type {EntityManager} from 'typeorm';
-import {CHANGE_OPERATION} from '@arc/core';
 import {OverlayMergeImpl} from '../../queries/edit-session/overlay-merge.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
@@ -60,7 +59,11 @@ export class ContainerPropertyDefinitionFetcher {
       .applyToCollection(
         baselineRows as unknown as Array<{systemId: number}>,
         actions,
-        newValue => newValue.fileSystemId === fileSystemId,
+        {
+          matchesEffective: row =>
+            (row as unknown as ContainerPropertyBase).fileSystemId ===
+            fileSystemId,
+        },
       )
       .map(r => r.effective as unknown as ContainerPropertyBase);
   }
@@ -74,54 +77,7 @@ export class ContainerPropertyDefinitionFetcher {
     propertyNaturalId: number,
     sessionId: number | null,
   ): Promise<ContainerPropertyBase | null> {
-    const baselineRow = (await this.manager
-      .getRepository(ENTITY_NAMES.ContainerProperty)
-      .createQueryBuilder('cp')
-      .where(
-        'cp.fileSystemId = :fileSystemId AND cp.naturalId = :propertyNaturalId',
-        {
-          fileSystemId,
-          propertyNaturalId,
-        },
-      )
-      .getOne()) as ContainerPropertyBase | null;
-
-    if (sessionId === null) return baselineRow;
-
-    const actions = await this.editActionsSvc.getByTable(
-      sessionId,
-      ENTITY_NAMES.ContainerProperty,
-    );
-    const createdAction = actions.find(
-      action =>
-        action.operation === CHANGE_OPERATION.Create &&
-        matchesPropertyNaturalId(
-          action.newValue,
-          fileSystemId,
-          propertyNaturalId,
-        ),
-    );
-    const systemId = baselineRow?.systemId ?? createdAction?.targetSystemId;
-    if (systemId === undefined) return null;
-
-    return (
-      this.overlay.applyToSingle(
-        baselineRow,
-        actions.filter(action => action.targetSystemId === systemId),
-      )?.effective ?? null
-    );
+    const rows = await this.fetchAll(fileSystemId, sessionId);
+    return rows.find(row => row.naturalId === propertyNaturalId) ?? null;
   }
-}
-
-function matchesPropertyNaturalId(
-  value: unknown,
-  fileSystemId: number,
-  propertyNaturalId: number,
-): boolean {
-  if (value === null || typeof value !== 'object') return false;
-  const property = value as Partial<ContainerPropertyBase>;
-  return (
-    property.fileSystemId === fileSystemId &&
-    property.naturalId === propertyNaturalId
-  );
 }

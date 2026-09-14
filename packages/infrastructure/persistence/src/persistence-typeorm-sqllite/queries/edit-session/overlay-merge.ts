@@ -38,16 +38,28 @@ export type OverlayResult<T> = {
   operation: Exclude<ChangeOperation, typeof CHANGE_OPERATION.Delete>;
 };
 
+/**
+ * Controls how a collection is evaluated after session actions are overlaid.
+ *
+ * `matchesEffective` is evaluated only after CREATE/UPDATE/DELETE actions are
+ * folded. It therefore governs committed rows, action-only creates, and rows
+ * moved into or out of scope by an update with one authoritative predicate.
+ */
+export interface CollectionOverlayOptions<T> {
+  matchesEffective?: (effectiveRow: T) => boolean;
+}
+
 export interface OverlayMerge {
   applyToSingle<T extends {systemId: number}>(
     baseRow: T | null,
     pendingRows: EditActionRow[],
+    options?: CollectionOverlayOptions<T>,
   ): OverlayResult<T> | null;
 
   applyToCollection<T extends {systemId: number}>(
     baseRows: T[],
     pendingRows: EditActionRow[],
-    createFilter?: (newValue: Record<string, unknown>) => boolean,
+    options?: CollectionOverlayOptions<T>,
   ): OverlayResult<T>[];
 }
 
@@ -59,67 +71,78 @@ export class OverlayMergeImpl implements OverlayMerge {
   applyToSingle<T extends {systemId: number}>(
     baseRow: T | null,
     pendingRows: EditActionRow[],
+    options: CollectionOverlayOptions<T> = {},
   ): OverlayResult<T> | null {
     if (pendingRows.length === 0) {
       if (baseRow === null) return null;
       // No pending changes — return committed base row; operation = NONE,
       // pendingChangeStatus absent (nothing is pending).
-      return {
+      const result: OverlayResult<T> = {
         effective: deepClone(baseRow),
         diffEntries: [],
         operation: CHANGE_OPERATION.None,
       };
+      return options.matchesEffective?.(result.effective) === false
+        ? null
+        : result;
     }
-    return this.foldRows<T>(baseRow, pendingRows);
+
+    const createAction = pendingRows.find(
+      row => row.operation === CHANGE_OPERATION.Create,
+    );
+    if (baseRow === null && createAction === undefined) return null;
+
+    const result = this.foldRows<T>(baseRow, pendingRows);
+    if (result === null) return null;
+    return options.matchesEffective?.(result.effective) === false
+      ? null
+      : result;
   }
 
   applyToCollection<T extends {systemId: number}>(
     baseRows: T[],
     pendingRows: EditActionRow[],
-    createFilter?: (newValue: Record<string, unknown>) => boolean,
+    options: CollectionOverlayOptions<T> = {},
   ): OverlayResult<T>[] {
+    const uniqueBaseRows = baseRows.filter(
+      (row, index, rows) =>
+        rows.findIndex(candidate => candidate.systemId === row.systemId) ===
+        index,
+    );
     const pendingBySystemId = groupByTargetSystemId(pendingRows);
-    const baseSystemIds = new Set(baseRows.map(r => r.systemId));
+    const baseSystemIds = new Set(uniqueBaseRows.map(row => row.systemId));
     const results: OverlayResult<T>[] = [];
 
-    for (const base of baseRows) {
-      const rows = pendingBySystemId.get(base.systemId) ?? [];
-      const result = this.applyToSingle<T>(base, rows);
-      if (result !== null) results.push(result);
+    const include = (result: OverlayResult<T> | null): void => {
+      if (
+        result !== null &&
+        (options.matchesEffective === undefined ||
+          options.matchesEffective(result.effective))
+      ) {
+        results.push(result);
+      }
+    };
+
+    for (const baseRow of uniqueBaseRows) {
+      include(
+        this.applyToSingle(
+          baseRow,
+          pendingBySystemId.get(baseRow.systemId) ?? [],
+        ),
+      );
     }
 
-    for (const [systemId, rows] of pendingBySystemId) {
+    for (const [systemId, rows] of pendingBySystemId.entries()) {
       if (baseSystemIds.has(systemId)) continue;
-      if (
-        createFilter !== undefined &&
-        !this.passesCreateFilter(rows, createFilter)
-      )
-        continue;
-      const result = this.applyToSingle<T>(null, rows);
-      if (result !== null) results.push(result);
+      const createAction = rows.find(
+        row => row.operation === CHANGE_OPERATION.Create,
+      );
+      if (createAction === undefined) continue;
+
+      include(this.applyToSingle<T>(null, rows));
     }
 
     return results;
-  }
-
-  private passesCreateFilter(
-    rows: EditActionRow[],
-    createFilter: (newValue: Record<string, unknown>) => boolean,
-  ): boolean {
-    const createRow = rows.find(r => r.operation === CHANGE_OPERATION.Create);
-    if (!createRow) return false;
-    const raw = createRow.newValue;
-    const newValue: Record<string, unknown> =
-      typeof raw === 'string'
-        ? (JSON.parse(raw) as Record<string, unknown>)
-        : (raw as Record<string, unknown>);
-    // systemId is stored as targetSystemId on the action row, not inside newValue,
-    // because it is the PK of the entity being acted on — not a payload field.
-    // foldRows already injects it (effective.systemId = row.targetSystemId).
-    // Enriching here keeps createFilter consistent with the effective row shape,
-    // so callers can filter by systemId and correctly match session-created entities.
-    const enriched = {...newValue, systemId: createRow.targetSystemId};
-    return createFilter(enriched);
   }
 
   private foldRows<T extends {systemId: number}>(

@@ -73,7 +73,7 @@ export class TagDefinitionFetcher {
     if (tagSystemIds !== 'all') {
       qb.andWhere('t.systemId IN (:...tagSystemIds)', {tagSystemIds});
     }
-    if (filters) applyEntityFilters(qb, 't', filters);
+    if (sessionId === null && filters) applyEntityFilters(qb, 't', filters);
 
     const rows = (await qb.getMany()) as TagDefinitionRow[];
     const baseTags = rows as TagDefinitionBase[];
@@ -96,23 +96,26 @@ export class TagDefinitionFetcher {
         requestedTagIds === undefined ||
         requestedTagIds.has(action.targetSystemId),
     );
-    const createTagFilter = (newValue: Record<string, unknown>) =>
-      newValue.fileSystemId === fileSystemId &&
-      (filters === undefined || matchesEntityFilters(newValue, filters));
-
     const allTags = this.overlay
-      .applyToCollection(baseTags, relevantTagActions, createTagFilter)
+      .applyToCollection(baseTags, relevantTagActions, {
+        matchesEffective: row =>
+          row.fileSystemId === fileSystemId &&
+          (requestedTagIds === undefined ||
+            requestedTagIds.has(row.systemId)) &&
+          (filters === undefined ||
+            matchesEntityFilters(
+              row as unknown as Record<string, unknown>,
+              filters,
+            )),
+      })
       .map(row => row.effective);
     const tagSystemIdSet = new Set(allTags.map(tag => tag.systemId));
     const relevantLinkActions = linkActions.filter(action =>
       tagSystemIdSet.has(action.aggregateId),
     );
     const allLinks = this.overlay
-      .applyToCollection(baseLinks, relevantLinkActions, newValue => {
-        const tagSystemId = newValue.tagDefinitionSystemId;
-        return (
-          typeof tagSystemId === 'number' && tagSystemIdSet.has(tagSystemId)
-        );
+      .applyToCollection(baseLinks, relevantLinkActions, {
+        matchesEffective: row => tagSystemIdSet.has(row.tagDefinitionSystemId),
       })
       .map(row => row.effective);
 

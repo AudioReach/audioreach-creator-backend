@@ -80,6 +80,23 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
     return this.load(Number(defRow.systemId), fileSystemId);
   }
 
+  async findBySystemIds(
+    definitionSystemIds: readonly number[],
+    fileSystemId: number,
+  ): Promise<SpfModuleDefinition[]> {
+    const uniqueSystemIds = [...new Set(definitionSystemIds)];
+    if (uniqueSystemIds.length === 0) return [];
+
+    const definitions = await Promise.all(
+      uniqueSystemIds.map(definitionSystemId =>
+        this.load(definitionSystemId, fileSystemId),
+      ),
+    );
+    return definitions.filter(
+      (definition): definition is SpfModuleDefinition => definition !== null,
+    );
+  }
+
   private async load(
     defSystemId: number,
     fileSystemId: number,

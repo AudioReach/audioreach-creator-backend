@@ -16,13 +16,14 @@ import {PreValidationService} from '../phases/pre-validation.service.js';
 import {ResponseBuilder} from '../phases/response-builder.js';
 import {RoutingChangeStager} from '../phases/routing-change-stager.js';
 import {SeedDetectionService} from '../phases/seed-detection.service.js';
+import {MdfClassificationService} from '../services/mdf-classification.service.js';
 
 export function createRoutingEngine(): RoutingEngine {
   return new RoutingEngine(
     new PreValidationService(),
     new DeletionScopeService(),
     new IslandTransitionService(),
-    new KvResolutionService(),
+    new KvResolutionService(new MdfClassificationService()),
     new SeedDetectionService(),
     new ConeComputationService(),
     new DfsRoutingService(),

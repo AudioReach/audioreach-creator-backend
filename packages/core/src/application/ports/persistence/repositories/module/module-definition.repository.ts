@@ -31,6 +31,11 @@ export interface ModuleDefinitionRepository {
     fileSystemId: number,
   ): Promise<SpfModuleDefinition | null>;
 
+  findBySystemIds(
+    definitionSystemIds: readonly number[],
+    fileSystemId: number,
+  ): Promise<SpfModuleDefinition[]>;
+
   getParameterDefinitions(
     moduleDefSystemId: number,
     paramSystemIds?: number[],

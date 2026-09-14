@@ -31,7 +31,9 @@ export class CreateUsecasesHandler implements CommandHandler<
 
   constructor(private readonly uow: UnitOfWork) {}
 
-  async handle(command: CreateUsecasesCommand): Promise<Result<RoutingOutcome>> {
+  async handle(
+    command: CreateUsecasesCommand,
+  ): Promise<Result<RoutingOutcome>> {
     await this.uow.startTransaction();
     try {
       const resolution =

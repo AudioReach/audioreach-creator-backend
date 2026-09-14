@@ -79,13 +79,59 @@ export function applyEntityFilters(
 }
 
 /**
+ * Adds the mutable-candidate branch for an active edit session.
+ *
+ * Callers must add immutable file, aggregate, or parent scope before invoking
+ * this helper. The resulting predicate is therefore:
+ *
+ *   immutable scope AND (third-argument caller filters OR fourth-argument
+ *   active action target IDs)
+ *
+ * Target IDs keep a committed row available for overlay when an UPDATE moves
+ * it into or out of a mutable caller filter. Empty inputs deliberately add no
+ * invalid `IN ()` clause.
+ */
+export function applyCandidateFilters(
+  qb: WhereExpressionBuilder,
+  alias: string,
+  callerFilters: Record<string, unknown> | undefined,
+  actionTargetIds: readonly number[],
+): void {
+  const candidateActionTargetIds = [...new Set(actionTargetIds)];
+  const hasCallerFilters =
+    callerFilters !== undefined && Object.keys(callerFilters).length > 0;
+  const hasActionTargetIds = candidateActionTargetIds.length > 0;
+
+  if (hasCallerFilters && hasActionTargetIds) {
+    qb.andWhere(
+      new Brackets(candidateQb => {
+        candidateQb.where(
+          new Brackets(filterQb =>
+            applyEntityFilters(filterQb, alias, callerFilters),
+          ),
+        );
+        candidateQb.orWhere(
+          `${alias}.systemId IN (:...candidateActionTargetIds)`,
+          {candidateActionTargetIds},
+        );
+      }),
+    );
+    return;
+  }
+
+  if (hasCallerFilters) {
+    applyEntityFilters(qb, alias, callerFilters);
+  }
+}
+
+/**
  * In-memory equivalent of applyEntityFilters.
  *
- * Used as the createFilter callback in OverlayMergeImpl.applyToCollection so
- * session-created rows (built from edit_actions CREATE payloads) are subject
- * to the same filter criteria as the baseline SQL query.
+ * Used as the final effective-row predicate after the session overlay is
+ * folded, so rows moved by CREATE or UPDATE use the same mutable filters as
+ * the candidate SQL branch.
  *
- * @param row     Plain object built from a CREATE action's newValue payload
+ * @param row     Completed effective row
  * @param filters The same filter object passed to applyEntityFilters
  * @returns true if all defined filter conditions are satisfied
  */

@@ -60,7 +60,7 @@ export class ProcessorDefinitionFetcher {
       .where('p.systemId IN (:...processorSystemIds)', {
         processorSystemIds,
       });
-    if (filters) applyEntityFilters(qb, 'p', filters);
+    if (sessionId === null && filters) applyEntityFilters(qb, 'p', filters);
     const baseRows = (await qb.getMany()) as ProcessorDefinitionBase[];
 
     if (sessionId === null) return baseRows;
@@ -73,13 +73,16 @@ export class ProcessorDefinitionFetcher {
     );
     const idSet = new Set(processorSystemIds);
     const relevantActions = allActions.filter(a => idSet.has(a.aggregateId));
-    const createFilter = filters
-      ? (newValue: Record<string, unknown>) =>
-          matchesEntityFilters(newValue, filters)
-      : undefined;
-
     return this.overlay
-      .applyToCollection(baseRows, relevantActions, createFilter)
+      .applyToCollection(baseRows, relevantActions, {
+        matchesEffective: row =>
+          idSet.has(row.systemId) &&
+          (filters === undefined ||
+            matchesEntityFilters(
+              row as unknown as Record<string, unknown>,
+              filters,
+            )),
+      })
       .map(r => r.effective);
   }
 

@@ -3,7 +3,10 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {RESULT_KIND, Result} from '../../../../application/shared/result/result.js';
+import {
+  RESULT_KIND,
+  Result,
+} from '../../../../application/shared/result/result.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {RoutingContext} from '../contracts/routing-context.js';
 import type {RoutingInput} from '../contracts/routing-input.js';
@@ -67,7 +70,10 @@ export class RoutingEngine {
     }
     return Result.ok(
       context.response ??
-        createEmptyRoutingOutcome(uow.getWriteContext().groupId, context.warnings),
+        createEmptyRoutingOutcome(
+          uow.getWriteContext().groupId,
+          context.warnings,
+        ),
     );
   }
 }

@@ -54,7 +54,11 @@ export class SubgraphPropertyDefinitionFetcher {
       .applyToCollection(
         baselineRows as unknown as Array<{systemId: number}>,
         actions,
-        newValue => newValue.fileSystemId === fileSystemId,
+        {
+          matchesEffective: row =>
+            (row as unknown as SubgraphPropertyBase).fileSystemId ===
+            fileSystemId,
+        },
       )
       .map(r => r.effective as unknown as SubgraphPropertyBase);
   }

@@ -24,17 +24,15 @@ import {SubgraphPropertyDataFetcher} from '../../fetchers/subgraph-property-data
 import {ValueDefinitionFetcher} from '../../fetchers/definitions/key-value/value-definition-fetcher.js';
 import {SubgraphPropertyDefinitionFetcher} from '../../fetchers/definitions/subgraph-property-definition-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
-import {OverlayMergeImpl} from '../../queries/edit-session/overlay-merge.js';
 import type {SubgraphBase} from '../../entity-schema/usecase-data/subgraph/subgraph.schema.js';
+import {SubgraphVcpmDataFetcher} from '../../fetchers/subgraph-vcpm-data-fetcher.js';
 
 export class TypeOrmSubgraphRepository implements SubgraphRepository {
   private readonly subgraphFetcher: SubgraphOverlayFetcher;
   private readonly sgkvFetcher: SubgraphSgkvFetcher;
-  private readonly propertyDataFetcher: SubgraphPropertyDataFetcher;
   private readonly valueDefFetcher: ValueDefinitionFetcher;
   private readonly propertyDefinitionFetcher: SubgraphPropertyDefinitionFetcher;
-  private readonly editActions: EditActionsQueryService;
-  private readonly overlay = new OverlayMergeImpl();
+  private readonly vcpmDataFetcher: SubgraphVcpmDataFetcher;
 
   constructor(
     private readonly writer: PendingChangeWriter,
@@ -42,16 +40,15 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     private readonly uow: UnitOfWork,
   ) {
     const editActionsQs = new EditActionsQueryService(manager);
-    this.editActions = editActionsQs;
     this.sgkvFetcher = new SubgraphSgkvFetcher(manager, editActionsQs);
-    this.propertyDataFetcher = new SubgraphPropertyDataFetcher(
+    const propertyDataFetcher = new SubgraphPropertyDataFetcher(
       manager,
       editActionsQs,
     );
     this.subgraphFetcher = new SubgraphOverlayFetcher(
       manager,
       editActionsQs,
-      this.propertyDataFetcher,
+      propertyDataFetcher,
       this.sgkvFetcher,
     );
     this.valueDefFetcher = new ValueDefinitionFetcher(manager, editActionsQs);
@@ -59,6 +56,7 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
       manager,
       editActionsQs,
     );
+    this.vcpmDataFetcher = new SubgraphVcpmDataFetcher(manager, editActionsQs);
   }
 
   // ── Reads ────────────────────────────────────────────────────────────────────
@@ -90,87 +88,27 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     );
     if (!subgraph) return;
 
-    const properties = await this.propertyDataFetcher.fetchMany(
-      [subgraphSystemId],
-      session.sessionId,
-    );
-    const sgkvs = await this.sgkvFetcher.fetchMany(
-      session.fileSystemId,
-      session.sessionId,
-      [subgraphSystemId],
-    );
-    const instanceBase = (await this.manager
-      .getRepository(ENTITY_NAMES.VcpmInstance)
-      .createQueryBuilder('instance')
-      .where('instance.subgraphSystemId = :subgraphSystemId', {
+    const [sgkvs, vcpmData] = await Promise.all([
+      this.sgkvFetcher.fetchMany(session.fileSystemId, session.sessionId, [
         subgraphSystemId,
-      })
-      .getMany()) as Array<{systemId: number; subgraphSystemId: number}>;
-    const instanceActionsForSession = await this.editActions.getByTable(
-      session.sessionId,
-      ENTITY_NAMES.VcpmInstance,
-    );
-    const instances = this.overlay
-      .applyToCollection(
-        instanceBase,
-        instanceActionsForSession,
-        payload => payload.subgraphSystemId === subgraphSystemId,
-      )
-      .map(result => result.effective);
-    const instanceIds = instances.map(instance => instance.systemId);
-    const vcpmCkvBase =
-      instanceIds.length === 0
-        ? []
-        : ((await this.manager
-            .getRepository(ENTITY_NAMES.VcpmCkv)
-            .createQueryBuilder('vcpmCkv')
-            .where('vcpmCkv.vcpmInstanceSystemId IN (:...instanceIds)', {
-              instanceIds,
-            })
-            .getMany()) as Array<{
-            systemId: number;
-            vcpmInstanceSystemId: number;
-          }>);
-    const vcpmCkvActionsForSession = await this.editActions.getByTable(
-      session.sessionId,
-      ENTITY_NAMES.VcpmCkv,
-    );
-    const vcpmCkvs = this.overlay
-      .applyToCollection(vcpmCkvBase, vcpmCkvActionsForSession, payload =>
-        instanceIds.includes(payload.vcpmInstanceSystemId as number),
-      )
-      .map(result => result.effective);
-    const vcpmCkvIds = vcpmCkvs.map(row => row.systemId);
-    const vcpmPayloadBase =
-      vcpmCkvIds.length === 0
-        ? []
-        : ((await this.manager
-            .getRepository(ENTITY_NAMES.VcpmParameterPayload)
-            .createQueryBuilder('payload')
-            .where('payload.vcpmCkvSystemId IN (:...vcpmCkvIds)', {
-              vcpmCkvIds,
-            })
-            .getMany()) as Array<{
-            systemId: number;
-            vcpmCkvSystemId: number;
-          }>);
-    const vcpmPayloadActionsForSession = await this.editActions.getByTable(
-      session.sessionId,
-      ENTITY_NAMES.VcpmParameterPayload,
-    );
-    const vcpmPayloads = this.overlay
-      .applyToCollection(
-        vcpmPayloadBase,
-        vcpmPayloadActionsForSession,
-        payload => vcpmCkvIds.includes(payload.vcpmCkvSystemId as number),
-      )
-      .map(result => result.effective);
+      ]),
+      this.vcpmDataFetcher.fetchForSubgraph(
+        subgraphSystemId,
+        session.sessionId,
+      ),
+    ]);
     const ownedRows = [
-      {targetTable: ENTITY_NAMES.SubgraphPropertyData, rows: properties},
-      {targetTable: ENTITY_NAMES.VcpmParameterPayload, rows: vcpmPayloads},
-      {targetTable: ENTITY_NAMES.VcpmCkv, rows: vcpmCkvs},
+      {
+        targetTable: ENTITY_NAMES.SubgraphPropertyData,
+        rows: subgraph.properties,
+      },
+      {
+        targetTable: ENTITY_NAMES.VcpmParameterPayload,
+        rows: vcpmData.parameterPayloads,
+      },
+      {targetTable: ENTITY_NAMES.VcpmCkv, rows: vcpmData.ckvs},
       {targetTable: ENTITY_NAMES.Sgkv, rows: sgkvs},
-      {targetTable: ENTITY_NAMES.VcpmInstance, rows: instances},
+      {targetTable: ENTITY_NAMES.VcpmInstance, rows: vcpmData.instances},
     ];
     for (const owned of ownedRows) {
       for (const row of owned.rows as Array<{systemId: number}>) {
@@ -271,20 +209,6 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     const rows = await this.subgraphFetcher.fetchMany(fileSystemId, sessionId, {
       systemId: [...sgSystemIds],
     });
-    return rows.map(r => this.hydrate(r));
-  }
-
-  async findIsMdfInScope(
-    fileSystemId: number,
-    sgSystemIds: readonly number[],
-  ): Promise<Subgraph[]> {
-    if (sgSystemIds.length === 0) return [];
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-    const rows = await this.subgraphFetcher.fetchMdfInScope(
-      fileSystemId,
-      sessionId,
-      [...sgSystemIds],
-    );
     return rows.map(r => this.hydrate(r));
   }
 

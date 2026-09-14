@@ -58,6 +58,7 @@ import {TkvParameterPayloadFetcher} from '../fetchers/tkv-parameter-payload-fetc
 import {TkvOverlayFetcher} from '../fetchers/tkv-overlay-fetcher.js';
 import {SpfModuleOverlayFetcher} from '../fetchers/spf-module-overlay-fetcher.js';
 import {SpfModuleParameterDefinitionFetcher} from '../fetchers/definitions/spf-module-definitions/spf-module-parameter-definition-fetcher.js';
+import {SubsystemOverlayFetcher} from '../fetchers/subsystem-overlay-fetcher.js';
 
 class DbModuleQueryService implements ModuleQueryService {}
 
@@ -122,6 +123,10 @@ export class DbQueryServices implements QueryServices {
       usecaseGkvValuesFetcher,
     );
     const linkOverlayFetcher = new LinkOverlayFetcher(
+      dataSource.manager,
+      editActionsQueryService,
+    );
+    const subsystemOverlayFetcher = new SubsystemOverlayFetcher(
       dataSource.manager,
       editActionsQueryService,
     );
@@ -258,7 +263,9 @@ export class DbQueryServices implements QueryServices {
     );
     this.subsystemQueryService = new DbSubsystemQueryService(
       dataSource,
-      editActionsQueryService,
+      subsystemOverlayFetcher,
+      usecaseOverlayFetcher,
+      linkOverlayFetcher,
     );
 
     this.logQueryService = logQueryService;

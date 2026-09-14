@@ -4,11 +4,13 @@
  */
 
 import type {EntityManager} from 'typeorm';
-import {CHANGE_OPERATION} from '@arc/core';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
 import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
-import {NODE_TYPE} from '../entity-schema/usecase-data/node/node.schema.js';
+import {
+  NODE_TYPE,
+  type NodeBase,
+} from '../entity-schema/usecase-data/node/node.schema.js';
 import type {SubsystemBase} from '../entity-schema/usecase-data/subsystem/subsystem.js';
 
 export interface OverlaidSubsystem extends SubsystemBase {
@@ -20,14 +22,12 @@ export interface OverlaidSubsystem extends SubsystemBase {
  * Fetches subsystems with session overlay applied (FR-3).
  *
  * The Subsystem entity shares a PK with Node (one-to-one, same system_id).
- * parentId lives on Node, not Subsystem — the base query JOINs Node to
+ * parentSystemId lives on Node, not Subsystem — the base query JOINs Node to
  * retrieve it alongside the subsystem name.
  *
  * Two overlay passes:
- *   1. Subsystem table — handles name UPDATE, entity DELETE, entity CREATE.
- *   2. Node table — supplements parentId for session-created subsystems.
- *      CREATE actions on Node of type Subsystem carry parentId in the payload;
- *      these are not in the Subsystem action since parentId is a Node column.
+ *   1. Node table — establishes effective file/type ownership and parentSystemId.
+ *   2. Subsystem table — handles name UPDATE, entity DELETE, entity CREATE.
  *
  * Both passes use getByTable (one call each) so the total overlay cost is
  * fixed at two DB calls regardless of subsystem count (FR-5).
@@ -41,13 +41,13 @@ export class SubsystemOverlayFetcher {
   ) {}
 
   /**
-   * Returns all overlaid subsystems for the given file with their parentId.
+   * Returns all overlaid subsystems for the given file with their parentSystemId.
    */
   async fetchAll(
     fileSystemId: number,
     sessionId: number | null,
   ): Promise<OverlaidSubsystem[]> {
-    // Base query — JOIN Node to pick up parentId (Node column, not Subsystem).
+    // Base query — JOIN Node to pick up parentSystemId (Node column, not Subsystem).
     const rawRows = await this.manager
       .getRepository(ENTITY_NAMES.Subsystem)
       .createQueryBuilder('sub')
@@ -70,57 +70,40 @@ export class SubsystemOverlayFetcher {
       return this.buildResult(rows, parentSystemIdBySystemId);
     }
 
-    // Pass 1 — Subsystem overlay (name UPDATE, CREATE, DELETE).
+    // Pass 1 — Node overlay. Node is the file-scoped half of the shared-PK
+    // aggregate, so its effective row determines whether a Subsystem row is
+    // in scope. Applying all actions also captures parent UPDATEs and DELETEs.
     const [subsystemActions, nodeActions] = await Promise.all([
       this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.Subsystem),
       this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.Node),
     ]);
 
-    if (subsystemActions.length > 0) {
-      rows = this.overlay
-        .applyToCollection(rows, subsystemActions)
-        .map(r => r.effective);
-    }
+    const baseNodes: NodeBase[] = rows.map(row => ({
+      systemId: row.systemId,
+      parentSystemId: parentSystemIdBySystemId.get(row.systemId),
+      type: NODE_TYPE.Subsystem,
+      fileSystemId,
+    }));
+    const effectiveNodes = this.overlay
+      .applyToCollection(baseNodes, nodeActions, {
+        matchesEffective: node =>
+          node.fileSystemId === fileSystemId &&
+          node.type === NODE_TYPE.Subsystem,
+      })
+      .map(result => result.effective);
+    const effectiveParentSystemIds = new Map(
+      effectiveNodes.map(node => [node.systemId, node.parentSystemId]),
+    );
+    const inScopeSystemIds = new Set(effectiveParentSystemIds.keys());
 
-    // Pass 2 — supplement parentId for session-created subsystems.
-    // CREATE actions on Node of type Subsystem carry parentId in the payload;
-    // the Subsystem CREATE action itself does not include parentId because it
-    // lives on the Node table.
-    this.supplementParentSystemIds(parentSystemIdBySystemId, nodeActions);
+    // Pass 2 — Subsystem overlay (name UPDATE, CREATE, DELETE).
+    rows = this.overlay
+      .applyToCollection(rows, subsystemActions, {
+        matchesEffective: row => inScopeSystemIds.has(row.systemId),
+      })
+      .map(r => r.effective);
 
-    return this.buildResult(rows, parentSystemIdBySystemId);
-  }
-
-  // ── Private helpers ────────────────────────────────────────────────────────
-
-  /**
-   * Populates parentIdBySystemId from Node CREATE actions for subsystems.
-   * Called after the Subsystem overlay is applied so newly added subsystem
-   * systemIds are present in the map.
-   */
-  private supplementParentSystemIds(
-    parentSystemIdBySystemId: Map<number, number | undefined>,
-    nodeActions: Awaited<ReturnType<EditActionsQueryService['getByTable']>>,
-  ): void {
-    for (const action of nodeActions) {
-      if (
-        action.operation !== CHANGE_OPERATION.Create ||
-        action.fieldPath !== '$'
-      )
-        continue;
-      const payload = action.newValue as Record<string, unknown>;
-      if (
-        payload.type === NODE_TYPE.Subsystem &&
-        !parentSystemIdBySystemId.has(action.targetSystemId)
-      ) {
-        parentSystemIdBySystemId.set(
-          action.targetSystemId,
-          payload.parentSystemId == null
-            ? undefined
-            : Number(payload.parentSystemId),
-        );
-      }
-    }
+    return this.buildResult(rows, effectiveParentSystemIds);
   }
 
   private buildResult(

@@ -58,7 +58,8 @@ export class StaticControlPortDefFetcher {
       .getRepository(ENTITY_NAMES.StaticControlPortDefinition)
       .createQueryBuilder('scpd')
       .where('scpd.moduleDefinitionSystemId = :defSystemId', {defSystemId});
-    if (filters) applyEntityFilters(portQb, 'scpd', filters);
+    if (sessionId === null && filters)
+      applyEntityFilters(portQb, 'scpd', filters);
     const basePortRows =
       (await portQb.getMany()) as StaticControlPortDefinitionBase[];
 
@@ -98,16 +99,20 @@ export class StaticControlPortDefFetcher {
     const intentActions = actions.filter(
       a => a.targetTable === ENTITY_NAMES.StaticIntentDefinition,
     );
-    const createPortFilter = (newValue: Record<string, unknown>) =>
-      newValue.moduleDefinitionSystemId === defSystemId &&
-      (filters === undefined || matchesEntityFilters(newValue, filters));
-
     // ── Step 4: overlay static control ports ─────────────────────────────────
     const allPorts = this.overlay
       .applyToCollection(
         base.map(p => ({...p})),
         portActions,
-        createPortFilter,
+        {
+          matchesEffective: row =>
+            row.moduleDefinitionSystemId === defSystemId &&
+            (filters === undefined ||
+              matchesEntityFilters(
+                row as unknown as Record<string, unknown>,
+                filters,
+              )),
+        },
       )
       .map(r => r.effective as OverlaidStaticControlPortDefinition);
 
@@ -116,12 +121,11 @@ export class StaticControlPortDefFetcher {
       .applyToCollection(
         baseIntentRows.map(i => ({...i})),
         intentActions,
-        newValue => {
-          const portSystemId = newValue.staticControlPortDefinitionSystemId;
-          return (
-            typeof portSystemId === 'number' &&
-            allPorts.some(port => port.systemId === portSystemId)
-          );
+        {
+          matchesEffective: row =>
+            allPorts.some(
+              port => port.systemId === row.staticControlPortDefinitionSystemId,
+            ),
         },
       )
       .map(r => r.effective as StaticIntentDefinitionBase);

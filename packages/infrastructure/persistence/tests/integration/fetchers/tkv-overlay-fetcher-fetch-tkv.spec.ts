@@ -17,6 +17,7 @@ import {
 } from '../helpers/test-database-setup.js';
 import {EditActionsQueryService} from '../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 import {TkvOverlayFetcher} from '../../../src/persistence-typeorm-sqllite/fetchers/tkv-overlay-fetcher.js';
+import {TkvParameterPayloadFetcher} from '../../../src/persistence-typeorm-sqllite/fetchers/tkv-parameter-payload-fetcher.js';
 import {ENTITY_NAMES} from '../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {ProjectSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
@@ -102,9 +103,11 @@ async function seedSession(ds: DataSource): Promise<number> {
 }
 
 function makeFetcher(ds: DataSource): TkvOverlayFetcher {
+  const editActions = new EditActionsQueryService(ds.manager);
   return new TkvOverlayFetcher(
     ds.manager,
-    new EditActionsQueryService(ds.manager),
+    editActions,
+    new TkvParameterPayloadFetcher(ds.manager, editActions),
   );
 }
 

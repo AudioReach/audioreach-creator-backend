@@ -157,6 +157,63 @@ describe('OverlayMergeImpl', () => {
     });
   });
 
+  describe('applyToSingle — effective collection invariants', () => {
+    it('returns null for an absent baseline with UPDATE-only actions', () => {
+      expect(
+        overlay.applyToSingle<TestRow>(null, [
+          makeRow({
+            targetSystemId: 40,
+            fieldPath: 'alias',
+            newValue: 'orphan',
+          }),
+        ]),
+      ).toBeNull();
+    });
+
+    it('rejects an action-only CREATE outside immutable scope', () => {
+      const result = overlay.applyToSingle<TestRow>(
+        null,
+        [
+          makeRow({
+            targetSystemId: 41,
+            operation: CHANGE_OPERATION.Create,
+            fieldPath: '$',
+            newValue: {fileSystemId: 8, alias: 'wrong-file', instanceId: 1},
+          }),
+        ],
+        {matchesEffective: row => row.fileSystemId === 7},
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it('evaluates the final predicate after applying an UPDATE', () => {
+      const result = overlay.applyToSingle<TestRow>(
+        {systemId: 42, alias: 'before', instanceId: 1},
+        [
+          makeRow({
+            targetSystemId: 42,
+            fieldPath: 'alias',
+            newValue: 'after',
+          }),
+        ],
+        {matchesEffective: row => row.alias === 'after'},
+      );
+
+      expect(result?.effective.alias).toBe('after');
+    });
+
+    it('returns null when the final predicate rejects an effective row', () => {
+      expect(
+        overlay.applyToSingle<TestRow>(
+          {systemId: 43, alias: 'before', instanceId: 1},
+          [],
+          {matchesEffective: row => row.alias === 'after'},
+        ),
+      ).toBeNull();
+    });
+  });
+
   describe('applyToSingle — pendingChangeStatus', () => {
     it('mix of STAGED + UNSTAGED rows → PARTIAL', () => {
       const base: TestRow = {systemId: 100, alias: 'base', instanceId: 1};
@@ -227,6 +284,104 @@ describe('OverlayMergeImpl', () => {
   });
 
   describe('applyToCollection', () => {
+    it('excludes a committed row when its effective row does not match', () => {
+      const results = overlay.applyToCollection<TestRow>(
+        [{systemId: 10, alias: 'hidden', instanceId: 1}],
+        [],
+        {matchesEffective: row => row.alias === 'visible'},
+      );
+
+      expect(results).toEqual([]);
+    });
+
+    it('filters a committed UPDATE using the completed effective row', () => {
+      const results = overlay.applyToCollection<TestRow>(
+        [{systemId: 10, alias: 'before', instanceId: 1}],
+        [
+          makeRow({
+            targetSystemId: 10,
+            fieldPath: 'alias',
+            newValue: 'after',
+          }),
+        ],
+        {matchesEffective: row => row.alias === 'after'},
+      );
+
+      expect(results.map(row => row.effective)).toEqual([
+        {systemId: 10, alias: 'after', instanceId: 1},
+      ]);
+    });
+
+    it('includes only an in-scope CREATE whose effective row matches', () => {
+      const create = makeRow({
+        targetSystemId: 20,
+        operation: CHANGE_OPERATION.Create,
+        fieldPath: '$',
+        newValue: {fileSystemId: 7, alias: 'created', instanceId: 1},
+      });
+
+      const results = overlay.applyToCollection<TestRow>([], [create], {
+        matchesEffective: row =>
+          row.fileSystemId === 7 && row.alias === 'created',
+      });
+
+      expect(results.map(row => row.effective)).toEqual([
+        {fileSystemId: 7, alias: 'created', instanceId: 1, systemId: 20},
+      ]);
+    });
+
+    it('evaluates an action-only CREATE after subsequent UPDATEs are folded', () => {
+      const create = makeRow({
+        changeId: 1,
+        targetSystemId: 22,
+        operation: CHANGE_OPERATION.Create,
+        fieldPath: '$',
+        newValue: {fileSystemId: 7, alias: 'before', instanceId: 1},
+        createdAt: new Date('2026-01-01T00:00:01Z'),
+      });
+      const update = makeRow({
+        changeId: 2,
+        targetSystemId: 22,
+        fieldPath: 'alias',
+        newValue: 'after',
+        createdAt: new Date('2026-01-01T00:00:02Z'),
+      });
+
+      const results = overlay.applyToCollection<TestRow>([], [create, update], {
+        matchesEffective: row =>
+          row.fileSystemId === 7 && row.alias === 'after',
+      });
+
+      expect(results.map(row => row.effective)).toEqual([
+        {fileSystemId: 7, alias: 'after', instanceId: 1, systemId: 22},
+      ]);
+    });
+
+    it('excludes an action-only CREATE outside immutable scope', () => {
+      const create = makeRow({
+        targetSystemId: 21,
+        operation: CHANGE_OPERATION.Create,
+        fieldPath: '$',
+        newValue: {fileSystemId: 8, alias: 'wrong-file', instanceId: 1},
+      });
+
+      expect(
+        overlay.applyToCollection<TestRow>([], [create], {
+          matchesEffective: row => row.fileSystemId === 7,
+        }),
+      ).toEqual([]);
+    });
+
+    it('ignores an action-only UPDATE without a CREATE', () => {
+      const update = makeRow({
+        targetSystemId: 30,
+        fieldPath: 'alias',
+        newValue: 'orphan',
+      });
+
+      expect(overlay.applyToCollection<TestRow>([], [update])).toEqual([]);
+    });
+
     it('two entities, one with pending rows → both returned, only the pending one is modified', () => {
       const base1: TestRow = {
         systemId: 100,

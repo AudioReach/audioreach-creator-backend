@@ -16,11 +16,7 @@ import type {
   UsecaseType,
   IdGenerationPort,
 } from '@arc/core';
-import {
-  CHANGE_OPERATION,
-  UseCase,
-  READ_MODE,
-} from '@arc/core';
+import {CHANGE_OPERATION, UseCase, READ_MODE} from '@arc/core';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {UsecaseOverlayFetcher} from '../../fetchers/usecase-overlay-fetcher.js';
@@ -84,18 +80,18 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     fileSystemId: number,
   ): Promise<ActiveManualUsecaseEdit[]> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
-    const actions = await this.ucFetcher.getActiveManualUsecaseActions(
-      sessionId,
-    );
+    const actions =
+      await this.ucFetcher.getActiveManualUsecaseActions(sessionId);
     if (actions.length === 0) return [];
 
-    const usecases = await this.ucFetcher.getUsecases(
-      fileSystemId,
-      sessionId,
-      [...new Set(actions.map(action => action.targetSystemId))],
-    );
+    const usecases = await this.ucFetcher.getUsecases(fileSystemId, sessionId, [
+      ...new Set(actions.map(action => action.targetSystemId)),
+    ]);
     const usecaseById = new Map(
-      usecases.map(usecase => [usecase.systemId, this.hydrateOverlaid(usecase)]),
+      usecases.map(usecase => [
+        usecase.systemId,
+        this.hydrateOverlaid(usecase),
+      ]),
     );
 
     return actions.map(action => ({
@@ -537,12 +533,7 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
           AND target_table = $4
           AND operation = 'DELETE'
           AND valid_until IS NULL`,
-      [
-        new Date().toISOString(),
-        sessionId,
-        ucSystemId,
-        ENTITY_NAMES.UseCase,
-      ],
+      [new Date().toISOString(), sessionId, ucSystemId, ENTITY_NAMES.UseCase],
     );
     return true;
   }

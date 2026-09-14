@@ -151,7 +151,7 @@ export class LinkOverlayFetcher {
       .getRepository(ENTITY_NAMES.DataLink)
       .createQueryBuilder('dl')
       .where('dl.fileSystemId = :fileSystemId', {fileSystemId});
-    if (filters) applyEntityFilters(qb, 'dl', filters);
+    if (sessionId === null && filters) applyEntityFilters(qb, 'dl', filters);
     const baseRows = (await qb.getMany()) as DataLinkBase[];
     return this.applyDataLinkOverlay(
       baseRows,
@@ -180,7 +180,7 @@ export class LinkOverlayFetcher {
       .getRepository(ENTITY_NAMES.ControlLink)
       .createQueryBuilder('cl')
       .where('cl.fileSystemId = :fileSystemId', {fileSystemId});
-    if (filters) applyEntityFilters(qb, 'cl', filters);
+    if (sessionId === null && filters) applyEntityFilters(qb, 'cl', filters);
     const baseRows = (await qb.getMany()) as ControlLinkBase[];
     return this.applyControlLinkOverlay(
       baseRows,
@@ -214,7 +214,9 @@ export class LinkOverlayFetcher {
     const rows =
       actions.length > 0
         ? this.overlayMerge
-            .applyToCollection(baseRows, actions)
+            .applyToCollection(baseRows, actions, {
+              matchesEffective: row => row.fileSystemId === fileSystemId,
+            })
             .map(r => r.effective)
         : baseRows;
     return this.filterSubsystemRows(rows, fileSystemId, filters);
@@ -244,7 +246,9 @@ export class LinkOverlayFetcher {
     const rows =
       actions.length > 0
         ? this.overlayMerge
-            .applyToCollection(baseRows, actions)
+            .applyToCollection(baseRows, actions, {
+              matchesEffective: row => row.fileSystemId === fileSystemId,
+            })
             .map(r => r.effective)
         : baseRows;
     return this.filterSubsystemRows(rows, fileSystemId, filters);
@@ -253,12 +257,12 @@ export class LinkOverlayFetcher {
   /**
    * Applies session overlay to DataLink baseline rows.
    * Passes ALL actions to applyToCollection — UPDATE/DELETE handled in loop 1,
-   * CREATE handled in loop 2. createFilter gates session-created rows through
-   * the same column filter as the baseline SQL query.
+   * CREATE handled in loop 2. One final predicate applies file scope and caller
+   * filters to every completed effective row.
    */
   private async applyDataLinkOverlay(
     baseRows: DataLinkBase[],
-    _fileSystemId: number,
+    fileSystemId: number,
     sessionId: number | null,
     filters?: DataLinkFilters,
   ): Promise<DataLinkBase[]> {
@@ -271,15 +275,17 @@ export class LinkOverlayFetcher {
         sessionId,
         ENTITY_NAMES.DataLink,
       );
-      const createFilter = filters
-        ? (nv: Record<string, unknown>) => matchesEntityFilters(nv, filters)
-        : undefined;
-      allRows =
-        actions.length > 0
-          ? this.overlayMerge
-              .applyToCollection(baseRows, actions, createFilter)
-              .map(r => r.effective)
-          : baseRows;
+      allRows = this.overlayMerge
+        .applyToCollection(baseRows, actions, {
+          matchesEffective: row =>
+            row.fileSystemId === fileSystemId &&
+            (filters === undefined ||
+              matchesEntityFilters(
+                row as unknown as Record<string, unknown>,
+                filters,
+              )),
+        })
+        .map(r => r.effective);
     }
 
     return this.dedup(allRows);
@@ -291,7 +297,7 @@ export class LinkOverlayFetcher {
    */
   private async applyControlLinkOverlay(
     baseRows: ControlLinkBase[],
-    _fileSystemId: number,
+    fileSystemId: number,
     sessionId: number | null,
     filters?: ControlLinkFilters,
   ): Promise<ControlLinkBase[]> {
@@ -304,15 +310,17 @@ export class LinkOverlayFetcher {
         sessionId,
         ENTITY_NAMES.ControlLink,
       );
-      const createFilter = filters
-        ? (nv: Record<string, unknown>) => matchesEntityFilters(nv, filters)
-        : undefined;
-      allRows =
-        actions.length > 0
-          ? this.overlayMerge
-              .applyToCollection(baseRows, actions, createFilter)
-              .map(r => r.effective)
-          : baseRows;
+      allRows = this.overlayMerge
+        .applyToCollection(baseRows, actions, {
+          matchesEffective: row =>
+            row.fileSystemId === fileSystemId &&
+            (filters === undefined ||
+              matchesEntityFilters(
+                row as unknown as Record<string, unknown>,
+                filters,
+              )),
+        })
+        .map(r => r.effective);
     }
 
     return this.dedup(allRows);

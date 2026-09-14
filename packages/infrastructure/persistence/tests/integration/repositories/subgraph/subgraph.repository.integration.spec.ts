@@ -92,6 +92,39 @@ async function seedSgkv(
   );
 }
 
+async function seedVcpmData(
+  ds: DataSource,
+  subgraphSystemId: number,
+): Promise<void> {
+  await ds.query(
+    `INSERT INTO vcpm_module_definitions
+       (system_id, module_definition_id, name, file_system_id)
+     VALUES (800, 1, 'vcpm', ?)`,
+    [FILE_ID],
+  );
+  await ds.query(
+    `INSERT INTO vcpm_module_parameter_definitions
+       (system_id, param_id, max_size, pid_type, is_persistent, is_read_only,
+        vcpm_module_definition_system_id)
+     VALUES (801, 1, 4, 'UINT32', 0, 0, 800)`,
+  );
+  await ds.query(
+    `INSERT INTO vcpm_instances
+       (system_id, subgraph_system_id, vcpm_definition_id)
+     VALUES (802, ?, 800)`,
+    [subgraphSystemId],
+  );
+  await ds.query(
+    `INSERT INTO vcpm_ckv (system_id, vcpm_instance_system_id)
+     VALUES (803, 802)`,
+  );
+  await ds.query(
+    `INSERT INTO vcpm_parameter_payload
+       (system_id, vcpm_parameter_system_id, vcpm_ckv_system_id, payload)
+     VALUES (804, 801, 803, x'01')`,
+  );
+}
+
 function makeRepo(
   manager: QueryRunner['manager'],
   sessionId = 0,
@@ -294,72 +327,6 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
     });
   });
 
-  // ── findIsMdfInScope ─────────────────────────────────────────────────────────
-
-  describe('findIsMdfInScope', () => {
-    it('returns [] for empty input', async () => {
-      expect(await makeRepo(qr.manager).findIsMdfInScope(FILE_ID, [])).toEqual(
-        [],
-      );
-    });
-
-    it('returns SGs with exactly IPC_TX + IPC_RX modules', async () => {
-      const SG_MDF = SG_A + 100;
-      await ds.query(
-        `INSERT INTO subgraphs (system_id, name, subgraph_id, is_imported, file_system_id) VALUES (?, 'mdf', 99, 0, ?)`,
-        [SG_MDF, FILE_ID],
-      );
-      // Seed a processor_definition required by spf_module_definitions FK
-      await ds.query(
-        `INSERT OR IGNORE INTO processor_definitions (system_id, processor_definition_id, name, file_system_id) VALUES (1, 1, 'proc', ?)`,
-        [FILE_ID],
-      );
-      await ds.query(
-        `INSERT INTO containers (system_id, container_id, file_system_id) VALUES (800, 1, ?)`,
-        [FILE_ID],
-      );
-      await ds.query(
-        `INSERT INTO spf_module_definitions (system_id, module_definition_id, name, processor_system_id, file_system_id) VALUES (9001, ${0x7001184}, 'IPC_TX', 1, ?)`,
-        [FILE_ID],
-      );
-      await ds.query(
-        `INSERT INTO spf_module_definitions (system_id, module_definition_id, name, processor_system_id, file_system_id) VALUES (9002, ${0x7001185}, 'IPC_RX', 1, ?)`,
-        [FILE_ID],
-      );
-      // spf_modules.system_id must exist in nodes (1:1 FK)
-      await ds.query(
-        `INSERT INTO nodes (system_id, type, parent_id, file_system_id) VALUES (901, 'module', NULL, ?)`,
-        [FILE_ID],
-      );
-      await ds.query(
-        `INSERT INTO nodes (system_id, type, parent_id, file_system_id) VALUES (902, 'module', NULL, ?)`,
-        [FILE_ID],
-      );
-      await ds.query(
-        `INSERT INTO spf_modules (system_id, instance_id, alias, definition_system_id, container_system_id, subgraph_system_id, file_system_id) VALUES (901, 1, 'm1', 9001, 800, ?, ?)`,
-        [SG_MDF, FILE_ID],
-      );
-      await ds.query(
-        `INSERT INTO spf_modules (system_id, instance_id, alias, definition_system_id, container_system_id, subgraph_system_id, file_system_id) VALUES (902, 2, 'm2', 9002, 800, ?, ?)`,
-        [SG_MDF, FILE_ID],
-      );
-
-      const result = await makeRepo(qr.manager).findIsMdfInScope(FILE_ID, [
-        SG_A,
-        SG_MDF,
-      ]);
-      expect(result.map(s => s.systemId)).toEqual([SG_MDF]);
-    });
-
-    it('excludes SGs that match IDs but are not MDF', async () => {
-      const result = await makeRepo(qr.manager).findIsMdfInScope(FILE_ID, [
-        SG_A,
-        SG_B,
-      ]);
-      expect(result).toEqual([]);
-    });
-  });
-
   // ── findChangedInSession ─────────────────────────────────────────────────────
 
   describe('findChangedInSession', () => {
@@ -428,6 +395,32 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
         FILE_ID,
       );
       expect(result).toEqual({added: [], deleted: []});
+    });
+  });
+
+  describe('deleteSubgraph', () => {
+    it('stages deletes for the effective VCPM hierarchy before the subgraph', async () => {
+      const sessionId = await seedSession(ds);
+      await seedVcpmData(ds, SG_A);
+
+      await makeRepo(qr.manager, sessionId).deleteSubgraph(SG_A, FILE_ID);
+
+      const actions = await ds.query<
+        Array<{targetSystemId: number; targetTable: string}>
+      >(
+        `SELECT target_system_id AS targetSystemId, target_table AS targetTable
+         FROM edit_actions
+         WHERE session_id = ?`,
+        [sessionId],
+      );
+      expect(actions).toEqual(
+        expect.arrayContaining([
+          {targetSystemId: 804, targetTable: ENTITY_NAMES.VcpmParameterPayload},
+          {targetSystemId: 803, targetTable: ENTITY_NAMES.VcpmCkv},
+          {targetSystemId: 802, targetTable: ENTITY_NAMES.VcpmInstance},
+          {targetSystemId: SG_A, targetTable: ENTITY_NAMES.Subgraph},
+        ]),
+      );
     });
   });
 });

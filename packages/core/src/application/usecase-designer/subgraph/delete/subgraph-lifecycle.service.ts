@@ -15,7 +15,7 @@ export class SubgraphLifecycleService {
   ): Promise<{deleted: boolean; affectedUseCaseSystemIds: number[]}> {
     const modules = await this.uow
       .getModuleRepository()
-      .findModulesBySubgraphId(subgraphSystemId, fileSystemId);
+      .findModulesBySubgraphIds([subgraphSystemId], fileSystemId);
     const remaining = modules.filter(
       module => module.systemId !== deletedModuleSystemId,
     );

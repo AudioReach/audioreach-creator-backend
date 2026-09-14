@@ -277,7 +277,7 @@ export class CommandHandlerRegistry {
 
     this.commandHandlerFactories.set(UpdateTkvCalDataCommand, {
       create: deps => new UpdateTkvCalDataHandler(deps.uow, deps.logger),
-        });
+    });
     this.commandHandlerFactories.set(CreateUsecasesCommand, {
       create: deps => new CreateUsecasesHandler(deps.uow),
     });

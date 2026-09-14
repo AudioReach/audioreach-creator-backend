@@ -32,10 +32,7 @@ export class CombinationExpansionService implements RoutingPhase {
               ...candidate.subgraphSystemIds,
               selection.systemId,
             ],
-            valueSystemIds: [
-              ...candidate.valueSystemIds,
-              ...valueSystemIds,
-            ],
+            valueSystemIds: [...candidate.valueSystemIds, ...valueSystemIds],
           });
         }
       }
