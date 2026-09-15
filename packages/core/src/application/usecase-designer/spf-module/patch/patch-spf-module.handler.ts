@@ -10,7 +10,7 @@ import {
   type PortIoType,
   ISSUE_ENTITY_TYPE,
   ResourceNotFoundException,
-  InvalidOperationException,
+  InvalidInputException,
   DomainRuleViolationException,
   PORT_IO_TYPE,
   MODULE_PORT_STRATEGIES,
@@ -64,7 +64,7 @@ export class PatchSpfModuleHandler implements CommandHandler<
       command.maxOutputPortsSupported === undefined &&
       command.maxControlPortsSupported === undefined
     ) {
-      throw new InvalidOperationException(
+      throw new InvalidInputException(
         'At least one field must be provided to patch.',
       );
     }

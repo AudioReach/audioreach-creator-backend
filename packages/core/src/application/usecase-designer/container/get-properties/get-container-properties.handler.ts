@@ -48,7 +48,7 @@ export class GetContainerPropertiesHandler implements QueryHandler<
     const payloads = payloadsResult.data;
 
     const definitionsResult =
-      await this.queryServices.containerPropertyDefQueryService.getAllDetailedContainerPropertyDefinitionsWithElements(
+      await this.queryServices.containerPropertyDefQueryService.getContainerPropertiesWithElements(
         fileSystemId,
       );
 

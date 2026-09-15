@@ -53,7 +53,7 @@ function makeServices(
     >;
     definitionsResult?: Awaited<
       ReturnType<
-        QueryServices['containerPropertyDefQueryService']['getAllDetailedContainerPropertyDefinitionsWithElements']
+        QueryServices['containerPropertyDefQueryService']['getContainerPropertiesWithElements']
       >
     >;
   } = {},
@@ -72,7 +72,7 @@ function makeServices(
       findPropertyPayloads: jest.fn().mockResolvedValue(payloadsResult),
     },
     containerPropertyDefQueryService: {
-      getAllDetailedContainerPropertyDefinitionsWithElements: jest
+      getContainerPropertiesWithElements: jest
         .fn()
         .mockResolvedValue(definitionsResult),
     },

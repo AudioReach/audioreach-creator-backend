@@ -327,16 +327,53 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       if (result.kind !== RESULT_KIND.Ok) return;
       expect(result.data.name).toBe('UpdatedName');
     });
+
+    it('returns ENTITY_NOT_FOUND when a pending DELETE removes the definition (Tier 3)', async () => {
+      const {fileSystemId} = await createFileDependency();
+      const session = await createSession(fileSystemId);
+
+      await containerPropertyRepository.save({
+        systemId: 1,
+        fileSystemId,
+        naturalId: 100,
+        name: 'MyProperty',
+        maxSize: 4,
+        propertyType: 'SPF',
+        elementsStructure: '[]',
+      });
+
+      await editActionRepository.save({
+        sessionId: session.sessionId,
+        targetTable: ENTITY_NAMES.ContainerProperty,
+        targetSystemId: 1,
+        aggregateId: 1,
+        operation: CHANGE_OPERATION.Delete,
+        changeStatus: CHANGE_STATUS.Staged,
+        source: SOURCE.Manual,
+        fieldPath: null,
+        newValue: null,
+        groupId: null,
+        linkedEntityGroupId: null,
+        validUntil: null,
+      });
+
+      const result = await service.getContainerPropertyDefinition(
+        1,
+        fileSystemId,
+      );
+
+      expect(result.kind).toBe(RESULT_KIND.Fail);
+      if (result.kind !== RESULT_KIND.Fail) return;
+      expect(result.issues[0]?.code).toBe(ERROR_CODES.ENTITY_NOT_FOUND);
+    });
   });
 
-  describe('getAllDetailedContainerPropertyDefinitionsWithElements', () => {
+  describe('getContainerPropertiesWithElements', () => {
     it('returns an empty array when the file has no container property definitions (Tier 1 — no session)', async () => {
       const {fileSystemId} = await createFileDependency();
 
       const result =
-        await service.getAllDetailedContainerPropertyDefinitionsWithElements(
-          fileSystemId,
-        );
+        await service.getContainerPropertiesWithElements(fileSystemId);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       if (result.kind !== RESULT_KIND.Ok) return;
@@ -357,9 +394,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       });
 
       const result =
-        await service.getAllDetailedContainerPropertyDefinitionsWithElements(
-          fileSystemId,
-        );
+        await service.getContainerPropertiesWithElements(fileSystemId);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       if (result.kind !== RESULT_KIND.Ok) return;
@@ -382,9 +417,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       });
 
       const result =
-        await service.getAllDetailedContainerPropertyDefinitionsWithElements(
-          fileSystemId,
-        );
+        await service.getContainerPropertiesWithElements(fileSystemId);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       if (result.kind !== RESULT_KIND.Ok) return;
@@ -421,9 +454,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       });
 
       const result =
-        await service.getAllDetailedContainerPropertyDefinitionsWithElements(
-          fileSystemId,
-        );
+        await service.getContainerPropertiesWithElements(fileSystemId);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       if (result.kind !== RESULT_KIND.Ok) return;
