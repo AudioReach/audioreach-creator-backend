@@ -19,7 +19,7 @@ export class KvResolutionService implements RoutingPhase {
     uow: UnitOfWork,
   ): Promise<ReturnType<typeof Result.ok<void>>> {
     const mdfSubgraphSystemIds = await this.mdfClassificationService.classify(
-      [...context.input.effectiveRoutingScope],
+      context.input.activeSubgraphs.map(selection => selection.systemId),
       uow,
     );
     context.mdfSubgraphSystemIds.clear();

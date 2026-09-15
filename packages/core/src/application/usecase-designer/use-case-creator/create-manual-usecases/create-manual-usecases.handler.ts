@@ -16,6 +16,7 @@ import {
 import type {RoutingOutcome} from '../contracts/routing-outcome.js';
 import {createRoutingEngine} from '../engine/create-routing-engine.js';
 import {ManualPairDiscoveryService} from '../services/manual-pair-discovery.service.js';
+import {readRoutingGraphEdits} from '../shared/read-routing-graph-edits.js';
 import {SubsystemLinkResolutionService} from '../services/subsystem-link-resolution.service.js';
 import {CreateManualUsecasesCommand} from './create-manual-usecases.command.js';
 
@@ -27,7 +28,6 @@ export class CreateManualUsecasesHandler implements CommandHandler<
     new SubsystemLinkResolutionService();
   private readonly engine = createRoutingEngine();
   private readonly pairDiscovery = new ManualPairDiscoveryService();
-
   constructor(private readonly uow: UnitOfWork) {}
 
   async handle(
@@ -37,11 +37,12 @@ export class CreateManualUsecasesHandler implements CommandHandler<
     try {
       const resolution =
         await this.subsystemLinkResolutionService.resolveAllChains(this.uow);
-      if (resolution.kind === RESULT_KIND.Fail) {
+      if (resolution.kind === RESULT_KIND.Fail)
         throw new DomainRuleViolationException(resolution.issues);
-      }
-
-      const graphEdits = await this.readGraphEdits(command.fileSystemId);
+      const graphEdits = await readRoutingGraphEdits(
+        this.uow,
+        command.fileSystemId,
+      );
       const selectedUsecases = await this.uow
         .getUsecaseRepository()
         .findBySystemIds(
@@ -54,66 +55,46 @@ export class CreateManualUsecasesHandler implements CommandHandler<
         command.excludedSubgraphSystemIds,
         graphEdits.deletedSgs.map(subgraph => subgraph.systemId),
       );
-      if (scope.missingSelectedScopeSubgraphs.size > 0) {
+      if (scope.missingSelectedScopeSubgraphs.size > 0)
         throw new DomainRuleViolationException([
           IssueFactory.routingSelectedScopeIncomplete(
             scope.missingSelectedScopeSubgraphs,
           ),
         ]);
-      }
-
-      // data and control link pairs we recieved here are filtered against usecase(s)
-      // in later stages
       const topology = await this.pairDiscovery.discover(
-        command.fileSystemId,
-        scope.effectiveActiveSubgraphs,
-        command.excludedDataLinkSystemIds,
-        command.excludedControlLinkSystemIds,
+        {
+          fileSystemId: command.fileSystemId,
+          selectedUsecases,
+          activeSubgraphs: scope.effectiveActiveSubgraphs,
+          excludedDataLinkSystemIds: new Set(command.excludedDataLinkSystemIds),
+          excludedControlLinkSystemIds: new Set(
+            command.excludedControlLinkSystemIds,
+          ),
+        },
         this.uow,
       );
-      if (topology.kind === RESULT_KIND.Fail) {
+      if (topology.kind === RESULT_KIND.Fail)
         throw new DomainRuleViolationException(topology.issues);
-      }
-
       const input = createManualRoutingInput({
-        selectedUsecaseSystemIds: command.selectedUsecaseSystemIds,
         selectedUsecases,
         activeSubgraphs: scope.effectiveActiveSubgraphs,
+        scopePolicy: {
+          requestedSubgraphSystemIds: scope.inputSubgraphs,
+          excludedSubgraphSystemIds: new Set(command.excludedSubgraphSystemIds),
+        },
         excludedDataLinkSystemIds: command.excludedDataLinkSystemIds,
         excludedControlLinkSystemIds: command.excludedControlLinkSystemIds,
-        excludedSubgraphSystemIds: command.excludedSubgraphSystemIds,
-        selectedScopeSubgraphs: scope.selectedScopeSubgraphs,
-        inputSubgraphs: scope.inputSubgraphs,
-        outOfSelectionSubgraphs: scope.outOfSelectionSubgraphs,
-        effectiveRoutingScope: scope.effectiveRoutingScope,
         graphEdits,
         manualTopology: topology.data,
       });
       const result = await this.engine.run(input, this.uow);
-      if (result.kind === RESULT_KIND.Fail) {
+      if (result.kind === RESULT_KIND.Fail)
         throw new DomainRuleViolationException(result.issues);
-      }
       await this.uow.commit();
       return result;
     } catch (error) {
       if (this.uow.isInTransaction()) await this.uow.rollback();
       throw error;
     }
-  }
-
-  private async readGraphEdits(fileSystemId: number) {
-    const [subgraphs, dataLinks, controlLinks] = await Promise.all([
-      this.uow.getSubgraphRepository().findChangedInSession(fileSystemId),
-      this.uow.getDataLinkRepository().findChangedInSession(fileSystemId),
-      this.uow.getControlLinkRepository().findChangedInSession(fileSystemId),
-    ]);
-    return {
-      addedSgs: subgraphs.added,
-      deletedSgs: subgraphs.deleted,
-      addedDataLinks: dataLinks.added,
-      deletedDataLinks: dataLinks.deleted,
-      addedControlLinks: controlLinks.added,
-      deletedControlLinks: controlLinks.deleted,
-    };
   }
 }

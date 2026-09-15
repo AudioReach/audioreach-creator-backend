@@ -7,13 +7,15 @@ import {InvalidOperationException} from '../../../shared/exceptions/invalid-oper
 
 export function parseId(value: string, paramName: string): number {
   const trimmed = value.trim();
-  const num =
-    trimmed.startsWith('0x') || trimmed.startsWith('0X')
-      ? Number.parseInt(trimmed, 16)
-      : Number.parseInt(trimmed, 10);
-  if (Number.isNaN(num) || !Number.isFinite(num)) {
+  if (!/^(?:0[xX][\da-fA-F]+|\d+)$/.test(trimmed)) {
     throw new InvalidOperationException(
       `${paramName} must be an integer, got: ${value}`,
+    );
+  }
+  const num = Number(trimmed);
+  if (!Number.isSafeInteger(num)) {
+    throw new InvalidOperationException(
+      `${paramName} must be a safe integer, got: ${value}`,
     );
   }
   if (num <= 0) {

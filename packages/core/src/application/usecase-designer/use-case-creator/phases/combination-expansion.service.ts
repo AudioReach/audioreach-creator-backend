@@ -38,7 +38,7 @@ export class CombinationExpansionService implements RoutingPhase {
       }
       candidates = next;
     }
-    context.combinations.push(...candidates);
+    context.routingCombinations.push(...candidates);
     return Result.ok();
   }
 }

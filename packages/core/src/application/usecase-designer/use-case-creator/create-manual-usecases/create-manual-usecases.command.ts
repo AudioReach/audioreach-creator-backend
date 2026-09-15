@@ -5,15 +5,11 @@
 
 import {BaseCommand} from '../../../../application/shared/base-command.js';
 import {SESSION_MODE} from '../../../../application/shared/change-vocabulary.js';
+import {
+  parseRoutingCommandInput,
+  type RoutingCommandInput,
+} from '../contracts/routing-command-input.js';
 import type {ActiveSubgraphSelection} from '../contracts/routing-input.js';
-
-export interface CreateManualUsecasesCommandInput {
-  readonly selectedUsecaseSystemIds: readonly number[];
-  readonly activeSubgraphs: readonly ActiveSubgraphSelection[];
-  readonly excludedDataLinkSystemIds?: readonly number[];
-  readonly excludedControlLinkSystemIds?: readonly number[];
-  readonly excludedSubgraphSystemIds?: readonly number[];
-}
 
 export class CreateManualUsecasesCommand extends BaseCommand {
   static override readonly requiresSession = true;
@@ -30,22 +26,15 @@ export class CreateManualUsecasesCommand extends BaseCommand {
 
   constructor(
     public readonly fileSystemId: number,
-    input: CreateManualUsecasesCommandInput,
+    input: RoutingCommandInput,
   ) {
     super();
-    this.selectedUsecaseSystemIds = [...input.selectedUsecaseSystemIds];
-    this.activeSubgraphs = input.activeSubgraphs.map(selection => ({
-      systemId: selection.systemId,
-      sgkvs: selection.sgkvs.map(values => [...values]),
-    }));
-    this.excludedDataLinkSystemIds = [
-      ...(input.excludedDataLinkSystemIds ?? []),
-    ];
-    this.excludedControlLinkSystemIds = [
-      ...(input.excludedControlLinkSystemIds ?? []),
-    ];
-    this.excludedSubgraphSystemIds = [
-      ...(input.excludedSubgraphSystemIds ?? []),
-    ];
+    const parsedInput = parseRoutingCommandInput(input);
+    this.selectedUsecaseSystemIds = parsedInput.selectedUsecaseSystemIds;
+    this.activeSubgraphs = parsedInput.activeSubgraphs;
+    this.excludedDataLinkSystemIds = parsedInput.excludedDataLinkSystemIds;
+    this.excludedControlLinkSystemIds =
+      parsedInput.excludedControlLinkSystemIds;
+    this.excludedSubgraphSystemIds = parsedInput.excludedSubgraphSystemIds;
   }
 }

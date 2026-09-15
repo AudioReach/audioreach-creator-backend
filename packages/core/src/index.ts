@@ -426,16 +426,6 @@ export type {SubsystemFilteredKeysDto} from './application/usecase-designer/subs
 export {UseCaseDtoSchema} from './application/usecase-designer/usecase/dto/usecase-dto.js';
 export type {UseCaseDto} from './application/usecase-designer/usecase/dto/usecase-dto.js';
 export {
-  UsecaseIdentifierWithChangeInfoDtoSchema,
-  CreateUsecasesResponseDtoSchema,
-  CreateManualUsecasesResponseDtoSchema,
-} from './application/usecase-designer/usecase/dto/usecase-dto.js';
-export type {
-  UsecaseIdentifierWithChangeInfoDto,
-  CreateUsecasesResponseDto,
-  CreateManualUsecasesResponseDto,
-} from './application/usecase-designer/usecase/dto/usecase-dto.js';
-export {
   UsecaseCategoryDtoSchema,
   DeleteUsecaseCategoryDtoSchema,
 } from './application/usecase-designer/usecase/dto/usecase-category-dto.js';
@@ -460,6 +450,15 @@ export type {
   DataLinkDto,
   ControlLinkDto,
 } from './application/usecase-designer/usecase/dto/component-collection-dto.js';
+export {
+  UsecaseChangeSnapshotDtoSchema,
+  UsecaseChangeDetailsDtoSchema,
+  mapUsecaseChangeDetails,
+} from './application/usecase-designer/usecase/dto/usecase-change-details-dto.js';
+export type {
+  UsecaseChangeSnapshotDto,
+  UsecaseChangeDetailsDto,
+} from './application/usecase-designer/usecase/dto/usecase-change-details-dto.js';
 export * from './application/usecase-designer/data-links/create/create-data-link.command.js';
 export * from './application/usecase-designer/data-links/create/create-data-link.handler.js';
 export * from './application/usecase-designer/data-links/delete/delete-data-link.command.js';
@@ -670,5 +669,6 @@ export type {
 
 // Use-case-creator public command and result contracts
 export * from './application/usecase-designer/use-case-creator/contracts/routing-outcome.js';
+export type {EmittedUsecaseChange} from './application/usecase-designer/use-case-creator/contracts/routing-state.js';
 export * from './application/usecase-designer/use-case-creator/create-usecases/create-usecases.command.js';
 export * from './application/usecase-designer/use-case-creator/create-manual-usecases/create-manual-usecases.command.js';

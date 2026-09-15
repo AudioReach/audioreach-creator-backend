@@ -15,8 +15,15 @@ import type {
   ISessionRepository,
   SpfModuleQueryService,
   KeyValuePairReadModel,
+  EmittedUsecaseChange,
 } from '@arc/core';
-import {CHANGE_OPERATION, Result, IssueFactory, RESULT_KIND} from '@arc/core';
+import {
+  CHANGE_OPERATION,
+  Result,
+  IssueFactory,
+  RESULT_KIND,
+  USECASE_TYPE,
+} from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {USECASE_PARAM_FILTER} from './usecase-param-filter.js';
 import {UseCaseQueryMappers} from './usecase-query-mappers.js';
@@ -27,7 +34,6 @@ import {
 import {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
-import type {EditActionRow} from '../../entity-schema/edit-session/edit-action.schema.js';
 
 /**
  * Database implementation of UseCaseQueryService.
@@ -54,7 +60,7 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
     private readonly keyValueDefQuerySvc: KeyValueDefQueryService,
     private readonly spfModuleQuerySvc: SpfModuleQueryService,
     private readonly sessionRepo: ISessionRepository,
-    private readonly editActionsQuerySvc: EditActionsQueryService,
+    _editActionsQuerySvc: EditActionsQueryService,
     usecaseFetcher: UsecaseOverlayFetcher,
     linkFetcher: LinkOverlayFetcher,
   ) {
@@ -137,92 +143,68 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
 
   async getChangeDetails(
     fileId: number,
-    groupId: string,
+    emittedChanges: readonly EmittedUsecaseChange[],
   ): Promise<Result<UsecaseChangeDetails[]>> {
     try {
-      const session =
-        await this.sessionRepo.findActiveSessionByFileSystemId(fileId);
-      if (session === null) return Result.ok([]);
+      if (emittedChanges.length === 0) return Result.ok([]);
 
-      const groupActions = await this.editActionsQuerySvc.getHistoryByGroupId(
-        session.sessionId,
-        groupId,
-      );
-      const usecaseGroupActions = groupActions.filter(action =>
-        this.isUsecaseAction(action),
-      );
-      if (usecaseGroupActions.length === 0) return Result.ok([]);
-
-      const usecaseIds = [
-        ...new Set(usecaseGroupActions.map(action => action.aggregateId)),
-      ];
-      const historyRows =
-        await this.editActionsQuerySvc.getHistoryByAggregateIds(
-          session.sessionId,
-          usecaseIds,
-        );
-      const history = historyRows.filter(action =>
-        this.isUsecaseAction(action),
-      );
-      const groupActionIds = new Set(
-        usecaseGroupActions.map(action => action.changeId),
-      );
-      const firstGroupIndex = history.findIndex(action =>
-        groupActionIds.has(action.changeId),
-      );
-      const lastGroupIndex = history.findLastIndex(action =>
-        groupActionIds.has(action.changeId),
-      );
-      if (firstGroupIndex === -1 || lastGroupIndex === -1) return Result.ok([]);
-
-      const [beforeUsecases, afterUsecases] = await Promise.all([
-        this.usecaseFetcher.getUsecasesFromActions(
-          fileId,
-          usecaseIds,
-          history.slice(0, firstGroupIndex),
-        ),
-        this.usecaseFetcher.getUsecasesFromActions(
-          fileId,
-          usecaseIds,
-          history.slice(0, lastGroupIndex + 1),
-        ),
-      ]);
-      const [beforeSnapshots, afterSnapshots] = await Promise.all([
-        this.getChangeSnapshotMap(beforeUsecases, fileId),
-        this.getChangeSnapshotMap(afterUsecases, fileId),
-      ]);
-
-      const actionsByUsecase = new Map<number, EditActionRow[]>();
-      for (const action of usecaseGroupActions) {
-        const actions = actionsByUsecase.get(action.aggregateId) ?? [];
-        actions.push(action);
-        actionsByUsecase.set(action.aggregateId, actions);
+      const usecaseIds = emittedChanges.map(change => change.systemId);
+      if (new Set(usecaseIds).size !== usecaseIds.length) {
+        throw new Error('Duplicate emitted UseCase system IDs');
       }
 
-      return Result.ok(
-        usecaseIds.map(systemId => {
-          const actions = actionsByUsecase.get(systemId)!;
-          const rootAction = actions.find(
-            action => action.targetTable === ENTITY_NAMES.UseCase,
-          );
-          const anchor = rootAction ?? actions[0];
-          return {
-            systemId,
-            changeId: anchor.changeId,
-            operation: rootAction?.operation ?? CHANGE_OPERATION.Update,
-            before: beforeSnapshots.get(systemId) ?? null,
-            after: afterSnapshots.get(systemId) ?? null,
-          };
-        }),
+      const session =
+        await this.sessionRepo.findActiveSessionByFileSystemId(fileId);
+      const sessionId = session?.sessionId ?? null;
+
+      const [
+        beforeUsecases,
+        afterUsecases,
+        beforeDataLinks,
+        afterDataLinks,
+        beforeControlLinks,
+        afterControlLinks,
+      ] = await Promise.all([
+        this.usecaseFetcher.getUsecases(fileId, null, usecaseIds),
+        this.usecaseFetcher.getUsecases(fileId, sessionId, usecaseIds),
+        this.linkFetcher.loadDataLinkRows(fileId, null),
+        this.linkFetcher.loadDataLinkRows(fileId, sessionId),
+        this.linkFetcher.loadControlLinkRows(fileId, null),
+        this.linkFetcher.loadControlLinkRows(fileId, sessionId),
+      ]);
+      const gkvPairs = await this.getGkvPairMap(
+        [...beforeUsecases, ...afterUsecases],
+        fileId,
       );
+      const beforeSnapshots = this.getChangeSnapshotMap(
+        beforeUsecases,
+        beforeDataLinks,
+        beforeControlLinks,
+        gkvPairs,
+      );
+      const afterSnapshots = this.getChangeSnapshotMap(
+        afterUsecases,
+        afterDataLinks,
+        afterControlLinks,
+        gkvPairs,
+      );
+
+      const details = emittedChanges.map(change => {
+        const before = beforeSnapshots.get(change.systemId) ?? null;
+        const after = afterSnapshots.get(change.systemId) ?? null;
+        this.assertSnapshotBoundary(change, before, after);
+        return {...change, before, after};
+      });
+      return Result.ok(details);
     } catch (error) {
-      return Result.fail(
-        IssueFactory.dbError(
-          error instanceof Error
-            ? error.message
-            : 'Failed to query usecase change details',
-        ),
-      );
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Failed to query usecase change details';
+      const issue = isTransientReadError(error)
+        ? IssueFactory.transientDbReadError(message)
+        : IssueFactory.dbError(message);
+      return Result.fail(issue);
     }
   }
 
@@ -333,36 +315,84 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
     return row?.fileSystemId ?? null;
   }
 
-  private isUsecaseAction(action: EditActionRow): boolean {
-    return (
-      action.targetTable === ENTITY_NAMES.UseCase ||
-      action.targetTable === ENTITY_NAMES.UsecaseGkvValues ||
-      action.targetTable === ENTITY_NAMES.UseCaseCategory ||
-      action.targetTable === ENTITY_NAMES.UseCaseSubgraph ||
-      action.targetTable === ENTITY_NAMES.UseCaseSubgraphPair
-    );
-  }
-
-  private async getChangeSnapshotMap(
+  private getChangeSnapshotMap(
     usecases: readonly OverlaidUseCase[],
-    fileId: number,
-  ): Promise<Map<number, UsecaseChangeSnapshot>> {
-    const pairsMap = await this.getGkvPairMap(usecases, fileId);
+    dataLinks: Awaited<ReturnType<LinkOverlayFetcher['loadDataLinkRows']>>,
+    controlLinks: Awaited<
+      ReturnType<LinkOverlayFetcher['loadControlLinkRows']>
+    >,
+    gkvPairs: ReadonlyMap<number, KeyValuePairReadModel>,
+  ): Map<number, UsecaseChangeSnapshot> {
     return new Map(
       usecases.map(usecase => [
         usecase.systemId,
         {
-          systemId: usecase.systemId,
-          type: usecase.type,
-          gkv: this.toGkvReadModel(usecase, pairsMap),
+          isEc: usecase.type === USECASE_TYPE.Ec,
+          gkv: this.toGkvReadModel(usecase, gkvPairs),
           alias: usecase.alias,
           aliasId: usecase.aliasId,
           categories: usecase.categoryNames,
-          subgraphSystemIds: usecase.subgraphSystemIds,
-          subgraphPairs: usecase.subgraphPairs,
+          dataLinks: this.getSupportingDataLinks(usecase, dataLinks),
+          controlLinks: this.getSupportingControlLinks(usecase, controlLinks),
         },
       ]),
     );
+  }
+
+  private getSupportingDataLinks(
+    usecase: OverlaidUseCase,
+    rows: Awaited<ReturnType<LinkOverlayFetcher['loadDataLinkRows']>>,
+  ) {
+    const matches = rows.filter(row =>
+      usecase.subgraphPairs.some(
+        pair =>
+          pair.sourceSubgraphSystemId === row.sourceSubgraphSystemId &&
+          pair.destSubgraphSystemId === row.destSubgraphSystemId,
+      ),
+    );
+    return [...new Map(matches.map(row => [row.systemId, row])).values()]
+      .sort((a, b) => a.systemId - b.systemId)
+      .map(row => UseCaseQueryMappers.mapToComponentDataLinkReadModel(row));
+  }
+
+  private getSupportingControlLinks(
+    usecase: OverlaidUseCase,
+    rows: Awaited<ReturnType<LinkOverlayFetcher['loadControlLinkRows']>>,
+  ) {
+    const matches = rows.filter(row =>
+      usecase.subgraphPairs.some(
+        pair =>
+          (pair.sourceSubgraphSystemId === row.sourceSubgraphSystemId &&
+            pair.destSubgraphSystemId === row.destSubgraphSystemId) ||
+          (pair.sourceSubgraphSystemId === row.destSubgraphSystemId &&
+            pair.destSubgraphSystemId === row.sourceSubgraphSystemId),
+      ),
+    );
+    return [...new Map(matches.map(row => [row.systemId, row])).values()]
+      .sort((a, b) => a.systemId - b.systemId)
+      .map(row => UseCaseQueryMappers.mapToComponentControlLinkReadModel(row));
+  }
+
+  private assertSnapshotBoundary(
+    change: EmittedUsecaseChange,
+    before: UsecaseChangeSnapshot | null,
+    after: UsecaseChangeSnapshot | null,
+  ): void {
+    const valid =
+      (change.operation === CHANGE_OPERATION.Create &&
+        before === null &&
+        after !== null) ||
+      (change.operation === CHANGE_OPERATION.Update &&
+        before !== null &&
+        after !== null) ||
+      (change.operation === CHANGE_OPERATION.Delete &&
+        before !== null &&
+        after === null);
+    if (!valid) {
+      throw new Error(
+        `Inconsistent ${change.operation} snapshot boundary for UseCase ${change.systemId}`,
+      );
+    }
   }
 
   private async getGkvPairMap(
@@ -381,7 +411,12 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
         valueDefSystemIds,
         fileId,
       );
-    if (pairsResult.kind === RESULT_KIND.Fail) return new Map();
+    if (pairsResult.kind === RESULT_KIND.Fail) {
+      throw new Error(
+        pairsResult.issues.map(issue => issue.message).join('; ') ||
+          'Failed to resolve UseCase GKV values',
+      );
+    }
 
     return new Map(pairsResult.data.map(pair => [pair.value.systemId, pair]));
   }
@@ -406,4 +441,20 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
         },
       }));
   }
+}
+
+function isTransientReadError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const candidate = error as {
+    code?: string;
+    driverError?: {code?: string};
+  };
+  const codes = [candidate.code, candidate.driverError?.code];
+  return codes.some(
+    code =>
+      code === 'SQLITE_BUSY' ||
+      code === 'SQLITE_LOCKED' ||
+      code === 'ETIMEDOUT' ||
+      code === 'ECONNRESET',
+  );
 }

@@ -18,7 +18,7 @@ the endpoint.
 - Document the future HTTP 200 response as `{usecase, groupId}`. The endpoint owns a
   dedicated rich UC snapshot schema containing public GKV/alias/category fields,
   `{systemId, changeId}`, effective SG membership, and directed SG pairs. The routing
-  create APIs reuse only the compact `{systemId, changeId}` reference. Internal
+  create APIs use a separate rich before/after change-details response. Internal
   `usecaseType` is recomputed from topology by the future implementation and is not
   exposed.
 - Document future 400, 403, 404, 409, and 422 outcomes and the current 501 outcome.

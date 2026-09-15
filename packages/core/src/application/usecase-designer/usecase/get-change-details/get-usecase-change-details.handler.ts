@@ -14,7 +14,6 @@ export class GetUsecaseChangeDetailsHandler implements QueryHandler<
   Promise<Result<UsecaseChangeDetails[]>>
 > {
   constructor(private readonly queryServices: QueryServices) {}
-
   async handle(
     query: GetUsecaseChangeDetailsQuery,
   ): Promise<Result<UsecaseChangeDetails[]>> {
@@ -24,7 +23,7 @@ export class GetUsecaseChangeDetailsHandler implements QueryHandler<
       );
     return this.queryServices.useCaseQueryService.getChangeDetails(
       fileId,
-      query.groupId,
+      query.emittedChanges,
     );
   }
 }

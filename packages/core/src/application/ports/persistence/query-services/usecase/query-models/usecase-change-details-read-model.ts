@@ -3,26 +3,30 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {ChangeOperation} from '../../../../../shared/change-vocabulary.js';
-import type {UsecaseType} from '../../../../../../domain/entities/usecase-data/usecase/usecase-type.js';
-import type {SubgraphPair} from '../../../repositories/shared/links-for-pair.js';
+import {
+  CHANGE_OPERATION,
+  type ChangeOperation,
+  type Source,
+} from '../../../../../shared/change-vocabulary.js';
 import type {KeyValuePairReadModel} from './key-vector-read-model.js';
+import type {DataLinkReadModel} from '../../link/data-link-read-model.js';
+import type {ControlLinkReadModel} from '../../link/control-link-read-model.js';
 
 export interface UsecaseChangeSnapshot {
-  readonly systemId: number;
-  readonly type: UsecaseType | null;
+  readonly isEc: boolean;
   readonly gkv: readonly KeyValuePairReadModel[];
   readonly alias: string | null;
   readonly aliasId: number | null;
   readonly categories: readonly string[];
-  readonly subgraphSystemIds: readonly number[];
-  readonly subgraphPairs: readonly SubgraphPair[];
+  readonly dataLinks: readonly DataLinkReadModel[];
+  readonly controlLinks: readonly ControlLinkReadModel[];
 }
 
 export interface UsecaseChangeDetails {
   readonly systemId: number;
   readonly changeId: number;
-  readonly operation: ChangeOperation;
+  readonly operation: Exclude<ChangeOperation, typeof CHANGE_OPERATION.None>;
+  readonly source: Source;
   readonly before: UsecaseChangeSnapshot | null;
   readonly after: UsecaseChangeSnapshot | null;
 }
