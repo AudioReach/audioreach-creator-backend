@@ -8,7 +8,7 @@ import type {
   SubsystemQueryService,
   SubsystemReadModel,
   ControlLinkReadModel,
-  DataLinkReadModel,
+  SubsystemDataLinkReadModel,
 } from '@arc/core';
 import {Result, IssueFactory} from '@arc/core';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
@@ -131,10 +131,16 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
     }
   }
 
+  /**
+   * Returns virtual data-link segments from subsystem_data_links for the given usecases.
+   * Same scoping and overlay pattern as findControlLinkSegmentsByUsecaseIds.
+   * Returns SubsystemDataLinkReadModel (not DataLinkReadModel) so callers get the
+   * dataLinkSystemId parent reference and the correct type.
+   */
   async findDataLinkSegmentsByUsecaseIds(
     usecaseSystemIds: number[],
     fileSystemId: number,
-  ): Promise<Result<DataLinkReadModel[]>> {
+  ): Promise<Result<SubsystemDataLinkReadModel[]>> {
     if (usecaseSystemIds.length === 0) return Result.ok([]);
     try {
       const sessionId = await resolveActiveSessionId(
@@ -181,7 +187,7 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
       });
       return Result.ok(
         links.map(dl =>
-          UseCaseQueryMappers.mapToComponentDataLinkReadModel(dl),
+          UseCaseQueryMappers.mapToSubsystemDataLinkReadModel(dl),
         ),
       );
     } catch (error) {

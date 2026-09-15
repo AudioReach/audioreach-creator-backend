@@ -9,8 +9,10 @@ import {SubsystemDataLink} from '../../../../../domain/entities/usecase-data/lin
 import {SubsystemControlLink} from '../../../../../domain/entities/usecase-data/links/subsystem-control-link.js';
 import {DataPort} from '../../../../../domain/entities/usecase-data/node/entities/data-port.js';
 import {ControlPort} from '../../../../../domain/entities/usecase-data/node/entities/control-port.js';
-import {SubsystemBoundaryPathService} from '../../../../../domain/services/subsystem-data-links/subsystem-boundary-path.service.js';
-import type {PathOutput} from '../../../../../domain/services/subsystem-data-links/subsystem-boundary-path.service.js';
+import {
+  SubsystemDataLinkDerivationService,
+  type SegmentDescriptor,
+} from '../../../../../domain/services/subsystem-data-links/subsystem-data-link-derivation.service.js';
 import type {UiSubsystem} from '../../../shared/awsp-serializers/v1/ui-metadata/index.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
@@ -38,8 +40,7 @@ export interface SubsystemPathComputeInput {
 export interface SubsystemPathComputeOutput {
   paths: Array<{
     linkSystemId: number;
-    nodeSequence: number[];
-    requiredPortType: [number, string][];
+    segments: SegmentDescriptor[];
   } | null>;
 }
 
@@ -121,20 +122,13 @@ export class SubsystemBuilder {
       input.nodeParentMapEntries,
     );
     const paths = input.links.map(link => {
-      const result = SubsystemBoundaryPathService.compute({
+      const segments = SubsystemDataLinkDerivationService.compute({
         sourceNodeSystemId: link.nodeANaturalId,
         destinationNodeSystemId: link.nodeBNaturalId,
         nodeParentMap,
       });
-      if (result.nodeSequence.length <= 2) return null;
-      return {
-        linkSystemId: link.systemId,
-        nodeSequence: result.nodeSequence,
-        requiredPortType: [...result.requiredPortType.entries()] as [
-          number,
-          string,
-        ][],
-      };
+      if (segments.length === 0) return null;
+      return {linkSystemId: link.systemId, segments};
     });
     return {paths};
   }
@@ -203,7 +197,6 @@ export class SubsystemBuilder {
   ): Promise<Subsystem[]> {
     const nodeParentMap = this.buildNodeParentMap(subsystems);
 
-    // Step A: compute paths (parallel when pool available, sequential otherwise)
     const [dataLinkPaths, controlLinkPaths] = this.shouldUseParallel(
       dataLinks,
       controlLinks,
@@ -306,7 +299,7 @@ export class SubsystemBuilder {
     dataLinks: DataLink[],
     controlLinks: ControlLink[],
     nodeParentMap: Map<number, number | null>,
-  ): Promise<[(PathOutput | null)[], (PathOutput | null)[]]> {
+  ): Promise<[(SegmentDescriptor[] | null)[], (SegmentDescriptor[] | null)[]]> {
     const nodeParentMapEntries = [
       ...nodeParentMap.entries(),
     ] as SubsystemPathComputeInput['nodeParentMapEntries'];
@@ -350,7 +343,7 @@ export class SubsystemBuilder {
       SubsystemPathComputeOutput
     >(allTasks);
 
-    // Reconstitute PathOutput from serialized worker output.
+    // Reconstitute descriptor arrays from serialized worker output.
     // dataLinkTasks.length is used to split the results array so that adding
     // further tasks before/after the control chunk would require updating this
     // split — keep dataLinkTasks and controlLinkTask adjacent in allTasks.
@@ -361,27 +354,22 @@ export class SubsystemBuilder {
 
     const dataLinkPaths = dataChunkResults.flatMap(r =>
       (r.data as SubsystemPathComputeOutput).paths.map(p =>
-        this.deserializePathOutput(p),
+        this.deserializeSegments(p),
       ),
     );
 
     const controlLinkPaths = (
       controlResult.data as SubsystemPathComputeOutput
-    ).paths.map(p => this.deserializePathOutput(p));
+    ).paths.map(p => this.deserializeSegments(p));
 
     return [dataLinkPaths, controlLinkPaths];
   }
 
-  private deserializePathOutput(
+  private deserializeSegments(
     raw: SubsystemPathComputeOutput['paths'][number],
-  ): PathOutput | null {
+  ): SegmentDescriptor[] | null {
     if (!raw) return null;
-    return {
-      nodeSequence: raw.nodeSequence,
-      requiredPortType: new Map(
-        raw.requiredPortType as [number, 'OUTPUT_INPUT' | 'INPUT_OUTPUT'][],
-      ),
-    };
+    return raw.segments;
   }
 
   // ─── Step A: sequential ───────────────────────────────────────────────────
@@ -389,62 +377,75 @@ export class SubsystemBuilder {
   private computeDataLinkPathsSequential(
     dataLinks: DataLink[],
     nodeParentMap: Map<number, number | null>,
-  ): (PathOutput | null)[] {
+  ): (SegmentDescriptor[] | null)[] {
     return dataLinks.map(link => {
-      const result = SubsystemBoundaryPathService.compute({
+      const segs = SubsystemDataLinkDerivationService.compute({
         sourceNodeSystemId: link.sourceNodeSystemId,
         destinationNodeSystemId: link.destinationNodeSystemId,
         nodeParentMap,
       });
-      return result.nodeSequence.length > 2 ? result : null;
+      return segs.length > 0 ? segs : null;
     });
   }
 
   private computeControlLinkPathsSequential(
     controlLinks: ControlLink[],
     nodeParentMap: Map<number, number | null>,
-  ): (PathOutput | null)[] {
+  ): (SegmentDescriptor[] | null)[] {
     return controlLinks.map(link => {
-      const result = SubsystemBoundaryPathService.compute({
+      const segs = SubsystemDataLinkDerivationService.compute({
         sourceNodeSystemId: link.peerNodeASystemId,
         destinationNodeSystemId: link.peerNodeBSystemId,
         nodeParentMap,
       });
-      return result.nodeSequence.length > 2 ? result : null;
+      return segs.length > 0 ? segs : null;
     });
   }
 
   // ─── Step B ───────────────────────────────────────────────────────────────
 
   private collectDataPortRequirements(
-    paths: (PathOutput | null)[],
+    paths: (SegmentDescriptor[] | null)[],
   ): Map<DataPortKey, {portIoType: string}> {
     const reqs = new Map<DataPortKey, {portIoType: string}>();
-    for (const [i, path] of paths.entries()) {
-      if (!path) continue;
-      const {nodeSequence, requiredPortType} = path;
-      for (let j = 1; j < nodeSequence.length - 1; j++) {
-        const subsystemNaturalId = nodeSequence[j];
-        const key: DataPortKey = `d:${i}:${subsystemNaturalId}`;
-        const ioType =
-          requiredPortType.get(subsystemNaturalId) ?? 'OUTPUT_INPUT';
-        reqs.set(key, {portIoType: ioType});
+    for (const [i, segments] of paths.entries()) {
+      if (!segments) continue;
+      for (const segment of segments) {
+        this.applyDataPortSegment(reqs, i, segment);
       }
     }
     return reqs;
   }
 
+  private applyDataPortSegment(
+    reqs: Map<DataPortKey, {portIoType: string}>,
+    linkIndex: number,
+    seg: SegmentDescriptor,
+  ): void {
+    if (seg.sourceBoundaryPortType !== null) {
+      const key: DataPortKey = `d:${linkIndex}:${seg.sourceNodeSystemId}`;
+      if (!reqs.has(key))
+        reqs.set(key, {portIoType: seg.sourceBoundaryPortType});
+    }
+    if (seg.destBoundaryPortType !== null) {
+      const key: DataPortKey = `d:${linkIndex}:${seg.destinationNodeSystemId}`;
+      if (!reqs.has(key)) reqs.set(key, {portIoType: seg.destBoundaryPortType});
+    }
+  }
+
   private collectControlPortRequirements(
-    paths: (PathOutput | null)[],
+    paths: (SegmentDescriptor[] | null)[],
   ): Map<ControlPortKey, object> {
     const reqs = new Map<ControlPortKey, object>();
-    for (const [i, path] of paths.entries()) {
-      if (!path) continue;
-      const {nodeSequence} = path;
-      for (let j = 1; j < nodeSequence.length - 1; j++) {
-        const subsystemNaturalId = nodeSequence[j];
-        const key: ControlPortKey = `c:${i}:${subsystemNaturalId}`;
-        reqs.set(key, {});
+    for (const [i, segments] of paths.entries()) {
+      if (!segments) continue;
+      for (const segment of segments) {
+        if (segment.sourceBoundaryPortType !== null) {
+          reqs.set(`c:${i}:${segment.sourceNodeSystemId}`, {});
+        }
+        if (segment.destBoundaryPortType !== null) {
+          reqs.set(`c:${i}:${segment.destinationNodeSystemId}`, {});
+        }
       }
     }
     return reqs;
@@ -494,36 +495,33 @@ export class SubsystemBuilder {
 
   private async attachDataLinkSegments(
     dataLinks: DataLink[],
-    paths: (PathOutput | null)[],
+    paths: (SegmentDescriptor[] | null)[],
     assignments: Map<DataPortKey, DataPortAssignment>,
     fileSystemId: number,
   ): Promise<void> {
-    for (const [i, path] of paths.entries()) {
-      if (!path) continue;
+    for (const [i, segs] of paths.entries()) {
+      if (!segs) continue;
       const dataLink = dataLinks[i];
-      const {nodeSequence} = path;
 
-      for (let j = 0; j < nodeSequence.length - 1; j++) {
-        const srcNodeId = nodeSequence[j];
-        const dstNodeId = nodeSequence[j + 1];
-
+      for (const seg of segs) {
         const srcPortSystemId =
-          j === 0
+          seg.sourceBoundaryPortType === null
             ? dataLink.sourcePortSystemId
-            : assignments.get(`d:${i}:${srcNodeId}`)!.systemId;
+            : assignments.get(`d:${i}:${seg.sourceNodeSystemId}`)!.systemId;
 
         const dstPortSystemId =
-          j === nodeSequence.length - 2
+          seg.destBoundaryPortType === null
             ? dataLink.destinationPortSystemId
-            : assignments.get(`d:${i}:${dstNodeId}`)!.systemId;
+            : assignments.get(`d:${i}:${seg.destinationNodeSystemId}`)!
+                .systemId;
 
         const segmentSystemId = await this.idGenerator.getNextId(fileSystemId);
 
         dataLink.addSubsystemDataLink(
           new SubsystemDataLink({
             systemId: segmentSystemId,
-            sourceNodeSystemId: srcNodeId,
-            destinationNodeSystemId: dstNodeId,
+            sourceNodeSystemId: seg.sourceNodeSystemId,
+            destinationNodeSystemId: seg.destinationNodeSystemId,
             sourcePortSystemId: srcPortSystemId,
             destinationPortSystemId: dstPortSystemId,
             dataLinkSystemId: dataLink.systemId,
@@ -538,36 +536,33 @@ export class SubsystemBuilder {
 
   private async attachControlLinkSegments(
     controlLinks: ControlLink[],
-    paths: (PathOutput | null)[],
+    paths: (SegmentDescriptor[] | null)[],
     assignments: Map<ControlPortKey, ControlPortAssignment>,
     fileSystemId: number,
   ): Promise<void> {
-    for (const [i, path] of paths.entries()) {
-      if (!path) continue;
+    for (const [i, segs] of paths.entries()) {
+      if (!segs) continue;
       const controlLink = controlLinks[i];
-      const {nodeSequence} = path;
 
-      for (let j = 0; j < nodeSequence.length - 1; j++) {
-        const nodeANaturalId = nodeSequence[j];
-        const nodeBNaturalId = nodeSequence[j + 1];
-
+      for (const seg of segs) {
         const nodeAPortSystemId =
-          j === 0
+          seg.sourceBoundaryPortType === null
             ? controlLink.nodeAPortSystemId
-            : assignments.get(`c:${i}:${nodeANaturalId}`)!.systemId;
+            : assignments.get(`c:${i}:${seg.sourceNodeSystemId}`)!.systemId;
 
         const nodeBPortSystemId =
-          j === nodeSequence.length - 2
+          seg.destBoundaryPortType === null
             ? controlLink.nodeBPortSystemId
-            : assignments.get(`c:${i}:${nodeBNaturalId}`)!.systemId;
+            : assignments.get(`c:${i}:${seg.destinationNodeSystemId}`)!
+                .systemId;
 
         const segmentSystemId = await this.idGenerator.getNextId(fileSystemId);
 
         controlLink.subsystemControlLinks.push(
           new SubsystemControlLink(
             segmentSystemId,
-            nodeANaturalId,
-            nodeBNaturalId,
+            seg.sourceNodeSystemId,
+            seg.destinationNodeSystemId,
             nodeAPortSystemId,
             nodeBPortSystemId,
             controlLink.systemId,

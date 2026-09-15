@@ -73,6 +73,7 @@ export type {
 export type {
   DataLinkRepository,
   SubsystemDataRouteContext,
+  BoundaryPortPayload,
 } from './application/ports/persistence/repositories/data-link/data-link.repository.js';
 export type {ControlLinkRepository} from './application/ports/persistence/repositories/control-link/control-link.repository.js';
 export type {SubgraphRepository} from './application/ports/persistence/repositories/subgraph/subgraph.repository.js';
@@ -116,6 +117,7 @@ export * from './application/ports/persistence/query-services/link/control-link-
 export * from './application/ports/persistence/query-services/subsystem/subsystem-query-service.js';
 export * from './application/ports/persistence/query-services/subsystem/subsystem-read-model.js';
 export * from './application/ports/persistence/query-services/usecase/query-models/components-read-model.js';
+export * from './application/ports/persistence/query-services/usecase/query-models/subsystem-data-link-read-model.js';
 export * from './application/usecase-designer/usecase/get-component-with-subsystem/components-with-subsystems-read-model.js';
 
 // Filter expression (shared filter AST — no framework deps)
@@ -459,9 +461,11 @@ export type {
   ComponentCollectionWithSubsystemsDto,
   DataLinkDto,
   ControlLinkDto,
+  SubsystemComponentsDto,
 } from './application/usecase-designer/usecase/dto/component-collection-dto.js';
+export {SubsystemComponentsDtoSchema} from './application/usecase-designer/usecase/dto/component-collection-dto.js';
 export * from './application/usecase-designer/data-links/create/create-data-link.command.js';
-export * from './application/usecase-designer/data-links/create/create-data-link.handler.js';
+export * from './application/usecase-designer/data-links/create/create-data-link-with-subsystems.command.js';
 export * from './application/usecase-designer/data-links/delete/delete-data-link.command.js';
 export * from './application/usecase-designer/data-links/delete/delete-data-link.handler.js';
 export * from './application/usecase-designer/control-links/create/create-control-link.command.js';
