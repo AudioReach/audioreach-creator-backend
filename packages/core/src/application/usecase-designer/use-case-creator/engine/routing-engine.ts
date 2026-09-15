@@ -69,9 +69,10 @@ export class RoutingEngine {
       if (result.kind === RESULT_KIND.Fail) return result;
     }
     return Result.ok(
-      context.response ??
+      context.routingOutcome ??
         createEmptyRoutingOutcome(
           uow.getWriteContext().groupId,
+          context.emittedUcChanges,
           context.warnings,
         ),
     );

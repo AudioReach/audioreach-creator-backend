@@ -62,9 +62,10 @@ flowchart TD
             direction TB
             P10["10 · OrphanValidationService\n(FR-VAL-01/02/03)"]:::halfC
             P11["11 · RoutingChangeStager\n(writes edit_actions via IUsecaseRepository)"]:::halfC
-            P12["12 · ResponseBuilder"]:::halfC
-            OK["HTTP 200 + response DTO"]:::successTerm
-            P10 --> P11 --> P12 --> OK
+            P12["12 · ResponseBuilder\n(RoutingOutcome with emitted descriptors)"]:::halfC
+            Q["QueryBus\nGetUsecaseChangeDetails(projectId, clientId, emittedChanges)"]:::preStep
+            OK["HTTP 200\n{changes, issues, groupId}"]:::successTerm
+            P10 --> P11 --> P12 --> Q --> OK
         end
 
         P3 --> P4
@@ -110,7 +111,7 @@ flowchart LR
     subgraph MANUAL["Manual mode (create-manual-usecases)"]
         direction TB
         M1["1 · PreValidationService"]:::runs
-        M2["2 · DeletionScopeService\n(partial — file-wide affected-UC gate;\nno reconstruction)"]:::different
+        M2["2 · DeletionScopeService\n(skipped — no existing-UC reconciliation)"]:::skipped
         M3["3 · IslandTransitionService\n(skipped — no ISLAND transition scan)"]:::skipped
         M4["4 · KvResolutionService\n(resolves provided GKVs)"]:::different
         M5["5 · SeedDetectionService\n(skipped — SGs provided)"]:::skipped
@@ -155,8 +156,14 @@ validation, staging edit_actions via `IUsecaseRepository`, and response construc
 Each of the 12 phases reads from and writes to a shared `RoutingContext` object, but
 individual service implementations are stateless. The FR-COMMIT-01 safety-net is
 separate from routing and runs when the caller triggers `POST /commit-changes`. In
-Manual mode, Phase 2 performs affected-UC discovery and selection gating but skips
-automatic reconstruction; phases 3, 5, 6, and 7 are bypassed. Pair discovery examines every pair
-in `effectiveRoutingScope`; Phase 8 still expands that ordered scope, and Phase 9 runs
+Manual mode skips Phase 2 file-wide discovery, FR-DEL-02 gating, reconstruction,
+degradation, and existing-UC mutation; phases 3, 5, 6, and 7 are also bypassed. Pair
+discovery examines every relationship involving an out-of-selection SG and only those
+selected-selected relationships represented by a selected UC. Phase 8 still expands the
+ordered normalized `activeSubgraphs` scope, and Phase 9 runs
 in partial mode for idempotency. For projects without subsystems, the chain resolver is
 a fast no-op.
+
+The CommandBus→QueryBus→rich-response segment is implemented by both create controller
+methods. A successful command is never rerun during response projection; only an explicitly
+transient details read is retried once.

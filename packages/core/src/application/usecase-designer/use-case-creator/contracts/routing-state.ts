@@ -6,6 +6,7 @@
 import {
   CHANGE_OPERATION,
   type ChangeOperation,
+  type Source,
 } from '../../../shared/change-vocabulary.js';
 import type {UsecaseChangeRef} from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
 
@@ -52,7 +53,8 @@ export interface OrphanCandidate {
   readonly kind: OrphanKind;
 }
 
-/** Internal write result retained until ResponseBuilder groups it by operation. */
+/** Internal write result retained until response projection. */
 export interface EmittedUsecaseChange extends UsecaseChangeRef {
   readonly operation: Exclude<ChangeOperation, typeof CHANGE_OPERATION.None>;
+  readonly source: Source;
 }

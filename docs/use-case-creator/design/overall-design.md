@@ -7,7 +7,7 @@
 
 **Status:** Draft
 **Owner:** Nithin Simon
-**Last updated:** 2026-08-07
+**Last updated:** 2026-09-15
 
 **Requirements:**
 - Core: [`../2026-06-01-auto-usecase-routing-requirements.md`](../2026-06-01-auto-usecase-routing-requirements.md)
@@ -73,7 +73,9 @@ For raw-mode projects (the common case), the chain resolver is a fast no-op.
 **Framework glue is inherited.** `CommandBus`, `SessionGuard`, `UnitOfWork`,
 `PendingChangeWriter` are pre-existing edit-crud primitives. Handlers follow the same
 shape as `PatchSpfModuleHandler` (constructor takes `UnitOfWork` + `IdGenerationPort`,
-`handle()` calls `startTransaction()` → work → `commit()` → returns `{groupId}`).
+`handle()` calls `startTransaction()` → work → `commit()`). Routing handlers return
+`RoutingOutcome {emittedChanges, issues, groupId}`; simpler handlers may return only
+their operation-specific IDs and `groupId`.
 
 **Boundary invariants (from CLAUDE.md):**
 - `@arc/core` has zero framework imports (no NestJS, TypeORM, node APIs).
@@ -103,7 +105,10 @@ auto scope. The handler then enforces
 `selectedScopeSubgraphs − excludedSubgraphSystemIds − deletedSubgraphSystemIds ⊆
 inputSubgraphs`. Session-deleted SGs are silently removed from stale client input and
 from `effectiveRoutingScope`, while their DELETE records remain in `graphEdits`. The
-handler then invokes `RoutingEngine.run`.
+handler then invokes `RoutingEngine.run`. Those names describe handler-local derivations,
+not four stored input fields. The engine receives normalized `activeSubgraphs` plus a
+minimal `scopePolicy`: original requested SG IDs and explicit SG exclusions. This retains
+the request intent required by Phase 2 without duplicating every derived set.
 
 **Routing pipeline — 12 sequential phases in three halves:**
 
@@ -136,13 +141,13 @@ depends only on graph state ahead of work that depends on user-provided GKVs.
 |---|---|---|---|
 | 10 | OrphanValidationService | FR-VAL-01/02/03 orphan sweep | LLD3 |
 | 11 | RoutingChangeStager | Emit `edit_actions` via domain-verb edit-repo ports; source=AUTO_ROUTING, UNSTAGED | LLD6 |
-| 12 | ResponseBuilder | Assemble `CreateUsecasesResponseDto` from `RoutingContext` | LLD6 |
+| 12 | ResponseBuilder | Assemble the framework-free `RoutingOutcome` containing emitted change descriptors, issues, and `groupId` | LLD6 |
 
 **Rationale for the split.** Phases 2 and 3 (Half A) depend only on `graphEdits`,
 `islandUcs`, and existing UC/link state — none of them need routing output. Running them
 first has two payoffs:
-- **Fail-fast on FR-DEL-02** — if the caller omitted an affected UC from
-  `selectedUsecaseSystemIds`, the pipeline rejects before spending ~60ms of DFS work.
+- **Fail-fast on FR-DEL-02** — if the caller omitted an affected UC from the selected UC
+  snapshots, the automatic pipeline rejects before spending ~60ms of DFS work.
 - **Cleaner mental model** — "resolve existing" and "produce new" are separate
   concerns; the split makes that legible.
 
@@ -157,9 +162,10 @@ in `RoutingContext.warnings` and surface in the response's `issues[]` — they d
 halt the pipeline.
 
 **Auto vs Manual mode.** Manual mode runs the same orchestrator with the same phase
-list. Phase 2 still performs file-wide affected-UC discovery and the FR-DEL-02 selection
-gate, but it does not perform automatic deletion reconstruction. Phases 3, 5, 6, and 7
-are no-ops. Phase 4 resolves the provided GKVs. Phase 8 expands the ordered
+list, but Phase 2 performs no file-wide affected-UC discovery, FR-DEL-02 gate,
+reconstruction, degradation, or existing-UC mutation. Commit-time validation protects
+existing UCs from unresolved structural damage. Phases 3, 5, 6, and 7 are no-ops. Phase
+4 resolves the provided GKVs. Phase 8 expands the ordered
 effective-routing-scope synthetic path so every valid SGKV Cartesian combination becomes
 a candidate UC. Phase 9 runs partial (idempotency check only). This avoids two divergent
 code paths while keeping manual topology explicit.
@@ -207,37 +213,38 @@ sequence.
 Each phase writes its owned field once; downstream phases read. The only exception is
 `warnings` — appendable by any phase.
 
-**Input structure.** `input` is immutable after the handler builds it. Contents by
+**Input structure.** `input` is immutable after the handler builds it. Scope derivation
+names remain useful algorithm vocabulary, but only the irreducible fields below cross the
+engine boundary. Contents by
 mode:
 
 | Field | Auto | Manual | Source |
 |---|---|---|---|
 | `mode` | ✓ | ✓ | handler |
-| `activeSubgraphs` (SG + SGKV selections per SG) | ✓ | ✓ | client payload |
-| `selectedUsecaseSystemIds` (which existing UCs to include in routing scope) | ✓ | ✓ | client payload |
+| `activeSubgraphs` (normalized SG + SGKV selections after excluded/deleted SG removal) | ✓ | ✓ | handler from client payload |
 | `selectedUsecases` (single effective-overlay snapshot) | ✓ | ✓ | handler |
-| `selectedScopeSubgraphs` (union of selected-UC memberships) | ✓ | ✓ | handler |
-| `inputSubgraphs` (SGs named by `activeSubgraphs`) | ✓ | ✓ | handler |
-| `outOfSelectionSubgraphs` (`inputSubgraphs` minus selected scope) | ✓ | ✓ | handler |
-| `effectiveRoutingScope` (`inputSubgraphs` minus excluded and session-deleted SGs) | ✓ | ✓ | handler |
+| `scopePolicy.requestedSubgraphSystemIds` (SG IDs in original `activeSubgraphs`) | ✓ | ✓ | handler from client payload |
+| `scopePolicy.excludedSubgraphSystemIds` | ✓ | ✓ | handler from client payload |
 | `excludedDataLinkSystemIds` | ✓ | ✓ | client payload |
 | `excludedControlLinkSystemIds` | ✓ | ✓ | client payload |
-| `excludedSubgraphSystemIds` (FR-API-06) | ✓ | ✓ | client payload |
 | `graphEdits` (added/deleted SGs, data-links, control-links since last routing) | ✓ | ✓ | handler (assembled from aggregate repo `findManualEditsSinceLastRouting` calls) |
 | `islandUcs` (committed `ISLAND` UCs present before the run) | ✓ | — | handler (repo query) |
-| `manualTopology` (derived pairs, supporting links, isolated SGs) | — | ✓ | `ManualPairDiscoveryService` after chain resolution |
+| `manualTopology` (pairs with pair-local supporting data/control links; isolated SGs derived from scope) | — | ✓ | `ManualPairDiscoveryService` after chain resolution |
 
-`selectedUsecases`, the four scope sets, `graphEdits`, and `islandUcs` are derived state
-that the handler populates before invoking `RoutingEngine`. They are **not**
-client-provided. Downstream phases reuse `selectedUsecases`; they do not reload selected
-UCs and risk observing a different overlay snapshot.
+`selectedUsecases`, `graphEdits`, and `islandUcs` are handler-derived. Downstream phases
+reuse `selectedUsecases`; they do not reload selected UCs and risk observing a different
+overlay snapshot. When a phase needs selected scope, out-of-selection scope, or effective
+routing IDs, it derives them from `selectedUsecases`, normalized `activeSubgraphs`, and
+`scopePolicy`. `selectedUsecaseSystemIds` are similarly recoverable from the snapshots.
 
-In manual mode, the SGs forming the new UC are the `effectiveRoutingScope`. Pair
+In manual mode, the SGs forming the new UC are the IDs in normalized `activeSubgraphs`
+(the effective routing scope). Pair
 derivation happens server-side (FR-UC-01) via data-link query with control-link fallback.
-`ManualPairDiscoveryService` examines every unordered pair in that scope, including
-selected-selected, selected-out-of-selection, and out-of-selection pairs. It applies
-explicit data/control-link exclusions during discovery; links incident to an excluded
-SG are implicitly absent. Phase 8 consumes the same ordered effective-scope selection.
+`ManualPairDiscoveryService` examines every unordered relationship involving an
+out-of-selection SG. A selected-selected relationship is eligible only when at least one
+selected UC already contains that relationship. Discovery applies explicit link
+exclusions, data-first direction, per-relationship control fallback, and cycle rejection.
+Phase 8 consumes the same ordered effective-scope selection.
 Request order is retained only for deterministic combination expansion and does not
 define topology.
 
@@ -254,6 +261,21 @@ transitions UCs.
 **Not in `RoutingContext`:** link data, subgraph definitions, `UnitOfWork`,
 chain-resolution outcome. Phases that need those read from repositories directly (which
 return the edit-crud overlay — committed state + STAGED edits).
+
+`RoutingContext` also does not copy input exclusions into mutable sets. Phases read
+exclusions from immutable `context.input` and create private local lookup sets when
+needed.
+
+**Command and API results.** Phase 11 emits one descriptor per changed UC:
+`{systemId, changeId, operation, source}`. `RoutingOutcome` contains those descriptors,
+issues, and `groupId`; it does not contain operation-grouped arrays. Each create controller
+then dispatches `GetUsecaseChangeDetailsQuery(projectId, clientId, emittedChanges)`. Its
+handler resolves the file and the persistence query projects committed `before` and
+complete latest-session-overlay `after` snapshots. Both create endpoints return
+`{changes, issues, groupId}`. Snapshot pairs and SG membership remain persistence
+details; clients receive `isEc` and full data/control-link read models. A transient
+projection read is retried once; a final failure returns an error containing `groupId`
+while preserving the successful edit actions. Routing is neither rerun nor compensated.
 
 **Phase return semantics.** Each phase returns `Result<void>`. On `Result.fail`, the
 orchestrator halts and the handler rolls back. Warnings are non-blocking; they're
@@ -580,9 +602,9 @@ infrastructure* (rule violation or systems failure?).
 autofix hints so the user can act. At commit time, orphans are blocking (FR-COMMIT-01(c))
 — persisting them would violate I5 permanently.
 
-**Mode note on mid-pipeline errors.** Phases skipped in manual mode (3, 5, 6, and 7)
-cannot produce their error codes. Phase 2 may produce `ARC-ROUTING-DEL-02` in either
-mode; manual mode skips only its automatic reconstruction branch. Phase 8 runs in manual mode, so
+**Mode note on mid-pipeline errors.** Phases skipped in manual mode (2, 3, 5, 6, and 7)
+cannot produce their error codes. Manual Phase 2 is a complete no-op and cannot produce
+`ARC-ROUTING-DEL-02`. Phase 8 runs in manual mode, so
 `ARC-ROUTING-DFS-08` remains possible when no valid KV combination exists.
 `ARC-ROUTING-SAME-GKV-CHOICE-REQUIRED` (FR-DUP-04 same-GKV collision) can occur in
 manual mode only via Phase 9's idempotency-only path when the newly created manual UC
@@ -703,8 +725,9 @@ affected set and missing subset instead of running full DFS first.
 **Concurrency model:**
 
 - **Single session per file.** Enforced by session table + `SessionGuard`.
-- **No concurrent routing on the same file.** The tx would serialize anyway; no
-  fine-grained locking attempted.
+- **No concurrent mutations in the same active file session.** Calls are assumed
+  sequential through command completion and the immediate change-details projection;
+  this design adds no revision check or fine-grained lock.
 - **Different files in parallel** — fine, no shared state.
 - **Session-mode gating** — `BaseCommand.allowedModes` restricts to `[DESIGNER, DIFF_MERGE]`.
 

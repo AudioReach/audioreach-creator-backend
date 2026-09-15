@@ -25,6 +25,7 @@ export const DataLinkDtoSchema = z.object({
   destinationSystemId: z.string().describe('Destination component system ID'),
   destinationPortSystemId: z.string().describe('Destination port system ID'),
   isInterUsecase: z.boolean().describe('Whether the link is inter-usecase'),
+  isEc: z.boolean().nullable().describe('Whether the data link is an EC link'),
 });
 
 export const ControlLinkDtoSchema = z.object({
@@ -129,6 +130,7 @@ export function mapDataLink(
     destinationSystemId: String(l.destinationNodeSystemId),
     destinationPortSystemId: String(l.destinationPortSystemId),
     isInterUsecase: false,
+    isEc: l.isEc,
   };
 }
 

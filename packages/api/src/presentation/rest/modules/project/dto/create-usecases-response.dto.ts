@@ -5,33 +5,38 @@
 
 import {ApiProperty} from '@nestjs/swagger';
 import {createZodDto} from 'nestjs-zod';
+import type {RoutingOutcome, UsecaseChangeDetails} from '@arc/core';
 import {
-  UsecaseIdentifierWithChangeInfoDtoSchema,
-  CreateUsecasesResponseDtoSchema,
-  CreateManualUsecasesResponseDtoSchema,
+  mapUsecaseChangeDetails,
+  UsecaseChangeDetailsDtoSchema,
 } from '@arc/core';
 import {ApiIssueItem} from '../../../common/dto/api-response/api-issue-item.dto.js';
+import {toApiIssueItems} from '../../../common/dto/api-response/api-issue-item.mapper.js';
 
-export class UsecaseIdentifierWithChangeInfoDto extends createZodDto(
-  UsecaseIdentifierWithChangeInfoDtoSchema,
+export class UsecaseChangeDetailsDto extends createZodDto(
+  UsecaseChangeDetailsDtoSchema,
 ) {}
 
-export class CreateUsecasesResponseDto extends createZodDto(
-  CreateUsecasesResponseDtoSchema,
-) {
-  @ApiProperty({
-    type: [ApiIssueItem],
-    description: 'Issues encountered during reconciliation',
-  })
+export class CreateUsecasesResponseDto {
+  @ApiProperty({type: [UsecaseChangeDetailsDto]})
+  changes!: UsecaseChangeDetailsDto[];
+
+  @ApiProperty({type: [ApiIssueItem]})
   issues!: ApiIssueItem[];
+
+  @ApiProperty()
+  groupId!: string;
 }
 
-export class CreateManualUsecasesResponseDto extends createZodDto(
-  CreateManualUsecasesResponseDtoSchema,
-) {
-  @ApiProperty({
-    type: [ApiIssueItem],
-    description: 'Issues encountered during creation',
-  })
-  issues!: ApiIssueItem[];
+export class CreateManualUsecasesResponseDto extends CreateUsecasesResponseDto {}
+
+export function mapCreateUsecasesResponse(
+  outcome: RoutingOutcome,
+  changes: readonly UsecaseChangeDetails[],
+): CreateUsecasesResponseDto {
+  return {
+    changes: changes.map(change => mapUsecaseChangeDetails(change)),
+    issues: toApiIssueItems(outcome.issues) ?? [],
+    groupId: outcome.groupId,
+  };
 }

@@ -11,6 +11,7 @@ import {
   Result,
   SOURCE,
   USECASE_TYPE,
+  LINK_TYPE,
 } from '@arc/core';
 import {
   SESSION_MODE,
@@ -29,10 +30,12 @@ import {TypeOrmSessionRepository} from '../../../../src/persistence-typeorm-sqll
 import {UsecaseOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/usecase-overlay-fetcher.js';
 import {UsecaseGkvValuesFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/usecase-gkv-values-fetcher.js';
 import {UseCaseCategoryFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/usecase-category-fetcher.js';
+import {LinkOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/link-overlay-fetcher.js';
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 import {ProjectSessionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
 import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
+import {UseCaseSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/usecase-data/use-case.js';
 import {
   describe,
   it,
@@ -44,8 +47,6 @@ import {
 
 const FILE_ID = 100;
 const USECASE_ID = 900;
-const CREATE_GROUP = 'create-group';
-const DELETE_GROUP = 'delete-group';
 
 describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
   let dataSource: DataSource;
@@ -91,38 +92,33 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
       new TypeOrmSessionRepository(dataSource.manager),
       editActions,
       usecaseFetcher,
-      {} as any,
+      new LinkOverlayFetcher(dataSource.manager, editActions),
     );
   });
 
-  it('returns a session-created UseCase as the before snapshot after its deletion', async () => {
-    await seedCreateActions();
-    await dataSource.query(
-      `UPDATE edit_actions SET valid_until = datetime('now')
-       WHERE session_id = ? AND target_system_id = ? AND target_table = ?`,
-      [sessionId, USECASE_ID, ENTITY_NAMES.UseCase],
-    );
-    const deleteChangeId = await seedAction({
-      groupId: DELETE_GROUP,
-      targetSystemId: USECASE_ID,
-      targetTable: ENTITY_NAMES.UseCase,
-      operation: CHANGE_OPERATION.Delete,
-      payload: {},
-    });
+  it('projects a session-created EC UseCase with matching overlay links', async () => {
+    const createChangeId = await seedCreateActions();
 
-    const result = await service.getChangeDetails(FILE_ID, DELETE_GROUP);
+    const result = await service.getChangeDetails(FILE_ID, [
+      {
+        systemId: USECASE_ID,
+        changeId: createChangeId,
+        operation: CHANGE_OPERATION.Create,
+        source: SOURCE.DiffTool,
+      },
+    ]);
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind !== RESULT_KIND.Ok) return;
     expect(result.data).toEqual([
-      expect.objectContaining({
+      {
         systemId: USECASE_ID,
-        changeId: deleteChangeId,
-        operation: CHANGE_OPERATION.Delete,
-        after: null,
-        before: expect.objectContaining({
-          systemId: USECASE_ID,
-          type: USECASE_TYPE.Linked,
+        changeId: createChangeId,
+        operation: CHANGE_OPERATION.Create,
+        source: SOURCE.DiffTool,
+        before: null,
+        after: {
+          isEc: true,
           alias: 'session-created',
           aliasId: 91,
           gkv: [
@@ -132,13 +128,151 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
             },
           ],
           categories: ['voice'],
-          subgraphSystemIds: [501, 502],
-          subgraphPairs: [
-            {sourceSubgraphSystemId: 501, destSubgraphSystemId: 502},
+          dataLinks: [
+            {
+              systemId: 906,
+              sourceNodeSystemId: 1,
+              destinationNodeSystemId: 2,
+              sourcePortSystemId: 3,
+              destinationPortSystemId: 4,
+              linkType: LINK_TYPE.IntraUsecase,
+              isEc: true,
+            },
           ],
-        }),
-      }),
+          controlLinks: [
+            {
+              systemId: 908,
+              peerNodeASystemId: 5,
+              peerNodeBSystemId: 6,
+              nodeAPortSystemId: 7,
+              nodeBPortSystemId: 8,
+              heapId: 9,
+              linkType: LINK_TYPE.IntraUsecase,
+            },
+          ],
+        },
+      },
     ]);
+  });
+
+  it('uses committed before and latest overlay after for updates', async () => {
+    await seedCommittedUsecase();
+    const changeId = await seedAction({
+      groupId: 'update-group',
+      targetSystemId: USECASE_ID,
+      targetTable: ENTITY_NAMES.UseCase,
+      operation: CHANGE_OPERATION.Update,
+      payload: {alias: 'updated'},
+    });
+
+    const result = await service.getChangeDetails(FILE_ID, [
+      {
+        systemId: USECASE_ID,
+        changeId,
+        operation: CHANGE_OPERATION.Update,
+        source: SOURCE.AutoRouting,
+      },
+    ]);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    if (result.kind !== RESULT_KIND.Ok) return;
+    expect(result.data[0]).toEqual(
+      expect.objectContaining({
+        source: SOURCE.AutoRouting,
+        before: expect.objectContaining({alias: 'committed', isEc: false}),
+        after: expect.objectContaining({alias: 'updated', isEc: false}),
+      }),
+    );
+  });
+
+  it('preserves descriptor order and source metadata', async () => {
+    const firstChangeId = await seedCreateActions();
+    const secondUsecaseId = USECASE_ID + 1;
+    const secondChangeId = await seedAction({
+      aggregateId: secondUsecaseId,
+      groupId: 'second-create-group',
+      targetSystemId: secondUsecaseId,
+      targetTable: ENTITY_NAMES.UseCase,
+      operation: CHANGE_OPERATION.Create,
+      payload: {
+        aliasId: 92,
+        alias: 'second-created',
+        type: USECASE_TYPE.Island,
+        fileSystemId: FILE_ID,
+      },
+    });
+
+    const result = await service.getChangeDetails(FILE_ID, [
+      {
+        systemId: secondUsecaseId,
+        changeId: secondChangeId,
+        operation: CHANGE_OPERATION.Create,
+        source: SOURCE.AutoRouting,
+      },
+      {
+        systemId: USECASE_ID,
+        changeId: firstChangeId,
+        operation: CHANGE_OPERATION.Create,
+        source: SOURCE.Manual,
+      },
+    ]);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    if (result.kind !== RESULT_KIND.Ok) return;
+    expect(result.data.map(change => [change.systemId, change.source])).toEqual(
+      [
+        [secondUsecaseId, SOURCE.AutoRouting],
+        [USECASE_ID, SOURCE.Manual],
+      ],
+    );
+  });
+
+  it('rejects duplicate emitted UseCase IDs', async () => {
+    const result = await service.getChangeDetails(FILE_ID, [
+      {
+        systemId: USECASE_ID,
+        changeId: 1,
+        operation: CHANGE_OPERATION.Create,
+        source: SOURCE.Manual,
+      },
+      {
+        systemId: USECASE_ID,
+        changeId: 2,
+        operation: CHANGE_OPERATION.Create,
+        source: SOURCE.DiffTool,
+      },
+    ]);
+
+    expect(result.kind).toBe(RESULT_KIND.Fail);
+  });
+
+  it('projects committed state as before and null after for deletes', async () => {
+    await seedCommittedUsecase();
+    const changeId = await seedAction({
+      groupId: 'delete-group',
+      targetSystemId: USECASE_ID,
+      targetTable: ENTITY_NAMES.UseCase,
+      operation: CHANGE_OPERATION.Delete,
+      payload: {},
+    });
+
+    const result = await service.getChangeDetails(FILE_ID, [
+      {
+        systemId: USECASE_ID,
+        changeId,
+        operation: CHANGE_OPERATION.Delete,
+        source: SOURCE.Manual,
+      },
+    ]);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    if (result.kind !== RESULT_KIND.Ok) return;
+    expect(result.data[0]).toEqual(
+      expect.objectContaining({
+        before: expect.objectContaining({alias: 'committed'}),
+        after: null,
+      }),
+    );
   });
 
   async function seedProjectFileAndSession(): Promise<void> {
@@ -168,49 +302,59 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
     sessionId = session.sessionId;
   }
 
-  async function seedCreateActions(): Promise<void> {
-    await seedAction({
-      groupId: CREATE_GROUP,
+  async function seedCommittedUsecase(): Promise<void> {
+    await getTestRepository(UseCaseSchema).save({
+      systemId: USECASE_ID,
+      aliasId: 90,
+      alias: 'committed',
+      type: USECASE_TYPE.Linked,
+      fileSystemId: FILE_ID,
+    });
+  }
+
+  async function seedCreateActions(): Promise<number> {
+    const rootChangeId = await seedAction({
+      groupId: 'create-group',
       targetSystemId: USECASE_ID,
       targetTable: ENTITY_NAMES.UseCase,
       operation: CHANGE_OPERATION.Create,
       payload: {
         aliasId: 91,
         alias: 'session-created',
-        type: USECASE_TYPE.Linked,
+        type: USECASE_TYPE.Ec,
         fileSystemId: FILE_ID,
       },
     });
     await seedAction({
-      groupId: CREATE_GROUP,
+      groupId: 'create-group',
       targetSystemId: 901,
       targetTable: ENTITY_NAMES.UsecaseGkvValues,
       operation: CHANGE_OPERATION.Create,
       payload: {usecaseSystemId: USECASE_ID, valueDefSystemId: 700},
     });
     await seedAction({
-      groupId: CREATE_GROUP,
+      groupId: 'create-group',
       targetSystemId: 902,
       targetTable: ENTITY_NAMES.UseCaseCategory,
       operation: CHANGE_OPERATION.Create,
       payload: {usecaseSystemId: USECASE_ID, name: 'voice'},
     });
     await seedAction({
-      groupId: CREATE_GROUP,
+      groupId: 'create-group',
       targetSystemId: 903,
       targetTable: ENTITY_NAMES.UseCaseSubgraph,
       operation: CHANGE_OPERATION.Create,
       payload: {usecaseSystemId: USECASE_ID, subgraphSystemId: 501},
     });
     await seedAction({
-      groupId: CREATE_GROUP,
+      groupId: 'create-group',
       targetSystemId: 904,
       targetTable: ENTITY_NAMES.UseCaseSubgraph,
       operation: CHANGE_OPERATION.Create,
       payload: {usecaseSystemId: USECASE_ID, subgraphSystemId: 502},
     });
     await seedAction({
-      groupId: CREATE_GROUP,
+      groupId: 'create-group',
       targetSystemId: 905,
       targetTable: ENTITY_NAMES.UseCaseSubgraphPair,
       operation: CHANGE_OPERATION.Create,
@@ -220,9 +364,62 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
         destSubgraphSystemId: 502,
       },
     });
+    await seedAction({
+      groupId: 'link-group',
+      targetSystemId: 906,
+      targetTable: ENTITY_NAMES.DataLink,
+      operation: CHANGE_OPERATION.Create,
+      payload: {
+        fileSystemId: FILE_ID,
+        sourceNodeSystemId: 1,
+        destinationNodeSystemId: 2,
+        sourcePortSystemId: 3,
+        destinationPortSystemId: 4,
+        linkType: LINK_TYPE.IntraUsecase,
+        sourceSubgraphSystemId: 501,
+        destSubgraphSystemId: 502,
+        isEc: true,
+      },
+    });
+    await seedAction({
+      groupId: 'link-group',
+      targetSystemId: 907,
+      targetTable: ENTITY_NAMES.DataLink,
+      operation: CHANGE_OPERATION.Create,
+      payload: {
+        fileSystemId: FILE_ID,
+        sourceNodeSystemId: 2,
+        destinationNodeSystemId: 1,
+        sourcePortSystemId: 4,
+        destinationPortSystemId: 3,
+        linkType: LINK_TYPE.IntraUsecase,
+        sourceSubgraphSystemId: 502,
+        destSubgraphSystemId: 501,
+        isEc: false,
+      },
+    });
+    await seedAction({
+      groupId: 'link-group',
+      targetSystemId: 908,
+      targetTable: ENTITY_NAMES.ControlLink,
+      operation: CHANGE_OPERATION.Create,
+      payload: {
+        fileSystemId: FILE_ID,
+        peerNodeASystemId: 5,
+        peerNodeBSystemId: 6,
+        nodeAPortSystemId: 7,
+        nodeBPortSystemId: 8,
+        heapId: 9,
+        linkType: LINK_TYPE.IntraUsecase,
+        sourceSubgraphSystemId: 502,
+        destSubgraphSystemId: 501,
+      },
+    });
+    return rootChangeId;
   }
 
   async function seedAction(input: {
+    aggregateId?: number;
     groupId: string;
     targetSystemId: number;
     targetTable: string;
@@ -235,7 +432,7 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
        VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)`,
       [
         sessionId,
-        USECASE_ID,
+        input.aggregateId ?? USECASE_ID,
         input.targetSystemId,
         input.targetTable,
         input.operation,

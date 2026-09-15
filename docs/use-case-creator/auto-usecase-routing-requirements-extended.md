@@ -663,9 +663,9 @@ write API; it does not extend the existing alias-only `PATCH /usecases/:usecaseS
 }
 ```
 
-The structural-update endpoint owns this dedicated rich UC schema. Only `systemId` and
-`changeId` overlap with the compact references returned by create-usecases and
-create-manual-usecases. It does not expose the internal UC type; the implementation
+The structural-update endpoint owns this dedicated rich UC schema. The create-usecases
+and create-manual-usecases endpoints use their separate before/after change-details
+schema. The structural response does not expose the internal UC type; the implementation
 recomputes that type from the resulting topology for internal routing behavior.
 
 **Implementation boundary:** reuse the pure SGKV/GKV validation extracted for manual
