@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {Result} from '../../../shared/result/result.js';
-import type {IssueEntityType} from '../../../../shared/issues/impacted-entity.js';
-import {IssueFactory} from '../../../../shared/issues/factories.js';
+import {Result} from '../../shared/result/result.js';
+import type {IssueEntityType} from '../../../shared/issues/impacted-entity.js';
+import {IssueFactory} from '../../../shared/issues/factories.js';
 
 export interface PortCountChangeResult {
   /** Number of new ports to add. */

@@ -129,6 +129,61 @@ export const IssueFactory = {
     };
   },
 
+  subsystemNotEmpty(subsystemSystemId: number): Issue {
+    return {
+      code: ISSUE_CODE.SS_NOT_EMPTY,
+      message: 'Subsystem is not empty — remove all children before deleting.',
+      severity: IssueSeverity.Error,
+      impactedEntity: {
+        entityType: ISSUE_ENTITY_TYPE.Subsystem,
+        systemId: subsystemSystemId,
+      },
+    };
+  },
+
+  duplicateSubsystemName(name: string): Issue {
+    return {
+      code: ISSUE_CODE.SS_DUPLICATE_NAME,
+      message: `Subsystem name '${name}' is already in use.`,
+      severity: IssueSeverity.Error,
+      impactedEntity: {
+        entityType: ISSUE_ENTITY_TYPE.Subsystem,
+        systemId: 0,
+        displayName: name,
+      },
+    };
+  },
+
+  circularSubsystemHierarchy(
+    componentSystemId: number,
+    targetSystemId: number,
+  ): Issue {
+    return {
+      code: ISSUE_CODE.SS_CIRCULAR_HIERARCHY,
+      message: `Moving subsystem ${componentSystemId} under ${targetSystemId} would create a circular hierarchy.`,
+      severity: IssueSeverity.Error,
+      impactedEntity: {
+        entityType: ISSUE_ENTITY_TYPE.Subsystem,
+        systemId: componentSystemId,
+      },
+    };
+  },
+
+  duplicateChildComponent(
+    componentSystemId: number,
+    subsystemSystemId: number,
+  ): Issue {
+    return {
+      code: ISSUE_CODE.SS_DUPLICATE_CHILD,
+      message: `Component ${componentSystemId} is already a child of subsystem ${subsystemSystemId}.`,
+      severity: IssueSeverity.Error,
+      impactedEntity: {
+        entityType: ISSUE_ENTITY_TYPE.Subsystem,
+        systemId: subsystemSystemId,
+      },
+    };
+  },
+
   portCountExceedsDefinition(
     portDirection: string,
     requested: number,

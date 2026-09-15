@@ -97,6 +97,11 @@ export interface ModuleRepository {
     moduleSystemId: number,
     options?: EditOptions,
   ): Promise<void>;
+  updateParentId(
+    moduleSystemId: number,
+    parentSubsystemSystemId: number | null,
+    options?: EditOptions,
+  ): Promise<void>;
   createModule(module: SpfModule, options?: EditOptions): Promise<void>;
 
   /**

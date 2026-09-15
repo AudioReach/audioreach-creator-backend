@@ -92,6 +92,14 @@ export interface ControlLinkRepository {
    */
   findIntraUcLinksByFile(fileSystemId: number): Promise<ControlLink[]>;
 
+  findAllWithSegments(fileSystemId: number): Promise<ControlLink[]>;
+
+  replaceSubsystemControlLinkSegments(
+    controlLinkSystemId: number,
+    segments: SubsystemControlLink[],
+    options?: EditOptions,
+  ): Promise<void>;
+
   /**
    * Returns ControlLinks added or deleted in the current session — a
    * `SessionChanged<ControlLink>` split. No `source` filter is applied;
