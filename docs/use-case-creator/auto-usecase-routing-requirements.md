@@ -161,6 +161,13 @@ After this check succeeds, the effective routing scope is
 fallback for SGKV input: every SG used by routing receives its SGKV instances, or an
 intentional `[]`, from `activeSubgraphs`.
 
+The names above describe handler-local derivations. The routing engine receives
+`activeSubgraphs` already reduced to the effective scope. It also receives only the
+irreducible original-request policy facts needed by deletion-side validation: the SG IDs
+originally present in `activeSubgraphs` and the explicit SG-exclusion set. Selected UC
+IDs and selected/out-of-selection/effective scope sets are derived when needed rather
+than copied into routing input.
+
 *Rationale:* The system never uses DB KVs as a routing KV source. The API map is the
 sole KV source for routing. A SG absent from the map has no KV data for the algorithm
 to use. Providing `[]` is the deliberate way to declare "no KV contribution."
@@ -331,6 +338,22 @@ must not hide structural edits that this invocation is responsible for reconcili
 Data-link endpoint closure ensures every added link can be evaluated and every surviving
 side of a deleted link can seed post-deletion routing. Control links remain integrity
 inputs rather than automatic DFS edges.
+
+#### FR-API-08: Unified rich create response
+
+Both `create-usecases` and `create-manual-usecases` shall return
+`{changes, issues, groupId}`. Each change contains authoritative `systemId`, `changeId`,
+`operation`, and edit-action `source`, plus committed `before` and complete latest-session-
+overlay `after` snapshots. Snapshots expose `isEc`, GKV, alias/category data, and complete
+data/control-link read models needed for drawing. They do not expose internal UseCase type,
+SG membership, or stored SG pairs.
+
+The routing command returns explicit emitted-change descriptors. The API passes those
+descriptors through the internal change-details query; it does not rediscover command
+results by `groupId`. If response projection fails with a transient persistence/read
+error, the API retries the read once. A final projection failure preserves the successful
+edit actions and returns an error containing `groupId`; routing is not rerun and the group
+is not automatically compensated.
 
 This section defines how the algorithm derives the effective KV list for each SG before
 DFS begins.

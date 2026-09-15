@@ -5,9 +5,9 @@
 
 import {Result} from '../../../../application/shared/result/result.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
-import {createEmptyRoutingOutcome} from '../contracts/routing-outcome.js';
 import type {RoutingContext} from '../contracts/routing-context.js';
 import type {RoutingPhase} from '../contracts/routing-phase.js';
+import {createEmptyRoutingOutcome} from '../contracts/routing-outcome.js';
 
 export class ResponseBuilder implements RoutingPhase {
   // eslint-disable-next-line @typescript-eslint/require-await -- Placeholder phase retains its async contract.
@@ -15,8 +15,9 @@ export class ResponseBuilder implements RoutingPhase {
     context: RoutingContext,
     uow: UnitOfWork,
   ): Promise<ReturnType<typeof Result.ok<void>>> {
-    context.response = createEmptyRoutingOutcome(
+    context.routingOutcome = createEmptyRoutingOutcome(
       uow.getWriteContext().groupId,
+      context.emittedUcChanges,
       context.warnings,
     );
     return Result.ok();

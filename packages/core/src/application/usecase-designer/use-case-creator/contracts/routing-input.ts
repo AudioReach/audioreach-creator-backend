@@ -5,15 +5,11 @@
 
 import type {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
 import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
+import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/subgraph.js';
 import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
 import type {SubgraphPair} from '../../../ports/persistence/repositories/shared/links-for-pair.js';
-import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/subgraph.js';
 
-export const ROUTING_MODE = {
-  Auto: 'AUTO',
-  Manual: 'MANUAL',
-} as const;
-
+export const ROUTING_MODE = {Auto: 'AUTO', Manual: 'MANUAL'} as const;
 export type RoutingMode = (typeof ROUTING_MODE)[keyof typeof ROUTING_MODE];
 
 export interface ActiveSubgraphSelection {
@@ -30,44 +26,32 @@ export interface GraphEditSummary {
   readonly deletedControlLinks: readonly ControlLink[];
 }
 
+export interface ManualTopologyPair {
+  readonly pair: SubgraphPair;
+  readonly dataLinks: readonly DataLink[];
+  readonly controlLinks: readonly ControlLink[];
+}
+
 export interface ManualTopology {
-  readonly pairs: readonly SubgraphPair[];
-  readonly supportingDataLinkSystemIds: readonly number[];
-  readonly supportingControlLinkSystemIds: readonly number[];
-  readonly isolatedSubgraphSystemIds: readonly number[];
+  readonly pairs: readonly ManualTopologyPair[];
+}
+
+export interface RoutingScopePolicy {
+  readonly requestedSubgraphSystemIds: ReadonlySet<number>;
+  readonly excludedSubgraphSystemIds: ReadonlySet<number>;
 }
 
 interface RoutingInputBase {
-  /** IDs selected by the caller; retained for request-level correlation. */
-  readonly selectedUsecaseSystemIds: readonly number[];
-  /**
-   * Effective-overlay UC snapshots loaded by the handler once. Unlike the IDs
-   * above, these contain the memberships and other data needed by phases.
-   */
   readonly selectedUsecases: readonly UseCase[];
-  /** Ordered SGKV selections remaining after excluded/deleted SG removal. */
   readonly activeSubgraphs: readonly ActiveSubgraphSelection[];
+  readonly scopePolicy: RoutingScopePolicy;
   readonly excludedDataLinkSystemIds: readonly number[];
   readonly excludedControlLinkSystemIds: readonly number[];
-  /** Explicit SG exclusions supplied by the caller. */
-  readonly excludedSubgraphSystemIds: readonly number[];
-  /**
-   * Handler-derived union of SG memberships from selectedUsecases. This is
-   * not the same as inputSubgraphs: it describes the selected UC scope.
-   */
-  readonly selectedScopeSubgraphs: ReadonlySet<number>;
-  /** SGs explicitly present in activeSubgraphs, before SG exclusions. */
-  readonly inputSubgraphs: ReadonlySet<number>;
-  /** inputSubgraphs that are outside the selected UC scope. */
-  readonly outOfSelectionSubgraphs: ReadonlySet<number>;
-  /** inputSubgraphs after removing excluded and session-deleted SGs. */
-  readonly effectiveRoutingScope: ReadonlySet<number>;
   readonly graphEdits: GraphEditSummary;
 }
 
 export interface AutoRoutingInput extends RoutingInputBase {
   readonly mode: typeof ROUTING_MODE.Auto;
-  /** Committed ISLAND UCs present before this routing run starts. */
   readonly islandUcs: readonly UseCase[];
 }
 
@@ -79,23 +63,11 @@ export interface ManualRoutingInput extends RoutingInputBase {
 export type RoutingInput = AutoRoutingInput | ManualRoutingInput;
 
 export interface RoutingInputInit {
-  /** Request-selected UC IDs before the handler loads their snapshots. */
-  readonly selectedUsecaseSystemIds: readonly number[];
-  /** Handler-loaded effective-overlay snapshots corresponding to the IDs. */
   readonly selectedUsecases: readonly UseCase[];
-  /** Handler-normalized SGKV selections, preserved in caller order. */
   readonly activeSubgraphs: readonly ActiveSubgraphSelection[];
+  readonly scopePolicy: RoutingScopePolicy;
   readonly excludedDataLinkSystemIds?: readonly number[];
   readonly excludedControlLinkSystemIds?: readonly number[];
-  readonly excludedSubgraphSystemIds?: readonly number[];
-  /** Union of SG memberships from the selected UC snapshots. */
-  readonly selectedScopeSubgraphs: ReadonlySet<number>;
-  /** SG IDs present in the original request, before exclusions/deletions. */
-  readonly inputSubgraphs: ReadonlySet<number>;
-  /** Requested SG IDs not used by any selected UC. */
-  readonly outOfSelectionSubgraphs: ReadonlySet<number>;
-  /** Final SG boundary available to routing phases. */
-  readonly effectiveRoutingScope: ReadonlySet<number>;
   readonly graphEdits: GraphEditSummary;
 }
 
@@ -105,11 +77,9 @@ export interface DerivedRoutingScope {
   readonly outOfSelectionSubgraphs: ReadonlySet<number>;
   readonly effectiveRoutingScope: ReadonlySet<number>;
   readonly missingSelectedScopeSubgraphs: ReadonlySet<number>;
-  /** Caller-ordered selections after excluded/deleted SG removal. */
   readonly effectiveActiveSubgraphs: readonly ActiveSubgraphSelection[];
 }
 
-/** Derive the handler-owned routing scope before routing services run. */
 export function deriveRoutingScope(
   selectedUsecases: readonly UseCase[],
   activeSubgraphs: readonly ActiveSubgraphSelection[],
@@ -122,54 +92,35 @@ export function deriveRoutingScope(
       selectedScopeSubgraphs.add(subgraphSystemId);
     }
   }
-
   const inputSubgraphs = new Set(
     activeSubgraphs.map(subgraph => subgraph.systemId),
   );
   const excludedSubgraphs = new Set(excludedSubgraphSystemIds);
   const deletedSubgraphs = new Set(deletedSubgraphSystemIds);
-  const isUnavailable = (subgraphSystemId: number): boolean =>
-    excludedSubgraphs.has(subgraphSystemId) ||
-    deletedSubgraphs.has(subgraphSystemId);
+  const isUnavailable = (id: number): boolean =>
+    excludedSubgraphs.has(id) || deletedSubgraphs.has(id);
   const outOfSelectionSubgraphs = new Set<number>();
-  for (const subgraphSystemId of inputSubgraphs) {
-    if (!selectedScopeSubgraphs.has(subgraphSystemId)) {
-      outOfSelectionSubgraphs.add(subgraphSystemId);
-    }
-  }
-
+  for (const id of inputSubgraphs)
+    if (!selectedScopeSubgraphs.has(id)) outOfSelectionSubgraphs.add(id);
   const effectiveRoutingScope = new Set<number>();
-  for (const subgraphSystemId of inputSubgraphs) {
-    if (!isUnavailable(subgraphSystemId)) {
-      effectiveRoutingScope.add(subgraphSystemId);
-    }
-  }
-
+  for (const id of inputSubgraphs)
+    if (!isUnavailable(id)) effectiveRoutingScope.add(id);
   const missingSelectedScopeSubgraphs = new Set<number>();
-  for (const subgraphSystemId of selectedScopeSubgraphs) {
-    if (
-      !isUnavailable(subgraphSystemId) &&
-      !inputSubgraphs.has(subgraphSystemId)
-    ) {
-      missingSelectedScopeSubgraphs.add(subgraphSystemId);
-    }
-  }
-
-  const effectiveActiveSubgraphs = copySelections(
-    activeSubgraphs.filter(selection => !isUnavailable(selection.systemId)),
-  );
-
+  for (const id of selectedScopeSubgraphs)
+    if (!isUnavailable(id) && !inputSubgraphs.has(id))
+      missingSelectedScopeSubgraphs.add(id);
   return {
     selectedScopeSubgraphs,
     inputSubgraphs,
     outOfSelectionSubgraphs,
     effectiveRoutingScope,
     missingSelectedScopeSubgraphs,
-    effectiveActiveSubgraphs,
+    effectiveActiveSubgraphs: copySelections(
+      activeSubgraphs.filter(selection => !isUnavailable(selection.systemId)),
+    ),
   };
 }
 
-/** Deep-copy SGKV selections. */
 function copySelections(
   selections: readonly ActiveSubgraphSelection[],
 ): readonly ActiveSubgraphSelection[] {
@@ -179,21 +130,32 @@ function copySelections(
   }));
 }
 
-/** Copy shared input and normalize exclusions. */
+function copyTopologyPair(pair: ManualTopologyPair): ManualTopologyPair {
+  if (pair.dataLinks.length > 0 && pair.controlLinks.length === 0) {
+    return createDataLinkManualTopologyPair(pair.pair, pair.dataLinks);
+  }
+  if (pair.controlLinks.length > 0 && pair.dataLinks.length === 0) {
+    return createControlLinkManualTopologyPair(pair.pair, pair.controlLinks);
+  }
+  throw new Error('Manual topology pairs require exactly one support type');
+}
+
 function copyBase(init: RoutingInputInit): RoutingInputBase {
   return {
-    selectedUsecaseSystemIds: [...init.selectedUsecaseSystemIds],
     selectedUsecases: [...init.selectedUsecases],
     activeSubgraphs: copySelections(init.activeSubgraphs),
+    scopePolicy: {
+      requestedSubgraphSystemIds: new Set(
+        init.scopePolicy.requestedSubgraphSystemIds,
+      ),
+      excludedSubgraphSystemIds: new Set(
+        init.scopePolicy.excludedSubgraphSystemIds,
+      ),
+    },
     excludedDataLinkSystemIds: [...(init.excludedDataLinkSystemIds ?? [])],
     excludedControlLinkSystemIds: [
       ...(init.excludedControlLinkSystemIds ?? []),
     ],
-    excludedSubgraphSystemIds: [...(init.excludedSubgraphSystemIds ?? [])],
-    selectedScopeSubgraphs: new Set(init.selectedScopeSubgraphs),
-    inputSubgraphs: new Set(init.inputSubgraphs),
-    outOfSelectionSubgraphs: new Set(init.outOfSelectionSubgraphs),
-    effectiveRoutingScope: new Set(init.effectiveRoutingScope),
     graphEdits: {
       addedSgs: [...init.graphEdits.addedSgs],
       deletedSgs: [...init.graphEdits.deletedSgs],
@@ -205,7 +167,57 @@ function copyBase(init: RoutingInputInit): RoutingInputBase {
   };
 }
 
-/** Build immutable automatic-routing input. */
+export function createDataLinkManualTopologyPair(
+  pair: SubgraphPair,
+  dataLinks: readonly DataLink[],
+): ManualTopologyPair {
+  if (
+    dataLinks.length === 0 ||
+    dataLinks.some(
+      link =>
+        link.sourceSubgraphSystemId !== pair.sourceSubgraphSystemId ||
+        link.destSubgraphSystemId !== pair.destSubgraphSystemId,
+    )
+  ) {
+    throw new Error(
+      'Manual data topology support must be non-empty and match the directed pair',
+    );
+  }
+  return Object.freeze({
+    pair: Object.freeze({...pair}),
+    dataLinks: Object.freeze([...dataLinks]),
+    controlLinks: Object.freeze([] as ControlLink[]),
+  });
+}
+
+export function createControlLinkManualTopologyPair(
+  pair: SubgraphPair,
+  controlLinks: readonly ControlLink[],
+): ManualTopologyPair {
+  if (
+    pair.sourceSubgraphSystemId > pair.destSubgraphSystemId ||
+    controlLinks.length === 0 ||
+    controlLinks.some(
+      link =>
+        !(
+          (link.sourceSubgraphSystemId === pair.sourceSubgraphSystemId &&
+            link.destSubgraphSystemId === pair.destSubgraphSystemId) ||
+          (link.sourceSubgraphSystemId === pair.destSubgraphSystemId &&
+            link.destSubgraphSystemId === pair.sourceSubgraphSystemId)
+        ),
+    )
+  ) {
+    throw new Error(
+      'Manual control topology support must be non-empty, peer-matched, and canonically ordered',
+    );
+  }
+  return Object.freeze({
+    pair: Object.freeze({...pair}),
+    dataLinks: Object.freeze([] as DataLink[]),
+    controlLinks: Object.freeze([...controlLinks]),
+  });
+}
+
 export function createAutoRoutingInput(
   init: RoutingInputInit & {readonly islandUcs: readonly UseCase[]},
 ): AutoRoutingInput {
@@ -216,29 +228,20 @@ export function createAutoRoutingInput(
   };
 }
 
-/** Build immutable manual-routing input. */
 export function createManualRoutingInput(
   init: RoutingInputInit & {readonly manualTopology: ManualTopology},
 ): ManualRoutingInput {
   return {
     ...copyBase(init),
     mode: ROUTING_MODE.Manual,
-    manualTopology: {
-      pairs: [...init.manualTopology.pairs],
-      supportingDataLinkSystemIds: [
-        ...init.manualTopology.supportingDataLinkSystemIds,
-      ],
-      supportingControlLinkSystemIds: [
-        ...init.manualTopology.supportingControlLinkSystemIds,
-      ],
-      isolatedSubgraphSystemIds: [
-        ...init.manualTopology.isolatedSubgraphSystemIds,
-      ],
-    },
+    manualTopology: Object.freeze({
+      pairs: Object.freeze(
+        init.manualTopology.pairs.map(pair => copyTopologyPair(pair)),
+      ),
+    }),
   };
 }
 
-/** Create an empty graph-edit summary. */
 export function emptyGraphEdits(): GraphEditSummary {
   return {
     addedSgs: [],

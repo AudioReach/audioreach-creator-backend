@@ -61,9 +61,17 @@ collision handling apply.
 
 **Upstream (input to Phase 2):** `RoutingContext.input` fully built by handler:
 - `input.graphEdits` — assembled from aggregate repos' `findManualEditsSinceLastRouting`
-- `input.selectedUsecaseSystemIds` — client payload (for FR-DEL-02 gate)
-- `input.effectiveRoutingScope` — handler-derived boundary for reconstruction traversal
+- `input.selectedUsecases` — effective snapshots; their IDs provide the FR-DEL-02 selected set
+- `input.activeSubgraphs` — normalized selections; their IDs provide the effective
+  reconstruction boundary
+- `input.scopePolicy.requestedSubgraphSystemIds` — original request membership for
+  deletion-side closure
+- `input.scopePolicy.excludedSubgraphSystemIds` — explicit SG-exclusion intent
 - `input.islandUcs` — committed `ISLAND` UCs present before the run (used by Phase 3)
+
+Phase 2 obtains local `selectedUsecaseIds` and `effectiveRoutingScope` views through the
+same pure input-derivation helper used by the other routing phases. They are not stored
+as separate input/context fields.
 
 **Downstream (output after Phase 3):** `RoutingContext` populated with:
 - `context.affectedUcSystemIds` — full file-wide set requiring deletion, structural
@@ -188,9 +196,10 @@ committed pre-session UC set, classifies every UC that requires deletion, struct
 mutation, or type degradation, fails fast on FR-DEL-02, then handles topology-aware
 reconstruction per FR-DEL-06.
 
-In manual mode, Phase 2 still performs file-wide classification and the FR-DEL-02 gate.
-It skips the automatic bounded-DFS reconstruction branch; manual pair discovery remains
-limited to the explicitly supplied effective routing scope.
+In manual mode, Phase 2 is a no-op. Manual creation performs no file-wide affected-UC
+classification, FR-DEL-02 gate, reconstruction, degradation, or existing-UC mutation.
+Manual pair discovery remains limited to the explicitly supplied effective routing scope;
+commit-time validation protects existing UCs from unresolved structural damage.
 
 ### 5.1 FR-DEL-01: Detect all affected UCs
 
@@ -237,7 +246,7 @@ for each dl in input.graphEdits.deletedDataLinks:
   transparentBridgePath := findTransparentBridgePath(
                               from        = dl.sourceSg,
                               to          = dl.destSg,
-                              adjacency   = intraUsecaseDataLinkAdjacency restricted to input.effectiveRoutingScope,
+                              adjacency   = intraUsecaseDataLinkAdjacency restricted to effectiveRoutingScope,
                               isMdfFilter = intermediates must have IsMdf=true,
                               maxDepth    = NFR-PERF-01 cap,
                             )
@@ -306,7 +315,7 @@ context.affectedUcSystemIds := affectedUcIds
   deletions but deliberately ignore request-only routing exclusions. Therefore
   "surviving" means present in the actual post-deletion graph.
 - `findTransparentBridgePath` runs bounded DFS from `sourceSg` to `destSg` in the
-  post-deletion adjacency restricted to `input.effectiveRoutingScope`, only stepping
+  post-deletion adjacency restricted to local `effectiveRoutingScope`, only stepping
   through SGs where `isMdf=true`. Returns the full path (including endpoints) if found,
   null otherwise. For **MDF Scenario 4**, every UC containing the replaced pair is
   structurally affected and enters the FR-DEL-02 selection gate. Phase 5–9 then discover
@@ -337,15 +346,16 @@ Repo methods use indexed lookups. Bounded by NFR-PERF-01.
 
 ### 5.2 FR-VAL-04 + FR-DEL-02: Affected UC-scope completeness (fail-fast)
 
-**Rule:** If any UC in `affectedUcIds` is absent from
-`input.selectedUsecaseSystemIds`, return an error containing the **full affected set**
+**Rule:** If any UC in `affectedUcIds` is absent from the IDs derived from
+`input.selectedUsecases`, return an error containing the **full affected set**
 and the missing subset. Routing does not proceed. This includes UCs that would be
 deleted, structurally updated, or degraded from `LINKED` to `ISLAND`.
 
 **Algorithm:**
 
 ```
-missingUcs := affectedUcIds \ setOf(input.selectedUsecaseSystemIds)
+selectedUsecaseIds := set(input.selectedUsecases[*].systemId)
+missingUcs := affectedUcIds \ selectedUsecaseIds
 if missingUcs is non-empty:
   return Result.fail([{
     code: ARC-ROUTING-DEL-02,
@@ -379,13 +389,13 @@ for each dl in input.graphEdits.deletedDataLinks where dl.linkScope == 'intra_us
   if dl.destSgId ∉ deletedSgIds:
     requiredSurvivingEndpointSgIds.add(dl.destSgId)
 
-excludedDeletedSgIds := deletedSgIds ∩ input.excludedSubgraphSystemIds
+excludedDeletedSgIds := deletedSgIds ∩ input.scopePolicy.excludedSubgraphSystemIds
 excludedDeletedDlIds := deletedDlIds ∩ input.excludedDataLinkSystemIds
 excludedDeletedClIds := deletedClIds ∩ input.excludedControlLinkSystemIds
 missingSurvivingEndpointSgIds :=
-  requiredSurvivingEndpointSgIds \ input.inputSubgraphs
+  requiredSurvivingEndpointSgIds \ input.scopePolicy.requestedSubgraphSystemIds
 excludedSurvivingEndpointSgIds :=
-  requiredSurvivingEndpointSgIds ∩ input.excludedSubgraphSystemIds
+  requiredSurvivingEndpointSgIds ∩ input.scopePolicy.excludedSubgraphSystemIds
 
 if any deletion-side conflict set is non-empty:
   return Result.fail([{
@@ -528,7 +538,7 @@ fragments remain subject to FR-DEL-04's manual-only rule.
 
 **Bounded DFS specifics:**
 - Uses `adjacency` built from post-overlay intra-usecase data-links whose endpoints are
-  both in `input.effectiveRoutingScope`, minus effective data-link exclusions.
+  both in local `effectiveRoutingScope`, minus effective data-link exclusions.
 - It is **not** restricted to the cone, which is computed later, but it is restricted to
   the same effective routing graph and bounded by `endSg` as forced terminal.
 - `maxDepth` from NFR-PERF-01 — same cap as Phase 7's main DFS.
@@ -552,8 +562,8 @@ fragments remain subject to FR-DEL-04's manual-only rule.
   ucFilter := buildUcFilter(filteringUcs)   # same preserved snapshot and rule as FR-KV-02
   bBaseline := applyUcFilterToSg(B, ucFilter, ISubgraphRepository)   # shared utility
   cBaseline := applyUcFilterToSg(C, ucFilter, ISubgraphRepository)
-  bApi := input.activeSubgraphs[B].sgkvInstances   # completeness already validated
-  cApi := input.activeSubgraphs[C].sgkvInstances
+  bApi := input.activeSubgraphs.find(entry => entry.systemId == B).sgkvs
+  cApi := input.activeSubgraphs.find(entry => entry.systemId == C).sgkvs
   bKvChanged := not setEqual(bApi, bBaseline)
   cKvChanged := not setEqual(cApi, cBaseline)
 
@@ -684,7 +694,7 @@ for each transition in [preliminary transitions from §6.1]:
 
     // Bridge-mediated coverage: bounded DFS from A to B, allowed intermediates = SGs with IsMdf=true
     bridgePath := boundedDfsThroughBridges(
-      A, B, input.effectiveRoutingScope, excluded, maxDepth)
+      A, B, effectiveRoutingScope, excluded, maxDepth)
     if bridgePath is null:
       allCovered := false
       break
@@ -710,7 +720,7 @@ for each transition in [preliminary transitions from §6.1]:
 **Bridge SG rule (FR-MDF-01):** an SG with `IsMdf=true` acts as a transparent
 intermediate. The path `A → bridge1 → bridge2 → B` is valid coverage if bridge1 and
 bridge2 both have `IsMdf=true` and every SG in the path belongs to
-`input.effectiveRoutingScope`.
+local `effectiveRoutingScope`.
 
 **Not covered — regular SG intermediates:** a path `A → regularSg → B` where
 `regularSg` is not in the UC's pair set does **not** count. FR-STATUS-04 Step 2
@@ -859,7 +869,7 @@ and multi-path pair-level survival semantics handle them safely.
 
 **D2 — Reconstruction path scope.** File-wide traversal is used only to discover the
 complete affected-UC set. Phase 2's reconstruction DFS is bounded by
-`input.effectiveRoutingScope`, the same graph available to automatic seed/cone/DFS
+local `effectiveRoutingScope`, the same graph available to automatic seed/cone/DFS
 routing. A reconstruction path cannot import an SG merely because it exists in the DB.
 
 **D3 — Reconstruction path with new SGs.** A new SG participates only when it is an

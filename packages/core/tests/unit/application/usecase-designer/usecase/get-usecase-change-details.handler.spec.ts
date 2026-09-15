@@ -19,9 +19,17 @@ describe('GetUsecaseChangeDetailsHandler', () => {
         getChangeDetails: jest.fn().mockResolvedValue(Result.ok([])),
       },
     } as unknown as jest.Mocked<QueryServices>;
+    const emittedChanges = [
+      {
+        systemId: 11,
+        changeId: 12,
+        operation: 'CREATE',
+        source: 'AUTO',
+      },
+    ] as const;
 
     await new GetUsecaseChangeDetailsHandler(queryServices).handle(
-      new GetUsecaseChangeDetailsQuery(7, 'routing-group', 'client'),
+      new GetUsecaseChangeDetailsQuery('7', 'client', emittedChanges),
     );
 
     expect(
@@ -29,6 +37,6 @@ describe('GetUsecaseChangeDetailsHandler', () => {
     ).toHaveBeenCalledWith(7);
     expect(
       queryServices.useCaseQueryService.getChangeDetails,
-    ).toHaveBeenCalledWith(42, 'routing-group');
+    ).toHaveBeenCalledWith(42, emittedChanges);
   });
 });

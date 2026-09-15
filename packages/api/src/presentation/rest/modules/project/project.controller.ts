@@ -11,6 +11,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  InternalServerErrorException,
   NotImplementedException,
   Param,
   Patch,
@@ -47,6 +48,12 @@ import {
   GetProjectQuery,
   UpdateProjectCommand,
   DeleteProjectCommand,
+  CreateUsecasesCommand,
+  CreateManualUsecasesCommand,
+  GetUsecaseChangeDetailsQuery,
+  RESULT_KIND,
+  ISSUE_CODE,
+  IssueSeverity,
 } from '@arc/core';
 import type {
   PathRef,
@@ -58,6 +65,8 @@ import type {
   ActiveSession,
   SessionMode as CoreSessionMode,
   ProjectDto,
+  RoutingOutcome,
+  UsecaseChangeDetails,
 } from '@arc/core';
 import {promises as fsPromises} from 'node:fs';
 
@@ -83,7 +92,8 @@ import {StartSessionRequestDto, SessionResponseDto} from './dto/session.dto.js';
 import {
   CreateUsecasesResponseDto,
   CreateManualUsecasesResponseDto,
-  UsecaseIdentifierWithChangeInfoDto,
+  UsecaseChangeDetailsDto,
+  mapCreateUsecasesResponse,
 } from './dto/create-usecases-response.dto.js';
 import {CreateUsecasesRequestDto} from './dto/create-usecases-request.dto.js';
 import {CreateManualUsecasesRequestDto} from './dto/create-manual-usecases-request.dto.js';
@@ -103,6 +113,43 @@ export class ProjectController {
     private readonly queryBus: QueryBus,
     @Inject('LOGGER') private readonly logger: Logger,
   ) {}
+
+  private async projectUsecaseChanges(
+    projectId: string,
+    clientId: string,
+    outcome: RoutingOutcome,
+  ): Promise<readonly UsecaseChangeDetails[]> {
+    const query = new GetUsecaseChangeDetailsQuery(
+      projectId,
+      clientId,
+      outcome.emittedChanges,
+    );
+    let result =
+      await this.queryBus.execute<Result<UsecaseChangeDetails[]>>(query);
+    if (
+      result.kind === RESULT_KIND.Fail &&
+      result.issues.every(
+        issue => issue.code === ISSUE_CODE.TRANSIENT_DB_READ_FAILED,
+      )
+    ) {
+      result =
+        await this.queryBus.execute<Result<UsecaseChangeDetails[]>>(query);
+    }
+    if (result.kind === RESULT_KIND.Fail) {
+      throw new InternalServerErrorException({
+        groupId: outcome.groupId,
+        issues: [
+          {
+            code: ISSUE_CODE.USECASE_CHANGE_PROJECTION_FAILED,
+            message:
+              'Routing succeeded, but response projection failed. The accepted changes were preserved.',
+            severity: IssueSeverity.Error,
+          },
+        ],
+      });
+    }
+    return result.data;
+  }
 
   /**
    * Creates a safe temporary file path by sanitizing the filename
@@ -892,6 +939,7 @@ export class ProjectController {
   }*/
 
   @Post('/:projectId/create-usecases')
+  @UseGuards(SessionGuard)
   @ApiParam({name: 'projectId', description: 'Id of project', required: true})
   @ApiBody({type: CreateUsecasesRequestDto})
   @ApiOperation({
@@ -909,11 +957,7 @@ export class ProjectController {
       'If no staged changes exist, returns empty arrays with success: true.\n\n' +
       'Note: warnings and errors arrays are placeholders and will be populated when the validation framework is introduced.',
   })
-  @ApiExtraModels(
-    ApiResult,
-    CreateUsecasesResponseDto,
-    UsecaseIdentifierWithChangeInfoDto,
-  )
+  @ApiExtraModels(ApiResult, CreateUsecasesResponseDto, UsecaseChangeDetailsDto)
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Successfully reconciled staged changes',
@@ -962,14 +1006,37 @@ export class ProjectController {
       ],
     },
   })
-  createUsecases(
-    @Param('projectId') _projectId: string,
-    @Body() _body: CreateUsecasesRequestDto,
-  ): ApiResult<CreateUsecasesResponseDto> {
-    throw new NotImplementedException('createUsecases is not implemented yet');
+  async createUsecases(
+    @Param('projectId') projectId: string,
+    @Body() body: CreateUsecasesRequestDto,
+    @ClientId() clientId: string,
+    @ArcSession() session: ActiveSession,
+  ): Promise<ApiResult<CreateUsecasesResponseDto>> {
+    const command = new CreateUsecasesCommand(session.fileSystemId, {
+      selectedUsecaseSystemIds: body.selectedUsecaseSystemIds,
+      activeSubgraphs: body.activeSubgraphs,
+      excludedDataLinkSystemIds: body.excludedDataLinkSystemIds,
+      excludedControlLinkSystemIds: body.excludedControlLinkSystemIds,
+      excludedSubgraphSystemIds: body.excludedSubgraphSystemIds,
+    });
+    const outcomeResult = await this.commandBus.execute<Result<RoutingOutcome>>(
+      command,
+      session,
+    );
+    if (outcomeResult.kind === RESULT_KIND.Fail)
+      return toApiResult(outcomeResult);
+    const changes = await this.projectUsecaseChanges(
+      projectId,
+      clientId,
+      outcomeResult.data,
+    );
+    return toApiResult(
+      Result.ok(mapCreateUsecasesResponse(outcomeResult.data, changes)),
+    );
   }
 
   @Post('/:projectId/create-manual-usecases')
+  @UseGuards(SessionGuard)
   @ApiParam({name: 'projectId', description: 'Id of project', required: true})
   @ApiBody({type: CreateManualUsecasesRequestDto})
   @ApiOperation({
@@ -983,7 +1050,7 @@ export class ProjectController {
   @ApiExtraModels(
     ApiResult,
     CreateManualUsecasesResponseDto,
-    UsecaseIdentifierWithChangeInfoDto,
+    UsecaseChangeDetailsDto,
   )
   @ApiResponse({
     status: HttpStatus.OK,
@@ -1033,12 +1100,32 @@ export class ProjectController {
       ],
     },
   })
-  createManualUsecases(
-    @Param('projectId') _projectId: string,
-    @Body() _body: CreateManualUsecasesRequestDto,
-  ): ApiResult<CreateManualUsecasesResponseDto> {
-    throw new NotImplementedException(
-      'createManualUsecases is not implemented yet',
+  async createManualUsecases(
+    @Param('projectId') projectId: string,
+    @Body() body: CreateManualUsecasesRequestDto,
+    @ClientId() clientId: string,
+    @ArcSession() session: ActiveSession,
+  ): Promise<ApiResult<CreateManualUsecasesResponseDto>> {
+    const command = new CreateManualUsecasesCommand(session.fileSystemId, {
+      selectedUsecaseSystemIds: body.selectedUsecaseSystemIds,
+      activeSubgraphs: body.activeSubgraphs,
+      excludedDataLinkSystemIds: body.excludedDataLinkSystemIds,
+      excludedControlLinkSystemIds: body.excludedControlLinkSystemIds,
+      excludedSubgraphSystemIds: body.excludedSubgraphSystemIds,
+    });
+    const outcomeResult = await this.commandBus.execute<Result<RoutingOutcome>>(
+      command,
+      session,
+    );
+    if (outcomeResult.kind === RESULT_KIND.Fail)
+      return toApiResult(outcomeResult);
+    const changes = await this.projectUsecaseChanges(
+      projectId,
+      clientId,
+      outcomeResult.data,
+    );
+    return toApiResult(
+      Result.ok(mapCreateUsecasesResponse(outcomeResult.data, changes)),
     );
   }
 

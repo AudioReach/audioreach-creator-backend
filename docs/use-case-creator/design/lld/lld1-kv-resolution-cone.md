@@ -55,15 +55,13 @@ see LLD4. It's not part of Phase 1 because it depends on impacted-UC detection.
 ## 3. Position in Pipeline
 
 **Upstream (input to Phase 1):** `RoutingContext.input` fully built by handler:
-- `input.selectedUsecaseSystemIds` — client payload
 - `input.selectedUsecases` — those UCs loaded once from the effective overlay by the handler
-- `input.activeSubgraphs` — `[{sgSystemId, sgkvInstances[]}]` from client
-- `input.selectedScopeSubgraphs` — union of memberships in `selectedUsecases`
-- `input.inputSubgraphs` — SG IDs in `activeSubgraphs`
-- `input.outOfSelectionSubgraphs` — `inputSubgraphs − selectedScopeSubgraphs`
-- `input.effectiveRoutingScope` — `inputSubgraphs − excludedSubgraphSystemIds − deletedSubgraphSystemIds`
+- `input.activeSubgraphs` — normalized `[{systemId, sgkvs: number[][]}]` after
+  excluded/session-deleted SG removal
+- `input.scopePolicy.requestedSubgraphSystemIds` — SG IDs in the original client map
+- `input.scopePolicy.excludedSubgraphSystemIds` — explicit SG exclusions
 - `input.graphEdits` — `GraphEditSummary` assembled by the handler from `findManualEditsSinceLastRouting` on subgraph/data-link/control-link repos
-- `input.excludedDataLinkSystemIds`, `input.excludedControlLinkSystemIds`, `input.excludedSubgraphSystemIds` (FR-API-05/06)
+- `input.excludedDataLinkSystemIds`, `input.excludedControlLinkSystemIds` (FR-API-05)
 
 **Downstream (output after Phase 6):** `RoutingContext` populated with:
 - `context.kvResolutions` — per-SG resolved SGKV instances (from Phase 4)
@@ -81,7 +79,8 @@ Before phase algorithms run, the handler derives the scope sets and an **effecti
 exclusion set** from the client payload and its selected-UC snapshot:
 
 ```
-effectiveExcludedSgIds   := set(input.excludedSubgraphSystemIds)
+requestedSubgraphIds     := set(input.scopePolicy.requestedSubgraphSystemIds)
+effectiveExcludedSgIds   := set(input.scopePolicy.excludedSubgraphSystemIds)
 effectiveExcludedDlIds   := set(input.excludedDataLinkSystemIds)
                               ∪ { dl.systemId : dl is intra-usecase data-link where
                                                 dl.sourceSg ∈ effectiveExcludedSgIds
@@ -96,22 +95,23 @@ deletedSgIds             := set(input.graphEdits.deletedSgs[*].systemId)
 The scope equations are:
 
 ```
-selectedScopeSubgraphs := union(input.selectedUsecases[*].subgraphs)
-inputSubgraphs         := set(input.activeSubgraphs[*].sgSystemId)
-outOfSelectionSubgraphs := inputSubgraphs \ selectedScopeSubgraphs
-effectiveRoutingScope  := inputSubgraphs \ effectiveExcludedSgIds \ deletedSgIds
+selectedUsecaseIds      := set(input.selectedUsecases[*].systemId)
+selectedScopeSubgraphs  := union(input.selectedUsecases[*].subgraphs)
+effectiveRoutingScope   := set(input.activeSubgraphs[*].systemId)
+outOfSelectionSubgraphs := effectiveRoutingScope \ selectedScopeSubgraphs
 ```
+
+These are local immutable views produced by a shared pure helper from `RoutingInput`.
+Each phase calls the helper when it needs scope membership; the sets are not stored on
+`RoutingInput` or copied onto `RoutingContext`.
 
 Every repo call that takes an `excludedIds` parameter passes the corresponding
 `effectiveExcluded*` set. SG-level exclusion automatically extends to incident links —
 callers don't need to enumerate them client-side.
 
-**Data structure additions to `RoutingContext.input`:**
-- `excludedSubgraphSystemIds: number[]` (from client, may be empty)
-- Derived (not part of client payload; computed by handler and stored for reuse):
-  `selectedUsecases`, `selectedScopeSubgraphs`, `inputSubgraphs`,
-  `outOfSelectionSubgraphs`, `effectiveRoutingScope`, `effectiveExcludedSgIds`,
-  `effectiveExcludedDlIds`, `effectiveExcludedClIds`
+**Data retained in `RoutingContext.input`:** `selectedUsecases`, normalized
+`activeSubgraphs`, `scopePolicy`, graph edits, and explicit link exclusions. All scope and
+effective-exclusion sets above are local derivations, not additional input/context fields.
 
 ---
 
@@ -206,13 +206,13 @@ for each dl in input.graphEdits.addedDataLinks where dl.linkScope == 'intra_usec
   requiredEndpointSgIds.add(dl.sourceSgId)
   requiredEndpointSgIds.add(dl.destSgId)
 
-excludedAddedSgIds := addedSgIds ∩ input.excludedSubgraphSystemIds
+excludedAddedSgIds := addedSgIds ∩ input.scopePolicy.excludedSubgraphSystemIds
 excludedAddedDlIds := addedDlIds ∩ input.excludedDataLinkSystemIds
 excludedAddedClIds := addedClIds ∩ input.excludedControlLinkSystemIds
 
-missingAddedSgs := addedSgIds \ input.inputSubgraphs
-missingRequiredEndpoints := requiredEndpointSgIds \ input.inputSubgraphs
-excludedRequiredEndpoints := requiredEndpointSgIds ∩ input.excludedSubgraphSystemIds
+missingAddedSgs := addedSgIds \ input.scopePolicy.requestedSubgraphSystemIds
+missingRequiredEndpoints := requiredEndpointSgIds \ input.scopePolicy.requestedSubgraphSystemIds
+excludedRequiredEndpoints := requiredEndpointSgIds ∩ input.scopePolicy.excludedSubgraphSystemIds
 deletedAddedLinkEndpoints := endpoints(input.graphEdits.addedDataLinks) ∩ deletedSgIds
 
 if any set above is non-empty:
@@ -235,10 +235,10 @@ endpoints are deliberately absent from `requiredEndpointSgIds`.
 non-excluded, non-deleted selected-scope SG must appear in `activeSubgraphs`.
 
 ```
-requiredSelectedSubgraphs := input.selectedScopeSubgraphs
-                             \ input.effectiveExcludedSgIds
+requiredSelectedSubgraphs := selectedScopeSubgraphs
+                             \ effectiveExcludedSgIds
                              \ set(input.graphEdits.deletedSgs[*].systemId)
-missing := requiredSelectedSubgraphs \ input.inputSubgraphs
+missing := requiredSelectedSubgraphs \ input.scopePolicy.requestedSubgraphSystemIds
 
 if missing is non-empty:
   return Result.fail([{
@@ -263,7 +263,7 @@ subgraphs that exist in the DB.
 **Algorithm:**
 
 ```
-sgIds := input.effectiveRoutingScope
+sgIds := effectiveRoutingScope
 
 validSgIds := ISubgraphRepository.findByIds(fileSystemId, sgIds).map(sg => sg.systemId)
 
@@ -292,7 +292,7 @@ the scope are "islands." Report as **warning**; routing continues.
 **Algorithm:**
 
 ```
-routingScopeSgs := input.effectiveRoutingScope
+routingScopeSgs := effectiveRoutingScope
 
 adjacency := build undirected adjacency from intra-usecase data-links between
              routingScopeSgs (post-overlay, minus excluded)
@@ -325,13 +325,13 @@ Implements the three-step KV pipeline (FR-KV-01/02/03) exactly as specified.
 
 ### 6.1 FR-KV-01: Step 1 — Load SGKV from DB
 
-**Rule:** For every SG in `input.effectiveRoutingScope`, load complete SGKV records
+**Rule:** For every SG in local `effectiveRoutingScope`, load complete SGKV records
 from DB for baseline comparison only.
 
 **Algorithm:**
 
 ```
-sgIdsToLoad := input.effectiveRoutingScope
+sgIdsToLoad := effectiveRoutingScope
 
 dbSgkvs: Map<SgSystemId, SgkvInstance[]>
        := ISubgraphRepository.getSgkvsBySgIds(fileSystemId, sgIdsToLoad)
@@ -387,7 +387,7 @@ other UCs) from generating irrelevant new GKV combinations later.
 
 ### 6.3 FR-KV-03: Step 3 — Apply API input
 
-**Rule:** For each SG in `input.effectiveRoutingScope`, discard the Step-2 result and
+**Rule:** For each SG in local `effectiveRoutingScope`, discard the Step-2 result and
 replace it entirely with the API-provided SGKV instances. Handler-level FR-API-03
 validation has already guaranteed explicit input for every selected-scope SG that may
 route.
@@ -398,11 +398,11 @@ route.
 perSg: Map<SgSystemId, SgkvInstance[]> := empty
 for each entry in input.activeSubgraphs:
   // FR-API-06: silently drop excluded SGs from the API map
-  if entry.sgSystemId ∈ effectiveExcludedSgIds:
+  if entry.systemId ∈ effectiveExcludedSgIds:
     continue
-  perSg[entry.sgSystemId] := entry.sgkvInstances is empty
+  perSg[entry.systemId] := entry.sgkvs is empty
     ? [{sgkvSystemId: null, keyValues: []}]
-    : entry.sgkvInstances
+    : entry.sgkvs
 context.kvResolutions.perSg := perSg
 ```
 
@@ -476,16 +476,16 @@ is absent from the effective routing scope.
 ```
 for each dl in input.graphEdits.addedDataLinks:
   if dl.linkScope == 'intra_usecase'
-      and dl.sourceSgId ∈ input.effectiveRoutingScope
-      and dl.destSgId ∈ input.effectiveRoutingScope:
+      and dl.sourceSgId ∈ effectiveRoutingScope
+      and dl.destSgId ∈ effectiveRoutingScope:
     seeds.add(dl.sourceSgId, reason='link-added')
     seeds.add(dl.destSgId,   reason='link-added')
 
 for each dl in input.graphEdits.deletedDataLinks:
   if dl.linkScope == 'intra_usecase':
-    if dl.sourceSgId ∈ input.effectiveRoutingScope:
+    if dl.sourceSgId ∈ effectiveRoutingScope:
       seeds.add(dl.sourceSgId, reason='link-deleted')
-    if dl.destSgId ∈ input.effectiveRoutingScope:
+    if dl.destSgId ∈ effectiveRoutingScope:
       seeds.add(dl.destSgId, reason='link-deleted')
 
 // Control-link edits: NOT seeds for the DFS cone.
@@ -511,7 +511,7 @@ detection to filter these out — it complicates FR-CONE-03 and the cost is triv
 ### 7.4 FR-CONE-05: Empty selected UC list → all effective-scope SGs are seeds
 
 **Rule:** When `input.selectedUsecases` is empty, every SG in
-`input.effectiveRoutingScope` is an out-of-selection SG and is a seed.
+local `effectiveRoutingScope` is an out-of-selection SG and is a seed.
 
 **Algorithm:**
 
@@ -522,14 +522,14 @@ An empty API SGKV contribution does not suppress this seed rule.
 
 ### 7.5 FR-CONE-06: Out-of-selection SG → automatic seed
 
-**Rule:** Every SG in `input.outOfSelectionSubgraphs` is an automatic seed, whether it
+**Rule:** Every SG in local `outOfSelectionSubgraphs` is an automatic seed, whether it
 is new or belongs to a non-selected UC.
 
 **Algorithm:**
 
 ```
-for each sgId in input.outOfSelectionSubgraphs:
-  if sgId ∈ input.effectiveRoutingScope:
+for each sgId in outOfSelectionSubgraphs:
+  if sgId ∈ effectiveRoutingScope:
     seeds.add(sgId, reason='out-of-selection')
 ```
 
@@ -565,7 +565,7 @@ queue: Queue<SgSystemId> := seeds.sgSystemIds.copy()
 while queue not empty:
   sg := queue.dequeue()
   if sg ∈ visited: continue
-  if sg ∉ input.effectiveRoutingScope: continue
+  if sg ∉ effectiveRoutingScope: continue
   visited.add(sg)
   for each neighbor in (adjacency[sg] ∪ reverse[sg]):
     if neighbor is within scope boundary (FR-CONE-07):
@@ -582,12 +582,12 @@ using iterative queue.
 
 ### 8.2 FR-CONE-07: Scope boundary (non-deletion)
 
-**Rule:** Cone expansion does not cross outside `input.effectiveRoutingScope`.
+**Rule:** Cone expansion does not cross outside local `effectiveRoutingScope`.
 
 **Algorithm — the "within scope" predicate:**
 
 ```
-isWithinScope(sg) := sg ∈ input.effectiveRoutingScope
+isWithinScope(sg) := sg ∈ effectiveRoutingScope
 ```
 
 Phase 2 (DeletionScope, LLD4) uses a bounded DFS existence check per impacted pair
