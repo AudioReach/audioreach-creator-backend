@@ -121,7 +121,7 @@ Client
               → Result.fail → throws
               → Result.ok(null) → ResourceNotFoundException → 404
               → Result.ok(PropertyPayloadReadModel[]) → subgraph exists + property payloads
-      Step 4: getAllDetailedSubgraphPropertyDefinitionsWithElements(fileSystemId)
+      Step 4: getSubgraphPropertiesWithElements(fileSystemId)
               → SubgraphPropertyDefinitionWithElementsReadModel[]
       Step 5: defMap = Map<systemId, SubgraphPropertyDefinitionWithElementsReadModel>
               buildPropertyModels(payloads, defMap)
@@ -221,7 +221,7 @@ export class GetSubgraphPropertiesHandler
 
     // Step 4: fetch definitions with elementsStructure
     const definitionsResult = await this.queryServices.subgraphPropertyDefQueryService
-      .getAllDetailedSubgraphPropertyDefinitionsWithElements(fileSystemId);
+      .getSubgraphPropertiesWithElements(fileSystemId);
     if (definitionsResult.kind === RESULT_KIND.Fail) {
       throw new Error(definitionsResult.issues[0]?.message ?? 'Failed to load subgraph property definitions');
     }

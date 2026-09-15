@@ -7,7 +7,7 @@ import {BaseCommand} from '../../../shared/base-command.js';
 import {SESSION_MODE} from '../../../shared/change-vocabulary.js';
 import type {SessionMode} from '../../../shared/change-vocabulary.js';
 
-export class UpdateSubgraphScenarioCommand extends BaseCommand {
+export class SetSubgraphCommand extends BaseCommand {
   static override readonly requiresSession = true;
   static override readonly allowedModes: readonly SessionMode[] = [
     SESSION_MODE.Designer,
@@ -16,7 +16,7 @@ export class UpdateSubgraphScenarioCommand extends BaseCommand {
 
   constructor(
     public readonly subgraphSystemId: number,
-    public readonly data: unknown[],
+    public readonly name?: string,
   ) {
     super();
   }

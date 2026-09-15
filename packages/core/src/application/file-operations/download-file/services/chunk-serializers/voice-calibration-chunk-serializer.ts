@@ -8,7 +8,7 @@ import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
 import {
   SPF_VCPM_MODULE_ID,
   PARAM_ID_VOICE_CAL_TBL,
-} from '../../../shared/constants/spf-ids.js';
+} from '../../../../../domain/entities/definitions/spf-ids.js';
 
 /**
  * Result of voice calibration chunk serialization.

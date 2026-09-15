@@ -75,6 +75,8 @@ import {GetProjectsQuery} from '../../../project/get-all/get-projects.query.js';
 import {GetProjectsHandler} from '../../../project/get-all/get-projects.handler.js';
 import {GetProjectQuery} from '../../../project/get/get-project.query.js';
 import {GetProjectHandler} from '../../../project/get/get-project.handler.js';
+import {GetSubgraphPropertyQuery} from '../../../usecase-designer/subgraph/get-property/get-subgraph-property.query.js';
+import {GetSubgraphPropertyHandler} from '../../../usecase-designer/subgraph/get-property/get-subgraph-property.handler.js';
 
 export interface QueryHandlerDependencies {
   queryServices: QueryServices;
@@ -288,6 +290,11 @@ export class QueryHandlerRegistry {
     this.queryHandlerFactories.set(GetProjectQuery, {
       create: (deps: QueryHandlerDependencies) =>
         new GetProjectHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetSubgraphPropertyQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetSubgraphPropertyHandler(deps.queryServices),
     });
   }
 }

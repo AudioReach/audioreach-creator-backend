@@ -12,14 +12,14 @@ import {DataLinksProperty} from './data-links-property.js';
 import {ControlLinksProperty} from './control-links-property.js';
 import {VcpmConfigProperty} from './vcpm-config-property.js';
 import {
-  PARAM_ID_SUB_GRAPH_CONFIG,
   PARAM_ID_CONTAINER_CONFIG,
   PARAM_ID_MODULES_LIST,
   PARAM_ID_MODULE_PROP,
   PARAM_ID_MODULE_DATA_LINK,
   PARAM_ID_MODULE_CTRL_LINK,
   PARAM_ID_VOICE_SG_CONFIG,
-} from '../../constants/spf-ids.js';
+} from '../../../../../domain/entities/definitions/spf-ids.js';
+import {PARAM_ID_SUB_GRAPH_CONFIG} from '../../../../../domain/entities/definitions/subgraph/subgraph-ids.js';
 
 /**
  * Main SPF Properties class that parses and contains all subgraph property data.

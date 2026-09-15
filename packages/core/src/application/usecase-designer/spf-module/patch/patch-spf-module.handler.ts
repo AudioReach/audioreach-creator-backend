@@ -18,7 +18,7 @@ import {
 } from '@arc/core';
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
-import {CONTAINER_PROP_ID_STACK_SIZE} from '../../../file-operations/shared/constants/spf-ids.js';
+import {CONTAINER_PROP_ID_STACK_SIZE} from '../../../../domain/entities/definitions/spf-ids.js';
 import {buildContainerCopy} from '../../container/build-container-copy.js';
 import {DataPort} from '../../../../domain/entities/usecase-data/node/entities/data-port.js';
 import {ControlPort} from '../../../../domain/entities/usecase-data/node/entities/control-port.js';
