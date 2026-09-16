@@ -5,7 +5,11 @@
 
 import {createZodDto} from 'nestjs-zod';
 import {ApiProperty} from '@nestjs/swagger';
-import {UseCaseDtoSchema} from '@arc/core';
+import {
+  SubsystemFilteredKvDtoSchema,
+  SubsystemFilteredUsecasesResponseDtoSchema,
+  UseCaseDtoSchema,
+} from '@arc/core';
 import {EndPointLink} from '../../../common/utils/index.js';
 
 export class UsecaseResponseDto extends createZodDto(UseCaseDtoSchema) {
@@ -23,21 +27,12 @@ export enum UsecaseType {
   Island = 'ISLAND',
 }
 
-export class SubsystemFilteredUsecasesResponseDto {
-  @ApiProperty({
-    description: 'Subsystem-filtered key-value information',
-    required: false,
-  })
-  readonly filteredKv: unknown;
+/** Swagger/NestJS wrapper for the core filtered-GKV contract. */
+export class SubsystemFilteredKvDto extends createZodDto(
+  SubsystemFilteredKvDtoSchema,
+) {}
 
-  @ApiProperty({
-    description: 'Array of usecase identifiers that match the subsystem filter',
-    type: [UsecaseResponseDto],
-  })
-  readonly usecases: UsecaseResponseDto[];
-
-  constructor(filteredKv: unknown, usecases: UsecaseResponseDto[]) {
-    this.filteredKv = filteredKv;
-    this.usecases = usecases;
-  }
-}
+/** Swagger/NestJS wrapper for the core filtered-usecase response contract. */
+export class SubsystemFilteredUsecasesResponseDto extends createZodDto(
+  SubsystemFilteredUsecasesResponseDtoSchema,
+) {}

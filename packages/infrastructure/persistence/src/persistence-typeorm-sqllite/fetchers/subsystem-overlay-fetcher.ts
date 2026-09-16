@@ -4,6 +4,7 @@
  */
 
 import type {EntityManager} from 'typeorm';
+import {CHANGE_OPERATION} from '@arc/core';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
 import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
@@ -11,12 +12,21 @@ import {
   NODE_TYPE,
   type NodeBase,
 } from '../entity-schema/usecase-data/node/node.schema.js';
-import type {SubsystemBase} from '../entity-schema/usecase-data/subsystem/subsystem.js';
+import type {
+  SubsystemBase,
+  SubsystemFilteredKeyRow,
+} from '../entity-schema/usecase-data/subsystem/subsystem.js';
 
 export interface OverlaidSubsystem extends SubsystemBase {
   /** parentSystemId from Node.parentSystemId — undefined when the subsystem is a root. */
   parentSystemId: number | undefined;
+  /** Key-definition system IDs associated through SubsystemFilteredKey. */
+  filteredKeySystemIds: number[];
 }
+
+type FilteredKeyActionValue = {
+  keyDefinitionSystemIds?: unknown;
+};
 
 /**
  * Fetches subsystems with session overlay applied (FR-3).
@@ -48,13 +58,16 @@ export class SubsystemOverlayFetcher {
     sessionId: number | null,
   ): Promise<OverlaidSubsystem[]> {
     // Base query — JOIN Node to pick up parentSystemId (Node column, not Subsystem).
-    const rawRows = await this.manager
-      .getRepository(ENTITY_NAMES.Subsystem)
-      .createQueryBuilder('sub')
-      .innerJoin(ENTITY_NAMES.Node, 'n', 'n.system_id = sub.system_id')
-      .addSelect('n.parentSystemId', 'parentSystemId')
-      .where('n.fileSystemId = :fileSystemId', {fileSystemId})
-      .getRawAndEntities();
+    const [rawRows, filteredKeyRows] = await Promise.all([
+      this.manager
+        .getRepository(ENTITY_NAMES.Subsystem)
+        .createQueryBuilder('sub')
+        .innerJoin(ENTITY_NAMES.Node, 'n', 'n.system_id = sub.system_id')
+        .addSelect('n.parentSystemId', 'parentSystemId')
+        .where('n.fileSystemId = :fileSystemId', {fileSystemId})
+        .getRawAndEntities(),
+      this.loadFilteredKeyRows(fileSystemId),
+    ]);
 
     // Build parentSystemId lookup from the JOIN result.
     const parentSystemIdBySystemId = new Map<number, number | undefined>(
@@ -65,18 +78,28 @@ export class SubsystemOverlayFetcher {
     );
 
     let rows = rawRows.entities as SubsystemBase[];
+    let filteredIdsBySubsystem = this.groupFilteredKeyRows(filteredKeyRows);
 
     if (sessionId === null) {
-      return this.buildResult(rows, parentSystemIdBySystemId);
+      return this.buildResult(
+        rows,
+        parentSystemIdBySystemId,
+        filteredIdsBySubsystem,
+      );
     }
 
     // Pass 1 — Node overlay. Node is the file-scoped half of the shared-PK
     // aggregate, so its effective row determines whether a Subsystem row is
     // in scope. Applying all actions also captures parent UPDATEs and DELETEs.
-    const [subsystemActions, nodeActions] = await Promise.all([
-      this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.Subsystem),
-      this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.Node),
-    ]);
+    const [subsystemActions, nodeActions, filteredKeyActions] =
+      await Promise.all([
+        this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.Subsystem),
+        this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.Node),
+        this.editActionsSvc.getByTable(
+          sessionId,
+          ENTITY_NAMES.SubsystemFilteredKey,
+        ),
+      ]);
 
     const baseNodes: NodeBase[] = rows.map(row => ({
       systemId: row.systemId,
@@ -103,16 +126,94 @@ export class SubsystemOverlayFetcher {
       })
       .map(r => r.effective);
 
-    return this.buildResult(rows, effectiveParentSystemIds);
+    filteredIdsBySubsystem = this.applyFilteredKeyActions(
+      filteredIdsBySubsystem,
+      filteredKeyActions,
+    );
+
+    return this.buildResult(
+      rows,
+      effectiveParentSystemIds,
+      filteredIdsBySubsystem,
+    );
+  }
+
+  private async loadFilteredKeyRows(
+    fileSystemId: number,
+  ): Promise<SubsystemFilteredKeyRow[]> {
+    return this.manager
+      .getRepository<SubsystemFilteredKeyRow>(ENTITY_NAMES.SubsystemFilteredKey)
+      .createQueryBuilder('filtered')
+      .innerJoin(
+        ENTITY_NAMES.Node,
+        'n',
+        'n.system_id = filtered.subsystems_system_id',
+      )
+      .select(['filtered.subsystemsSystemId', 'filtered.keyDefinitionSystemId'])
+      .where('n.fileSystemId = :fileSystemId', {fileSystemId})
+      .getMany();
+  }
+
+  private groupFilteredKeyRows(
+    rows: SubsystemFilteredKeyRow[],
+  ): Map<number, number[]> {
+    const result = new Map<number, number[]>();
+    for (const row of rows) {
+      const ids = result.get(row.subsystemsSystemId) ?? [];
+      ids.push(row.keyDefinitionSystemId);
+      result.set(row.subsystemsSystemId, ids);
+    }
+    return result;
+  }
+
+  private applyFilteredKeyActions(
+    baseline: Map<number, number[]>,
+    actions: Awaited<ReturnType<EditActionsQueryService['getByTable']>>,
+  ): Map<number, number[]> {
+    const result = new Map(
+      [...baseline].map(([subsystemId, keyIds]) => [subsystemId, [...keyIds]]),
+    );
+
+    for (const action of actions) {
+      if (
+        action.operation === CHANGE_OPERATION.Delete &&
+        action.fieldPath === null
+      ) {
+        result.delete(action.targetSystemId);
+        continue;
+      }
+
+      if (
+        action.operation !== CHANGE_OPERATION.Update ||
+        action.fieldPath !== null
+      ) {
+        continue;
+      }
+
+      const value = action.newValue as FilteredKeyActionValue;
+      if (!Array.isArray(value.keyDefinitionSystemIds)) continue;
+      result.set(
+        action.targetSystemId,
+        value.keyDefinitionSystemIds
+          .map(Number)
+          .filter(value => Number.isFinite(value)),
+      );
+    }
+
+    return result;
   }
 
   private buildResult(
     rows: SubsystemBase[],
     parentSystemIdBySystemId: Map<number, number | undefined>,
+    filteredIdsBySubsystem: ReadonlyMap<number, readonly number[]>,
   ): OverlaidSubsystem[] {
     return rows.map(row => ({
       ...row,
       parentSystemId: parentSystemIdBySystemId.get(row.systemId),
+      filteredKeySystemIds: [
+        ...(filteredIdsBySubsystem.get(row.systemId) ?? []),
+      ],
     }));
   }
 }

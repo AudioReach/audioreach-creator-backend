@@ -367,6 +367,20 @@ export * from './application/usecase-designer/usecase/get-change-details/get-use
 export * from './application/usecase-designer/usecase/get-components/index.js';
 export * from './application/usecase-designer/usecase/get-component-with-subsystem/get-components-with-subsystems.query.js';
 export * from './application/usecase-designer/usecase/get-component-with-subsystem/get-components-with-subsystems.handler.js';
+export {GetSubsystemFilteredUsecasesQuery} from './application/usecase-designer/usecase/get-filtered-by-subsystem/get-subsystem-filtered-usecases.query.js';
+export {GetSubsystemFilteredUsecasesHandler} from './application/usecase-designer/usecase/get-filtered-by-subsystem/get-subsystem-filtered-usecases.handler.js';
+export {
+  SubsystemReferenceDtoSchema,
+  SubsystemFilteredKvDtoSchema,
+  SubsystemFilteredUsecasesResponseDtoSchema,
+} from './application/usecase-designer/usecase/get-filtered-by-subsystem/subsystem-filtered-usecases.dto.js';
+export type {
+  SubsystemReferenceDto,
+  SubsystemFilteredKvDto,
+  SubsystemFilteredUsecasesResponseDto,
+} from './application/usecase-designer/usecase/get-filtered-by-subsystem/subsystem-filtered-usecases.dto.js';
+export type {SubsystemFilteredReadModel} from './application/ports/persistence/query-services/usecase/query-models/subsystem-filtered-read-model.js';
+export * from './application/services/subsystem-filtered-gkv-service.js';
 export * from './application/usecase-designer/subgraph/get-properties/get-subgraph-properties.query.js';
 export * from './application/usecase-designer/subgraph/get-properties/get-subgraph-properties.handler.js';
 export {SubgraphPropertiesDtoSchema} from './application/usecase-designer/subgraph/dto/subgraph-properties-dto.js';
