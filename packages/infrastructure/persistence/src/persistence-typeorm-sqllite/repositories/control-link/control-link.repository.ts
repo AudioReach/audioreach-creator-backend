@@ -452,6 +452,57 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
     }
   }
 
+  async replaceUnresolvedSubsystemControlLinkSegments(
+    subsystemLinkSystemIds: number[],
+    segments: SubsystemControlLink[],
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void> {
+    if (subsystemLinkSystemIds.length === 0) return;
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const current = await this.linkFetcher.loadSubsystemControlLinkRows(
+      fileSystemId,
+      sessionId,
+      {systemId: subsystemLinkSystemIds},
+    );
+    const {session, groupId} = this.uow.getWriteContext();
+    for (const segment of current) {
+      await this.writer.writeDelete(
+        {
+          targetTable: ENTITY_NAMES.SubsystemControlLink,
+          targetSystemId: segment.systemId,
+          aggregateId: segment.systemId,
+          ...options,
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+    for (const segment of segments) {
+      await this.writer.writeCreate(
+        {
+          targetTable: ENTITY_NAMES.SubsystemControlLink,
+          targetSystemId: segment.systemId,
+          aggregateId: segment.systemId,
+          payload: {
+            peerNodeASystemId: segment.peerNodeASystemId,
+            peerNodeBSystemId: segment.peerNodeBSystemId,
+            nodeAPortSystemId: segment.nodeAPortSystemId,
+            nodeBPortSystemId: segment.nodeBPortSystemId,
+            controlLinkSystemId: null,
+            fileSystemId: segment.fileSystemId,
+            version: segment.version,
+          },
+          ...options,
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+  }
+
   async findChangedInSession(
     fileSystemId: number,
   ): Promise<SessionChanged<ControlLink>> {

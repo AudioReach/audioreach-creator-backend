@@ -100,6 +100,13 @@ export interface ControlLinkRepository {
     options?: EditOptions,
   ): Promise<void>;
 
+  replaceUnresolvedSubsystemControlLinkSegments(
+    subsystemLinkSystemIds: number[],
+    segments: SubsystemControlLink[],
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
+
   /**
    * Returns ControlLinks added or deleted in the current session — a
    * `SessionChanged<ControlLink>` split. No `source` filter is applied;

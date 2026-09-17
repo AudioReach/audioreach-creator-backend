@@ -4,7 +4,14 @@
  */
 
 import {describe, expect, it, jest} from '@jest/globals';
-import {DataPort, PORT_IO_TYPE, Subsystem} from '@arc/core';
+import {
+  DataLink,
+  DataPort,
+  LINK_TYPE,
+  PORT_IO_TYPE,
+  SubsystemDataLink,
+  Subsystem,
+} from '@arc/core';
 import type {
   ControlLinkRepository,
   DataLinkRepository,
@@ -32,9 +39,9 @@ function makeSubsystem(overrides: Partial<Subsystem> = {}): Subsystem {
   return new Subsystem({
     systemId: SUBSYSTEM_ID,
     fileSystemId: FILE_ID,
-    parentId: undefined,
+    parentSystemId: undefined,
     name: 'Subsystem',
-    subsystemId: 1,
+    naturalId: 1,
     filteredKeySystemIds: [],
     dataPorts: [],
     controlPorts: [],
@@ -47,6 +54,7 @@ function makeSubsystemRepository(
 ): SubsystemRepository {
   return {
     findSubsystems: jest.fn().mockResolvedValue([]),
+    findSubsystemFileSystemId: jest.fn().mockResolvedValue(null),
     findNodeTopology: jest.fn().mockResolvedValue([]),
     findSubsystemForPatch: jest.fn().mockResolvedValue(makeSubsystem()),
     findKeyDefinitionsByIds: jest.fn().mockResolvedValue([]),
@@ -72,7 +80,13 @@ function makeDataLinkRepository(
   return {
     getLinksByPortSystemIds: jest.fn().mockResolvedValue([]),
     findAllWithSegments: jest.fn().mockResolvedValue([]),
+    findSubsystemDataRouteContext: jest.fn().mockResolvedValue({
+      subsystemDataLinks: [],
+      nodeTypeBySystemId: new Map(),
+    }),
+    deleteSubsystemDataLinks: jest.fn(),
     replaceSubsystemDataLinkSegments: jest.fn(),
+    replaceUnresolvedSubsystemDataLinkSegments: jest.fn(),
     ...overrides,
   } as unknown as DataLinkRepository;
 }
@@ -83,7 +97,13 @@ function makeControlLinkRepository(
   return {
     getLinksByPortSystemIds: jest.fn().mockResolvedValue([]),
     findAllWithSegments: jest.fn().mockResolvedValue([]),
+    findSubsystemControlRouteContext: jest.fn().mockResolvedValue({
+      subsystemControlLinks: [],
+      nodeTypeBySystemId: new Map(),
+    }),
+    deleteSubsystemControlLinks: jest.fn(),
     replaceSubsystemControlLinkSegments: jest.fn(),
+    replaceUnresolvedSubsystemControlLinkSegments: jest.fn(),
     ...overrides,
   } as unknown as ControlLinkRepository;
 }
@@ -94,6 +114,7 @@ function makeUow(
     dataLinkRepository?: DataLinkRepository;
     controlLinkRepository?: ControlLinkRepository;
     moduleRepository?: Record<string, unknown>;
+    subgraphRepository?: Record<string, unknown>;
   } = {},
 ): UnitOfWork {
   return {
@@ -119,11 +140,36 @@ function makeUow(
         options.controlLinkRepository ?? makeControlLinkRepository(),
       ),
     getModuleRepository: jest.fn().mockReturnValue({
-      findModulesBySubgraphId: jest.fn().mockResolvedValue([]),
+      findModulesBySubgraphIds: jest.fn().mockResolvedValue([]),
       updateParentId: jest.fn(),
       ...options.moduleRepository,
     }),
+    getSubgraphRepository: jest.fn().mockReturnValue({
+      findSubgraphFileSystemId: jest.fn().mockResolvedValue(null),
+      subgraphExists: jest.fn().mockResolvedValue(true),
+      ...options.subgraphRepository,
+    }),
   } as unknown as UnitOfWork;
+}
+
+function makeDataLink(
+  systemId: number,
+  sourceNodeSystemId: number,
+  destinationNodeSystemId: number,
+  subsystemDataLinks: SubsystemDataLink[] = [],
+): DataLink {
+  return new DataLink({
+    systemId,
+    sourceNodeSystemId,
+    destinationNodeSystemId,
+    sourcePortSystemId: systemId + 1000,
+    destinationPortSystemId: systemId + 2000,
+    linkType: LINK_TYPE.IntraUsecase,
+    sourceSubgraphSystemId: 1,
+    destSubgraphSystemId: 2,
+    fileSystemId: FILE_ID,
+    subsystemDataLinks,
+  });
 }
 
 function makeIdGeneration(): IdGenerationPort {
@@ -394,5 +440,505 @@ describe('MoveSubsystemComponentsHandler', () => {
     expect(result.removedDataLinks).toEqual([]);
     expect(result.addedControlLinks).toEqual([]);
     expect(result.subsystemPortChanges).toEqual([]);
+  });
+
+  it('rebuilds a module-to-module path when the source module is moved', async () => {
+    const targetSubsystem = makeSubsystem({systemId: 200});
+    const dataLink = makeDataLink(700, 1, 2);
+    const repository = makeSubsystemRepository({
+      findSubsystems: jest.fn().mockResolvedValue([
+        {
+          systemId: 200,
+          naturalId: 2,
+          name: 'Target',
+          parentId: undefined,
+          subgraphSystemIds: [],
+        },
+      ]),
+      findNodeTopology: jest.fn().mockResolvedValue([
+        {systemId: 1, parentId: null, type: 'module'},
+        {systemId: 2, parentId: null, type: 'module'},
+        {systemId: 200, parentId: null, type: 'subsystem'},
+      ]),
+      findSubsystemForPatch: jest.fn().mockResolvedValue(targetSubsystem),
+    });
+    const dataLinks = makeDataLinkRepository({
+      findAllWithSegments: jest.fn().mockResolvedValue([dataLink]),
+    });
+    const modules = {
+      findModulesBySubgraphIds: jest.fn().mockResolvedValue([{systemId: 1}]),
+      updateParentId: jest.fn(),
+    };
+    const uow = makeUow({
+      subsystemRepository: repository,
+      dataLinkRepository: dataLinks,
+      moduleRepository: modules,
+    });
+
+    const result = await new MoveSubsystemComponentsHandler(
+      uow,
+      makeIdGeneration(),
+    ).handle(new MoveSubsystemComponentsCommand(FILE_ID, [11], [], 200));
+
+    expect(modules.updateParentId).toHaveBeenCalledWith(1, 200);
+    expect(dataLinks.replaceSubsystemDataLinkSegments).toHaveBeenCalledWith(
+      dataLink.systemId,
+      expect.arrayContaining([
+        expect.objectContaining({
+          sourceNodeSystemId: 1,
+          destinationNodeSystemId: 200,
+        }),
+        expect.objectContaining({
+          sourceNodeSystemId: 200,
+          destinationNodeSystemId: 2,
+        }),
+      ]),
+    );
+    expect(result.addedDataLinks).toEqual([dataLink]);
+  });
+
+  it('does not rebuild paths when moved modules have no links', async () => {
+    const repository = makeSubsystemRepository({
+      findSubsystems: jest.fn().mockResolvedValue([
+        {
+          systemId: 200,
+          naturalId: 2,
+          name: 'Target',
+          parentId: undefined,
+          subgraphSystemIds: [],
+        },
+      ]),
+      findNodeTopology: jest.fn().mockResolvedValue([
+        {systemId: 1, parentId: null, type: 'module'},
+        {systemId: 2, parentId: null, type: 'module'},
+        {systemId: 200, parentId: null, type: 'subsystem'},
+      ]),
+      findSubsystemForPatch: jest
+        .fn()
+        .mockResolvedValue(makeSubsystem({systemId: 200})),
+    });
+    const dataLinks = makeDataLinkRepository();
+    const modules = {
+      findModulesBySubgraphIds: jest.fn().mockResolvedValue([{systemId: 1}]),
+      updateParentId: jest.fn(),
+    };
+    const uow = makeUow({
+      subsystemRepository: repository,
+      dataLinkRepository: dataLinks,
+      moduleRepository: modules,
+    });
+
+    const result = await new MoveSubsystemComponentsHandler(
+      uow,
+      makeIdGeneration(),
+    ).handle(new MoveSubsystemComponentsCommand(FILE_ID, [11], [], 200));
+
+    expect(modules.updateParentId).toHaveBeenCalledWith(1, 200);
+    expect(dataLinks.replaceSubsystemDataLinkSegments).not.toHaveBeenCalled();
+    expect(result.addedDataLinks).toEqual([]);
+    expect(result.subsystemPortChanges).toEqual([]);
+  });
+
+  it('only rebuilds the connection crossing a moved nested subsystem', async () => {
+    const subsystems = [
+      {
+        systemId: 101,
+        naturalId: 1,
+        name: 'SS1',
+        parentId: 102,
+        subgraphSystemIds: [],
+      },
+      {
+        systemId: 102,
+        naturalId: 2,
+        name: 'SS2',
+        parentId: undefined,
+        subgraphSystemIds: [],
+      },
+      {
+        systemId: 103,
+        naturalId: 3,
+        name: 'SS3',
+        parentId: 104,
+        subgraphSystemIds: [],
+      },
+      {
+        systemId: 104,
+        naturalId: 4,
+        name: 'SS4',
+        parentId: undefined,
+        subgraphSystemIds: [],
+      },
+      {
+        systemId: 105,
+        naturalId: 5,
+        name: 'SS5',
+        parentId: undefined,
+        subgraphSystemIds: [],
+      },
+    ];
+    const movedConnection = makeDataLink(801, 201, 204, [
+      new SubsystemDataLink({
+        systemId: 901,
+        sourceNodeSystemId: 201,
+        destinationNodeSystemId: 101,
+        sourcePortSystemId: 1801,
+        destinationPortSystemId: 1901,
+        dataLinkSystemId: 801,
+        fileSystemId: FILE_ID,
+      }),
+      new SubsystemDataLink({
+        systemId: 902,
+        sourceNodeSystemId: 101,
+        destinationNodeSystemId: 102,
+        sourcePortSystemId: 1901,
+        destinationPortSystemId: 1902,
+        dataLinkSystemId: 801,
+        fileSystemId: FILE_ID,
+      }),
+      new SubsystemDataLink({
+        systemId: 903,
+        sourceNodeSystemId: 102,
+        destinationNodeSystemId: 104,
+        sourcePortSystemId: 1902,
+        destinationPortSystemId: 1904,
+        dataLinkSystemId: 801,
+        fileSystemId: FILE_ID,
+      }),
+      new SubsystemDataLink({
+        systemId: 904,
+        sourceNodeSystemId: 104,
+        destinationNodeSystemId: 204,
+        sourcePortSystemId: 1904,
+        destinationPortSystemId: 2804,
+        dataLinkSystemId: 801,
+        fileSystemId: FILE_ID,
+      }),
+    ]);
+    const repository = makeSubsystemRepository({
+      findSubsystems: jest.fn().mockResolvedValue(subsystems),
+      findNodeTopology: jest.fn().mockResolvedValue([
+        {systemId: 101, parentId: 102, type: 'subsystem'},
+        {systemId: 102, parentId: null, type: 'subsystem'},
+        {systemId: 103, parentId: 104, type: 'subsystem'},
+        {systemId: 104, parentId: null, type: 'subsystem'},
+        {systemId: 105, parentId: null, type: 'subsystem'},
+        {systemId: 201, parentId: 101, type: 'module'},
+        {systemId: 204, parentId: 104, type: 'module'},
+      ]),
+      findSubsystemForPatch: jest
+        .fn()
+        .mockImplementation(async (systemId: number) => {
+          const subsystem = makeSubsystem({systemId});
+          if (systemId === 101) {
+            subsystem.dataPorts.push(
+              new DataPort({
+                systemId: 3,
+                naturalId: 1,
+                portIoType: PORT_IO_TYPE.OutputInput,
+                isStatic: false,
+                name: 'SS1 data',
+              }),
+            );
+          }
+          if (systemId === 102) {
+            subsystem.dataPorts.push(
+              new DataPort({
+                systemId: 5,
+                naturalId: 1,
+                portIoType: PORT_IO_TYPE.OutputInput,
+                isStatic: false,
+                name: 'SS2 data',
+              }),
+            );
+          }
+          return subsystem;
+        }),
+    });
+    const dataLinks = makeDataLinkRepository({
+      findAllWithSegments: jest.fn().mockResolvedValue([movedConnection]),
+    });
+    const uow = makeUow({
+      subsystemRepository: repository,
+      dataLinkRepository: dataLinks,
+    });
+
+    const result = await new MoveSubsystemComponentsHandler(
+      uow,
+      makeIdGeneration(),
+    ).handle(new MoveSubsystemComponentsCommand(FILE_ID, [], [101], 105));
+
+    expect(repository.updateParentId).toHaveBeenCalledWith(101, 105);
+    expect(dataLinks.replaceSubsystemDataLinkSegments).toHaveBeenCalledTimes(1);
+    expect(dataLinks.replaceSubsystemDataLinkSegments).toHaveBeenCalledWith(
+      movedConnection.systemId,
+      expect.arrayContaining([
+        expect.objectContaining({
+          sourceNodeSystemId: 201,
+          destinationNodeSystemId: 101,
+        }),
+        expect.objectContaining({
+          sourceNodeSystemId: 101,
+          destinationNodeSystemId: 105,
+        }),
+        expect.objectContaining({
+          sourceNodeSystemId: 105,
+          destinationNodeSystemId: 104,
+        }),
+        expect.objectContaining({
+          sourceNodeSystemId: 104,
+          destinationNodeSystemId: 204,
+        }),
+      ]),
+    );
+    expect(result.addedDataLinks).toEqual([movedConnection]);
+  });
+
+  it('moves an unresolved chain ending at a subsystem when its source subsystem moves', async () => {
+    const subsystems = [
+      {
+        systemId: 101,
+        naturalId: 1,
+        name: 'SS1',
+        parentId: 102,
+        subgraphSystemIds: [],
+      },
+      {
+        systemId: 102,
+        naturalId: 2,
+        name: 'SS2',
+        parentId: undefined,
+        subgraphSystemIds: [],
+      },
+      {
+        systemId: 104,
+        naturalId: 4,
+        name: 'SS4',
+        parentId: undefined,
+        subgraphSystemIds: [],
+      },
+      {
+        systemId: 105,
+        naturalId: 5,
+        name: 'SS5',
+        parentId: undefined,
+        subgraphSystemIds: [],
+      },
+    ];
+    const unresolvedSegments = [
+      new SubsystemDataLink({
+        systemId: 901,
+        sourceNodeSystemId: 201,
+        destinationNodeSystemId: 101,
+        sourcePortSystemId: 1,
+        destinationPortSystemId: 2,
+        dataLinkSystemId: null,
+        fileSystemId: FILE_ID,
+      }),
+      new SubsystemDataLink({
+        systemId: 902,
+        sourceNodeSystemId: 101,
+        destinationNodeSystemId: 102,
+        sourcePortSystemId: 3,
+        destinationPortSystemId: 4,
+        dataLinkSystemId: null,
+        fileSystemId: FILE_ID,
+      }),
+      new SubsystemDataLink({
+        systemId: 903,
+        sourceNodeSystemId: 102,
+        destinationNodeSystemId: 104,
+        sourcePortSystemId: 5,
+        destinationPortSystemId: 6,
+        dataLinkSystemId: null,
+        fileSystemId: FILE_ID,
+      }),
+    ];
+    const repository = makeSubsystemRepository({
+      findSubsystems: jest.fn().mockResolvedValue(subsystems),
+      findNodeTopology: jest.fn().mockResolvedValue([
+        {systemId: 201, parentId: 101, type: 'module'},
+        {systemId: 101, parentId: 102, type: 'subsystem'},
+        {systemId: 102, parentId: null, type: 'subsystem'},
+        {systemId: 104, parentId: null, type: 'subsystem'},
+        {systemId: 105, parentId: null, type: 'subsystem'},
+      ]),
+      findSubsystemForPatch: jest
+        .fn()
+        .mockImplementation(async (systemId: number) => {
+          const subsystem = makeSubsystem({systemId});
+          if (systemId === 101) {
+            subsystem.dataPorts.push(
+              new DataPort({
+                systemId: 3,
+                naturalId: 1,
+                portIoType: PORT_IO_TYPE.OutputInput,
+                isStatic: false,
+                name: 'SS1 data',
+              }),
+            );
+          }
+          if (systemId === 102) {
+            subsystem.dataPorts.push(
+              new DataPort({
+                systemId: 5,
+                naturalId: 1,
+                portIoType: PORT_IO_TYPE.OutputInput,
+                isStatic: false,
+                name: 'SS2 data',
+              }),
+            );
+          }
+          return subsystem;
+        }),
+    });
+    const dataLinks = makeDataLinkRepository({
+      findSubsystemDataRouteContext: jest.fn().mockResolvedValue({
+        subsystemDataLinks: unresolvedSegments,
+        nodeTypeBySystemId: new Map([
+          [201, 'module'],
+          [101, 'subsystem'],
+          [102, 'subsystem'],
+          [104, 'subsystem'],
+          [105, 'subsystem'],
+        ]),
+      }),
+    });
+    const uow = makeUow({
+      subsystemRepository: repository,
+      dataLinkRepository: dataLinks,
+    });
+
+    const result = await new MoveSubsystemComponentsHandler(
+      uow,
+      makeIdGeneration(),
+    ).handle(new MoveSubsystemComponentsCommand(FILE_ID, [], [101], 105));
+
+    expect(repository.updateParentId).toHaveBeenCalledWith(101, 105);
+    expect(
+      dataLinks.replaceUnresolvedSubsystemDataLinkSegments,
+    ).toHaveBeenCalledWith(
+      [901, 902, 903],
+      expect.arrayContaining([
+        expect.objectContaining({
+          sourceNodeSystemId: 201,
+          destinationNodeSystemId: 101,
+        }),
+        expect.objectContaining({
+          sourceNodeSystemId: 101,
+          destinationNodeSystemId: 105,
+        }),
+        expect.objectContaining({
+          sourceNodeSystemId: 105,
+          destinationNodeSystemId: 104,
+        }),
+      ]),
+      FILE_ID,
+    );
+    expect(dataLinks.deleteSubsystemDataLinks).not.toHaveBeenCalled();
+    expect(dataLinks.replaceSubsystemDataLinkSegments).not.toHaveBeenCalled();
+    expect(result.addedDataLinks).toEqual([]);
+  });
+
+  it('partially moves valid subsystems and reports root-to-root no-ops', async () => {
+    const repository = makeSubsystemRepository({
+      findSubsystems: jest.fn().mockResolvedValue([
+        {
+          systemId: 100,
+          naturalId: 1,
+          name: 'AlreadyRoot',
+          parentId: undefined,
+          subgraphSystemIds: [],
+        },
+        {
+          systemId: 101,
+          naturalId: 2,
+          name: 'Nested',
+          parentId: 200,
+          subgraphSystemIds: [],
+        },
+        {
+          systemId: 200,
+          naturalId: 3,
+          name: 'Parent',
+          parentId: undefined,
+          subgraphSystemIds: [],
+        },
+      ]),
+      findNodeTopology: jest.fn().mockResolvedValue([
+        {systemId: 100, parentId: null, type: 'subsystem'},
+        {systemId: 101, parentId: 200, type: 'subsystem'},
+        {systemId: 200, parentId: null, type: 'subsystem'},
+      ]),
+      findSubsystemForPatch: jest
+        .fn()
+        .mockImplementation(async (systemId: number) =>
+          makeSubsystem({systemId}),
+        ),
+    });
+    const uow = makeUow({subsystemRepository: repository});
+
+    const result = await new MoveSubsystemComponentsHandler(
+      uow,
+      makeIdGeneration(),
+    ).handle(new MoveSubsystemComponentsCommand(FILE_ID, [], [100, 101], null));
+
+    expect(repository.updateParentId).toHaveBeenCalledWith(101, null);
+    expect(repository.updateParentId).not.toHaveBeenCalledWith(100, null);
+    expect(result.updatedSubsystems).toEqual([
+      {systemId: 101, parentSystemId: null},
+    ]);
+    expect(result.issues).toHaveLength(1);
+    expect(result.issues?.[0]?.code).toBe('ARC-SS-DUPLICATE-ROOT-MOVE');
+    expect(uow.commit).toHaveBeenCalled();
+  });
+
+  it('rejects an all-invalid root-to-root move', async () => {
+    const repository = makeSubsystemRepository({
+      findSubsystems: jest.fn().mockResolvedValue([
+        {
+          systemId: 100,
+          naturalId: 1,
+          name: 'AlreadyRoot',
+          parentId: undefined,
+          subgraphSystemIds: [],
+        },
+      ]),
+      findNodeTopology: jest
+        .fn()
+        .mockResolvedValue([
+          {systemId: 100, parentId: null, type: 'subsystem'},
+        ]),
+    });
+    const uow = makeUow({subsystemRepository: repository});
+
+    await expect(
+      new MoveSubsystemComponentsHandler(uow, makeIdGeneration()).handle(
+        new MoveSubsystemComponentsCommand(FILE_ID, [], [100], null),
+      ),
+    ).rejects.toMatchObject({
+      issues: expect.arrayContaining([
+        expect.objectContaining({code: 'ARC-SS-DUPLICATE-ROOT-MOVE'}),
+      ]),
+    });
+    expect(uow.rollback).toHaveBeenCalled();
+    expect(uow.commit).not.toHaveBeenCalled();
+  });
+
+  it('reports a component from another file as a domain violation', async () => {
+    const repository = makeSubsystemRepository({
+      findSubsystemFileSystemId: jest.fn().mockResolvedValue(99),
+    });
+    const uow = makeUow({subsystemRepository: repository});
+
+    await expect(
+      new MoveSubsystemComponentsHandler(uow, makeIdGeneration()).handle(
+        new MoveSubsystemComponentsCommand(FILE_ID, [], [777], null),
+      ),
+    ).rejects.toMatchObject({
+      issues: expect.arrayContaining([
+        expect.objectContaining({code: 'ENTITY_WRONG_FILE'}),
+      ]),
+    });
   });
 });
