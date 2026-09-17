@@ -6,7 +6,7 @@
 import {jest} from '@jest/globals';
 import {DataLinkBuilder} from '../../../../../../../src/application/file-operations/upload-file/services/entity-builders/data-link-builder.js';
 import {DataLink} from '../../../../../../../src/domain/entities/usecase-data/links/data-link.js';
-import {LINK_TYPE} from '../../../../../../../src/domain/entities/usecase-data/links/link-type.js';
+import {DATA_LINK_TYPE} from '../../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
 import type {DataLink as DataLinkProperty} from '../../../../../../../src/application/file-operations/shared/acdb-chunks/spf-properties/types.js';
 import type {Logger} from '../../../../../../../src/shared/types/logger.interface.js';
 import type {IdGenerationPort} from '../../../../../../../src/application/ports/id-generation/id-generation.port.js';
@@ -100,11 +100,11 @@ describe('DataLinkBuilder', () => {
         );
         expect(result[0].sourcePortSystemId).toBe(200);
         expect(result[0].destinationPortSystemId).toBe(300);
-        expect(result[0].linkType).toBe(LINK_TYPE.IntraUsecase);
+        expect(result[0].linkType).toBe(DATA_LINK_TYPE.Normal);
 
         // Verify second data link
         expect(result[1].systemId).toBeGreaterThan(0);
-        expect(result[1].linkType).toBe(LINK_TYPE.InterUsecase);
+        expect(result[1].linkType).toBe(DATA_LINK_TYPE.InterUsecase);
 
         // Verify ID generation was called
         expect(mockIdGenerator.getNextId).toHaveBeenCalledTimes(2);
@@ -603,13 +603,13 @@ describe('DataLinkBuilder', () => {
           TEST_FILE_SYSTEM_ID,
         );
 
-        expect(result[0].linkType).toBe(LINK_TYPE.InterUsecase);
+        expect(result[0].linkType).toBe(DATA_LINK_TYPE.InterUsecase);
       });
     });
   });
 
-  describe('DataLinkBuilder isEc from ui-metadata', () => {
-    it('should set isEc=true for IntraUsecase link matching ui-metadata isEcLink=true', async () => {
+  describe('DataLinkBuilder classification from ui-metadata', () => {
+    it('should set EC for a link matching ui-metadata isEcLink=true', async () => {
       const uiMetadata = {
         version: {major: 1, minor: 0},
         payloadMap: [],
@@ -642,10 +642,10 @@ describe('DataLinkBuilder', () => {
         uiMetadata as any,
       );
       expect(links).toHaveLength(1);
-      expect(links[0].isEc).toBe(true);
+      expect(links[0].linkType).toBe(DATA_LINK_TYPE.Ec);
     });
 
-    it('should set isEc=false when IntraUsecase link is not in ui-metadata', async () => {
+    it('should set NORMAL when a link is not in ui-metadata', async () => {
       const uiMetadata = {
         version: {major: 1, minor: 0},
         payloadMap: [],
@@ -670,7 +670,7 @@ describe('DataLinkBuilder', () => {
         uiMetadata as any,
       );
       expect(links).toHaveLength(1);
-      expect(links[0].isEc).toBe(false);
+      expect(links[0].linkType).toBe(DATA_LINK_TYPE.Normal);
     });
   });
 });

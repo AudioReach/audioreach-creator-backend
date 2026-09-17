@@ -4,7 +4,7 @@
  */
 
 import type {DataSource, QueryRunner} from 'typeorm';
-import {LINK_TYPE} from '@arc/core';
+import {CONTROL_LINK_TYPE} from '@arc/core';
 import {
   SESSION_MODE,
   SESSION_STATUS,
@@ -182,7 +182,7 @@ describe('TypeOrmControlLinkRepository — routing methods (integration)', () =>
     });
 
     it('returns INTRA_USECASE control links stored as (peerA, peerB)', async () => {
-      await seedControlLink(ds, 2001, LINK_TYPE.IntraUsecase, SG_1, SG_2);
+      await seedControlLink(ds, 2001, CONTROL_LINK_TYPE.Normal, SG_1, SG_2);
       const result = await makeRepo(qr.manager).findIntraUcLinksForGivenSgPair(
         FILE_ID,
         SG_1,
@@ -193,7 +193,7 @@ describe('TypeOrmControlLinkRepository — routing methods (integration)', () =>
 
     it('returns INTRA_USECASE control links stored as (peerB, peerA) — undirected match', async () => {
       // Stored direction depends on port-ID ordering; here we simulate it as (SG_2, SG_1).
-      await seedControlLink(ds, 2002, LINK_TYPE.IntraUsecase, SG_2, SG_1);
+      await seedControlLink(ds, 2002, CONTROL_LINK_TYPE.Normal, SG_2, SG_1);
       const result = await makeRepo(qr.manager).findIntraUcLinksForGivenSgPair(
         FILE_ID,
         SG_1,
@@ -203,8 +203,8 @@ describe('TypeOrmControlLinkRepository — routing methods (integration)', () =>
     });
 
     it('returns links from both stored directions between the two SGs', async () => {
-      await seedControlLink(ds, 2001, LINK_TYPE.IntraUsecase, SG_1, SG_2);
-      await seedControlLink(ds, 2002, LINK_TYPE.IntraUsecase, SG_2, SG_1);
+      await seedControlLink(ds, 2001, CONTROL_LINK_TYPE.Normal, SG_1, SG_2);
+      await seedControlLink(ds, 2002, CONTROL_LINK_TYPE.Normal, SG_2, SG_1);
       const result = await makeRepo(qr.manager).findIntraUcLinksForGivenSgPair(
         FILE_ID,
         SG_1,
@@ -214,7 +214,7 @@ describe('TypeOrmControlLinkRepository — routing methods (integration)', () =>
     });
 
     it('argument order (peerA, peerB) vs (peerB, peerA) yields the same result', async () => {
-      await seedControlLink(ds, 2001, LINK_TYPE.IntraUsecase, SG_1, SG_2);
+      await seedControlLink(ds, 2001, CONTROL_LINK_TYPE.Normal, SG_1, SG_2);
       const forward = await makeRepo(qr.manager).findIntraUcLinksForGivenSgPair(
         FILE_ID,
         SG_1,
@@ -231,8 +231,14 @@ describe('TypeOrmControlLinkRepository — routing methods (integration)', () =>
     });
 
     it('excludes INTRA_SUBGRAPH link type', async () => {
-      await seedControlLink(ds, 2001, LINK_TYPE.IntraSubgraph, SG_1, SG_2);
-      await seedControlLink(ds, 2002, LINK_TYPE.IntraUsecase, SG_1, SG_2);
+      await seedControlLink(
+        ds,
+        2001,
+        CONTROL_LINK_TYPE.InterUsecase,
+        SG_1,
+        SG_2,
+      );
+      await seedControlLink(ds, 2002, CONTROL_LINK_TYPE.Normal, SG_1, SG_2);
       const result = await makeRepo(qr.manager).findIntraUcLinksForGivenSgPair(
         FILE_ID,
         SG_1,
@@ -244,8 +250,8 @@ describe('TypeOrmControlLinkRepository — routing methods (integration)', () =>
 
   describe('findIntraUcLinksByFile', () => {
     it('returns all intra-usecase control links in the file', async () => {
-      await seedControlLink(ds, 2001, LINK_TYPE.IntraUsecase, SG_1, SG_2);
-      await seedControlLink(ds, 2002, LINK_TYPE.IntraUsecase, SG_2, SG_1);
+      await seedControlLink(ds, 2001, CONTROL_LINK_TYPE.Normal, SG_1, SG_2);
+      await seedControlLink(ds, 2002, CONTROL_LINK_TYPE.Normal, SG_2, SG_1);
       const sessionId = await seedSession(ds);
       const result = await makeRepo(
         qr.manager,
@@ -255,8 +261,14 @@ describe('TypeOrmControlLinkRepository — routing methods (integration)', () =>
     });
 
     it('excludes non-intra-usecase link types', async () => {
-      await seedControlLink(ds, 2001, LINK_TYPE.IntraUsecase, SG_1, SG_2);
-      await seedControlLink(ds, 2002, LINK_TYPE.IntraSubgraph, SG_1, SG_2);
+      await seedControlLink(ds, 2001, CONTROL_LINK_TYPE.Normal, SG_1, SG_2);
+      await seedControlLink(
+        ds,
+        2002,
+        CONTROL_LINK_TYPE.InterUsecase,
+        SG_1,
+        SG_2,
+      );
       const sessionId = await seedSession(ds);
       const result = await makeRepo(
         qr.manager,
@@ -277,7 +289,13 @@ describe('TypeOrmControlLinkRepository — routing methods (integration)', () =>
 
   describe('findChangedInSession', () => {
     it('returns ControlLinks that have any active edit_action (any source/status)', async () => {
-      await seedControlLink(ds, 2001, LINK_TYPE.IntraSubgraph, SG_1, SG_2);
+      await seedControlLink(
+        ds,
+        2001,
+        CONTROL_LINK_TYPE.InterUsecase,
+        SG_1,
+        SG_2,
+      );
       const sessionId = await seedSession(ds);
       await ds.query(
         `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)
@@ -292,7 +310,13 @@ describe('TypeOrmControlLinkRepository — routing methods (integration)', () =>
     });
 
     it('includes edits regardless of source', async () => {
-      await seedControlLink(ds, 2001, LINK_TYPE.IntraSubgraph, SG_1, SG_2);
+      await seedControlLink(
+        ds,
+        2001,
+        CONTROL_LINK_TYPE.InterUsecase,
+        SG_1,
+        SG_2,
+      );
       const sessionId = await seedSession(ds);
       await ds.query(
         `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)
@@ -307,7 +331,13 @@ describe('TypeOrmControlLinkRepository — routing methods (integration)', () =>
     });
 
     it('excludes superseded edit_actions', async () => {
-      await seedControlLink(ds, 2001, LINK_TYPE.IntraSubgraph, SG_1, SG_2);
+      await seedControlLink(
+        ds,
+        2001,
+        CONTROL_LINK_TYPE.InterUsecase,
+        SG_1,
+        SG_2,
+      );
       const sessionId = await seedSession(ds);
       await ds.query(
         `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)
@@ -320,7 +350,13 @@ describe('TypeOrmControlLinkRepository — routing methods (integration)', () =>
     });
 
     it('puts DELETE-operation targets in the deleted bucket', async () => {
-      await seedControlLink(ds, 2001, LINK_TYPE.IntraSubgraph, SG_1, SG_2);
+      await seedControlLink(
+        ds,
+        2001,
+        CONTROL_LINK_TYPE.InterUsecase,
+        SG_1,
+        SG_2,
+      );
       const sessionId = await seedSession(ds);
       await ds.query(
         `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)
@@ -335,7 +371,13 @@ describe('TypeOrmControlLinkRepository — routing methods (integration)', () =>
     });
 
     it('excludes UPDATE-operation edit_actions from both buckets', async () => {
-      await seedControlLink(ds, 2001, LINK_TYPE.IntraSubgraph, SG_1, SG_2);
+      await seedControlLink(
+        ds,
+        2001,
+        CONTROL_LINK_TYPE.InterUsecase,
+        SG_1,
+        SG_2,
+      );
       const sessionId = await seedSession(ds);
       await ds.query(
         `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)

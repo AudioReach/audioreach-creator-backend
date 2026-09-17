@@ -4,7 +4,8 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {IsBoolean, IsNotEmpty, IsOptional, IsString} from 'class-validator';
+import {IsEnum, IsNotEmpty, IsOptional, IsString} from 'class-validator';
+import {CONTROL_LINK_TYPE, type ControlLinkType} from '@arc/core';
 
 /**
  * DTO for creating a new control link
@@ -47,9 +48,9 @@ export class CreateControlLinkRequest {
   parentSystemId?: string;
 
   @ApiProperty({
-    description: 'Is inter-usecase',
-    default: false,
+    description: 'Topology classification of the link',
+    enum: CONTROL_LINK_TYPE,
   })
-  @IsBoolean()
-  isInterUsecase: boolean = false;
+  @IsEnum(CONTROL_LINK_TYPE)
+  linkType!: ControlLinkType;
 }

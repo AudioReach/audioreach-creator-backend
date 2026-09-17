@@ -20,6 +20,14 @@ import {ISSUE_CODE} from './operational-codes.js';
  * operational categories emerge. Design §2.6, FR-4.6.
  */
 export const IssueFactory = {
+  linkClassificationInvalid(code: string, message: string): Issue {
+    return {
+      code,
+      message,
+      severity: IssueSeverity.Error,
+    };
+  },
+
   notFound(
     entityType: IssueEntityType,
     systemId: number,

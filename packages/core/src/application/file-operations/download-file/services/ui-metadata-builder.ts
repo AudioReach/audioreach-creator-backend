@@ -238,7 +238,7 @@ export class UiMetadataBuilder {
   private buildDataLinks(uiDataLinks: UiDataLinkDownloadModel[]): UiDataLink[] {
     return uiDataLinks.map(dl => {
       const link = new UiDataLink();
-      link.isEcLink = Boolean(dl.isEc ?? false);
+      link.isEcLink = dl.linkType === 'EC';
       link.sourceId = dl.sourceInstanceNaturalId;
       link.sourcePortId = dl.sourcePortNaturalId;
       link.destinationId = dl.destinationInstanceNaturalId;

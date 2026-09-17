@@ -4,114 +4,103 @@
  */
 
 import {PORT_IO_TYPE} from '../../entities/common/enums/port-io-type.js';
+import type {PortIoType} from '../../entities/common/enums/port-io-type.js';
 
-// ---------------------------------------------------------------------------
-// Interfaces (exported — callers depend on these shapes)
-// ---------------------------------------------------------------------------
-
-export interface PathInput {
-  /** node.system_id for the source module */
+export interface SegmentDescriptor {
   sourceNodeSystemId: number;
-  /** node.system_id for the dest module */
   destinationNodeSystemId: number;
-  /** All nodes visible in the file: maps node.system_id → node.parentId (null = top level) */
+  sourceBoundaryPortType: PortIoType | null;
+  destBoundaryPortType: PortIoType | null;
+  position: number;
+}
+
+export interface DerivationInput {
+  sourceNodeSystemId: number;
+  destinationNodeSystemId: number;
   nodeParentMap: Map<number, number | null>;
 }
 
-export interface PathOutput {
-  /** Ordered node IDs: [sourceModule, ...subsystemNodes, destModule] */
-  nodeSequence: number[];
-  /**
-   * For each subsystem node in nodeSequence: the PortIoType it must have.
-   * EXIT nodes (signal leaves) → PORT_IO_TYPE.OutputInput
-   * ENTRY nodes (signal enters) → PORT_IO_TYPE.InputOutput
-   */
-  requiredPortType: Map<
-    number,
-    typeof PORT_IO_TYPE.OutputInput | typeof PORT_IO_TYPE.InputOutput
-  >;
-}
-
-// ---------------------------------------------------------------------------
-// Service (static methods only — pure function, no instantiation needed)
-// ---------------------------------------------------------------------------
-
 export const SubsystemBoundaryPathService = {
   /**
-   * Given two module nodes in different subsystem contexts, computes the
-   * ordered node sequence the signal must pass through and the PortIoType
-   * required at each subsystem boundary.
+   * Computes the ordered list of SLS segments for a data link crossing
+   * subsystem boundaries. Returns [] if source and dest share the same
+   * subsystem context (no boundary crossing needed).
    *
-   * Algorithm (spec section 5.1 / OQ-2):
-   * 1. Walk nodeParentMap upward from sourceNodeSystemId → exitChain
-   * 2. Walk nodeParentMap upward from destinationNodeSystemId   → entryChain
-   * 3. Find LCA — first entry shared by both chains (null = top level if none)
-   * 4. Trim both chains at LCA (exclusive)
-   * 5. Reverse entryChain (LCA-level down to dest's immediate parent)
-   * 6. Assemble nodeSequence
-   * 7. Assign requiredPortType per chain membership
+   * Each segment describes one hop in the chain: which nodes it connects and
+   * the PortIoType required at each end (null = module endpoint, not a
+   * boundary port).
    */
-  compute(input: PathInput): PathOutput {
-    const {sourceNodeSystemId, destinationNodeSystemId, nodeParentMap} = input;
+  compute(input: DerivationInput): SegmentDescriptor[] {
+    const {
+      sourceNodeSystemId: sourceNodeId,
+      destinationNodeSystemId: destNodeId,
+      nodeParentMap,
+    } = input;
 
-    // Step 1: build exitChain (ancestors of source, innermost first)
+    // Build exit chain: ancestors of source (innermost first)
     const exitChain: number[] = [];
-    let cursor: number | null = nodeParentMap.get(sourceNodeSystemId) ?? null;
+    let cursor: number | null = nodeParentMap.get(sourceNodeId) ?? null;
     while (cursor !== null) {
       exitChain.push(cursor);
       cursor = nodeParentMap.get(cursor) ?? null;
     }
 
-    // Step 2: build entryChain (ancestors of dest, innermost first)
+    // Build entry chain: ancestors of dest (innermost first)
     const entryChain: number[] = [];
-    cursor = nodeParentMap.get(destinationNodeSystemId) ?? null;
+    cursor = nodeParentMap.get(destNodeId) ?? null;
     while (cursor !== null) {
       entryChain.push(cursor);
       cursor = nodeParentMap.get(cursor) ?? null;
     }
 
-    // Step 3: find LCA — first node in exitChain that also appears in entryChain
-    // A null LCA means the two chains share no common ancestor (both reach top level
-    // without meeting), or one/both chains are empty (module already at top level).
-    const entryChainSet = new Set<number>(entryChain);
+    // Find LCA — first node in exitChain that also appears in entryChain
+    const entrySet = new Set(entryChain);
     let lca: number | null = null;
     for (const node of exitChain) {
-      if (entryChainSet.has(node)) {
+      if (entrySet.has(node)) {
         lca = node;
         break;
       }
     }
 
-    // Step 4: trim both chains at LCA (exclusive — LCA itself is not a boundary node)
+    // Trim both chains at LCA (exclusive — LCA itself is not a boundary node)
     const trimmedExit =
       lca === null ? exitChain : exitChain.slice(0, exitChain.indexOf(lca));
-
     const trimmedEntry =
       lca === null ? entryChain : entryChain.slice(0, entryChain.indexOf(lca));
-
     const reversedEntry = trimmedEntry.toReversed();
 
-    // Step 6: assemble nodeSequence
-    const nodeSequence: number[] = [
-      sourceNodeSystemId,
+    const nodeSequence = [
+      sourceNodeId,
       ...trimmedExit,
       ...reversedEntry,
-      destinationNodeSystemId,
+      destNodeId,
     ];
 
-    // Step 7: assign requiredPortType
-    const requiredPortType = new Map<
-      number,
-      typeof PORT_IO_TYPE.OutputInput | typeof PORT_IO_TYPE.InputOutput
-    >();
+    // No boundary crossing if source and dest are in the same context
+    if (nodeSequence.length <= 2) return [];
 
-    for (const node of trimmedExit) {
-      requiredPortType.set(node, PORT_IO_TYPE.OutputInput);
-    }
-    for (const node of reversedEntry) {
-      requiredPortType.set(node, PORT_IO_TYPE.InputOutput);
-    }
+    // Assign required port types: exit nodes → OutputInput, entry nodes → InputOutput
+    const requiredPortType = new Map<number, PortIoType>();
+    for (const n of trimmedExit)
+      requiredPortType.set(n, PORT_IO_TYPE.OutputInput);
+    for (const n of reversedEntry)
+      requiredPortType.set(n, PORT_IO_TYPE.InputOutput);
 
-    return {nodeSequence, requiredPortType};
+    const segments: SegmentDescriptor[] = [];
+    for (let i = 0; i < nodeSequence.length - 1; i++) {
+      segments.push({
+        sourceNodeSystemId: nodeSequence[i],
+        destinationNodeSystemId: nodeSequence[i + 1],
+        sourceBoundaryPortType:
+          i === 0 ? null : (requiredPortType.get(nodeSequence[i]) ?? null),
+        destBoundaryPortType:
+          i === nodeSequence.length - 2
+            ? null
+            : (requiredPortType.get(nodeSequence[i + 1]) ?? null),
+        position: i,
+      });
+    }
+    return segments;
   },
 } as const;

@@ -56,7 +56,6 @@ export class DataLinkInserter {
       linkType: item.linkType,
       sourceSubgraphSystemId: item.sourceSubgraphSystemId,
       destSubgraphSystemId: item.destSubgraphSystemId,
-      isEc: item.isEc ?? null,
       fileSystemId: item.fileSystemId,
     }));
 
@@ -99,6 +98,7 @@ export class DataLinkInserter {
           destinationPortSystemId: sls.destinationPortSystemId,
           dataLinkSystemId: sls.dataLinkSystemId!,
           fileSystemId: sls.fileSystemId,
+          linkType: sls.linkType,
         };
       }),
     );

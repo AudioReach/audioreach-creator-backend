@@ -12,8 +12,14 @@ import type {
   SessionChanged,
   EditOptions,
   SubsystemDataRouteContext,
+  BoundaryPortPayload,
 } from '@arc/core';
-import {DataLink, LINK_TYPE, SubsystemDataLink} from '@arc/core';
+import {
+  CHANGE_OPERATION,
+  DataLink,
+  DATA_LINK_TYPE,
+  SubsystemDataLink,
+} from '@arc/core';
 import type {DataLinkBase} from '../../entity-schema/usecase-data/Links/data-link.js';
 import type {EffectiveSubsystemDataLinkRow} from '../../fetchers/link-overlay-fetcher.js';
 import {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
@@ -33,6 +39,7 @@ function baseToSubsystemDataLink(
     destinationPortSystemId: r.destinationPortSystemId,
     dataLinkSystemId: r.dataLinkSystemId,
     fileSystemId: r.fileSystemId,
+    linkType: r.linkType,
   });
 }
 
@@ -49,7 +56,6 @@ function baseToDataLink(
     linkType: r.linkType,
     sourceSubgraphSystemId: r.sourceSubgraphSystemId,
     destSubgraphSystemId: r.destSubgraphSystemId,
-    isEc: r.isEc ?? undefined,
     fileSystemId: r.fileSystemId,
     subsystemDataLinks,
   });
@@ -61,6 +67,7 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
   private readonly writer: PendingChangeWriter;
   private readonly manager: EntityManager;
   private readonly uow: UnitOfWork;
+  private readonly editActionsQueryService: EditActionsQueryService;
 
   constructor(
     writer: PendingChangeWriter,
@@ -71,6 +78,7 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     this.manager = manager;
     this.uow = uow;
     const editActions = new EditActionsQueryService(this.manager);
+    this.editActionsQueryService = editActions;
     this.linkFetcher = new LinkOverlayFetcher(this.manager, editActions);
     this.nodeFetcher = new NodeOverlayFetcher(this.manager, editActions);
   }
@@ -349,7 +357,7 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
       fileSystemId,
       sessionId,
       {
-        linkType: LINK_TYPE.IntraUsecase,
+        linkType: DATA_LINK_TYPE.Normal,
         $or: pairs.map(p => ({
           sourceSubgraphSystemId: p.sourceSubgraphSystemId,
           destSubgraphSystemId: p.destSubgraphSystemId,
@@ -380,7 +388,7 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     const rows = await this.linkFetcher.loadDataLinkRows(
       fileSystemId,
       sessionId,
-      {linkType: LINK_TYPE.IntraUsecase},
+      {linkType: DATA_LINK_TYPE.Normal},
     );
     return rows.map(row => baseToDataLink(row));
   }
@@ -397,5 +405,287 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
       added: changed.added.map(row => baseToDataLink(row)),
       deleted: changed.deleted.map(row => baseToDataLink(row)),
     };
+  }
+
+  async createDataLink(
+    dataLink: DataLink,
+    boundaryPortPayloads: BoundaryPortPayload[],
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    const fileSystemId = dataLink.fileSystemId;
+    const writer = this.requireWriter();
+
+    // Boundary ports attach to subsystem nodes that already exist in the
+    // base `nodes` table (see buildTraversalEntities — nodeSystemId always
+    // comes from the pre-loaded nodeParentMap). Only the DataPort itself is
+    // new, so no Node CREATE row is written here.
+    await this.writeBoundaryPortCreates(
+      boundaryPortPayloads,
+      dataLink.systemId,
+      session.sessionId,
+      groupId,
+      writer,
+      options,
+    );
+
+    await writer.writeCreate(
+      {
+        targetTable: ENTITY_NAMES.DataLink,
+        targetSystemId: dataLink.systemId,
+        aggregateId: dataLink.systemId,
+        payload: {
+          sourceNodeSystemId: dataLink.sourceNodeSystemId,
+          destinationNodeSystemId: dataLink.destinationNodeSystemId,
+          sourcePortSystemId: dataLink.sourcePortSystemId,
+          destinationPortSystemId: dataLink.destinationPortSystemId,
+          linkType: dataLink.linkType,
+          sourceSubgraphSystemId: dataLink.sourceSubgraphSystemId,
+          destSubgraphSystemId: dataLink.destSubgraphSystemId,
+          fileSystemId,
+        },
+        ...options,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+
+    await this.writeSubsystemDataLinkCreates(
+      dataLink.subsystemDataLinks,
+      dataLink.systemId,
+      fileSystemId,
+      session.sessionId,
+      groupId,
+      writer,
+      options,
+    );
+  }
+
+  /**
+   * Writes CREATE edit_action rows for boundary DataPorts and SubsystemDataLink
+   * segments only — used on the soft-delete re-activation path (FR-DL-07a)
+   * where `reactivateDataLink()` has already written the DataLink CREATE row
+   * itself, so it must not be re-issued here.
+   */
+  async attachTraversalEntities(
+    dataLinkSystemId: number,
+    subsystemDataLinks: SubsystemDataLink[],
+    boundaryPortPayloads: BoundaryPortPayload[],
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    const writer = this.requireWriter();
+
+    await this.writeBoundaryPortCreates(
+      boundaryPortPayloads,
+      dataLinkSystemId,
+      session.sessionId,
+      groupId,
+      writer,
+      options,
+    );
+
+    await this.writeSubsystemDataLinkCreates(
+      subsystemDataLinks,
+      dataLinkSystemId,
+      fileSystemId,
+      session.sessionId,
+      groupId,
+      writer,
+      options,
+    );
+  }
+
+  private async writeBoundaryPortCreates(
+    boundaryPortPayloads: BoundaryPortPayload[],
+    aggregateId: number,
+    sessionId: number,
+    groupId: string,
+    writer: PendingChangeWriter,
+    options?: EditOptions,
+  ): Promise<void> {
+    for (const bp of boundaryPortPayloads) {
+      await writer.writeCreate(
+        {
+          targetTable: ENTITY_NAMES.DataPort,
+          targetSystemId: bp.portSystemId,
+          aggregateId,
+          payload: {
+            dataPortId: bp.dataPortId,
+            portIoType: bp.portIoType,
+            isStatic: false,
+            name: '',
+            nodeSystemId: bp.nodeSystemId,
+            fileSystemId: bp.fileSystemId,
+          },
+          ...options,
+        },
+        sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+  }
+
+  private async writeSubsystemDataLinkCreates(
+    subsystemDataLinks: SubsystemDataLink[],
+    aggregateId: number,
+    fileSystemId: number,
+    sessionId: number,
+    groupId: string,
+    writer: PendingChangeWriter,
+    options?: EditOptions,
+  ): Promise<void> {
+    for (const sls of subsystemDataLinks) {
+      await writer.writeCreate(
+        {
+          targetTable: ENTITY_NAMES.SubsystemDataLink,
+          targetSystemId: sls.systemId,
+          aggregateId,
+          payload: {
+            sourceNodeSystemId: sls.sourceNodeSystemId,
+            destinationNodeSystemId: sls.destinationNodeSystemId,
+            sourcePortSystemId: sls.sourcePortSystemId,
+            destinationPortSystemId: sls.destinationPortSystemId,
+            dataLinkSystemId: sls.dataLinkSystemId,
+            fileSystemId,
+            linkType: sls.linkType,
+          },
+          ...options,
+        },
+        sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+  }
+
+  async findByPortPair(
+    sourcePortSystemId: number,
+    destPortSystemId: number,
+    fileSystemId: number,
+  ): Promise<{
+    systemId: number;
+    isDeleted: boolean;
+    payload: Record<string, unknown>;
+  } | null> {
+    const {session} = this.uow.getWriteContext();
+    const sessionId = session.sessionId;
+
+    const baseRow = await this.manager
+      .createQueryBuilder()
+      .select('dl.systemId')
+      .from(ENTITY_NAMES.DataLink, 'dl')
+      .where(
+        'dl.sourcePortSystemId = :srcPort AND dl.destinationPortSystemId = :dstPort AND dl.fileSystemId = :fileSystemId',
+        {srcPort: sourcePortSystemId, dstPort: destPortSystemId, fileSystemId},
+      )
+      .getRawOne<{dl_system_id: number}>();
+
+    if (baseRow) {
+      const systemId = Number(baseRow.dl_system_id);
+      const actions = await this.editActionsQueryService.getByTable(
+        sessionId,
+        ENTITY_NAMES.DataLink,
+      );
+      const isDeleted = actions.some(
+        a =>
+          a.targetSystemId === systemId &&
+          a.operation === CHANGE_OPERATION.Delete,
+      );
+      return {
+        systemId,
+        isDeleted,
+        payload: {
+          sourcePortSystemId,
+          destinationPortSystemId: destPortSystemId,
+          fileSystemId,
+        },
+      };
+    }
+
+    const actions = await this.editActionsQueryService.getByTable(
+      sessionId,
+      ENTITY_NAMES.DataLink,
+    );
+    for (const action of actions) {
+      if (action.operation !== CHANGE_OPERATION.Create) continue;
+      const p = action.newValue as Record<string, unknown>;
+      if (
+        Number(p['sourcePortSystemId']) === sourcePortSystemId &&
+        Number(p['destinationPortSystemId']) === destPortSystemId &&
+        Number(p['fileSystemId']) === fileSystemId
+      ) {
+        return {systemId: action.targetSystemId, isDeleted: false, payload: p};
+      }
+    }
+
+    return null;
+  }
+
+  async reactivateDataLink(
+    systemId: number,
+    aggregateId: number,
+    payload: Record<string, unknown>,
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    const writer = this.requireWriter();
+    // eslint-disable-next-line custom/no-raw-persistence-queries -- conditional UPDATE with IS NULL on valid_until cannot be expressed with TypeORM QueryBuilder
+    await this.manager.query(
+      `UPDATE edit_actions SET valid_until = $1 WHERE session_id = $2 AND target_system_id = $3 AND field_path IS NULL AND valid_until IS NULL`,
+      [new Date().toISOString(), session.sessionId, systemId],
+    );
+    await writer.writeCreate(
+      {
+        targetTable: ENTITY_NAMES.DataLink,
+        targetSystemId: systemId,
+        aggregateId,
+        payload,
+        ...options,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+  }
+
+  async createSubsystemDataLink(
+    sls: SubsystemDataLink,
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    const writer = this.requireWriter();
+    await writer.writeCreate(
+      {
+        targetTable: ENTITY_NAMES.SubsystemDataLink,
+        targetSystemId: sls.systemId,
+        aggregateId: sls.systemId,
+        payload: {
+          sourceNodeSystemId: sls.sourceNodeSystemId,
+          destinationNodeSystemId: sls.destinationNodeSystemId,
+          sourcePortSystemId: sls.sourcePortSystemId,
+          destinationPortSystemId: sls.destinationPortSystemId,
+          dataLinkSystemId: null,
+          fileSystemId: sls.fileSystemId,
+          linkType: sls.linkType,
+        },
+        ...options,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+  }
+
+  private requireWriter(): NonNullable<typeof this.writer> {
+    if (!this.writer) {
+      throw new Error(
+        'PendingChangeWriter is required for write operations on DataLinkRepository',
+      );
+    }
+    return this.writer;
   }
 }

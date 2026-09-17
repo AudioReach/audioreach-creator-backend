@@ -6,7 +6,7 @@
 import type {EntityManager} from 'typeorm';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
 import {CHANGE_OPERATION} from '@arc/core';
-import type {SessionChanged} from '@arc/core';
+import type {ControlLinkType, DataLinkType, SessionChanged} from '@arc/core';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
 import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
 import type {ControlLinkBase} from '../entity-schema/usecase-data/Links/control-link.js';
@@ -23,6 +23,7 @@ export type EffectiveSubsystemDataLinkRow = Omit<
   'dataLinkSystemId'
 > & {
   dataLinkSystemId: number | null;
+  linkType: DataLinkType;
 };
 
 export type EffectiveSubsystemControlLinkRow = Omit<
@@ -30,6 +31,7 @@ export type EffectiveSubsystemControlLinkRow = Omit<
   'controlLinkSystemId'
 > & {
   controlLinkSystemId: number | null;
+  linkType: ControlLinkType;
 };
 
 /**
@@ -47,7 +49,7 @@ export type EffectiveSubsystemControlLinkRow = Omit<
  *
  * @example
  * // EC links only
- * { isEc: true }
+ * { linkType: 'EC' }
  */
 export type DataLinkFilters = {
   /** Filter by specific link system IDs — useful after JOIN queries scope the ID set. */
@@ -59,7 +61,6 @@ export type DataLinkFilters = {
   linkType?: string | string[];
   sourceSubgraphSystemId?: number | number[];
   destSubgraphSystemId?: number | number[];
-  isEc?: boolean;
   $or?: DataLinkFilters[];
 };
 
@@ -205,7 +206,11 @@ export class LinkOverlayFetcher {
       .where('sdl.fileSystemId = :fileSystemId', {fileSystemId});
     const baseRows = (await qb.getMany()) as SubsystemDataLinkRow[];
     if (sessionId === null)
-      return this.filterSubsystemRows(baseRows, fileSystemId, filters);
+      return this.filterSubsystemRows(
+        await this.resolveDataLinkTypes(baseRows),
+        fileSystemId,
+        filters,
+      );
 
     const actions = await this.editActionsSvc.getByTable(
       sessionId,
@@ -219,7 +224,11 @@ export class LinkOverlayFetcher {
             })
             .map(r => r.effective)
         : baseRows;
-    return this.filterSubsystemRows(rows, fileSystemId, filters);
+    return this.filterSubsystemRows(
+      await this.resolveDataLinkTypes(rows),
+      fileSystemId,
+      filters,
+    );
   }
 
   /**
@@ -237,7 +246,11 @@ export class LinkOverlayFetcher {
       .where('scl.fileSystemId = :fileSystemId', {fileSystemId});
     const baseRows = (await qb.getMany()) as SubsystemControlLinkRow[];
     if (sessionId === null)
-      return this.filterSubsystemRows(baseRows, fileSystemId, filters);
+      return this.filterSubsystemRows(
+        await this.resolveControlLinkTypes(baseRows),
+        fileSystemId,
+        filters,
+      );
 
     const actions = await this.editActionsSvc.getByTable(
       sessionId,
@@ -251,7 +264,11 @@ export class LinkOverlayFetcher {
             })
             .map(r => r.effective)
         : baseRows;
-    return this.filterSubsystemRows(rows, fileSystemId, filters);
+    return this.filterSubsystemRows(
+      await this.resolveControlLinkTypes(rows),
+      fileSystemId,
+      filters,
+    );
   }
 
   /**
@@ -444,6 +461,54 @@ export class LinkOverlayFetcher {
       }
     }
     return {added, deleted};
+  }
+
+  private async resolveDataLinkTypes(
+    rows: SubsystemDataLinkRow[],
+  ): Promise<EffectiveSubsystemDataLinkRow[]> {
+    const ids = rows
+      .map(row => row.dataLinkSystemId)
+      .filter((id): id is number => id != null);
+    const canonical =
+      ids.length > 0
+        ? ((await this.manager
+            .getRepository(ENTITY_NAMES.DataLink)
+            .createQueryBuilder('dl')
+            .select(['dl.systemId', 'dl.linkType'])
+            .where('dl.systemId IN (:...ids)', {ids})
+            .getMany()) as DataLinkBase[])
+        : [];
+    const types = new Map(canonical.map(row => [row.systemId, row.linkType]));
+    return rows.map(row => ({
+      ...row,
+      linkType:
+        types.get(row.dataLinkSystemId ?? -1) ??
+        (row as unknown as {linkType: DataLinkType}).linkType,
+    }));
+  }
+
+  private async resolveControlLinkTypes(
+    rows: SubsystemControlLinkRow[],
+  ): Promise<EffectiveSubsystemControlLinkRow[]> {
+    const ids = rows
+      .map(row => row.controlLinkSystemId)
+      .filter((id): id is number => id != null);
+    const canonical =
+      ids.length > 0
+        ? ((await this.manager
+            .getRepository(ENTITY_NAMES.ControlLink)
+            .createQueryBuilder('cl')
+            .select(['cl.systemId', 'cl.linkType'])
+            .where('cl.systemId IN (:...ids)', {ids})
+            .getMany()) as ControlLinkBase[])
+        : [];
+    const types = new Map(canonical.map(row => [row.systemId, row.linkType]));
+    return rows.map(row => ({
+      ...row,
+      linkType:
+        types.get(row.controlLinkSystemId ?? -1) ??
+        (row as unknown as {linkType: ControlLinkType}).linkType,
+    }));
   }
 
   /** Deduplicates an array by systemId — preserves first occurrence. */

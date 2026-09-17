@@ -4,7 +4,7 @@
  */
 
 import type {DataSource, EntityManager} from 'typeorm';
-import {ControlLink, SubsystemControlLink, LINK_TYPE} from '@arc/core';
+import {ControlLink, SubsystemControlLink, CONTROL_LINK_TYPE} from '@arc/core';
 import {
   setupIntegrationTest,
   teardownIntegrationTest,
@@ -121,7 +121,7 @@ function buildControlLink(
     portASystemId,
     portBSystemId,
     0,
-    LINK_TYPE.IntraSubgraph,
+    CONTROL_LINK_TYPE.Normal,
     SUBGRAPH_ID,
     SUBGRAPH_ID,
     subsystemControlLinks,
@@ -144,6 +144,7 @@ function buildScl(
     nodeBPortSystemId,
     controlLinkSystemId,
     FILE_ID,
+    CONTROL_LINK_TYPE.Normal,
     1,
   );
 }
@@ -191,7 +192,7 @@ describe('ControlLinkInserter', () => {
     expect(rows[0].nodeB_port_system_id).toBe(PORT_B_ID);
     expect(rows[0].file_system_id).toBe(FILE_ID);
     expect(rows[0].heap_id).toBe(0);
-    expect(rows[0].link_type).toBe('INTRA_SUBGRAPH');
+    expect(rows[0].link_type).toBe('NORMAL');
   });
 
   it('inserts multiple control links', async () => {
@@ -230,7 +231,7 @@ describe('ControlLinkInserter', () => {
       PORT_A_ID,
       PORT_B_ID,
       0,
-      LINK_TYPE.IntraSubgraph,
+      CONTROL_LINK_TYPE.Normal,
       SUBGRAPH_ID,
       SUBGRAPH_ID,
     );
@@ -242,7 +243,7 @@ describe('ControlLinkInserter', () => {
       302,
       303,
       5,
-      LINK_TYPE.IntraUsecase,
+      CONTROL_LINK_TYPE.InterUsecase,
       SUBGRAPH_ID,
       SUBGRAPH_ID,
     );
@@ -259,7 +260,7 @@ describe('ControlLinkInserter', () => {
     expect(rows[0].heap_id).toBe(0);
     expect(rows[1].system_id).toBe(1002);
     expect(rows[1].heap_id).toBe(5);
-    expect(rows[1].link_type).toBe('INTRA_USECASE');
+    expect(rows[1].link_type).toBe('INTER_USECASE');
   });
 
   it('reports failure when node A port FK does not exist', async () => {
@@ -313,7 +314,7 @@ describe('ControlLinkInserter', () => {
       304,
       305,
       0,
-      LINK_TYPE.IntraSubgraph,
+      CONTROL_LINK_TYPE.Normal,
       SUBGRAPH_ID,
       SUBGRAPH_ID,
     );
