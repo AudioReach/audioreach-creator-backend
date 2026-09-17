@@ -62,7 +62,6 @@ export type {EditOptions} from './application/ports/persistence/edit-options.js'
 // Module write path — port interfaces (LLD2 PATCH + AddModule)
 export type {
   ModuleRepository,
-  ContainerModuleDefinitionInfo,
   PayloadEntry,
   PayloadUpdate,
 } from './application/ports/persistence/repositories/module/module.repository.js';
@@ -70,6 +69,7 @@ export type {ContainerRepository} from './application/ports/persistence/reposito
 export type {
   ModuleDefinitionRepository,
   ParameterDefinitionBase,
+  ModuleParameterDefinition,
 } from './application/ports/persistence/repositories/module/module-definition.repository.js';
 export type {
   DataLinkRepository,
@@ -416,6 +416,11 @@ export {DeleteVcpmCkvCommand} from './application/usecase-designer/subgraph/dele
 export {UpdateVcpmCalDataCommand} from './application/usecase-designer/subgraph/update-vcpm-cal-data/update-vcpm-cal-data.command.js';
 // Container write commands
 export {SetContainerPropertyCommand} from './application/usecase-designer/container/set-property/set-container-property.command.js';
+export {SetContainerHeapIdCommand} from './application/usecase-designer/container/set-heap-id/set-container-heap-id.command.js';
+export {
+  SetContainerHeapIdResultSchema,
+  type SetContainerHeapIdResult,
+} from './application/usecase-designer/container/set-heap-id/set-container-heap-id.result.js';
 export * from './application/usecase-designer/container/get-properties/get-container-properties.query.js';
 export * from './application/usecase-designer/container/get-properties/get-container-properties.handler.js';
 export * from './application/usecase-designer/container/get-property/get-container-property.query.js';

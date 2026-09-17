@@ -8,7 +8,6 @@ import {ContainerPropertyValue} from '../../../domain/entities/usecase-data/cont
 import type {PropertyDefinition} from '../../../domain/entities/definitions/common/entities/property-definition.js';
 import {CONTAINER_PROP_ID_STACK_SIZE} from '../../file-operations/shared/constants/spf-ids.js';
 import {encodeStackSize} from '../../../domain/services/container-property/container-stack-size-codec.js';
-import {serializeDefaultParameterData} from '../shared/serialize-elements.js';
 
 export interface ContainerInit {
   systemId: number;
@@ -27,6 +26,10 @@ export interface ContainerInit {
  * createContainer stages the container row and all ContainerPropertyData rows
  * atomically as one complete aggregate.
  *
+ * TODO(add-module-calibration-defaults): populate non-stack-size property blobs
+ * using serializeDefaultParameterData(propDef.elementsStructure) once that
+ * utility is implemented.
+ * See: docs/edit-crud/design/add-module-calibration-defaults-design.md §8
  */
 export function buildContainerWithDefaults(
   init: ContainerInit,
@@ -60,16 +63,11 @@ export function buildContainerWithDefaults(
   // Seed all other property definitions with their defaults.
   for (const propDef of propertyDefinitions) {
     if (propDef.naturalId === CONTAINER_PROP_ID_STACK_SIZE) continue;
-    const serialized = serializeDefaultParameterData({
-      systemId: propDef.systemId,
-      isReadOnly: false,
-      elementsStructure: propDef.elementsStructure,
-    });
     container.properties.set(
       propDef.systemId,
       new ContainerPropertyValue(
         propDef.systemId,
-        serialized.ok ? serialized.value : null,
+        null, // TODO: replace with serializeDefaultParameterData(propDef.elementsStructure)
       ),
     );
   }

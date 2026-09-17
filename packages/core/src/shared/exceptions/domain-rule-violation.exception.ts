@@ -4,6 +4,7 @@
  */
 
 import type {Issue} from '../issues/issue.js';
+import {IssueSeverity} from '../issues/severity.js';
 import {DomainException} from './domain-exception.js';
 
 /**
@@ -24,7 +25,28 @@ import {DomainException} from './domain-exception.js';
 export class DomainRuleViolationException extends DomainException {
   readonly errorCode = 'DOMAIN_RULE_VIOLATION';
 
-  constructor(public readonly issues: readonly Issue[]) {
-    super(issues[0]?.message ?? 'Domain rule violation');
+  constructor(issues: readonly Issue[]);
+  constructor(summaryMessage: string, detailMessages?: readonly string[]);
+
+  constructor(
+    issuesOrSummary: readonly Issue[] | string,
+    detailMessages: readonly string[] = [],
+  ) {
+    let issues: readonly Issue[];
+    let message: string;
+
+    if (typeof issuesOrSummary === 'string') {
+      message = issuesOrSummary;
+      issues = detailMessages.map(detailMessage => ({
+        code: 'DOMAIN_RULE_VIOLATION',
+        message: detailMessage,
+        severity: IssueSeverity.Error,
+      }));
+    } else {
+      issues = issuesOrSummary;
+      message = issues[0]?.message ?? 'Domain rule violation';
+    }
+
+    super(message, undefined, issues);
   }
 }
