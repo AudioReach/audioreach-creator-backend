@@ -39,6 +39,7 @@ export type SubsystemNodeTopology = {
 
 export interface SubsystemRepository {
   findSubsystems(fileSystemId: number): Promise<SubsystemSummary[]>;
+  findSubsystemFileSystemId(systemId: number): Promise<number | null>;
   findNodeTopology(fileSystemId: number): Promise<SubsystemNodeTopology[]>;
   findSubsystemForPatch(
     systemId: number,

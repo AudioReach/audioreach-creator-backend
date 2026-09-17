@@ -111,6 +111,13 @@ export interface DataLinkRepository {
     options?: EditOptions,
   ): Promise<void>;
 
+  replaceUnresolvedSubsystemDataLinkSegments(
+    subsystemLinkSystemIds: number[],
+    segments: SubsystemDataLink[],
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
+
   /**
    * Returns DataLinks added or deleted in the current session — a
    * `SessionChanged<DataLink>` split. No `source` filter is applied; MANUAL

@@ -12,6 +12,7 @@ import {
 } from '../../../../shared/exceptions/index.js';
 import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
+import type {Issue} from '../../../../shared/issues/issue.js';
 import type {MoveSubsystemComponentsCommand} from './move-subsystem-components.command.js';
 import {isDescendant} from '../subsystem-helpers.js';
 import {
@@ -24,6 +25,7 @@ export type MoveSubsystemComponentsResult = {
   groupId: string;
   updatedModules: Array<{systemId: number; parentSystemId: number | null}>;
   updatedSubsystems: Array<{systemId: number; parentSystemId: number | null}>;
+  issues?: readonly Issue[];
 } & MoveSubsystemImpact;
 
 export class MoveSubsystemComponentsHandler implements CommandHandler<
@@ -57,19 +59,69 @@ export class MoveSubsystemComponentsHandler implements CommandHandler<
       const topology = await this.uow
         .getSubsystemRepository()
         .findNodeTopology(command.fileSystemId);
+      const parentBefore = new Map(
+        topology.map(node => [node.systemId, node.parentId]),
+      );
+      const issues: Issue[] = [];
       const subsystemIds = new Set(subsystems.map(item => item.systemId));
+      const subsystemSystemIds: number[] = [];
       for (const systemId of command.subsystemSystemIds) {
         if (!subsystemIds.has(systemId)) {
+          const owningFileSystemId = await this.uow
+            .getSubsystemRepository()
+            .findSubsystemFileSystemId(systemId);
+          if (
+            owningFileSystemId !== null &&
+            owningFileSystemId !== command.fileSystemId
+          ) {
+            issues.push(
+              IssueFactory.componentInWrongFile(
+                ISSUE_ENTITY_TYPE.Subsystem,
+                systemId,
+                command.fileSystemId,
+              ),
+            );
+            continue;
+          }
           throw new ResourceNotFoundException(
             `Subsystem ${systemId} not found.`,
             [IssueFactory.notFound(ISSUE_ENTITY_TYPE.Subsystem, systemId)],
           );
         }
+        const subsystem = subsystems.find(item => item.systemId === systemId)!;
+        if (
+          command.targetSubsystemSystemId === null &&
+          (subsystem.parentId ?? null) === null
+        ) {
+          issues.push(
+            IssueFactory.duplicateRootMove(
+              ISSUE_ENTITY_TYPE.Subsystem,
+              systemId,
+            ),
+          );
+          continue;
+        }
+        subsystemSystemIds.push(systemId);
       }
       if (
         command.targetSubsystemSystemId !== null &&
         !subsystemIds.has(command.targetSubsystemSystemId)
       ) {
+        const owningFileSystemId = await this.uow
+          .getSubsystemRepository()
+          .findSubsystemFileSystemId(command.targetSubsystemSystemId);
+        if (
+          owningFileSystemId !== null &&
+          owningFileSystemId !== command.fileSystemId
+        ) {
+          throw new DomainRuleViolationException([
+            IssueFactory.componentInWrongFile(
+              ISSUE_ENTITY_TYPE.Subsystem,
+              command.targetSubsystemSystemId,
+              command.fileSystemId,
+            ),
+          ]);
+        }
         throw new ResourceNotFoundException(
           `Subsystem ${command.targetSubsystemSystemId} not found.`,
           [
@@ -82,7 +134,7 @@ export class MoveSubsystemComponentsHandler implements CommandHandler<
       }
 
       if (command.targetSubsystemSystemId !== null) {
-        for (const componentSystemId of command.subsystemSystemIds) {
+        for (const componentSystemId of subsystemSystemIds) {
           if (
             componentSystemId === command.targetSubsystemSystemId ||
             isDescendant(
@@ -100,7 +152,7 @@ export class MoveSubsystemComponentsHandler implements CommandHandler<
           }
         }
 
-        for (const componentSystemId of command.subsystemSystemIds) {
+        for (const componentSystemId of subsystemSystemIds) {
           const component = subsystems.find(
             item => item.systemId === componentSystemId,
           );
@@ -133,14 +185,29 @@ export class MoveSubsystemComponentsHandler implements CommandHandler<
         }
       }
 
-      const updatedModules: MoveSubsystemComponentsResult['updatedModules'] =
-        [];
+      const subgraphSystemIds: number[] = [];
+      const modulesBySubgraph = new Map<number, Array<{systemId: number}>>();
       for (const subgraphSystemId of command.subgraphSystemIds) {
-        if (
-          !(await this.uow
+        const exists = await this.uow
+          .getSubgraphRepository()
+          .subgraphExists(subgraphSystemId, command.fileSystemId);
+        if (!exists) {
+          const owningFileSystemId = await this.uow
             .getSubgraphRepository()
-            .subgraphExists(subgraphSystemId, command.fileSystemId))
-        ) {
+            .findSubgraphFileSystemId(subgraphSystemId);
+          if (
+            owningFileSystemId !== null &&
+            owningFileSystemId !== command.fileSystemId
+          ) {
+            issues.push(
+              IssueFactory.componentInWrongFile(
+                ISSUE_ENTITY_TYPE.Subgraph,
+                subgraphSystemId,
+                command.fileSystemId,
+              ),
+            );
+            continue;
+          }
           throw new ResourceNotFoundException(
             `Subgraph ${subgraphSystemId} not found.`,
             [
@@ -154,7 +221,31 @@ export class MoveSubsystemComponentsHandler implements CommandHandler<
         const modules = await this.uow
           .getModuleRepository()
           .findModulesBySubgraphIds([subgraphSystemId], command.fileSystemId);
+        modulesBySubgraph.set(subgraphSystemId, modules);
+        subgraphSystemIds.push(subgraphSystemId);
+      }
+
+      if (subsystemSystemIds.length === 0 && subgraphSystemIds.length === 0) {
+        throw new DomainRuleViolationException(issues);
+      }
+
+      const updatedModules: MoveSubsystemComponentsResult['updatedModules'] =
+        [];
+      for (const subgraphSystemId of subgraphSystemIds) {
+        const modules = modulesBySubgraph.get(subgraphSystemId) ?? [];
         for (const module of modules) {
+          if (
+            command.targetSubsystemSystemId === null &&
+            (parentBefore.get(module.systemId) ?? null) === null
+          ) {
+            issues.push(
+              IssueFactory.duplicateRootMove(
+                ISSUE_ENTITY_TYPE.SpfModule,
+                module.systemId,
+              ),
+            );
+            continue;
+          }
           await this.uow
             .getModuleRepository()
             .updateParentId(module.systemId, command.targetSubsystemSystemId);
@@ -167,7 +258,7 @@ export class MoveSubsystemComponentsHandler implements CommandHandler<
 
       const updatedSubsystems: MoveSubsystemComponentsResult['updatedSubsystems'] =
         [];
-      for (const subsystemSystemId of command.subsystemSystemIds) {
+      for (const subsystemSystemId of subsystemSystemIds) {
         await this.uow
           .getSubsystemRepository()
           .updateParentId(subsystemSystemId, command.targetSubsystemSystemId);
@@ -175,6 +266,14 @@ export class MoveSubsystemComponentsHandler implements CommandHandler<
           systemId: subsystemSystemId,
           parentSystemId: command.targetSubsystemSystemId,
         });
+      }
+
+      if (
+        updatedModules.length === 0 &&
+        updatedSubsystems.length === 0 &&
+        issues.length > 0
+      ) {
+        throw new DomainRuleViolationException(issues);
       }
 
       const impact = await rebuildMoveSubsystemImpact(
@@ -196,6 +295,7 @@ export class MoveSubsystemComponentsHandler implements CommandHandler<
         updatedModules,
         updatedSubsystems,
         ...impact,
+        ...(issues.length > 0 ? {issues} : {}),
       };
     } catch (error) {
       if (this.uow.isInTransaction()) await this.uow.rollback();

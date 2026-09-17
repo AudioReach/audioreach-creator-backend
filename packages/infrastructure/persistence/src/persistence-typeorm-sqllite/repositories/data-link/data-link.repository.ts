@@ -464,6 +464,56 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     }
   }
 
+  async replaceUnresolvedSubsystemDataLinkSegments(
+    subsystemLinkSystemIds: number[],
+    segments: SubsystemDataLink[],
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void> {
+    if (subsystemLinkSystemIds.length === 0) return;
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const current = await this.linkFetcher.loadSubsystemDataLinkRows(
+      fileSystemId,
+      sessionId,
+      {systemId: subsystemLinkSystemIds},
+    );
+    const {session, groupId} = this.uow.getWriteContext();
+    for (const segment of current) {
+      await this.writer.writeDelete(
+        {
+          targetTable: ENTITY_NAMES.SubsystemDataLink,
+          targetSystemId: segment.systemId,
+          aggregateId: segment.systemId,
+          ...options,
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+    for (const segment of segments) {
+      await this.writer.writeCreate(
+        {
+          targetTable: ENTITY_NAMES.SubsystemDataLink,
+          targetSystemId: segment.systemId,
+          aggregateId: segment.systemId,
+          payload: {
+            sourceNodeSystemId: segment.sourceNodeSystemId,
+            destinationNodeSystemId: segment.destinationNodeSystemId,
+            sourcePortSystemId: segment.sourcePortSystemId,
+            destinationPortSystemId: segment.destinationPortSystemId,
+            dataLinkSystemId: null,
+            fileSystemId: segment.fileSystemId,
+          },
+          ...options,
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+  }
+
   async findChangedInSession(
     fileSystemId: number,
   ): Promise<SessionChanged<DataLink>> {

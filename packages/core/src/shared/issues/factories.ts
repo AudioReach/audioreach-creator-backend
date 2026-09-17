@@ -186,6 +186,37 @@ export const IssueFactory = {
     };
   },
 
+  duplicateRootMove(
+    entityType: IssueEntityType,
+    componentSystemId: number,
+  ): Issue {
+    return {
+      code: ISSUE_CODE.SS_DUPLICATE_ROOT_MOVE,
+      message: `Component ${componentSystemId} is already at root and cannot be moved to root.`,
+      severity: IssueSeverity.Error,
+      impactedEntity: {
+        entityType,
+        systemId: componentSystemId,
+      },
+    };
+  },
+
+  componentInWrongFile(
+    entityType: IssueEntityType,
+    componentSystemId: number,
+    fileSystemId: number,
+  ): Issue {
+    return {
+      code: ISSUE_CODE.ENTITY_WRONG_FILE,
+      message: `Component ${componentSystemId} does not belong to file ${fileSystemId}.`,
+      severity: IssueSeverity.Error,
+      impactedEntity: {
+        entityType,
+        systemId: componentSystemId,
+      },
+    };
+  },
+
   portCountExceedsDefinition(
     portDirection: string,
     requested: number,
