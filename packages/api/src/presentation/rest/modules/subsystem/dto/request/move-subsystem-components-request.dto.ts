@@ -4,7 +4,7 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {IsArray, IsOptional, IsString} from 'class-validator';
+import {IsArray, IsOptional, IsString, ValidateIf} from 'class-validator';
 
 /**
  * Request DTO for moving subgraphs or subsystems to a target subsystem.
@@ -34,10 +34,11 @@ export class MoveSubsystemComponentsRequestDto {
   @ApiProperty({
     type: 'string',
     nullable: true,
+    required: true,
     description:
       'System ID of the target subsystem. null moves components to root.',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
   @IsString()
   targetSubsystemSystemId!: string | null;
 }

@@ -23,6 +23,7 @@ import {PortOverlayFetcher} from '../../fetchers/port-overlay-fetcher.js';
 import {SubsystemOverlayFetcher} from '../../fetchers/subsystem-overlay-fetcher.js';
 import {SpfModuleOverlayFetcher} from '../../fetchers/spf-module-overlay-fetcher.js';
 import {NodeOverlayFetcher} from '../../fetchers/node-overlay-fetcher.js';
+import type {NodeRow} from '../../entity-schema/usecase-data/node/node.schema.js';
 import {KeyValueDefinitionFetcher} from '../../fetchers/definitions/key-value/key-value-definition-fetcher.js';
 import {ValueDefinitionFetcher} from '../../fetchers/definitions/key-value/value-definition-fetcher.js';
 
@@ -93,6 +94,13 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
         ...(childrenBySubsystem.get(row.systemId) ?? new Set<number>()),
       ],
     }));
+  }
+
+  async findSubsystemFileSystemId(systemId: number): Promise<number | null> {
+    const row = await this.manager
+      .getRepository<NodeRow>(ENTITY_NAMES.Node)
+      .findOne({where: {systemId, type: 'subsystem'}});
+    return row?.fileSystemId ?? null;
   }
 
   async findNodeTopology(fileSystemId: number) {

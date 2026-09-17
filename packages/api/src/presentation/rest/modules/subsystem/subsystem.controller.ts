@@ -309,7 +309,10 @@ export class SubsystemController extends BaseController {
       ),
       session,
     );
-    return toApiResult(Result.ok(result), value => ({
+    const commandResult = result.issues?.length
+      ? Result.partial(result, result.issues)
+      : Result.ok(result);
+    return toApiResult(commandResult, value => ({
       updatedModules: value.updatedModules.map(component =>
         mapMovedComponent(component),
       ),
