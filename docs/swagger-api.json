@@ -2865,7 +2865,7 @@
     },
     "/arc-api/v1/projects/{projectId}/usecases": {
       "get": {
-        "description": "Returns array of usecases with raw GKV (Graph Key-Value) information.\n\n**Response Structure:**\nEach response item contains:\n- `usecases`: Array containing a single UsecaseIdentifierDto with complete raw GKV\n\n**For subsystem-filtered usecases:**\n- Use the `/usecases/filtered-by-subsystem` endpoint instead\n\n**Optional Filtering:**\nYou can optionally filter usecases using the `filter` query parameter. The filter supports:\n- `spfModuleInstanceId`: Filter by SPF module natural instance IDs\n- `subgraphNaturalId`: Filter by subgraph natural IDs\n- `containerNaturalId`: Filter by container natural IDs\n- Operators: Use `AND`, `OR`, and parentheses for complex filtering\n\nSee the filter parameter documentation for detailed examples and usage.",
+        "description": "Returns array of usecases with raw GKV (Graph Key-Value) information.\n\n**Response Structure:**\nEach response item contains:\n- `usecases`: Array containing a single UsecaseIdentifierDto with complete raw GKV\n\n**For subsystem-filtered usecases:**\n- Use the `/usecases/filtered-by-subsystem` endpoint instead\n\n**Optional Filtering:**\nYou can optionally filter usecases using the `filter` query parameter. The filter supports:\n- `spfModuleInstanceNaturalId`: Filter by SPF module natural instance IDs\n- `subgraphNaturalId`: Filter by subgraph natural IDs\n- `containerNaturalId`: Filter by container natural IDs\n- Operators: Use `AND`, `OR`, and parentheses for complex filtering\n\nSee the filter parameter documentation for detailed examples and usage.",
         "operationId": "UseCaseController_getAllUsecases",
         "parameters": [
           {
@@ -2882,9 +2882,9 @@
             "name": "filter",
             "required": false,
             "in": "query",
-            "description": "Filter expression to filter usecases. Supports natural query syntax with explicit operators.\n\n**Syntax:**\n- Single condition: `field:value`\n- AND operator: `field1:value1 AND field2:value2`\n- OR operator: `field1:value1 OR field1:value2`\n- Parentheses for grouping: `field1:value1 AND (field2:value2 OR field2:value3)`\n\n**Valid Fields:**\n- `spfModuleInstanceId`: SPF Module natural instance ID\n- `subgraphNaturalId`: Subgraph natural ID\n- `containerNaturalId`: Container natural ID\n\n**Value Formats:**\n- Hexadecimal: `0x7656`\n- Decimal: `30294`\n\n**Operators:**\n- `AND`: Both conditions must be true\n- `OR`: At least one condition must be true\n- Parentheses `()`: Group conditions for precedence control\n\n**Examples:**\n- Single condition: `spfModuleInstanceId:0x7656`\n- OR operator: `spfModuleInstanceId:0x7656 OR spfModuleInstanceId:0x7657`\n- AND operator: `spfModuleInstanceId:0x7656 AND subgraphNaturalId:0x8978`\n- Complex with parentheses: `spfModuleInstanceId:0x7656 AND (containerNaturalId:0x8976 OR containerNaturalId:0x9877)`\n- Multiple ANDs: `spfModuleInstanceId:0x7656 AND subgraphNaturalId:0x8978 AND containerNaturalId:0x8976`\n- Multiple ORs: `spfModuleInstanceId:0x7656 OR spfModuleInstanceId:0x7657 OR spfModuleInstanceId:0x7658`\n\n**Note:** Comma-separated values are NOT supported. Use explicit OR operator instead.",
+            "description": "Filter expression to filter usecases. Supports natural query syntax with explicit operators.\n\n**Syntax:**\n- Single condition: `field:value`\n- AND operator: `field1:value1 AND field2:value2`\n- OR operator: `field1:value1 OR field1:value2`\n- Parentheses for grouping: `field1:value1 AND (field2:value2 OR field2:value3)`\n\n**Valid Fields:**\n- `spfModuleInstanceNaturalId`: SPF Module natural instance ID\n- `subgraphNaturalId`: Subgraph natural ID\n- `containerNaturalId`: Container natural ID\n\n**Value Formats:**\n- Hexadecimal: `0x7656`\n- Decimal: `30294`\n\n**Operators:**\n- `AND`: Both conditions must be true\n- `OR`: At least one condition must be true\n- Parentheses `()`: Group conditions for precedence control\n\n**Examples:**\n- Single condition: `spfModuleInstanceNaturalId:0x7656`\n- OR operator: `spfModuleInstanceNaturalId:0x7656 OR spfModuleInstanceNaturalId:0x7657`\n- AND operator: `spfModuleInstanceNaturalId:0x7656 AND subgraphNaturalId:0x8978`\n- Complex with parentheses: `spfModuleInstanceNaturalId:0x7656 AND (containerNaturalId:0x8976 OR containerNaturalId:0x9877)`\n- Multiple ANDs: `spfModuleInstanceNaturalId:0x7656 AND subgraphNaturalId:0x8978 AND containerNaturalId:0x8976`\n- Multiple ORs: `spfModuleInstanceNaturalId:0x7656 OR spfModuleInstanceNaturalId:0x7657 OR spfModuleInstanceNaturalId:0x7658`\n\n**Note:** Comma-separated values are NOT supported. Use explicit OR operator instead.",
             "schema": {
-              "example": "spfModuleInstanceId:0x7656 AND subgraphNaturalId:0x8978",
+              "example": "spfModuleInstanceNaturalId:0x7656 AND subgraphNaturalId:0x8978",
               "type": "string"
             }
           }
@@ -3043,7 +3043,7 @@
             "name": "filter",
             "required": false,
             "in": "query",
-            "description": "Filter expression to filter usecases by subsystem ID. Supports natural query syntax with explicit operators.\n\n**Syntax:**\n- Single condition: `subsystemId:value`\n- AND operator: `subsystemId:value1 AND subsystemId:value2`\n- OR operator: `subsystemId:value1 OR subsystemId:value2`\n- Parentheses for grouping: `subsystemId:value1 AND (subsystemId:value2 OR subsystemId:value3)`\n\n**Valid Fields:**\n- `subsystemId`: Subsystem system ID (only field supported by this endpoint)\n\n**Value Formats:**\n- Hexadecimal: `0x1`\n- Decimal: `1`\n\n**Operators:**\n- `AND`: Both conditions must be true\n- `OR`: At least one condition must be true\n- Parentheses `()`: Group conditions for precedence control\n\n**Examples:**\n- Single subsystem: `subsystemId:0x1`\n- Multiple subsystems (OR): `subsystemId:0x1 OR subsystemId:0x2`\n- Multiple subsystems (AND): `subsystemId:0x1 AND subsystemId:0x2`\n- Complex with parentheses: `subsystemId:0x1 AND (subsystemId:0x2 OR subsystemId:0x3)`\n\n**Note:** \n- Comma-separated values are NOT supported. Use explicit OR operator instead.\n- For filtering by spfModuleInstanceId, subgraphNaturalId, or containerNaturalId, use the `/usecases` endpoint instead.",
+            "description": "Filter expression to filter usecases by subsystem and existing usecase fields. Supports natural query syntax with explicit operators.\n\n**Syntax:**\n- Single condition: `subsystemId:value`\n- AND operator: `subsystemId:value1 AND subsystemId:value2`\n- OR operator: `subsystemId:value1 OR subsystemId:value2`\n- Parentheses for grouping: `subsystemId:value1 AND (subsystemId:value2 OR subsystemId:value3)`\n\n**Valid Fields:**\n- `subsystemId`: Subsystem natural ID\n- `spfModuleInstanceNaturalId`: SPF Module natural instance ID\n- `subgraphNaturalId`: Subgraph natural ID\n- `containerNaturalId`: Container natural ID\n\n**Value Formats:**\n- Hexadecimal: `0x1`\n- Decimal: `1`\n\n**Operators:**\n- `AND`: Both conditions must be true\n- `OR`: At least one condition must be true\n- Parentheses `()`: Group conditions for precedence control\n\n**Examples:**\n- Single subsystem: `subsystemId:0x1`\n- Multiple subsystems (OR): `subsystemId:0x1 OR subsystemId:0x2`\n- Multiple subsystems (AND): `subsystemId:0x1 AND subsystemId:0x2`\n- Complex with parentheses: `subsystemId:0x1 AND (subsystemId:0x2 OR subsystemId:0x3)`\n\n**Note:** \n- Comma-separated values are NOT supported. Use explicit OR operator instead.\n- For filtering by spfModuleInstanceNaturalId, subgraphNaturalId, or containerNaturalId, use the `/usecases` endpoint instead.",
             "schema": {
               "example": "subsystemId:0x1 OR subsystemId:0x2",
               "type": "string"
@@ -3083,154 +3083,6 @@
           }
         },
         "summary": "Get subsystem-filtered usecases",
-        "tags": [
-          "usecases"
-        ]
-      }
-    },
-    "/arc-api/v1/projects/{projectId}/usecases/data-link": {
-      "get": {
-        "description": "Returns all ACDB data links in the project where the specified component and port appear on either the source or destination end of the link, along with the usecases each link belongs to.\n\n**Link Type:**\n- Returns ACDB data links (direct connections)\n**Matching criteria:**\n- `sourceNodeSystemId == componentSystemId && sourcePortSystemId == portSystemId`, OR\n- `destinationNodeSystemId == componentSystemId && destinationPortSystemId == portSystemId`\n\n**Response shape per item:**\n- `link`: The matched data link\n- `usecases`: Array of usecases that this data link is part of",
-        "operationId": "UseCaseController_getDataLinksForComponentPort",
-        "parameters": [
-          {
-            "name": "projectId",
-            "required": true,
-            "in": "path",
-            "description": "The unique identifier of the project",
-            "schema": {
-              "example": "12345",
-              "type": "string"
-            }
-          },
-          {
-            "name": "componentSystemId",
-            "required": true,
-            "in": "query",
-            "description": "System ID of the component (module/node, NOT subsystem)",
-            "schema": {
-              "example": "123",
-              "type": "string"
-            }
-          },
-          {
-            "name": "portSystemId",
-            "required": true,
-            "in": "query",
-            "description": "System ID of the port on the component",
-            "schema": {
-              "example": "456",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "ACDB data links with their usecases returned successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/DataLinkWithUsecasesResponseDto"
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Missing or invalid componentSystemId / portSystemId, or subsystem component provided"
-          },
-          "404": {
-            "description": "Project not found, or no data links found for the given component+port"
-          }
-        },
-        "summary": "Get ACDB data links for a component+port combination",
-        "tags": [
-          "usecases"
-        ]
-      }
-    },
-    "/arc-api/v1/projects/{projectId}/usecases/control-link": {
-      "get": {
-        "description": "Returns all ACDB control links in the project where the specified component and port appear on either peer end (A or B) of the link, along with the usecases each link belongs to.\n\n**Link Type:**\n- Returns ACDB control links (direct connections)\n**Matching criteria:**\n- `peerNodeASystemId == componentSystemId && nodeAPortSystemId == portSystemId`, OR\n- `peerNodeBSystemId == componentSystemId && nodeBPortSystemId == portSystemId`\n\n**Response shape per item:**\n- `link`: The matched control link\n- `usecases`: Array of usecases that this control link is part of",
-        "operationId": "UseCaseController_getControlLinksForComponentPort",
-        "parameters": [
-          {
-            "name": "projectId",
-            "required": true,
-            "in": "path",
-            "description": "The unique identifier of the project",
-            "schema": {
-              "example": "12345",
-              "type": "string"
-            }
-          },
-          {
-            "name": "componentSystemId",
-            "required": true,
-            "in": "query",
-            "description": "System ID of the component (module/node, NOT subsystem)",
-            "schema": {
-              "example": "123",
-              "type": "string"
-            }
-          },
-          {
-            "name": "portSystemId",
-            "required": true,
-            "in": "query",
-            "description": "System ID of the port on the component",
-            "schema": {
-              "example": "456",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "ACDB control links with their usecases returned successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/ControlLinkWithUsecasesResponseDto"
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Missing or invalid componentSystemId / portSystemId, or subsystem component provided"
-          },
-          "404": {
-            "description": "Project not found, or no control links found for the given component+port"
-          }
-        },
-        "summary": "Get ACDB control links for a component+port combination",
         "tags": [
           "usecases"
         ]
@@ -7950,94 +7802,6 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/data-links/query": {
-      "post": {
-        "operationId": "DataLinkController_queryDataLinks",
-        "parameters": [
-          {
-            "name": "projectId",
-            "required": true,
-            "in": "path",
-            "description": "The unique identifier of the project",
-            "schema": {
-              "example": "12345",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "description": "List of data-link system ids",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SystemIdsRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "All data-links found successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/DataLinkResponseDto"
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "207": {
-            "description": "Partial success — some data-links could not be retrieved (see errors array)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/DataLinkResponseDto"
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Project not found"
-          },
-          "422": {
-            "description": "Failed to get data-link(s)"
-          }
-        },
-        "summary": "Query data-links for provided systemIds",
-        "tags": [
-          "data-links"
-        ]
-      }
-    },
     "/arc-api/v1/projects/{projectId}/data-links": {
       "post": {
         "description": "Creates a data link between two modules. Stores all segments (mod→SS, SS→SS, SS→mod) in the DB. Returns a flat ComponentsResponseDto with the created link.",
@@ -8098,6 +7862,88 @@
           }
         },
         "summary": "Create a new data link (flat view)",
+        "tags": [
+          "data-links"
+        ]
+      },
+      "get": {
+        "description": "Returns data links between peer subgraphs. With `subgraphSystemId`, returns links going out of the requested subgraph to a different peer subgraph; links within the same subgraph are excluded. `moduleSystemId` and `portSystemId` must be supplied together and may be combined with the subgraph filter. Each link includes its associated usecases.",
+        "operationId": "DataLinkController_getDataLinks",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "subgraphSystemId",
+            "required": false,
+            "in": "query",
+            "description": "Source subgraph system ID. Returns only links leaving this subgraph to a different subgraph.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "moduleSystemId",
+            "required": false,
+            "in": "query",
+            "description": "Module system ID. Must be supplied together with portSystemId.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "portSystemId",
+            "required": false,
+            "in": "query",
+            "description": "Port system ID. Must be supplied together with moduleSystemId.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Data links retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/DataLinkWithUsecasesResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid filter combination or identifier"
+          },
+          "404": {
+            "description": "Project not found"
+          },
+          "422": {
+            "description": "Failed to retrieve link(s)"
+          }
+        },
+        "summary": "GET /arc-api/v1/projects/{projectId}/data-links - Get data links by subgraph or module-port filters",
         "tags": [
           "data-links"
         ]
@@ -8225,94 +8071,6 @@
         "summary": "Delete a data link",
         "tags": [
           "data-links"
-        ]
-      }
-    },
-    "/arc-api/v1/projects/{projectId}/control-links/query": {
-      "post": {
-        "operationId": "ControlLinkController_queryControlLinks",
-        "parameters": [
-          {
-            "name": "projectId",
-            "required": true,
-            "in": "path",
-            "description": "The unique identifier of the project",
-            "schema": {
-              "example": "12345",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "description": "List of control-link system ids",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SystemIdsRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "All control-links found successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/ControlLinkResponseDto"
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "207": {
-            "description": "Partial success — some control-links could not be retrieved (see errors array)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/ControlLinkResponseDto"
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Project not found"
-          },
-          "422": {
-            "description": "Failed to get control-link(s)"
-          }
-        },
-        "summary": "Query control-links for provided systemIds",
-        "tags": [
-          "control-links"
         ]
       }
     },
@@ -8681,6 +8439,90 @@
         "summary": "Get log entries for a project",
         "tags": [
           "Logging"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/control-link": {
+      "get": {
+        "description": "Returns control links between peer subgraphs. With `subgraphSystemId`, returns links going into or out of the requested subgraph to a different peer subgraph; links within the same subgraph are excluded. `moduleSystemId` and `portSystemId` must be supplied together and may be combined with the subgraph filter. Each link includes its associated usecases.",
+        "operationId": "ControlLinkController_getControlLinks",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "subgraphSystemId",
+            "required": false,
+            "in": "query",
+            "description": "Subgraph system ID. Returns links connecting this subgraph to a different peer subgraph.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "moduleSystemId",
+            "required": false,
+            "in": "query",
+            "description": "Module system ID. Must be supplied together with portSystemId.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "portSystemId",
+            "required": false,
+            "in": "query",
+            "description": "Port system ID. Must be supplied together with moduleSystemId.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Control links retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ControlLinkWithUsecasesResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid filter combination or identifier"
+          },
+          "404": {
+            "description": "Project not found"
+          },
+          "422": {
+            "description": "Failed to retrieve link(s)"
+          }
+        },
+        "summary": "GET /arc-api/v1/projects/{projectId}/control-link - Get control links by subgraph or module-port filters",
+        "tags": [
+          "control-links"
         ]
       }
     }
@@ -11595,17 +11437,201 @@
         "properties": {
           "filteredKv": {
             "type": "object",
-            "description": "Subsystem-filtered key-value information"
+            "properties": {
+              "keyValuePairs": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "object",
+                      "properties": {
+                        "naturalId": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "Key id"
+                        },
+                        "name": {
+                          "type": "string",
+                          "description": "Key name"
+                        },
+                        "systemId": {
+                          "type": "string",
+                          "description": "Key system identifier"
+                        }
+                      },
+                      "required": [
+                        "naturalId",
+                        "name",
+                        "systemId"
+                      ],
+                      "description": "Key information"
+                    },
+                    "value": {
+                      "type": "object",
+                      "properties": {
+                        "naturalId": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "Value id"
+                        },
+                        "name": {
+                          "type": "string",
+                          "description": "Value name"
+                        },
+                        "systemId": {
+                          "type": "string",
+                          "description": "Value system identifier"
+                        }
+                      },
+                      "required": [
+                        "naturalId",
+                        "name",
+                        "systemId"
+                      ],
+                      "description": "Value information"
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "value"
+                  ]
+                },
+                "description": "Collection of key-value pairs after subsystem filtering"
+              },
+              "subsystems": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "subsystemNaturalId": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "Subsystem natural identifier"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Subsystem name"
+                    }
+                  },
+                  "required": [
+                    "subsystemNaturalId",
+                    "name"
+                  ]
+                },
+                "description": "Subsystems represented by the filtered key definitions"
+              }
+            },
+            "required": [
+              "keyValuePairs",
+              "subsystems"
+            ]
           },
           "usecases": {
-            "description": "Array of usecase identifiers that match the subsystem filter",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/UsecaseResponseDto"
-            }
+              "type": "object",
+              "properties": {
+                "systemId": {
+                  "type": "string",
+                  "description": "System identifier of the usecase"
+                },
+                "usecaseType": {
+                  "type": "string",
+                  "description": "Type of the usecase"
+                },
+                "keyValuePairs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "object",
+                        "properties": {
+                          "naturalId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Key id"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Key name"
+                          },
+                          "systemId": {
+                            "type": "string",
+                            "description": "Key system identifier"
+                          }
+                        },
+                        "required": [
+                          "naturalId",
+                          "name",
+                          "systemId"
+                        ],
+                        "description": "Key information"
+                      },
+                      "value": {
+                        "type": "object",
+                        "properties": {
+                          "naturalId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Value id"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Value name"
+                          },
+                          "systemId": {
+                            "type": "string",
+                            "description": "Value system identifier"
+                          }
+                        },
+                        "required": [
+                          "naturalId",
+                          "name",
+                          "systemId"
+                        ],
+                        "description": "Value information"
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "value"
+                    ]
+                  },
+                  "description": "Collection of key-value pairs"
+                },
+                "usecaseAliasId": {
+                  "description": "Optional alias identifier for the usecase",
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "usecaseAliasName": {
+                  "description": "Alias name for the usecase",
+                  "type": "string"
+                },
+                "usecaseCategory": {
+                  "description": "Category of the usecase",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "systemId",
+                "usecaseType",
+                "keyValuePairs"
+              ]
+            },
+            "description": "Usecases that share this filtered GKV result"
           }
         },
         "required": [
+          "filteredKv",
           "usecases"
         ]
       },
@@ -13330,9 +13356,6 @@
             "type": "string",
             "description": "Type of the usecase",
             "enum": [
-              "EC",
-              "LINKED",
-              "ISLAND"
               "EC",
               "LINKED",
               "ISLAND"
