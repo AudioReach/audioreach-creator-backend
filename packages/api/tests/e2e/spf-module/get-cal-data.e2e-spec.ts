@@ -6,8 +6,6 @@
 import {describe, it, expect, beforeAll, afterAll} from '@jest/globals';
 import request from 'supertest';
 import type {INestApplication} from '@nestjs/common';
-import jwt from 'jsonwebtoken';
-import {createTestApp} from '../helpers/test-app.factory.js';
 import {setupE2ETest, teardownE2ETest} from '../helpers/e2e-test-setup.js';
 import {join, dirname} from 'path';
 import {fileURLToPath} from 'url';
@@ -22,12 +20,9 @@ describe('GET /arc-api/v1/projects/:projectId/spf-modules/:spfModuleSystemId/cal
   let authToken: string;
 
   beforeAll(async () => {
-    app = await createTestApp();
-    // Sign with the same secret and required fields used by the real JwtStrategy
-    authToken = jwt.sign(
-      {sub: 'test-user-id', clientId: 'test-client', username: 'test-user'},
-      'arc-web-api',
-    );
+    const setup = await setupE2ETest();
+    app = setup.app;
+    authToken = setup.authToken;
   }, 30000);
 
   afterAll(async () => {

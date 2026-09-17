@@ -25,19 +25,32 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "Client registered successfully",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RegisterResponseDto"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/RegisterResponseDto"
+                        }
+                      }
+                    }
+                  ]
                 },
                 "examples": {
                   "default": {
                     "value": {
-                      "token": "jwt.token.here",
-                      "clientId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-                      "clientName": "client-123"
+                      "data": {
+                        "token": "jwt.token.here",
+                        "clientId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                        "clientName": "client-123"
+                      }
                     }
                   }
                 }
@@ -8922,10 +8935,7 @@
             "type": "string",
             "description": "Client name"
           }
-        },
-        "required": [
-          "clientName"
-        ]
+        }
       },
       "RegisterResponseDto": {
         "type": "object",

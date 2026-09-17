@@ -4,17 +4,17 @@
  */
 
 import {INestApplication} from '@nestjs/common';
+import request from 'supertest';
 import {
   createTestApp,
   createExternalServerApp,
   closeTestApp,
   resetDatabase,
 } from './test-app.factory.js';
-import {generateMockJwtToken} from './auth.helper.js';
 
 /**
  * Setup helper for E2E tests
- * Creates a test application with in-memory database and mock authentication
+ * Creates a test application with in-memory database and production authentication
  * OR connects to an external running server if USE_EXTERNAL_SERVER=true
  *
  * @returns Object containing the app instance, HTTP server, and auth token
@@ -44,7 +44,11 @@ export async function setupE2ETest(): Promise<{
     httpServer = app.getHttpServer();
   }
 
-  const authToken = generateMockJwtToken();
+  const registrationResponse = await request(httpServer)
+    .post('/arc-api/v1/auth/register')
+    .send({clientName: 'audioreach-e2e-test'})
+    .expect(201);
+  const authToken = registrationResponse.body.data.token as string;
 
   return {app, httpServer, authToken};
 }

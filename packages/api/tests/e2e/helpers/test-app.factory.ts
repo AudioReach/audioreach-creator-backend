@@ -6,7 +6,6 @@
 import {INestApplication, ValidationPipe} from '@nestjs/common';
 import {Test, TestingModule} from '@nestjs/testing';
 import {AppModule} from '../../../src/app.module.js';
-import {MockJwtStrategy} from './auth.helper.js';
 import {DataSource} from 'typeorm';
 import {NodeWorkerPoolSingleton} from '@arc/fs';
 import {DataSourceProvider} from '../../../src/infrastructure-wrapper/database/providers/data-source-provider.js';
@@ -60,7 +59,7 @@ export function createExternalServerApp(
 /**
  * Create a NestJS application configured for E2E testing
  * - Uses in-memory SQLite database (unique per test suite)
- * - Mocks JWT authentication
+ * - Uses the production JWT authentication strategy
  * - Applies same configuration as production app
  *
  * Note: Each test suite gets its own DataSource instance by overriding
@@ -135,8 +134,6 @@ export async function createTestApp(): Promise<INestApplication> {
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],
   })
-    .overrideProvider('JwtStrategy')
-    .useClass(MockJwtStrategy)
     .overrideProvider(DataSourceProvider)
     .useClass(TestDataSourceProvider)
     .overrideProvider(LoggingDataSourceProvider)
@@ -193,10 +190,7 @@ export async function createTestApp(): Promise<INestApplication> {
 export async function createTestAppWithInMemoryDb(): Promise<INestApplication> {
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],
-  })
-    .overrideProvider('JwtStrategy')
-    .useClass(MockJwtStrategy)
-    .compile();
+  }).compile();
 
   const app = moduleFixture.createNestApplication();
 
