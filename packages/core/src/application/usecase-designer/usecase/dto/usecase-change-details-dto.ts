@@ -23,6 +23,9 @@ export const UsecaseChangeSnapshotDtoSchema = z.object({
   alias: z.string().nullable().describe('Usecase alias'),
   aliasId: z.number().int().nullable().describe('Usecase alias identifier'),
   categories: z.array(z.string()).describe('Usecase categories'),
+  subgraphSystemIds: z
+    .array(z.string())
+    .describe('System identifiers of subgraphs in the usecase'),
   dataLinks: z.array(DataLinkDtoSchema).describe('Supporting data links'),
   controlLinks: z
     .array(ControlLinkDtoSchema)
@@ -59,6 +62,7 @@ function mapSnapshot(
     alias: snapshot.alias,
     aliasId: snapshot.aliasId,
     categories: [...snapshot.categories],
+    subgraphSystemIds: snapshot.subgraphSystemIds.map(String),
     dataLinks: snapshot.dataLinks.map(link => mapDataLink(link)),
     controlLinks: snapshot.controlLinks.map(link => mapControlLink(link)),
   };

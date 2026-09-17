@@ -669,6 +669,6 @@ export type {
 
 // Use-case-creator public command and result contracts
 export * from './application/usecase-designer/use-case-creator/contracts/routing-outcome.js';
-export type {EmittedUsecaseChange} from './application/usecase-designer/use-case-creator/contracts/routing-state.js';
+export type {UsecaseChangeDescriptor} from './application/usecase-designer/use-case-creator/contracts/routing-state.js';
 export * from './application/usecase-designer/use-case-creator/create-usecases/create-usecases.command.js';
 export * from './application/usecase-designer/use-case-creator/create-manual-usecases/create-manual-usecases.command.js';

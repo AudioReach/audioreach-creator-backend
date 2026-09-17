@@ -4,10 +4,11 @@
 
 ## Scope
 
-Establish the UI-facing HTTP contract for structural UC replacement before the command,
-handler, and persistence behavior are implemented. The endpoint remains unavailable at
-runtime and returns HTTP 501. This contract-only work ships with PR 02; PR 11 activates
-the endpoint.
+Define the UI-facing HTTP contract and implementation boundary for structural UC
+replacement. This work is intentionally deferred from PR 02 because no earlier routing
+phase depends on the endpoint. PR 11 delivers the contract, command, handler, persistence
+behavior, and endpoint activation together. Until PR 11 is delivered, the endpoint is not
+available at runtime.
 
 ## Contract
 
@@ -33,19 +34,22 @@ Define thin API DTO classes with `createZodDto` under the usecase REST module. T
 classes provide NestJS validation and Swagger model generation without duplicating the
 contract.
 
-## Controller
+## Controller and Implementation Boundary
 
-Add a dedicated `@Put(':usecaseSystemId/structure')` method to `UseCaseController` with
-detailed operation, parameter, request, response, validation, and not-implemented Swagger
-metadata. The method accepts the typed request body but performs no parsing, validation
-logic, CQRS dispatch, or persistence work. Its body throws `NotImplementedException`.
+PR 11 adds a dedicated `@Put(':usecaseSystemId/structure')` method to `UseCaseController`
+with detailed operation, parameter, request, response, validation, and error Swagger
+metadata. The same PR adds the command, handler, reusable validation path, repository
+write, response mapping, and endpoint activation.
 
-No command bus dependency, command, handler, repository change, migration, or session
-mutation is introduced by this stub.
+The endpoint remains unavailable until the complete PR 11 implementation is ready; no
+standalone PR-02 controller stub is required. The implementation must not add a routing
+mode and must preserve the existing alias-only PATCH behavior.
 
 ## Verification
 
 - Core and API packages compile.
 - Zod-derived Swagger models expose all nested request and response fields.
-- Generated Swagger includes the PUT path and HTTP 501 response.
+- Generated Swagger includes the PUT path and the documented 200/400/403/404/409/422
+  behavior once Chapter 11 is delivered. Before that chapter, the route is intentionally
+  not part of the PR-02 API surface.
 - The existing alias PATCH remains unchanged.

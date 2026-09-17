@@ -4,28 +4,24 @@
  */
 
 import {Result} from '../../../../application/shared/result/result.js';
-import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
+import type {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
+import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
 import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
 import type {
-  ActiveSubgraphSelection,
   ManualTopology,
+  RoutingSubgraph,
 } from '../contracts/routing-input.js';
 
 export interface ManualTopologyDiscoveryInput {
-  readonly fileSystemId: number;
   readonly selectedUsecases: readonly UseCase[];
-  readonly activeSubgraphs: readonly ActiveSubgraphSelection[];
-  readonly excludedDataLinkSystemIds: ReadonlySet<number>;
-  readonly excludedControlLinkSystemIds: ReadonlySet<number>;
+  readonly subgraphs: readonly RoutingSubgraph[];
+  readonly dataLinks: readonly DataLink[];
+  readonly controlLinks: readonly ControlLink[];
 }
 
 /** Contract seam for the manual pair-discovery implementation. */
 export class ManualPairDiscoveryService {
-  // eslint-disable-next-line @typescript-eslint/require-await -- Placeholder service retains its async contract.
-  async discover(
-    _input: ManualTopologyDiscoveryInput,
-    _uow: UnitOfWork,
-  ): Promise<Result<ManualTopology>> {
+  discover(_input: ManualTopologyDiscoveryInput): Result<ManualTopology> {
     return Result.ok({pairs: []});
   }
 }

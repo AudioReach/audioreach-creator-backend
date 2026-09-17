@@ -150,6 +150,7 @@ interface UsecaseChangeSnapshot {
   readonly alias: string | null;
   readonly aliasId: number | null;
   readonly categories: readonly string[];
+  readonly subgraphSystemIds: readonly number[];
   readonly dataLinks: readonly DataLinkReadModel[];
   readonly controlLinks: readonly ControlLinkReadModel[];
 }
@@ -158,17 +159,17 @@ interface UsecaseChangeSnapshot {
 The existing full link read models are reused because they contain the component and port
 identifiers required to draw links. No duplicate snapshot-specific link model is added.
 
-### CD-03: Removed snapshot fields
+### CD-03: Snapshot topology and excluded fields
 
-The snapshot shall not expose:
+The snapshot shall expose `subgraphSystemIds` so clients can reconstruct the UseCase
+topology at each side of the change boundary. The snapshot shall not expose:
 
 - `systemId`, because it is already present on the details envelope;
 - `type`, because clients only need EC classification;
-- `subgraphSystemIds`; or
 - `subgraphPairs`.
 
-Subgraph membership and pairs remain internal persistence structures used to reconstruct
-supporting links.
+Subgraph pairs remain an internal persistence structure used to reconstruct supporting
+links.
 
 ### CD-04: EC projection
 
@@ -180,7 +181,7 @@ individual link, while snapshot `isEc` describes the UseCase classification.
 
 ### CD-05: Source projection
 
-The routing stager shall return one `EmittedUsecaseChange` per changed UseCase containing
+The routing stager shall return one `UsecaseChangeDescriptor` per changed UseCase containing
 the authoritative `systemId`, canonical `changeId`, `operation`, and `source`. Snapshot
 projection shall consume this metadata directly and shall not rediscover it by querying
 all actions for `groupId`.
@@ -191,7 +192,7 @@ all actions for `groupId`.
   session actions.
 - `after` represents the complete latest session overlay, including all currently
   effective actions in the active session.
-- The supplied `EmittedUsecaseChange` values select the affected UseCases and supply
+- The supplied `UsecaseChangeDescriptor` values select the affected UseCases and supply
   operation metadata and source.
 - `groupId` remains response and edit-action correlation metadata only.
 - `CREATE` requires `before = null` and a non-null `after`.
@@ -244,7 +245,7 @@ The routing command result shall contain:
 
 ```typescript
 interface RoutingOutcome {
-  readonly emittedChanges: readonly EmittedUsecaseChange[];
+  readonly emittedChanges: readonly UsecaseChangeDescriptor[];
   readonly issues: readonly Issue[];
   readonly groupId: string;
 }

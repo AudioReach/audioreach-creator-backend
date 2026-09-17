@@ -26,6 +26,29 @@ export interface GraphEditSummary {
   readonly deletedControlLinks: readonly ControlLink[];
 }
 
+export interface RoutingRequestPolicy {
+  readonly requestedSubgraphSystemIds: ReadonlySet<number>;
+  readonly explicitlyExcludedSubgraphSystemIds: ReadonlySet<number>;
+  readonly explicitlyExcludedDataLinkSystemIds: ReadonlySet<number>;
+  readonly explicitlyExcludedControlLinkSystemIds: ReadonlySet<number>;
+}
+
+export interface RoutingSubgraph {
+  readonly subgraph: Subgraph;
+  readonly requestedSgkvs: readonly (readonly number[])[];
+  readonly isMdf: boolean;
+}
+
+export interface RoutingGraphSnapshot {
+  readonly subgraphs: readonly RoutingSubgraph[];
+  readonly routableDataLinks: readonly DataLink[];
+  readonly routableControlLinks: readonly ControlLink[];
+  readonly overlayDataLinks: readonly DataLink[];
+  readonly overlayControlLinks: readonly ControlLink[];
+  readonly committedUsecases: readonly UseCase[];
+  readonly sessionEdits: GraphEditSummary;
+}
+
 export interface ManualTopologyPair {
   readonly pair: SubgraphPair;
   readonly dataLinks: readonly DataLink[];
@@ -36,23 +59,16 @@ export interface ManualTopology {
   readonly pairs: readonly ManualTopologyPair[];
 }
 
-export interface RoutingScopePolicy {
-  readonly requestedSubgraphSystemIds: ReadonlySet<number>;
-  readonly excludedSubgraphSystemIds: ReadonlySet<number>;
-}
-
 interface RoutingInputBase {
+  readonly mode: RoutingMode;
+  readonly fileSystemId: number;
   readonly selectedUsecases: readonly UseCase[];
-  readonly activeSubgraphs: readonly ActiveSubgraphSelection[];
-  readonly scopePolicy: RoutingScopePolicy;
-  readonly excludedDataLinkSystemIds: readonly number[];
-  readonly excludedControlLinkSystemIds: readonly number[];
-  readonly graphEdits: GraphEditSummary;
+  readonly requestPolicy: RoutingRequestPolicy;
+  readonly graphSnapshot: RoutingGraphSnapshot;
 }
 
 export interface AutoRoutingInput extends RoutingInputBase {
   readonly mode: typeof ROUTING_MODE.Auto;
-  readonly islandUcs: readonly UseCase[];
 }
 
 export interface ManualRoutingInput extends RoutingInputBase {
@@ -63,12 +79,10 @@ export interface ManualRoutingInput extends RoutingInputBase {
 export type RoutingInput = AutoRoutingInput | ManualRoutingInput;
 
 export interface RoutingInputInit {
+  readonly fileSystemId: number;
   readonly selectedUsecases: readonly UseCase[];
-  readonly activeSubgraphs: readonly ActiveSubgraphSelection[];
-  readonly scopePolicy: RoutingScopePolicy;
-  readonly excludedDataLinkSystemIds?: readonly number[];
-  readonly excludedControlLinkSystemIds?: readonly number[];
-  readonly graphEdits: GraphEditSummary;
+  readonly requestPolicy: RoutingRequestPolicy;
+  readonly graphSnapshot: RoutingGraphSnapshot;
 }
 
 export interface DerivedRoutingScope {
@@ -78,6 +92,18 @@ export interface DerivedRoutingScope {
   readonly effectiveRoutingScope: ReadonlySet<number>;
   readonly missingSelectedScopeSubgraphs: ReadonlySet<number>;
   readonly effectiveActiveSubgraphs: readonly ActiveSubgraphSelection[];
+}
+
+export function findDuplicateActiveSubgraphSystemIds(
+  activeSubgraphs: readonly ActiveSubgraphSelection[],
+): ReadonlySet<number> {
+  const seen = new Set<number>();
+  const duplicates = new Set<number>();
+  for (const selection of activeSubgraphs) {
+    if (seen.has(selection.systemId)) duplicates.add(selection.systemId);
+    else seen.add(selection.systemId);
+  }
+  return duplicates;
 }
 
 export function deriveRoutingScope(
@@ -130,6 +156,44 @@ function copySelections(
   }));
 }
 
+/** Copies edit collection containers while retaining borrowed domain entities. */
+export function copyGraphEditSummary(
+  edits: GraphEditSummary,
+): GraphEditSummary {
+  return Object.freeze({
+    addedSgs: Object.freeze([...edits.addedSgs]),
+    deletedSgs: Object.freeze([...edits.deletedSgs]),
+    addedDataLinks: Object.freeze([...edits.addedDataLinks]),
+    deletedDataLinks: Object.freeze([...edits.deletedDataLinks]),
+    addedControlLinks: Object.freeze([...edits.addedControlLinks]),
+    deletedControlLinks: Object.freeze([...edits.deletedControlLinks]),
+  });
+}
+
+function copyGraphSnapshot(
+  snapshot: RoutingGraphSnapshot,
+): RoutingGraphSnapshot {
+  return Object.freeze({
+    subgraphs: Object.freeze(
+      snapshot.subgraphs.map(item =>
+        Object.freeze({
+          subgraph: item.subgraph,
+          requestedSgkvs: Object.freeze(
+            item.requestedSgkvs.map(values => Object.freeze([...values])),
+          ),
+          isMdf: item.isMdf,
+        }),
+      ),
+    ),
+    routableDataLinks: Object.freeze([...snapshot.routableDataLinks]),
+    routableControlLinks: Object.freeze([...snapshot.routableControlLinks]),
+    overlayDataLinks: Object.freeze([...snapshot.overlayDataLinks]),
+    overlayControlLinks: Object.freeze([...snapshot.overlayControlLinks]),
+    committedUsecases: Object.freeze([...snapshot.committedUsecases]),
+    sessionEdits: copyGraphEditSummary(snapshot.sessionEdits),
+  });
+}
+
 function copyTopologyPair(pair: ManualTopologyPair): ManualTopologyPair {
   if (pair.dataLinks.length > 0 && pair.controlLinks.length === 0) {
     return createDataLinkManualTopologyPair(pair.pair, pair.dataLinks);
@@ -140,33 +204,29 @@ function copyTopologyPair(pair: ManualTopologyPair): ManualTopologyPair {
   throw new Error('Manual topology pairs require exactly one support type');
 }
 
-function copyBase(init: RoutingInputInit): RoutingInputBase {
+function copyBase(init: RoutingInputInit): Omit<RoutingInputBase, 'mode'> {
   return {
+    fileSystemId: init.fileSystemId,
     selectedUsecases: [...init.selectedUsecases],
-    activeSubgraphs: copySelections(init.activeSubgraphs),
-    scopePolicy: {
+    requestPolicy: {
       requestedSubgraphSystemIds: new Set(
-        init.scopePolicy.requestedSubgraphSystemIds,
+        init.requestPolicy.requestedSubgraphSystemIds,
       ),
-      excludedSubgraphSystemIds: new Set(
-        init.scopePolicy.excludedSubgraphSystemIds,
+      explicitlyExcludedSubgraphSystemIds: new Set(
+        init.requestPolicy.explicitlyExcludedSubgraphSystemIds,
+      ),
+      explicitlyExcludedDataLinkSystemIds: new Set(
+        init.requestPolicy.explicitlyExcludedDataLinkSystemIds,
+      ),
+      explicitlyExcludedControlLinkSystemIds: new Set(
+        init.requestPolicy.explicitlyExcludedControlLinkSystemIds,
       ),
     },
-    excludedDataLinkSystemIds: [...(init.excludedDataLinkSystemIds ?? [])],
-    excludedControlLinkSystemIds: [
-      ...(init.excludedControlLinkSystemIds ?? []),
-    ],
-    graphEdits: {
-      addedSgs: [...init.graphEdits.addedSgs],
-      deletedSgs: [...init.graphEdits.deletedSgs],
-      addedDataLinks: [...init.graphEdits.addedDataLinks],
-      deletedDataLinks: [...init.graphEdits.deletedDataLinks],
-      addedControlLinks: [...init.graphEdits.addedControlLinks],
-      deletedControlLinks: [...init.graphEdits.deletedControlLinks],
-    },
+    graphSnapshot: copyGraphSnapshot(init.graphSnapshot),
   };
 }
 
+/** Creates a manual pair holding borrowed immutable data-link references. */
 export function createDataLinkManualTopologyPair(
   pair: SubgraphPair,
   dataLinks: readonly DataLink[],
@@ -190,6 +250,7 @@ export function createDataLinkManualTopologyPair(
   });
 }
 
+/** Creates a manual pair holding borrowed immutable control-link references. */
 export function createControlLinkManualTopologyPair(
   pair: SubgraphPair,
   controlLinks: readonly ControlLink[],
@@ -219,12 +280,11 @@ export function createControlLinkManualTopologyPair(
 }
 
 export function createAutoRoutingInput(
-  init: RoutingInputInit & {readonly islandUcs: readonly UseCase[]},
+  init: RoutingInputInit,
 ): AutoRoutingInput {
   return {
     ...copyBase(init),
     mode: ROUTING_MODE.Auto,
-    islandUcs: [...init.islandUcs],
   };
 }
 

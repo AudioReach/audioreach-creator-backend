@@ -128,6 +128,7 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
             },
           ],
           categories: ['voice'],
+          subgraphSystemIds: [501, 502],
           dataLinks: [
             {
               systemId: 906,

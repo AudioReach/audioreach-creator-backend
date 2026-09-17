@@ -45,6 +45,7 @@ const details = [
       alias: 'created',
       aliasId: 2,
       categories: [],
+      subgraphSystemIds: [40, 41],
       dataLinks: [
         {
           systemId: 41,
@@ -133,6 +134,10 @@ describe('ProjectController create usecases', () => {
         destinationPortSystemId: '55',
         isInterUsecase: false,
       },
+    ]);
+    expect(response.data.changes[0]?.after?.subgraphSystemIds).toEqual([
+      '40',
+      '41',
     ]);
   });
 
