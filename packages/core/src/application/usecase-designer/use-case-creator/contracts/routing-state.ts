@@ -9,6 +9,70 @@ import {
   type Source,
 } from '../../../shared/change-vocabulary.js';
 import type {UsecaseChangeRef} from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
+import type {SubgraphPair} from '../../../ports/persistence/repositories/shared/links-for-pair.js';
+import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
+
+export type DeletionReason =
+  | {
+      readonly kind: 'component-deleted';
+      readonly componentKind: 'subgraph' | 'data-link' | 'control-link';
+      readonly componentSystemId: number;
+    }
+  | {readonly kind: 'pair-broken-single-path'}
+  | {readonly kind: 'pair-broken-multi-path'};
+
+export interface DataLinkLossPair {
+  readonly sourceSubgraphSystemId: number;
+  readonly destSubgraphSystemId: number;
+  readonly deletedDataLinkSystemId: number;
+}
+
+export interface UsecaseDeletionMark {
+  readonly usecase: UseCase;
+  readonly reason: DeletionReason;
+}
+
+export interface DeletionPreservedUsecase {
+  readonly usecase: UseCase;
+  readonly droppedSubgraphSystemIds: readonly number[];
+}
+
+export interface IslandUseCaseCandidate {
+  readonly usecase: UseCase;
+  readonly dataLinkLossPairs: readonly DataLinkLossPair[];
+}
+
+export interface DeletionReconstructionPath {
+  readonly originalUsecaseSystemId: number;
+  readonly path: DfsPath;
+}
+
+export interface DeletionAnalysis {
+  readonly affectedUsecaseSystemIds: ReadonlySet<number>;
+  readonly markedForDeletion: readonly UsecaseDeletionMark[];
+  readonly preservedUsecases: readonly DeletionPreservedUsecase[];
+  readonly islandUseCaseCandidates: readonly IslandUseCaseCandidate[];
+  readonly reconstructionPaths: readonly DeletionReconstructionPath[];
+}
+
+export interface DirectionCorrection {
+  readonly currentSourceSubgraphSystemId: number;
+  readonly currentDestSubgraphSystemId: number;
+  readonly newSourceSubgraphSystemId: number;
+  readonly newDestSubgraphSystemId: number;
+}
+
+export interface IslandTransition {
+  readonly usecase: UseCase;
+  readonly directionCorrections: readonly DirectionCorrection[];
+  readonly addedSubgraphSystemIds: readonly number[];
+  readonly addedPairs: readonly SubgraphPair[];
+}
+
+export interface RoutingCandidates {
+  readonly combinations: readonly RoutingCombination[];
+  readonly ecBridgeCandidates: readonly RoutingCombination[];
+}
 
 export interface KvResolution {
   readonly sgSystemId: number;
@@ -54,7 +118,7 @@ export interface OrphanCandidate {
 }
 
 /** Internal write result retained until response projection. */
-export interface EmittedUsecaseChange extends UsecaseChangeRef {
+export interface UsecaseChangeDescriptor extends UsecaseChangeRef {
   readonly operation: Exclude<ChangeOperation, typeof CHANGE_OPERATION.None>;
   readonly source: Source;
 }

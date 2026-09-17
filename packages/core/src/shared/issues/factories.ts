@@ -62,20 +62,6 @@ export const IssueFactory = {
     };
   },
 
-  routingSelectedScopeIncomplete(
-    missingSubgraphSystemIds: ReadonlySet<number>,
-  ): Issue {
-    const missingIds = [...missingSubgraphSystemIds];
-    return {
-      code: ISSUE_CODE.ROUTING_PREVAL_SCOPE_INCOMPLETE,
-      message:
-        'Every selected usecase subgraph must be included in the routing input ' +
-        'unless explicitly excluded or deleted in the current session ' +
-        `(missing subgraphSystemIds: [${missingIds.join(', ')}]).`,
-      severity: IssueSeverity.Error,
-    };
-  },
-
   dataLoss(
     code: string,
     message: string,

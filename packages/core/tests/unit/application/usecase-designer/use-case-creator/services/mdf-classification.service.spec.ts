@@ -12,7 +12,6 @@ import {
 } from '../../../../../../src/domain/entities/definitions/spf-module/ipc-module-def-ids.js';
 
 function createUow(options?: {
-  subgraphs?: number[];
   modules?: Array<{
     systemId: number;
     subgraphSystemId: number;
@@ -24,14 +23,6 @@ function createUow(options?: {
   }>;
 }): UnitOfWork {
   return {
-    getWriteContext: () => ({session: {fileSystemId: 1}}),
-    getSubgraphRepository: () => ({
-      findByIds: jest
-        .fn()
-        .mockResolvedValue(
-          (options?.subgraphs ?? []).map(systemId => ({systemId})),
-        ),
-    }),
     getModuleRepository: () => ({
       findModulesBySubgraphIds: jest
         .fn()
@@ -46,7 +37,6 @@ function createUow(options?: {
 describe('MdfClassificationService', () => {
   it('classifies exactly one IPC TX/RX module pair in either order', async () => {
     const uow = createUow({
-      subgraphs: [101, 102],
       modules: [
         {systemId: 1, subgraphSystemId: 101, definitionSystemId: 11},
         {systemId: 2, subgraphSystemId: 101, definitionSystemId: 12},
@@ -59,14 +49,18 @@ describe('MdfClassificationService', () => {
     });
 
     await expect(
-      new MdfClassificationService().classify([101, 102], uow),
+      new MdfClassificationService().classify(
+        [{systemId: 101}, {systemId: 102}] as never,
+        1,
+        uow,
+      ),
     ).resolves.toEqual(new Set([101]));
   });
 
   it('does not query repositories for empty candidates', async () => {
     const uow = createUow();
     await expect(
-      new MdfClassificationService().classify([], uow),
+      new MdfClassificationService().classify([], 1, uow),
     ).resolves.toEqual(new Set());
   });
 });

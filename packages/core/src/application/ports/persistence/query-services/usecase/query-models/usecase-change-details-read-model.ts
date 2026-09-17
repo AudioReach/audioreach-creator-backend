@@ -18,6 +18,7 @@ export interface UsecaseChangeSnapshot {
   readonly alias: string | null;
   readonly aliasId: number | null;
   readonly categories: readonly string[];
+  readonly subgraphSystemIds: readonly number[];
   readonly dataLinks: readonly DataLinkReadModel[];
   readonly controlLinks: readonly ControlLinkReadModel[];
 }

@@ -5,7 +5,7 @@
 
 import {BaseQuery} from '../../../shared/base-query.js';
 import {invariant} from '../../../../shared/assertions/index.js';
-import type {EmittedUsecaseChange} from '../../use-case-creator/contracts/routing-state.js';
+import type {UsecaseChangeDescriptor} from '../../use-case-creator/contracts/routing-state.js';
 import {parseId} from '../../shared/parse-id.js';
 
 export class GetUsecaseChangeDetailsQuery extends BaseQuery {
@@ -14,7 +14,7 @@ export class GetUsecaseChangeDetailsQuery extends BaseQuery {
   constructor(
     projectId: string,
     clientId: string,
-    public readonly emittedChanges: readonly EmittedUsecaseChange[],
+    public readonly emittedChanges: readonly UsecaseChangeDescriptor[],
   ) {
     super(clientId);
     this.projectId = parseId(projectId, 'projectId');

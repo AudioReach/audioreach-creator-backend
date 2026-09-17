@@ -15,7 +15,7 @@ import type {
   ISessionRepository,
   SpfModuleQueryService,
   KeyValuePairReadModel,
-  EmittedUsecaseChange,
+  UsecaseChangeDescriptor,
 } from '@arc/core';
 import {
   CHANGE_OPERATION,
@@ -143,7 +143,7 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
 
   async getChangeDetails(
     fileId: number,
-    emittedChanges: readonly EmittedUsecaseChange[],
+    emittedChanges: readonly UsecaseChangeDescriptor[],
   ): Promise<Result<UsecaseChangeDetails[]>> {
     try {
       if (emittedChanges.length === 0) return Result.ok([]);
@@ -332,6 +332,7 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
           alias: usecase.alias,
           aliasId: usecase.aliasId,
           categories: usecase.categoryNames,
+          subgraphSystemIds: usecase.subgraphSystemIds,
           dataLinks: this.getSupportingDataLinks(usecase, dataLinks),
           controlLinks: this.getSupportingControlLinks(usecase, controlLinks),
         },
@@ -374,7 +375,7 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
   }
 
   private assertSnapshotBoundary(
-    change: EmittedUsecaseChange,
+    change: UsecaseChangeDescriptor,
     before: UsecaseChangeSnapshot | null,
     after: UsecaseChangeSnapshot | null,
   ): void {

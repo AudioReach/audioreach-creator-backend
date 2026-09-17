@@ -9,7 +9,7 @@
    data into `RoutingEngine`.
 2. Remove mutable exclusion copies from `RoutingContext`; `context.input` is the single
    immutable source.
-3. Have the routing command return explicit `EmittedUsecaseChange` descriptors rather
+3. Have the routing command return explicit `UsecaseChangeDescriptor` values rather
    than client-facing snapshots.
 4. Have each API controller pass those descriptors through `QueryBus` to the existing
    change-details query.
@@ -165,7 +165,7 @@ owning phase has not yet been implemented.
 Phase 11 records one descriptor per changed UseCase:
 
 ```typescript
-interface EmittedUsecaseChange extends UsecaseChangeRef {
+interface UsecaseChangeDescriptor extends UsecaseChangeRef {
   readonly operation: Exclude<
     ChangeOperation,
     typeof CHANGE_OPERATION.None
@@ -188,7 +188,7 @@ changed UseCase and preserve deterministic routing order.
 
 ```typescript
 interface RoutingOutcome {
-  readonly emittedChanges: readonly EmittedUsecaseChange[];
+  readonly emittedChanges: readonly UsecaseChangeDescriptor[];
   readonly issues: readonly Issue[];
   readonly groupId: string;
 }
@@ -220,12 +220,14 @@ interface UsecaseChangeSnapshot {
   readonly alias: string | null;
   readonly aliasId: number | null;
   readonly categories: readonly string[];
+  readonly subgraphSystemIds: readonly number[];
   readonly dataLinks: readonly DataLinkReadModel[];
   readonly controlLinks: readonly ControlLinkReadModel[];
 }
 ```
 
-Remove snapshot `systemId`, `type`, `subgraphSystemIds`, and `subgraphPairs`.
+Remove snapshot `systemId`, `type`, and `subgraphPairs`. Retain `subgraphSystemIds` so
+clients can reconstruct the UseCase topology represented by each snapshot.
 
 Snapshot `isEc` is `usecase.type === USECASE_TYPE.Ec`. A null stored type projects to
 `false`. Per-link EC state remains in `DataLinkReadModel` because it describes a different
@@ -245,7 +247,7 @@ class GetUsecaseChangeDetailsQuery extends BaseQuery {
   constructor(
     readonly projectId: string,
     readonly clientId: string,
-    readonly emittedChanges: readonly EmittedUsecaseChange[],
+    readonly emittedChanges: readonly UsecaseChangeDescriptor[],
   ) {}
 }
 ```

@@ -23,14 +23,14 @@ export class CombinationExpansionService implements RoutingPhase {
     let candidates: RoutingCombination[] = [
       {subgraphSystemIds: [], valueSystemIds: []},
     ];
-    for (const selection of context.input.activeSubgraphs) {
+    for (const selection of context.input.graphSnapshot.subgraphs) {
       const next: RoutingCombination[] = [];
       for (const candidate of candidates) {
-        for (const valueSystemIds of selection.sgkvs) {
+        for (const valueSystemIds of selection.requestedSgkvs) {
           next.push({
             subgraphSystemIds: [
               ...candidate.subgraphSystemIds,
-              selection.systemId,
+              selection.subgraph.systemId,
             ],
             valueSystemIds: [...candidate.valueSystemIds, ...valueSystemIds],
           });
@@ -38,7 +38,7 @@ export class CombinationExpansionService implements RoutingPhase {
       }
       candidates = next;
     }
-    context.routingCombinations.push(...candidates);
+    context.routingCandidates.combinations.push(...candidates);
     return Result.ok();
   }
 }

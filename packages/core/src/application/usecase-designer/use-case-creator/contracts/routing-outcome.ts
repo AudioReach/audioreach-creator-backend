@@ -4,19 +4,19 @@
  */
 
 import type {Issue} from '../../../../shared/issues/issue.js';
-import type {EmittedUsecaseChange} from './routing-state.js';
+import type {UsecaseChangeDescriptor} from './routing-state.js';
 
 export type {UsecaseChangeRef} from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
 
 export interface RoutingOutcome {
-  readonly emittedChanges: readonly EmittedUsecaseChange[];
+  readonly emittedChanges: readonly UsecaseChangeDescriptor[];
   readonly issues: readonly Issue[];
   readonly groupId: string;
 }
 
 export function createEmptyRoutingOutcome(
   groupId: string,
-  emittedChanges: readonly EmittedUsecaseChange[] = [],
+  emittedChanges: readonly UsecaseChangeDescriptor[] = [],
   issues: readonly Issue[] = [],
 ): RoutingOutcome {
   return {emittedChanges: [...emittedChanges], issues: [...issues], groupId};

@@ -5,17 +5,20 @@
 
 import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
 import {Subgraph} from '../../../../../../src/domain/entities/usecase-data/subgraph/subgraph.js';
-import {IssueFactory} from '../../../../../../src/shared/issues/factories.js';
+import type {ControlLink} from '../../../../../../src/domain/entities/usecase-data/links/control-link.js';
+import {RoutingIssueFactory} from '../../../../../../src/application/usecase-designer/use-case-creator/issues/routing-issue-factory.js';
 import {
   SOURCE,
   CHANGE_OPERATION,
 } from '../../../../../../src/application/shared/change-vocabulary.js';
 import {RoutingContext} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
 import {
+  createAutoRoutingInput,
   createControlLinkManualTopologyPair,
   createManualRoutingInput,
   deriveRoutingScope,
   emptyGraphEdits,
+  type RoutingGraphSnapshot,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
 import {ResponseBuilder} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/response-builder.js';
 import {GetUsecaseChangeDetailsQuery} from '../../../../../../src/application/usecase-designer/usecase/get-change-details/get-usecase-change-details.query.js';
@@ -30,45 +33,98 @@ function createUsecase(systemId: number, subgraphSystemIds: number[]): UseCase {
   });
 }
 
+function createSubgraph(systemId: number): Subgraph {
+  return new Subgraph({
+    systemId,
+    subgraphId: systemId + 100,
+    name: `sg-${systemId}`,
+    isImported: false,
+    fileSystemId: 1,
+  });
+}
+
+function createSnapshot(subgraph = createSubgraph(31)): RoutingGraphSnapshot {
+  return {
+    subgraphs: [{subgraph, requestedSgkvs: [[11]], isMdf: false}],
+    routableDataLinks: [],
+    routableControlLinks: [],
+    overlayDataLinks: [],
+    overlayControlLinks: [],
+    committedUsecases: [],
+    sessionEdits: emptyGraphEdits(),
+  };
+}
+
 function createInput() {
   return createManualRoutingInput({
+    fileSystemId: 1,
     selectedUsecases: [createUsecase(21, [31])],
-    activeSubgraphs: [{systemId: 31, sgkvs: [[11], [12, 13]]}],
-    scopePolicy: {
+    requestPolicy: {
       requestedSubgraphSystemIds: new Set([31]),
-      excludedSubgraphSystemIds: new Set(),
+      explicitlyExcludedSubgraphSystemIds: new Set(),
+      explicitlyExcludedDataLinkSystemIds: new Set(),
+      explicitlyExcludedControlLinkSystemIds: new Set(),
     },
-    graphEdits: emptyGraphEdits(),
+    graphSnapshot: createSnapshot(),
     manualTopology: {pairs: []},
   });
 }
 
 describe('routing contracts', () => {
-  it('copies selected snapshots, scope policy, and pair-local topology', () => {
+  it('copies request policy, snapshot collections, and nested requested SGKVs', () => {
     const sourceSgkvs = [[11], [12, 13]];
     const selectedUsecases = [createUsecase(21, [31])];
     const requested = new Set([31]);
     const excluded = new Set<number>();
+    const subgraph = createSubgraph(31);
+    const snapshot: RoutingGraphSnapshot = {
+      ...createSnapshot(subgraph),
+      subgraphs: [{subgraph, requestedSgkvs: sourceSgkvs, isMdf: false}],
+    };
     const input = createManualRoutingInput({
+      fileSystemId: 1,
       selectedUsecases,
-      activeSubgraphs: [{systemId: 31, sgkvs: sourceSgkvs}],
-      scopePolicy: {
+      requestPolicy: {
         requestedSubgraphSystemIds: requested,
-        excludedSubgraphSystemIds: excluded,
+        explicitlyExcludedSubgraphSystemIds: excluded,
+        explicitlyExcludedDataLinkSystemIds: new Set([101]),
+        explicitlyExcludedControlLinkSystemIds: new Set([201]),
       },
-      graphEdits: emptyGraphEdits(),
+      graphSnapshot: snapshot,
       manualTopology: {pairs: []},
     });
-    sourceSgkvs[0].push(99);
+    sourceSgkvs[0]!.push(99);
     selectedUsecases.push(createUsecase(22, [32]));
     requested.add(32);
     excluded.add(31);
-    expect(input.activeSubgraphs).toEqual([
-      {systemId: 31, sgkvs: [[11], [12, 13]]},
+    expect(input.graphSnapshot.subgraphs[0]!.subgraph).toBe(subgraph);
+    expect(input.graphSnapshot.subgraphs[0]!.requestedSgkvs).toEqual([
+      [11],
+      [12, 13],
     ]);
     expect(input.selectedUsecases).toHaveLength(1);
-    expect(input.scopePolicy.requestedSubgraphSystemIds).toEqual(new Set([31]));
-    expect(input.scopePolicy.excludedSubgraphSystemIds).toEqual(new Set());
+    expect(input.requestPolicy.requestedSubgraphSystemIds).toEqual(
+      new Set([31]),
+    );
+    expect(input.requestPolicy.explicitlyExcludedSubgraphSystemIds).toEqual(
+      new Set(),
+    );
+  });
+
+  it('keeps automatic inputs free of manual topology and manual inputs require topology', () => {
+    const auto = createAutoRoutingInput({
+      fileSystemId: 1,
+      selectedUsecases: [],
+      requestPolicy: {
+        requestedSubgraphSystemIds: new Set(),
+        explicitlyExcludedSubgraphSystemIds: new Set(),
+        explicitlyExcludedDataLinkSystemIds: new Set(),
+        explicitlyExcludedControlLinkSystemIds: new Set(),
+      },
+      graphSnapshot: createSnapshot(),
+    });
+    expect(auto).not.toHaveProperty('manualTopology');
+    expect(createInput().manualTopology).toEqual({pairs: []});
   });
 
   it('derives selected and effective scope with request ordering preserved', () => {
@@ -96,7 +152,7 @@ describe('routing contracts', () => {
     );
     expect(scope.missingSelectedScopeSubgraphs).toEqual(new Set([20]));
     expect(
-      IssueFactory.routingSelectedScopeIncomplete(
+      RoutingIssueFactory.selectedScopeIncomplete(
         scope.missingSelectedScopeSubgraphs,
       ),
     ).toEqual(
@@ -119,69 +175,54 @@ describe('routing contracts', () => {
     expect(scope.effectiveActiveSubgraphs).toEqual([{systemId: 10, sgkvs: []}]);
   });
 
-  it('removes excluded and deleted stale selections from routable input', () => {
-    const scope = deriveRoutingScope(
-      [createUsecase(21, [10])],
-      [
-        {systemId: 10, sgkvs: [[1]]},
-        {systemId: 20, sgkvs: [[2]]},
-        {systemId: 30, sgkvs: [[3]]},
-      ],
-      [30],
-      [20],
-    );
-
-    expect(scope.inputSubgraphs).toEqual(new Set([10, 20, 30]));
-    expect(scope.outOfSelectionSubgraphs).toEqual(new Set([20, 30]));
-    expect(scope.effectiveRoutingScope).toEqual(new Set([10]));
-    expect(scope.effectiveActiveSubgraphs).toEqual([
-      {systemId: 10, sgkvs: [[1]]},
-    ]);
-  });
-
-  it('preserves deleted graph records and keeps exclusions only on input', () => {
-    const deletedSubgraph = new Subgraph({
-      systemId: 20,
-      subgraphId: 200,
-      name: 'deleted-sg',
-      isImported: false,
-      fileSystemId: 1,
-    });
+  it('preserves session edits in the snapshot and keeps request policy separate', () => {
+    const deletedSubgraph = createSubgraph(20);
+    const sessionEdits = {
+      ...emptyGraphEdits(),
+      deletedSgs: [deletedSubgraph],
+    };
     const input = createManualRoutingInput({
       ...createInput(),
-      scopePolicy: {
+      requestPolicy: {
+        ...createInput().requestPolicy,
         requestedSubgraphSystemIds: new Set([10, 20]),
-        excludedSubgraphSystemIds: new Set([20]),
+        explicitlyExcludedSubgraphSystemIds: new Set([20]),
       },
-      graphEdits: {...emptyGraphEdits(), deletedSgs: [deletedSubgraph]},
+      graphSnapshot: {
+        ...createSnapshot(),
+        sessionEdits,
+      },
       manualTopology: {pairs: []},
     });
+    sessionEdits.deletedSgs.push(createSubgraph(30));
     const context = new RoutingContext(input);
-    expect(input.graphEdits.deletedSgs).toEqual([deletedSubgraph]);
-    expect(context.input.scopePolicy.excludedSubgraphSystemIds).toEqual(
-      new Set([20]),
+    expect(input.graphSnapshot.sessionEdits.deletedSgs).toEqual([
+      deletedSubgraph,
+    ]);
+    expect(
+      context.input.requestPolicy.explicitlyExcludedSubgraphSystemIds,
+    ).toEqual(new Set([20]));
+    expect(Object.isFrozen(input.graphSnapshot.sessionEdits)).toBe(true);
+    expect(Object.isFrozen(input.graphSnapshot.sessionEdits.deletedSgs)).toBe(
+      true,
     );
-    expect(context).not.toHaveProperty('excludedSubgraphSystemIds');
-    expect(context).not.toHaveProperty('excludedDataLinkSystemIds');
-    expect(context).not.toHaveProperty('excludedControlLinkSystemIds');
+    expect(context).not.toHaveProperty('allUcs');
+    expect(context).not.toHaveProperty('effectiveExcludedSubgraphSystemIds');
   });
 
-  it('uses pair-local factories and emits descriptors unchanged in the response', async () => {
+  it('preserves borrowed topology link identity and emits descriptors unchanged', async () => {
+    const link = {
+      systemId: 1,
+      sourceSubgraphSystemId: 20,
+      destSubgraphSystemId: 10,
+    } as ControlLink;
     const pair = createControlLinkManualTopologyPair(
       {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
-      [
-        {
-          systemId: 1,
-          sourceSubgraphSystemId: 20,
-          destSubgraphSystemId: 10,
-        } as never,
-      ],
+      [link],
     );
+    expect(pair.controlLinks[0]).toBe(link);
     expect(pair.dataLinks).toEqual([]);
-    expect(pair.controlLinks).toHaveLength(1);
     expect(Object.isFrozen(pair)).toBe(true);
-    expect(Object.isFrozen(pair.pair)).toBe(true);
-    expect(Object.isFrozen(pair.controlLinks)).toBe(true);
     const context = new RoutingContext(createInput());
     context.emittedUcChanges.push({
       systemId: 21,

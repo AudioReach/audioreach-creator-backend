@@ -7,6 +7,7 @@ import {
   IPC_RX_MODULE_DEF_ID,
   IPC_TX_MODULE_DEF_ID,
 } from '../../../../domain/entities/definitions/spf-module/ipc-module-def-ids.js';
+import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/subgraph.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 
 /**
@@ -15,18 +16,11 @@ import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
  */
 export class MdfClassificationService {
   async classify(
-    candidateSubgraphSystemIds: readonly number[],
+    subgraphs: readonly Subgraph[],
+    fileSystemId: number,
     uow: UnitOfWork,
-  ): Promise<Set<number>> {
-    const candidateIds = [...new Set(candidateSubgraphSystemIds)];
-    if (candidateIds.length === 0) return new Set();
-
-    const fileSystemId = uow.getWriteContext().session.fileSystemId;
-    const subgraphs = await uow
-      .getSubgraphRepository()
-      .findByIds(fileSystemId, candidateIds);
+  ): Promise<ReadonlySet<number>> {
     if (subgraphs.length === 0) return new Set();
-
     const effectiveSubgraphIds = subgraphs.map(subgraph => subgraph.systemId);
     const modules = await uow
       .getModuleRepository()

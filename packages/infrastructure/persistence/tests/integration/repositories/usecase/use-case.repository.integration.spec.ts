@@ -331,6 +331,40 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       const result = await repo.findAll(FILE_ID);
       expect(result.map(u => u.systemId).sort()).toEqual([1000, 1001]);
     });
+
+    it('returns base relationships in committed mode while overlay applies staged cascade deletes', async () => {
+      await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
+      const firstMembershipSystemId = await linkSg(ds, 1000, SG_ID_1);
+      const secondMembershipSystemId = await linkSg(ds, 1000, SG_ID_2);
+      const pairSystemId = await linkPair(ds, 1000, SG_ID_1, SG_ID_2);
+      const repo = makeRepo(qr.manager, sessionId);
+
+      await qr.startTransaction();
+      for (const [targetSystemId, targetTable] of [
+        [firstMembershipSystemId, 'UseCaseSubgraph'],
+        [secondMembershipSystemId, 'UseCaseSubgraph'],
+        [pairSystemId, 'UseCaseSubgraphPair'],
+      ] as const) {
+        await qr.manager.query(
+          `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)
+           VALUES (?, ?, ?, ?, 'DELETE', NULL, '{}', 'MANUAL', 'STAGED', NULL, datetime('now'), NULL)`,
+          [sessionId, 1000, targetSystemId, targetTable],
+        );
+      }
+      await qr.commitTransaction();
+
+      const [overlaid] = await repo.findAll(FILE_ID);
+      expect(overlaid.subgraphSystemIds).toEqual([]);
+      expect(overlaid.subgraphPairs).toEqual([]);
+
+      const [committed] = await repo.findAll(FILE_ID, {
+        readMode: READ_MODE.Committed,
+      });
+      expect(committed.subgraphSystemIds.sort()).toEqual([SG_ID_1, SG_ID_2]);
+      expect(committed.subgraphPairs).toEqual([
+        {sourceSubgraphSystemId: SG_ID_1, destSubgraphSystemId: SG_ID_2},
+      ]);
+    });
   });
 
   // ── findWithActiveEdits ──────────────────────────────────────────────────────
