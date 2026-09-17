@@ -15,7 +15,7 @@ import {mapDtoToParameterCalibration} from '../get-cal-data/ckv-cal-data-dto.js'
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import {Result} from '../../../shared/result/result.js';
 import type {PayloadEntry} from '../../../ports/persistence/repositories/module/module.repository.js';
-import type {ParameterDefinitionBase} from '../../../ports/persistence/repositories/module/module-definition.repository.js';
+import type {ModuleParameterDefinition} from '../../../ports/persistence/repositories/module/module-definition.repository.js';
 import type {ParameterElementDto} from '../dto/element-dto.js';
 
 export class UpdateTkvCalDataHandler {
@@ -103,7 +103,7 @@ export class UpdateTkvCalDataHandler {
   private processParam(
     param: {systemId: number; elements: ParameterElementDto[]},
     entryMap: Map<number, PayloadEntry>,
-    defMap: Map<number, ParameterDefinitionBase>,
+    defMap: Map<number, ModuleParameterDefinition>,
   ): {payloadSystemId: number; paramSystemId: number; payload: Uint8Array} {
     const entry = entryMap.get(param.systemId);
     if (!entry) {

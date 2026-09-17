@@ -7,7 +7,7 @@ import type {EntityManager} from 'typeorm';
 import type {
   ModuleDefinitionRepository,
   UnitOfWork,
-  ParameterDefinitionBase,
+  ModuleParameterDefinition,
 } from '@arc/core';
 import {
   SpfModuleDefinition,
@@ -165,7 +165,7 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
   async getParameterDefinitions(
     moduleDefSystemId: number,
     paramSystemIds?: number[],
-  ): Promise<ParameterDefinitionBase[]> {
+  ): Promise<ModuleParameterDefinition[]> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
     const rows = await this.paramDefFetcher.fetchParameterDefinitions(
       moduleDefSystemId,

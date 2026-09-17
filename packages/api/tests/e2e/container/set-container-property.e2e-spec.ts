@@ -16,7 +16,6 @@ import request from 'supertest';
 import {join, dirname} from 'path';
 import {fileURLToPath} from 'url';
 import type {INestApplication} from '@nestjs/common';
-import {DataSource} from 'typeorm';
 import {setupE2ETest, teardownE2ETest} from '../helpers/e2e-test-setup.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -48,6 +47,50 @@ async function endSession(
     .timeout(30_000);
 }
 
+async function discoverModuleContainerSystemIds(
+  httpServer: unknown,
+  authToken: string,
+  projectId: string,
+): Promise<number[]> {
+  const usecasesRes = await request(httpServer as Parameters<typeof request>[0])
+    .get(`/arc-api/v1/projects/${projectId}/usecases/`)
+    .set('Authorization', `Bearer ${authToken}`)
+    .timeout(30_000);
+
+  const usecaseSystemIds: string[] = [];
+  for (const usecase of usecasesRes.body?.data ?? []) {
+    const nestedUsecases: any[] = usecase.usecases ?? [];
+    for (const nestedUsecase of nestedUsecases) {
+      if (nestedUsecase.systemId) {
+        usecaseSystemIds.push(String(nestedUsecase.systemId));
+      }
+    }
+    if (nestedUsecases.length === 0 && usecase.systemId) {
+      usecaseSystemIds.push(String(usecase.systemId));
+    }
+  }
+
+  if (usecaseSystemIds.length === 0) return [];
+
+  const componentsRes = await request(
+    httpServer as Parameters<typeof request>[0],
+  )
+    .post(`/arc-api/v1/projects/${projectId}/usecases/components/query`)
+    .set('Authorization', `Bearer ${authToken}`)
+    .send({systemIds: usecaseSystemIds})
+    .timeout(30_000);
+
+  return [
+    ...new Set(
+      (componentsRes.body?.data?.spfModules ?? [])
+        .map((module: any) => Number(module.containerSystemId))
+        .filter((containerSystemId: number) =>
+          Number.isFinite(containerSystemId),
+        ),
+    ),
+  ];
+}
+
 async function discoverContainerAndProperty(
   httpServer: unknown,
   authToken: string,
@@ -69,7 +112,45 @@ async function discoverContainerAndProperty(
     console.warn('Fixture has no containers — all tests will skip');
     return {containerSystemId: undefined, propertySystemId: undefined};
   }
-  const containerSystemId = containers[0].systemId as number;
+  const containerSystemId = Number(containers[0].systemId);
+
+  const propsRes = await request(httpServer as Parameters<typeof request>[0])
+    .get(
+      `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties`,
+    )
+    .set('Authorization', `Bearer ${authToken}`)
+    .timeout(30_000);
+
+  const properties: any[] = propsRes.body?.data?.properties ?? [];
+  if (properties.length === 0) {
+    console.warn('Fixture container has no properties — some tests will skip');
+    return {containerSystemId, propertySystemId: undefined};
+  }
+
+  return {
+    containerSystemId,
+    propertySystemId: Number(properties[0].systemId),
+  };
+}
+
+async function discoverContainerAndPropertyFromModules(
+  httpServer: unknown,
+  authToken: string,
+  projectId: string,
+): Promise<{
+  containerSystemId: number | undefined;
+  propertySystemId: number | undefined;
+}> {
+  const containerSystemIds = await discoverModuleContainerSystemIds(
+    httpServer,
+    authToken,
+    projectId,
+  );
+  if (containerSystemIds.length === 0) {
+    console.warn('Fixture has no containers — all tests will skip');
+    return {containerSystemId: undefined, propertySystemId: undefined};
+  }
+  const containerSystemId = containerSystemIds[0];
 
   const propsRes = await request(httpServer as Parameters<typeof request>[0])
     .get(
@@ -142,7 +223,7 @@ async function discoverEmptyContainerAndCapabilityProperty(
   const modules: any[] = componentsRes.body?.data?.spfModules ?? [];
   const moduleContainerIds = new Set(
     modules
-      .map(module => Number(module.containerId))
+      .map(module => Number(module.containerSystemId))
       .filter(containerId => Number.isFinite(containerId)),
   );
   const emptyContainer = containers.find(
@@ -172,6 +253,153 @@ async function discoverEmptyContainerAndCapabilityProperty(
       ? Number(capabilityProperty.systemId)
       : undefined,
   };
+}
+
+async function discoverContainerWithModulesAndCapabilityProperty(
+  httpServer: unknown,
+  authToken: string,
+  projectId: string,
+): Promise<{
+  containerSystemId: number | undefined;
+  propertySystemId: number | undefined;
+}> {
+  const containerSystemIds = await discoverModuleContainerSystemIds(
+    httpServer,
+    authToken,
+    projectId,
+  );
+  if (containerSystemIds.length === 0) {
+    return {containerSystemId: undefined, propertySystemId: undefined};
+  }
+  const containerSystemId = containerSystemIds[0];
+
+  const propertiesRes = await request(
+    httpServer as Parameters<typeof request>[0],
+  )
+    .get(
+      `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties`,
+    )
+    .set('Authorization', `Bearer ${authToken}`)
+    .timeout(30_000);
+
+  const capabilityProperty = (propertiesRes.body?.data?.properties ?? []).find(
+    (property: any) => Number(property.propertyId) === 0x08001011,
+  );
+
+  return {
+    containerSystemId,
+    propertySystemId: capabilityProperty
+      ? Number(capabilityProperty.systemId)
+      : undefined,
+  };
+}
+
+async function discoverPropertySystemId(
+  httpServer: unknown,
+  authToken: string,
+  projectId: string,
+  containerSystemId: number,
+  propertyId: number,
+): Promise<number | undefined> {
+  const propertiesRes = await request(
+    httpServer as Parameters<typeof request>[0],
+  )
+    .get(
+      `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties`,
+    )
+    .set('Authorization', `Bearer ${authToken}`)
+    .timeout(30_000);
+
+  const property = (propertiesRes.body?.data?.properties ?? []).find(
+    (candidate: any) => Number(candidate.propertyId) === propertyId,
+  );
+  return property ? Number(property.systemId) : undefined;
+}
+
+function updateFirstConfigElement(
+  elements: any[],
+): {elements: any[]; path: number[]; value: string} | undefined {
+  const visit = (
+    current: any[],
+    pathPrefix: number[],
+  ): {elements: any[]; path: number[]; value: string} | undefined => {
+    for (let index = 0; index < current.length; index++) {
+      const element = current[index];
+      if (
+        element?.type === 'CONFIG_ELEMENT' ||
+        element?.type === 'ConfigElement'
+      ) {
+        const currentValue = String(element.value);
+        const allowedValues = element.allowedValues ?? [];
+        const alternateAllowedValue = allowedValues.find(
+          (allowedValue: any) => String(allowedValue.value) !== currentValue,
+        );
+
+        let nextValue: string;
+        if (alternateAllowedValue) {
+          nextValue = String(alternateAllowedValue.value);
+        } else {
+          const numericValue = Number(currentValue);
+          if (!Number.isFinite(numericValue)) return undefined;
+
+          const min = Number.isFinite(element.min)
+            ? Number(element.min)
+            : undefined;
+          const max = Number.isFinite(element.max)
+            ? Number(element.max)
+            : undefined;
+          let candidate = numericValue === 0 ? 1 : 0;
+          if (min !== undefined && candidate < min) candidate = min;
+          if (max !== undefined && candidate > max) candidate = max;
+          if (candidate === numericValue) {
+            if (max === undefined || numericValue < max) {
+              candidate = numericValue + 1;
+            } else if (min === undefined || numericValue > min) {
+              candidate = numericValue - 1;
+            } else {
+              return undefined;
+            }
+          }
+          nextValue = String(candidate);
+        }
+
+        return {
+          elements: current.map((item, itemIndex) =>
+            itemIndex === index ? {...item, value: nextValue} : item,
+          ),
+          path: [...pathPrefix, index],
+          value: nextValue,
+        };
+      }
+
+      if (Array.isArray(element?.value)) {
+        const nested = visit(element.value, [...pathPrefix, index]);
+        if (nested) {
+          return {
+            elements: current.map((item, itemIndex) =>
+              itemIndex === index ? {...item, value: nested.elements} : item,
+            ),
+            path: nested.path,
+            value: nested.value,
+          };
+        }
+      }
+    }
+    return undefined;
+  };
+
+  return visit(elements, []);
+}
+
+function readElementAtPath(elements: any[], path: number[]): any {
+  let current: any = elements;
+  for (const index of path) {
+    current = current[index];
+    if (current?.value && index !== path[path.length - 1]) {
+      current = current.value;
+    }
+  }
+  return current?.value;
 }
 
 // ── suite ─────────────────────────────────────────────────────────────────────
@@ -313,29 +541,30 @@ describe('E2E: PUT /arc-api/v1/projects/:projectId/containers/:containerSystemId
   // ── 422: 0x08001011 capability mismatch ───────────────────────────────────
 
   it('returns 422 when 0x08001011 capability list has no intersection with a module', async () => {
-    if (!projectId || !containerSystemId) {
+    if (!projectId) {
       console.warn('No fixture data — skipping');
       return;
     }
-    const dataSource = (
-      app as INestApplication & {get: (token: any) => any}
-    ).get(DataSource);
-    const capabilityPropRow = await dataSource.manager
-      .createQueryBuilder()
-      .select(['cpd.systemId'])
-      .from('ContainerPropertyDefinition', 'cpd')
-      .where('cpd.propertyId = :pid', {pid: 0x08001011})
-      .limit(1)
-      .getRawOne<{systemId: number} | undefined>();
+    const capabilityProperty =
+      await discoverContainerWithModulesAndCapabilityProperty(
+        httpServer,
+        authToken,
+        projectId,
+      );
 
-    if (!capabilityPropRow) {
-      console.warn('0x08001011 property definition not in fixture — skipping');
+    if (
+      !capabilityProperty.containerSystemId ||
+      !capabilityProperty.propertySystemId
+    ) {
+      console.warn(
+        'Fixture has no non-empty container with a capability property — skipping',
+      );
       return;
     }
 
     const res = await request(httpServer as Parameters<typeof request>[0])
       .put(
-        `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties/${capabilityPropRow.systemId}`,
+        `/arc-api/v1/projects/${projectId}/containers/${capabilityProperty.containerSystemId}/properties/${capabilityProperty.propertySystemId}`,
       )
       .set('Authorization', `Bearer ${authToken}`)
       .send({
@@ -351,10 +580,9 @@ describe('E2E: PUT /arc-api/v1/projects/:projectId/containers/:containerSystemId
       })
       .timeout(30_000);
 
-    expect([400, 404, 422]).toContain(res.status);
-    if (res.status === 422) {
-      expect(Array.isArray(res.body.issues)).toBe(true);
-    }
+    expect(res.status).toBe(422);
+    expect(Array.isArray(res.body.issues)).toBe(true);
+    expect(res.body.issues.length).toBeGreaterThan(0);
   }, 60_000);
 
   // ── 200: 0x08001011 valid capability list ─────────────────────────────────
@@ -364,25 +592,22 @@ describe('E2E: PUT /arc-api/v1/projects/:projectId/containers/:containerSystemId
       console.warn('No fixture data — skipping');
       return;
     }
-    const dataSource = (
-      app as INestApplication & {get: (token: any) => any}
-    ).get(DataSource);
-    const capabilityPropRow = await dataSource.manager
-      .createQueryBuilder()
-      .select(['cpd.systemId', 'cpd.elementsStructure'])
-      .from('ContainerPropertyDefinition', 'cpd')
-      .where('cpd.propertyId = :pid', {pid: 0x08001011})
-      .limit(1)
-      .getRawOne<{systemId: number; elementsStructure: string} | undefined>();
+    const capabilityPropertySystemId = await discoverPropertySystemId(
+      httpServer,
+      authToken,
+      projectId,
+      containerSystemId,
+      0x08001011,
+    );
 
-    if (!capabilityPropRow) {
+    if (!capabilityPropertySystemId) {
       console.warn('0x08001011 property definition not in fixture — skipping');
       return;
     }
 
     const getRes = await request(httpServer as Parameters<typeof request>[0])
       .get(
-        `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties/${capabilityPropRow.systemId}`,
+        `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties/${capabilityPropertySystemId}`,
       )
       .set('Authorization', `Bearer ${authToken}`)
       .timeout(30_000);
@@ -398,7 +623,7 @@ describe('E2E: PUT /arc-api/v1/projects/:projectId/containers/:containerSystemId
 
     const setRes = await request(httpServer as Parameters<typeof request>[0])
       .put(
-        `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties/${capabilityPropRow.systemId}`,
+        `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties/${capabilityPropertySystemId}`,
       )
       .set('Authorization', `Bearer ${authToken}`)
       .send({elements: existingElements})
@@ -463,32 +688,29 @@ describe('E2E: PUT /arc-api/v1/projects/:projectId/containers/:containerSystemId
     expect(typeof setRes.body.data.propertyId).toBe('number');
   }, 60_000);
 
-  // ── 200: 0x08001174 heap = Default — no cascade ───────────────────────────
+  // ── 200: 0x08001174 heap = Default — cascade to modules ───────────────────
 
-  it('returns 200 and does NOT write module heap edit_actions when heap = Default (0x1)', async () => {
+  it('returns 200 when heap = Default (0x1)', async () => {
     if (!projectId || !containerSystemId) {
       console.warn('No fixture data — skipping');
       return;
     }
-    const dataSource = (
-      app as INestApplication & {get: (token: any) => any}
-    ).get(DataSource);
-    const heapPropRow = await dataSource.manager
-      .createQueryBuilder()
-      .select(['cpd.systemId'])
-      .from('ContainerPropertyDefinition', 'cpd')
-      .where('cpd.propertyId = :pid', {pid: 0x08001174})
-      .limit(1)
-      .getRawOne<{systemId: number} | undefined>();
+    const heapPropertySystemId = await discoverPropertySystemId(
+      httpServer,
+      authToken,
+      projectId,
+      containerSystemId,
+      0x08001174,
+    );
 
-    if (!heapPropRow) {
+    if (!heapPropertySystemId) {
       console.warn('0x08001174 property definition not in fixture — skipping');
       return;
     }
 
     const getRes = await request(httpServer as Parameters<typeof request>[0])
       .get(
-        `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties/${heapPropRow.systemId}`,
+        `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties/${heapPropertySystemId}`,
       )
       .set('Authorization', `Bearer ${authToken}`)
       .timeout(30_000);
@@ -506,7 +728,7 @@ describe('E2E: PUT /arc-api/v1/projects/:projectId/containers/:containerSystemId
 
     const setRes = await request(httpServer as Parameters<typeof request>[0])
       .put(
-        `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties/${heapPropRow.systemId}`,
+        `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties/${heapPropertySystemId}`,
       )
       .set('Authorization', `Bearer ${authToken}`)
       .send({elements})
@@ -522,25 +744,22 @@ describe('E2E: PUT /arc-api/v1/projects/:projectId/containers/:containerSystemId
       console.warn('No fixture data — skipping');
       return;
     }
-    const dataSource = (
-      app as INestApplication & {get: (token: any) => any}
-    ).get(DataSource);
-    const heapPropRow = await dataSource.manager
-      .createQueryBuilder()
-      .select(['cpd.systemId'])
-      .from('ContainerPropertyDefinition', 'cpd')
-      .where('cpd.propertyId = :pid', {pid: 0x08001174})
-      .limit(1)
-      .getRawOne<{systemId: number} | undefined>();
+    const heapPropertySystemId = await discoverPropertySystemId(
+      httpServer,
+      authToken,
+      projectId,
+      containerSystemId,
+      0x08001174,
+    );
 
-    if (!heapPropRow) {
+    if (!heapPropertySystemId) {
       console.warn('0x08001174 property definition not in fixture — skipping');
       return;
     }
 
     const getRes = await request(httpServer as Parameters<typeof request>[0])
       .get(
-        `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties/${heapPropRow.systemId}`,
+        `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties/${heapPropertySystemId}`,
       )
       .set('Authorization', `Bearer ${authToken}`)
       .timeout(30_000);
@@ -558,7 +777,7 @@ describe('E2E: PUT /arc-api/v1/projects/:projectId/containers/:containerSystemId
 
     const setRes = await request(httpServer as Parameters<typeof request>[0])
       .put(
-        `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties/${heapPropRow.systemId}`,
+        `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties/${heapPropertySystemId}`,
       )
       .set('Authorization', `Bearer ${authToken}`)
       .send({elements})
@@ -567,16 +786,146 @@ describe('E2E: PUT /arc-api/v1/projects/:projectId/containers/:containerSystemId
     expect(setRes.status).toBe(200);
   }, 60_000);
 
-  // ── 200: any other property ────────────────────────────────────────────────
+  // ── PUT: dedicated container heap-ID endpoint ─────────────────────────────
 
-  it('returns 200 and PropertyResponseDto for a generic property round-trip', async () => {
-    if (!projectId || !containerSystemId || !propertySystemId) {
+  it('returns the updated Default heap ID and cascaded module heap IDs', async () => {
+    if (!projectId || !containerSystemId) {
       console.warn('No fixture data — skipping');
       return;
     }
+
+    const response = await request(httpServer as Parameters<typeof request>[0])
+      .put(
+        `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/heap-id`,
+      )
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({heapId: 1})
+      .timeout(30_000);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toMatchObject({
+      containerSystemId,
+      heapId: 1,
+    });
+    expect(Array.isArray(response.body.data.updatedModuleHeapIds)).toBe(true);
+    for (const moduleHeap of response.body.data.updatedModuleHeapIds) {
+      expect(moduleHeap).toEqual(
+        expect.objectContaining({
+          moduleSystemId: expect.any(Number),
+          heapId: 1,
+        }),
+      );
+    }
+  }, 60_000);
+
+  it('returns the updated Low Power heap ID and cascaded module heap IDs', async () => {
+    if (!projectId || !containerSystemId) {
+      console.warn('No fixture data — skipping');
+      return;
+    }
+
+    const response = await request(httpServer as Parameters<typeof request>[0])
+      .put(
+        `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/heap-id`,
+      )
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({heapId: 2})
+      .timeout(30_000);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toMatchObject({
+      containerSystemId,
+      heapId: 2,
+    });
+    expect(
+      response.body.data.updatedModuleHeapIds.every(
+        (moduleHeap: {heapId: number}) => moduleHeap.heapId === 2,
+      ),
+    ).toBe(true);
+  }, 60_000);
+
+  it('returns 400 for an unsupported heap ID', async () => {
+    if (!projectId || !containerSystemId) {
+      console.warn('No fixture data — skipping');
+      return;
+    }
+
+    const response = await request(httpServer as Parameters<typeof request>[0])
+      .put(
+        `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/heap-id`,
+      )
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({heapId: 3})
+      .timeout(30_000);
+
+    expect(response.status).toBe(400);
+  }, 60_000);
+
+  it('returns 404 when the container does not exist', async () => {
+    if (!projectId) {
+      console.warn('No fixture data — skipping');
+      return;
+    }
+
+    const response = await request(httpServer as Parameters<typeof request>[0])
+      .put(`/arc-api/v1/projects/${projectId}/containers/999999999/heap-id`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({heapId: 1})
+      .timeout(30_000);
+
+    expect(response.status).toBe(404);
+  }, 60_000);
+
+  it('returns 403 without an active session', async () => {
+    if (!projectId || !containerSystemId) {
+      console.warn('No fixture data — skipping');
+      return;
+    }
+
+    await endSession(httpServer, authToken, projectId);
+    try {
+      const response = await request(
+        httpServer as Parameters<typeof request>[0],
+      )
+        .put(
+          `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/heap-id`,
+        )
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({heapId: 1})
+        .timeout(30_000);
+
+      expect(response.status).toBe(403);
+    } finally {
+      await startDesignerSession(httpServer, authToken, projectId);
+    }
+  }, 60_000);
+
+  // ── 200: any other property ────────────────────────────────────────────────
+
+  it('returns 200 and PropertyResponseDto for a generic property round-trip', async () => {
+    if (!projectId) {
+      console.warn('No fixture data — skipping');
+      return;
+    }
+    const genericProperty =
+      containerSystemId && propertySystemId
+        ? {containerSystemId, propertySystemId}
+        : await discoverContainerAndPropertyFromModules(
+            httpServer,
+            authToken,
+            projectId,
+          );
+    if (
+      !genericProperty.containerSystemId ||
+      !genericProperty.propertySystemId
+    ) {
+      console.warn('No generic property fixture data — skipping');
+      return;
+    }
+
     const getRes = await request(httpServer as Parameters<typeof request>[0])
       .get(
-        `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties/${propertySystemId}`,
+        `/arc-api/v1/projects/${projectId}/containers/${genericProperty.containerSystemId}/properties/${genericProperty.propertySystemId}`,
       )
       .set('Authorization', `Bearer ${authToken}`)
       .timeout(30_000);
@@ -589,13 +938,18 @@ describe('E2E: PUT /arc-api/v1/projects/:projectId/containers/:containerSystemId
     }
 
     const existingElements: any[] = getRes.body?.data?.elements ?? [];
+    const updated = updateFirstConfigElement(existingElements);
+    if (!updated) {
+      console.warn('Property has no mutable config element — skipping');
+      return;
+    }
 
     const setRes = await request(httpServer as Parameters<typeof request>[0])
       .put(
-        `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties/${propertySystemId}`,
+        `/arc-api/v1/projects/${projectId}/containers/${genericProperty.containerSystemId}/properties/${genericProperty.propertySystemId}`,
       )
       .set('Authorization', `Bearer ${authToken}`)
-      .send({elements: existingElements})
+      .send({elements: updated.elements})
       .timeout(30_000);
 
     expect(setRes.status).toBe(200);
@@ -604,5 +958,17 @@ describe('E2E: PUT /arc-api/v1/projects/:projectId/containers/:containerSystemId
     expect(setRes.body.data.propertyId).toBe(getRes.body.data.propertyId);
     expect(typeof setRes.body.data.propertyName).toBe('string');
     expect(Array.isArray(setRes.body.data.elements)).toBe(true);
+
+    const verifyRes = await request(httpServer as Parameters<typeof request>[0])
+      .get(
+        `/arc-api/v1/projects/${projectId}/containers/${genericProperty.containerSystemId}/properties/${genericProperty.propertySystemId}`,
+      )
+      .set('Authorization', `Bearer ${authToken}`)
+      .timeout(30_000);
+
+    expect(verifyRes.status).toBe(200);
+    expect(readElementAtPath(verifyRes.body.data.elements, updated.path)).toBe(
+      updated.value,
+    );
   }, 60_000);
 });

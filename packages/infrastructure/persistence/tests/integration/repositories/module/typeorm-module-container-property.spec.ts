@@ -133,9 +133,9 @@ function makeRepo(qr: QueryRunner, sessionId: number): TypeOrmModuleRepository {
   return new TypeOrmModuleRepository(writer, qr.manager, uow as never);
 }
 
-// ── findModuleDefinitionInfoByContainerId tests ───────────────────────────────
+// ── module/definition lookup tests ────────────────────────────────────────────
 
-describe('TypeOrmModuleRepository — findModuleDefinitionInfoByContainerId', () => {
+describe('TypeOrmModuleRepository — findModulesByContainerId', () => {
   let ds: DataSource;
   let qr: QueryRunner;
   let sessionId: number;
@@ -160,16 +160,16 @@ describe('TypeOrmModuleRepository — findModuleDefinitionInfoByContainerId', ()
     if (qr) await qr.release();
   });
 
-  it('returns definition metadata when modules exist in DB', async () => {
+  it('returns modules when modules exist in DB', async () => {
     const repo = makeRepo(qr, sessionId);
-    const results = await repo.findModuleDefinitionInfoByContainerId(
-      CONTAINER_ID,
-      FILE_ID,
-    );
+    const results = await repo.findModulesByContainerId(CONTAINER_ID, FILE_ID);
     expect(results).toHaveLength(1);
     expect(results[0]).toMatchObject({
-      displayName: 'My Display Name',
-      containerTypeIds: [CONTAINER_TYPE_ID],
+      systemId: MODULE_ID,
+      definitionSystemId: DEF_ID,
+      containerSystemId: CONTAINER_ID,
+      subgraphSystemId: SUBGRAPH_ID,
+      alias: 'mod',
     });
   });
 
@@ -188,10 +188,7 @@ describe('TypeOrmModuleRepository — findModuleDefinitionInfoByContainerId', ()
       ],
     );
     const repo = makeRepo(qr, sessionId);
-    const results = await repo.findModuleDefinitionInfoByContainerId(
-      CONTAINER_ID,
-      FILE_ID,
-    );
+    const results = await repo.findModulesByContainerId(CONTAINER_ID, FILE_ID);
     expect(results).toHaveLength(0);
   });
 
@@ -219,24 +216,16 @@ describe('TypeOrmModuleRepository — findModuleDefinitionInfoByContainerId', ()
       ],
     );
     const repo = makeRepo(qr, sessionId);
-    const results = await repo.findModuleDefinitionInfoByContainerId(
-      CONTAINER_ID,
-      FILE_ID,
-    );
+    const results = await repo.findModulesByContainerId(CONTAINER_ID, FILE_ID);
     expect(results.length).toBe(2);
     expect(
-      results.every(result =>
-        result.containerTypeIds.includes(CONTAINER_TYPE_ID),
-      ),
+      results.every(result => result.containerSystemId === CONTAINER_ID),
     ).toBe(true);
   });
 
   it('returns empty array when no modules belong to the container', async () => {
     const repo = makeRepo(qr, sessionId);
-    const results = await repo.findModuleDefinitionInfoByContainerId(
-      9999,
-      FILE_ID,
-    );
+    const results = await repo.findModulesByContainerId(9999, FILE_ID);
     expect(results).toHaveLength(0);
   });
 });

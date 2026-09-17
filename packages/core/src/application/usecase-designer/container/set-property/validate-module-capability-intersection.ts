@@ -3,31 +3,36 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {ContainerModuleDefinitionInfo} from '../../../ports/persistence/repositories/module/module.repository.js';
+import type {SpfModuleDefinition} from '../../../../domain/entities/definitions/spf-module/spf-module-definition.js';
 import {DomainRuleViolationException} from '../../../../shared/exceptions/domain-rule-violation.exception.js';
-import {IssueFactory} from '../../../../shared/issues/factories.js';
 
 /**
  * For each module in `modules`, checks whether `containerTypeIds ∩ capabilityIds`
- * is non-empty. Throws `DomainRuleViolationException` with a summary issue first,
- * followed by one issue per failing module (using the module's `displayName`).
+ * is non-empty. Throws `DomainRuleViolationException` with one detail issue per
+ * failing module.
  *
  * Called before the write transaction for property 0x08001011 (capability list).
  */
 export function validateModuleCapabilityIntersection(
-  modules: ContainerModuleDefinitionInfo[],
+  modules: SpfModuleDefinition[],
   capabilityIds: number[],
 ): void {
   const capSet = new Set(capabilityIds);
 
-  const failingIssues = modules
-    .filter(mod => !mod.containerTypeIds.some(id => capSet.has(id)))
-    .map(mod => IssueFactory.containerCapabilityMismatch(mod.displayName));
+  const failingModules = modules.filter(mod =>
+    [...mod.containerTypesSystemIds].every(id => !capSet.has(id)),
+  );
 
-  if (failingIssues.length > 0) {
-    throw new DomainRuleViolationException([
-      IssueFactory.containerCapabilityMismatchSummary(),
-      ...failingIssues,
-    ]);
+  if (failingModules.length > 0) {
+    const detailMessages = failingModules.map(
+      mod =>
+        `Module '${mod.displayName}' does not support any of the selected capability IDs. ` +
+        `The module's allowed container types do not intersect with the requested capability list.`,
+    );
+
+    throw new DomainRuleViolationException(
+      'Module capability and container capability do not match for one or more modules; see issues for details.',
+      detailMessages,
+    );
   }
 }

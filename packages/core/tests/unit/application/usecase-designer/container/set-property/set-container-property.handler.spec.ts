@@ -6,16 +6,18 @@
 import {describe, it, expect, jest} from '@jest/globals';
 import {SetContainerPropertyHandler} from '../../../../../../src/application/usecase-designer/container/set-property/set-container-property.handler.js';
 import {SetContainerPropertyCommand} from '../../../../../../src/application/usecase-designer/container/set-property/set-container-property.command.js';
+import {SpfModuleDefinition} from '../../../../../../src/domain/entities/definitions/spf-module/spf-module-definition.js';
 import {
   ResourceNotFoundException,
   InvalidInputException,
+  InvalidOperationException,
   DomainRuleViolationException,
 } from '../../../../../../src/shared/exceptions/index.js';
 import type {
   UnitOfWork,
   ContainerRepository,
   ModuleRepository,
-  ContainerModuleDefinitionInfo,
+  ModuleDefinitionRepository,
   SpfModuleBase,
 } from '@arc/core';
 
@@ -44,7 +46,6 @@ function uint32Element(value: number) {
 }
 
 const UINT32_ELEMENT_VALUE_1 = [uint32Element(1)]; // heapId = Default
-const UINT32_ELEMENT_VALUE_2 = [uint32Element(2)]; // heapId = Low Power
 
 // capability list: count=1 + capabilityId — two uint32 fields → 8 bytes
 const CAP_LIST_ELEMENTS_STRUCTURE = JSON.stringify([
@@ -111,7 +112,7 @@ function makeContainerRepo(
 }
 
 function makeModuleRepo(
-  definitionModules: ContainerModuleDefinitionInfo[] = [],
+  _definitions: SpfModuleDefinition[] = [],
   modules: SpfModuleBase[] = [],
 ): ModuleRepository {
   return {
@@ -128,22 +129,52 @@ function makeModuleRepo(
     ckvExists: jest.fn(),
     getExistingCkvPayloads: jest.fn(),
     setCkvCalData: jest.fn(),
-    findModuleDefinitionInfoByContainerId: jest
-      .fn()
-      .mockResolvedValue(definitionModules),
     findModulesByContainerId: jest.fn().mockResolvedValue(modules),
     updateHeapId: jest.fn().mockResolvedValue(undefined),
   } as unknown as ModuleRepository;
+}
+
+function makeDefinitionRepository(
+  definitions: SpfModuleDefinition[] = [],
+): ModuleDefinitionRepository {
+  return {
+    findBySystemId: jest.fn(),
+    findByModuleIdAndProcId: jest.fn(),
+    findBySystemIds: jest.fn().mockResolvedValue(definitions),
+    getParameterDefinitions: jest.fn(),
+  } as unknown as ModuleDefinitionRepository;
+}
+
+function makeDefinition(
+  systemId: number,
+  displayName: string,
+  containerTypesSystemIds: number[],
+): SpfModuleDefinition {
+  return new SpfModuleDefinition({
+    systemId,
+    naturalId: systemId,
+    name: displayName,
+    displayName,
+    fileSystemId: FILE_ID,
+    stackSize: 0,
+    dataPortGroups: [],
+    staticControlPorts: [],
+    processorSystemId: 1,
+    containerTypesSystemIds,
+  });
 }
 
 function makeUow(
   overrides: {
     containerRepo?: ContainerRepository;
     moduleRepo?: ModuleRepository;
+    moduleDefinitionRepo?: ModuleDefinitionRepository;
   } = {},
 ): UnitOfWork {
   const containerRepo = overrides.containerRepo ?? makeContainerRepo();
   const moduleRepo = overrides.moduleRepo ?? makeModuleRepo();
+  const moduleDefinitionRepo =
+    overrides.moduleDefinitionRepo ?? makeDefinitionRepository();
   return {
     startTransaction: jest.fn().mockResolvedValue(undefined),
     commit: jest.fn().mockResolvedValue(undefined),
@@ -155,6 +186,9 @@ function makeUow(
     }),
     getModuleRepository: jest.fn().mockReturnValue(moduleRepo),
     getContainerRepository: jest.fn().mockReturnValue(containerRepo),
+    getModuleDefinitionRepository: jest
+      .fn()
+      .mockReturnValue(moduleDefinitionRepo),
   } as unknown as UnitOfWork;
 }
 
@@ -229,15 +263,19 @@ describe('SetContainerPropertyHandler', () => {
   });
 
   it('throws DomainRuleViolationException with failing displayNames for 0x08001011', async () => {
-    const modules: ContainerModuleDefinitionInfo[] = [
+    const definitions = [makeDefinition(101, 'ModuleX', [0x100])];
+    const modules: SpfModuleBase[] = [
       {
-        containerTypeIds: [0x100],
-        displayName: 'ModuleX',
+        systemId: 1,
+        definitionSystemId: 101,
+        containerSystemId: CONTAINER_SYS_ID,
+        subgraphSystemId: 1,
       },
     ];
-    const moduleRepo = makeModuleRepo(modules);
+    const moduleRepo = makeModuleRepo([], modules);
     const uow = makeUow({
       moduleRepo,
+      moduleDefinitionRepo: makeDefinitionRepository(definitions),
       containerRepo: makeContainerRepo({}, PROP_DEF_CAP_LIST),
     });
     const handler = new SetContainerPropertyHandler(uow);
@@ -257,35 +295,43 @@ describe('SetContainerPropertyHandler', () => {
 
     expect(caught).toBeInstanceOf(DomainRuleViolationException);
     const ex = caught as DomainRuleViolationException;
-    expect(ex.message).toBe(
+    expect(ex.message).toContain(
       'Module capability and container capability do not match for one or more modules; see issues for details.',
     );
-    expect(ex.issues[0]?.message).toBe(
-      'Module capability and container capability do not match for one or more modules; see issues for details.',
-    );
-    expect(ex.issues.some(issue => issue.message.includes('ModuleX'))).toBe(
-      true,
-    );
+    expect(ex.issues).toHaveLength(1);
+    expect(ex.issues[0]?.code).toBe('DOMAIN_RULE_VIOLATION');
+    expect(ex.issues[0]?.message).toContain('ModuleX');
     const containerRepo = (
       uow.getContainerRepository as ReturnType<typeof jest.fn>
     )();
     expect(containerRepo.setPropertyData).not.toHaveBeenCalled();
-    expect(
-      moduleRepo.findModuleDefinitionInfoByContainerId,
-    ).toHaveBeenCalledWith(CONTAINER_SYS_ID, FILE_ID);
-    expect(moduleRepo.findModulesByContainerId).not.toHaveBeenCalled();
+    expect(moduleRepo.findModulesByContainerId).toHaveBeenCalledWith(
+      CONTAINER_SYS_ID,
+      FILE_ID,
+    );
+    const moduleDefinitionRepo = (
+      uow.getModuleDefinitionRepository as ReturnType<typeof jest.fn>
+    )();
+    expect(moduleDefinitionRepo.findBySystemIds).toHaveBeenCalledWith(
+      [101],
+      FILE_ID,
+    );
   });
 
   it('calls setPropertyData and does not call updateHeapId for 0x08001011 when all modules pass', async () => {
-    const modules: ContainerModuleDefinitionInfo[] = [
+    const definitions = [makeDefinition(101, 'ModuleX', [0x100])];
+    const modules: SpfModuleBase[] = [
       {
-        containerTypeIds: [0x100],
-        displayName: 'ModuleX',
+        systemId: 1,
+        definitionSystemId: 101,
+        containerSystemId: CONTAINER_SYS_ID,
+        subgraphSystemId: 1,
       },
     ];
-    const moduleRepo = makeModuleRepo(modules);
+    const moduleRepo = makeModuleRepo([], modules);
     const uow = makeUow({
       moduleRepo,
+      moduleDefinitionRepo: makeDefinitionRepository(definitions),
       containerRepo: makeContainerRepo({}, PROP_DEF_CAP_LIST),
     });
     const handler = new SetContainerPropertyHandler(uow);
@@ -307,10 +353,10 @@ describe('SetContainerPropertyHandler', () => {
       expect.any(Uint8Array),
     );
     expect(moduleRepo.updateHeapId).not.toHaveBeenCalled();
-    expect(
-      moduleRepo.findModuleDefinitionInfoByContainerId,
-    ).toHaveBeenCalledWith(CONTAINER_SYS_ID, FILE_ID);
-    expect(moduleRepo.findModulesByContainerId).not.toHaveBeenCalled();
+    expect(moduleRepo.findModulesByContainerId).toHaveBeenCalledWith(
+      CONTAINER_SYS_ID,
+      FILE_ID,
+    );
     expect(containerRepo.getPropertyDefinitionBySystemId).toHaveBeenCalledWith(
       FILE_ID,
       CAPABILITY_PROP_SYS_ID,
@@ -318,95 +364,38 @@ describe('SetContainerPropertyHandler', () => {
     expect(uow.commit).toHaveBeenCalled();
   });
 
-  it('calls setPropertyData but not updateHeapId when heap is Default (0x1)', async () => {
+  it('rejects Container Heap through the generic property update', async () => {
     const heapPropDef = {
       systemId: HEAP_PROP_SYS_ID,
       naturalId: 0x08001174,
       name: 'Heap',
       elementsStructure: UINT32_ELEMENTS_STRUCTURE,
     };
-    const moduleRepo = makeModuleRepo([]);
-    const uow = makeUow({
-      moduleRepo,
-      containerRepo: makeContainerRepo({}, heapPropDef),
-    });
+    const uow = makeUow({containerRepo: makeContainerRepo({}, heapPropDef)});
     const handler = new SetContainerPropertyHandler(uow);
 
-    // value 1 = Default heap ID → no cascade
-    await handler.handle(
-      makeCommand({
-        propertySystemId: HEAP_PROP_SYS_ID,
-        elements: UINT32_ELEMENT_VALUE_1,
-      }),
+    let caught: unknown;
+    try {
+      await handler.handle(
+        makeCommand({
+          propertySystemId: HEAP_PROP_SYS_ID,
+          elements: UINT32_ELEMENT_VALUE_1,
+        }),
+      );
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(InvalidOperationException);
+    expect((caught as InvalidOperationException).message).toBe(
+      'Property Heap is reserved and cannot be replaced through the generic property operation.',
     );
 
     const containerRepo = (
       uow.getContainerRepository as ReturnType<typeof jest.fn>
     )();
-    expect(containerRepo.setPropertyData).toHaveBeenCalledWith(
-      CONTAINER_SYS_ID,
-      HEAP_PROP_SYS_ID,
-      expect.any(Uint8Array),
-    );
-    expect(moduleRepo.updateHeapId).not.toHaveBeenCalled();
-    expect(uow.commit).toHaveBeenCalled();
-  });
-
-  it('calls setPropertyData and updateHeapId for each module when heap is Low Power (0x2)', async () => {
-    const heapPropDef = {
-      systemId: HEAP_PROP_SYS_ID,
-      naturalId: 0x08001174,
-      name: 'Heap',
-      elementsStructure: UINT32_ELEMENTS_STRUCTURE,
-    };
-    const modules: SpfModuleBase[] = [
-      {
-        systemId: 10,
-        definitionSystemId: 101,
-        containerSystemId: CONTAINER_SYS_ID,
-        subgraphSystemId: 1,
-      },
-      {
-        systemId: 20,
-        definitionSystemId: 102,
-        containerSystemId: CONTAINER_SYS_ID,
-        subgraphSystemId: 1,
-      },
-    ];
-    const moduleRepo = makeModuleRepo([], modules);
-    const uow = makeUow({
-      moduleRepo,
-      containerRepo: makeContainerRepo({}, heapPropDef),
-    });
-    const handler = new SetContainerPropertyHandler(uow);
-
-    // value 2 = Low Power → cascade to all modules
-    await handler.handle(
-      makeCommand({
-        propertySystemId: HEAP_PROP_SYS_ID,
-        elements: UINT32_ELEMENT_VALUE_2,
-      }),
-    );
-
-    const containerRepo = (
-      uow.getContainerRepository as ReturnType<typeof jest.fn>
-    )();
-    expect(containerRepo.setPropertyData).toHaveBeenCalledWith(
-      CONTAINER_SYS_ID,
-      HEAP_PROP_SYS_ID,
-      expect.any(Uint8Array),
-    );
-    expect(moduleRepo.updateHeapId).toHaveBeenCalledTimes(2);
-    expect(moduleRepo.updateHeapId).toHaveBeenNthCalledWith(1, 10, 0x2);
-    expect(moduleRepo.updateHeapId).toHaveBeenNthCalledWith(2, 20, 0x2);
-    expect(moduleRepo.findModulesByContainerId).toHaveBeenCalledWith(
-      CONTAINER_SYS_ID,
-      FILE_ID,
-    );
-    expect(
-      moduleRepo.findModuleDefinitionInfoByContainerId,
-    ).not.toHaveBeenCalled();
-    expect(uow.commit).toHaveBeenCalled();
+    expect(containerRepo.setPropertyData).not.toHaveBeenCalled();
+    expect(uow.startTransaction).not.toHaveBeenCalled();
   });
 
   it('calls setPropertyData and does not call updateHeapId for any other property', async () => {

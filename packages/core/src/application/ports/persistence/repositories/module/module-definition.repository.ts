@@ -7,8 +7,11 @@ import type {SpfModuleDefinition} from '../../../../../domain/entities/definitio
 
 export interface ParameterDefinitionBase {
   systemId: number;
-  isReadOnly: boolean;
   elementsStructure: string; // JSON — parsed by serializeParameterData
+}
+
+export interface ModuleParameterDefinition extends ParameterDefinitionBase {
+  isReadOnly: boolean;
 }
 
 export interface ModuleDefinitionRepository {
@@ -39,5 +42,5 @@ export interface ModuleDefinitionRepository {
   getParameterDefinitions(
     moduleDefSystemId: number,
     paramSystemIds?: number[],
-  ): Promise<ParameterDefinitionBase[]>;
+  ): Promise<ModuleParameterDefinition[]>;
 }

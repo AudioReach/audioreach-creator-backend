@@ -91,6 +91,8 @@ import {UpdateVcpmCalDataCommand} from '../../../usecase-designer/subgraph/updat
 import {UpdateVcpmCalDataHandler} from '../../../usecase-designer/subgraph/update-vcpm-cal-data/update-vcpm-cal-data.handler.js';
 import {SetContainerPropertyCommand} from '../../../usecase-designer/container/set-property/set-container-property.command.js';
 import {SetContainerPropertyHandler} from '../../../usecase-designer/container/set-property/set-container-property.handler.js';
+import {SetContainerHeapIdCommand} from '../../../usecase-designer/container/set-heap-id/set-container-heap-id.command.js';
+import {SetContainerHeapIdHandler} from '../../../usecase-designer/container/set-heap-id/set-container-heap-id.handler.js';
 import {CreateDataLinkCommand} from '../../../usecase-designer/data-links/create/create-data-link.command.js';
 import {CreateDataLinkHandler} from '../../../usecase-designer/data-links/create/create-data-link.handler.js';
 import {DeleteDataLinkCommand} from '../../../usecase-designer/data-links/delete/delete-data-link.command.js';
@@ -258,6 +260,10 @@ export class CommandHandlerRegistry {
 
     this.commandHandlerFactories.set(SetContainerPropertyCommand, {
       create: deps => new SetContainerPropertyHandler(deps.uow),
+    });
+
+    this.commandHandlerFactories.set(SetContainerHeapIdCommand, {
+      create: deps => new SetContainerHeapIdHandler(deps.uow),
     });
 
     this.commandHandlerFactories.set(PutCkvCalDataCommand, {

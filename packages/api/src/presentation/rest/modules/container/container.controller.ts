@@ -33,6 +33,8 @@ import {PartialSuccessInterceptor} from '../../common/interceptors/partial-succe
 import {toApiResult} from '../../common/result/to-api-result.js';
 import {PropertyResponseDto} from '../../common/dto/property-response.dto.js';
 import {UpdatePropertyRequestDto} from '../../common/dto/update-property-request.dto.js';
+import {SetContainerHeapIdRequestDto} from './dto/set-container-heap-id-request.dto.js';
+import {SetContainerHeapIdResponseDto} from './dto/set-container-heap-id-response.dto.js';
 import {ParameterSummaryDto} from '../../common/dto/parameter-summary.dto.js';
 import {PropertySummaryDto} from '../../common/dto/property-summary.dto.js';
 import {ConfigElementSummaryDto} from '../../common/dto/element-data/elements/config-element-summary.dto.js';
@@ -47,6 +49,7 @@ import {
   GetContainerPropertiesQuery,
   GetContainerPropertyQuery,
   SetContainerPropertyCommand,
+  SetContainerHeapIdCommand,
   Result,
   mapPropertyToDto,
   type PropertyDataDto,
@@ -214,12 +217,13 @@ export class ContainerController extends BaseController {
     @Param('projectId', ParseIntPipe) projectId: number,
     @Param('containerSystemId', ParseIntPipe) containerSystemId: number,
     @Param('propertySystemId', ParseIntPipe) propertySystemId: number,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<PropertyResponseDto>> {
     const query = new GetContainerPropertyQuery(
       projectId,
       containerSystemId,
       propertySystemId,
-      'api-client',
+      clientId,
     );
     const result = await this.queryBus.execute<Result<PropertyDataDto>>(query);
     return toApiResult(result, data => mapPropertyToDto(data));
@@ -295,5 +299,56 @@ export class ContainerController extends BaseController {
     );
     const result = await this.queryBus.execute<Result<PropertyDataDto>>(query);
     return toApiResult(result, data => mapPropertyToDto(data));
+  }
+
+  /**
+   * Set the container heap ID and cascade it to all modules in the container.
+   */
+  @Put('/:containerSystemId/heap-id')
+  @ApiParam({
+    name: 'containerSystemId',
+    required: true,
+    type: String,
+    description: 'System id of a container',
+  })
+  @UseGuards(SessionGuard)
+  @ApiDocumentationWithExample({
+    summary: 'Set a container heap ID',
+    requestDto: SetContainerHeapIdRequestDto,
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'Container and module heap IDs updated',
+        dto: SetContainerHeapIdResponseDto,
+      },
+      {
+        status: HttpStatus.BAD_REQUEST,
+        description: 'Unsupported heap ID',
+      },
+      {
+        status: HttpStatus.FORBIDDEN,
+        description: 'No active session',
+      },
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Container or heap property definition not found',
+      },
+      {
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        description: 'Failed to update heap IDs',
+      },
+    ],
+  })
+  async setContainerHeapId(
+    @Param('containerSystemId', ParseIntPipe) containerSystemId: number,
+    @Body() dto: SetContainerHeapIdRequestDto,
+    @ArcSession() session: ActiveSession,
+  ): Promise<ApiResult<SetContainerHeapIdResponseDto>> {
+    const result = await this.commandBus.execute<SetContainerHeapIdResponseDto>(
+      new SetContainerHeapIdCommand(containerSystemId, dto.heapId),
+      session,
+    );
+
+    return toApiResult(Result.ok(result));
   }
 }
