@@ -24,6 +24,24 @@ export interface PayloadUpdate {
   payload: Uint8Array;
 }
 
+export interface CkvSummary {
+  systemId: number;
+  spfModuleSystemId: number;
+  valueDefinitionSystemIds: number[];
+}
+
+export interface TagSummary {
+  systemId: number;
+  spfModuleSystemId: number;
+  tagDefinitionSystemId: number;
+}
+
+export interface TkvSummary {
+  systemId: number;
+  moduleTagIdMapSystemId: number;
+  valueDefinitionSystemIds: number[];
+}
+
 /**
  * Write-side port for the SpfModule aggregate.
  *
@@ -105,9 +123,6 @@ export interface ModuleRepository {
    *
    * For the zero-CKV added at module creation time: kvData.valueDefinitionSystemIds
    * is empty (no key dimensions) and all parameter payloads carry default blobs.
-   *
-   * TODO(add-module-calibration-defaults): implement adapter
-   * See: docs/edit-crud/design/add-module-calibration-defaults-design.md §6
    */
   createCkv(
     kvData: KvData,
@@ -148,5 +163,98 @@ export interface ModuleRepository {
     tkvSystemId: number,
     payloadUpdates: PayloadUpdate[],
     uiPersistence?: string,
+  ): Promise<void>;
+
+  // ── CKV management ────────────────────────────────────────────────────────
+  getAllCkvsForModule(
+    spfModuleSystemId: number,
+    fileSystemId: number,
+  ): Promise<CkvSummary[]>;
+  getCkvParameterPayloads(
+    ckvSystemId: number,
+    spfModuleSystemId: number,
+  ): Promise<PayloadEntry[]>;
+  removeCkv(
+    ckvSystemId: number,
+    moduleSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
+  getZeroCkv(spfModuleSystemId: number): Promise<CkvSummary | null>;
+
+  // ── Tag management ────────────────────────────────────────────────────────
+  getAllTagsForModule(
+    spfModuleSystemId: number,
+    fileSystemId: number,
+  ): Promise<TagSummary[]>;
+  getTagBySystemId(
+    tagSystemId: number,
+    spfModuleSystemId: number,
+  ): Promise<TagSummary | null>;
+  createTag(
+    tagSystemId: number,
+    spfModuleSystemId: number,
+    tagDefinitionSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
+  removeTag(
+    tagSystemId: number,
+    moduleSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
+
+  // ── TKV management ────────────────────────────────────────────────────────
+  getAllTkvsForTag(
+    tagSystemId: number,
+    fileSystemId: number,
+  ): Promise<TkvSummary[]>;
+  getTkvBySystemId(
+    tkvSystemId: number,
+    tagSystemId: number,
+  ): Promise<TkvSummary | null>;
+  createTkv(
+    kvData: KvData,
+    tagSystemId: number,
+    moduleSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
+  removeTkv(
+    tkvSystemId: number,
+    moduleSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
+
+  // ── CKV parameter payload management ─────────────────────────────────────
+  getAllCkvParameterPayloads(
+    spfModuleSystemId: number,
+  ): Promise<Map<number, PayloadEntry[]>>;
+  addParameterToCkv(
+    ckvSystemId: number,
+    moduleSystemId: number,
+    parameterSystemId: number,
+    payloadSystemId: number,
+    payload: Uint8Array,
+    options?: EditOptions,
+  ): Promise<void>;
+  removeParameterFromCkv(
+    payloadSystemId: number,
+    ckvSystemId: number,
+    moduleSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
+
+  // ── TKV parameter payload management ─────────────────────────────────────
+  addParameterToTkv(
+    tkvSystemId: number,
+    moduleSystemId: number,
+    parameterSystemId: number,
+    payloadSystemId: number,
+    payload: Uint8Array,
+    options?: EditOptions,
+  ): Promise<void>;
+  removeParameterFromTkv(
+    payloadSystemId: number,
+    tkvSystemId: number,
+    moduleSystemId: number,
+    options?: EditOptions,
   ): Promise<void>;
 }

@@ -176,6 +176,15 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
       systemId: r.systemId,
       isReadOnly: r.isReadOnly,
       elementsStructure: r.elementsStructure,
+      toolPolicy: parseFirstToolPolicy(r.toolPolicies ?? ''),
     }));
   }
+}
+
+function parseFirstToolPolicy(stored: string): string {
+  const parsed: unknown = stored ? JSON.parse(stored) : [];
+  const first: unknown = Array.isArray(parsed)
+    ? (parsed as unknown[])[0]
+    : undefined;
+  return typeof first === 'string' ? first : 'CALIBRATION';
 }

@@ -36,6 +36,9 @@ export const ISSUE_ENTITY_TYPE = {
   ModuleManagerData: 'ModuleManagerData',
   SubgraphPropertyDefinition: 'SubgraphPropertyDefinition',
   ContainerPropertyDefinition: 'ContainerPropertyDefinition',
+  Ckv: 'Ckv',
+  Tag: 'Tag',
+  Tkv: 'Tkv',
   /** Sentinel used by the generic insert-failure fallback when an entity type has no catalog entry. */
   Unknown: 'Unknown',
 } as const;
