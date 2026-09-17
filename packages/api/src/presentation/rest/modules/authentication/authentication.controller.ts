@@ -25,10 +25,10 @@ export class AuthenticationController {
     requestDtoExample: {
       className: 'RegisterDtoExample',
     },
-    wrapInApiResult: false, // This method returns ApiResult<T> directly, not Promise<ApiResult<T>>
+    wrapInApiResult: true,
     responses: [
       {
-        status: HttpStatus.OK,
+        status: HttpStatus.CREATED,
         description: 'Client registered successfully',
         dto: RegisterResponseDto,
         example: {

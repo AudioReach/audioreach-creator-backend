@@ -10,17 +10,24 @@ import type {Logger} from '@arc/core';
 import {randomUUID} from 'node:crypto';
 
 interface JwtPayload {
+  clientId?: string;
   sub?: string;
   [key: string]: unknown;
+}
+
+interface RequestWithLogContext extends Request {
+  requestId?: string;
 }
 
 @Injectable()
 export class RequestLoggerMiddleware implements NestMiddleware {
   constructor(@Inject('LOGGER') private readonly logger: Logger) {}
 
-  use(req: Request, res: Response, next: NextFunction) {
-    const requestId = randomUUID();
+  use(req: RequestWithLogContext, res: Response, next: NextFunction) {
+    // Keep the log correlation ID readable while retaining 48 bits of entropy.
+    const requestId = randomUUID().replaceAll('-', '').slice(0, 12);
     const startTime = Date.now();
+    req.requestId = requestId;
 
     this.logger.logInfo({
       component: 'RequestLogger',
@@ -34,7 +41,7 @@ export class RequestLoggerMiddleware implements NestMiddleware {
     this.logger.logDebug({
       component: 'RequestLogger',
       msg: 'requestHeaders',
-      description: `Headers: ${JSON.stringify(req.headers)}`,
+      description: `Headers: ${JSON.stringify(this.sanitizeHeaders(req.headers))}`,
       tag: `request-${requestId}`,
       source: this.extractClientId(req),
     });
@@ -66,6 +73,7 @@ export class RequestLoggerMiddleware implements NestMiddleware {
     const originalSend = res.send;
     const logger = this.logger;
     const extractClientId = this.extractClientId.bind(this);
+    const sanitizeResponseBody = this.sanitizeResponseBody.bind(this);
 
     res.send = function (body: unknown) {
       const responseBody = body instanceof Buffer ? '[Buffer]' : body;
@@ -82,7 +90,9 @@ export class RequestLoggerMiddleware implements NestMiddleware {
       logger.logDebug({
         component: 'RequestLogger',
         msg: 'responseBody',
-        description: `Body: ${typeof responseBody === 'string' ? responseBody : JSON.stringify(responseBody)}`,
+        description: `Body: ${JSON.stringify(
+          sanitizeResponseBody(responseBody),
+        )}`,
         tag: `request-${requestId}`,
         source: extractClientId(req),
       });
@@ -103,11 +113,42 @@ export class RequestLoggerMiddleware implements NestMiddleware {
         const payload = JSON.parse(
           Buffer.from(token.split('.')[1], 'base64').toString(),
         ) as JwtPayload;
-        return payload.sub ?? 'unknown';
+        return payload.clientId ?? payload.sub ?? 'unknown';
       }
     } catch {
       // Ignore parsing errors
     }
     return 'unknown';
+  }
+
+  private sanitizeHeaders(
+    headers: Request['headers'],
+  ): Record<string, string | string[] | undefined> {
+    const sanitized = {...headers};
+    if (sanitized.authorization) {
+      sanitized.authorization = 'Bearer [REDACTED]';
+    }
+    if (sanitized.cookie) {
+      sanitized.cookie = '[REDACTED]';
+    }
+    return sanitized;
+  }
+
+  private sanitizeResponseBody(body: unknown): unknown {
+    if (Array.isArray(body)) {
+      return body.map(item => this.sanitizeResponseBody(item));
+    }
+    if (body == null || typeof body !== 'object') {
+      return body;
+    }
+
+    return Object.fromEntries(
+      Object.entries(body as Record<string, unknown>).map(([key, value]) => [
+        key,
+        ['token', 'accessToken', 'refreshToken'].includes(key)
+          ? '[REDACTED]'
+          : this.sanitizeResponseBody(value),
+      ]),
+    );
   }
 }

@@ -12,6 +12,8 @@ describe('toApiResult', () => {
     const result: Result<number> = {kind: RESULT_KIND.Ok, data: 42};
     const api = toApiResult(result);
     expect(api).toEqual({data: 42});
+    expect('success' in api).toBe(false);
+    expect('message' in api).toBe(false);
     expect('issues' in api).toBe(false);
   });
 

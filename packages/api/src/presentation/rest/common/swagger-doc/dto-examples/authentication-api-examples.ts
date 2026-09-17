@@ -16,11 +16,13 @@ export const RegisterDtoExample = {
 };
 
 export const RegisterResponseDataExample = {
-  getExample(): RegisterResponseDto {
+  getExample(): {data: RegisterResponseDto} {
     return {
-      token: 'jwt.token.here',
-      clientId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-      clientName: 'client-123',
+      data: {
+        token: 'jwt.token.here',
+        clientId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+        clientName: 'client-123',
+      },
     };
   },
 };

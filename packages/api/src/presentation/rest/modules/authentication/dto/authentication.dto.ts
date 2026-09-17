@@ -4,12 +4,15 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
+import {IsOptional, IsString} from 'class-validator';
 
 export class RegisterDto {
-  @ApiProperty({description: 'Client name'})
-  clientName: string;
+  @ApiProperty({description: 'Client name', required: false})
+  @IsOptional()
+  @IsString()
+  clientName?: string;
 
-  constructor(name: string) {
+  constructor(name?: string) {
     this.clientName = name;
   }
 }

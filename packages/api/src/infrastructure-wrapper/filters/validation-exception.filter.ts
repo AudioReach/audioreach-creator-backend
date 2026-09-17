@@ -21,6 +21,10 @@ interface SanitizedHeaders {
   authorization?: string;
 }
 
+interface RequestWithLogContext extends Request {
+  requestId?: string;
+}
+
 @Catch(BadRequestException)
 export class ValidationExceptionFilter implements ExceptionFilter {
   constructor(@Inject('LOGGER') private readonly logger: Logger) {}
@@ -28,7 +32,10 @@ export class ValidationExceptionFilter implements ExceptionFilter {
   catch(exception: BadRequestException, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<Request>();
+    const request = ctx.getRequest<RequestWithLogContext>();
+    const requestId = request.requestId
+      ? request.requestId.replaceAll('-', '').slice(0, 12)
+      : 'unknown';
 
     // Extract validation errors if available
     const exceptionResponse =
@@ -41,7 +48,7 @@ export class ValidationExceptionFilter implements ExceptionFilter {
       component: 'ValidationFilter',
       msg: 'validationFailed',
       description: 'Request validation failed',
-      tag: 'validation-error',
+      tag: `request-${requestId}`,
       error: `Validation errors: ${JSON.stringify(validationErrors, null, 2)}`,
     });
 
@@ -50,7 +57,7 @@ export class ValidationExceptionFilter implements ExceptionFilter {
       component: 'ValidationFilter',
       msg: 'requestDetails',
       description: 'Request details for failed validation',
-      tag: 'validation-debug',
+      tag: `request-${requestId}`,
       error: JSON.stringify(
         {
           body: request.body as Record<string, unknown>,
