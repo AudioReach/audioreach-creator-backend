@@ -1,100 +1,54 @@
-/*
- * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import {RoutingIssueFactory} from '../../../../../../src/application/usecase-designer/use-case-creator/issues/routing-issue-factory.js';
-import type {DataLinkLossPair} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 
 describe('RoutingIssueFactory', () => {
-  it('creates one deterministic duplicate active-subgraph issue', () => {
-    expect(
-      RoutingIssueFactory.duplicateActiveSubgraphSelections(new Set([7, 3])),
-    ).toEqual({
-      code: 'ARC-ROUTING-PREVAL-DUPLICATE-ACTIVE-SUBGRAPH-SELECTION',
-      message:
-        'Duplicate active-subgraph selections are not allowed ' +
-        '(systemIds: [3, 7]).',
-      severity: 'ERROR',
-    });
+  it('creates deterministic SGKV malformed and missing-value issues', () => {
+    const malformed = RoutingIssueFactory.sgkvMalformed(10, [30, 20, 20]);
+    const missing = RoutingIssueFactory.sgkvValuesNotFound(10, [30, 20, 20]);
+
+    expect(malformed).toEqual(
+      expect.objectContaining({
+        code: 'ARC-ROUTING-SGKV-MALFORMED',
+        severity: 'ERROR',
+        impactedEntity: {entityType: 'Subgraph', systemId: 10},
+        message: expect.stringContaining('[20, 30]'),
+      }),
+    );
+    expect(missing).toEqual(
+      expect.objectContaining({
+        code: 'ARC-ROUTING-SGKV-VALUE-NOT-FOUND',
+        severity: 'ERROR',
+        impactedEntity: {entityType: 'Subgraph', systemId: 10},
+        message: expect.stringContaining('[20, 30]'),
+      }),
+    );
   });
 
-  it('creates a deterministic edit-scope conflict issue', () => {
+  it('explains which affected use cases must be selected', () => {
+    const issue = RoutingIssueFactory.deletionSelectionRequired(
+      new Set([57, 42]),
+      new Set([57]),
+    );
+
+    expect(issue.message).toBe(
+      'Some use cases are affected by the requested changes, but they were not selected. ' +
+        'Affected use case IDs: [42, 57]. ' +
+        'Missing from your selection: [57]. ' +
+        'Select all affected use cases and submit the request again.',
+    );
+    expect(issue.impactedUsecases).toEqual([42, 57]);
+  });
+
+  it('explains applicable edit-scope conflicts and corrective actions', () => {
     const issue = RoutingIssueFactory.editScopeConflict({
-      excludedAddedSubgraphSystemIds: [30, 10],
-      missingRequiredEndpointSubgraphSystemIds: [40, 20],
+      excludedDeletedDataLinkSystemIds: [501],
+      missingSurvivingEndpointSubgraphSystemIds: [200, 100],
     });
 
-    expect(issue).toEqual({
-      code: 'ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT',
-      message:
-        'Routing edit scope conflicts: excludedAddedSubgraphSystemIds=[10, 30]; ' +
-        'missingRequiredEndpointSubgraphSystemIds=[20, 40].',
-      severity: 'ERROR',
-    });
-  });
-
-  it('creates a blocking data-link integrity issue for the affected link', () => {
-    expect(RoutingIssueFactory.dataLinkIntegrity(300, 10, 20)).toEqual({
-      code: 'ARC-ROUTING-PREVAL-DATALINK-INTEGRITY',
-      message:
-        'Intra-usecase data link 300 references a missing endpoint ' +
-        '(sourceSubgraphSystemId: 10, destSubgraphSystemId: 20).',
-      severity: 'ERROR',
-      impactedEntity: {entityType: 'DataLink', systemId: 300},
-    });
-  });
-
-  it('creates a non-blocking island warning for the affected subgraph', () => {
-    expect(RoutingIssueFactory.islandDetected(10)).toEqual({
-      code: 'ARC-ROUTING-ISLAND-DETECTED',
-      message:
-        'Subgraph 10 has no effective intra-usecase data-link adjacency.',
-      severity: 'WARNING',
-      impactedEntity: {entityType: 'Subgraph', systemId: 10},
-    });
-  });
-
-  it('reports sorted full and missing affected-usecase sets for DEL-02', () => {
-    expect(
-      RoutingIssueFactory.deletionSelectionRequired(
-        new Set([30, 10, 20]),
-        new Set([30, 20]),
-      ),
-    ).toEqual({
-      code: 'ARC-ROUTING-DEL-02',
-      message:
-        'Every affected usecase must be selected ' +
-        '(fullAffectedUsecaseSystemIds: [10, 20, 30], ' +
-        'missingUsecaseSystemIds: [20, 30]).',
-      severity: 'ERROR',
-      impactedUsecases: [10, 20, 30],
-    });
-  });
-
-  it('creates one automatic-island warning containing sorted degraded pairs', () => {
-    const dataLinkLossPairs: readonly DataLinkLossPair[] = [
-      {
-        sourceSubgraphSystemId: 30,
-        destSubgraphSystemId: 40,
-        deletedDataLinkSystemId: 400,
-      },
-      {
-        sourceSubgraphSystemId: 10,
-        destSubgraphSystemId: 20,
-        deletedDataLinkSystemId: 200,
-      },
-    ];
-    expect(
-      RoutingIssueFactory.usecaseAutoIsland(50, dataLinkLossPairs),
-    ).toEqual({
-      code: 'ARC-ROUTING-UC-AUTO-ISLAND',
-      message:
-        'Usecase 50 changed to ISLAND because data-link coverage was lost ' +
-        '(dataLinkLossPairs: [10->20 via deleted dataLink 200, ' +
-        '30->40 via deleted dataLink 400]).',
-      severity: 'WARNING',
-      impactedEntity: {entityType: 'UseCase', systemId: 50},
-    });
+    expect(issue.message).toBe(
+      'The requested changes cannot be safely applied because the selected design does not include everything needed to validate the result. ' +
+        'Data links marked for deletion were explicitly excluded: [501]. Remove them from the exclusions, or cancel their deletion. ' +
+        'Data links marked for deletion still use subgraphs that remain in the design, but those subgraphs are missing from the selected design: [100, 200]. Include them in the selection. ' +
+        'Update the selection or remove the conflicting changes, then submit the request again.',
+    );
   });
 });

@@ -11,6 +11,7 @@ import {
   emptyGraphEdits,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
 import {RoutingContext} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
+import {DELETED_COMPONENT_TYPE} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {DeletionScopeService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/deletion-scope.service.js';
 import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
 import type {ControlLink} from '../../../../../../src/domain/entities/usecase-data/links/control-link.js';
@@ -200,8 +201,9 @@ describe('DeletionScopeService', () => {
       markedForDeletion: [
         {
           usecase: currentUsecase,
-          reason: {
-            kind: 'pair-broken-single-path',
+          deletedComponent: {
+            type: DELETED_COMPONENT_TYPE.Subgraph,
+            systemId: 10,
           },
         },
       ],
@@ -324,10 +326,9 @@ describe('DeletionScopeService', () => {
     );
     expect(fixture.context.deletionAnalysis?.markedForDeletion[0]).toEqual(
       expect.objectContaining({
-        reason: {
-          kind: 'component-deleted',
-          componentKind: 'data-link',
-          componentSystemId: 101,
+        deletedComponent: {
+          type: DELETED_COMPONENT_TYPE.DataLink,
+          systemId: 101,
         },
       }),
     );
@@ -382,7 +383,7 @@ describe('DeletionScopeService', () => {
         expect.objectContaining({
           code: 'ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT',
           message: expect.stringContaining(
-            'excludedDeletedDataLinkSystemIds=[101]',
+            'Data links marked for deletion were explicitly excluded: [101]',
           ),
         }),
       ],
@@ -390,13 +391,15 @@ describe('DeletionScopeService', () => {
     expect(
       result.kind === RESULT_KIND.Fail && result.issues[0]?.message,
     ).toEqual(
-      expect.stringContaining('missingSurvivingEndpointSubgraphSystemIds=[20]'),
+      expect.stringContaining(
+        'Data links marked for deletion still use subgraphs that remain in the design, but those subgraphs are missing from the selected design: [20]',
+      ),
     );
     expect(
       result.kind === RESULT_KIND.Fail && result.issues[0]?.message,
     ).toEqual(
       expect.stringContaining(
-        'excludedSurvivingEndpointSubgraphSystemIds=[10]',
+        'Subgraphs still needed to validate the data-link deletion were explicitly excluded: [10]',
       ),
     );
   });
@@ -434,7 +437,7 @@ describe('DeletionScopeService', () => {
         expect.objectContaining({
           code: 'ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT',
           message: expect.stringContaining(
-            'excludedDeletedSubgraphSystemIds=[30]',
+            'Subgraphs marked for deletion were explicitly excluded: [30]',
           ),
         }),
       ],
@@ -442,12 +445,16 @@ describe('DeletionScopeService', () => {
     expect(
       result.kind === RESULT_KIND.Fail && result.issues[0]?.message,
     ).toEqual(
-      expect.stringContaining('excludedDeletedDataLinkSystemIds=[101]'),
+      expect.stringContaining(
+        'Data links marked for deletion were explicitly excluded: [101]',
+      ),
     );
     expect(
       result.kind === RESULT_KIND.Fail && result.issues[0]?.message,
     ).toEqual(
-      expect.stringContaining('excludedDeletedControlLinkSystemIds=[201]'),
+      expect.stringContaining(
+        'Control links marked for deletion were explicitly excluded: [201]',
+      ),
     );
   });
 
@@ -523,7 +530,10 @@ describe('DeletionScopeService', () => {
     expect(fixture.context.deletionAnalysis?.markedForDeletion).toEqual([
       {
         usecase: currentUsecase,
-        reason: {kind: 'pair-broken-multi-path'},
+        deletedComponent: {
+          type: DELETED_COMPONENT_TYPE.Subgraph,
+          systemId: 3,
+        },
       },
     ]);
     expect(fixture.context.deletionAnalysis?.reconstructionPaths).toEqual([]);
@@ -580,7 +590,10 @@ describe('DeletionScopeService', () => {
     expect(fixture.context.deletionAnalysis?.reconstructionPaths).toEqual([]);
     expect(fixture.context.deletionAnalysis?.markedForDeletion[0]).toEqual(
       expect.objectContaining({
-        reason: {kind: 'pair-broken-single-path'},
+        deletedComponent: {
+          type: DELETED_COMPONENT_TYPE.DataLink,
+          systemId: 101,
+        },
       }),
     );
   });
@@ -676,7 +689,10 @@ describe('DeletionScopeService', () => {
     expect(fixture.context.deletionAnalysis?.reconstructionPaths).toEqual([]);
     expect(fixture.context.deletionAnalysis?.markedForDeletion[0]).toEqual(
       expect.objectContaining({
-        reason: {kind: 'pair-broken-single-path'},
+        deletedComponent: {
+          type: DELETED_COMPONENT_TYPE.DataLink,
+          systemId: 101,
+        },
       }),
     );
   });

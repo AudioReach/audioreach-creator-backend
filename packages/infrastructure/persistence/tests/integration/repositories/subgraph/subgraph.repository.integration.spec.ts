@@ -36,8 +36,14 @@ import {
 import {SubgraphPropertyDefinition} from '@arc/core';
 
 const FILE_ID = 100;
+const OTHER_FILE_ID = 200;
 const SG_A = 0xa000_0001;
 const SG_B = 0xa000_0002;
+const KEY_A = 1001;
+const KEY_B = 1002;
+const VALUE_A = 1101;
+const VALUE_B = 1102;
+const OTHER_FILE_VALUE = 2101;
 
 async function seedProjectAndFile(ds: DataSource): Promise<void> {
   await getTestRepository(ProjectSchema).save({
@@ -227,6 +233,77 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
 
       const result = await makeRepo(qr.manager).getSgkvs(FILE_ID, [SG_A, 9999]);
       expect(result.map(s => s.sgkvSystemId)).not.toContain(700);
+    });
+  });
+
+  describe('resolveKeyValues', () => {
+    it('resolves arbitrary same-file values in one deterministic batch', async () => {
+      await getTestRepository(ArcDbFileSchema).save({
+        systemId: OTHER_FILE_ID,
+        projectSystemId: 1,
+        fileName: 'f2.acdb',
+        description: '',
+        metadata: '{}',
+        isTarget: false,
+        lastReservedId: 0,
+      });
+      await ds.query(
+        `INSERT INTO arc_keys (system_id, name, key_id, file_system_id)
+         VALUES (?, 'K1', 1, ?), (?, 'K2', 2, ?), (?, 'K-other', 3, ?)`,
+        [KEY_A, FILE_ID, KEY_B, FILE_ID, 2001, OTHER_FILE_ID],
+      );
+      await ds.query(
+        `INSERT INTO arc_values (system_id, name, value_id, keys_system_id)
+         VALUES (?, 'V1', 1, ?), (?, 'V2', 2, ?), (?, 'V-other', 3, ?)`,
+        [VALUE_A, KEY_A, VALUE_B, KEY_B, OTHER_FILE_VALUE, 2001],
+      );
+
+      const repository = makeRepo(qr.manager);
+
+      await expect(
+        repository.resolveKeyValues(FILE_ID, [VALUE_B, VALUE_A, VALUE_A]),
+      ).resolves.toEqual([
+        {keyDefSystemId: KEY_A, valueDefSystemId: VALUE_A},
+        {keyDefSystemId: KEY_B, valueDefSystemId: VALUE_B},
+      ]);
+      await expect(
+        repository.resolveKeyValues(FILE_ID, [OTHER_FILE_VALUE, 999999]),
+      ).resolves.toEqual([]);
+      await expect(repository.resolveKeyValues(FILE_ID, [])).resolves.toEqual(
+        [],
+      );
+    });
+
+    it('uses effective session value-to-key relationships', async () => {
+      await ds.query(
+        `INSERT INTO arc_keys (system_id, name, key_id, file_system_id)
+         VALUES (?, 'K1', 1, ?), (?, 'K2', 2, ?)`,
+        [KEY_A, FILE_ID, KEY_B, FILE_ID],
+      );
+      await ds.query(
+        `INSERT INTO arc_values (system_id, name, value_id, keys_system_id)
+         VALUES (?, 'V1', 1, ?)`,
+        [VALUE_A, KEY_A],
+      );
+      const sessionId = await seedSession(ds);
+      await new PendingChangeWriter(
+        new EditActionsQueryService(qr.manager),
+        new PendingChangeCache(),
+      ).writeDelta(
+        {
+          targetTable: ENTITY_NAMES.ValueDefinition,
+          targetSystemId: VALUE_A,
+          aggregateId: VALUE_A,
+          delta: {keySystemId: KEY_B},
+        },
+        sessionId,
+        'definition-update',
+        qr.manager,
+      );
+
+      await expect(
+        makeRepo(qr.manager, sessionId).resolveKeyValues(FILE_ID, [VALUE_A]),
+      ).resolves.toEqual([{keyDefSystemId: KEY_B, valueDefSystemId: VALUE_A}]);
     });
   });
 

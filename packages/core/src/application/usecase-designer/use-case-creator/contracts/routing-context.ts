@@ -10,14 +10,14 @@ import type {
   ClassifiedUsecase,
   DfsPath,
   UsecaseChangeDescriptor,
-  KvResolution,
+  Cones,
+  KvResolutions,
   OrphanCandidate,
   DeletionAnalysis,
   IslandTransition,
   RoutingCombination,
   RoutingCandidates,
-  RoutingCone,
-  RoutingSeed,
+  Seeds,
 } from './routing-state.js';
 
 export class RoutingContext {
@@ -28,11 +28,11 @@ export class RoutingContext {
   /** Complete Phase 3 island-transition descriptors. */
   readonly islandTransitions: IslandTransition[] = [];
   /** Phase 4 resolved SGKV selections used by later routing phases. */
-  readonly kvResolutions: KvResolution[] = [];
+  kvResolutions: KvResolutions | null = null;
   /** Phase 5 routing starting points identified from graph edits. */
-  readonly seeds: RoutingSeed[] = [];
+  seeds: Seeds | null = null;
   /** Phase 6 subgraph regions computed around the routing seeds. */
-  readonly cones: RoutingCone[] = [];
+  cones: Cones | null = null;
   /** Phase 7 DFS paths. */
   readonly dfsPaths: DfsPath[] = [];
   /** Phase 8 UC candidates grouped with EC bridge candidates. */

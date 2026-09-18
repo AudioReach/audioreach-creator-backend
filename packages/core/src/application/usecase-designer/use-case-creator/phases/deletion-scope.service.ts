@@ -12,18 +12,18 @@ import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {ROUTING_MODE} from '../contracts/routing-input.js';
 import type {RoutingContext} from '../contracts/routing-context.js';
 import type {RoutingPhase} from '../contracts/routing-phase.js';
+import {DELETED_COMPONENT_TYPE} from '../contracts/routing-state.js';
 import type {
   DataLinkLossPair,
   DeletionAnalysis,
-  DeletionReason,
   DeletionReconstructionPath,
   DeletionPreservedUsecase,
+  DeletedComponent,
+  DeletedComponentType,
   IslandUseCaseCandidate,
   UsecaseDeletionMark,
 } from '../contracts/routing-state.js';
 import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
-
-type ComponentKind = 'subgraph' | 'data-link' | 'control-link';
 
 interface StoredTopology {
   readonly kind: 'single-path' | 'multi-path';
@@ -115,46 +115,45 @@ function indexLinksByPair(
   return pairs;
 }
 
-function reasonPriority(reason: DeletionReason): number {
+function deletedComponentPriority(component: DeletedComponent): number {
   // Component impact has a stable precedence when several session deletions touch one UC.
-  if (reason.kind !== 'component-deleted') return 0;
-  if (reason.componentKind === 'subgraph') return 3;
-  if (reason.componentKind === 'data-link') return 2;
+  if (component.type === DELETED_COMPONENT_TYPE.Subgraph) return 3;
+  if (component.type === DELETED_COMPONENT_TYPE.DataLink) return 2;
   return 1;
 }
 
-function componentReason(
-  componentKind: ComponentKind,
-  componentSystemId: number,
-): DeletionReason {
-  return {kind: 'component-deleted', componentKind, componentSystemId};
+function deletedComponent(
+  type: DeletedComponentType,
+  systemId: number,
+): DeletedComponent {
+  return {type, systemId};
 }
 
-function shouldReplaceReason(
-  current: DeletionReason | undefined,
-  next: DeletionReason,
+function shouldReplaceDeletedComponent(
+  current: DeletedComponent | undefined,
+  next: DeletedComponent,
 ): boolean {
   if (!current) return true;
-  const currentPriority = reasonPriority(current);
-  const nextPriority = reasonPriority(next);
+  const currentPriority = deletedComponentPriority(current);
+  const nextPriority = deletedComponentPriority(next);
   if (nextPriority !== currentPriority) return nextPriority > currentPriority;
-  if (
-    current.kind === 'component-deleted' &&
-    next.kind === 'component-deleted'
-  ) {
-    return next.componentSystemId < current.componentSystemId;
-  }
-  return false;
+  return next.systemId < current.systemId;
 }
 
 function markForDeletion(
   ucMarkedForDeletionBySystemId: Map<number, UsecaseDeletionMark>,
   usecase: UseCase,
-  reason: DeletionReason,
+  component: DeletedComponent,
 ): void {
   const current = ucMarkedForDeletionBySystemId.get(usecase.systemId);
-  if (!current || shouldReplaceReason(current.reason, reason)) {
-    ucMarkedForDeletionBySystemId.set(usecase.systemId, {usecase, reason});
+  if (
+    !current ||
+    shouldReplaceDeletedComponent(current.deletedComponent, component)
+  ) {
+    ucMarkedForDeletionBySystemId.set(usecase.systemId, {
+      usecase,
+      deletedComponent: component,
+    });
   }
 }
 
@@ -478,7 +477,7 @@ function classifyUsecasesByDeletedSubgraphs(
       markForDeletion(
         ucMarkedForDeletionBySystemId,
         usecase,
-        componentReason('subgraph', subgraph.systemId),
+        deletedComponent(DELETED_COMPONENT_TYPE.Subgraph, subgraph.systemId),
       );
     }
   }
@@ -519,7 +518,7 @@ function classifyDeletedDataLink(
       markForDeletion(
         ucMarkedForDeletionBySystemId,
         usecase,
-        componentReason('data-link', dataLink.systemId),
+        deletedComponent(DELETED_COMPONENT_TYPE.DataLink, dataLink.systemId),
       );
     }
     return;
@@ -543,7 +542,7 @@ function classifyDeletedDataLink(
     markForDeletion(
       ucMarkedForDeletionBySystemId,
       usecase,
-      componentReason('data-link', dataLink.systemId),
+      deletedComponent(DELETED_COMPONENT_TYPE.DataLink, dataLink.systemId),
     );
   }
 }
@@ -599,7 +598,10 @@ function classifyDeletedControlLinks(
       markForDeletion(
         ucMarkedForDeletionBySystemId,
         usecase,
-        componentReason('control-link', controlLink.systemId),
+        deletedComponent(
+          DELETED_COMPONENT_TYPE.ControlLink,
+          controlLink.systemId,
+        ),
       );
     }
   }
@@ -921,10 +923,8 @@ function processMarkedUsecase(
         ),
     );
     if (hasBrokenPair) {
-      inventory.ucMarkedForDeletionBySystemId.set(mark.usecase.systemId, {
-        usecase: mark.usecase,
-        reason: {kind: 'pair-broken-multi-path'},
-      });
+      // The mark's deleted component is the user-facing cause. Multi-path topology is
+      // internal: it only determines that automatic reconstruction is not attempted.
     } else {
       inventory.ucMarkedForDeletionBySystemId.delete(mark.usecase.systemId);
       preservedUsecases.push({
@@ -948,10 +948,8 @@ function processMarkedUsecase(
       inventory.deletedSubgraphSystemIds,
     )
   ) {
-    inventory.ucMarkedForDeletionBySystemId.set(mark.usecase.systemId, {
-      usecase: mark.usecase,
-      reason: {kind: 'pair-broken-single-path'},
-    });
+    // The original deleted component remains the mark's cause; endpoint loss prevents
+    // reconstruction but is not an additional user-facing deletion reason.
     return;
   }
 
@@ -984,10 +982,8 @@ function processMarkedUsecase(
     allowEdge,
   );
   if (paths.length === 0) {
-    inventory.ucMarkedForDeletionBySystemId.set(mark.usecase.systemId, {
-      usecase: mark.usecase,
-      reason: {kind: 'pair-broken-single-path'},
-    });
+    // The original deleted component remains the mark's cause; reconstruction failure
+    // is internal to Phase 2 and does not alter the deletion descriptor.
     return;
   }
   for (const path of paths) {

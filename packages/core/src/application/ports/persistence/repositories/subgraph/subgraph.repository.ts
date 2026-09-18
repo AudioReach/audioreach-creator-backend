@@ -51,6 +51,15 @@ export interface SubgraphRepository {
   ): Promise<SgkvEntry[]>;
 
   /**
+   * Resolves requested Value Definitions to their owning Keys in the
+   * effective, file-scoped definition overlay. Missing values are omitted.
+   */
+  resolveKeyValues(
+    fileSystemId: number,
+    valueDefSystemIds: readonly number[],
+  ): Promise<KvPair[]>;
+
+  /**
    * Returns Subgraph aggregates by systemId. Missing IDs silently omitted.
    */
   findByIds(

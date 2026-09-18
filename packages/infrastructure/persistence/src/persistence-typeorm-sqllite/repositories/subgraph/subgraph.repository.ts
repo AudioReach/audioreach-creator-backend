@@ -11,6 +11,7 @@ import type {
   Subgraph,
   SessionChanged,
   SgkvEntry,
+  KvPair,
 } from '@arc/core';
 import {
   Subgraph as SubgraphEntity,
@@ -22,6 +23,7 @@ import {SubgraphOverlayFetcher} from '../../fetchers/subgraph-overlay-fetcher.js
 import {SubgraphSgkvFetcher} from '../../fetchers/subgraph-sgkv-fetcher.js';
 import {SubgraphPropertyDataFetcher} from '../../fetchers/subgraph-property-data-fetcher.js';
 import {ValueDefinitionFetcher} from '../../fetchers/definitions/key-value/value-definition-fetcher.js';
+import {KeyValueDefinitionFetcher} from '../../fetchers/definitions/key-value/key-value-definition-fetcher.js';
 import {SubgraphPropertyDefinitionFetcher} from '../../fetchers/definitions/subgraph-property-definition-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
 import type {SubgraphBase} from '../../entity-schema/usecase-data/subgraph/subgraph.schema.js';
@@ -31,6 +33,7 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
   private readonly subgraphFetcher: SubgraphOverlayFetcher;
   private readonly sgkvFetcher: SubgraphSgkvFetcher;
   private readonly valueDefFetcher: ValueDefinitionFetcher;
+  private readonly keyValueDefinitionFetcher: KeyValueDefinitionFetcher;
   private readonly propertyDefinitionFetcher: SubgraphPropertyDefinitionFetcher;
   private readonly vcpmDataFetcher: SubgraphVcpmDataFetcher;
 
@@ -52,6 +55,11 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
       this.sgkvFetcher,
     );
     this.valueDefFetcher = new ValueDefinitionFetcher(manager, editActionsQs);
+    this.keyValueDefinitionFetcher = new KeyValueDefinitionFetcher(
+      manager,
+      editActionsQs,
+      this.valueDefFetcher,
+    );
     this.propertyDefinitionFetcher = new SubgraphPropertyDefinitionFetcher(
       manager,
       editActionsQs,
@@ -173,6 +181,40 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
           valueDefSystemId: v.valueDefSystemId,
         })),
     }));
+  }
+
+  async resolveKeyValues(
+    fileSystemId: number,
+    valueDefSystemIds: readonly number[],
+  ): Promise<KvPair[]> {
+    const requestedIds = [...new Set(valueDefSystemIds)].sort(
+      (left, right) => left - right,
+    );
+    if (requestedIds.length === 0) return [];
+
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const keyDefinitions = await this.keyValueDefinitionFetcher.fetchMany(
+      'all',
+      fileSystemId,
+      sessionId,
+      undefined,
+      {systemId: requestedIds},
+    );
+    const requestedIdSet = new Set(requestedIds);
+    const pairs: KvPair[] = [];
+    for (const keyDefinition of keyDefinitions) {
+      for (const valueDefinition of keyDefinition.values) {
+        if (requestedIdSet.has(valueDefinition.systemId)) {
+          pairs.push({
+            keyDefSystemId: keyDefinition.systemId,
+            valueDefSystemId: valueDefinition.systemId,
+          });
+        }
+      }
+    }
+    return pairs.toSorted(
+      (left, right) => left.valueDefSystemId - right.valueDefSystemId,
+    );
   }
 
   async getPropertyDefinitions(

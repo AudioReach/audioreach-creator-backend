@@ -10,16 +10,22 @@ import {
 } from '../../../shared/change-vocabulary.js';
 import type {UsecaseChangeRef} from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
 import type {SubgraphPair} from '../../../ports/persistence/repositories/shared/links-for-pair.js';
+import type {KvPair} from '../../../ports/persistence/repositories/shared/kv-pair.js';
 import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
 
-export type DeletionReason =
-  | {
-      readonly kind: 'component-deleted';
-      readonly componentKind: 'subgraph' | 'data-link' | 'control-link';
-      readonly componentSystemId: number;
-    }
-  | {readonly kind: 'pair-broken-single-path'}
-  | {readonly kind: 'pair-broken-multi-path'};
+export const DELETED_COMPONENT_TYPE = {
+  Subgraph: 'SUBGRAPH',
+  DataLink: 'DATA_LINK',
+  ControlLink: 'CONTROL_LINK',
+} as const;
+
+export type DeletedComponentType =
+  (typeof DELETED_COMPONENT_TYPE)[keyof typeof DELETED_COMPONENT_TYPE];
+
+export interface DeletedComponent {
+  readonly type: DeletedComponentType;
+  readonly systemId: number;
+}
 
 export interface DataLinkLossPair {
   readonly sourceSubgraphSystemId: number;
@@ -29,7 +35,8 @@ export interface DataLinkLossPair {
 
 export interface UsecaseDeletionMark {
   readonly usecase: UseCase;
-  readonly reason: DeletionReason;
+  /** The highest-precedence deleted component that requires this UC to be removed. */
+  readonly deletedComponent: DeletedComponent;
 }
 
 export interface DeletionPreservedUsecase {
@@ -74,19 +81,34 @@ export interface RoutingCandidates {
   readonly ecBridgeCandidates: readonly RoutingCombination[];
 }
 
-export interface KvResolution {
-  readonly sgSystemId: number;
-  readonly sgkvSystemId: number;
-  readonly valueSystemIds: readonly number[];
+export interface SgkvInstance {
+  readonly keyValues: readonly KvPair[];
 }
 
-export interface RoutingSeed {
-  readonly subgraphSystemId: number;
+export interface KvResolutions {
+  readonly perSg: ReadonlyMap<number, readonly SgkvInstance[]>;
+  readonly ucFilteredBaseline: ReadonlyMap<number, readonly SgkvInstance[]>;
 }
 
-export interface RoutingCone {
-  readonly seedSubgraphSystemId: number;
-  readonly subgraphSystemIds: readonly number[];
+export const SEED_REASON = {
+  KvChanged: 'KV_CHANGED',
+  NewSubgraph: 'NEW_SUBGRAPH',
+  LinkAdded: 'LINK_ADDED',
+  LinkDeleted: 'LINK_DELETED',
+  NoUsecaseContext: 'NO_USECASE_CONTEXT',
+  OutOfSelection: 'OUT_OF_SELECTION',
+} as const;
+
+export type SeedReason = (typeof SEED_REASON)[keyof typeof SEED_REASON];
+
+export interface Seeds {
+  readonly sgSystemIds: ReadonlySet<number>;
+  readonly reasons: ReadonlyMap<number, SeedReason>;
+}
+
+export interface Cones {
+  readonly sgSystemIds: ReadonlySet<number>;
+  readonly rootSgs: ReadonlySet<number>;
 }
 
 export interface DfsPath {
