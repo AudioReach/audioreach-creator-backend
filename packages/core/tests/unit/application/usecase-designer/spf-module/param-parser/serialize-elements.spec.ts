@@ -27,7 +27,7 @@ function arrayDef(itemType: string, length: number): string {
 }
 
 function makeDef(elementsStructure: string): ParameterDefinitionBase {
-  return {systemId: 1, isReadOnly: false, elementsStructure};
+  return {systemId: 1, elementsStructure};
 }
 
 describe('serializeParameterData', () => {

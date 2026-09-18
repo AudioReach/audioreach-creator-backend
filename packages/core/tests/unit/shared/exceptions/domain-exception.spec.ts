@@ -6,6 +6,7 @@
 import {
   DomainException,
   ResourceNotFoundException,
+  InvalidInputException,
   InvalidOperationException,
   DomainNotImplementedException,
 } from '../../../../src/shared/exceptions/index.js';
@@ -36,9 +37,20 @@ describe('DomainException hierarchy', () => {
 
   describe('InvalidOperationException', () => {
     it('stores message, errorCode, and optional details', () => {
-      const ex = new InvalidOperationException('Bad input', {field: 'name'});
-      expect(ex.message).toBe('Bad input');
+      const ex = new InvalidOperationException('Operation cannot proceed', {
+        field: 'name',
+      });
+      expect(ex.message).toBe('Operation cannot proceed');
       expect(ex.errorCode).toBe('INVALID_OPERATION');
+      expect(ex.details).toEqual({field: 'name'});
+    });
+  });
+
+  describe('InvalidInputException', () => {
+    it('stores message, errorCode, and optional details', () => {
+      const ex = new InvalidInputException('Invalid input', {field: 'name'});
+      expect(ex.message).toBe('Invalid input');
+      expect(ex.errorCode).toBe('INVALID_INPUT');
       expect(ex.details).toEqual({field: 'name'});
     });
   });

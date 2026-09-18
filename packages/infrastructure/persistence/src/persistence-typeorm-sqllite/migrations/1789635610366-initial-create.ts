@@ -5,8 +5,8 @@
 
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-export class InitialCreate1788843342703 implements MigrationInterface {
-  name = 'InitialCreate1788843342703';
+export class InitialCreate1789635610366 implements MigrationInterface {
+  name = 'InitialCreate1789635610366';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -292,7 +292,7 @@ export class InitialCreate1788843342703 implements MigrationInterface {
       `CREATE TABLE "tkv_values" ("tkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, PRIMARY KEY ("tkv_system_id", "value_def_system_id"))`,
     );
     await queryRunner.query(
-      `CREATE TABLE "spf_modules" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "instance_id" integer NOT NULL, "alias" varchar(250) NOT NULL, "subgraph_system_id" integer NOT NULL, "container_system_id" integer NOT NULL, "definition_system_id" integer NOT NULL, "file_system_id" integer NOT NULL)`,
+      `CREATE TABLE "spf_modules" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "instance_id" integer NOT NULL, "alias" varchar(250) NOT NULL, "subgraph_system_id" integer NOT NULL, "container_system_id" integer NOT NULL, "definition_system_id" integer NOT NULL, "file_system_id" integer NOT NULL, "heap_id" integer)`,
     );
     await queryRunner.query(
       `CREATE INDEX "ix_spf_modules_subgraph_file_system" ON "spf_modules" ("subgraph_system_id", "file_system_id") `,
@@ -1143,10 +1143,10 @@ export class InitialCreate1788843342703 implements MigrationInterface {
       `DROP INDEX "uq_spf_modules_instance_id_file_system_id"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "temporary_spf_modules" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "instance_id" integer NOT NULL, "alias" varchar(250) NOT NULL, "subgraph_system_id" integer NOT NULL, "container_system_id" integer NOT NULL, "definition_system_id" integer NOT NULL, "file_system_id" integer NOT NULL, CONSTRAINT "FK_9acec50339165b4a9a5e3a350fb" FOREIGN KEY ("subgraph_system_id") REFERENCES "subgraphs" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_1942b4a9c50698203278d65f819" FOREIGN KEY ("container_system_id") REFERENCES "containers" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_331cda97fea725c5926690e4e79" FOREIGN KEY ("definition_system_id") REFERENCES "spf_module_definitions" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, CONSTRAINT "FK_aebc03a526b6d7a79a06f23476f" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_093ca4e9af4aa8635301be8face" FOREIGN KEY ("system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_spf_modules" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "instance_id" integer NOT NULL, "alias" varchar(250) NOT NULL, "subgraph_system_id" integer NOT NULL, "container_system_id" integer NOT NULL, "definition_system_id" integer NOT NULL, "file_system_id" integer NOT NULL, "heap_id" integer, CONSTRAINT "FK_9acec50339165b4a9a5e3a350fb" FOREIGN KEY ("subgraph_system_id") REFERENCES "subgraphs" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_1942b4a9c50698203278d65f819" FOREIGN KEY ("container_system_id") REFERENCES "containers" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_331cda97fea725c5926690e4e79" FOREIGN KEY ("definition_system_id") REFERENCES "spf_module_definitions" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, CONSTRAINT "FK_aebc03a526b6d7a79a06f23476f" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_093ca4e9af4aa8635301be8face" FOREIGN KEY ("system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_spf_modules"("system_id", "created_at", "updated_at", "version", "instance_id", "alias", "subgraph_system_id", "container_system_id", "definition_system_id", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "instance_id", "alias", "subgraph_system_id", "container_system_id", "definition_system_id", "file_system_id" FROM "spf_modules"`,
+      `INSERT INTO "temporary_spf_modules"("system_id", "created_at", "updated_at", "version", "instance_id", "alias", "subgraph_system_id", "container_system_id", "definition_system_id", "file_system_id", "heap_id") SELECT "system_id", "created_at", "updated_at", "version", "instance_id", "alias", "subgraph_system_id", "container_system_id", "definition_system_id", "file_system_id", "heap_id" FROM "spf_modules"`,
     );
     await queryRunner.query(`DROP TABLE "spf_modules"`);
     await queryRunner.query(
@@ -1945,10 +1945,10 @@ export class InitialCreate1788843342703 implements MigrationInterface {
       `ALTER TABLE "spf_modules" RENAME TO "temporary_spf_modules"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "spf_modules" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "instance_id" integer NOT NULL, "alias" varchar(250) NOT NULL, "subgraph_system_id" integer NOT NULL, "container_system_id" integer NOT NULL, "definition_system_id" integer NOT NULL, "file_system_id" integer NOT NULL)`,
+      `CREATE TABLE "spf_modules" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "instance_id" integer NOT NULL, "alias" varchar(250) NOT NULL, "subgraph_system_id" integer NOT NULL, "container_system_id" integer NOT NULL, "definition_system_id" integer NOT NULL, "file_system_id" integer NOT NULL, "heap_id" integer)`,
     );
     await queryRunner.query(
-      `INSERT INTO "spf_modules"("system_id", "created_at", "updated_at", "version", "instance_id", "alias", "subgraph_system_id", "container_system_id", "definition_system_id", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "instance_id", "alias", "subgraph_system_id", "container_system_id", "definition_system_id", "file_system_id" FROM "temporary_spf_modules"`,
+      `INSERT INTO "spf_modules"("system_id", "created_at", "updated_at", "version", "instance_id", "alias", "subgraph_system_id", "container_system_id", "definition_system_id", "file_system_id", "heap_id") SELECT "system_id", "created_at", "updated_at", "version", "instance_id", "alias", "subgraph_system_id", "container_system_id", "definition_system_id", "file_system_id", "heap_id" FROM "temporary_spf_modules"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_spf_modules"`);
     await queryRunner.query(

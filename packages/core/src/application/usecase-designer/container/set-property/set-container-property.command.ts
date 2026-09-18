@@ -6,8 +6,9 @@
 import {BaseCommand} from '../../../shared/base-command.js';
 import {SESSION_MODE} from '../../../shared/change-vocabulary.js';
 import type {SessionMode} from '../../../shared/change-vocabulary.js';
+import type {ParameterElementSummaryDto} from '../../spf-module/dto/element-dto.js';
 
-export class UpdateContainerPropertyCommand extends BaseCommand {
+export class SetContainerPropertyCommand extends BaseCommand {
   static override readonly requiresSession = true;
   static override readonly allowedModes: readonly SessionMode[] = [
     SESSION_MODE.Designer,
@@ -17,7 +18,7 @@ export class UpdateContainerPropertyCommand extends BaseCommand {
   constructor(
     public readonly containerSystemId: number,
     public readonly propertySystemId: number,
-    public readonly data: unknown[],
+    public readonly elements: ParameterElementSummaryDto[],
   ) {
     super();
   }

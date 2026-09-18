@@ -7,6 +7,7 @@ import {jest} from '@jest/globals';
 import {AllExceptionsFilter} from '../../../../src/infrastructure-wrapper/filters/all-exceptions.filter.js';
 import {
   ResourceNotFoundException,
+  InvalidInputException,
   InvalidOperationException,
   ResourceConflictException,
   ValidationFailedException,
@@ -56,13 +57,31 @@ describe('AllExceptionsFilter', () => {
   });
 
   it('maps InvalidOperationException to 400', () => {
-    const exception = new InvalidOperationException('Bad input', {field: 'x'});
+    const exception = new InvalidOperationException(
+      'Operation cannot proceed',
+      {
+        field: 'x',
+      },
+    );
     filter.catch(exception, mockHost as any);
     expect(mockResponse.status).toHaveBeenCalledWith(400);
     expect(mockResponse.json).toHaveBeenCalledWith(
       expect.objectContaining({
         statusCode: 400,
         errorCode: 'INVALID_OPERATION',
+        details: {field: 'x'},
+      }),
+    );
+  });
+
+  it('maps InvalidInputException to 400', () => {
+    const exception = new InvalidInputException('Invalid input', {field: 'x'});
+    filter.catch(exception, mockHost as any);
+    expect(mockResponse.status).toHaveBeenCalledWith(400);
+    expect(mockResponse.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 400,
+        errorCode: 'INVALID_INPUT',
         details: {field: 'x'},
       }),
     );

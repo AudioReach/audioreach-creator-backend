@@ -6,14 +6,11 @@
 import {DomainException} from './domain-exception.js';
 
 /**
- * Thrown when an operation cannot proceed due to an invalid operation or state.
+ * Thrown when a request contains malformed or invalid input.
  * Maps to HTTP 400 in the API layer.
- *
- * @example
- * throw new InvalidOperationException('A session is already active');
  */
-export class InvalidOperationException extends DomainException {
-  readonly errorCode = 'INVALID_OPERATION';
+export class InvalidInputException extends DomainException {
+  readonly errorCode = 'INVALID_INPUT';
 
   constructor(message: string, details?: unknown) {
     super(message, details);

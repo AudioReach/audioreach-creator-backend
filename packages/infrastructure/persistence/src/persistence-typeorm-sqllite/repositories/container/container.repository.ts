@@ -168,6 +168,20 @@ export class TypeOrmContainerRepository implements ContainerRepository {
       .map(definition => this.toPropertyDefinition(definition));
   }
 
+  async getPropertyDefinitionBySystemId(
+    fileSystemId: number,
+    propertySystemId: number,
+  ): Promise<PropertyDefinition | null> {
+    const definitions = await this.propertyDefinitionFetcher.fetchAll(
+      fileSystemId,
+      this.uow.getWriteContext().session.sessionId,
+    );
+    const definition = definitions.find(
+      candidate => candidate.systemId === propertySystemId,
+    );
+    return definition ? this.toPropertyDefinition(definition) : null;
+  }
+
   async getPropertyDefinitionByPropertyId(
     fileSystemId: number,
     propertyNaturalId: number,
