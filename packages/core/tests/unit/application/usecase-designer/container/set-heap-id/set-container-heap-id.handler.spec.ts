@@ -39,6 +39,7 @@ function createContainerRepository(
     getPropertyDefinitionByPropertyId: jest
       .fn()
       .mockResolvedValue(HEAP_PROPERTY_DEFINITION),
+    getPropertyData: jest.fn().mockResolvedValue(null),
     setPropertyData: jest.fn().mockResolvedValue(undefined),
     ...overrides,
   } as unknown as ContainerRepository;
@@ -129,6 +130,29 @@ describe('SetContainerHeapIdHandler', () => {
     ]);
     expect(moduleRepository.updateHeapId).toHaveBeenNthCalledWith(1, 10, 2);
     expect(moduleRepository.updateHeapId).toHaveBeenNthCalledWith(2, 20, 2);
+  });
+
+  it('does not write when the container already has the requested heap ID', async () => {
+    const containerRepository = createContainerRepository({
+      getPropertyData: jest
+        .fn()
+        .mockResolvedValue(new Uint8Array([1, 0, 0, 0, 0, 0, 0, 0])),
+    });
+    const moduleRepository = createModuleRepository();
+    const uow = createUnitOfWork(containerRepository, moduleRepository);
+    const handler = new SetContainerHeapIdHandler(uow);
+
+    await expect(
+      handler.handle(new SetContainerHeapIdCommand(CONTAINER_SYSTEM_ID, 1)),
+    ).resolves.toEqual({
+      containerSystemId: CONTAINER_SYSTEM_ID,
+      heapId: 1,
+      updatedModuleHeapIds: [],
+    });
+
+    expect(uow.startTransaction).not.toHaveBeenCalled();
+    expect(containerRepository.setPropertyData).not.toHaveBeenCalled();
+    expect(moduleRepository.updateHeapId).not.toHaveBeenCalled();
   });
 
   it('throws InvalidInputException for an unsupported heap ID', async () => {
