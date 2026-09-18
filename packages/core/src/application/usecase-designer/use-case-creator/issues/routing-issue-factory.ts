@@ -28,6 +28,16 @@ function sortedIds(ids: Iterable<number>): number[] {
   return [...ids].sort((left, right) => left - right);
 }
 
+function describeConflict(
+  ids: readonly number[] | undefined,
+  description: (formattedIds: string) => string,
+): string | undefined {
+  if (!ids || ids.length === 0) {
+    return undefined;
+  }
+  return description(`[${sortedIds(ids).join(', ')}]`);
+}
+
 /** Creates issues owned by the use-case routing workflow. */
 export const RoutingIssueFactory = {
   duplicateActiveSubgraphSelections(
@@ -58,17 +68,90 @@ export const RoutingIssueFactory = {
   },
 
   editScopeConflict(details: RoutingEditScopeConflictDetails): Issue {
-    const conflictText = Object.entries(details)
-      .filter(
-        (entry): entry is [string, readonly number[]] =>
-          Array.isArray(entry[1]) && entry[1].length > 0,
-      )
-      .map(([name, ids]) => `${name}=[${sortedIds(ids).join(', ')}]`)
-      .join('; ');
-    const conflictSuffix = conflictText ? `: ${conflictText}` : '';
+    const conflictMessages = [
+      describeConflict(
+        details.excludedAddedSubgraphSystemIds,
+        ids =>
+          `Subgraphs added by the request are explicitly excluded from the selected design: ${ids}. ` +
+          'Include them in the selection, or remove those additions.',
+      ),
+      describeConflict(
+        details.excludedAddedDataLinkSystemIds,
+        ids =>
+          `Data links added by the request are explicitly excluded from the selected design: ${ids}. ` +
+          'Remove them from the exclusions, or remove those additions.',
+      ),
+      describeConflict(
+        details.excludedAddedControlLinkSystemIds,
+        ids =>
+          `Control links added by the request are explicitly excluded from the selected design: ${ids}. ` +
+          'Remove them from the exclusions, or remove those additions.',
+      ),
+      describeConflict(
+        details.missingAddedSubgraphSystemIds,
+        ids =>
+          `Subgraphs needed to include the requested additions are missing from the selected design: ${ids}. ` +
+          'Include them in the selection, or remove the related additions.',
+      ),
+      describeConflict(
+        details.missingRequiredEndpointSubgraphSystemIds,
+        ids =>
+          `Subgraphs needed to keep the selected use cases complete are missing from the selected design: ${ids}. ` +
+          'Include them in the selection.',
+      ),
+      describeConflict(
+        details.excludedRequiredEndpointSubgraphSystemIds,
+        ids =>
+          `Subgraphs needed to keep the selected use cases complete were explicitly excluded: ${ids}. ` +
+          'Remove them from the exclusions.',
+      ),
+      describeConflict(
+        details.deletedAddedLinkEndpointSubgraphSystemIds,
+        ids =>
+          `A newly added link refers to subgraphs that are also being deleted: ${ids}. ` +
+          'Remove the new link, or stop deleting those subgraphs.',
+      ),
+      describeConflict(
+        details.excludedDeletedSubgraphSystemIds,
+        ids =>
+          `Subgraphs marked for deletion were explicitly excluded: ${ids}. ` +
+          'Remove them from the exclusions, or cancel their deletion.',
+      ),
+      describeConflict(
+        details.excludedDeletedDataLinkSystemIds,
+        ids =>
+          `Data links marked for deletion were explicitly excluded: ${ids}. ` +
+          'Remove them from the exclusions, or cancel their deletion.',
+      ),
+      describeConflict(
+        details.excludedDeletedControlLinkSystemIds,
+        ids =>
+          `Control links marked for deletion were explicitly excluded: ${ids}. ` +
+          'Remove them from the exclusions, or cancel their deletion.',
+      ),
+      describeConflict(
+        details.missingSurvivingEndpointSubgraphSystemIds,
+        ids =>
+          `Data links marked for deletion still use subgraphs that remain in the design, but those subgraphs are missing from the selected design: ${ids}. ` +
+          'Include them in the selection.',
+      ),
+      describeConflict(
+        details.excludedSurvivingEndpointSubgraphSystemIds,
+        ids =>
+          `Subgraphs still needed to validate the data-link deletion were explicitly excluded: ${ids}. ` +
+          'Remove them from the exclusions.',
+      ),
+    ].filter((message): message is string => message !== undefined);
+
+    const message = [
+      'The requested changes cannot be safely applied because the selected design does not include everything needed to validate the result.',
+      ...conflictMessages,
+      'Update the selection or remove the conflicting changes, then submit the request again.',
+    ].join(' ');
+
     return {
       code: ISSUE_CODE.ROUTING_PREVAL_EDIT_SCOPE_CONFLICT,
-      message: `Routing edit scope conflicts${conflictSuffix}.`,
+      message,
       severity: IssueSeverity.Error,
     };
   },
@@ -106,6 +189,43 @@ export const RoutingIssueFactory = {
     };
   },
 
+  sgkvMalformed(
+    subgraphSystemId: number,
+    valueDefinitionSystemIds: Iterable<number>,
+  ): Issue {
+    const valueIds = sortedIds(new Set(valueDefinitionSystemIds));
+    return {
+      code: ISSUE_CODE.ROUTING_SGKV_MALFORMED,
+      message:
+        `SGKV input for subgraph ${subgraphSystemId} contains multiple values ` +
+        `for one key (valueDefinitionSystemIds: [${valueIds.join(', ')}]).`,
+      severity: IssueSeverity.Error,
+      impactedEntity: {
+        entityType: ISSUE_ENTITY_TYPE.Subgraph,
+        systemId: subgraphSystemId,
+      },
+    };
+  },
+
+  sgkvValuesNotFound(
+    subgraphSystemId: number,
+    valueDefinitionSystemIds: Iterable<number>,
+  ): Issue {
+    const valueIds = sortedIds(new Set(valueDefinitionSystemIds));
+    return {
+      code: ISSUE_CODE.ROUTING_SGKV_VALUE_NOT_FOUND,
+      message:
+        `SGKV input for subgraph ${subgraphSystemId} references values that ` +
+        `are missing from the effective file-scoped definitions ` +
+        `(valueDefinitionSystemIds: [${valueIds.join(', ')}]).`,
+      severity: IssueSeverity.Error,
+      impactedEntity: {
+        entityType: ISSUE_ENTITY_TYPE.Subgraph,
+        systemId: subgraphSystemId,
+      },
+    };
+  },
+
   deletionSelectionRequired(
     fullAffectedUsecaseSystemIds: ReadonlySet<number>,
     missingUsecaseSystemIds: ReadonlySet<number>,
@@ -115,9 +235,10 @@ export const RoutingIssueFactory = {
     return {
       code: ISSUE_CODE.ROUTING_DELETION_SELECTION_REQUIRED,
       message:
-        'Every affected usecase must be selected ' +
-        `(fullAffectedUsecaseSystemIds: [${affectedIds.join(', ')}], ` +
-        `missingUsecaseSystemIds: [${missingIds.join(', ')}]).`,
+        'Some use cases are affected by the requested changes, but they were not selected. ' +
+        `Affected use case IDs: [${affectedIds.join(', ')}]. ` +
+        `Missing from your selection: [${missingIds.join(', ')}]. ` +
+        'Select all affected use cases and submit the request again.',
       severity: IssueSeverity.Error,
       impactedUsecases: affectedIds,
     };

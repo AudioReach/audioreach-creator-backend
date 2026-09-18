@@ -39,7 +39,7 @@ describe('validateRoutingAdditionClosure', () => {
       expect.objectContaining({
         code: 'ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT',
         message: expect.stringMatching(
-          /excludedAddedSubgraphSystemIds=\[20\].*excludedAddedDataLinkSystemIds=\[100\].*excludedAddedControlLinkSystemIds=\[200\].*missingAddedSubgraphSystemIds=\[20, 40\].*missingRequiredEndpointSubgraphSystemIds=\[30\].*excludedRequiredEndpointSubgraphSystemIds=\[30\].*deletedAddedLinkEndpointSubgraphSystemIds=\[30\]/,
+          /Subgraphs added by the request are explicitly excluded from the selected design: \[20\].*Data links added by the request are explicitly excluded from the selected design: \[100\].*Control links added by the request are explicitly excluded from the selected design: \[200\].*Subgraphs needed to include the requested additions are missing from the selected design: \[20, 40\].*Subgraphs needed to keep the selected use cases complete are missing from the selected design: \[30\].*Subgraphs needed to keep the selected use cases complete were explicitly excluded: \[30\].*A newly added link refers to subgraphs that are also being deleted: \[30\]/,
         ),
       }),
     );

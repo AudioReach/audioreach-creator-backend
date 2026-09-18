@@ -11,6 +11,7 @@ import {
   emptyGraphEdits,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
 import {RoutingContext} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
+import {DELETED_COMPONENT_TYPE} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {IslandTransitionService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/island-transition.service.js';
 import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
 import type {ControlLink} from '../../../../../../src/domain/entities/usecase-data/links/control-link.js';
@@ -449,7 +450,13 @@ describe('IslandTransitionService', () => {
     const deletionAnalysis: DeletionAnalysis = {
       ...emptyDeletionAnalysis(),
       markedForDeletion: [
-        {usecase: currentUsecase, reason: {kind: 'pair-broken-single-path'}},
+        {
+          usecase: currentUsecase,
+          deletedComponent: {
+            type: DELETED_COMPONENT_TYPE.DataLink,
+            systemId: 101,
+          },
+        },
       ],
     };
     const fixture = createFixture({

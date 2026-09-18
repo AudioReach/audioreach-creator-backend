@@ -23,8 +23,8 @@ create-manual-usecases endpoints shall return the revised rich change details.
 
 ## 3. Terminology
 
-- **Effective active subgraphs:** caller selections remaining after excluded and
-  session-deleted subgraphs have been removed.
+- **Routable snapshot subgraphs:** caller selections remaining after excluded and
+  session-deleted subgraphs have been removed and published by the snapshot builder.
 - **Selected UseCase snapshot:** the effective-overlay `UseCase` entities loaded once by
   the handler for the selected UseCase IDs.
 - **Committed baseline:** persisted file state without the active session overlay.
@@ -39,23 +39,25 @@ create-manual-usecases endpoints shall return the revised rich change details.
 
 ### RI-01: Execution-only boundary
 
-`RoutingInput` shall contain immutable normalized execution information plus only the
-minimum original-request policy facts required by routing-phase validation. Other
-request-correlation and pre-normalization values remain local to the handler.
+`RoutingInput` shall contain immutable normalized execution information, the original
+request policy, and one prepared graph snapshot. Other request-correlation and
+pre-normalization values remain local to the handler.
 
 ### RI-02: Shared fields
 
 The shared routing input shall retain:
 
 - `mode`;
-- `activeSubgraphs`, containing only effective active subgraphs;
-- `scopePolicy.requestedSubgraphSystemIds`, containing the SG IDs from the original
-  `activeSubgraphs` request before filtering;
-- `scopePolicy.excludedSubgraphSystemIds`, preserving explicit SG-exclusion intent;
+- `requestPolicy`, containing requested SG IDs and all explicit SG/link exclusions;
 - `selectedUsecases`, loaded once from the effective overlay;
-- `excludedDataLinkSystemIds`;
-- `excludedControlLinkSystemIds`; and
-- `graphEdits`.
+- `graphSnapshot`, prepared once from the effective overlay; and
+- `fileSystemId`.
+
+`RoutingGraphSnapshot` shall contain final routable subgraphs with copied requested SGKV
+selections and one MDF flag per subgraph, final routable data/control links, complete
+overlay data/control link catalogs, the complete committed UseCase catalog, and the
+session edit summary. Its arrays are copied/frozen containers over borrowed domain
+entities.
 
 ### RI-03: Removed fields
 
@@ -64,35 +66,50 @@ The shared routing input shall not contain:
 - `selectedUsecaseSystemIds`, because `selectedUsecases` carries the resolved selection;
 - `selectedScopeSubgraphs`, because it is derived from `selectedUsecases`;
 - the ambiguously named `inputSubgraphs`; its irreducible original-request meaning is
-  retained as `scopePolicy.requestedSubgraphSystemIds`;
+  retained as `requestPolicy.requestedSubgraphSystemIds`;
 - `outOfSelectionSubgraphs`, because it is needed only during pre-engine scope/manual
   topology derivation;
-- `effectiveRoutingScope`, because it duplicates the system IDs in normalized
-  `activeSubgraphs`; and
+- `effectiveRoutingScope`, because it duplicates the system IDs in
+  `graphSnapshot.subgraphs`; and
 - top-level `excludedSubgraphSystemIds`, replaced by the scoped policy field.
 
-The explicit SG exclusion set is not discarded: it remains under `scopePolicy` because
-deletion-side validation must distinguish an omitted endpoint from one the client
-explicitly excluded.
+The explicit SG/link exclusion sets are not discarded: they remain under `requestPolicy`
+because validation and deletion-side rules must distinguish omitted entities from ones the
+client explicitly excluded. Effective link exclusions are derived only while constructing
+the snapshot and are not retained as a second authoritative representation.
 
 ### RI-04: Handler-local scope derivation
 
 The handler may derive selected, out-of-selection, effective, and missing scope sets while
-validating the request and preparing manual topology. Those temporary values shall not be
-copied into `RoutingInput`. Later phases derive them from `selectedUsecases`, normalized
-`activeSubgraphs`, and the minimal `scopePolicy` facts.
+validating the request. Those temporary values shall not be copied into `RoutingInput`.
+The handler passes effective active selections and session edits to
+`RoutingGraphSnapshotBuilder`; later phases consume `graphSnapshot` and do not re-derive
+scope or exclusions.
 
 ### RI-05: Mode-specific fields
 
-- Automatic input shall retain the committed pre-run `islandUcs` catalog.
+- Automatic and manual input shall share the same prepared graph snapshot.
 - Manual input shall retain the approved pair-local `manualTopology` containing
   supporting `DataLink` or `ControlLink` entities.
+
+### RI-06: Snapshot preparation and read ownership
+
+`RoutingGraphSnapshotBuilder` shall perform one overlay subgraph read, one overlay
+data-link read, one overlay control-link read, one committed UseCase catalog read, and one
+MDF classification pass per routing request. Missing effective active subgraphs are
+aggregated as blocking not-found issues. Malformed scoped data links retain their specific
+link-integrity issue.
+
+`ManualPairDiscoveryService` and `PreValidationService` consume snapshot data only and
+perform no graph repository reads. Phases 2–3 and 5–10 consume the snapshot without
+duplicate graph reads; Phase 4 may read SGKV baselines only; Phase 11 writes only.
 
 ## 5. Routing Context Requirements
 
 ### RC-01: Single source of input truth
 
-Routing phases shall read immutable request and exclusion data through `context.input`.
+Routing phases shall read immutable request policy and prepared graph data through
+`context.input`.
 
 ### RC-02: Removed exclusion copies
 
@@ -114,8 +131,9 @@ yet been implemented.
 ### RC-04: Context exclusions
 
 `RoutingContext` shall not contain repositories, a `UnitOfWork`, ORM rows, request-only
-validation data, or a complete graph/link cache. The approved normalized manual topology
-is the limited exception for pair-supporting domain links.
+validation data, copied graph catalogs, or derived exclusion state. It contains only the
+immutable input and grouped write-once phase outputs. Manual topology support links are
+borrowed references from the snapshot.
 
 ## 6. Change-Details Contract Requirements
 

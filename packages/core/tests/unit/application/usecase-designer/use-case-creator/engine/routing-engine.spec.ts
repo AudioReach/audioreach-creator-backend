@@ -89,6 +89,32 @@ describe('RoutingEngine', () => {
       expect(laterPhase.run).not.toHaveBeenCalled();
   });
 
+  it.each([
+    [
+      'ARC-ROUTING-SGKV-MALFORMED',
+      () => RoutingIssueFactory.sgkvMalformed(10, [20, 30]),
+    ],
+    [
+      'ARC-ROUTING-SGKV-VALUE-NOT-FOUND',
+      () => RoutingIssueFactory.sgkvValuesNotFound(10, [20]),
+    ],
+  ])('stops after a blocking Phase 4 %s result', (_label, createIssue) => {
+    const order: string[] = [];
+    const phases = Array.from({length: 12}, (_, index) =>
+      phase(`phase-${index + 1}`, order),
+    );
+    phases[3] = phase('phase-4', order, () => Result.fail(createIssue()));
+    const engine = engineFrom(phases);
+
+    return engine.run(input, {} as never).then(result => {
+      expect(result.kind).toBe(RESULT_KIND.Fail);
+      expect(result.issues[0]?.code).toBe(_label);
+      expect(order).toEqual(['phase-1', 'phase-2', 'phase-3', 'phase-4']);
+      for (const laterPhase of phases.slice(4))
+        expect(laterPhase.run).not.toHaveBeenCalled();
+    });
+  });
+
   it('retains Phase 1 warnings while all phases continue in fixed order', async () => {
     const order: string[] = [];
     const phases = Array.from({length: 12}, (_, index) =>

@@ -20,6 +20,13 @@ import {
   emptyGraphEdits,
   type RoutingGraphSnapshot,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
+import {
+  SEED_REASON,
+  type Cones,
+  type KvResolutions,
+  type Seeds,
+  type SgkvInstance,
+} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {ResponseBuilder} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/response-builder.js';
 import {GetUsecaseChangeDetailsQuery} from '../../../../../../src/application/usecase-designer/usecase/get-change-details/get-usecase-change-details.query.js';
 
@@ -125,6 +132,33 @@ describe('routing contracts', () => {
     });
     expect(auto).not.toHaveProperty('manualTopology');
     expect(createInput().manualTopology).toEqual({pairs: []});
+  });
+
+  it('uses grouped content-only Phase 4-6 outputs', () => {
+    const instance: SgkvInstance = {
+      keyValues: [{keyDefSystemId: 11, valueDefSystemId: 12}],
+    };
+    const kvResolutions: KvResolutions = {
+      perSg: new Map([[31, [instance]]]),
+      ucFilteredBaseline: new Map([[31, [instance]]]),
+    };
+    const seeds: Seeds = {
+      sgSystemIds: new Set([31]),
+      reasons: new Map([[31, SEED_REASON.KvChanged]]),
+    };
+    const cones: Cones = {
+      sgSystemIds: new Set([31]),
+      rootSgs: new Set([31]),
+    };
+    const context = new RoutingContext(createInput());
+
+    expect(instance).not.toHaveProperty('sgkvSystemId');
+    expect(kvResolutions.perSg.get(31)).toEqual([instance]);
+    expect(seeds.reasons.get(31)).toBe('KV_CHANGED');
+    expect(cones.rootSgs).toEqual(new Set([31]));
+    expect(context.kvResolutions).toBeNull();
+    expect(context.seeds).toBeNull();
+    expect(context.cones).toBeNull();
   });
 
   it('derives selected and effective scope with request ordering preserved', () => {
