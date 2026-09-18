@@ -108,7 +108,9 @@ export const DataPortDtoSchema = z.object({
   systemId: z.string().describe('Port system ID'),
   naturalId: z.number().int().describe('Port definition natural ID'),
   name: z.string().describe('Port name'),
-  portIoType: z.enum(['Input', 'Output']).describe('Port IO type'),
+  portIoType: z
+    .enum(['Input', 'Output', 'InputOutput', 'OutputInput'])
+    .describe('Port IO type'),
   portType: z.enum(['Static', 'Dynamic']).describe('Port type'),
   totalLinksAtPort: z
     .number()

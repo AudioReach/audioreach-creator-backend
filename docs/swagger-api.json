@@ -7584,7 +7584,7 @@
       },
       "delete": {
         "description": "Deletes the specified subsystem. The subsystem must have no child components or nested subsystems.\n\nReturns the removed subsystem.",
-        "operationId": "SubsystemController_removeSubsystem",
+        "operationId": "SubsystemController_deleteSubsystem",
         "parameters": [
           {
             "name": "projectId",
@@ -11675,7 +11675,9 @@
                   "type": "string",
                   "enum": [
                     "Input",
-                    "Output"
+                    "Output",
+                    "InputOutput",
+                    "OutputInput"
                   ],
                   "description": "Port IO type"
                 },
@@ -11914,7 +11916,9 @@
                         "type": "string",
                         "enum": [
                           "Input",
-                          "Output"
+                          "Output",
+                          "InputOutput",
+                          "OutputInput"
                         ],
                         "description": "Port IO type"
                       },
@@ -12305,7 +12309,9 @@
                   "type": "string",
                   "enum": [
                     "Input",
-                    "Output"
+                    "Output",
+                    "InputOutput",
+                    "OutputInput"
                   ],
                   "description": "Port IO type"
                 },
@@ -12512,7 +12518,9 @@
                         "type": "string",
                         "enum": [
                           "Input",
-                          "Output"
+                          "Output",
+                          "InputOutput",
+                          "OutputInput"
                         ],
                         "description": "Port IO type"
                       },
@@ -13330,9 +13338,6 @@
             "type": "string",
             "description": "Type of the usecase",
             "enum": [
-              "EC",
-              "LINKED",
-              "ISLAND"
               "EC",
               "LINKED",
               "ISLAND"
@@ -14677,7 +14682,9 @@
                   "type": "string",
                   "enum": [
                     "Input",
-                    "Output"
+                    "Output",
+                    "InputOutput",
+                    "OutputInput"
                   ],
                   "description": "Port IO type"
                 },
@@ -17306,7 +17313,9 @@
                         "type": "string",
                         "enum": [
                           "Input",
-                          "Output"
+                          "Output",
+                          "InputOutput",
+                          "OutputInput"
                         ],
                         "description": "Port IO type"
                       },

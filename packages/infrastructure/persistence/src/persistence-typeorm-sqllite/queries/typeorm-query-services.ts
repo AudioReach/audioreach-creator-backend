@@ -49,6 +49,8 @@ import {UseCaseCategoryFetcher} from '../fetchers/usecase-category-fetcher.js';
 import {UsecaseGkvValuesFetcher} from '../fetchers/usecase-gkv-values-fetcher.js';
 import {UsecaseOverlayFetcher} from '../fetchers/usecase-overlay-fetcher.js';
 import {LinkOverlayFetcher} from '../fetchers/link-overlay-fetcher.js';
+import {PortOverlayFetcher} from '../fetchers/port-overlay-fetcher.js';
+import {IntentFetcher} from '../fetchers/intent-fetcher.js';
 import {SubgraphOverlayFetcher} from '../fetchers/subgraph-overlay-fetcher.js';
 import {SubgraphPropertyDataFetcher} from '../fetchers/subgraph-property-data-fetcher.js';
 import {SubgraphSgkvFetcher} from '../fetchers/subgraph-sgkv-fetcher.js';
@@ -129,6 +131,11 @@ export class DbQueryServices implements QueryServices {
     const subsystemOverlayFetcher = new SubsystemOverlayFetcher(
       dataSource.manager,
       editActionsQueryService,
+    );
+    const portOverlayFetcher = new PortOverlayFetcher(
+      dataSource.manager,
+      editActionsQueryService,
+      new IntentFetcher(dataSource.manager, editActionsQueryService),
     );
     const ckvPayloadFetcher = new CkvParameterPayloadFetcher(
       dataSource.manager,
@@ -266,6 +273,7 @@ export class DbQueryServices implements QueryServices {
       subsystemOverlayFetcher,
       usecaseOverlayFetcher,
       linkOverlayFetcher,
+      portOverlayFetcher,
     );
 
     this.logQueryService = logQueryService;

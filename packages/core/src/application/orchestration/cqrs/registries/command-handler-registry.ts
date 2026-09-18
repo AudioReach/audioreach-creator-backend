@@ -107,6 +107,16 @@ import {DeleteProjectCommand} from '../../../project/delete/delete-project.comma
 import {DeleteProjectHandler} from '../../../project/delete/delete-project.handler.js';
 import {DeleteSpfModuleCommand} from '../../../usecase-designer/spf-module/delete/delete-spf-module.command.js';
 import {DeleteSpfModuleHandler} from '../../../usecase-designer/spf-module/delete/delete-spf-module.handler.js';
+import {CreateSubsystemCommand} from '../../../usecase-designer/subsystem/create/create-subsystem.command.js';
+import {CreateSubsystemHandler} from '../../../usecase-designer/subsystem/create/create-subsystem.handler.js';
+import {DeleteSubsystemCommand} from '../../../usecase-designer/subsystem/delete/delete-subsystem.command.js';
+import {DeleteSubsystemHandler} from '../../../usecase-designer/subsystem/delete/delete-subsystem.handler.js';
+import {PatchSubsystemCommand} from '../../../usecase-designer/subsystem/patch/patch-subsystem.command.js';
+import {PatchSubsystemHandler} from '../../../usecase-designer/subsystem/patch/patch-subsystem.handler.js';
+import {SetSubsystemFilteredKeysCommand} from '../../../usecase-designer/subsystem/set-filtered-keys/set-subsystem-filtered-keys.command.js';
+import {SetSubsystemFilteredKeysHandler} from '../../../usecase-designer/subsystem/set-filtered-keys/set-subsystem-filtered-keys.handler.js';
+import {MoveSubsystemComponentsCommand} from '../../../usecase-designer/subsystem/move/move-subsystem-components.command.js';
+import {MoveSubsystemComponentsHandler} from '../../../usecase-designer/subsystem/move/move-subsystem-components.handler.js';
 import {UpdateTkvCalDataCommand} from '../../../usecase-designer/spf-module/update-tag-data/update-tkv-cal-data.command.js';
 import {UpdateTkvCalDataHandler} from '../../../usecase-designer/spf-module/update-tag-data/update-tkv-cal-data.handler.js';
 import {CreateUsecasesCommand} from '../../../usecase-designer/use-case-creator/create-usecases/create-usecases.command.js';
@@ -284,6 +294,27 @@ export class CommandHandlerRegistry {
 
     this.commandHandlerFactories.set(CreateManualUsecasesCommand, {
       create: deps => new CreateManualUsecasesHandler(deps.uow),
+    });
+    this.commandHandlerFactories.set(CreateSubsystemCommand, {
+      create: deps =>
+        new CreateSubsystemHandler(
+          deps.uow,
+          deps.idGeneration,
+          deps.naturalIdGeneration,
+        ),
+    });
+    this.commandHandlerFactories.set(DeleteSubsystemCommand, {
+      create: deps => new DeleteSubsystemHandler(deps.uow),
+    });
+    this.commandHandlerFactories.set(PatchSubsystemCommand, {
+      create: deps => new PatchSubsystemHandler(deps.uow, deps.idGeneration),
+    });
+    this.commandHandlerFactories.set(SetSubsystemFilteredKeysCommand, {
+      create: deps => new SetSubsystemFilteredKeysHandler(deps.uow),
+    });
+    this.commandHandlerFactories.set(MoveSubsystemComponentsCommand, {
+      create: deps =>
+        new MoveSubsystemComponentsHandler(deps.uow, deps.idGeneration),
     });
   }
 }

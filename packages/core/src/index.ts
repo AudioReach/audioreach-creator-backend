@@ -78,12 +78,21 @@ export type {ControlLinkRepository} from './application/ports/persistence/reposi
 export type {SubgraphRepository} from './application/ports/persistence/repositories/subgraph/subgraph.repository.js';
 export type {
   SubsystemControlPortRef,
+  SubsystemKeyDefinition,
   SubsystemRepository,
+  SubsystemNodeTopology,
+  SubsystemSummary,
 } from './application/ports/persistence/repositories/subsystem/subsystem.repository.js';
 // Module write path — commands (LLD2)
 export {PatchSpfModuleCommand} from './application/usecase-designer/spf-module/patch/patch-spf-module.command.js';
 export {CreateModuleCommand} from './application/usecase-designer/spf-module/create-module/create-module.command.js';
 export {DeleteSpfModuleCommand} from './application/usecase-designer/spf-module/delete/delete-spf-module.command.js';
+export {CreateSubsystemCommand} from './application/usecase-designer/subsystem/create/create-subsystem.command.js';
+export {DeleteSubsystemCommand} from './application/usecase-designer/subsystem/delete/delete-subsystem.command.js';
+export {PatchSubsystemCommand} from './application/usecase-designer/subsystem/patch/patch-subsystem.command.js';
+export {SetSubsystemFilteredKeysCommand} from './application/usecase-designer/subsystem/set-filtered-keys/set-subsystem-filtered-keys.command.js';
+export {MoveSubsystemComponentsCommand} from './application/usecase-designer/subsystem/move/move-subsystem-components.command.js';
+export type {MoveSubsystemComponentsResult} from './application/usecase-designer/subsystem/move/move-subsystem-components.handler.js';
 export {
   LINK_DELETION_MODE,
   isLinkDeletionMode,
