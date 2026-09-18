@@ -4,6 +4,8 @@
  */
 
 import type {SpfModuleDefinition} from '../../../../domain/entities/definitions/spf-module/spf-module-definition.js';
+import type {Issue} from '../../../../shared/issues/issue.js';
+import {IssueSeverity} from '../../../../shared/issues/severity.js';
 import {DomainRuleViolationException} from '../../../../shared/exceptions/domain-rule-violation.exception.js';
 
 /**
@@ -24,15 +26,17 @@ export function validateModuleCapabilityIntersection(
   );
 
   if (failingModules.length > 0) {
-    const detailMessages = failingModules.map(
-      mod =>
+    const issues: Issue[] = failingModules.map(mod => ({
+      code: 'DOMAIN_RULE_VIOLATION',
+      message:
         `Module '${mod.displayName}' does not support any of the selected capability IDs. ` +
         `The module's allowed container types do not intersect with the requested capability list.`,
-    );
+      severity: IssueSeverity.Error,
+    }));
 
     throw new DomainRuleViolationException(
+      issues,
       'Module capability and container capability do not match for one or more modules; see issues for details.',
-      detailMessages,
     );
   }
 }

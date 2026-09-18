@@ -15,6 +15,7 @@ import {
   mapToElementData,
   serializeParameterData,
 } from '../../shared/serialize-elements.js';
+import {parseParameterData} from '../../shared/parse-elements.js';
 import {
   CONTAINER_HEAP_PROP_ID,
   HEAP_ID_DEFAULT,
@@ -72,6 +73,25 @@ export class SetContainerHeapIdHandler implements CommandHandler<
     );
     if (!serialized.ok) {
       throw new InvalidInputException(serialized.error);
+    }
+
+    const currentData = await containerRepository.getPropertyData(
+      command.containerSystemId,
+      propertyDefinition.systemId,
+      fileSystemId,
+    );
+    const currentElement = currentData
+      ? parseParameterData(currentData, propertyDefinition.elementsStructure)[0]
+      : undefined;
+    if (
+      currentElement?.type === 'ConfigElement' &&
+      Number(currentElement.value) === command.heapId
+    ) {
+      return {
+        containerSystemId: command.containerSystemId,
+        heapId: command.heapId,
+        updatedModuleHeapIds: [],
+      };
     }
 
     await this.uow.startTransaction();
