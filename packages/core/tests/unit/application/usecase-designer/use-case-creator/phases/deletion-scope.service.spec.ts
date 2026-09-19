@@ -11,12 +11,18 @@ import {
   emptyGraphEdits,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
 import {RoutingContext} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
-import {DELETED_COMPONENT_TYPE} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
+import {
+  DELETED_COMPONENT_TYPE,
+  PATH_TERMINATION,
+} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {DeletionScopeService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/deletion-scope.service.js';
 import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
 import type {ControlLink} from '../../../../../../src/domain/entities/usecase-data/links/control-link.js';
 import type {DataLink} from '../../../../../../src/domain/entities/usecase-data/links/data-link.js';
-import type {SgkvEntry} from '../../../../../../src/application/ports/persistence/repositories/subgraph/subgraph.repository.js';
+import type {
+  SgkvEntry,
+  SubgraphRepository,
+} from '../../../../../../src/application/ports/persistence/repositories/subgraph/subgraph.repository.js';
 
 type UsecaseType = 'EC' | 'ISLAND' | 'LINKED';
 
@@ -162,18 +168,15 @@ function createFixture(options: FixtureOptions = {}) {
     throw new Error('Phase 2 must not read the usecase repository');
   });
   const getSgkvs = jest.fn().mockResolvedValue([...(options.sgkvs ?? [])]);
-  const uow = {
-    getUsecaseRepository: () => ({findAll}),
-    getSubgraphRepository: () => ({getSgkvs}),
-  };
-  return {context, uow, findAll, getSgkvs};
+  const subgraphRepository = {getSgkvs} as unknown as SubgraphRepository;
+  return {context, subgraphRepository, findAll, getSgkvs};
 }
 
 function runAnalysis(
   service: DeletionScopeService,
   fixture: ReturnType<typeof createFixture>,
 ) {
-  return service.run(fixture.context, fixture.uow as never);
+  return service.run(fixture.context, fixture.subgraphRepository);
 }
 
 describe('DeletionScopeService', () => {
@@ -566,8 +569,22 @@ describe('DeletionScopeService', () => {
     await runAnalysis(service, fixture);
 
     expect(fixture.context.deletionAnalysis?.reconstructionPaths).toEqual([
-      {originalUsecaseSystemId: 1, path: {subgraphSystemIds: [1, 2, 3]}},
-      {originalUsecaseSystemId: 1, path: {subgraphSystemIds: [1, 4, 3]}},
+      {
+        originalUsecaseSystemId: 1,
+        path: {
+          subgraphSystemIds: [1, 2, 3],
+          termination: PATH_TERMINATION.NaturalLeaf,
+          ecBoundaryLinkId: null,
+        },
+      },
+      {
+        originalUsecaseSystemId: 1,
+        path: {
+          subgraphSystemIds: [1, 4, 3],
+          termination: PATH_TERMINATION.NaturalLeaf,
+          ecBoundaryLinkId: null,
+        },
+      },
     ]);
   });
 
@@ -634,7 +651,11 @@ describe('DeletionScopeService', () => {
     expect(fixture.context.deletionAnalysis?.reconstructionPaths).toEqual([
       {
         originalUsecaseSystemId: 1,
-        path: {subgraphSystemIds: [1, 5, 2, 3, 4]},
+        path: {
+          subgraphSystemIds: [1, 5, 2, 3, 4],
+          termination: PATH_TERMINATION.NaturalLeaf,
+          ecBoundaryLinkId: null,
+        },
       },
     ]);
   });
@@ -758,7 +779,11 @@ describe('DeletionScopeService', () => {
     expect(fixture.context.deletionAnalysis?.reconstructionPaths).toEqual([
       {
         originalUsecaseSystemId: 1,
-        path: {subgraphSystemIds: [1, 5, 2, 3, 4]},
+        path: {
+          subgraphSystemIds: [1, 5, 2, 3, 4],
+          termination: PATH_TERMINATION.NaturalLeaf,
+          ecBoundaryLinkId: null,
+        },
       },
     ]);
   });

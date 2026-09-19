@@ -15,6 +15,9 @@ import {
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
 import type {RoutingContext} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
 import {RoutingEngine} from '../../../../../../src/application/usecase-designer/use-case-creator/engine/routing-engine.js';
+import {DfsRoutingService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/dfs-routing.service.js';
+import {CombinationExpansionService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/combination-expansion.service.js';
+import {LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/link-type.js';
 
 const input = createAutoRoutingInput({
   fileSystemId: 7,
@@ -70,7 +73,103 @@ function engineFrom(phases: ReturnType<typeof phase>[]): RoutingEngine {
   );
 }
 
+function unitOfWork() {
+  return {
+    getSubgraphRepository: () => ({}),
+    getWriteContext: () => ({groupId: 'group-1'}),
+  } as never;
+}
+
 describe('RoutingEngine', () => {
+  it('stops before Phase 9 when Phase 8 returns DFS-08', async () => {
+    const blockingInput = createAutoRoutingInput({
+      fileSystemId: 7,
+      selectedUsecases: [],
+      requestPolicy: {
+        requestedSubgraphSystemIds: new Set([1, 2]),
+        explicitlyExcludedSubgraphSystemIds: new Set(),
+        explicitlyExcludedDataLinkSystemIds: new Set(),
+        explicitlyExcludedControlLinkSystemIds: new Set(),
+      },
+      graphSnapshot: {
+        subgraphs: [
+          {subgraph: {systemId: 1} as never, requestedSgkvs: [], isMdf: false},
+          {subgraph: {systemId: 2} as never, requestedSgkvs: [], isMdf: false},
+        ],
+        routableDataLinks: [
+          {
+            systemId: 1,
+            linkType: LINK_TYPE.IntraUsecase,
+            sourceSubgraphSystemId: 1,
+            destSubgraphSystemId: 2,
+          } as never,
+        ],
+        routableControlLinks: [],
+        overlayDataLinks: [],
+        overlayControlLinks: [],
+        committedUsecases: [],
+        sessionEdits: emptyGraphEdits(),
+      },
+    });
+    const order: string[] = [];
+    let executedContext: RoutingContext | undefined;
+    const phases = Array.from({length: 12}, (_, index) =>
+      phase(`phase-${index + 1}`, order),
+    );
+    phases[3] = phase('phase-4', order, context => {
+      context.kvResolutions = {
+        perSg: new Map([
+          [1, [{keyValues: [{keyDefSystemId: 10, valueDefSystemId: 100}]}]],
+          [2, [{keyValues: [{keyDefSystemId: 10, valueDefSystemId: 101}]}]],
+        ]),
+        ucFilteredBaseline: new Map(),
+      };
+      return Result.ok();
+    });
+    phases[5] = phase('phase-6', order, context => {
+      context.cones = {
+        sgSystemIds: new Set([1, 2]),
+        rootSgs: new Set([1]),
+      };
+      return Result.ok();
+    });
+    const dfs = new DfsRoutingService();
+    phases[6] = {
+      run: jest.fn(async (context: RoutingContext) => {
+        order.push('phase-7');
+        executedContext = context;
+        return dfs.run(context);
+      }),
+    } as never;
+    const combinations = new CombinationExpansionService();
+    phases[7] = {
+      run: jest.fn(async (context: RoutingContext) => {
+        order.push('phase-8');
+        return combinations.run(context);
+      }),
+    } as never;
+    const engine = engineFrom(phases);
+
+    const result = await engine.run(blockingInput, unitOfWork());
+
+    expect(result.kind).toBe(RESULT_KIND.Fail);
+    expect(result.issues[0]?.code).toBe('ARC-ROUTING-DFS-08');
+    expect(order).toEqual([
+      'phase-1',
+      'phase-2',
+      'phase-3',
+      'phase-4',
+      'phase-5',
+      'phase-6',
+      'phase-7',
+      'phase-8',
+    ]);
+    expect(phases[8]!.run).not.toHaveBeenCalled();
+    expect(phases[9]!.run).not.toHaveBeenCalled();
+    expect(phases[11]!.run).not.toHaveBeenCalled();
+    expect(executedContext?.routingCandidates.combinations).toEqual([]);
+  });
+
   it('stops after a blocking Phase 1 result', async () => {
     const order: string[] = [];
     const phases = Array.from({length: 12}, (_, index) =>
@@ -81,7 +180,7 @@ describe('RoutingEngine', () => {
     );
     const engine = engineFrom(phases);
 
-    const result = await engine.run(input, {} as never);
+    const result = await engine.run(input, unitOfWork());
 
     expect(result.kind).toBe(RESULT_KIND.Fail);
     expect(order).toEqual(['phase-1']);
@@ -106,7 +205,7 @@ describe('RoutingEngine', () => {
     phases[3] = phase('phase-4', order, () => Result.fail(createIssue()));
     const engine = engineFrom(phases);
 
-    return engine.run(input, {} as never).then(result => {
+    return engine.run(input, unitOfWork()).then(result => {
       expect(result.kind).toBe(RESULT_KIND.Fail);
       expect(result.issues[0]?.code).toBe(_label);
       expect(order).toEqual(['phase-1', 'phase-2', 'phase-3', 'phase-4']);
@@ -125,9 +224,7 @@ describe('RoutingEngine', () => {
       return Result.ok();
     });
     const engine = engineFrom(phases);
-    const uow = {getWriteContext: () => ({groupId: 'group-1'})};
-
-    const result = await engine.run(input, uow as never);
+    const result = await engine.run(input, unitOfWork());
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     expect(order).toEqual(
@@ -150,9 +247,7 @@ describe('RoutingEngine', () => {
     );
     const engine = engineFrom(phases);
 
-    await engine.run(input, {
-      getWriteContext: () => ({groupId: 'group-1'}),
-    } as never);
+    await engine.run(input, unitOfWork());
 
     expect(snapshots).toHaveLength(12);
     expect(snapshots.every(snapshot => snapshot === input.graphSnapshot)).toBe(

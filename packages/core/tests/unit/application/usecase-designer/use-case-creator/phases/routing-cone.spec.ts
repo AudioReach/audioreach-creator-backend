@@ -11,7 +11,6 @@ import {LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/link
 import {Subgraph} from '../../../../../../src/domain/entities/usecase-data/subgraph/subgraph.js';
 import {RESULT_KIND} from '../../../../../../src/application/shared/result/result.js';
 import type {SubgraphRepository} from '../../../../../../src/application/ports/persistence/repositories/subgraph/subgraph.repository.js';
-import type {UnitOfWork} from '../../../../../../src/application/ports/persistence/unit-of-work.js';
 import {
   createAutoRoutingInput,
   emptyGraphEdits,
@@ -165,25 +164,18 @@ function makeRepository(options: RepositoryOptions): {
   };
 }
 
-function makeUnitOfWork(repository: SubgraphRepository): UnitOfWork {
-  return {
-    getSubgraphRepository: () => repository,
-  } as unknown as UnitOfWork;
-}
-
 async function runPhaseChain(
   context: RoutingContext,
   repository: SubgraphRepository,
 ) {
-  const uow = makeUnitOfWork(repository);
-  const phase4 = await new KvResolutionService().run(context, uow);
+  const phase4 = await new KvResolutionService().run(context, repository);
   if (phase4.kind === RESULT_KIND.Fail)
     return {phase4, phase5: null, phase6: null};
 
-  const phase5 = await new SeedDetectionService().run(context, uow);
+  const phase5 = await new SeedDetectionService().run(context);
   if (phase5.kind === RESULT_KIND.Fail) return {phase4, phase5, phase6: null};
 
-  const phase6 = await new ConeComputationService().run(context, uow);
+  const phase6 = await new ConeComputationService().run(context);
   return {phase4, phase5, phase6};
 }
 

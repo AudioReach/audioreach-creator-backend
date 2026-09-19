@@ -4,15 +4,19 @@
  */
 
 import {Result} from '../../../../application/shared/result/result.js';
+import {
+  PATH_TERMINATION,
+  DELETED_COMPONENT_TYPE,
+} from '../contracts/routing-state.js';
 import type {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
 import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
 import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
-import type {SgkvEntry} from '../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
-import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
+import type {
+  SgkvEntry,
+  SubgraphRepository,
+} from '../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
 import {ROUTING_MODE} from '../contracts/routing-input.js';
 import type {RoutingContext} from '../contracts/routing-context.js';
-import type {RoutingPhase} from '../contracts/routing-phase.js';
-import {DELETED_COMPONENT_TYPE} from '../contracts/routing-state.js';
 import type {
   DataLinkLossPair,
   DeletionAnalysis,
@@ -989,7 +993,11 @@ function processMarkedUsecase(
   for (const path of paths) {
     reconstructionPaths.push({
       originalUsecaseSystemId: mark.usecase.systemId,
-      path: {subgraphSystemIds: path},
+      path: {
+        subgraphSystemIds: path,
+        termination: PATH_TERMINATION.NaturalLeaf,
+        ecBoundaryLinkId: null,
+      },
     });
   }
 }
@@ -1029,7 +1037,7 @@ function buildIslandCandidates(
 async function buildAutomaticAnalysis(
   context: RoutingContext,
   inventory: ImpactInventory,
-  uow: UnitOfWork,
+  subgraphRepository: SubgraphRepository,
 ): Promise<void> {
   // Build the complete draft first. Publishing happens once so later phases never observe
   // partially processed deletion state.
@@ -1051,9 +1059,10 @@ async function buildAutomaticAnalysis(
   const sgkvs =
     legacyEcEndpointSystemIds.length === 0
       ? []
-      : await uow
-          .getSubgraphRepository()
-          .getSgkvs(context.input.fileSystemId, legacyEcEndpointSystemIds);
+      : await subgraphRepository.getSgkvs(
+          context.input.fileSystemId,
+          legacyEcEndpointSystemIds,
+        );
   const sgkvsBySubgraph = indexSgkvsBySubgraph(sgkvs);
   const selectedValues = selectedValueSystemIds(context, ucDeletionMarks);
   for (const mark of ucDeletionMarks) {
@@ -1086,13 +1095,13 @@ function sortedByUseCaseSystemId<T extends {readonly usecase: UseCase}>(
   );
 }
 
-export class DeletionScopeService implements RoutingPhase {
+export class DeletionScopeService {
   run(
     context: RoutingContext,
-    _uow: UnitOfWork,
+    subgraphRepository: SubgraphRepository,
   ): Promise<ReturnType<typeof Result.ok<void>>> {
     // Phase 2 reads no graph topology or UC catalog after snapshot construction. Legacy
-    // EC Rule B makes one bounded SGKV baseline lookup through this request's UoW.
+    // EC Rule B makes one bounded SGKV baseline lookup through the supplied repository.
     const inventory = buildImpactInventory(context);
     const gateFailure = validateGates(context, inventory);
     if (gateFailure) return Promise.resolve(gateFailure);
@@ -1104,8 +1113,8 @@ export class DeletionScopeService implements RoutingPhase {
       );
       return Promise.resolve(Result.ok());
     }
-    return buildAutomaticAnalysis(context, inventory, _uow).then(() =>
-      Result.ok(),
+    return buildAutomaticAnalysis(context, inventory, subgraphRepository).then(
+      () => Result.ok(),
     );
   }
 }

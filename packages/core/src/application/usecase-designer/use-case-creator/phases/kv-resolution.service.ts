@@ -7,10 +7,11 @@ import {Result} from '../../../../application/shared/result/result.js';
 import type {Result as ResultType} from '../../../../application/shared/result/result.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
 import type {KvPair} from '../../../ports/persistence/repositories/shared/kv-pair.js';
-import type {SgkvEntry} from '../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
-import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
+import type {
+  SgkvEntry,
+  SubgraphRepository,
+} from '../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
 import type {RoutingContext} from '../contracts/routing-context.js';
-import type {RoutingPhase} from '../contracts/routing-phase.js';
 import type {SgkvInstance, KvResolutions} from '../contracts/routing-state.js';
 import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
 
@@ -26,17 +27,15 @@ function canonicalKeyValues(keyValues: readonly KvPair[]): KvPair[] {
   );
 }
 
-export class KvResolutionService implements RoutingPhase {
+export class KvResolutionService {
   async run(
     context: RoutingContext,
-    uow: UnitOfWork,
+    subgraphRepository: SubgraphRepository,
   ): Promise<ResultType<void>> {
     const {fileSystemId, selectedUsecases, graphSnapshot} = context.input;
     const subgraphSystemIds = graphSnapshot.subgraphs.map(
       entry => entry.subgraph.systemId,
     );
-    const subgraphRepository = uow.getSubgraphRepository();
-
     const baselineEntries = await subgraphRepository.getSgkvs(
       fileSystemId,
       subgraphSystemIds,

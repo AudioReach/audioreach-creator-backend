@@ -8,7 +8,6 @@ import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecas
 import {Subgraph} from '../../../../../../src/domain/entities/usecase-data/subgraph/subgraph.js';
 import {RESULT_KIND} from '../../../../../../src/application/shared/result/result.js';
 import type {SubgraphRepository} from '../../../../../../src/application/ports/persistence/repositories/subgraph/subgraph.repository.js';
-import type {UnitOfWork} from '../../../../../../src/application/ports/persistence/unit-of-work.js';
 import {
   createAutoRoutingInput,
   emptyGraphEdits,
@@ -80,12 +79,6 @@ function makeContext(
   );
 }
 
-function makeUnitOfWork(repository: SubgraphRepository): UnitOfWork {
-  return {
-    getSubgraphRepository: () => repository,
-  } as unknown as UnitOfWork;
-}
-
 function createRepository(options: {
   readonly baseline: readonly {
     sgSystemId: number;
@@ -142,10 +135,7 @@ describe('KvResolutionService', () => {
       reconstructionPaths: [],
     };
 
-    const result = await new KvResolutionService().run(
-      context,
-      makeUnitOfWork(repository),
-    );
+    const result = await new KvResolutionService().run(context, repository);
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     expect(repository.getSgkvs).toHaveBeenCalledTimes(1);
@@ -181,10 +171,7 @@ describe('KvResolutionService', () => {
     });
     const context = makeContext([makeSubgraph(10, [[202]])]);
 
-    const result = await new KvResolutionService().run(
-      context,
-      makeUnitOfWork(repository),
-    );
+    const result = await new KvResolutionService().run(context, repository);
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     expect(context.kvResolutions?.perSg.get(10)).toEqual([
@@ -202,10 +189,7 @@ describe('KvResolutionService', () => {
     });
     const context = makeContext([makeSubgraph(10, [[201, 202]])]);
 
-    const result = await new KvResolutionService().run(
-      context,
-      makeUnitOfWork(repository),
-    );
+    const result = await new KvResolutionService().run(context, repository);
 
     expect(result.kind).toBe(RESULT_KIND.Fail);
     expect(result).toEqual(
@@ -231,10 +215,7 @@ describe('KvResolutionService', () => {
       makeSubgraph(20, [[999]]),
     ]);
 
-    const result = await new KvResolutionService().run(
-      context,
-      makeUnitOfWork(repository),
-    );
+    const result = await new KvResolutionService().run(context, repository);
 
     expect(result.kind).toBe(RESULT_KIND.Fail);
     expect(result).toEqual(
@@ -264,10 +245,7 @@ describe('KvResolutionService', () => {
     });
     const context = makeContext([makeSubgraph(10, [], true)]);
 
-    const result = await new KvResolutionService().run(
-      context,
-      makeUnitOfWork(repository),
-    );
+    const result = await new KvResolutionService().run(context, repository);
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     expect(context.kvResolutions?.ucFilteredBaseline.get(10)).toEqual([]);
