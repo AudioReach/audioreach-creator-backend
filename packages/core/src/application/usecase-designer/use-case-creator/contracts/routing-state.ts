@@ -111,13 +111,25 @@ export interface Cones {
   readonly rootSgs: ReadonlySet<number>;
 }
 
+export const PATH_TERMINATION = {
+  NaturalLeaf: 'NATURAL_LEAF',
+  Cycle: 'CYCLE',
+  EcBoundary: 'EC_BOUNDARY',
+} as const;
+
+export type PathTermination =
+  (typeof PATH_TERMINATION)[keyof typeof PATH_TERMINATION];
+
 export interface DfsPath {
   readonly subgraphSystemIds: readonly number[];
+  readonly termination: PathTermination;
+  readonly ecBoundaryLinkId: number | null;
 }
 
 export interface RoutingCombination {
-  readonly subgraphSystemIds: readonly number[];
-  readonly valueSystemIds: readonly number[];
+  readonly path: DfsPath;
+  readonly sgkvAssignment: ReadonlyMap<number, SgkvInstance>;
+  readonly gkv: readonly KvPair[];
 }
 
 export interface ClassifiedUsecase {

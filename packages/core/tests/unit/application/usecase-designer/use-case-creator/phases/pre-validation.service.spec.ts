@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {jest} from '@jest/globals';
 import type {DataLink} from '../../../../../../src/domain/entities/usecase-data/links/data-link.js';
 import type {ControlLink} from '../../../../../../src/domain/entities/usecase-data/links/control-link.js';
 import {RESULT_KIND} from '../../../../../../src/application/shared/result/result.js';
@@ -55,28 +54,8 @@ function createFixture(options?: {
       sessionEdits: emptyGraphEdits(),
     },
   });
-  const findByIds = jest.fn(() => {
-    throw new Error('Phase 1 must not read subgraphs');
-  });
-  const findDataLinks = jest.fn(() => {
-    throw new Error('Phase 1 must not read data links');
-  });
-  const findControlLinks = jest.fn(() => {
-    throw new Error('Phase 1 must not read control links');
-  });
-  const uow = {
-    getSubgraphRepository: () => ({findByIds}),
-    getDataLinkRepository: () => ({findIntraUcLinksByFile: findDataLinks}),
-    getControlLinkRepository: () => ({
-      findIntraUcLinksByFile: findControlLinks,
-    }),
-  };
   return {
     context: new RoutingContext(input),
-    uow,
-    findByIds,
-    findDataLinks,
-    findControlLinks,
   };
 }
 
@@ -86,12 +65,9 @@ describe('PreValidationService', () => {
   it('validates snapshot links without graph repository reads', async () => {
     const fixture = createFixture({dataLinks: [link(100, 10, 20)]});
 
-    const result = await service.run(fixture.context, fixture.uow as never);
+    const result = await service.run(fixture.context);
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
-    expect(fixture.findByIds).not.toHaveBeenCalled();
-    expect(fixture.findDataLinks).not.toHaveBeenCalled();
-    expect(fixture.findControlLinks).not.toHaveBeenCalled();
     expect(fixture.context.warnings).toEqual([]);
   });
 
@@ -103,7 +79,7 @@ describe('PreValidationService', () => {
     async (_label, dataLink, existingIds) => {
       const fixture = createFixture({dataLinks: [dataLink], existingIds});
 
-      const result = await service.run(fixture.context, fixture.uow as never);
+      const result = await service.run(fixture.context);
 
       expect(result).toEqual(
         expect.objectContaining({
@@ -129,7 +105,7 @@ describe('PreValidationService', () => {
       existingIds: [10],
     });
 
-    const result = await service.run(fixture.context, fixture.uow as never);
+    const result = await service.run(fixture.context);
 
     expect(result.kind).toBe(RESULT_KIND.Fail);
     if (result.kind === RESULT_KIND.Fail)
@@ -148,7 +124,7 @@ describe('PreValidationService', () => {
       ] as ControlLink[],
     });
 
-    const result = await service.run(fixture.context, fixture.uow as never);
+    const result = await service.run(fixture.context);
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     expect(fixture.context.warnings).toEqual([
@@ -162,7 +138,7 @@ describe('PreValidationService', () => {
   it('treats an excluded data link as absent adjacency because the snapshot omits it', async () => {
     const fixture = createFixture({dataLinks: []});
 
-    const result = await service.run(fixture.context, fixture.uow as never);
+    const result = await service.run(fixture.context);
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     expect(

@@ -7,6 +7,8 @@ import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecas
 import {Subgraph} from '../../../../../../src/domain/entities/usecase-data/subgraph/subgraph.js';
 import type {ControlLink} from '../../../../../../src/domain/entities/usecase-data/links/control-link.js';
 import {RoutingIssueFactory} from '../../../../../../src/application/usecase-designer/use-case-creator/issues/routing-issue-factory.js';
+import {ISSUE_ENTITY_TYPE} from '../../../../../../src/shared/issues/impacted-entity.js';
+import {IssueSeverity} from '../../../../../../src/shared/issues/severity.js';
 import {
   SOURCE,
   CHANGE_OPERATION,
@@ -78,6 +80,47 @@ function createInput() {
 }
 
 describe('routing contracts', () => {
+  it('creates the non-blocking C1 cycle warning', () => {
+    const issue = RoutingIssueFactory.cycleDetected(17);
+
+    expect(issue.code).toBe('ARC-ROUTING-CYCLE-DETECTED');
+    expect(issue.severity).toBe(IssueSeverity.Warning);
+    expect(issue.impactedEntity).toEqual({
+      entityType: ISSUE_ENTITY_TYPE.Subgraph,
+      systemId: 17,
+    });
+  });
+
+  it('creates deterministic DFS-08 diagnostics in the existing singular Issue', () => {
+    const issue = RoutingIssueFactory.noValidCombination({
+      pathSubgraphSystemIds: [20, 30, 10],
+      conflicts: [
+        {
+          keyDefSystemId: 9,
+          conflictingSubgraphSystemIds: [20, 30],
+        },
+        {
+          keyDefSystemId: 3,
+          conflictingSubgraphSystemIds: [30, 10],
+        },
+        {
+          keyDefSystemId: 9,
+          conflictingSubgraphSystemIds: [30, 20],
+        },
+      ],
+    });
+
+    expect(issue.code).toBe('ARC-ROUTING-DFS-08');
+    expect(issue.severity).toBe(IssueSeverity.Error);
+    expect(issue.impactedEntity).toEqual({
+      entityType: ISSUE_ENTITY_TYPE.Subgraph,
+      systemId: 20,
+    });
+    expect(issue.message).toContain('keyDefinitionSystemIds: [3, 9]');
+    expect(issue.message).toContain('key 3: subgraphs [10, 30]');
+    expect(issue.message).toContain('key 9: subgraphs [20, 30]');
+  });
+
   it('copies request policy, snapshot collections, and nested requested SGKVs', () => {
     const sourceSgkvs = [[11], [12, 13]];
     const selectedUsecases = [createUsecase(21, [31])];
@@ -264,9 +307,7 @@ describe('routing contracts', () => {
       operation: CHANGE_OPERATION.Create,
       source: SOURCE.AutoRouting,
     });
-    await new ResponseBuilder().run(context, {
-      getWriteContext: () => ({groupId: 'group-1'}),
-    } as never);
+    await new ResponseBuilder().run(context, 'group-1');
     expect(context.routingOutcome?.emittedChanges).toEqual([
       {
         systemId: 21,
@@ -275,6 +316,7 @@ describe('routing contracts', () => {
         source: SOURCE.AutoRouting,
       },
     ]);
+    expect(context.routingOutcome?.groupId).toBe('group-1');
   });
 
   it('rejects duplicate emitted UseCase IDs in change-details queries', () => {

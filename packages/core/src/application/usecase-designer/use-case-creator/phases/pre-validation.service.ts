@@ -4,13 +4,11 @@
  */
 
 import {Result} from '../../../../application/shared/result/result.js';
-import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {RoutingContext} from '../contracts/routing-context.js';
-import type {RoutingPhase} from '../contracts/routing-phase.js';
 import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
 
-export class PreValidationService implements RoutingPhase {
-  run(context: RoutingContext, _uow: UnitOfWork): Promise<Result<void>> {
+export class PreValidationService {
+  run(context: RoutingContext): Promise<Result<void>> {
     const {subgraphs, routableDataLinks} = context.input.graphSnapshot;
     const subgraphIds = new Set(subgraphs.map(item => item.subgraph.systemId));
     const integrityIssues = routableDataLinks

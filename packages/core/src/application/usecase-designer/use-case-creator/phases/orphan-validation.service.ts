@@ -4,16 +4,10 @@
  */
 
 import {Result} from '../../../../application/shared/result/result.js';
-import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {RoutingContext} from '../contracts/routing-context.js';
-import type {RoutingPhase} from '../contracts/routing-phase.js';
 
-export class OrphanValidationService implements RoutingPhase {
-  // eslint-disable-next-line @typescript-eslint/require-await -- Placeholder phase retains its async contract.
-  async run(
-    _context: RoutingContext,
-    _uow: UnitOfWork,
-  ): Promise<ReturnType<typeof Result.ok<void>>> {
-    return Result.ok();
+export class OrphanValidationService {
+  run(_context: RoutingContext): Promise<ReturnType<typeof Result.ok<void>>> {
+    return Promise.resolve(Result.ok());
   }
 }

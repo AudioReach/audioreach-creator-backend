@@ -5,18 +5,13 @@
 
 import {Result} from '../../../../application/shared/result/result.js';
 import type {Result as ResultType} from '../../../../application/shared/result/result.js';
-import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {RoutingContext} from '../contracts/routing-context.js';
-import type {RoutingPhase} from '../contracts/routing-phase.js';
 import {ROUTING_MODE} from '../contracts/routing-input.js';
 import {LINK_TYPE} from '../../../../domain/entities/usecase-data/links/link-type.js';
 
-export class ConeComputationService implements RoutingPhase {
-  // eslint-disable-next-line @typescript-eslint/require-await -- Routing phases share an async contract.
-  async run(
-    context: RoutingContext,
-    _uow: UnitOfWork,
-  ): Promise<ResultType<void>> {
+export class ConeComputationService {
+  // eslint-disable-next-line @typescript-eslint/require-await -- Phase execution remains promise-based for ordered orchestration.
+  async run(context: RoutingContext): Promise<ResultType<void>> {
     if (context.input.mode === ROUTING_MODE.Manual) return Result.ok();
     if (context.seeds === null)
       throw new Error(

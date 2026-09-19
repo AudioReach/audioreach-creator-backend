@@ -7,10 +7,8 @@ import {Result} from '../../../../application/shared/result/result.js';
 import type {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
 import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
 import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
-import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {RoutingContext} from '../contracts/routing-context.js';
 import {ROUTING_MODE} from '../contracts/routing-input.js';
-import type {RoutingPhase} from '../contracts/routing-phase.js';
 import type {
   DirectionCorrection,
   IslandTransition,
@@ -364,11 +362,8 @@ function evaluateIslandUsecase(
   };
 }
 
-export class IslandTransitionService implements RoutingPhase {
-  run(
-    context: RoutingContext,
-    _uow: UnitOfWork,
-  ): Promise<ReturnType<typeof Result.ok<void>>> {
+export class IslandTransitionService {
+  run(context: RoutingContext): Promise<ReturnType<typeof Result.ok<void>>> {
     const deletionAnalysis = context.deletionAnalysis;
     if (
       deletionAnalysis === null ||

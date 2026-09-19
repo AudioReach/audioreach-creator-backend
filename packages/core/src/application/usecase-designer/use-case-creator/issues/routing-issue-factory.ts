@@ -24,6 +24,16 @@ export interface RoutingEditScopeConflictDetails {
   readonly excludedSurvivingEndpointSubgraphSystemIds?: readonly number[];
 }
 
+export interface RoutingCombinationConflict {
+  readonly keyDefSystemId: number;
+  readonly conflictingSubgraphSystemIds: readonly [number, number];
+}
+
+export interface RoutingCombinationConflictDetails {
+  readonly pathSubgraphSystemIds: readonly number[];
+  readonly conflicts: readonly RoutingCombinationConflict[];
+}
+
 function sortedIds(ids: Iterable<number>): number[] {
   return [...ids].sort((left, right) => left - right);
 }
@@ -186,6 +196,75 @@ export const RoutingIssueFactory = {
         entityType: ISSUE_ENTITY_TYPE.Subgraph,
         systemId: subgraphSystemId,
       },
+    };
+  },
+
+  cycleDetected(subgraphSystemId: number): Issue {
+    return {
+      code: ISSUE_CODE.ROUTING_CYCLE_DETECTED,
+      severity: IssueSeverity.Warning,
+      impactedEntity: {
+        entityType: ISSUE_ENTITY_TYPE.Subgraph,
+        systemId: subgraphSystemId,
+      },
+      message: `DFS detected a cycle at subgraph ${subgraphSystemId}.`,
+    };
+  },
+
+  noValidCombination(details: RoutingCombinationConflictDetails): Issue {
+    const normalized = details.conflicts.map(conflict => {
+      const [firstSubgraphSystemId, secondSubgraphSystemId] =
+        conflict.conflictingSubgraphSystemIds;
+      return {
+        keyDefSystemId: conflict.keyDefSystemId,
+        conflictingSubgraphSystemIds: [
+          Math.min(firstSubgraphSystemId, secondSubgraphSystemId),
+          Math.max(firstSubgraphSystemId, secondSubgraphSystemId),
+        ] as const,
+      };
+    });
+    const unique = [
+      ...new Map(
+        normalized.map(conflict => [
+          `${conflict.keyDefSystemId}:${conflict.conflictingSubgraphSystemIds[0]}:${conflict.conflictingSubgraphSystemIds[1]}`,
+          conflict,
+        ]),
+      ).values(),
+    ].sort(
+      (left, right) =>
+        left.keyDefSystemId - right.keyDefSystemId ||
+        left.conflictingSubgraphSystemIds[0] -
+          right.conflictingSubgraphSystemIds[0] ||
+        left.conflictingSubgraphSystemIds[1] -
+          right.conflictingSubgraphSystemIds[1],
+    );
+    const keyIds = [
+      ...new Set(unique.map(conflict => conflict.keyDefSystemId)),
+    ];
+    const conflictText = unique
+      .map(
+        conflict =>
+          `key ${conflict.keyDefSystemId}: subgraphs ` +
+          `[${conflict.conflictingSubgraphSystemIds.join(', ')}]`,
+      )
+      .join('; ');
+
+    return {
+      code: ISSUE_CODE.ROUTING_DFS_NO_VALID_COMBINATION,
+      severity: IssueSeverity.Error,
+      message:
+        `No conflict-free SGKV combination exists for path ` +
+        `[${details.pathSubgraphSystemIds.join(', ')}]. ` +
+        `keyDefinitionSystemIds: [${keyIds.join(', ')}]. ` +
+        `Conflicts: ${conflictText}.`,
+      ...(details.pathSubgraphSystemIds.length === 0
+        ? {}
+        : {
+            impactedEntity: {
+              entityType: ISSUE_ENTITY_TYPE.Subgraph,
+              systemId: details.pathSubgraphSystemIds[0],
+            },
+          }),
     };
   },
 

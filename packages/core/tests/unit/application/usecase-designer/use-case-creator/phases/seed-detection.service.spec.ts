@@ -9,7 +9,6 @@ import type {ControlLink} from '../../../../../../src/domain/entities/usecase-da
 import type {DataLink} from '../../../../../../src/domain/entities/usecase-data/links/data-link.js';
 import {LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/link-type.js';
 import {RESULT_KIND} from '../../../../../../src/application/shared/result/result.js';
-import type {UnitOfWork} from '../../../../../../src/application/ports/persistence/unit-of-work.js';
 import {
   createAutoRoutingInput,
   createManualRoutingInput,
@@ -120,14 +119,6 @@ function makeControlLink(
   } as ControlLink;
 }
 
-function repositoryFreeUow(): UnitOfWork {
-  return {
-    getSubgraphRepository: () => {
-      throw new Error('Seed detection must not access repositories');
-    },
-  } as unknown as UnitOfWork;
-}
-
 describe('SeedDetectionService', () => {
   it('rejects automatic execution without Phase 4 resolutions', async () => {
     const context = makeContext(
@@ -136,9 +127,7 @@ describe('SeedDetectionService', () => {
       [makeUsecase(50, [10])],
     );
 
-    await expect(
-      new SeedDetectionService().run(context, repositoryFreeUow()),
-    ).rejects.toThrow(
+    await expect(new SeedDetectionService().run(context)).rejects.toThrow(
       'SeedDetectionService requires Phase 4 kvResolutions in automatic mode',
     );
   });
@@ -176,10 +165,7 @@ describe('SeedDetectionService', () => {
       ]),
     );
 
-    const result = await new SeedDetectionService().run(
-      context,
-      repositoryFreeUow(),
-    );
+    const result = await new SeedDetectionService().run(context);
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     expect(context.seeds).toEqual({
@@ -201,10 +187,7 @@ describe('SeedDetectionService', () => {
       ]),
     );
 
-    const result = await new SeedDetectionService().run(
-      context,
-      repositoryFreeUow(),
-    );
+    const result = await new SeedDetectionService().run(context);
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     expect(context.seeds).toEqual({
@@ -249,7 +232,7 @@ describe('SeedDetectionService', () => {
       reconstructionPaths: [],
     };
 
-    await new SeedDetectionService().run(context, repositoryFreeUow());
+    await new SeedDetectionService().run(context);
 
     expect(context.seeds).toEqual({
       sgSystemIds: new Set([20]),
@@ -272,7 +255,7 @@ describe('SeedDetectionService', () => {
       ]),
     );
 
-    await new SeedDetectionService().run(context, repositoryFreeUow());
+    await new SeedDetectionService().run(context);
 
     expect(context.seeds).toEqual({
       sgSystemIds: new Set([20]),
@@ -293,10 +276,7 @@ describe('SeedDetectionService', () => {
       ]),
     );
 
-    const result = await new SeedDetectionService().run(
-      context,
-      repositoryFreeUow(),
-    );
+    const result = await new SeedDetectionService().run(context);
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     expect(context.seeds).toBeNull();
@@ -323,7 +303,7 @@ describe('SeedDetectionService', () => {
       ]),
     );
 
-    await new SeedDetectionService().run(context, repositoryFreeUow());
+    await new SeedDetectionService().run(context);
 
     expect(context.seeds).toEqual({
       sgSystemIds: new Set([10, 20]),
@@ -355,7 +335,7 @@ describe('SeedDetectionService', () => {
       ]),
     );
 
-    await new SeedDetectionService().run(context, repositoryFreeUow());
+    await new SeedDetectionService().run(context);
 
     expect(context.seeds).toEqual({
       sgSystemIds: new Set([10]),
@@ -388,7 +368,7 @@ describe('SeedDetectionService', () => {
       ]),
     );
 
-    await new SeedDetectionService().run(context, repositoryFreeUow());
+    await new SeedDetectionService().run(context);
 
     expect(context.seeds).toEqual({
       sgSystemIds: new Set(),
@@ -410,7 +390,7 @@ describe('SeedDetectionService', () => {
       ]),
     );
 
-    await new SeedDetectionService().run(context, repositoryFreeUow());
+    await new SeedDetectionService().run(context);
 
     expect(context.seeds).toEqual({
       sgSystemIds: new Set([20, 10]),
@@ -442,7 +422,7 @@ describe('SeedDetectionService', () => {
       ]),
     );
 
-    await new SeedDetectionService().run(context, repositoryFreeUow());
+    await new SeedDetectionService().run(context);
 
     expect(context.seeds).toEqual({
       sgSystemIds: new Set([20]),

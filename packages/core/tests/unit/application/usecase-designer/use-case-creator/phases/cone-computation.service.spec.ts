@@ -7,7 +7,6 @@ import {Subgraph} from '../../../../../../src/domain/entities/usecase-data/subgr
 import type {DataLink} from '../../../../../../src/domain/entities/usecase-data/links/data-link.js';
 import {LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/link-type.js';
 import {RESULT_KIND} from '../../../../../../src/application/shared/result/result.js';
-import type {UnitOfWork} from '../../../../../../src/application/ports/persistence/unit-of-work.js';
 import {
   createAutoRoutingInput,
   createManualRoutingInput,
@@ -91,21 +90,11 @@ function setSeeds(
   };
 }
 
-function repositoryFreeUow(): UnitOfWork {
-  return {
-    getSubgraphRepository: () => {
-      throw new Error('Cone computation must not access repositories');
-    },
-  } as unknown as UnitOfWork;
-}
-
 describe('ConeComputationService', () => {
   it('rejects automatic execution without Phase 5 seeds', async () => {
     const context = makeContext(ROUTING_MODE.Auto, [10], []);
 
-    await expect(
-      new ConeComputationService().run(context, repositoryFreeUow()),
-    ).rejects.toThrow(
+    await expect(new ConeComputationService().run(context)).rejects.toThrow(
       'ConeComputationService requires Phase 5 seeds in automatic mode',
     );
   });
@@ -118,10 +107,7 @@ describe('ConeComputationService', () => {
     );
     setSeeds(context, [20]);
 
-    const result = await new ConeComputationService().run(
-      context,
-      repositoryFreeUow(),
-    );
+    const result = await new ConeComputationService().run(context);
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     expect(context.cones).toEqual({
@@ -142,7 +128,7 @@ describe('ConeComputationService', () => {
     );
     setSeeds(context, [30, 10]);
 
-    await new ConeComputationService().run(context, repositoryFreeUow());
+    await new ConeComputationService().run(context);
 
     expect(context.cones).toEqual({
       sgSystemIds: new Set([10, 20, 30]),
@@ -158,7 +144,7 @@ describe('ConeComputationService', () => {
     );
     setSeeds(context, [10]);
 
-    await new ConeComputationService().run(context, repositoryFreeUow());
+    await new ConeComputationService().run(context);
 
     expect(context.cones).toEqual({
       sgSystemIds: new Set([10]),
@@ -174,7 +160,7 @@ describe('ConeComputationService', () => {
     );
     setSeeds(context, [10]);
 
-    await new ConeComputationService().run(context, repositoryFreeUow());
+    await new ConeComputationService().run(context);
 
     expect(context.cones?.sgSystemIds).toEqual(new Set([10, 30]));
   });
@@ -182,7 +168,7 @@ describe('ConeComputationService', () => {
   it('publishes an empty cone for empty seeds and no cone in manual mode', async () => {
     const automatic = makeContext(ROUTING_MODE.Auto, [10], []);
     setSeeds(automatic, []);
-    await new ConeComputationService().run(automatic, repositoryFreeUow());
+    await new ConeComputationService().run(automatic);
     expect(automatic.cones).toEqual({
       sgSystemIds: new Set(),
       rootSgs: new Set(),
@@ -190,10 +176,7 @@ describe('ConeComputationService', () => {
 
     const manual = makeContext(ROUTING_MODE.Manual, [10], []);
     setSeeds(manual, [10]);
-    const result = await new ConeComputationService().run(
-      manual,
-      repositoryFreeUow(),
-    );
+    const result = await new ConeComputationService().run(manual);
     expect(result.kind).toBe(RESULT_KIND.Ok);
     expect(manual.cones).toBeNull();
   });

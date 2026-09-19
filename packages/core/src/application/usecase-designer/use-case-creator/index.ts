@@ -7,7 +7,6 @@ export * from './contracts/routing-input.js';
 export * from './contracts/routing-state.js';
 export * from './contracts/routing-outcome.js';
 export * from './contracts/routing-context.js';
-export * from './contracts/routing-phase.js';
 export * from './engine/routing-engine.js';
 export * from './engine/create-routing-engine.js';
 export * from './services/manual-pair-discovery.service.js';
