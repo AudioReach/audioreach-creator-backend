@@ -64,7 +64,7 @@ export class PatchSubsystemHandler implements CommandHandler<
     await this.uow.startTransaction();
     try {
       const subsystemRepository = this.uow.getSubsystemRepository();
-      const subsystem = await subsystemRepository.findSubsystemForPatch(
+      const subsystem = await subsystemRepository.getSubsystem(
         command.subsystemSystemId,
         command.fileSystemId,
       );
@@ -83,19 +83,21 @@ export class PatchSubsystemHandler implements CommandHandler<
       let succeeded = command.name !== undefined && command.name.trim() === '';
       let updatedName = subsystem.name;
       if (command.name !== undefined && command.name.trim() !== '') {
-        const subsystems = await subsystemRepository.findSubsystems(
+        const subsystems = await subsystemRepository.getSubsystems(
           command.fileSystemId,
         );
         const normalizedName = command.name.toLocaleLowerCase();
-        if (
-          subsystems.some(
-            item =>
-              item.systemId !== command.subsystemSystemId &&
-              item.name.toLocaleLowerCase() === normalizedName,
-          )
-        ) {
+        const conflictingSubsystem = subsystems.find(
+          item =>
+            item.systemId !== command.subsystemSystemId &&
+            item.name.toLocaleLowerCase() === normalizedName,
+        );
+        if (conflictingSubsystem !== undefined) {
           throw new DomainRuleViolationException([
-            IssueFactory.duplicateSubsystemName(command.name),
+            IssueFactory.duplicateSubsystemName(
+              command.name,
+              conflictingSubsystem.systemId,
+            ),
           ]);
         }
         await subsystemRepository.renameSubsystem(
@@ -265,7 +267,7 @@ export class PatchSubsystemHandler implements CommandHandler<
         throw new DomainRuleViolationException(issues);
       }
       await this.uow.commit();
-      const filteredKeys = await subsystemRepository.findKeyDefinitionsByIds(
+      const filteredKeys = await subsystemRepository.getKeysAssignedToSubsystem(
         subsystem.filteredKeySystemIds,
         command.fileSystemId,
       );
@@ -275,7 +277,7 @@ export class PatchSubsystemHandler implements CommandHandler<
           systemId: subsystem.systemId,
           naturalId: subsystem.naturalId,
           name: updatedName,
-          parentId: subsystem.parentSystemId,
+          parentSystemId: subsystem.parentSystemId ?? null,
           filteredKeys,
           dataPorts: updatedDataPorts,
           controlPorts: updatedControlPorts,

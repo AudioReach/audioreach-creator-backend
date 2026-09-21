@@ -71,12 +71,10 @@ function makeSubsystemRepo(subsystemIds: number[] = []): SubsystemRepository {
     subsystemExists: jest
       .fn()
       .mockImplementation(async (id: number) => subsystemIds.includes(id)),
-    getAllNodesWithParents: jest.fn().mockResolvedValue(
-      new Map<number, number | null>([
-        [201, null],
-        [202, null],
-      ]),
-    ),
+    getAllNodesWithParents: jest.fn().mockResolvedValue([
+      {systemId: 201, parentSystemId: null, type: 'module'},
+      {systemId: 202, parentSystemId: null, type: 'module'},
+    ]),
     getPortIoType: jest.fn().mockResolvedValue(null),
     isPortOccupiedAsSource: jest.fn().mockResolvedValue(false),
     isPortOccupiedAsDest: jest.fn().mockResolvedValue(false),
@@ -261,14 +259,12 @@ describe('CreateDataLinkWithSubsystemsHandler', () => {
       const moduleRepo = makeModuleRepo();
       const subsysRepo = {
         subsystemExists: jest.fn().mockResolvedValue(false),
-        getAllNodesWithParents: jest.fn().mockResolvedValue(
-          new Map<number, number | null>([
-            [Number(MOD_A), 501],
-            [Number(MOD_B), 502],
-            [501, null],
-            [502, null],
-          ]),
-        ),
+        getAllNodesWithParents: jest.fn().mockResolvedValue([
+          {systemId: Number(MOD_A), parentSystemId: 501, type: 'module'},
+          {systemId: Number(MOD_B), parentSystemId: 502, type: 'module'},
+          {systemId: 501, parentSystemId: null, type: 'subsystem'},
+          {systemId: 502, parentSystemId: null, type: 'subsystem'},
+        ]),
         getPortIoType: jest.fn(),
         isPortOccupiedAsSource: jest.fn(),
         isPortOccupiedAsDest: jest.fn(),

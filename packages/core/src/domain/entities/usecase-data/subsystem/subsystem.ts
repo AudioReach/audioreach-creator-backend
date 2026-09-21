@@ -9,7 +9,7 @@ import type {ControlPort} from '../node/entities/control-port.js';
 export interface SubsystemInit {
   systemId: number;
   fileSystemId: number;
-  parentSystemId?: number;
+  parentSystemId: number | null;
   name: string;
   naturalId: number;
   filteredKeySystemIds: number[];

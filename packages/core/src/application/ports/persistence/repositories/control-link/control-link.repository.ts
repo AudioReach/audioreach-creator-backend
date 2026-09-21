@@ -25,7 +25,7 @@ export interface ControlLinkRepository {
     fileSystemId: number,
   ): Promise<SubsystemControlLink[]>;
 
-  findSubsystemControlRouteContext(
+  findControlLinkRouteContext(
     fileSystemId: number,
   ): Promise<SubsystemControlRouteContext>;
 
@@ -92,7 +92,9 @@ export interface ControlLinkRepository {
    */
   findIntraUcLinksByFile(fileSystemId: number): Promise<ControlLink[]>;
 
-  findAllWithSegments(fileSystemId: number): Promise<ControlLink[]>;
+  findAllControlLinksWithResolvedSegments(
+    fileSystemId: number,
+  ): Promise<ControlLink[]>;
 
   replaceSubsystemControlLinkSegments(
     controlLinkSystemId: number,

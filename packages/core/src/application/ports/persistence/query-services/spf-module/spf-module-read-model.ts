@@ -8,7 +8,7 @@ import type {ControlPortReadModel} from './ports/control-port-read-model.js';
 
 export interface SpfModuleReadModel {
   readonly systemId: number;
-  readonly parentSystemId?: number;
+  readonly parentSystemId: number | null;
   readonly naturalId: number;
   readonly alias: string;
   readonly definitionSystemId: number;

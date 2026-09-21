@@ -5,7 +5,7 @@
 
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
-import type {SubsystemKeyDefinition} from '../../../ports/persistence/repositories/subsystem/subsystem.repository.js';
+import type {SubsystemKey} from '../../../ports/persistence/repositories/subsystem/subsystem.repository.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/index.js';
 import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
@@ -14,7 +14,7 @@ import type {SetSubsystemFilteredKeysCommand} from './set-subsystem-filtered-key
 export type SetSubsystemFilteredKeysResult = {
   groupId: string;
   subsystemSystemId: number;
-  filteredKeys: SubsystemKeyDefinition[];
+  filteredKeys: SubsystemKey[];
 };
 
 export class SetSubsystemFilteredKeysHandler implements CommandHandler<
@@ -45,7 +45,7 @@ export class SetSubsystemFilteredKeysHandler implements CommandHandler<
 
       const filteredKeys = await this.uow
         .getSubsystemRepository()
-        .findKeyDefinitionsByIds(command.keySystemIds, command.fileSystemId);
+        .getKeysAssignedToSubsystem(command.keySystemIds, command.fileSystemId);
       if (filteredKeys.length !== command.keySystemIds.length) {
         const found = new Set(filteredKeys.map(key => key.systemId));
         const missing = command.keySystemIds.find(id => !found.has(id));

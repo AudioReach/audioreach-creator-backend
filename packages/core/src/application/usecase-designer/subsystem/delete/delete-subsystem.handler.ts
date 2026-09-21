@@ -19,7 +19,7 @@ export type DeleteSubsystemResult = {
     systemId: number;
     naturalId: number;
     name: string;
-    parentId?: number;
+    parentSystemId: number | null;
   };
 };
 
@@ -36,7 +36,7 @@ export class DeleteSubsystemHandler implements CommandHandler<
     try {
       const subsystems = await this.uow
         .getSubsystemRepository()
-        .findSubsystems(command.fileSystemId);
+        .getSubsystems(command.fileSystemId);
       const subsystem = subsystems.find(
         item => item.systemId === command.subsystemSystemId,
       );
@@ -52,11 +52,10 @@ export class DeleteSubsystemHandler implements CommandHandler<
         );
       }
 
-      const hasChildSubsystem = subsystems.some(
-        item => item.parentId === command.subsystemSystemId,
-      );
-      const hasChildSubgraph = (subsystem.subgraphSystemIds?.length ?? 0) > 0;
-      if (hasChildSubsystem || hasChildSubgraph) {
+      const hasChildren =
+        subsystem.moduleSystemIds.length > 0 ||
+        subsystem.subsystemSystemIds.length > 0;
+      if (hasChildren) {
         throw new DomainRuleViolationException([
           IssueFactory.subsystemNotEmpty(command.subsystemSystemId),
         ]);
@@ -73,7 +72,7 @@ export class DeleteSubsystemHandler implements CommandHandler<
           systemId: subsystem.systemId,
           naturalId: subsystem.naturalId,
           name: subsystem.name,
-          parentId: subsystem.parentId,
+          parentSystemId: subsystem.parentSystemId,
         },
       };
     } catch (error) {

@@ -105,9 +105,10 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
     );
     const segmentsByLink = new Map<number, SubsystemControlLink[]>();
     for (const segment of segments) {
-      const list = segmentsByLink.get(segment.controlLinkSystemId ?? 0) ?? [];
+      if (segment.controlLinkSystemId === null) continue;
+      const list = segmentsByLink.get(segment.controlLinkSystemId) ?? [];
       list.push(baseToSubsystemControlLink(segment));
-      segmentsByLink.set(segment.controlLinkSystemId ?? 0, list);
+      segmentsByLink.set(segment.controlLinkSystemId, list);
     }
     return rows.map(row =>
       baseToControlLink(row, segmentsByLink.get(row.systemId) ?? []),
@@ -158,7 +159,7 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
       .map(row => baseToSubsystemControlLink(row));
   }
 
-  async findSubsystemControlRouteContext(fileSystemId: number): Promise<{
+  async findControlLinkRouteContext(fileSystemId: number): Promise<{
     subsystemControlLinks: SubsystemControlLink[];
     nodeTypeBySystemId: ReadonlyMap<number, NodeType>;
   }> {
@@ -380,7 +381,9 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
     return rows.map(row => baseToControlLink(row));
   }
 
-  async findAllWithSegments(fileSystemId: number): Promise<ControlLink[]> {
+  async findAllControlLinksWithResolvedSegments(
+    fileSystemId: number,
+  ): Promise<ControlLink[]> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
     const rows = await this.linkFetcher.loadControlLinkRows(
       fileSystemId,

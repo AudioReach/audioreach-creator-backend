@@ -26,10 +26,7 @@ import {ValueDefinitionFetcher} from '../../fetchers/definitions/key-value/value
 import {KeyValueDefinitionFetcher} from '../../fetchers/definitions/key-value/key-value-definition-fetcher.js';
 import {SubgraphPropertyDefinitionFetcher} from '../../fetchers/definitions/subgraph-property-definition-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
-import type {
-  SubgraphBase,
-  SubgraphRow,
-} from '../../entity-schema/usecase-data/subgraph/subgraph.schema.js';
+import type {SubgraphBase} from '../../entity-schema/usecase-data/subgraph/subgraph.schema.js';
 import {SubgraphVcpmDataFetcher} from '../../fetchers/subgraph-vcpm-data-fetcher.js';
 
 export class TypeOrmSubgraphRepository implements SubgraphRepository {
@@ -68,13 +65,6 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
       editActionsQs,
     );
     this.vcpmDataFetcher = new SubgraphVcpmDataFetcher(manager, editActionsQs);
-  }
-
-  async findSubgraphFileSystemId(systemId: number): Promise<number | null> {
-    const row = await this.manager
-      .getRepository<SubgraphRow>(ENTITY_NAMES.Subgraph)
-      .findOne({where: {systemId}});
-    return row?.fileSystemId ?? null;
   }
 
   // ── Reads ────────────────────────────────────────────────────────────────────

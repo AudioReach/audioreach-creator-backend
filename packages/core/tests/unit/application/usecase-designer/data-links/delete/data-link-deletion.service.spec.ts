@@ -44,7 +44,7 @@ function createFixture(options?: {
     findUnresolvedSubsystemLinksFromModule: jest
       .fn()
       .mockResolvedValue(options?.reachableUnresolved ?? []),
-    findSubsystemDataRouteContext: jest.fn().mockResolvedValue({
+    findDataLinkRouteContext: jest.fn().mockResolvedValue({
       subsystemDataLinks: options?.routeSegments ?? [],
       nodeTypeBySystemId: new Map([
         [MODULE_A, NodeType.Module],

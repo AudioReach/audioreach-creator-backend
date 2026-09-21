@@ -55,34 +55,18 @@ export class MoveSubsystemComponentsHandler implements CommandHandler<
     try {
       const subsystems = await this.uow
         .getSubsystemRepository()
-        .findSubsystems(command.fileSystemId);
+        .getSubsystems(command.fileSystemId);
       const topology = await this.uow
         .getSubsystemRepository()
-        .findNodeTopology(command.fileSystemId);
+        .getAllNodesWithParents(command.fileSystemId);
       const parentBefore = new Map(
-        topology.map(node => [node.systemId, node.parentId]),
+        topology.map(node => [node.systemId, node.parentSystemId]),
       );
       const issues: Issue[] = [];
       const subsystemIds = new Set(subsystems.map(item => item.systemId));
       const subsystemSystemIds: number[] = [];
       for (const systemId of command.subsystemSystemIds) {
         if (!subsystemIds.has(systemId)) {
-          const owningFileSystemId = await this.uow
-            .getSubsystemRepository()
-            .findSubsystemFileSystemId(systemId);
-          if (
-            owningFileSystemId !== null &&
-            owningFileSystemId !== command.fileSystemId
-          ) {
-            issues.push(
-              IssueFactory.componentInWrongFile(
-                ISSUE_ENTITY_TYPE.Subsystem,
-                systemId,
-                command.fileSystemId,
-              ),
-            );
-            continue;
-          }
           throw new ResourceNotFoundException(
             `Subsystem ${systemId} not found.`,
             [IssueFactory.notFound(ISSUE_ENTITY_TYPE.Subsystem, systemId)],
@@ -91,7 +75,7 @@ export class MoveSubsystemComponentsHandler implements CommandHandler<
         const subsystem = subsystems.find(item => item.systemId === systemId)!;
         if (
           command.targetSubsystemSystemId === null &&
-          (subsystem.parentId ?? null) === null
+          (subsystem.parentSystemId ?? null) === null
         ) {
           issues.push(
             IssueFactory.duplicateRootMove(
@@ -107,21 +91,6 @@ export class MoveSubsystemComponentsHandler implements CommandHandler<
         command.targetSubsystemSystemId !== null &&
         !subsystemIds.has(command.targetSubsystemSystemId)
       ) {
-        const owningFileSystemId = await this.uow
-          .getSubsystemRepository()
-          .findSubsystemFileSystemId(command.targetSubsystemSystemId);
-        if (
-          owningFileSystemId !== null &&
-          owningFileSystemId !== command.fileSystemId
-        ) {
-          throw new DomainRuleViolationException([
-            IssueFactory.componentInWrongFile(
-              ISSUE_ENTITY_TYPE.Subsystem,
-              command.targetSubsystemSystemId,
-              command.fileSystemId,
-            ),
-          ]);
-        }
         throw new ResourceNotFoundException(
           `Subsystem ${command.targetSubsystemSystemId} not found.`,
           [
@@ -156,28 +125,10 @@ export class MoveSubsystemComponentsHandler implements CommandHandler<
           const component = subsystems.find(
             item => item.systemId === componentSystemId,
           );
-          if (component?.parentId === command.targetSubsystemSystemId) {
+          if (component?.parentSystemId === command.targetSubsystemSystemId) {
             throw new DomainRuleViolationException([
               IssueFactory.duplicateChildComponent(
                 componentSystemId,
-                command.targetSubsystemSystemId,
-              ),
-            ]);
-          }
-        }
-
-        for (const component of subsystems) {
-          if (
-            component.subgraphSystemIds?.some(subgraphSystemId =>
-              command.subgraphSystemIds.includes(subgraphSystemId),
-            ) &&
-            component.systemId === command.targetSubsystemSystemId
-          ) {
-            throw new DomainRuleViolationException([
-              IssueFactory.duplicateChildComponent(
-                component.subgraphSystemIds.find(subgraphSystemId =>
-                  command.subgraphSystemIds.includes(subgraphSystemId),
-                )!,
                 command.targetSubsystemSystemId,
               ),
             ]);
@@ -192,22 +143,6 @@ export class MoveSubsystemComponentsHandler implements CommandHandler<
           .getSubgraphRepository()
           .subgraphExists(subgraphSystemId, command.fileSystemId);
         if (!exists) {
-          const owningFileSystemId = await this.uow
-            .getSubgraphRepository()
-            .findSubgraphFileSystemId(subgraphSystemId);
-          if (
-            owningFileSystemId !== null &&
-            owningFileSystemId !== command.fileSystemId
-          ) {
-            issues.push(
-              IssueFactory.componentInWrongFile(
-                ISSUE_ENTITY_TYPE.Subgraph,
-                subgraphSystemId,
-                command.fileSystemId,
-              ),
-            );
-            continue;
-          }
           throw new ResourceNotFoundException(
             `Subgraph ${subgraphSystemId} not found.`,
             [
@@ -223,6 +158,28 @@ export class MoveSubsystemComponentsHandler implements CommandHandler<
           .findModulesBySubgraphIds([subgraphSystemId], command.fileSystemId);
         modulesBySubgraph.set(subgraphSystemId, modules);
         subgraphSystemIds.push(subgraphSystemId);
+      }
+
+      if (command.targetSubsystemSystemId !== null) {
+        const movedModuleSystemIds = new Set(
+          [...modulesBySubgraph.values()].flatMap(modules =>
+            modules.map(module => module.systemId),
+          ),
+        );
+        const targetSubsystem = subsystems.find(
+          subsystem => subsystem.systemId === command.targetSubsystemSystemId,
+        );
+        const duplicateModuleSystemId = targetSubsystem?.moduleSystemIds.find(
+          moduleSystemId => movedModuleSystemIds.has(moduleSystemId),
+        );
+        if (duplicateModuleSystemId !== undefined) {
+          throw new DomainRuleViolationException([
+            IssueFactory.duplicateChildComponent(
+              duplicateModuleSystemId,
+              command.targetSubsystemSystemId,
+            ),
+          ]);
+        }
       }
 
       if (subsystemSystemIds.length === 0 && subgraphSystemIds.length === 0) {

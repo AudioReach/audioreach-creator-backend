@@ -4,7 +4,7 @@
  */
 
 import type {
-  SubsystemKeyDefinition,
+  SubsystemKey,
   SubsystemSummary,
 } from '../../ports/persistence/repositories/subsystem/subsystem.repository.js';
 
@@ -12,8 +12,8 @@ export interface SubsystemPatchReadModel {
   readonly systemId: number;
   readonly naturalId: number;
   readonly name: string;
-  readonly parentId?: number;
-  readonly filteredKeys: SubsystemKeyDefinition[];
+  readonly parentSystemId: number | null;
+  readonly filteredKeys: SubsystemKey[];
   readonly dataPorts: Array<{
     readonly systemId: number;
     readonly portId: number;
@@ -51,11 +51,11 @@ export function isDescendant(
   let current = findSubsystem(subsystems, candidateSystemId);
   const visited = new Set<number>();
 
-  while (current?.parentId !== undefined) {
+  while (current !== null && current.parentSystemId !== null) {
     if (visited.has(current.systemId)) return false;
     visited.add(current.systemId);
-    if (current.parentId === ancestorSystemId) return true;
-    current = findSubsystem(subsystems, current.parentId);
+    if (current.parentSystemId === ancestorSystemId) return true;
+    current = findSubsystem(subsystems, current.parentSystemId);
   }
   return false;
 }

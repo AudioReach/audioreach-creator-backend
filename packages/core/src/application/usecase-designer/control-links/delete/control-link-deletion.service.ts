@@ -43,7 +43,7 @@ export class ControlLinkDeletionService {
         moduleSystemId,
         fileSystemId,
       ),
-      repository.findSubsystemControlRouteContext(fileSystemId),
+      repository.findControlLinkRouteContext(fileSystemId),
     ]);
     const unresolvedPlan = planUnresolvedDeletion({
       moduleSystemId,

@@ -9,9 +9,10 @@ import {
   DataPort,
   Subsystem,
   type EditOptions,
-  PortIoType,
+  type PortIoType,
   type SubsystemControlPortRef,
-  type SubsystemKeyDefinition,
+  type SubsystemKey,
+  type SubsystemNodeTopology,
   type SubsystemRepository,
   type SubsystemSummary,
   type UnitOfWork,
@@ -25,7 +26,6 @@ import {PortOverlayFetcher} from '../../fetchers/port-overlay-fetcher.js';
 import {SubsystemOverlayFetcher} from '../../fetchers/subsystem-overlay-fetcher.js';
 import {SpfModuleOverlayFetcher} from '../../fetchers/spf-module-overlay-fetcher.js';
 import {NodeOverlayFetcher} from '../../fetchers/node-overlay-fetcher.js';
-import type {NodeRow} from '../../entity-schema/usecase-data/node/node.schema.js';
 import {KeyValueDefinitionFetcher} from '../../fetchers/definitions/key-value/key-value-definition-fetcher.js';
 import {ValueDefinitionFetcher} from '../../fetchers/definitions/key-value/value-definition-fetcher.js';
 
@@ -52,7 +52,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     this.manager = manager;
     this.uow = uow;
     this.editActions = new EditActionsQueryService(this.manager);
-    this.editActionsQs = editActions;
+    this.editActionsQs = this.editActions;
     this.intents = new IntentFetcher(this.manager, this.editActions);
     this.ports = new PortOverlayFetcher(
       this.manager,
@@ -73,7 +73,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
 
   private readonly manager: EntityManager;
 
-  async findSubsystems(fileSystemId: number): Promise<SubsystemSummary[]> {
+  async getSubsystems(fileSystemId: number): Promise<SubsystemSummary[]> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
     const rows = await this.subsystems.fetchAll(fileSystemId, sessionId);
     const modules = await this.modules.fetchMany(fileSystemId, sessionId);
@@ -85,43 +85,44 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     const parentByNode = new Map(
       nodeRows.map(node => [node.systemId, node.parentSystemId]),
     );
-    const childrenBySubsystem = new Map<number, Set<number>>();
+    const moduleIdsBySubsystem = new Map<number, number[]>();
     for (const module of modules) {
       const parentId = parentByNode.get(module.systemId);
-      if (parentId === undefined) continue;
-      const subgraphs = childrenBySubsystem.get(parentId) ?? new Set<number>();
-      subgraphs.add(module.subgraphSystemId);
-      childrenBySubsystem.set(parentId, subgraphs);
+      if (parentId == null) continue;
+      const moduleIds = moduleIdsBySubsystem.get(parentId) ?? [];
+      moduleIds.push(module.systemId);
+      moduleIdsBySubsystem.set(parentId, moduleIds);
+    }
+    const subsystemIdsByParent = new Map<number, number[]>();
+    for (const row of rows) {
+      if (row.parentSystemId == null) continue;
+      const subsystemIds = subsystemIdsByParent.get(row.parentSystemId) ?? [];
+      subsystemIds.push(row.systemId);
+      subsystemIdsByParent.set(row.parentSystemId, subsystemIds);
     }
     return rows.map(row => ({
       systemId: row.systemId,
-      naturalId: row.subsystemId ?? 0,
+      naturalId: requireSubsystemNaturalId(row.systemId, row.subsystemId),
       name: row.name,
-      parentId: row.parentSystemId,
-      subgraphSystemIds: [
-        ...(childrenBySubsystem.get(row.systemId) ?? new Set<number>()),
-      ],
+      parentSystemId: row.parentSystemId,
+      moduleSystemIds: moduleIdsBySubsystem.get(row.systemId) ?? [],
+      subsystemSystemIds: subsystemIdsByParent.get(row.systemId) ?? [],
     }));
   }
 
-  async findSubsystemFileSystemId(systemId: number): Promise<number | null> {
-    const row = await this.manager
-      .getRepository<NodeRow>(ENTITY_NAMES.Node)
-      .findOne({where: {systemId, type: 'subsystem'}});
-    return row?.fileSystemId ?? null;
-  }
-
-  async findNodeTopology(fileSystemId: number) {
+  async getAllNodesWithParents(
+    fileSystemId: number,
+  ): Promise<SubsystemNodeTopology[]> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
     const rows = await this.nodes.fetchAll(fileSystemId, sessionId);
     return rows.map(row => ({
       systemId: row.systemId,
-      parentId: row.parentSystemId ?? null,
+      parentSystemId: row.parentSystemId ?? null,
       type: row.type,
     }));
   }
 
-  async findSubsystemForPatch(
+  async getSubsystem(
     systemId: number,
     fileSystemId: number,
   ): Promise<Subsystem | null> {
@@ -142,7 +143,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
       fileSystemId,
       parentSystemId: row.parentSystemId,
       name: row.name,
-      naturalId: row.subsystemId ?? 0,
+      naturalId: requireSubsystemNaturalId(row.systemId, row.subsystemId),
       filteredKeySystemIds: row.filteredKeySystemIds ?? [],
       dataPorts: dataPorts.map(
         port =>
@@ -151,7 +152,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
             naturalId: port.naturalId,
             portIoType: port.portIoType,
             isStatic: port.isStatic,
-            name: port.name ?? undefined,
+            name: port.name,
           }),
       ),
       controlPorts: controlPorts.map(
@@ -161,7 +162,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
             naturalId: port.naturalId,
             isStatic: port.isStatic,
             nodeSystemId: systemId,
-            name: port.name ?? undefined,
+            name: port.name,
             intentSystemIds: port.intents.map(intent => intent.systemId),
             intentTypeIds: port.intents.map(intent => intent.naturalId),
           }),
@@ -169,10 +170,10 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     });
   }
 
-  async findKeyDefinitionsByIds(
+  async getKeysAssignedToSubsystem(
     keySystemIds: readonly number[],
     fileSystemId: number,
-  ): Promise<SubsystemKeyDefinition[]> {
+  ): Promise<SubsystemKey[]> {
     if (keySystemIds.length === 0) return [];
     const sessionId = this.uow.getWriteContext().session.sessionId;
     const keys = await this.keyDefinitions.fetchMany(
@@ -326,25 +327,6 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
         );
       }
     }
-  }
-
-  async getAllNodesWithParents(
-    fileSystemId: number,
-  ): Promise<Map<number, number | null>> {
-    const rows = await this.manager
-      .createQueryBuilder()
-      .select(['n.systemId', 'n.parentId'])
-      .from(ENTITY_NAMES.Node, 'n')
-      .where('n.fileSystemId = :fileSystemId', {fileSystemId})
-      .getRawMany<{n_system_id: number; n_parent_id: number | null}>();
-    const map = new Map<number, number | null>();
-    for (const row of rows) {
-      map.set(
-        Number(row.n_system_id),
-        row.n_parent_id === null ? null : Number(row.n_parent_id),
-      );
-    }
-    return map;
   }
 
   async getPortIoType(
@@ -614,7 +596,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
           naturalId: port.naturalId,
           portIoType: port.portIoType,
           isStatic: port.isStatic,
-          name: port.name ?? '',
+          name: port.name,
           nodeSystemId: subsystemSystemId,
           fileSystemId: session.fileSystemId,
         },
@@ -659,7 +641,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
         payload: {
           naturalId: port.naturalId,
           isStatic: port.isStatic,
-          name: port.name ?? '',
+          name: port.name,
           nodeSystemId: subsystemSystemId,
           fileSystemId: session.fileSystemId,
         },
@@ -709,4 +691,14 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
       this.manager,
     );
   }
+}
+
+function requireSubsystemNaturalId(
+  systemId: number,
+  naturalId: number | null | undefined,
+): number {
+  if (naturalId === null || naturalId === undefined) {
+    throw new Error(`Subsystem ${systemId} is missing subsystem_id.`);
+  }
+  return naturalId;
 }

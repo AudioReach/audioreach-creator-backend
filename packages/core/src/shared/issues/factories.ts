@@ -143,14 +143,17 @@ export const IssueFactory = {
     };
   },
 
-  duplicateSubsystemName(name: string): Issue {
+  duplicateSubsystemName(
+    name: string,
+    conflictingSubsystemSystemId: number,
+  ): Issue {
     return {
       code: ISSUE_CODE.SS_DUPLICATE_NAME,
       message: `Subsystem name '${name}' is already in use.`,
       severity: IssueSeverity.Error,
       impactedEntity: {
         entityType: ISSUE_ENTITY_TYPE.Subsystem,
-        systemId: 0,
+        systemId: conflictingSubsystemSystemId,
         displayName: name,
       },
     };

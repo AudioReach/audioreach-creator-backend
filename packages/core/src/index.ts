@@ -80,7 +80,7 @@ export type {ControlLinkRepository} from './application/ports/persistence/reposi
 export type {SubgraphRepository} from './application/ports/persistence/repositories/subgraph/subgraph.repository.js';
 export type {
   SubsystemControlPortRef,
-  SubsystemKeyDefinition,
+  SubsystemKey,
   SubsystemRepository,
   SubsystemNodeTopology,
   SubsystemSummary,
@@ -236,7 +236,7 @@ export {
   CkvDtoSchema,
   TkvDtoSchema,
   TagInfoDtoSchema,
-  DataPortDtoSchema,
+  ModuleDataPortDtoSchema,
   ControlPortDtoSchema,
   KeyValueInfoDtoSchema,
   KeyInfoDtoSchema,
@@ -250,7 +250,7 @@ export type {
   CkvDto,
   TkvDto,
   TagInfoDto,
-  DataPortDto,
+  ModuleDataPortDto,
   ControlPortDto,
   KeyValueInfoDto,
   KeyInfoDto,
@@ -455,8 +455,14 @@ export * from './application/usecase-designer/container/get-property/get-contain
 export * from './application/usecase-designer/container/get-property/get-container-property.handler.js';
 export {ContainerPropertiesDtoSchema} from './application/usecase-designer/container/dto/container-properties-dto.js';
 export type {ContainerPropertiesDto} from './application/usecase-designer/container/dto/container-properties-dto.js';
-export {SubsystemDtoSchema} from './application/usecase-designer/subsystem/dto/subsystem-dto.js';
-export type {SubsystemDto} from './application/usecase-designer/subsystem/dto/subsystem-dto.js';
+export {
+  SubsystemDtoSchema,
+  SubsystemDataPortDtoSchema,
+} from './application/usecase-designer/subsystem/dto/subsystem-dto.js';
+export type {
+  SubsystemDto,
+  SubsystemDataPortDto,
+} from './application/usecase-designer/subsystem/dto/subsystem-dto.js';
 export {SubsystemSnapshotDtoSchema} from './application/usecase-designer/subsystem/dto/subsystem-snapshot.dto.js';
 export type {SubsystemSnapshotDto} from './application/usecase-designer/subsystem/dto/subsystem-snapshot.dto.js';
 export {MoveSubsystemComponentsDtoSchema} from './application/usecase-designer/subsystem/dto/move-subsystem-components-dto.js';

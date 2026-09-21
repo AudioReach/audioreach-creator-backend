@@ -2,7 +2,6 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
 export class InitialCreate1789965901198 implements MigrationInterface {
@@ -364,7 +363,7 @@ export class InitialCreate1789965901198 implements MigrationInterface {
       `CREATE TABLE "sgkv_values" ("sgkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, PRIMARY KEY ("sgkv_system_id", "value_def_system_id"))`,
     );
     await queryRunner.query(
-      `CREATE TABLE "subsystems" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(255) NOT NULL, "subsystem_id" integer)`,
+      `CREATE TABLE "subsystems" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(255) NOT NULL, "subsystem_id" integer NOT NULL)`,
     );
     await queryRunner.query(
       `CREATE TABLE "subsystem_filtered_keys_key_definition" ("subsystems_system_id" integer NOT NULL, "key_definition_system_id" integer NOT NULL, PRIMARY KEY ("subsystems_system_id", "key_definition_system_id"))`,
@@ -1313,7 +1312,7 @@ export class InitialCreate1789965901198 implements MigrationInterface {
       `ALTER TABLE "temporary_sgkv_values" RENAME TO "sgkv_values"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "temporary_subsystems" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(255) NOT NULL, "subsystem_id" integer, CONSTRAINT "FK_84d896fd64dc0971dd15a904809" FOREIGN KEY ("system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_subsystems" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(255) NOT NULL, "subsystem_id" integer NOT NULL, CONSTRAINT "FK_84d896fd64dc0971dd15a904809" FOREIGN KEY ("system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
       `INSERT INTO "temporary_subsystems"("system_id", "created_at", "updated_at", "version", "name", "subsystem_id") SELECT "system_id", "created_at", "updated_at", "version", "name", "subsystem_id" FROM "subsystems"`,
@@ -1777,7 +1776,7 @@ export class InitialCreate1789965901198 implements MigrationInterface {
       `ALTER TABLE "subsystems" RENAME TO "temporary_subsystems"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "subsystems" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(255) NOT NULL, "subsystem_id" integer)`,
+      `CREATE TABLE "subsystems" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(255) NOT NULL, "subsystem_id" integer NOT NULL)`,
     );
     await queryRunner.query(
       `INSERT INTO "subsystems"("system_id", "created_at", "updated_at", "version", "name", "subsystem_id") SELECT "system_id", "created_at", "updated_at", "version", "name", "subsystem_id" FROM "temporary_subsystems"`,

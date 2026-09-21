@@ -37,7 +37,7 @@ export class DataLinkDeletionService {
         moduleSystemId,
         fileSystemId,
       ),
-      repository.findSubsystemDataRouteContext(fileSystemId),
+      repository.findDataLinkRouteContext(fileSystemId),
     ]);
     const unresolvedPlan = planUnresolvedDeletion({
       moduleSystemId,
