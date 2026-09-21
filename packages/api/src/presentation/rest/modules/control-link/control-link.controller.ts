@@ -19,7 +19,6 @@ import {
 import {ApiTags, ApiParam} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
 import {AuthGuard} from '@nestjs/passport';
-import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {CreateControlLinkRequest} from './dto/control-link-request.dto.js';
 import {
   ControlLinkResponseDto,
@@ -55,51 +54,6 @@ import {
 export class ControlLinkController extends BaseController {
   constructor(private readonly commandBus: CommandBus) {
     super();
-  }
-
-  /**
-   * Query control-links.
-   */
-  @Post('query')
-  @ApiDocumentationWithExample({
-    summary: 'Query control-links for provided systemIds',
-    requestDto: SystemIdsRequestDto,
-    requestDtoDescription: 'List of control-link system ids',
-    responses: [
-      {
-        status: HttpStatus.OK,
-        description: 'All control-links found successfully',
-        dto: [ControlLinkResponseDto],
-      },
-      {
-        status: HttpStatus.MULTI_STATUS,
-        description:
-          'Partial success — some control-links could not be retrieved (see errors array)',
-        dto: [ControlLinkResponseDto],
-      },
-      {
-        status: HttpStatus.NOT_FOUND,
-        description: 'Project not found',
-      },
-      {
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
-        description: 'Failed to get control-link(s)',
-      },
-    ],
-  })
-  async queryControlLinks(
-    @Param('projectId') projectId: string,
-    @Body() controlLinkSystemIds: SystemIdsRequestDto,
-  ): Promise<ApiResult<ControlLinkResponseDto[]>> {
-    await Promise.resolve();
-    console.log(
-      'Getting control-links in project:',
-      projectId,
-      JSON.stringify(controlLinkSystemIds),
-    );
-    throw new NotImplementedException(
-      'queryControlLinks is not implemented yet',
-    );
   }
 
   /**

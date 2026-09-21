@@ -157,11 +157,9 @@ describe('GET cal-data for IIR_MBDRC module (naturalId=0x07001017)', () => {
 
       // Query full SpfModuleDto (includes moduleDefinitionSystemId and ckvs) to find IIR_MBDRC
       const queryResponse = await request(httpServer)
-        .post(
-          `/arc-api/v1/projects/${projectId}/spf-modules/query?include=ckvs`,
-        )
+        .get(`/arc-api/v1/projects/${projectId}/spf-modules?include=ckvs`)
         .set('Authorization', `Bearer ${authToken}`)
-        .send({systemIds: moduleSystemIds})
+        .query({systemId: moduleSystemIds.join(',')})
         .timeout(30000);
 
       if (queryResponse.status < 200 || queryResponse.status >= 300) continue;

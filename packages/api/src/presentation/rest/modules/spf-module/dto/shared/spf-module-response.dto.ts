@@ -12,6 +12,7 @@ import {
 } from '@arc/core';
 import {ApiProperty} from '@nestjs/swagger';
 import {EndPointLink} from '../../../../common/utils/utilities.js';
+import {PropertyResponseDto} from '../../../../common/dto/property-response.dto.js';
 
 export class DataPortResponseDto extends createZodDto(DataPortDtoSchema) {}
 
@@ -27,7 +28,11 @@ export class SpfModuleResponseDto extends createZodDto(
   @ApiProperty({description: 'Related endpoint links', type: [EndPointLink]})
   relatedEndPointLinks!: EndPointLink[];
 
-  @ApiProperty({description: 'Module instance properties', required: false})
+  @ApiProperty({
+    description: 'Module instance properties',
+    required: false,
+    type: [PropertyResponseDto],
+  })
   properties?: CorePropertyDto[];
 }
 

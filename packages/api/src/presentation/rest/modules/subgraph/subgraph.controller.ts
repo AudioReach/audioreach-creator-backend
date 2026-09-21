@@ -32,7 +32,6 @@ import {
   CreateVcpmCkvResponseDto,
 } from './dto/subgraph-response.dto.js';
 import {SubgraphPairResponseDto} from './dto/subgraph-pair-response.dto.js';
-import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {ComponentsResponseDto} from '../../common/dto/component-collection-response.dto.js';
 import {ConfigElementDto} from '../../common/dto/element-data/elements/config-element/config-element.dto.js';
 import {ElementTemplateArrayDto} from '../../common/dto/element-data/elements/element-template-array.dto.js';
@@ -123,9 +122,16 @@ export class SubgraphController extends BaseController {
   }
 
   /**
-   * Get all subgraphs in the project.
+   * Get all subgraphs in the project, optionally filtered by system IDs.
    */
   @Get()
+  @ApiQuery({
+    name: 'systemId',
+    required: false,
+    type: String,
+    description: 'Optional comma-separated subgraph system IDs',
+    example: '201,202',
+  })
   @ApiDocumentationWithExample({
     summary: 'Get all subgraphs in the project',
     responses: [
@@ -146,52 +152,12 @@ export class SubgraphController extends BaseController {
   })
   async getAllSubgraphs(
     @Param('projectId') projectId: string,
+    @Query('systemId') systemId?: string,
   ): Promise<ApiResult<SubgraphResponseDto[]>> {
     await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(`Getting all subgraphs in project ${projectId}`);
+    const systemIdSuffix = systemId ? ` for system IDs ${systemId}` : '';
+    console.log(`Getting subgraphs in project ${projectId}${systemIdSuffix}`);
     throw new NotImplementedException('getAllSubgraphs is not implemented yet');
-  }
-
-  /**
-   * Query subgraphs for subgraph system ids.
-   */
-  @Post('query')
-  @ApiDocumentationWithExample({
-    summary: 'Query subgraphs for subgraph systemIds',
-    requestDto: SystemIdsRequestDto,
-    requestDtoDescription: 'List of subgraph system ids',
-
-    responses: [
-      {
-        status: HttpStatus.OK,
-        description: 'All subgraphs found successfully',
-        dto: [SubgraphResponseDto],
-      },
-      {
-        status: HttpStatus.MULTI_STATUS,
-        description:
-          'Partial success — some subgraphs could not be retrieved (see errors array)',
-        dto: [SubgraphResponseDto],
-      },
-      {
-        status: HttpStatus.NOT_FOUND,
-        description: 'Project not found',
-      },
-      {
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
-        description: 'Failed to get subgraphs',
-      },
-    ],
-  })
-  async querySubgraphs(
-    @Param('projectId') projectId: string,
-    @Body() subgraphSystemIds: SystemIdsRequestDto,
-  ): Promise<ApiResult<SubgraphResponseDto[]>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      `Getting subgraphs in project ${projectId}: ${JSON.stringify(subgraphSystemIds)}`,
-    );
-    throw new NotImplementedException('querySubgraphs is not implemented yet');
   }
 
   /**

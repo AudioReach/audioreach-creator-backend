@@ -5,7 +5,6 @@
 
 import {
   Controller,
-  NotImplementedException,
   Post,
   Delete,
   Body,
@@ -18,7 +17,6 @@ import {ApiTags, ApiParam} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
 import {AuthGuard} from '@nestjs/passport';
 import {DataLinkResponseDto} from './dto/data-link-response.dto.js';
-import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
@@ -53,49 +51,6 @@ import {
 export class DataLinkController extends BaseController {
   constructor(private readonly commandBus: CommandBus) {
     super();
-  }
-
-  /**
-   * Query data-links.
-   */
-  @Post('query')
-  @ApiDocumentationWithExample({
-    summary: 'Query data-links for provided systemIds',
-    requestDto: SystemIdsRequestDto,
-    requestDtoDescription: 'List of data-link system ids',
-    responses: [
-      {
-        status: HttpStatus.OK,
-        description: 'All data-links found successfully',
-        dto: [DataLinkResponseDto],
-      },
-      {
-        status: HttpStatus.MULTI_STATUS,
-        description:
-          'Partial success — some data-links could not be retrieved (see errors array)',
-        dto: [DataLinkResponseDto],
-      },
-      {
-        status: HttpStatus.NOT_FOUND,
-        description: 'Project not found',
-      },
-      {
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
-        description: 'Failed to get data-link(s)',
-      },
-    ],
-  })
-  async queryDataLinks(
-    @Param('projectId') projectId: string,
-    @Body() dataLinkSystemIds: SystemIdsRequestDto,
-  ): Promise<ApiResult<DataLinkResponseDto[]>> {
-    await Promise.resolve();
-    console.log(
-      'Getting data-links in project:',
-      projectId,
-      JSON.stringify(dataLinkSystemIds),
-    );
-    throw new NotImplementedException('queryDataLinks is not implemented yet');
   }
 
   /**

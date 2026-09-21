@@ -126,9 +126,9 @@ async function findVolumeControlTkvData(
     if (!moduleSystemIds.length) continue;
 
     const queryRes = await request(httpServer as Parameters<typeof request>[0])
-      .post(`/arc-api/v1/projects/${projectId}/spf-modules/query?include=tags`)
+      .get(`/arc-api/v1/projects/${projectId}/spf-modules?include=tags`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({systemIds: moduleSystemIds})
+      .query({systemId: moduleSystemIds.join(',')})
       .timeout(30_000);
 
     if (queryRes.status < 200 || queryRes.status >= 300) continue;

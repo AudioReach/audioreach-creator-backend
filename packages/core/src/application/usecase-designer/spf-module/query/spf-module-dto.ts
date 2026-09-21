@@ -141,7 +141,7 @@ export const SpfModuleDtoSchema = z.object({
   naturalId: z.number().int().describe('Module instance ID'),
   moduleDefinitionSystemId: z.string().describe('Module definition system ID'),
   name: z.string().describe('Module name'),
-  alias: z.string().describe('Module alias (user-defined label)'),
+  alias: z.string().optional().describe('Module alias (user-defined label)'),
   parentSystemId: z
     .string()
     .optional()

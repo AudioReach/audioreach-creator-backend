@@ -15,11 +15,6 @@ export const ContainerDtoSchema = z.object({
     .number()
     .int()
     .describe('Container natural ID (containerId from ACDB)'),
-  name: z
-    .string()
-    .describe(
-      'Container type name, or containerTypeSystemId as string when name is not yet populated',
-    ),
 });
 
 export type ContainerDto = z.infer<typeof ContainerDtoSchema>;

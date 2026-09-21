@@ -12,7 +12,7 @@ import {setupE2ETest, teardownE2ETest} from '../helpers/e2e-test-setup.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-modules/query)', () => {
+describe('SPF Module Query E2E (GET /arc-api/v1/projects/{projectId}/spf-modules)', () => {
   let app: INestApplication;
   let httpServer: any;
   let authToken: string;
@@ -103,9 +103,9 @@ describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-module
     }
 
     const response = await request(httpServer)
-      .post(`/arc-api/v1/projects/${projectId}/spf-modules/query`)
+      .get(`/arc-api/v1/projects/${projectId}/spf-modules`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({systemIds: []})
+      .query({systemId: ''})
       .timeout(30000);
 
     expect(response.status).toBe(400);
@@ -118,9 +118,9 @@ describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-module
     }
 
     const response = await request(httpServer)
-      .post(`/arc-api/v1/projects/${projectId}/spf-modules/query`)
+      .get(`/arc-api/v1/projects/${projectId}/spf-modules`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({systemIds: ['999999999']})
+      .query({systemId: '999999999'})
       .timeout(30000)
       .expect(200);
 
@@ -135,9 +135,9 @@ describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-module
     }
 
     const response = await request(httpServer)
-      .post(`/arc-api/v1/projects/${projectId}/spf-modules/query`)
+      .get(`/arc-api/v1/projects/${projectId}/spf-modules`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({systemIds: moduleSystemIds})
+      .query({systemId: moduleSystemIds.join(',')})
       .timeout(30000)
       .expect(200);
 
@@ -200,9 +200,9 @@ describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-module
     }
 
     const response = await request(httpServer)
-      .post(`/arc-api/v1/projects/${projectId}/spf-modules/query`)
+      .get(`/arc-api/v1/projects/${projectId}/spf-modules`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({systemIds: [moduleSystemIds[0], '999999999']})
+      .query({systemId: `${moduleSystemIds[0]},999999999`})
       .timeout(30000)
       .expect(200);
 
@@ -217,9 +217,9 @@ describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-module
     }
 
     const response = await request(httpServer)
-      .post(`/arc-api/v1/projects/${projectId}/spf-modules/query`)
+      .get(`/arc-api/v1/projects/${projectId}/spf-modules`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({systemIds: [moduleSystemIds[0]]})
+      .query({systemId: moduleSystemIds[0]})
       .timeout(30000)
       .expect(200);
 
@@ -241,9 +241,9 @@ describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-module
 
     // Fetch baseline
     const beforeResponse = await request(httpServer)
-      .post(`/arc-api/v1/projects/${projectId}/spf-modules/query`)
+      .get(`/arc-api/v1/projects/${projectId}/spf-modules`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({systemIds: [targetId]})
+      .query({systemId: targetId})
       .timeout(30000)
       .expect(200);
 
@@ -271,9 +271,9 @@ describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-module
 
     // Query again — the staged alias should now be returned
     const afterResponse = await request(httpServer)
-      .post(`/arc-api/v1/projects/${projectId}/spf-modules/query`)
+      .get(`/arc-api/v1/projects/${projectId}/spf-modules`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({systemIds: [targetId]})
+      .query({systemId: targetId})
       .timeout(30000)
       .expect(200);
 
@@ -289,9 +289,9 @@ describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-module
     }
 
     const response = await request(httpServer)
-      .post(`/arc-api/v1/projects/${projectId}/spf-modules/query?include=ckvs`)
+      .get(`/arc-api/v1/projects/${projectId}/spf-modules?include=ckvs`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({systemIds: moduleSystemIds})
+      .query({systemId: moduleSystemIds.join(',')})
       .timeout(30000)
       .expect(200);
 
@@ -333,9 +333,9 @@ describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-module
     }
 
     const response = await request(httpServer)
-      .post(`/arc-api/v1/projects/${projectId}/spf-modules/query?include=tags`)
+      .get(`/arc-api/v1/projects/${projectId}/spf-modules?include=tags`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({systemIds: moduleSystemIds})
+      .query({systemId: moduleSystemIds.join(',')})
       .timeout(30000)
       .expect(200);
 
@@ -370,11 +370,9 @@ describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-module
     }
 
     const response = await request(httpServer)
-      .post(
-        `/arc-api/v1/projects/${projectId}/spf-modules/query?include=ckvs,tags`,
-      )
+      .get(`/arc-api/v1/projects/${projectId}/spf-modules?include=ckvs,tags`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({systemIds: moduleSystemIds})
+      .query({systemId: moduleSystemIds.join(',')})
       .timeout(30000)
       .expect(200);
 
