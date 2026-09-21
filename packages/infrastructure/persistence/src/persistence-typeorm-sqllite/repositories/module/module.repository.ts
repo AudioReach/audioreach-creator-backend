@@ -715,4 +715,20 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     // See: docs/edit-crud/design/add-module-calibration-defaults-design.md §6
     return Promise.reject(new Error('createCkv: not yet implemented'));
   }
+
+  async updateHeapId(moduleSystemId: number, heapId: number): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+
+    await this.writer.writeDelta(
+      {
+        targetTable: ENTITY_NAMES.SpfModule,
+        targetSystemId: moduleSystemId,
+        aggregateId: moduleSystemId,
+        delta: {heapId},
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+  }
 }

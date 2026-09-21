@@ -89,8 +89,10 @@ import {DeleteVcpmCkvCommand} from '../../../usecase-designer/subgraph/delete-vc
 import {DeleteVcpmCkvHandler} from '../../../usecase-designer/subgraph/delete-vcpm-ckv/delete-vcpm-ckv.handler.js';
 import {UpdateVcpmCalDataCommand} from '../../../usecase-designer/subgraph/update-vcpm-cal-data/update-vcpm-cal-data.command.js';
 import {UpdateVcpmCalDataHandler} from '../../../usecase-designer/subgraph/update-vcpm-cal-data/update-vcpm-cal-data.handler.js';
-import {UpdateContainerPropertyCommand} from '../../../usecase-designer/container/update-property/update-container-property.command.js';
-import {UpdateContainerPropertyHandler} from '../../../usecase-designer/container/update-property/update-container-property.handler.js';
+import {SetContainerPropertyCommand} from '../../../usecase-designer/container/set-property/set-container-property.command.js';
+import {SetContainerPropertyHandler} from '../../../usecase-designer/container/set-property/set-container-property.handler.js';
+import {SetContainerHeapIdCommand} from '../../../usecase-designer/container/set-heap-id/set-container-heap-id.command.js';
+import {SetContainerHeapIdHandler} from '../../../usecase-designer/container/set-heap-id/set-container-heap-id.handler.js';
 import {CreateDataLinkCommand} from '../../../usecase-designer/data-links/create/create-data-link.command.js';
 import {CreateDataLinkHandler} from '../../../usecase-designer/data-links/create/create-data-link.handler.js';
 import {CreateDataLinkWithSubsystemsCommand} from '../../../usecase-designer/data-links/create/create-data-link-with-subsystems.command.js';
@@ -263,8 +265,12 @@ export class CommandHandlerRegistry {
       create: deps => new UpdateVcpmCalDataHandler(deps.uow),
     });
 
-    this.commandHandlerFactories.set(UpdateContainerPropertyCommand, {
-      create: deps => new UpdateContainerPropertyHandler(deps.uow),
+    this.commandHandlerFactories.set(SetContainerPropertyCommand, {
+      create: deps => new SetContainerPropertyHandler(deps.uow),
+    });
+
+    this.commandHandlerFactories.set(SetContainerHeapIdCommand, {
+      create: deps => new SetContainerHeapIdHandler(deps.uow),
     });
 
     this.commandHandlerFactories.set(PutCkvCalDataCommand, {

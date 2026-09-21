@@ -69,6 +69,19 @@ export class ContainerPropertyDefinitionFetcher {
   }
 
   /**
+   * Returns one container property definition by system ID with the active
+   * session overlay applied.
+   */
+  async fetchOneBySystemId(
+    fileSystemId: number,
+    propertySystemId: number,
+    sessionId: number | null,
+  ): Promise<ContainerPropertyBase | null> {
+    const rows = await this.fetchAll(fileSystemId, sessionId);
+    return rows.find(row => row.systemId === propertySystemId) ?? null;
+  }
+
+  /**
    * Returns one container property definition by natural property ID with the
    * active session overlay applied.
    */

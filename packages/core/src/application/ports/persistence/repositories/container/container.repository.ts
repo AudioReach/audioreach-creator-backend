@@ -36,6 +36,12 @@ export interface ContainerRepository {
   /** Returns effective container property definitions for the active session. */
   getPropertyDefinitions(fileSystemId: number): Promise<PropertyDefinition[]>;
 
+  /** Returns one effective container property definition by its system ID. */
+  getPropertyDefinitionBySystemId(
+    fileSystemId: number,
+    propertySystemId: number,
+  ): Promise<PropertyDefinition | null>;
+
   /** Returns one effective container property definition by its natural ID. */
   getPropertyDefinitionByPropertyId(
     fileSystemId: number,

@@ -16,7 +16,7 @@ import type {
 import type {Logger} from '../../../shared/types/logger.interface.js';
 import type {ParameterDefinitionBase} from '../../ports/persistence/repositories/module/module-definition.repository.js';
 import type {
-  ElementData as ElementCalData,
+  ElementData,
   ConfigElementData,
   StructData,
   ElementArrayData,
@@ -27,13 +27,28 @@ import {evaluateFormula} from './utils/formular-evaluator.js';
 /** DTO alias for element arrays (GET response uses this; PUT input round-trips it back). */
 const ELEMENT_ARRAY_DTO_TYPE = 'ElementTemplateArray' as const;
 
+/**
+ * Casts a write-side DTO element array to ElementData[] for serializeParameterData.
+ *
+ * Both ParameterElementDto (full read-side) and ParameterElementSummaryDto
+ * (write-side subset) are structurally compatible at runtime: serializeConfigElement
+ * only reads input.type (discriminant) and input.value (the numeric string).
+ * dataType, min, max, isReadOnly and other fields are resolved entirely from
+ * elementsStructure (the definition schema), not from the input elements.
+ * The double cast is required because Zod summary DTOs declare value: unknown
+ * while ElementData requires value: string.
+ */
+export function mapToElementData(elements: unknown[]): ElementData[] {
+  return elements as unknown as ElementData[];
+}
+
 type SerializeResult =
   | {ok: true; value: Uint8Array}
   | {ok: false; error: string};
 
 export function serializeParameterData(
   definition: ParameterDefinitionBase,
-  inputElements: ElementCalData[],
+  inputElements: ElementData[],
   logger?: Logger,
 ): SerializeResult {
   let schema: DefinitionElement[];
@@ -61,7 +76,7 @@ export function serializeParameterData(
 
 function serializeElements(
   schema: DefinitionElement[],
-  inputs: ElementCalData[],
+  inputs: ElementData[],
   writer: BinaryDataWriter,
   parsedSoFar: Map<string, number>,
   logger?: Logger,
@@ -87,7 +102,7 @@ function serializeElements(
 
 function serializeElement(
   def: DefinitionElement,
-  input: ElementCalData,
+  input: ElementData,
   writer: BinaryDataWriter,
   parsedSoFar: Map<string, number>,
   logger?: Logger,

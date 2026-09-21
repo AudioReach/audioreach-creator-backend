@@ -24,7 +24,9 @@ import {DomainException} from './domain-exception.js';
 export class DomainRuleViolationException extends DomainException {
   readonly errorCode = 'DOMAIN_RULE_VIOLATION';
 
-  constructor(public readonly issues: readonly Issue[]) {
-    super(issues[0]?.message ?? 'Domain rule violation');
+  constructor(issues: readonly Issue[], optionalMessage?: string) {
+    const message =
+      optionalMessage ?? issues[0]?.message ?? 'Domain rule violation';
+    super(message, undefined, issues);
   }
 }

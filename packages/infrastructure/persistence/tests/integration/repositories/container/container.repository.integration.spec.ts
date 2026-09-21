@@ -218,6 +218,8 @@ describe('TypeOrmContainerRepository (integration)', () => {
       FILE_ID,
       0x08_00_10_13,
     );
+    const definitionBySystemId =
+      await repository.getPropertyDefinitionBySystemId(FILE_ID, 900);
     const definitions = await repository.getPropertyDefinitions(FILE_ID);
 
     expect(definition).toMatchObject({
@@ -230,6 +232,10 @@ describe('TypeOrmContainerRepository (integration)', () => {
       type: 'SPF',
       elementsStructure: '{}',
     });
+    expect(definitionBySystemId).toEqual(definition);
+    expect(
+      await repository.getPropertyDefinitionBySystemId(FILE_ID, 999),
+    ).toBeNull();
     expect(definitions).toEqual([definition]);
   });
 });
