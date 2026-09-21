@@ -105,13 +105,11 @@ export const TagInfoDtoSchema = z.object({
   tkvs: z.array(TkvDtoSchema).describe('Tag key-values configuration'),
 });
 
-export const DataPortDtoSchema = z.object({
+export const ModuleDataPortDtoSchema = z.object({
   systemId: z.string().describe('Port system ID'),
   naturalId: z.number().int().describe('Port definition natural ID'),
-  name: z.string().describe('Port name'),
-  portIoType: z
-    .enum(['Input', 'Output', 'InputOutput', 'OutputInput'])
-    .describe('Port IO type'),
+  name: z.string().nullable().describe('Port name'),
+  portIoType: z.enum(['Input', 'Output']).describe('Port IO type'),
   portType: z.enum(['Static', 'Dynamic']).describe('Port type'),
   totalLinksAtPort: z
     .number()
@@ -122,7 +120,7 @@ export const DataPortDtoSchema = z.object({
 export const ControlPortDtoSchema = z.object({
   systemId: z.string().describe('Control port system ID'),
   naturalId: z.number().int().describe('Control port definition natural ID'),
-  name: z.string().describe('Component name'),
+  name: z.string().nullable().describe('Component name'),
   portType: z.enum(['Static', 'Dynamic']).describe('Port type'),
   controlPortName: z.string().optional().describe('Control port name'),
   totalLinksAtPort: z
@@ -157,7 +155,7 @@ export const SpfModuleDtoSchema = z.object({
     .int()
     .describe('Maximum output data ports'),
   maxControlPortsSupported: z.number().int().describe('Maximum control ports'),
-  dataPorts: z.array(DataPortDtoSchema).describe('Data port list'),
+  dataPorts: z.array(ModuleDataPortDtoSchema).describe('Data port list'),
   controlPorts: z.array(ControlPortDtoSchema).describe('Control port list'),
   ckvs: z
     .array(CkvDtoSchema)
@@ -177,10 +175,10 @@ export type SpfModuleDto = z.infer<typeof SpfModuleDtoSchema>;
 export type CkvDto = z.infer<typeof CkvDtoSchema>;
 export type TkvDto = z.infer<typeof TkvDtoSchema>;
 export type TagInfoDto = z.infer<typeof TagInfoDtoSchema>;
-export type DataPortDto = z.infer<typeof DataPortDtoSchema>;
+export type ModuleDataPortDto = z.infer<typeof ModuleDataPortDtoSchema>;
 export type ControlPortDto = z.infer<typeof ControlPortDtoSchema>;
 
-export function mapDataPort(p: DataPortReadModel): DataPortDto {
+export function mapDataPort(p: DataPortReadModel): ModuleDataPortDto {
   return {
     systemId: String(p.systemId),
     naturalId: p.naturalId,

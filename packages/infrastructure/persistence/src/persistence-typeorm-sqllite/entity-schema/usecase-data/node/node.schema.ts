@@ -24,7 +24,7 @@ export type NodeType = (typeof NODE_TYPE)[keyof typeof NODE_TYPE];
 /** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
 export interface NodeBase {
   systemId: number;
-  parentSystemId?: number;
+  parentSystemId: number | null;
   type: NodeType;
   fileSystemId: number;
 }

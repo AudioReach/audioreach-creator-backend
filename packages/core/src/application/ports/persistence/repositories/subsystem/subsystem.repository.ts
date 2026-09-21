@@ -21,11 +21,12 @@ export interface SubsystemSummary {
   readonly systemId: number;
   readonly naturalId: number;
   readonly name: string;
-  readonly parentId?: number;
-  readonly subgraphSystemIds: readonly number[];
+  readonly parentSystemId: number | null;
+  readonly moduleSystemIds: readonly number[];
+  readonly subsystemSystemIds: readonly number[];
 }
 
-export interface SubsystemKeyDefinition {
+export interface SubsystemKey {
   readonly systemId: number;
   readonly keyId: number;
   readonly name: string;
@@ -33,22 +34,20 @@ export interface SubsystemKeyDefinition {
 
 export type SubsystemNodeTopology = {
   systemId: number;
-  parentId: number | null;
+  parentSystemId: number | null;
   type: NodeType;
 };
 
 export interface SubsystemRepository {
-  findSubsystems(fileSystemId: number): Promise<SubsystemSummary[]>;
-  findSubsystemFileSystemId(systemId: number): Promise<number | null>;
-  findNodeTopology(fileSystemId: number): Promise<SubsystemNodeTopology[]>;
-  findSubsystemForPatch(
+  getSubsystems(fileSystemId: number): Promise<SubsystemSummary[]>;
+  getSubsystem(
     systemId: number,
     fileSystemId: number,
   ): Promise<Subsystem | null>;
-  findKeyDefinitionsByIds(
+  getKeysAssignedToSubsystem(
     keySystemIds: readonly number[],
     fileSystemId: number,
-  ): Promise<SubsystemKeyDefinition[]>;
+  ): Promise<SubsystemKey[]>;
   subsystemExists(systemId: number, fileSystemId: number): Promise<boolean>;
   hasSubsystems(fileSystemId: number): Promise<boolean>;
 
@@ -58,13 +57,10 @@ export interface SubsystemRepository {
     options?: EditOptions,
   ): Promise<void>;
 
-  /**
-   * Returns a map of all node systemIds → parentId (null if top-level) for
-   * the given file. Covers both subsystem and module nodes.
-   */
+  /** Returns session-aware parent relationships and types for all file nodes. */
   getAllNodesWithParents(
     fileSystemId: number,
-  ): Promise<Map<number, number | null>>;
+  ): Promise<SubsystemNodeTopology[]>;
 
   /**
    * Returns the portIoType of the DataPort with the given systemId, applying

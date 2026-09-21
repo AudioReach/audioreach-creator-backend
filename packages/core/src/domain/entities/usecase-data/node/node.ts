@@ -15,7 +15,7 @@ export type NodeType = (typeof NodeType)[keyof typeof NodeType];
 
 export class Node {
   systemId: number;
-  readonly parentSystemId?: number;
+  readonly parentSystemId: number | null;
   readonly type: NodeType;
   fileSystemId: number;
 
@@ -26,14 +26,14 @@ export class Node {
     systemId: number;
     type: NodeType;
     fileSystemId: number;
-    parentSystemId?: number;
+    parentSystemId: number | null;
     dataPorts: DataPort[];
     controlPorts: ControlPort[];
   }) {
     this.systemId = initparams.systemId;
     this.type = initparams.type;
     this.fileSystemId = initparams.fileSystemId;
-    this.parentSystemId = initparams.parentSystemId;
+    this.parentSystemId = initparams.parentSystemId ?? null;
     this.dataPorts = initparams.dataPorts;
     this.controlPorts = initparams.controlPorts;
   }

@@ -109,9 +109,10 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     );
     const segmentsByLink = new Map<number, SubsystemDataLink[]>();
     for (const segment of segments) {
-      const list = segmentsByLink.get(segment.dataLinkSystemId ?? 0) ?? [];
+      if (segment.dataLinkSystemId === null) continue;
+      const list = segmentsByLink.get(segment.dataLinkSystemId) ?? [];
       list.push(baseToSubsystemDataLink(segment));
-      segmentsByLink.set(segment.dataLinkSystemId ?? 0, list);
+      segmentsByLink.set(segment.dataLinkSystemId, list);
     }
     return rows.map(row =>
       baseToDataLink(row, segmentsByLink.get(row.systemId) ?? []),
@@ -162,7 +163,7 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
       .map(row => baseToSubsystemDataLink(row));
   }
 
-  async findSubsystemDataRouteContext(
+  async findDataLinkRouteContext(
     fileSystemId: number,
   ): Promise<SubsystemDataRouteContext> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
@@ -393,7 +394,9 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     return rows.map(row => baseToDataLink(row));
   }
 
-  async findAllWithSegments(fileSystemId: number): Promise<DataLink[]> {
+  async findAllDataLinksWithResolvedSegments(
+    fileSystemId: number,
+  ): Promise<DataLink[]> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
     const rows = await this.linkFetcher.loadDataLinkRows(
       fileSystemId,

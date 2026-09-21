@@ -11,7 +11,7 @@ import type {DataPortReadModel} from '../spf-module/ports/data-port-read-model.j
  * Read model for a subsystem node.
  *
  * parentSystemId — from nodes.parent_id — identifies the immediate parent subsystem.
- *   undefined means this is a root subsystem (no parent).
+ *   null means this is a root subsystem (no parent).
  *   Used by buildSubsystemTree() in @arc/core to construct the recursive hierarchy.
  *
  * filteredKeys — the key definitions this subsystem declares as its filter set,
@@ -19,11 +19,12 @@ import type {DataPortReadModel} from '../spf-module/ports/data-port-read-model.j
  */
 export interface SubsystemReadModel {
   readonly systemId: number;
-  readonly naturalId?: number;
+  readonly naturalId: number;
   readonly name: string;
-  readonly parentSystemId?: number;
-  readonly subgraphSystemIds?: number[];
+  readonly parentSystemId: number | null;
+  readonly moduleSystemIds: number[];
+  readonly subsystemSystemIds: number[];
   readonly filteredKeys: KeyDefinitionSummaryReadModel[];
-  readonly dataPorts?: DataPortReadModel[];
-  readonly controlPorts?: ControlPortReadModel[];
+  readonly dataPorts: DataPortReadModel[];
+  readonly controlPorts: ControlPortReadModel[];
 }

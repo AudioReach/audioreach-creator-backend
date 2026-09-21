@@ -17,7 +17,7 @@ export class CreateSubsystemCommand extends BaseCommand {
   constructor(
     public readonly fileSystemId: number,
     public readonly name: string | undefined,
-    public readonly parentId: number | undefined,
+    public readonly parentSystemId: number | null,
   ) {
     super();
   }

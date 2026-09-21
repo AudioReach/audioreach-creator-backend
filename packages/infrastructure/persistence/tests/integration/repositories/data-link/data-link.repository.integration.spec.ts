@@ -259,7 +259,7 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
       linkedEntityGroupId: null,
     });
 
-    const result = await makeRepo(qr, sessionId).findSubsystemDataRouteContext(
+    const result = await makeRepo(qr, sessionId).findDataLinkRouteContext(
       FILE_ID,
     );
 

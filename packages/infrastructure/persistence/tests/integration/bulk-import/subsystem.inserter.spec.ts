@@ -55,7 +55,7 @@ function buildSubsystem(
   name: string,
   subsystemId: number,
   filteredKeySystemIds: number[] = [],
-  parentSystemId?: number,
+  parentSystemId: number | null = null,
 ): Subsystem {
   return new Subsystem({
     systemId,

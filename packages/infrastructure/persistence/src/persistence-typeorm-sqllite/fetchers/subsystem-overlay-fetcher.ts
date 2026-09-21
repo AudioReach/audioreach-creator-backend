@@ -18,9 +18,9 @@ import type {
 } from '../entity-schema/usecase-data/subsystem/subsystem.js';
 
 export interface OverlaidSubsystem extends SubsystemBase {
-  /** parentSystemId from Node.parentSystemId — undefined when the subsystem is a root. */
-  parentSystemId: number | undefined;
-  /** Key-definition system IDs associated through SubsystemFilteredKey. */
+  /** parentSystemId from Node.parentSystemId — null when the subsystem is a root. */
+  parentSystemId: number | null;
+  /** Effective filtered key-definition IDs for the subsystem. */
   filteredKeySystemIds: number[];
 }
 
@@ -85,10 +85,10 @@ export class SubsystemOverlayFetcher {
     }
 
     // Build parentSystemId lookup from the JOIN result.
-    const parentSystemIdBySystemId = new Map<number, number | undefined>(
+    const parentSystemIdBySubsystemSystemId = new Map<number, number | null>(
       rawRows.raw.map((r: Record<string, unknown>) => [
         Number(r['sub_system_id']),
-        r['parentSystemId'] == null ? undefined : Number(r['parentSystemId']),
+        r['parentSystemId'] == null ? null : Number(r['parentSystemId']),
       ]),
     );
 
@@ -103,11 +103,7 @@ export class SubsystemOverlayFetcher {
       }));
 
     if (sessionId === null) {
-      return this.buildResult(
-        rows,
-        parentSystemIdBySystemId,
-        filteredIdsBySubsystem,
-      );
+      return this.buildResult(rows, parentSystemIdBySubsystemSystemId);
     }
 
     // Pass 1 — Node overlay. Node is the file-scoped half of the shared-PK
@@ -125,7 +121,8 @@ export class SubsystemOverlayFetcher {
 
     const baseNodes: NodeBase[] = rows.map(row => ({
       systemId: row.systemId,
-      parentSystemId: parentSystemIdBySystemId.get(row.systemId),
+      parentSystemId:
+        parentSystemIdBySubsystemSystemId.get(row.systemId) ?? null,
       type: NODE_TYPE.Subsystem,
       fileSystemId,
     }));
@@ -227,15 +224,13 @@ export class SubsystemOverlayFetcher {
 
   private buildResult(
     rows: Array<SubsystemBase & {filteredKeySystemIds?: number[]}>,
-    parentSystemIdBySystemId: Map<number, number | undefined>,
-    filteredIdsBySubsystem: ReadonlyMap<number, readonly number[]>,
+    parentSystemIdBySubsystemSystemId: Map<number, number | null | undefined>,
   ): OverlaidSubsystem[] {
     return rows.map(row => ({
       ...row,
-      parentSystemId: parentSystemIdBySystemId.get(row.systemId),
-      filteredKeySystemIds: [
-        ...(filteredIdsBySubsystem.get(row.systemId) ?? []),
-      ],
+      parentSystemId:
+        parentSystemIdBySubsystemSystemId.get(row.systemId) ?? null,
+      filteredKeySystemIds: row.filteredKeySystemIds ?? [],
     }));
   }
 }

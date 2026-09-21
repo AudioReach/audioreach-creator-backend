@@ -51,7 +51,7 @@ type MoveImpactDependencies = {
 };
 
 type SubsystemState = NonNullable<
-  Awaited<ReturnType<SubsystemRepository['findSubsystemForPatch']>>
+  Awaited<ReturnType<SubsystemRepository['getSubsystem']>>
 >;
 
 type UnresolvedDataRebuild = {
@@ -111,15 +111,15 @@ function collectMovedNodeIds(
   ]);
 
   for (const node of topology) {
-    let parentId = parentBefore.get(node.systemId) ?? null;
+    let parentSystemId = parentBefore.get(node.systemId) ?? null;
     const visited = new Set<number>();
-    while (parentId !== null && !visited.has(parentId)) {
-      if (movedSubsystemIds.has(parentId)) {
+    while (parentSystemId !== null && !visited.has(parentSystemId)) {
+      if (movedSubsystemIds.has(parentSystemId)) {
         movedNodeIds.add(node.systemId);
         break;
       }
-      visited.add(parentId);
-      parentId = parentBefore.get(parentId) ?? null;
+      visited.add(parentSystemId);
+      parentSystemId = parentBefore.get(parentSystemId) ?? null;
     }
   }
 
@@ -242,6 +242,7 @@ async function createUnresolvedDataSegments(
             : portsByNode.get(destinationNodeSystemId)!.systemId,
         dataLinkSystemId: null,
         fileSystemId,
+        linkType: oldSegments[0].linkType,
       }),
     );
   }
@@ -313,7 +314,7 @@ async function rebuildUnresolvedDataChains(
   parentAfter: Map<number, number | null>,
   movedNodeIds: ReadonlySet<number>,
   routeContext: Awaited<
-    ReturnType<DataLinkRepository['findSubsystemDataRouteContext']>
+    ReturnType<DataLinkRepository['findDataLinkRouteContext']>
   >,
   subsystemStates: Map<number, SubsystemState>,
   changes: Map<number, SubsystemPortChange>,
@@ -461,6 +462,7 @@ async function createUnresolvedControlSegments(
           : portsByNode.get(peerNodeBSystemId)!.systemId,
         null,
         fileSystemId,
+        firstOldSegment.linkType,
         0,
       ),
     );
@@ -539,7 +541,7 @@ async function rebuildUnresolvedControlChains(
   parentAfter: Map<number, number | null>,
   movedNodeIds: ReadonlySet<number>,
   routeContext: Awaited<
-    ReturnType<ControlLinkRepository['findSubsystemControlRouteContext']>
+    ReturnType<ControlLinkRepository['findControlLinkRouteContext']>
   >,
   subsystemStates: Map<number, SubsystemState>,
   changes: Map<number, SubsystemPortChange>,
@@ -601,16 +603,47 @@ function getRoute(
   destinationNodeId: number,
   parentByNode: Map<number, number | null>,
 ): RouteState {
-  const route = SubsystemBoundaryPathService.compute({
+  const segments = SubsystemBoundaryPathService.compute({
     sourceNodeSystemId: sourceNodeId,
     destinationNodeSystemId: destinationNodeId,
     nodeParentMap: parentByNode,
   });
+  const rawNodeSequence =
+    segments.length === 0
+      ? [sourceNodeId, destinationNodeId]
+      : [
+          segments[0].sourceNodeSystemId,
+          ...segments.map(segment => segment.destinationNodeSystemId),
+        ];
   const nodeSequence: number[] = [];
-  for (const node of route.nodeSequence) {
+  for (const node of rawNodeSequence) {
     if (node !== nodeSequence.at(-1)) nodeSequence.push(node);
   }
-  return {...route, nodeSequence};
+  const requiredPortType = new Map<
+    number,
+    typeof PORT_IO_TYPE.OutputInput | typeof PORT_IO_TYPE.InputOutput
+  >();
+  for (const segment of segments) {
+    if (
+      segment.sourceBoundaryPortType === PORT_IO_TYPE.OutputInput ||
+      segment.sourceBoundaryPortType === PORT_IO_TYPE.InputOutput
+    ) {
+      requiredPortType.set(
+        segment.sourceNodeSystemId,
+        segment.sourceBoundaryPortType,
+      );
+    }
+    if (
+      segment.destBoundaryPortType === PORT_IO_TYPE.OutputInput ||
+      segment.destBoundaryPortType === PORT_IO_TYPE.InputOutput
+    ) {
+      requiredPortType.set(
+        segment.destinationNodeSystemId,
+        segment.destBoundaryPortType,
+      );
+    }
+  }
+  return {nodeSequence, requiredPortType};
 }
 
 function nextPortId(ports: readonly {naturalId: number}[]): number {
@@ -673,7 +706,7 @@ export async function rebuildMoveSubsystemImpact(
   dependencies: MoveImpactDependencies,
 ): Promise<MoveSubsystemImpact> {
   const parentBefore = new Map(
-    topology.map(node => [node.systemId, node.parentId]),
+    topology.map(node => [node.systemId, node.parentSystemId]),
   );
   const parentAfter = new Map(parentBefore);
   for (const component of [...updatedModules, ...updatedSubsystems]) {
@@ -687,17 +720,14 @@ export async function rebuildMoveSubsystemImpact(
   );
   const subsystemStates = new Map<
     number,
-    NonNullable<
-      Awaited<ReturnType<SubsystemRepository['findSubsystemForPatch']>>
-    >
+    NonNullable<Awaited<ReturnType<SubsystemRepository['getSubsystem']>>>
   >();
   await Promise.all(
     [...subsystemIds].map(async systemId => {
-      const subsystem =
-        await dependencies.subsystemRepository.findSubsystemForPatch(
-          systemId,
-          fileSystemId,
-        );
+      const subsystem = await dependencies.subsystemRepository.getSubsystem(
+        systemId,
+        fileSystemId,
+      );
       if (subsystem) subsystemStates.set(systemId, subsystem);
     }),
   );
@@ -707,12 +737,14 @@ export async function rebuildMoveSubsystemImpact(
   const controlRoutes: ControlRouteChange[] = [];
   const [dataLinks, controlLinks, dataRouteContext, controlRouteContext] =
     await Promise.all([
-      dependencies.dataLinkRepository.findAllWithSegments(fileSystemId),
-      dependencies.controlLinkRepository.findAllWithSegments(fileSystemId),
-      dependencies.dataLinkRepository.findSubsystemDataRouteContext(
+      dependencies.dataLinkRepository.findAllDataLinksWithResolvedSegments(
         fileSystemId,
       ),
-      dependencies.controlLinkRepository.findSubsystemControlRouteContext(
+      dependencies.controlLinkRepository.findAllControlLinksWithResolvedSegments(
+        fileSystemId,
+      ),
+      dependencies.dataLinkRepository.findDataLinkRouteContext(fileSystemId),
+      dependencies.controlLinkRepository.findControlLinkRouteContext(
         fileSystemId,
       ),
     ]);
@@ -792,6 +824,7 @@ export async function rebuildMoveSubsystemImpact(
               : portsByNode.get(destinationNodeSystemId)!.systemId,
           dataLinkSystemId: link.systemId,
           fileSystemId,
+          linkType: link.linkType,
         }),
       );
     }
@@ -855,6 +888,7 @@ export async function rebuildMoveSubsystemImpact(
           nodeBPortSystemId,
           link.systemId,
           fileSystemId,
+          link.linkType,
           0,
         ),
       );

@@ -44,7 +44,6 @@ import {
   PatchSubsystemCommand,
   Result,
   SetSubsystemFilteredKeysCommand,
-  LINK_TYPE,
 } from '@arc/core';
 
 /**
@@ -112,12 +111,12 @@ export class SubsystemController extends BaseController {
       subsystemSystemId: number;
       naturalId: number;
       name: string;
-      parentId?: number;
+      parentSystemId: number | null;
     }>(
       new CreateSubsystemCommand(
         session.fileSystemId,
         request.name,
-        parseOptionalSystemId(request.parentSystemId) ?? undefined,
+        parseOptionalSystemId(request.parentSystemId) ?? null,
       ),
       session,
     );
@@ -125,8 +124,8 @@ export class SubsystemController extends BaseController {
       systemId: String(value.subsystemSystemId),
       naturalId: value.naturalId,
       name: value.name,
-      ...(value.parentId !== undefined
-        ? {parentSystemId: String(value.parentId)}
+      ...(value.parentSystemId !== null
+        ? {parentSystemId: String(value.parentSystemId)}
         : {}),
     }));
   }
@@ -219,7 +218,7 @@ export class SubsystemController extends BaseController {
         sourcePortSystemId: String(link.sourcePortSystemId),
         destinationSystemId: String(link.destinationNodeSystemId),
         destinationPortSystemId: String(link.destinationPortSystemId),
-        isInterUsecase: link.linkType === LINK_TYPE.InterUsecase,
+        linkType: link.linkType,
       })),
       removedDataLinks: value.removedDataLinks.map(String),
       addedControlLinks: value.addedControlLinks.map(link => ({
@@ -228,7 +227,7 @@ export class SubsystemController extends BaseController {
         sourcePortSystemId: String(link.nodeAPortSystemId),
         destinationSystemId: String(link.peerNodeBSystemId),
         destinationPortSystemId: String(link.nodeBPortSystemId),
-        isInterUsecase: link.linkType === LINK_TYPE.InterUsecase,
+        linkType: link.linkType,
       })),
       removedControlLinks: value.removedControlLinks.map(String),
       subsystemPortChanges: value.subsystemPortChanges.map(change => ({
@@ -396,9 +395,9 @@ export class SubsystemController extends BaseController {
     const result = await this.commandBus.execute<{
       subsystem: {
         systemId: number;
-        naturalId?: number;
+        naturalId: number;
         name: string;
-        parentId?: number;
+        parentSystemId: number | null;
         filteredKeys: Array<{systemId: number; keyId: number; name: string}>;
         dataPorts?: Array<{
           systemId: number;
@@ -490,7 +489,7 @@ export class SubsystemController extends BaseController {
         systemId: number;
         naturalId: number;
         name: string;
-        parentId?: number;
+        parentSystemId: number | null;
       };
     }>(
       new DeleteSubsystemCommand(
@@ -503,9 +502,11 @@ export class SubsystemController extends BaseController {
       systemId: String(value.deletedSubsystemSnapshot.systemId),
       naturalId: value.deletedSubsystemSnapshot.naturalId,
       name: value.deletedSubsystemSnapshot.name,
-      ...(value.deletedSubsystemSnapshot.parentId !== undefined
+      ...(value.deletedSubsystemSnapshot.parentSystemId !== null
         ? {
-            parentSystemId: String(value.deletedSubsystemSnapshot.parentId),
+            parentSystemId: String(
+              value.deletedSubsystemSnapshot.parentSystemId,
+            ),
           }
         : {}),
     }));
@@ -553,32 +554,26 @@ function mapMovedDataPort(port: {
   naturalId: number;
   portIoType: string;
   isStatic: boolean;
-  name?: string;
+  name: string | null;
 }) {
   return {
     systemId: String(port.systemId),
     naturalId: port.naturalId,
-    name: port.name ?? '',
+    name: port.name ?? null,
     portIoType: mapPortIoType(port.portIoType),
     portType: port.isStatic ? ('Static' as const) : ('Dynamic' as const),
     totalLinksAtPort: 0,
   };
 }
 
-function mapPortIoType(
-  value: string,
-): 'Input' | 'Output' | 'InputOutput' | 'OutputInput' {
+function mapPortIoType(value: string): 'InputOutput' | 'OutputInput' {
   switch (value) {
-    case 'INPUT':
-      return 'Input';
-    case 'OUTPUT':
-      return 'Output';
     case 'INPUT_OUTPUT':
       return 'InputOutput';
     case 'OUTPUT_INPUT':
       return 'OutputInput';
     default:
-      return value as 'Input' | 'Output' | 'InputOutput' | 'OutputInput';
+      return value as 'InputOutput' | 'OutputInput';
   }
 }
 
@@ -591,7 +586,7 @@ function mapMovedControlPort(port: {
   return {
     systemId: String(port.systemId),
     naturalId: port.naturalId,
-    name: port.name ?? '',
+    name: port.name ?? null,
     portType: port.isStatic ? ('Static' as const) : ('Dynamic' as const),
     totalLinksAtPort: 0,
     intents: [],
@@ -600,9 +595,9 @@ function mapMovedControlPort(port: {
 
 function mapSubsystem(subsystem: {
   systemId: number;
-  naturalId?: number;
+  naturalId: number;
   name: string;
-  parentId?: number;
+  parentSystemId: number | null;
   filteredKeys: Array<{systemId: number; keyId: number; name: string}>;
   dataPorts?: Array<{
     systemId: number;
@@ -627,15 +622,15 @@ function mapSubsystem(subsystem: {
 }) {
   return {
     systemId: String(subsystem.systemId),
-    naturalId: subsystem.naturalId ?? 0,
+    naturalId: subsystem.naturalId,
     name: subsystem.name,
-    ...(subsystem.parentId !== undefined
-      ? {parentSystemId: String(subsystem.parentId)}
+    ...(subsystem.parentSystemId !== null
+      ? {parentSystemId: String(subsystem.parentSystemId)}
       : {}),
     dataPorts: (subsystem.dataPorts ?? []).map(port => ({
       systemId: String(port.systemId),
       naturalId: port.portId,
-      name: port.name ?? '',
+      name: port.name,
       portIoType: mapPortIoType(port.portIoType),
       portType: port.isStatic ? ('Static' as const) : ('Dynamic' as const),
       totalLinksAtPort: port.totalLinksAtPort,
@@ -643,7 +638,7 @@ function mapSubsystem(subsystem: {
     controlPorts: (subsystem.controlPorts ?? []).map(port => ({
       systemId: String(port.systemId),
       naturalId: port.portId,
-      name: port.name ?? '',
+      name: port.name,
       portType: port.isStatic ? ('Static' as const) : ('Dynamic' as const),
       totalLinksAtPort: port.totalLinksAtPort,
       intents: port.allocatedIntents.map(intent => ({

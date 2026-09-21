@@ -2184,7 +2184,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
 
     type ChildNodeRow = {
       systemId?: number;
-      parentSystemId?: number;
+      parentSystemId: number | null;
       type?: string;
       spfModule?: {naturalId?: number};
       subsystem?: {['subsystemId']?: number};
@@ -2205,7 +2205,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
 
     const childrenByParentId = new Map<number, ChildNodeRow[]>();
     for (const child of childNodeRows) {
-      if (child.parentSystemId === undefined) continue;
+      if (child.parentSystemId === null) continue;
       const list = childrenByParentId.get(child.parentSystemId) ?? [];
       list.push(child);
       childrenByParentId.set(child.parentSystemId, list);
@@ -2225,7 +2225,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
           naturalId:
             c.type === 'module'
               ? (c.spfModule?.naturalId ?? 0)
-              : (c.subsystem?.['subsystemId'] ?? 0),
+              : requireSubsystemNaturalId(c.systemId, c.subsystem?.subsystemId),
           type:
             c.type === 'module'
               ? ('Subgraph' as const)
@@ -2233,7 +2233,10 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         }));
       return {
         systemId: ss.systemId,
-        subsystemNaturalId: ss.subsystemId ?? 0,
+        subsystemNaturalId: requireSubsystemNaturalId(
+          ss.systemId,
+          ss.subsystemId,
+        ),
         name: ss.name,
         filteredKeyIds: [],
         children,
@@ -2273,4 +2276,16 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       uiFileExtras,
     };
   }
+}
+
+function requireSubsystemNaturalId(
+  systemId: number | undefined,
+  naturalId: number | null | undefined,
+): number {
+  if (naturalId === null || naturalId === undefined) {
+    throw new Error(
+      `Subsystem ${systemId ?? 'unknown'} is missing subsystem_id.`,
+    );
+  }
+  return naturalId;
 }

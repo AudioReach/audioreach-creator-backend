@@ -23,7 +23,7 @@ export type CreateSubsystemResult = {
   subsystemSystemId: number;
   naturalId: number;
   name: string;
-  parentId?: number;
+  parentSystemId: number | null;
 };
 
 export class CreateSubsystemHandler implements CommandHandler<
@@ -49,28 +49,32 @@ export class CreateSubsystemHandler implements CommandHandler<
     try {
       const subsystems = await this.uow
         .getSubsystemRepository()
-        .findSubsystems(command.fileSystemId);
+        .getSubsystems(command.fileSystemId);
       const normalizedName = command.name?.toLocaleLowerCase();
-      if (
-        normalizedName !== undefined &&
-        subsystems.some(s => s.name.toLocaleLowerCase() === normalizedName)
-      ) {
+      const conflictingSubsystem =
+        normalizedName === undefined
+          ? undefined
+          : subsystems.find(s => s.name.toLocaleLowerCase() === normalizedName);
+      if (conflictingSubsystem !== undefined) {
         throw new DomainRuleViolationException([
-          IssueFactory.duplicateSubsystemName(command.name!),
+          IssueFactory.duplicateSubsystemName(
+            command.name!,
+            conflictingSubsystem.systemId,
+          ),
         ]);
       }
 
-      if (command.parentId !== undefined) {
+      if (command.parentSystemId !== null) {
         const parentExists = subsystems.some(
-          s => s.systemId === command.parentId,
+          s => s.systemId === command.parentSystemId,
         );
         if (!parentExists) {
           throw new ResourceNotFoundException(
-            `Subsystem ${command.parentId} not found.`,
+            `Subsystem ${command.parentSystemId} not found.`,
             [
               IssueFactory.notFound(
                 ISSUE_ENTITY_TYPE.Subsystem,
-                command.parentId,
+                command.parentSystemId,
               ),
             ],
           );
@@ -92,7 +96,7 @@ export class CreateSubsystemHandler implements CommandHandler<
         new Subsystem({
           systemId: subsystemSystemId,
           fileSystemId: command.fileSystemId,
-          parentSystemId: command.parentId,
+          parentSystemId: command.parentSystemId,
           name,
           naturalId: subsystemNaturalId,
           filteredKeySystemIds: [],
@@ -107,7 +111,7 @@ export class CreateSubsystemHandler implements CommandHandler<
         subsystemSystemId,
         naturalId: subsystemNaturalId,
         name,
-        parentId: command.parentId,
+        parentSystemId: command.parentSystemId,
       };
     } catch (error) {
       if (this.uow.isInTransaction()) await this.uow.rollback();

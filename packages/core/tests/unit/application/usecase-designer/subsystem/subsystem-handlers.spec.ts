@@ -39,7 +39,7 @@ function makeSubsystem(overrides: Partial<Subsystem> = {}): Subsystem {
   return new Subsystem({
     systemId: SUBSYSTEM_ID,
     fileSystemId: FILE_ID,
-    parentSystemId: undefined,
+    parentSystemId: null,
     name: 'Subsystem',
     naturalId: 1,
     filteredKeySystemIds: [],
@@ -53,11 +53,10 @@ function makeSubsystemRepository(
   overrides: Record<string, unknown> = {},
 ): SubsystemRepository {
   return {
-    findSubsystems: jest.fn().mockResolvedValue([]),
-    findSubsystemFileSystemId: jest.fn().mockResolvedValue(null),
-    findNodeTopology: jest.fn().mockResolvedValue([]),
-    findSubsystemForPatch: jest.fn().mockResolvedValue(makeSubsystem()),
-    findKeyDefinitionsByIds: jest.fn().mockResolvedValue([]),
+    getSubsystems: jest.fn().mockResolvedValue([]),
+    getAllNodesWithParents: jest.fn().mockResolvedValue([]),
+    getSubsystem: jest.fn().mockResolvedValue(makeSubsystem()),
+    getKeysAssignedToSubsystem: jest.fn().mockResolvedValue([]),
     subsystemExists: jest.fn().mockResolvedValue(true),
     hasSubsystems: jest.fn().mockResolvedValue(true),
     clearControlPortIntents: jest.fn(),
@@ -79,8 +78,8 @@ function makeDataLinkRepository(
 ): DataLinkRepository {
   return {
     getLinksByPortSystemIds: jest.fn().mockResolvedValue([]),
-    findAllWithSegments: jest.fn().mockResolvedValue([]),
-    findSubsystemDataRouteContext: jest.fn().mockResolvedValue({
+    findAllDataLinksWithResolvedSegments: jest.fn().mockResolvedValue([]),
+    findDataLinkRouteContext: jest.fn().mockResolvedValue({
       subsystemDataLinks: [],
       nodeTypeBySystemId: new Map(),
     }),
@@ -96,8 +95,8 @@ function makeControlLinkRepository(
 ): ControlLinkRepository {
   return {
     getLinksByPortSystemIds: jest.fn().mockResolvedValue([]),
-    findAllWithSegments: jest.fn().mockResolvedValue([]),
-    findSubsystemControlRouteContext: jest.fn().mockResolvedValue({
+    findAllControlLinksWithResolvedSegments: jest.fn().mockResolvedValue([]),
+    findControlLinkRouteContext: jest.fn().mockResolvedValue({
       subsystemControlLinks: [],
       nodeTypeBySystemId: new Map(),
     }),
@@ -145,7 +144,6 @@ function makeUow(
       ...options.moduleRepository,
     }),
     getSubgraphRepository: jest.fn().mockReturnValue({
-      findSubgraphFileSystemId: jest.fn().mockResolvedValue(null),
       subgraphExists: jest.fn().mockResolvedValue(true),
       ...options.subgraphRepository,
     }),
@@ -193,7 +191,7 @@ describe('CreateSubsystemHandler', () => {
     );
 
     const result = await handler.handle(
-      new CreateSubsystemCommand(FILE_ID, undefined, undefined),
+      new CreateSubsystemCommand(FILE_ID, undefined, null),
     );
 
     expect(result).toMatchObject({
@@ -208,7 +206,7 @@ describe('CreateSubsystemHandler', () => {
 
   it('rejects duplicate names', async () => {
     const repository = makeSubsystemRepository({
-      findSubsystems: jest
+      getSubsystems: jest
         .fn()
         .mockResolvedValue([{systemId: 1, name: 'Existing'}]),
     });
@@ -220,9 +218,7 @@ describe('CreateSubsystemHandler', () => {
     );
 
     await expect(
-      handler.handle(
-        new CreateSubsystemCommand(FILE_ID, 'existing', undefined),
-      ),
+      handler.handle(new CreateSubsystemCommand(FILE_ID, 'existing', null)),
     ).rejects.toThrow('already in use');
     expect(uow.rollback).toHaveBeenCalledTimes(1);
   });
@@ -231,20 +227,22 @@ describe('CreateSubsystemHandler', () => {
 describe('DeleteSubsystemHandler', () => {
   it('rejects a subsystem that still has children', async () => {
     const repository = makeSubsystemRepository({
-      findSubsystems: jest.fn().mockResolvedValue([
+      getSubsystems: jest.fn().mockResolvedValue([
         {
           systemId: SUBSYSTEM_ID,
           naturalId: 1,
           name: 'Parent',
-          parentId: undefined,
-          subgraphSystemIds: [],
+          parentSystemId: null,
+          moduleSystemIds: [],
+          subsystemSystemIds: [],
         },
         {
           systemId: 101,
           naturalId: 2,
           name: 'Child',
-          parentId: SUBSYSTEM_ID,
-          subgraphSystemIds: [],
+          parentSystemId: SUBSYSTEM_ID,
+          moduleSystemIds: [],
+          subsystemSystemIds: [],
         },
       ]),
     });
@@ -260,13 +258,14 @@ describe('DeleteSubsystemHandler', () => {
 
   it('deletes an empty subsystem and returns its snapshot', async () => {
     const repository = makeSubsystemRepository({
-      findSubsystems: jest.fn().mockResolvedValue([
+      getSubsystems: jest.fn().mockResolvedValue([
         {
           systemId: SUBSYSTEM_ID,
           naturalId: 1,
           name: 'Empty',
-          parentId: undefined,
-          subgraphSystemIds: [],
+          parentSystemId: null,
+          moduleSystemIds: [],
+          subsystemSystemIds: [],
         },
       ]),
     });
@@ -288,7 +287,7 @@ describe('DeleteSubsystemHandler', () => {
 describe('SetSubsystemFilteredKeysHandler', () => {
   it('rejects a missing key definition', async () => {
     const repository = makeSubsystemRepository({
-      findKeyDefinitionsByIds: jest.fn().mockResolvedValue([]),
+      getKeysAssignedToSubsystem: jest.fn().mockResolvedValue([]),
     });
     const uow = makeUow({subsystemRepository: repository});
 
@@ -303,7 +302,7 @@ describe('SetSubsystemFilteredKeysHandler', () => {
   it('sets valid filtered keys and returns them', async () => {
     const keys = [{systemId: 500, keyId: 9, name: 'Mode'}];
     const repository = makeSubsystemRepository({
-      findKeyDefinitionsByIds: jest.fn().mockResolvedValue(keys),
+      getKeysAssignedToSubsystem: jest.fn().mockResolvedValue(keys),
     });
     const uow = makeUow({subsystemRepository: repository});
 
@@ -361,7 +360,7 @@ describe('PatchSubsystemHandler', () => {
       }),
     ];
     const repository = makeSubsystemRepository({
-      findSubsystemForPatch: jest
+      getSubsystem: jest
         .fn()
         .mockResolvedValue(makeSubsystem({dataPorts: ports})),
     });
@@ -405,25 +404,27 @@ describe('MoveSubsystemComponentsHandler', () => {
 
   it('moves a subsystem and returns empty impact collections when wiring is unchanged', async () => {
     const repository = makeSubsystemRepository({
-      findSubsystems: jest.fn().mockResolvedValue([
+      getSubsystems: jest.fn().mockResolvedValue([
         {
           systemId: SUBSYSTEM_ID,
           naturalId: 1,
           name: 'Source',
-          parentId: undefined,
-          subgraphSystemIds: [],
+          parentSystemId: null,
+          moduleSystemIds: [],
+          subsystemSystemIds: [],
         },
         {
           systemId: 200,
           naturalId: 2,
           name: 'Target',
-          parentId: undefined,
-          subgraphSystemIds: [],
+          parentSystemId: null,
+          moduleSystemIds: [],
+          subsystemSystemIds: [],
         },
       ]),
-      findNodeTopology: jest.fn().mockResolvedValue([
-        {systemId: SUBSYSTEM_ID, parentId: null, type: 'subsystem'},
-        {systemId: 200, parentId: null, type: 'subsystem'},
+      getAllNodesWithParents: jest.fn().mockResolvedValue([
+        {systemId: SUBSYSTEM_ID, parentSystemId: null, type: 'subsystem'},
+        {systemId: 200, parentSystemId: null, type: 'subsystem'},
       ]),
     });
     const uow = makeUow({subsystemRepository: repository});
@@ -446,24 +447,27 @@ describe('MoveSubsystemComponentsHandler', () => {
     const targetSubsystem = makeSubsystem({systemId: 200});
     const dataLink = makeDataLink(700, 1, 2);
     const repository = makeSubsystemRepository({
-      findSubsystems: jest.fn().mockResolvedValue([
+      getSubsystems: jest.fn().mockResolvedValue([
         {
           systemId: 200,
           naturalId: 2,
           name: 'Target',
-          parentId: undefined,
-          subgraphSystemIds: [],
+          parentSystemId: null,
+          moduleSystemIds: [],
+          subsystemSystemIds: [],
         },
       ]),
-      findNodeTopology: jest.fn().mockResolvedValue([
-        {systemId: 1, parentId: null, type: 'module'},
-        {systemId: 2, parentId: null, type: 'module'},
-        {systemId: 200, parentId: null, type: 'subsystem'},
+      getAllNodesWithParents: jest.fn().mockResolvedValue([
+        {systemId: 1, parentSystemId: null, type: 'module'},
+        {systemId: 2, parentSystemId: null, type: 'module'},
+        {systemId: 200, parentSystemId: null, type: 'subsystem'},
       ]),
-      findSubsystemForPatch: jest.fn().mockResolvedValue(targetSubsystem),
+      getSubsystem: jest.fn().mockResolvedValue(targetSubsystem),
     });
     const dataLinks = makeDataLinkRepository({
-      findAllWithSegments: jest.fn().mockResolvedValue([dataLink]),
+      findAllDataLinksWithResolvedSegments: jest
+        .fn()
+        .mockResolvedValue([dataLink]),
     });
     const modules = {
       findModulesBySubgraphIds: jest.fn().mockResolvedValue([{systemId: 1}]),
@@ -499,23 +503,22 @@ describe('MoveSubsystemComponentsHandler', () => {
 
   it('does not rebuild paths when moved modules have no links', async () => {
     const repository = makeSubsystemRepository({
-      findSubsystems: jest.fn().mockResolvedValue([
+      getSubsystems: jest.fn().mockResolvedValue([
         {
           systemId: 200,
           naturalId: 2,
           name: 'Target',
-          parentId: undefined,
-          subgraphSystemIds: [],
+          parentSystemId: null,
+          moduleSystemIds: [],
+          subsystemSystemIds: [],
         },
       ]),
-      findNodeTopology: jest.fn().mockResolvedValue([
-        {systemId: 1, parentId: null, type: 'module'},
-        {systemId: 2, parentId: null, type: 'module'},
-        {systemId: 200, parentId: null, type: 'subsystem'},
+      getAllNodesWithParents: jest.fn().mockResolvedValue([
+        {systemId: 1, parentSystemId: null, type: 'module'},
+        {systemId: 2, parentSystemId: null, type: 'module'},
+        {systemId: 200, parentSystemId: null, type: 'subsystem'},
       ]),
-      findSubsystemForPatch: jest
-        .fn()
-        .mockResolvedValue(makeSubsystem({systemId: 200})),
+      getSubsystem: jest.fn().mockResolvedValue(makeSubsystem({systemId: 200})),
     });
     const dataLinks = makeDataLinkRepository();
     const modules = {
@@ -545,36 +548,41 @@ describe('MoveSubsystemComponentsHandler', () => {
         systemId: 101,
         naturalId: 1,
         name: 'SS1',
-        parentId: 102,
-        subgraphSystemIds: [],
+        parentSystemId: 102,
+        moduleSystemIds: [],
+        subsystemSystemIds: [],
       },
       {
         systemId: 102,
         naturalId: 2,
         name: 'SS2',
-        parentId: undefined,
-        subgraphSystemIds: [],
+        parentSystemId: null,
+        moduleSystemIds: [],
+        subsystemSystemIds: [],
       },
       {
         systemId: 103,
         naturalId: 3,
         name: 'SS3',
-        parentId: 104,
-        subgraphSystemIds: [],
+        parentSystemId: 104,
+        moduleSystemIds: [],
+        subsystemSystemIds: [],
       },
       {
         systemId: 104,
         naturalId: 4,
         name: 'SS4',
-        parentId: undefined,
-        subgraphSystemIds: [],
+        parentSystemId: null,
+        moduleSystemIds: [],
+        subsystemSystemIds: [],
       },
       {
         systemId: 105,
         naturalId: 5,
         name: 'SS5',
-        parentId: undefined,
-        subgraphSystemIds: [],
+        parentSystemId: null,
+        moduleSystemIds: [],
+        subsystemSystemIds: [],
       },
     ];
     const movedConnection = makeDataLink(801, 201, 204, [
@@ -616,47 +624,47 @@ describe('MoveSubsystemComponentsHandler', () => {
       }),
     ]);
     const repository = makeSubsystemRepository({
-      findSubsystems: jest.fn().mockResolvedValue(subsystems),
-      findNodeTopology: jest.fn().mockResolvedValue([
-        {systemId: 101, parentId: 102, type: 'subsystem'},
-        {systemId: 102, parentId: null, type: 'subsystem'},
-        {systemId: 103, parentId: 104, type: 'subsystem'},
-        {systemId: 104, parentId: null, type: 'subsystem'},
-        {systemId: 105, parentId: null, type: 'subsystem'},
-        {systemId: 201, parentId: 101, type: 'module'},
-        {systemId: 204, parentId: 104, type: 'module'},
+      getSubsystems: jest.fn().mockResolvedValue(subsystems),
+      getAllNodesWithParents: jest.fn().mockResolvedValue([
+        {systemId: 101, parentSystemId: 102, type: 'subsystem'},
+        {systemId: 102, parentSystemId: null, type: 'subsystem'},
+        {systemId: 103, parentSystemId: 104, type: 'subsystem'},
+        {systemId: 104, parentSystemId: null, type: 'subsystem'},
+        {systemId: 105, parentSystemId: null, type: 'subsystem'},
+        {systemId: 201, parentSystemId: 101, type: 'module'},
+        {systemId: 204, parentSystemId: 104, type: 'module'},
       ]),
-      findSubsystemForPatch: jest
-        .fn()
-        .mockImplementation(async (systemId: number) => {
-          const subsystem = makeSubsystem({systemId});
-          if (systemId === 101) {
-            subsystem.dataPorts.push(
-              new DataPort({
-                systemId: 3,
-                naturalId: 1,
-                portIoType: PORT_IO_TYPE.OutputInput,
-                isStatic: false,
-                name: 'SS1 data',
-              }),
-            );
-          }
-          if (systemId === 102) {
-            subsystem.dataPorts.push(
-              new DataPort({
-                systemId: 5,
-                naturalId: 1,
-                portIoType: PORT_IO_TYPE.OutputInput,
-                isStatic: false,
-                name: 'SS2 data',
-              }),
-            );
-          }
-          return subsystem;
-        }),
+      getSubsystem: jest.fn().mockImplementation(async (systemId: number) => {
+        const subsystem = makeSubsystem({systemId});
+        if (systemId === 101) {
+          subsystem.dataPorts.push(
+            new DataPort({
+              systemId: 3,
+              naturalId: 1,
+              portIoType: PORT_IO_TYPE.OutputInput,
+              isStatic: false,
+              name: 'SS1 data',
+            }),
+          );
+        }
+        if (systemId === 102) {
+          subsystem.dataPorts.push(
+            new DataPort({
+              systemId: 5,
+              naturalId: 1,
+              portIoType: PORT_IO_TYPE.OutputInput,
+              isStatic: false,
+              name: 'SS2 data',
+            }),
+          );
+        }
+        return subsystem;
+      }),
     });
     const dataLinks = makeDataLinkRepository({
-      findAllWithSegments: jest.fn().mockResolvedValue([movedConnection]),
+      findAllDataLinksWithResolvedSegments: jest
+        .fn()
+        .mockResolvedValue([movedConnection]),
     });
     const uow = makeUow({
       subsystemRepository: repository,
@@ -700,29 +708,33 @@ describe('MoveSubsystemComponentsHandler', () => {
         systemId: 101,
         naturalId: 1,
         name: 'SS1',
-        parentId: 102,
-        subgraphSystemIds: [],
+        parentSystemId: 102,
+        moduleSystemIds: [],
+        subsystemSystemIds: [],
       },
       {
         systemId: 102,
         naturalId: 2,
         name: 'SS2',
-        parentId: undefined,
-        subgraphSystemIds: [],
+        parentSystemId: null,
+        moduleSystemIds: [],
+        subsystemSystemIds: [],
       },
       {
         systemId: 104,
         naturalId: 4,
         name: 'SS4',
-        parentId: undefined,
-        subgraphSystemIds: [],
+        parentSystemId: null,
+        moduleSystemIds: [],
+        subsystemSystemIds: [],
       },
       {
         systemId: 105,
         naturalId: 5,
         name: 'SS5',
-        parentId: undefined,
-        subgraphSystemIds: [],
+        parentSystemId: null,
+        moduleSystemIds: [],
+        subsystemSystemIds: [],
       },
     ];
     const unresolvedSegments = [
@@ -755,45 +767,43 @@ describe('MoveSubsystemComponentsHandler', () => {
       }),
     ];
     const repository = makeSubsystemRepository({
-      findSubsystems: jest.fn().mockResolvedValue(subsystems),
-      findNodeTopology: jest.fn().mockResolvedValue([
-        {systemId: 201, parentId: 101, type: 'module'},
-        {systemId: 101, parentId: 102, type: 'subsystem'},
-        {systemId: 102, parentId: null, type: 'subsystem'},
-        {systemId: 104, parentId: null, type: 'subsystem'},
-        {systemId: 105, parentId: null, type: 'subsystem'},
+      getSubsystems: jest.fn().mockResolvedValue(subsystems),
+      getAllNodesWithParents: jest.fn().mockResolvedValue([
+        {systemId: 201, parentSystemId: 101, type: 'module'},
+        {systemId: 101, parentSystemId: 102, type: 'subsystem'},
+        {systemId: 102, parentSystemId: null, type: 'subsystem'},
+        {systemId: 104, parentSystemId: null, type: 'subsystem'},
+        {systemId: 105, parentSystemId: null, type: 'subsystem'},
       ]),
-      findSubsystemForPatch: jest
-        .fn()
-        .mockImplementation(async (systemId: number) => {
-          const subsystem = makeSubsystem({systemId});
-          if (systemId === 101) {
-            subsystem.dataPorts.push(
-              new DataPort({
-                systemId: 3,
-                naturalId: 1,
-                portIoType: PORT_IO_TYPE.OutputInput,
-                isStatic: false,
-                name: 'SS1 data',
-              }),
-            );
-          }
-          if (systemId === 102) {
-            subsystem.dataPorts.push(
-              new DataPort({
-                systemId: 5,
-                naturalId: 1,
-                portIoType: PORT_IO_TYPE.OutputInput,
-                isStatic: false,
-                name: 'SS2 data',
-              }),
-            );
-          }
-          return subsystem;
-        }),
+      getSubsystem: jest.fn().mockImplementation(async (systemId: number) => {
+        const subsystem = makeSubsystem({systemId});
+        if (systemId === 101) {
+          subsystem.dataPorts.push(
+            new DataPort({
+              systemId: 3,
+              naturalId: 1,
+              portIoType: PORT_IO_TYPE.OutputInput,
+              isStatic: false,
+              name: 'SS1 data',
+            }),
+          );
+        }
+        if (systemId === 102) {
+          subsystem.dataPorts.push(
+            new DataPort({
+              systemId: 5,
+              naturalId: 1,
+              portIoType: PORT_IO_TYPE.OutputInput,
+              isStatic: false,
+              name: 'SS2 data',
+            }),
+          );
+        }
+        return subsystem;
+      }),
     });
     const dataLinks = makeDataLinkRepository({
-      findSubsystemDataRouteContext: jest.fn().mockResolvedValue({
+      findDataLinkRouteContext: jest.fn().mockResolvedValue({
         subsystemDataLinks: unresolvedSegments,
         nodeTypeBySystemId: new Map([
           [201, 'module'],
@@ -842,35 +852,38 @@ describe('MoveSubsystemComponentsHandler', () => {
 
   it('partially moves valid subsystems and reports root-to-root no-ops', async () => {
     const repository = makeSubsystemRepository({
-      findSubsystems: jest.fn().mockResolvedValue([
+      getSubsystems: jest.fn().mockResolvedValue([
         {
           systemId: 100,
           naturalId: 1,
           name: 'AlreadyRoot',
-          parentId: undefined,
-          subgraphSystemIds: [],
+          parentSystemId: null,
+          moduleSystemIds: [],
+          subsystemSystemIds: [],
         },
         {
           systemId: 101,
           naturalId: 2,
           name: 'Nested',
-          parentId: 200,
-          subgraphSystemIds: [],
+          parentSystemId: 200,
+          moduleSystemIds: [],
+          subsystemSystemIds: [],
         },
         {
           systemId: 200,
           naturalId: 3,
           name: 'Parent',
-          parentId: undefined,
-          subgraphSystemIds: [],
+          parentSystemId: null,
+          moduleSystemIds: [],
+          subsystemSystemIds: [],
         },
       ]),
-      findNodeTopology: jest.fn().mockResolvedValue([
-        {systemId: 100, parentId: null, type: 'subsystem'},
-        {systemId: 101, parentId: 200, type: 'subsystem'},
-        {systemId: 200, parentId: null, type: 'subsystem'},
+      getAllNodesWithParents: jest.fn().mockResolvedValue([
+        {systemId: 100, parentSystemId: null, type: 'subsystem'},
+        {systemId: 101, parentSystemId: 200, type: 'subsystem'},
+        {systemId: 200, parentSystemId: null, type: 'subsystem'},
       ]),
-      findSubsystemForPatch: jest
+      getSubsystem: jest
         .fn()
         .mockImplementation(async (systemId: number) =>
           makeSubsystem({systemId}),
@@ -895,19 +908,20 @@ describe('MoveSubsystemComponentsHandler', () => {
 
   it('rejects an all-invalid root-to-root move', async () => {
     const repository = makeSubsystemRepository({
-      findSubsystems: jest.fn().mockResolvedValue([
+      getSubsystems: jest.fn().mockResolvedValue([
         {
           systemId: 100,
           naturalId: 1,
           name: 'AlreadyRoot',
-          parentId: undefined,
-          subgraphSystemIds: [],
+          parentSystemId: null,
+          moduleSystemIds: [],
+          subsystemSystemIds: [],
         },
       ]),
-      findNodeTopology: jest
+      getAllNodesWithParents: jest
         .fn()
         .mockResolvedValue([
-          {systemId: 100, parentId: null, type: 'subsystem'},
+          {systemId: 100, parentSystemId: null, type: 'subsystem'},
         ]),
     });
     const uow = makeUow({subsystemRepository: repository});
@@ -925,20 +939,14 @@ describe('MoveSubsystemComponentsHandler', () => {
     expect(uow.commit).not.toHaveBeenCalled();
   });
 
-  it('reports a component from another file as a domain violation', async () => {
-    const repository = makeSubsystemRepository({
-      findSubsystemFileSystemId: jest.fn().mockResolvedValue(99),
-    });
+  it('reports a subsystem outside the active file as not found', async () => {
+    const repository = makeSubsystemRepository();
     const uow = makeUow({subsystemRepository: repository});
 
     await expect(
       new MoveSubsystemComponentsHandler(uow, makeIdGeneration()).handle(
         new MoveSubsystemComponentsCommand(FILE_ID, [], [777], null),
       ),
-    ).rejects.toMatchObject({
-      issues: expect.arrayContaining([
-        expect.objectContaining({code: 'ENTITY_WRONG_FILE'}),
-      ]),
-    });
+    ).rejects.toThrow('Subsystem 777 not found.');
   });
 });

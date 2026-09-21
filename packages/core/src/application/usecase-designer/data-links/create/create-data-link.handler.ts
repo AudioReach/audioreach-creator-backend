@@ -116,8 +116,10 @@ export class CreateDataLinkHandler implements CommandHandler<
         dstSubgraphId,
         fileSystemId,
       );
-      const nodeParentMap =
-        await subsystemRepo.getAllNodesWithParents(fileSystemId);
+      const nodes = await subsystemRepo.getAllNodesWithParents(fileSystemId);
+      const nodeParentMap = new Map(
+        nodes.map(node => [node.systemId, node.parentSystemId]),
+      );
       const segments = SubsystemBoundaryPathService.compute({
         sourceNodeSystemId: srcModuleId,
         destinationNodeSystemId: dstModuleId,

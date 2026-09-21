@@ -252,10 +252,9 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
       linkedEntityGroupId: null,
     });
 
-    const result = await makeRepo(
-      qr,
-      sessionId,
-    ).findSubsystemControlRouteContext(FILE_ID);
+    const result = await makeRepo(qr, sessionId).findControlLinkRouteContext(
+      FILE_ID,
+    );
 
     expect(result.subsystemControlLinks).toHaveLength(1);
     expect(result.subsystemControlLinks[0].systemId).toBe(801);

@@ -36,7 +36,7 @@ export interface DataLinkRepository {
     fileSystemId: number,
   ): Promise<SubsystemDataLink[]>;
 
-  findSubsystemDataRouteContext(
+  findDataLinkRouteContext(
     fileSystemId: number,
   ): Promise<SubsystemDataRouteContext>;
 
@@ -103,7 +103,9 @@ export interface DataLinkRepository {
    */
   findIntraUcLinksByFile(fileSystemId: number): Promise<DataLink[]>;
 
-  findAllWithSegments(fileSystemId: number): Promise<DataLink[]>;
+  findAllDataLinksWithResolvedSegments(
+    fileSystemId: number,
+  ): Promise<DataLink[]>;
 
   replaceSubsystemDataLinkSegments(
     dataLinkSystemId: number,

@@ -166,7 +166,7 @@ describe('TypeOrmSubsystemRepository (integration)', () => {
   });
 
   it('returns effective subsystem summaries with hierarchy parents', async () => {
-    const summaries = await makeRepo(qr.manager, sessionId).findSubsystems(
+    const summaries = await makeRepo(qr.manager, sessionId).getSubsystems(
       FILE_ID,
     );
 
@@ -176,15 +176,17 @@ describe('TypeOrmSubsystemRepository (integration)', () => {
           systemId: ROOT_SUBSYSTEM_ID,
           naturalId: 1,
           name: 'Root',
-          parentId: undefined,
-          subgraphSystemIds: [],
+          parentSystemId: null,
+          moduleSystemIds: [],
+          subsystemSystemIds: [CHILD_SUBSYSTEM_ID],
         }),
         expect.objectContaining({
           systemId: CHILD_SUBSYSTEM_ID,
           naturalId: 2,
           name: 'Child',
-          parentId: ROOT_SUBSYSTEM_ID,
-          subgraphSystemIds: [],
+          parentSystemId: ROOT_SUBSYSTEM_ID,
+          moduleSystemIds: [MODULE_ID],
+          subsystemSystemIds: [],
         }),
       ]),
     );
@@ -192,16 +194,20 @@ describe('TypeOrmSubsystemRepository (integration)', () => {
 
   it('returns session-aware node topology', async () => {
     const repo = makeRepo(qr.manager, sessionId);
-    const before = await repo.findNodeTopology(FILE_ID);
+    const before = await repo.getAllNodesWithParents(FILE_ID);
     expect(before).toEqual(
       expect.arrayContaining([
-        {systemId: ROOT_SUBSYSTEM_ID, parentId: null, type: 'subsystem'},
+        {systemId: ROOT_SUBSYSTEM_ID, parentSystemId: null, type: 'subsystem'},
         {
           systemId: CHILD_SUBSYSTEM_ID,
-          parentId: ROOT_SUBSYSTEM_ID,
+          parentSystemId: ROOT_SUBSYSTEM_ID,
           type: 'subsystem',
         },
-        {systemId: MODULE_ID, parentId: CHILD_SUBSYSTEM_ID, type: 'module'},
+        {
+          systemId: MODULE_ID,
+          parentSystemId: CHILD_SUBSYSTEM_ID,
+          type: 'module',
+        },
       ]),
     );
 
@@ -217,18 +223,15 @@ describe('TypeOrmSubsystemRepository (integration)', () => {
       qr.manager,
     );
 
-    const after = await repo.findNodeTopology(FILE_ID);
-    expect(after.find(row => row.systemId === MODULE_ID)?.parentId).toBe(
+    const after = await repo.getAllNodesWithParents(FILE_ID);
+    expect(after.find(row => row.systemId === MODULE_ID)?.parentSystemId).toBe(
       ROOT_SUBSYSTEM_ID,
     );
   });
 
   it('loads subsystem ports and applies staged port changes', async () => {
     const repo = makeRepo(qr.manager, sessionId);
-    const subsystem = await repo.findSubsystemForPatch(
-      ROOT_SUBSYSTEM_ID,
-      FILE_ID,
-    );
+    const subsystem = await repo.getSubsystem(ROOT_SUBSYSTEM_ID, FILE_ID);
     expect(subsystem).toBeInstanceOf(Subsystem);
     expect(subsystem?.dataPorts).toHaveLength(1);
     expect(subsystem?.dataPorts[0].systemId).toBe(EXISTING_DATA_PORT_ID);
@@ -246,10 +249,7 @@ describe('TypeOrmSubsystemRepository (integration)', () => {
       ROOT_SUBSYSTEM_ID,
     );
 
-    const updated = await repo.findSubsystemForPatch(
-      ROOT_SUBSYSTEM_ID,
-      FILE_ID,
-    );
+    const updated = await repo.getSubsystem(ROOT_SUBSYSTEM_ID, FILE_ID);
     expect(updated?.dataPorts.map(port => port.systemId)).toEqual(
       expect.arrayContaining([EXISTING_DATA_PORT_ID, 1002]),
     );
