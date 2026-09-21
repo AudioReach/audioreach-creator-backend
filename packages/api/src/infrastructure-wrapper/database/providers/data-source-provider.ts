@@ -80,7 +80,6 @@ export class DataSourceProvider implements OnModuleInit, OnModuleDestroy {
 
   async onModuleDestroy() {
     if (this.instance) {
-      this.logInfo('Closing DataSource connection...');
       await this.instance.destroy();
       this.instance = null;
     }

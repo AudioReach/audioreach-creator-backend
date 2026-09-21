@@ -7,6 +7,7 @@ import {NestFactory} from '@nestjs/core';
 import {DocumentBuilder, SwaggerModule} from '@nestjs/swagger';
 import {writeFileSync, mkdirSync} from 'node:fs';
 import {cleanupOpenApiDoc} from 'nestjs-zod';
+import {SQLiteTransport} from '@arc/logger';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {AppModule} from '../app.module.js';
@@ -76,6 +77,9 @@ async function generateSwaggerJson(): Promise<void> {
   } finally {
     // Ensure the application is properly closed
     if (app) {
+      // Pino writes to SQLite asynchronously. Flush before Nest destroys the
+      // logging datasource, otherwise pending writes use a closed handle.
+      await app.get(SQLiteTransport).flush();
       console.log('🔄 Closing NestJS application...');
       await app.close();
     }
