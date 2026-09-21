@@ -5,7 +5,7 @@
 
 import {
   Controller,
-  Post,
+  BadRequestException,
   Get,
   Put,
   Body,
@@ -14,8 +14,9 @@ import {
   UseGuards,
   HttpStatus,
   ParseIntPipe,
+  Query,
 } from '@nestjs/common';
-import {ApiTags, ApiParam, ApiExtraModels} from '@nestjs/swagger';
+import {ApiTags, ApiParam, ApiExtraModels, ApiQuery} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
 import {AuthGuard} from '@nestjs/passport';
 import {ClientId} from '../../../../decorators/client-id.decorator.js';
@@ -23,7 +24,6 @@ import {
   ContainerPropertiesResponseDto,
   ContainerResponseDto,
 } from './dto/container-response.dto.js';
-import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {ConfigElementDto} from '../../common/dto/element-data/elements/config-element/config-element.dto.js';
 import {ElementTemplateArrayDto} from '../../common/dto/element-data/elements/element-template-array.dto.js';
 import {StructDto} from '../../common/dto/element-data/elements/struct.dto.js';
@@ -91,12 +91,20 @@ export class ContainerController extends BaseController {
   }
 
   /**
-   * Query containers.
+   * Get containers, optionally filtered by system IDs.
    */
-  @Post('query')
+  @Get()
+  @ApiQuery({
+    name: 'systemId',
+    required: false,
+    type: String,
+    description: 'Optional comma-separated container system IDs',
+    example: '401,402',
+  })
   @ApiDocumentationWithExample({
-    summary: 'Query containers for provided systemIds',
-    requestDto: SystemIdsRequestDto,
+    summary: 'Get containers, optionally filtered by system IDs',
+    description:
+      'Returns all containers when systemId is omitted, or only the requested containers when systemId is provided.',
     responses: [
       {
         status: HttpStatus.OK,
@@ -121,12 +129,30 @@ export class ContainerController extends BaseController {
   })
   async queryContainers(
     @Param('projectId') projectId: string,
-    @Body() _request: SystemIdsRequestDto,
+    @Query('systemId') systemId: string | undefined,
     @ClientId() clientId: string,
   ): Promise<ApiResult<ContainerResponseDto[]>> {
+    if (systemId !== undefined && !systemId.trim()) {
+      throw new BadRequestException(
+        'systemId query parameter cannot be empty when provided',
+      );
+    }
+
+    const systemIds = systemId
+      ?.split(',')
+      .map(id => id.trim())
+      .filter(Boolean)
+      .map(id => {
+        const parsed = Number.parseInt(id, 10);
+        if (Number.isNaN(parsed)) {
+          throw new BadRequestException(`Invalid container system ID: ${id}`);
+        }
+        return parsed;
+      });
     const query = new ContainerQuery(
       Number.parseInt(projectId, 10), // radix 10 guards against octal misparse
       clientId,
+      systemIds,
     );
 
     const result = await this.queryBus.execute<Result<ContainerDto[]>>(query);

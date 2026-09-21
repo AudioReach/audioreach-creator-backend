@@ -20,8 +20,6 @@ import {
 import {ApiTags, ApiParam} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
 import {AuthGuard} from '@nestjs/passport';
-import {SystemIdsRequestDto} from '../../common/dto/index.js';
-import {ComponentsResponseDto} from '../../common/dto/component-collection-response.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
@@ -34,7 +32,6 @@ import {CreateSubsystemResponseDto} from './dto/response/create-subsystem-respon
 import {DeleteSubsystemResponseDto} from './dto/response/delete-subsystem-response.dto.js';
 import {UpdateSubsystemResponseDto} from './dto/response/update-subsystem-response.dto.js';
 import {UpdateSubsystemFilteredKeysResponseDto} from './dto/response/update-subsystem-filtered-keys-response.dto.js';
-import {SubsystemResponseDto} from './dto/response/subsystem-response.dto.js';
 
 /**
  * Controller to support all Subsystem related APIs for usecase design.
@@ -56,109 +53,6 @@ export class SubsystemController extends BaseController {
   }
 
   //#region POST
-
-  //#region Query subsystems
-
-  /**
-   * Query subsystems for system ids
-   */
-  @Post('query')
-  @ApiDocumentationWithExample({
-    summary: 'Query subsystems for provided systemIds',
-    requestDto: SystemIdsRequestDto,
-    requestDtoDescription: 'List of subsystem system ids',
-
-    responses: [
-      {
-        status: HttpStatus.OK,
-        description: 'All subsystems found successfully',
-        dto: [SubsystemResponseDto],
-      },
-      {
-        status: HttpStatus.MULTI_STATUS,
-        description:
-          'Partial success — some subsystems could not be retrieved (see errors array)',
-        dto: [SubsystemResponseDto],
-      },
-      {
-        status: HttpStatus.NOT_FOUND,
-        description: 'Project not found',
-      },
-      {
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
-        description: 'Failed to get subsystems',
-      },
-    ],
-  })
-  async querySubsystems(
-    @Param('projectId') projectId: string,
-    @Body() subsystemSystemIds: SystemIdsRequestDto,
-  ): Promise<ApiResult<SubsystemResponseDto[]>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      `Getting subsystems in project ${projectId}: ${JSON.stringify(subsystemSystemIds)}`,
-    );
-    throw new NotImplementedException('querySubsystems is not implemented yet');
-  }
-
-  //#endregion
-
-  //#region Query components in subsystem
-
-  /**
-   * Get all top level components (in case of multiple layers) in a subsystem for provided usecases.
-   * @param subsystemId - subsystem id
-   * @param usecaseIds - usecase ids. If not provided, components in a subsystem for all usecases will be returned.
-   * @returns List of components in the subsystem
-   */
-  @Post(':subsystemSystemId/components/query')
-  @ApiParam({
-    name: 'subsystemSystemId',
-    required: true,
-    description: 'Subsystem system ID',
-    type: Number,
-  })
-  @ApiDocumentationWithExample({
-    summary:
-      'Get all top level components in a subsystem for provided usecases',
-    requestDto: SystemIdsRequestDto,
-    requestDtoDescription:
-      'List of system ids for usecases. Optional.\n\n' +
-      'If provided, only top level components in the subystem for these usecases will be returned.\n\n' +
-      'Otherwise, all top level of components in the subsystem will be returned.',
-    requestRequired: false,
-
-    responses: [
-      {
-        status: HttpStatus.OK,
-        description: 'Success',
-        dto: ComponentsResponseDto,
-      },
-      {
-        status: HttpStatus.NOT_FOUND,
-        description: 'Project or subsystem not found',
-      },
-      {
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
-        description: 'Failed to get components in subsystem)',
-      },
-    ],
-  })
-  async queryComponentsInSubsystem(
-    @Param('projectId') projectId: string,
-    @Param('subsystemSystemId') subsystemSystemId: string,
-    @Body() usecaseSystemIds?: SystemIdsRequestDto,
-  ): Promise<ApiResult<ComponentsResponseDto>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      `Getting components for subgraph ${subsystemSystemId} in project ${projectId} with optional usecase system ids: ${JSON.stringify(usecaseSystemIds)}`,
-    );
-    throw new NotImplementedException(
-      'queryComponentsInSubsystem is not implemented yet',
-    );
-  }
-
-  //#endregion
 
   //#region Create subsystem
 

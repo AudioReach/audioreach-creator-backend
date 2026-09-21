@@ -13,7 +13,7 @@ import {Result, RESULT_KIND} from '../../../shared/result/result.js';
  * Handles ContainerQuery.
  *
  * Step 1: Resolve projectId → fileSystemId via ProjectQueryService
- * Step 2: Load all containers via ContainerQueryService.getAllContainers()
+ * Step 2: Load all or selected containers via ContainerQueryService.getAllContainers()
  * Step 3: Map each ContainerReadModel to ContainerDto (ReadModel stays internal)
  */
 export class ContainerQueryHandler implements QueryHandler<
@@ -31,6 +31,7 @@ export class ContainerQueryHandler implements QueryHandler<
     const readModels =
       await this.queryServices.containerQueryService.getAllContainers(
         fileSystemId,
+        query.systemIds,
       );
 
     if (readModels.kind === RESULT_KIND.Fail) return readModels;

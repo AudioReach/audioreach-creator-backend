@@ -29,7 +29,6 @@ import {CkvCalDataResponseDto} from '../../common/dto/tuning-data/ckv-cal-data-r
 
 import {UpdateTkvRequestDto} from './dto/request/update-tkv-request.dto.js';
 import {TkvCalDataResponseDto} from '../../common/dto/tuning-data/tkv-cal-data-response.dto.js';
-import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {
   CreateSpfModuleRequestDto,
   CloneSpfModuleRequestDto,
@@ -141,10 +140,17 @@ export class SpfModuleController extends BaseController {
   }
 
   /**
-   * Query SPF modules with optional data inclusion.
+   * Get SPF modules with optional data inclusion.
    */
-  @Post('query')
+  @Get()
   @HttpCode(HttpStatus.OK)
+  @ApiQuery({
+    name: 'systemId',
+    required: true,
+    type: String,
+    description: 'Comma-separated SPF module system IDs',
+    example: '101,102',
+  })
   @ApiQuery({
     name: 'include',
     required: false,
@@ -156,7 +162,7 @@ export class SpfModuleController extends BaseController {
   @ApiDocumentationWithExample({
     summary: 'Query SPF modules with optional data inclusion',
     description:
-      'Query SPF modules for provided systemIds with optional data inclusion.\n\n' +
+      'Get SPF modules for provided systemIds with optional data inclusion.\n\n' +
       '**Optional Query Parameters:**\n' +
       '- `include`: Comma-separated list of optional data to include\n' +
       '  - `ckvs`: Include Calibration Key-Values\n' +
@@ -164,13 +170,13 @@ export class SpfModuleController extends BaseController {
       '  - `properties`: Include module properties\n\n' +
       '**Examples:**\n' +
       '```\n' +
-      'POST /spf-modules/query\n' +
-      'POST /spf-modules/query?include=ckvs\n' +
-      'POST /spf-modules/query?include=ckvs,tags\n' +
-      'POST /spf-modules/query?include=ckvs,tags,properties\n' +
+      'GET /spf-modules?systemId=101,102\n' +
+      'GET /spf-modules?systemId=101,102&include=ckvs\n' +
+      'GET /spf-modules?systemId=101,102&include=ckvs,tags\n' +
+      'GET /spf-modules?systemId=101,102&include=ckvs,tags,properties\n' +
       '```',
-    requestDto: SystemIdsRequestDto,
-    requestDtoDescription: 'List of SPF module system ids',
+    requestDtoDescription:
+      'System IDs are supplied through the systemId query parameter',
     responses: [
       {
         status: HttpStatus.OK,
@@ -195,22 +201,32 @@ export class SpfModuleController extends BaseController {
   })
   async querySpfModules(
     @Param('projectId') projectId: string,
-    @Body() spfModuleSystemIds: SystemIdsRequestDto,
+    @Query('systemId') systemId: string,
     @ClientId() clientId: string,
     @Query('include') include?: string,
   ): Promise<ApiResult<SpfModuleResponseDto[]>> {
+    if (!systemId?.trim()) {
+      throw new BadRequestException(
+        'systemId query parameter is required and cannot be empty',
+      );
+    }
+
     const includeOptions = new Set(
       include?.split(',').map(s => s.trim().toLowerCase()) ?? [],
     );
 
     // Parse string IDs to integers — radix 10 guards against octal misparse on '0'-prefixed strings
-    const systemIds = spfModuleSystemIds.systemIds.map(id => {
-      const parsed = Number.parseInt(id, 10);
-      if (Number.isNaN(parsed)) {
-        throw new BadRequestException(`Invalid system ID: ${id}`);
-      }
-      return parsed;
-    });
+    const systemIds = systemId
+      .split(',')
+      .map(id => id.trim())
+      .filter(Boolean)
+      .map(id => {
+        const parsed = Number.parseInt(id, 10);
+        if (Number.isNaN(parsed)) {
+          throw new BadRequestException(`Invalid system ID: ${id}`);
+        }
+        return parsed;
+      });
 
     const query = new SpfModuleQuery(
       systemIds,

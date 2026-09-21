@@ -9,10 +9,13 @@ import type {Result} from '../../../../shared/result/result.js';
 
 export interface ContainerQueryService {
   /**
-   * Returns every ContainerReadModel for the given fileSystemId.
+   * Returns every or selected ContainerReadModel for the given fileSystemId.
    * Overlay is always applied internally — no applyOverlay flag.
    */
-  getAllContainers(fileSystemId: number): Promise<Result<ContainerReadModel[]>>;
+  getAllContainers(
+    fileSystemId: number,
+    systemIds?: number[],
+  ): Promise<Result<ContainerReadModel[]>>;
 
   /**
    * Returns property payloads for the specified container, with session overlay applied.

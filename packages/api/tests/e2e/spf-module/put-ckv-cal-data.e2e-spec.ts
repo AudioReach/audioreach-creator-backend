@@ -105,9 +105,9 @@ async function findIirMbdrcCalData(
     throw new Error('No modules found in fixture');
 
   const queryRes = await request(httpServer as Parameters<typeof request>[0])
-    .post(`/arc-api/v1/projects/${projectId}/spf-modules/query?include=ckvs`)
+    .get(`/arc-api/v1/projects/${projectId}/spf-modules?include=ckvs`)
     .set('Authorization', `Bearer ${authToken}`)
-    .send({systemIds: moduleSystemIds})
+    .query({systemId: moduleSystemIds.join(',')})
     .timeout(30_000);
 
   const moduleDtos: any[] = queryRes.body?.data ?? [];

@@ -7,8 +7,8 @@ import request from 'supertest';
 import {join, dirname} from 'path';
 import {fileURLToPath} from 'url';
 import {INestApplication} from '@nestjs/common';
-import {DataSource} from 'typeorm';
 import {setupE2ETest, teardownE2ETest} from '../helpers/e2e-test-setup.js';
+import {DataSourceProvider} from '../../../src/infrastructure-wrapper/database/providers/data-source-provider.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -49,11 +49,10 @@ describe('Get Container Properties E2E (GET /arc-api/v1/projects/{projectId}/con
 
     projectId = uploadResponse.body.data.projectId;
 
-    // Discover a real container systemId via the query endpoint
+    // Discover a real container systemId via the collection endpoint
     const queryResponse = await request(httpServer)
-      .post(`/arc-api/v1/projects/${projectId}/containers/query`)
+      .get(`/arc-api/v1/projects/${projectId}/containers`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({systemIds: []})
       .timeout(30000);
 
     if (queryResponse.status === 200) {
@@ -113,21 +112,24 @@ describe('Get Container Properties E2E (GET /arc-api/v1/projects/{projectId}/con
     }
 
     // Delete one ContainerPropertyData row to simulate a missing payload
-    const dataSource = app.get(DataSource);
-    const deleted = await dataSource.manager
-      .createQueryBuilder()
-      .delete()
-      .from('ContainerPropertyData')
-      .where('containerSystemId = :id', {id: Number(sampleContainerSystemId)})
-      .limit(1)
-      .execute();
+    const dataSource = await app.get(DataSourceProvider).getDataSource();
+    const propertyRows = await dataSource.manager.query(
+      'SELECT system_id AS systemId FROM container_property_data WHERE container_system_id = ? LIMIT 1',
+      [Number(sampleContainerSystemId)],
+    );
+    const propertyRow = propertyRows[0] as {systemId: number} | undefined;
 
-    if (deleted.affected === 0) {
+    if (!propertyRow) {
       console.warn(
         'No ContainerPropertyData rows to delete — skipping 207 test',
       );
       return;
     }
+
+    await dataSource.manager.query(
+      'DELETE FROM container_property_data WHERE system_id = ?',
+      [propertyRow.systemId],
+    );
 
     const response = await request(httpServer)
       .get(

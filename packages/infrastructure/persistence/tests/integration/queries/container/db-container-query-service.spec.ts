@@ -126,6 +126,43 @@ describe('DbContainerQueryService.findPropertyPayloads Integration Tests', () =>
     });
   }
 
+  describe('getAllContainers', () => {
+    it('returns all containers without IDs and only selected containers when IDs are supplied', async () => {
+      const {fileSystemId} = await createFileDependency();
+      await containerRepository.save([
+        {
+          systemId: 1,
+          naturalId: 10,
+          containerTypeSystemId: 0,
+          fileSystemId,
+        },
+        {
+          systemId: 2,
+          naturalId: 20,
+          containerTypeSystemId: 0,
+          fileSystemId,
+        },
+      ]);
+
+      const allResult = await service.getAllContainers(fileSystemId);
+      const filteredResult = await service.getAllContainers(fileSystemId, [2]);
+
+      expect(allResult.kind).toBe(RESULT_KIND.Ok);
+      expect(filteredResult.kind).toBe(RESULT_KIND.Ok);
+      if (
+        allResult.kind !== RESULT_KIND.Ok ||
+        filteredResult.kind !== RESULT_KIND.Ok
+      )
+        return;
+      expect(allResult.data.map(container => container.systemId)).toEqual([
+        1, 2,
+      ]);
+      expect(filteredResult.data.map(container => container.systemId)).toEqual([
+        2,
+      ]);
+    });
+  });
+
   describe('findPropertyPayloads — Tier 1: no session', () => {
     it('returns Result.ok(null) when containerSystemId does not exist', async () => {
       const {fileSystemId} = await createFileDependency();

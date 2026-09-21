@@ -112,6 +112,27 @@ describe('ContainerQueryHandler', () => {
     );
     expect(qs.containerQueryService.getAllContainers).toHaveBeenCalledWith(
       fileSystemId,
+      undefined,
+    );
+  });
+
+  it('passes requested system IDs to the container query service', async () => {
+    const qs = makeQueryServices([
+      {
+        systemId: 10,
+        naturalId: 100,
+        containerTypeSystemId: 5,
+        containerTypeName: 'AudioProcessing',
+      },
+    ]);
+
+    await new ContainerQueryHandler(qs).handle(
+      new ContainerQuery(1, 'client', [10, 20]),
+    );
+
+    expect(qs.containerQueryService.getAllContainers).toHaveBeenCalledWith(
+      fileSystemId,
+      [10, 20],
     );
   });
 });

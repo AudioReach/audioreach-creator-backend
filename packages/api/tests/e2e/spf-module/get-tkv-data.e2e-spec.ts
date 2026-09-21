@@ -168,11 +168,9 @@ describe('GET tag-data for VOLUME_CONTROL module (moduleId=0x0700101B)', () => {
 
       // Query full SpfModuleDto (includes moduleId and tags with tkvs)
       const queryResponse = await request(httpServer)
-        .post(
-          `/arc-api/v1/projects/${projectId}/spf-modules/query?include=tags`,
-        )
+        .get(`/arc-api/v1/projects/${projectId}/spf-modules?include=tags`)
         .set('Authorization', `Bearer ${authToken}`)
-        .send({systemIds: moduleSystemIds})
+        .query({systemId: moduleSystemIds.join(',')})
         .timeout(30000);
 
       if (queryResponse.status < 200 || queryResponse.status >= 300) continue;

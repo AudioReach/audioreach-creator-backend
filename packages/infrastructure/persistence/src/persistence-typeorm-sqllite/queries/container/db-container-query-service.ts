@@ -39,11 +39,12 @@ export class DbContainerQueryService implements ContainerQueryService {
   }
 
   /**
-   * Returns every container for the given fileSystemId.
+   * Returns every or selected container for the given fileSystemId.
    * Overlay always applied — no applyOverlay flag.
    */
   async getAllContainers(
     fileSystemId: number,
+    systemIds?: number[],
   ): Promise<Result<ContainerReadModel[]>> {
     try {
       // Step 1+2 — load baseline and apply overlay via fetcher
@@ -53,12 +54,16 @@ export class DbContainerQueryService implements ContainerQueryService {
         fileSystemId,
         session?.sessionId ?? null,
       );
+      const selectedRows =
+        systemIds === undefined
+          ? rows
+          : rows.filter(row => systemIds.includes(row.systemId));
 
       // Step 3 — resolve container type names via ContainerTypeFetcher (FR-3).
       // ContainerType is session-mutable and must be overlay-aware.
       const typeIds = [
         ...new Set(
-          rows
+          selectedRows
             .map(r => r.containerTypeSystemId)
             .filter((id): id is number => !!id),
         ),
@@ -74,7 +79,7 @@ export class DbContainerQueryService implements ContainerQueryService {
 
       // Step 4 — assemble ContainerReadModel[]
       return Result.ok(
-        rows.map(
+        selectedRows.map(
           r =>
             ({
               systemId: r.systemId,
