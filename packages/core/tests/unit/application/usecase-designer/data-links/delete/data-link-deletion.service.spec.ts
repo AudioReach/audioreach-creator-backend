@@ -44,20 +44,23 @@ function createFixture(options?: {
     findUnresolvedSubsystemLinksFromModule: jest
       .fn()
       .mockResolvedValue(options?.reachableUnresolved ?? []),
-    findDataLinkRouteContext: jest.fn().mockResolvedValue({
-      subsystemDataLinks: options?.routeSegments ?? [],
-      nodeTypeBySystemId: new Map([
-        [MODULE_A, NodeType.Module],
-        [MODULE_B, NodeType.Module],
-        [SUBSYSTEM_A, NodeType.Subsystem],
-        [SUBSYSTEM_B, NodeType.Subsystem],
-      ]),
+    findAllLinks: jest.fn().mockResolvedValue({
+      dataLinks: options?.dataLinks ?? [],
+      standaloneSubsystemDataLinks: options?.routeSegments ?? [],
     }),
     deleteAggregate: jest.fn().mockResolvedValue(undefined),
     deleteSubsystemDataLinks: jest.fn().mockResolvedValue(undefined),
   };
   const uow = {
     getDataLinkRepository: () => dataLinkRepository,
+    getSubsystemRepository: () => ({
+      getAllNodesWithParents: jest.fn().mockResolvedValue([
+        {systemId: MODULE_A, parentSystemId: null, type: NodeType.Module},
+        {systemId: MODULE_B, parentSystemId: null, type: NodeType.Module},
+        {systemId: SUBSYSTEM_A, parentSystemId: null, type: NodeType.Subsystem},
+        {systemId: SUBSYSTEM_B, parentSystemId: null, type: NodeType.Subsystem},
+      ]),
+    }),
   } as unknown as UnitOfWork;
 
   return {service: new DataLinkDeletionService(uow), dataLinkRepository};
@@ -112,7 +115,7 @@ describe('DataLinkDeletionService', () => {
 
     expect(dataLinkRepository.deleteAggregate).not.toHaveBeenCalled();
     expect(dataLinkRepository.deleteSubsystemDataLinks).toHaveBeenCalledWith(
-      [101],
+      [resolvedSegments[0]],
       FILE_ID,
     );
     expect(result.dataLinks).toEqual([
@@ -137,7 +140,7 @@ describe('DataLinkDeletionService', () => {
     );
 
     expect(dataLinkRepository.deleteSubsystemDataLinks).toHaveBeenCalledWith(
-      [201, 202],
+      unresolved,
       FILE_ID,
     );
   });
@@ -159,7 +162,7 @@ describe('DataLinkDeletionService', () => {
     );
 
     expect(dataLinkRepository.deleteSubsystemDataLinks).toHaveBeenCalledWith(
-      [301],
+      [unresolved[0]],
       FILE_ID,
     );
     expect(result.unresolvedSubsystemDataLinks).toEqual([{systemId: '301'}]);

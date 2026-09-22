@@ -204,6 +204,21 @@ export const IssueFactory = {
     };
   },
 
+  partialSubsystemConnection(
+    entityType: IssueEntityType,
+    componentSystemId: number,
+  ): Issue {
+    return {
+      code: ISSUE_CODE.SS_PARTIAL_CONNECTION,
+      message: `${entityType} ${componentSystemId} has a partial module-to-module subsystem connection and cannot be moved.`,
+      severity: IssueSeverity.Error,
+      impactedEntity: {
+        entityType,
+        systemId: componentSystemId,
+      },
+    };
+  },
+
   componentInWrongFile(
     entityType: IssueEntityType,
     componentSystemId: number,

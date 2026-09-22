@@ -73,10 +73,13 @@ export type {
 } from './application/ports/persistence/repositories/module/module-definition.repository.js';
 export type {
   DataLinkRepository,
-  SubsystemDataRouteContext,
+  DataLinkGraph,
   BoundaryPortPayload,
 } from './application/ports/persistence/repositories/data-link/data-link.repository.js';
-export type {ControlLinkRepository} from './application/ports/persistence/repositories/control-link/control-link.repository.js';
+export type {
+  ControlLinkRepository,
+  ControlLinkGraph,
+} from './application/ports/persistence/repositories/control-link/control-link.repository.js';
 export type {SubgraphRepository} from './application/ports/persistence/repositories/subgraph/subgraph.repository.js';
 export type {
   SubsystemControlPortRef,

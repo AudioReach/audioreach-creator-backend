@@ -78,14 +78,12 @@ function makeDataLinkRepository(
 ): DataLinkRepository {
   return {
     getLinksByPortSystemIds: jest.fn().mockResolvedValue([]),
-    findAllDataLinksWithResolvedSegments: jest.fn().mockResolvedValue([]),
-    findDataLinkRouteContext: jest.fn().mockResolvedValue({
-      subsystemDataLinks: [],
-      nodeTypeBySystemId: new Map(),
+    findAllLinks: jest.fn().mockResolvedValue({
+      dataLinks: [],
+      standaloneSubsystemDataLinks: [],
     }),
+    createSubsystemDataLinks: jest.fn(),
     deleteSubsystemDataLinks: jest.fn(),
-    replaceSubsystemDataLinkSegments: jest.fn(),
-    replaceUnresolvedSubsystemDataLinkSegments: jest.fn(),
     ...overrides,
   } as unknown as DataLinkRepository;
 }
@@ -95,14 +93,12 @@ function makeControlLinkRepository(
 ): ControlLinkRepository {
   return {
     getLinksByPortSystemIds: jest.fn().mockResolvedValue([]),
-    findAllControlLinksWithResolvedSegments: jest.fn().mockResolvedValue([]),
-    findControlLinkRouteContext: jest.fn().mockResolvedValue({
-      subsystemControlLinks: [],
-      nodeTypeBySystemId: new Map(),
+    findAllLinks: jest.fn().mockResolvedValue({
+      controlLinks: [],
+      standaloneSubsystemControlLinks: [],
     }),
+    createSubsystemControlLinks: jest.fn(),
     deleteSubsystemControlLinks: jest.fn(),
-    replaceSubsystemControlLinkSegments: jest.fn(),
-    replaceUnresolvedSubsystemControlLinkSegments: jest.fn(),
     ...overrides,
   } as unknown as ControlLinkRepository;
 }
@@ -465,9 +461,10 @@ describe('MoveSubsystemComponentsHandler', () => {
       getSubsystem: jest.fn().mockResolvedValue(targetSubsystem),
     });
     const dataLinks = makeDataLinkRepository({
-      findAllDataLinksWithResolvedSegments: jest
-        .fn()
-        .mockResolvedValue([dataLink]),
+      findAllLinks: jest.fn().mockResolvedValue({
+        dataLinks: [dataLink],
+        standaloneSubsystemDataLinks: [],
+      }),
     });
     const modules = {
       findModulesBySubgraphIds: jest.fn().mockResolvedValue([{systemId: 1}]),
@@ -485,8 +482,7 @@ describe('MoveSubsystemComponentsHandler', () => {
     ).handle(new MoveSubsystemComponentsCommand(FILE_ID, [11], [], 200));
 
     expect(modules.updateParentId).toHaveBeenCalledWith(1, 200);
-    expect(dataLinks.replaceSubsystemDataLinkSegments).toHaveBeenCalledWith(
-      dataLink.systemId,
+    expect(dataLinks.createSubsystemDataLinks).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
           sourceNodeSystemId: 1,
@@ -497,6 +493,7 @@ describe('MoveSubsystemComponentsHandler', () => {
           destinationNodeSystemId: 2,
         }),
       ]),
+      FILE_ID,
     );
     expect(result.addedDataLinks).toEqual([dataLink]);
   });
@@ -537,7 +534,7 @@ describe('MoveSubsystemComponentsHandler', () => {
     ).handle(new MoveSubsystemComponentsCommand(FILE_ID, [11], [], 200));
 
     expect(modules.updateParentId).toHaveBeenCalledWith(1, 200);
-    expect(dataLinks.replaceSubsystemDataLinkSegments).not.toHaveBeenCalled();
+    expect(dataLinks.createSubsystemDataLinks).not.toHaveBeenCalled();
     expect(result.addedDataLinks).toEqual([]);
     expect(result.subsystemPortChanges).toEqual([]);
   });
@@ -662,9 +659,10 @@ describe('MoveSubsystemComponentsHandler', () => {
       }),
     });
     const dataLinks = makeDataLinkRepository({
-      findAllDataLinksWithResolvedSegments: jest
-        .fn()
-        .mockResolvedValue([movedConnection]),
+      findAllLinks: jest.fn().mockResolvedValue({
+        dataLinks: [movedConnection],
+        standaloneSubsystemDataLinks: [],
+      }),
     });
     const uow = makeUow({
       subsystemRepository: repository,
@@ -677,14 +675,16 @@ describe('MoveSubsystemComponentsHandler', () => {
     ).handle(new MoveSubsystemComponentsCommand(FILE_ID, [], [101], 105));
 
     expect(repository.updateParentId).toHaveBeenCalledWith(101, 105);
-    expect(dataLinks.replaceSubsystemDataLinkSegments).toHaveBeenCalledTimes(1);
-    expect(dataLinks.replaceSubsystemDataLinkSegments).toHaveBeenCalledWith(
-      movedConnection.systemId,
+    expect(dataLinks.deleteSubsystemDataLinks).toHaveBeenCalledWith(
       expect.arrayContaining([
-        expect.objectContaining({
-          sourceNodeSystemId: 201,
-          destinationNodeSystemId: 101,
-        }),
+        expect.objectContaining({systemId: 902}),
+        expect.objectContaining({systemId: 903}),
+      ]),
+      FILE_ID,
+    );
+    expect(dataLinks.createSubsystemDataLinks).toHaveBeenCalledTimes(1);
+    expect(dataLinks.createSubsystemDataLinks).toHaveBeenCalledWith(
+      expect.arrayContaining([
         expect.objectContaining({
           sourceNodeSystemId: 101,
           destinationNodeSystemId: 105,
@@ -693,16 +693,13 @@ describe('MoveSubsystemComponentsHandler', () => {
           sourceNodeSystemId: 105,
           destinationNodeSystemId: 104,
         }),
-        expect.objectContaining({
-          sourceNodeSystemId: 104,
-          destinationNodeSystemId: 204,
-        }),
       ]),
+      FILE_ID,
     );
     expect(result.addedDataLinks).toEqual([movedConnection]);
   });
 
-  it('moves an unresolved chain ending at a subsystem when its source subsystem moves', async () => {
+  it('rejects moving a subsystem with a partial module-to-module connection', async () => {
     const subsystems = [
       {
         systemId: 101,
@@ -803,15 +800,9 @@ describe('MoveSubsystemComponentsHandler', () => {
       }),
     });
     const dataLinks = makeDataLinkRepository({
-      findDataLinkRouteContext: jest.fn().mockResolvedValue({
-        subsystemDataLinks: unresolvedSegments,
-        nodeTypeBySystemId: new Map([
-          [201, 'module'],
-          [101, 'subsystem'],
-          [102, 'subsystem'],
-          [104, 'subsystem'],
-          [105, 'subsystem'],
-        ]),
+      findAllLinks: jest.fn().mockResolvedValue({
+        dataLinks: [],
+        standaloneSubsystemDataLinks: unresolvedSegments,
       }),
     });
     const uow = makeUow({
@@ -819,35 +810,15 @@ describe('MoveSubsystemComponentsHandler', () => {
       dataLinkRepository: dataLinks,
     });
 
-    const result = await new MoveSubsystemComponentsHandler(
-      uow,
-      makeIdGeneration(),
-    ).handle(new MoveSubsystemComponentsCommand(FILE_ID, [], [101], 105));
+    await expect(
+      new MoveSubsystemComponentsHandler(uow, makeIdGeneration()).handle(
+        new MoveSubsystemComponentsCommand(FILE_ID, [], [101], 105),
+      ),
+    ).rejects.toThrow('partial module-to-module subsystem connection');
 
-    expect(repository.updateParentId).toHaveBeenCalledWith(101, 105);
-    expect(
-      dataLinks.replaceUnresolvedSubsystemDataLinkSegments,
-    ).toHaveBeenCalledWith(
-      [901, 902, 903],
-      expect.arrayContaining([
-        expect.objectContaining({
-          sourceNodeSystemId: 201,
-          destinationNodeSystemId: 101,
-        }),
-        expect.objectContaining({
-          sourceNodeSystemId: 101,
-          destinationNodeSystemId: 105,
-        }),
-        expect.objectContaining({
-          sourceNodeSystemId: 105,
-          destinationNodeSystemId: 104,
-        }),
-      ]),
-      FILE_ID,
-    );
+    expect(repository.updateParentId).not.toHaveBeenCalled();
     expect(dataLinks.deleteSubsystemDataLinks).not.toHaveBeenCalled();
-    expect(dataLinks.replaceSubsystemDataLinkSegments).not.toHaveBeenCalled();
-    expect(result.addedDataLinks).toEqual([]);
+    expect(dataLinks.createSubsystemDataLinks).not.toHaveBeenCalled();
   });
 
   it('partially moves valid subsystems and reports root-to-root no-ops', async () => {

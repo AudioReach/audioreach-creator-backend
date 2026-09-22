@@ -37,18 +37,30 @@ export class ControlLinkDeletionService {
     mode: LinkDeletionMode = LINK_DELETION_MODE.Full,
   ): Promise<ControlLinkDeletionResult> {
     const repository = this.uow.getControlLinkRepository();
-    const [links, reachableUnresolved, routeContext] = await Promise.all([
-      repository.findLinksConnectedToModule(moduleSystemId, fileSystemId),
-      repository.findUnresolvedSubsystemLinksFromModule(
-        moduleSystemId,
-        fileSystemId,
-      ),
-      repository.findControlLinkRouteContext(fileSystemId),
-    ]);
+    const [links, reachableUnresolved, linkGraph, topology] = await Promise.all(
+      [
+        repository.findLinksConnectedToModule(moduleSystemId, fileSystemId),
+        repository.findUnresolvedSubsystemLinksFromModule(
+          moduleSystemId,
+          fileSystemId,
+        ),
+        repository.findAllLinks(fileSystemId),
+        this.uow.getSubsystemRepository().getAllNodesWithParents(fileSystemId),
+      ],
+    );
+    const nodeTypeBySystemId = new Map(
+      topology.map(node => [node.systemId, node.type]),
+    );
+    const standaloneSegmentsById = new Map(
+      [
+        ...linkGraph.standaloneSubsystemControlLinks,
+        ...reachableUnresolved,
+      ].map(segment => [segment.systemId, segment]),
+    );
     const unresolvedPlan = planUnresolvedDeletion({
       moduleSystemId,
       reachableSegments: reachableUnresolved,
-      routeSegments: routeContext.subsystemControlLinks,
+      routeSegments: linkGraph.standaloneSubsystemControlLinks,
       getSystemId: segment => segment.systemId,
       isUnresolved: segment => segment.controlLinkSystemId === null,
       getNodeSystemIds: segment => [
@@ -58,7 +70,7 @@ export class ControlLinkDeletionService {
       classify: unresolvedSegments => {
         const resolution = ControlChainResolutionService.resolve({
           unresolvedSubsystemlinks: [...unresolvedSegments],
-          nodeTypeMap: new Map(routeContext.nodeTypeBySystemId),
+          nodeTypeMap: new Map(nodeTypeBySystemId),
         });
         return {
           completeChains: resolution.completeChains.map(chain => ({
@@ -99,9 +111,12 @@ export class ControlLinkDeletionService {
     for (const systemId of unresolvedIds) deletedSegmentIds.add(systemId);
     const clearedPorts =
       ControlIntentPropagationService.findPortsToClearAfterDeletingLinks({
-        allSubsystemControlLinks: routeContext.subsystemControlLinks,
+        allSubsystemControlLinks: [
+          ...linkGraph.standaloneSubsystemControlLinks,
+          ...linkGraph.controlLinks.flatMap(link => link.subsystemControlLinks),
+        ],
         deletedSubsystemControlLinkSystemIds: sortIds(deletedSegmentIds),
-        nodeTypeMap: routeContext.nodeTypeBySystemId,
+        nodeTypeMap: nodeTypeBySystemId,
       }).portsToClear;
 
     for (const link of links) {
@@ -117,12 +132,19 @@ export class ControlLinkDeletionService {
         await repository.deleteAggregate(link.systemId, fileSystemId);
       } else {
         await repository.deleteSubsystemControlLinks(
-          deletedSegments.map(segment => segment.systemId),
+          deletedSegments,
           fileSystemId,
         );
       }
     }
-    await repository.deleteSubsystemControlLinks(unresolvedIds, fileSystemId);
+    await repository.deleteSubsystemControlLinks(
+      unresolvedIds
+        .map(systemId => standaloneSegmentsById.get(systemId))
+        .filter(
+          (segment): segment is SubsystemControlLink => segment !== undefined,
+        ),
+      fileSystemId,
+    );
     await this.uow
       .getSubsystemRepository()
       .clearControlPortIntents(clearedPorts, fileSystemId);

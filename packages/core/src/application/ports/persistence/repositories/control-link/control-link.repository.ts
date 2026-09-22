@@ -5,13 +5,12 @@
 
 import type {ControlLink} from '../../../../../domain/entities/usecase-data/links/control-link.js';
 import type {SubsystemControlLink} from '../../../../../domain/entities/usecase-data/links/subsystem-control-link.js';
-import type {NodeType} from '../../../../../domain/entities/usecase-data/node/node.js';
 import type {EditOptions} from '../../edit-options.js';
 import type {SessionChanged} from '../shared/session-changed.js';
 
-export interface SubsystemControlRouteContext {
-  subsystemControlLinks: SubsystemControlLink[];
-  nodeTypeBySystemId: ReadonlyMap<number, NodeType>;
+export interface ControlLinkGraph {
+  controlLinks: ControlLink[];
+  standaloneSubsystemControlLinks: SubsystemControlLink[];
 }
 
 export interface ControlLinkRepository {
@@ -25,9 +24,7 @@ export interface ControlLinkRepository {
     fileSystemId: number,
   ): Promise<SubsystemControlLink[]>;
 
-  findControlLinkRouteContext(
-    fileSystemId: number,
-  ): Promise<SubsystemControlRouteContext>;
+  findAllLinks(fileSystemId: number): Promise<ControlLinkGraph>;
 
   /**
    * Deletes the canonical link and every currently resolved subsystem segment
@@ -35,18 +32,6 @@ export interface ControlLinkRepository {
    */
   deleteAggregate(
     controlLinkSystemId: number,
-    fileSystemId: number,
-    options?: EditOptions,
-  ): Promise<void>;
-
-  /**
-   * Deletes the specified subsystem segments. An unresolved segment is deleted
-   * directly. For a resolved segment, the canonical ControlLink is deleted and
-   * non-target sibling segments are updated to have a null ControlLink FK in
-   * the edit-action overlay so chain resolution can process them later.
-   */
-  deleteSubsystemControlLinks(
-    subsystemLinkSystemIds: number[],
     fileSystemId: number,
     options?: EditOptions,
   ): Promise<void>;
@@ -92,19 +77,18 @@ export interface ControlLinkRepository {
    */
   findIntraUcLinksByFile(fileSystemId: number): Promise<ControlLink[]>;
 
-  findAllControlLinksWithResolvedSegments(
+  createSubsystemControlLinks(
+    subsystemControlLinks: readonly SubsystemControlLink[],
     fileSystemId: number,
-  ): Promise<ControlLink[]>;
-
-  replaceSubsystemControlLinkSegments(
-    controlLinkSystemId: number,
-    segments: SubsystemControlLink[],
     options?: EditOptions,
   ): Promise<void>;
 
-  replaceUnresolvedSubsystemControlLinkSegments(
-    subsystemLinkSystemIds: number[],
-    segments: SubsystemControlLink[],
+  /**
+   * Removes exactly the specified subsystem segments. This does not alter a
+   * canonical ControlLink or sibling segments; use deleteAggregate for that.
+   */
+  deleteSubsystemControlLinks(
+    subsystemControlLinks: readonly SubsystemControlLink[],
     fileSystemId: number,
     options?: EditOptions,
   ): Promise<void>;

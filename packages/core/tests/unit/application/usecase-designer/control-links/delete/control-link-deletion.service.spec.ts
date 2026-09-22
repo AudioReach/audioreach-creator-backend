@@ -45,20 +45,21 @@ function createFixture(options?: {
     findUnresolvedSubsystemLinksFromModule: jest
       .fn()
       .mockResolvedValue(options?.reachableUnresolved ?? []),
-    findControlLinkRouteContext: jest.fn().mockResolvedValue({
-      subsystemControlLinks: options?.routeSegments ?? [],
-      nodeTypeBySystemId: new Map([
-        [MODULE_A, NodeType.Module],
-        [MODULE_B, NodeType.Module],
-        [SUBSYSTEM_A, NodeType.Subsystem],
-        [SUBSYSTEM_B, NodeType.Subsystem],
-      ]),
+    findAllLinks: jest.fn().mockResolvedValue({
+      controlLinks: options?.controlLinks ?? [],
+      standaloneSubsystemControlLinks: options?.routeSegments ?? [],
     }),
     deleteAggregate: jest.fn().mockResolvedValue(undefined),
     deleteSubsystemControlLinks: jest.fn().mockResolvedValue(undefined),
   };
   const subsystemRepository = {
     clearControlPortIntents: jest.fn().mockResolvedValue(undefined),
+    getAllNodesWithParents: jest.fn().mockResolvedValue([
+      {systemId: MODULE_A, parentSystemId: null, type: NodeType.Module},
+      {systemId: MODULE_B, parentSystemId: null, type: NodeType.Module},
+      {systemId: SUBSYSTEM_A, parentSystemId: null, type: NodeType.Subsystem},
+      {systemId: SUBSYSTEM_B, parentSystemId: null, type: NodeType.Subsystem},
+    ]),
   };
   const uow = {
     getControlLinkRepository: () => controlLinkRepository,
@@ -122,7 +123,7 @@ describe('ControlLinkDeletionService', () => {
     expect(controlLinkRepository.deleteAggregate).not.toHaveBeenCalled();
     expect(
       controlLinkRepository.deleteSubsystemControlLinks,
-    ).toHaveBeenCalledWith([101], FILE_ID);
+    ).toHaveBeenCalledWith([resolvedSegments[0]], FILE_ID);
     expect(subsystemRepository.clearControlPortIntents).toHaveBeenCalledWith(
       [],
       FILE_ID,
@@ -150,7 +151,7 @@ describe('ControlLinkDeletionService', () => {
 
     expect(
       controlLinkRepository.deleteSubsystemControlLinks,
-    ).toHaveBeenCalledWith([201], FILE_ID);
+    ).toHaveBeenCalledWith([unresolved[0]], FILE_ID);
     expect(result.unresolvedSubsystemControlLinks).toEqual([{systemId: '201'}]);
   });
 
@@ -172,7 +173,7 @@ describe('ControlLinkDeletionService', () => {
 
     expect(
       controlLinkRepository.deleteSubsystemControlLinks,
-    ).toHaveBeenCalledWith([301, 302], FILE_ID);
+    ).toHaveBeenCalledWith(unresolved, FILE_ID);
   });
 
   it('clears intents when the retained sibling no longer reaches a module', async () => {

@@ -21,6 +21,9 @@ import type {
   SubsystemNodeTopology,
   SubsystemRepository,
 } from '../../../ports/persistence/repositories/subsystem/subsystem.repository.js';
+import {DomainRuleViolationException} from '../../../../shared/exceptions/index.js';
+import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {IssueFactory} from '../../../../shared/issues/factories.js';
 
 export type MoveComponent = {
   systemId: number;
@@ -96,7 +99,13 @@ type ControlRouteChange = {
   newSegments: SubsystemControlLink[];
 };
 
-function collectMovedNodeIds(
+type SegmentSyncPlan<T> = {
+  retainedSegments: T[];
+  obsoleteSegmentSystemIds: number[];
+  retainedHopKeys: Set<string>;
+};
+
+export function collectMovedNodeIds(
   topology: readonly SubsystemNodeTopology[],
   parentBefore: ReadonlyMap<number, number | null>,
   updatedModules: readonly MoveComponent[],
@@ -126,6 +135,79 @@ function collectMovedNodeIds(
   return movedNodeIds;
 }
 
+export function ensureNoMovedPartialConnections(
+  movedNodeIds: ReadonlySet<number>,
+  topology: readonly SubsystemNodeTopology[],
+  dataLinks: readonly SubsystemDataLink[],
+  controlLinks: readonly SubsystemControlLink[],
+): void {
+  const nodeTypeMap = new Map(topology.map(node => [node.systemId, node.type]));
+  const partialDataLinkIds = new Set(
+    ChainResolutionService.resolve({
+      unresolvedSubsystemLinks: dataLinks.map(link => ({
+        systemId: link.systemId,
+        sourceNodeSystemId: link.sourceNodeSystemId,
+        destinationNodeSystemId: link.destinationNodeSystemId,
+        sourcePortSystemId: link.sourcePortSystemId,
+        destinationPortSystemId: link.destinationPortSystemId,
+      })),
+      nodeTypeMap,
+    }).incompleteChains.flatMap(chain => chain.ssLinkSystemIds),
+  );
+  const partialControlLinkIds = new Set(
+    ControlChainResolutionService.resolve({
+      unresolvedSubsystemlinks: controlLinks.map(link => ({
+        systemId: link.systemId,
+        peerNodeASystemId: link.peerNodeASystemId,
+        peerNodeBSystemId: link.peerNodeBSystemId,
+        nodeAPortSystemId: link.nodeAPortSystemId,
+        nodeBPortSystemId: link.nodeBPortSystemId,
+      })),
+      nodeTypeMap,
+    }).incompleteChains.flatMap(chain => chain.ssLinksSystemIds),
+  );
+  const unresolvedNodeIds = new Set<number>();
+  for (const link of dataLinks) {
+    if (
+      link.dataLinkSystemId !== null ||
+      !partialDataLinkIds.has(link.systemId)
+    )
+      continue;
+    if (movedNodeIds.has(link.sourceNodeSystemId)) {
+      unresolvedNodeIds.add(link.sourceNodeSystemId);
+    }
+    if (movedNodeIds.has(link.destinationNodeSystemId)) {
+      unresolvedNodeIds.add(link.destinationNodeSystemId);
+    }
+  }
+  for (const link of controlLinks) {
+    if (
+      link.controlLinkSystemId !== null ||
+      !partialControlLinkIds.has(link.systemId)
+    )
+      continue;
+    if (movedNodeIds.has(link.peerNodeASystemId)) {
+      unresolvedNodeIds.add(link.peerNodeASystemId);
+    }
+    if (movedNodeIds.has(link.peerNodeBSystemId)) {
+      unresolvedNodeIds.add(link.peerNodeBSystemId);
+    }
+  }
+  if (unresolvedNodeIds.size === 0) return;
+
+  const nodeTypes = new Map(topology.map(node => [node.systemId, node.type]));
+  throw new DomainRuleViolationException(
+    [...unresolvedNodeIds].map(systemId =>
+      IssueFactory.partialSubsystemConnection(
+        nodeTypes.get(systemId) === NodeType.Module
+          ? ISSUE_ENTITY_TYPE.SpfModule
+          : ISSUE_ENTITY_TYPE.Subsystem,
+        systemId,
+      ),
+    ),
+  );
+}
+
 function dataPortByNode(
   segments: readonly SubsystemDataLink[],
 ): Map<number, number> {
@@ -151,10 +233,113 @@ function controlPortByNode(
   return result;
 }
 
+function dataHopKey(
+  sourceNodeSystemId: number,
+  destinationNodeSystemId: number,
+): string {
+  return `${sourceNodeSystemId}:${destinationNodeSystemId}`;
+}
+
+function controlHopKey(
+  peerNodeASystemId: number,
+  peerNodeBSystemId: number,
+): string {
+  return peerNodeASystemId < peerNodeBSystemId
+    ? `${peerNodeASystemId}:${peerNodeBSystemId}`
+    : `${peerNodeBSystemId}:${peerNodeASystemId}`;
+}
+
+function planDataSegmentSync(
+  oldSegments: readonly SubsystemDataLink[],
+  route: RouteState,
+): SegmentSyncPlan<SubsystemDataLink> {
+  const segmentsByHop = new Map<string, SubsystemDataLink[]>();
+  for (const segment of oldSegments) {
+    const key = dataHopKey(
+      segment.sourceNodeSystemId,
+      segment.destinationNodeSystemId,
+    );
+    const matching = segmentsByHop.get(key) ?? [];
+    matching.push(segment);
+    segmentsByHop.set(key, matching);
+  }
+  const retainedHopKeys = new Set<string>();
+  const retainedSegments: SubsystemDataLink[] = [];
+  for (let index = 0; index < route.nodeSequence.length - 1; index++) {
+    const key = dataHopKey(
+      route.nodeSequence[index],
+      route.nodeSequence[index + 1],
+    );
+    const matching = segmentsByHop.get(key);
+    if (matching?.length !== 1) continue;
+    retainedHopKeys.add(key);
+    retainedSegments.push(matching[0]);
+  }
+  const retainedIds = new Set(
+    retainedSegments.map(segment => segment.systemId),
+  );
+  return {
+    retainedSegments,
+    obsoleteSegmentSystemIds: oldSegments
+      .filter(segment => !retainedIds.has(segment.systemId))
+      .map(segment => segment.systemId),
+    retainedHopKeys,
+  };
+}
+
+function planControlSegmentSync(
+  oldSegments: readonly SubsystemControlLink[],
+  route: RouteState,
+): SegmentSyncPlan<SubsystemControlLink> {
+  const segmentsByHop = new Map<string, SubsystemControlLink[]>();
+  for (const segment of oldSegments) {
+    const key = controlHopKey(
+      segment.peerNodeASystemId,
+      segment.peerNodeBSystemId,
+    );
+    const matching = segmentsByHop.get(key) ?? [];
+    matching.push(segment);
+    segmentsByHop.set(key, matching);
+  }
+  const retainedHopKeys = new Set<string>();
+  const retainedSegments: SubsystemControlLink[] = [];
+  for (let index = 0; index < route.nodeSequence.length - 1; index++) {
+    const key = controlHopKey(
+      route.nodeSequence[index],
+      route.nodeSequence[index + 1],
+    );
+    const matching = segmentsByHop.get(key);
+    if (matching?.length !== 1) continue;
+    retainedHopKeys.add(key);
+    retainedSegments.push(matching[0]);
+  }
+  const retainedIds = new Set(
+    retainedSegments.map(segment => segment.systemId),
+  );
+  return {
+    retainedSegments,
+    obsoleteSegmentSystemIds: oldSegments
+      .filter(segment => !retainedIds.has(segment.systemId))
+      .map(segment => segment.systemId),
+    retainedHopKeys,
+  };
+}
+
 function endpointPort(segment: SubsystemControlLink, nodeId: number): number {
   return segment.peerNodeASystemId === nodeId
     ? segment.nodeAPortSystemId
     : segment.nodeBPortSystemId;
+}
+
+function controlPortForNode(
+  segments: readonly SubsystemControlLink[],
+  nodeId: number,
+): number {
+  const segment = segments.find(item =>
+    [item.peerNodeASystemId, item.peerNodeBSystemId].includes(nodeId),
+  );
+  if (!segment) throw new Error(`No control segment found for node ${nodeId}.`);
+  return endpointPort(segment, nodeId);
 }
 
 function dataChainTouchesMovedNode(
@@ -216,17 +401,27 @@ async function prepareDataPorts(
   return ports;
 }
 
-async function createUnresolvedDataSegments(
+async function createDataSegments(
   fileSystemId: number,
   route: RouteState,
-  oldSegments: readonly SubsystemDataLink[],
   portsByNode: ReadonlyMap<number, DataPort>,
+  sourcePortSystemId: number,
+  destinationPortSystemId: number,
+  dataLinkSystemId: number | null,
+  linkType: SubsystemDataLink['linkType'],
+  retainedHopKeys: ReadonlySet<string>,
   dependencies: MoveImpactDependencies,
 ): Promise<SubsystemDataLink[]> {
   const segments: SubsystemDataLink[] = [];
   for (let index = 0; index < route.nodeSequence.length - 1; index++) {
     const sourceNodeSystemId = route.nodeSequence[index];
     const destinationNodeSystemId = route.nodeSequence[index + 1];
+    if (
+      retainedHopKeys.has(
+        dataHopKey(sourceNodeSystemId, destinationNodeSystemId),
+      )
+    )
+      continue;
     segments.push(
       new SubsystemDataLink({
         systemId: await dependencies.idGeneration.getNextId(fileSystemId),
@@ -234,15 +429,15 @@ async function createUnresolvedDataSegments(
         destinationNodeSystemId,
         sourcePortSystemId:
           index === 0
-            ? oldSegments[0].sourcePortSystemId
+            ? sourcePortSystemId
             : portsByNode.get(sourceNodeSystemId)!.systemId,
         destinationPortSystemId:
           index === route.nodeSequence.length - 2
-            ? oldSegments.at(-1)!.destinationPortSystemId
+            ? destinationPortSystemId
             : portsByNode.get(destinationNodeSystemId)!.systemId,
-        dataLinkSystemId: null,
+        dataLinkSystemId,
         fileSystemId,
-        linkType: oldSegments[0].linkType,
+        linkType,
       }),
     );
   }
@@ -285,6 +480,7 @@ async function rebuildDataChain(
     parentAfter,
   );
   if (routeSignature(oldRoute) === routeSignature(newRoute)) return null;
+  const syncPlan = planDataSegmentSync(oldSegments, newRoute);
   const portsByNode = await prepareDataPorts(
     fileSystemId,
     newRoute,
@@ -293,19 +489,36 @@ async function rebuildDataChain(
     changes,
     dependencies,
   );
-  const newSegments = await createUnresolvedDataSegments(
+  const createdSegments = await createDataSegments(
     fileSystemId,
     newRoute,
-    oldSegments,
     portsByNode,
+    oldSegments[0].sourcePortSystemId,
+    oldSegments.at(-1)!.destinationPortSystemId,
+    null,
+    oldSegments[0].linkType,
+    syncPlan.retainedHopKeys,
     dependencies,
   );
-  await dependencies.dataLinkRepository.replaceUnresolvedSubsystemDataLinkSegments(
-    chain.ids,
-    newSegments,
-    fileSystemId,
+  const obsoleteSegments = oldSegments.filter(segment =>
+    syncPlan.obsoleteSegmentSystemIds.includes(segment.systemId),
   );
-  return {oldSegments, newSegments};
+  if (obsoleteSegments.length > 0) {
+    await dependencies.dataLinkRepository.deleteSubsystemDataLinks(
+      obsoleteSegments,
+      fileSystemId,
+    );
+  }
+  if (createdSegments.length > 0) {
+    await dependencies.dataLinkRepository.createSubsystemDataLinks(
+      createdSegments,
+      fileSystemId,
+    );
+  }
+  return {
+    oldSegments: obsoleteSegments,
+    newSegments: [...syncPlan.retainedSegments, ...createdSegments],
+  };
 }
 
 async function rebuildUnresolvedDataChains(
@@ -313,20 +526,17 @@ async function rebuildUnresolvedDataChains(
   parentBefore: Map<number, number | null>,
   parentAfter: Map<number, number | null>,
   movedNodeIds: ReadonlySet<number>,
-  routeContext: Awaited<
-    ReturnType<DataLinkRepository['findDataLinkRouteContext']>
-  >,
+  nodeTypeBySystemId: ReadonlyMap<number, NodeType>,
+  routeContext: Awaited<ReturnType<DataLinkRepository['findAllLinks']>>,
   subsystemStates: Map<number, SubsystemState>,
   changes: Map<number, SubsystemPortChange>,
   dependencies: MoveImpactDependencies,
 ): Promise<UnresolvedDataRebuild> {
-  const unresolved = routeContext.subsystemDataLinks.filter(
-    segment => segment.dataLinkSystemId === null,
-  );
+  const unresolved = routeContext.standaloneSubsystemDataLinks;
   const byId = new Map(unresolved.map(segment => [segment.systemId, segment]));
   const resolution = ChainResolutionService.resolve({
     unresolvedSubsystemLinks: unresolved,
-    nodeTypeMap: new Map(routeContext.nodeTypeBySystemId),
+    nodeTypeMap: new Map(nodeTypeBySystemId),
   });
   const chains: DataChain[] = [
     ...resolution.completeChains.map(chain => ({
@@ -426,43 +636,39 @@ async function prepareControlPorts(
   return ports;
 }
 
-async function createUnresolvedControlSegments(
+async function createControlSegments(
   fileSystemId: number,
   route: RouteState,
-  oldSegments: readonly SubsystemControlLink[],
-  sourceNodeSystemId: number,
-  destinationNodeSystemId: number,
   portsByNode: ReadonlyMap<number, ControlPort>,
+  sourcePortSystemId: number,
+  destinationPortSystemId: number,
+  controlLinkSystemId: number | null,
+  linkType: SubsystemControlLink['linkType'],
+  retainedHopKeys: ReadonlySet<string>,
   dependencies: MoveImpactDependencies,
 ): Promise<SubsystemControlLink[]> {
-  const firstOldSegment = oldSegments.find(segment =>
-    [segment.peerNodeASystemId, segment.peerNodeBSystemId].includes(
-      sourceNodeSystemId,
-    ),
-  )!;
-  const lastOldSegment = oldSegments.find(segment =>
-    [segment.peerNodeASystemId, segment.peerNodeBSystemId].includes(
-      destinationNodeSystemId,
-    ),
-  )!;
   const segments: SubsystemControlLink[] = [];
   for (let index = 0; index < route.nodeSequence.length - 1; index++) {
     const peerNodeASystemId = route.nodeSequence[index];
     const peerNodeBSystemId = route.nodeSequence[index + 1];
+    if (
+      retainedHopKeys.has(controlHopKey(peerNodeASystemId, peerNodeBSystemId))
+    )
+      continue;
     segments.push(
       new SubsystemControlLink(
         await dependencies.idGeneration.getNextId(fileSystemId),
         peerNodeASystemId,
         peerNodeBSystemId,
         index === 0
-          ? endpointPort(firstOldSegment, sourceNodeSystemId)
+          ? sourcePortSystemId
           : portsByNode.get(peerNodeASystemId)!.systemId,
         index === route.nodeSequence.length - 2
-          ? endpointPort(lastOldSegment, destinationNodeSystemId)
+          ? destinationPortSystemId
           : portsByNode.get(peerNodeBSystemId)!.systemId,
-        null,
+        controlLinkSystemId,
         fileSystemId,
-        firstOldSegment.linkType,
+        linkType,
         0,
       ),
     );
@@ -510,6 +716,7 @@ async function rebuildControlChain(
     parentAfter,
   );
   if (routeSignature(oldRoute) === routeSignature(newRoute)) return null;
+  const syncPlan = planControlSegmentSync(oldSegments, newRoute);
   const portsByNode = await prepareControlPorts(
     fileSystemId,
     newRoute,
@@ -518,21 +725,36 @@ async function rebuildControlChain(
     changes,
     dependencies,
   );
-  const newSegments = await createUnresolvedControlSegments(
+  const createdSegments = await createControlSegments(
     fileSystemId,
     newRoute,
-    oldSegments,
-    chain.sourceNodeSystemId,
-    destinationNodeSystemId,
     portsByNode,
+    controlPortForNode(oldSegments, chain.sourceNodeSystemId),
+    controlPortForNode(oldSegments, destinationNodeSystemId),
+    null,
+    oldSegments[0].linkType,
+    syncPlan.retainedHopKeys,
     dependencies,
   );
-  await dependencies.controlLinkRepository.replaceUnresolvedSubsystemControlLinkSegments(
-    chain.ids,
-    newSegments,
-    fileSystemId,
+  const obsoleteSegments = oldSegments.filter(segment =>
+    syncPlan.obsoleteSegmentSystemIds.includes(segment.systemId),
   );
-  return {oldSegments, newSegments};
+  if (obsoleteSegments.length > 0) {
+    await dependencies.controlLinkRepository.deleteSubsystemControlLinks(
+      obsoleteSegments,
+      fileSystemId,
+    );
+  }
+  if (createdSegments.length > 0) {
+    await dependencies.controlLinkRepository.createSubsystemControlLinks(
+      createdSegments,
+      fileSystemId,
+    );
+  }
+  return {
+    oldSegments: obsoleteSegments,
+    newSegments: [...syncPlan.retainedSegments, ...createdSegments],
+  };
 }
 
 async function rebuildUnresolvedControlChains(
@@ -540,20 +762,17 @@ async function rebuildUnresolvedControlChains(
   parentBefore: Map<number, number | null>,
   parentAfter: Map<number, number | null>,
   movedNodeIds: ReadonlySet<number>,
-  routeContext: Awaited<
-    ReturnType<ControlLinkRepository['findControlLinkRouteContext']>
-  >,
+  nodeTypeBySystemId: ReadonlyMap<number, NodeType>,
+  routeContext: Awaited<ReturnType<ControlLinkRepository['findAllLinks']>>,
   subsystemStates: Map<number, SubsystemState>,
   changes: Map<number, SubsystemPortChange>,
   dependencies: MoveImpactDependencies,
 ): Promise<UnresolvedControlRebuild> {
-  const unresolved = routeContext.subsystemControlLinks.filter(
-    segment => segment.controlLinkSystemId === null,
-  );
+  const unresolved = routeContext.standaloneSubsystemControlLinks;
   const byId = new Map(unresolved.map(segment => [segment.systemId, segment]));
   const resolution = ControlChainResolutionService.resolve({
     unresolvedSubsystemlinks: unresolved,
-    nodeTypeMap: new Map(routeContext.nodeTypeBySystemId),
+    nodeTypeMap: new Map(nodeTypeBySystemId),
   });
   const chains: ControlChain[] = [
     ...resolution.completeChains.map(chain => ({
@@ -735,30 +954,27 @@ export async function rebuildMoveSubsystemImpact(
   const changes = new Map<number, SubsystemPortChange>();
   const dataRoutes: DataRouteChange[] = [];
   const controlRoutes: ControlRouteChange[] = [];
-  const [dataLinks, controlLinks, dataRouteContext, controlRouteContext] =
-    await Promise.all([
-      dependencies.dataLinkRepository.findAllDataLinksWithResolvedSegments(
-        fileSystemId,
-      ),
-      dependencies.controlLinkRepository.findAllControlLinksWithResolvedSegments(
-        fileSystemId,
-      ),
-      dependencies.dataLinkRepository.findDataLinkRouteContext(fileSystemId),
-      dependencies.controlLinkRepository.findControlLinkRouteContext(
-        fileSystemId,
-      ),
-    ]);
+  const [dataRouteContext, controlRouteContext] = await Promise.all([
+    dependencies.dataLinkRepository.findAllLinks(fileSystemId),
+    dependencies.controlLinkRepository.findAllLinks(fileSystemId),
+  ]);
+  const {dataLinks} = dataRouteContext;
+  const {controlLinks} = controlRouteContext;
   const movedNodeIds = collectMovedNodeIds(
     topology,
     parentBefore,
     updatedModules,
     updatedSubsystems,
   );
+  const nodeTypeBySystemId = new Map(
+    topology.map(node => [node.systemId, node.type]),
+  );
   const unresolvedDataRebuild = await rebuildUnresolvedDataChains(
     fileSystemId,
     parentBefore,
     parentAfter,
     movedNodeIds,
+    nodeTypeBySystemId,
     dataRouteContext,
     subsystemStates,
     changes,
@@ -769,6 +985,7 @@ export async function rebuildMoveSubsystemImpact(
     parentBefore,
     parentAfter,
     movedNodeIds,
+    nodeTypeBySystemId,
     controlRouteContext,
     subsystemStates,
     changes,
@@ -787,55 +1004,45 @@ export async function rebuildMoveSubsystemImpact(
       parentAfter,
     );
     if (routeSignature(oldRoute) === routeSignature(newRoute)) continue;
-    const newSegments: SubsystemDataLink[] = [];
-    const portsByNode = new Map<number, DataPort>();
-    for (const nodeSystemId of newRoute.nodeSequence.slice(1, -1)) {
-      const subsystem = subsystemStates.get(nodeSystemId);
-      if (!subsystem) continue;
-      const port = new DataPort({
-        systemId: await dependencies.idGeneration.getNextId(fileSystemId),
-        naturalId: nextPortId(subsystem.dataPorts),
-        portIoType:
-          newRoute.requiredPortType.get(nodeSystemId) ??
-          PORT_IO_TYPE.OutputInput,
-        isStatic: false,
-        name: '',
-      });
-      subsystem.dataPorts.push(port);
-      portsByNode.set(nodeSystemId, port);
-      getOrCreatePortChange(changes, nodeSystemId).addedDataPorts.push(port);
-      await dependencies.subsystemRepository.addDataPort(port, nodeSystemId);
-    }
-    for (let index = 0; index < newRoute.nodeSequence.length - 1; index++) {
-      const sourceNodeSystemId = newRoute.nodeSequence[index];
-      const destinationNodeSystemId = newRoute.nodeSequence[index + 1];
-      newSegments.push(
-        new SubsystemDataLink({
-          systemId: await dependencies.idGeneration.getNextId(fileSystemId),
-          sourceNodeSystemId,
-          destinationNodeSystemId,
-          sourcePortSystemId:
-            index === 0
-              ? link.sourcePortSystemId
-              : portsByNode.get(sourceNodeSystemId)!.systemId,
-          destinationPortSystemId:
-            index === newRoute.nodeSequence.length - 2
-              ? link.destinationPortSystemId
-              : portsByNode.get(destinationNodeSystemId)!.systemId,
-          dataLinkSystemId: link.systemId,
-          fileSystemId,
-          linkType: link.linkType,
-        }),
+    const syncPlan = planDataSegmentSync(link.subsystemDataLinks, newRoute);
+    const portsByNode = await prepareDataPorts(
+      fileSystemId,
+      newRoute,
+      dataPortByNode(link.subsystemDataLinks),
+      subsystemStates,
+      changes,
+      dependencies,
+    );
+    const createdSegments = await createDataSegments(
+      fileSystemId,
+      newRoute,
+      portsByNode,
+      link.sourcePortSystemId,
+      link.destinationPortSystemId,
+      link.systemId,
+      link.linkType,
+      syncPlan.retainedHopKeys,
+      dependencies,
+    );
+    const obsoleteSegments = link.subsystemDataLinks.filter(segment =>
+      syncPlan.obsoleteSegmentSystemIds.includes(segment.systemId),
+    );
+    if (obsoleteSegments.length > 0) {
+      await dependencies.dataLinkRepository.deleteSubsystemDataLinks(
+        obsoleteSegments,
+        fileSystemId,
       );
     }
-    await dependencies.dataLinkRepository.replaceSubsystemDataLinkSegments(
-      link.systemId,
-      newSegments,
-    );
+    if (createdSegments.length > 0) {
+      await dependencies.dataLinkRepository.createSubsystemDataLinks(
+        createdSegments,
+        fileSystemId,
+      );
+    }
     dataRoutes.push({
       link,
-      oldSegments: link.subsystemDataLinks,
-      newSegments,
+      oldSegments: obsoleteSegments,
+      newSegments: [...syncPlan.retainedSegments, ...createdSegments],
     });
   }
   for (const link of controlLinks) {
@@ -850,57 +1057,48 @@ export async function rebuildMoveSubsystemImpact(
       parentAfter,
     );
     if (routeSignature(oldRoute) === routeSignature(newRoute)) continue;
-    const newSegments: SubsystemControlLink[] = [];
-    const portsByNode = new Map<number, ControlPort>();
-    for (const nodeSystemId of newRoute.nodeSequence.slice(1, -1)) {
-      const subsystem = subsystemStates.get(nodeSystemId);
-      if (!subsystem) continue;
-      const port = new ControlPort({
-        systemId: await dependencies.idGeneration.getNextId(fileSystemId),
-        naturalId: nextPortId(subsystem.controlPorts),
-        isStatic: false,
-        nodeSystemId,
-        name: '',
-        intentSystemIds: [],
-      });
-      subsystem.controlPorts.push(port);
-      portsByNode.set(nodeSystemId, port);
-      getOrCreatePortChange(changes, nodeSystemId).addedControlPorts.push(port);
-      await dependencies.subsystemRepository.addControlPort(port, nodeSystemId);
-    }
-    for (let index = 0; index < newRoute.nodeSequence.length - 1; index++) {
-      const peerNodeASystemId = newRoute.nodeSequence[index];
-      const peerNodeBSystemId = newRoute.nodeSequence[index + 1];
-      const nodeAPortSystemId =
-        index === 0
-          ? link.nodeAPortSystemId
-          : portsByNode.get(peerNodeASystemId)!.systemId;
-      const nodeBPortSystemId =
-        index === newRoute.nodeSequence.length - 2
-          ? link.nodeBPortSystemId
-          : portsByNode.get(peerNodeBSystemId)!.systemId;
-      newSegments.push(
-        new SubsystemControlLink(
-          await dependencies.idGeneration.getNextId(fileSystemId),
-          peerNodeASystemId,
-          peerNodeBSystemId,
-          nodeAPortSystemId,
-          nodeBPortSystemId,
-          link.systemId,
-          fileSystemId,
-          link.linkType,
-          0,
-        ),
+    const syncPlan = planControlSegmentSync(
+      link.subsystemControlLinks,
+      newRoute,
+    );
+    const portsByNode = await prepareControlPorts(
+      fileSystemId,
+      newRoute,
+      controlPortByNode(link.subsystemControlLinks),
+      subsystemStates,
+      changes,
+      dependencies,
+    );
+    const createdSegments = await createControlSegments(
+      fileSystemId,
+      newRoute,
+      portsByNode,
+      link.nodeAPortSystemId,
+      link.nodeBPortSystemId,
+      link.systemId,
+      link.linkType,
+      syncPlan.retainedHopKeys,
+      dependencies,
+    );
+    const obsoleteSegments = link.subsystemControlLinks.filter(segment =>
+      syncPlan.obsoleteSegmentSystemIds.includes(segment.systemId),
+    );
+    if (obsoleteSegments.length > 0) {
+      await dependencies.controlLinkRepository.deleteSubsystemControlLinks(
+        obsoleteSegments,
+        fileSystemId,
       );
     }
-    await dependencies.controlLinkRepository.replaceSubsystemControlLinkSegments(
-      link.systemId,
-      newSegments,
-    );
+    if (createdSegments.length > 0) {
+      await dependencies.controlLinkRepository.createSubsystemControlLinks(
+        createdSegments,
+        fileSystemId,
+      );
+    }
     controlRoutes.push({
       link,
-      oldSegments: link.subsystemControlLinks,
-      newSegments,
+      oldSegments: obsoleteSegments,
+      newSegments: [...syncPlan.retainedSegments, ...createdSegments],
     });
   }
   const usedDataPorts = new Set<number>();

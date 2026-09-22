@@ -15,9 +15,52 @@ import {ControlPort} from '../../../../../../src/domain/entities/usecase-data/no
 import type {ControlLink} from '../../../../../../src/domain/entities/usecase-data/links/control-link.js';
 import {SubsystemControlLink} from '../../../../../../src/domain/entities/usecase-data/links/subsystem-control-link.js';
 import {SubsystemDataLink} from '../../../../../../src/domain/entities/usecase-data/links/subsystem-data-link.js';
-import {rebuildMoveSubsystemImpact} from '../../../../../../src/application/usecase-designer/subsystem/move/move-subsystem-impact.js';
+import {
+  ensureNoMovedPartialConnections,
+  rebuildMoveSubsystemImpact,
+} from '../../../../../../src/application/usecase-designer/subsystem/move/move-subsystem-impact.js';
 
 describe('rebuildMoveSubsystemImpact', () => {
+  it('blocks partial but allows complete unresolved module-to-module chains', () => {
+    const topology = [
+      {systemId: 1, parentSystemId: null, type: NodeType.Module},
+      {systemId: 10, parentSystemId: null, type: NodeType.Subsystem},
+      {systemId: 2, parentSystemId: null, type: NodeType.Module},
+    ];
+    const partial = [
+      new SubsystemDataLink({
+        systemId: 101,
+        sourceNodeSystemId: 1,
+        destinationNodeSystemId: 10,
+        sourcePortSystemId: 1,
+        destinationPortSystemId: 2,
+        dataLinkSystemId: null,
+        fileSystemId: 7,
+        linkType: DATA_LINK_TYPE.Normal,
+      }),
+    ];
+    const complete = [
+      ...partial,
+      new SubsystemDataLink({
+        systemId: 102,
+        sourceNodeSystemId: 10,
+        destinationNodeSystemId: 2,
+        sourcePortSystemId: 3,
+        destinationPortSystemId: 4,
+        dataLinkSystemId: null,
+        fileSystemId: 7,
+        linkType: DATA_LINK_TYPE.Normal,
+      }),
+    ];
+
+    expect(() =>
+      ensureNoMovedPartialConnections(new Set([10]), topology, partial, []),
+    ).toThrow('partial module-to-module subsystem connection');
+    expect(() =>
+      ensureNoMovedPartialConnections(new Set([10]), topology, complete, []),
+    ).not.toThrow();
+  });
+
   it('rebuilds a data-link route and reports the new subsystem port', async () => {
     const link = new DataLink({
       systemId: 50,
@@ -62,32 +105,24 @@ describe('rebuildMoveSubsystemImpact', () => {
           removeControlPort: jest.fn(),
         } as never,
         dataLinkRepository: {
-          findAllDataLinksWithResolvedSegments: jest
-            .fn()
-            .mockResolvedValue([link]),
-          findDataLinkRouteContext: jest.fn().mockResolvedValue({
-            subsystemDataLinks: [],
-            nodeTypeBySystemId: new Map(),
+          findAllLinks: jest.fn().mockResolvedValue({
+            dataLinks: [link],
+            standaloneSubsystemDataLinks: [],
           }),
-          deleteSubsystemDataLinks: jest.fn(),
-          replaceSubsystemDataLinkSegments: jest
+          createSubsystemDataLinks: jest
             .fn()
-            .mockImplementation((_id, segments) => {
-              replacedSegments.push(segments);
+            .mockImplementation(createdSegments => {
+              replacedSegments.push(createdSegments);
             }),
-          replaceUnresolvedSubsystemDataLinkSegments: jest.fn(),
+          deleteSubsystemDataLinks: jest.fn(),
         } as never,
         controlLinkRepository: {
-          findAllControlLinksWithResolvedSegments: jest
-            .fn()
-            .mockResolvedValue([] as ControlLink[]),
-          findControlLinkRouteContext: jest.fn().mockResolvedValue({
-            subsystemControlLinks: [],
-            nodeTypeBySystemId: new Map(),
+          findAllLinks: jest.fn().mockResolvedValue({
+            controlLinks: [] as ControlLink[],
+            standaloneSubsystemControlLinks: [],
           }),
+          createSubsystemControlLinks: jest.fn(),
           deleteSubsystemControlLinks: jest.fn(),
-          replaceSubsystemControlLinkSegments: jest.fn(),
-          replaceUnresolvedSubsystemControlLinkSegments: jest.fn(),
         } as never,
         idGeneration: {
           getNextId: jest
@@ -200,8 +235,10 @@ describe('rebuildMoveSubsystemImpact', () => {
         0,
       ),
     ];
-    const replaceDataLinks = jest.fn();
-    const replaceControlLinks = jest.fn();
+    const addDataLinks = jest.fn();
+    const removeDataLinks = jest.fn();
+    const addControlLinks = jest.fn();
+    const removeControlLinks = jest.fn();
 
     await rebuildMoveSubsystemImpact(
       7,
@@ -268,52 +305,34 @@ describe('rebuildMoveSubsystemImpact', () => {
           removeControlPort: jest.fn(),
         } as never,
         dataLinkRepository: {
-          findAllDataLinksWithResolvedSegments: jest.fn().mockResolvedValue([]),
-          findDataLinkRouteContext: jest.fn().mockResolvedValue({
-            subsystemDataLinks: unresolvedData,
-            nodeTypeBySystemId: new Map([
-              [1, NodeType.Module],
-              [10, NodeType.Subsystem],
-              [20, NodeType.Subsystem],
-              [40, NodeType.Subsystem],
-              [2, NodeType.Module],
-              [3, NodeType.Module],
-            ]),
+          findAllLinks: jest.fn().mockResolvedValue({
+            dataLinks: [],
+            standaloneSubsystemDataLinks: unresolvedData,
           }),
-          deleteSubsystemDataLinks: jest.fn(),
-          replaceUnresolvedSubsystemDataLinkSegments: replaceDataLinks,
-          replaceSubsystemDataLinkSegments: jest.fn(),
+          createSubsystemDataLinks: addDataLinks,
+          deleteSubsystemDataLinks: removeDataLinks,
         } as never,
         controlLinkRepository: {
-          findAllControlLinksWithResolvedSegments: jest
-            .fn()
-            .mockResolvedValue([] as ControlLink[]),
-          findControlLinkRouteContext: jest.fn().mockResolvedValue({
-            subsystemControlLinks: unresolvedControl,
-            nodeTypeBySystemId: new Map([
-              [1, NodeType.Module],
-              [10, NodeType.Subsystem],
-              [20, NodeType.Subsystem],
-              [40, NodeType.Subsystem],
-              [2, NodeType.Module],
-              [3, NodeType.Module],
-            ]),
+          findAllLinks: jest.fn().mockResolvedValue({
+            controlLinks: [] as ControlLink[],
+            standaloneSubsystemControlLinks: unresolvedControl,
           }),
-          deleteSubsystemControlLinks: jest.fn(),
-          replaceUnresolvedSubsystemControlLinkSegments: replaceControlLinks,
-          replaceSubsystemControlLinkSegments: jest.fn(),
+          createSubsystemControlLinks: addControlLinks,
+          deleteSubsystemControlLinks: removeControlLinks,
         } as never,
         idGeneration: {getNextId: jest.fn()} as never,
       },
     );
 
-    expect(replaceDataLinks).toHaveBeenCalledWith(
-      [101, 102, 103],
+    expect(removeDataLinks).toHaveBeenCalledWith(
       expect.arrayContaining([
-        expect.objectContaining({
-          sourceNodeSystemId: 1,
-          destinationNodeSystemId: 10,
-        }),
+        expect.objectContaining({systemId: 102}),
+        expect.objectContaining({systemId: 103}),
+      ]),
+      7,
+    );
+    expect(addDataLinks).toHaveBeenCalledWith(
+      expect.arrayContaining([
         expect.objectContaining({
           sourceNodeSystemId: 10,
           destinationNodeSystemId: 40,
@@ -321,13 +340,15 @@ describe('rebuildMoveSubsystemImpact', () => {
       ]),
       7,
     );
-    expect(replaceControlLinks).toHaveBeenCalledWith(
-      [301, 302, 303],
+    expect(removeControlLinks).toHaveBeenCalledWith(
       expect.arrayContaining([
-        expect.objectContaining({
-          peerNodeASystemId: 1,
-          peerNodeBSystemId: 10,
-        }),
+        expect.objectContaining({systemId: 302}),
+        expect.objectContaining({systemId: 303}),
+      ]),
+      7,
+    );
+    expect(addControlLinks).toHaveBeenCalledWith(
+      expect.arrayContaining([
         expect.objectContaining({
           peerNodeASystemId: 10,
           peerNodeBSystemId: 40,
