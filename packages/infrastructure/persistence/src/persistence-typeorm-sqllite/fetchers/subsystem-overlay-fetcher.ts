@@ -66,23 +66,7 @@ export class SubsystemOverlayFetcher {
       .where('n.fileSystemId = :fileSystemId', {fileSystemId})
       .getRawAndEntities();
 
-    const keyRows = await this.manager
-      .getRepository<SubsystemFilteredKeyRow>(ENTITY_NAMES.SubsystemFilteredKey)
-      .createQueryBuilder('fk')
-      .innerJoin(
-        ENTITY_NAMES.Node,
-        'n',
-        'n.system_id = fk.subsystems_system_id',
-      )
-      .where('n.file_system_id = :fileSystemId', {fileSystemId})
-      .getMany();
-    const filteredKeyIdsBySubsystem = new Map<number, number[]>();
-    for (const keyRow of keyRows) {
-      const ids =
-        filteredKeyIdsBySubsystem.get(keyRow.subsystemsSystemId) ?? [];
-      ids.push(keyRow.keyDefinitionSystemId);
-      filteredKeyIdsBySubsystem.set(keyRow.subsystemsSystemId, ids);
-    }
+    const filteredKeyRows = await this.loadFilteredKeyRows(fileSystemId);
 
     // Build parentSystemId lookup from the JOIN result.
     const parentSystemIdBySubsystemSystemId = new Map<number, number | null>(
@@ -98,12 +82,16 @@ export class SubsystemOverlayFetcher {
       subsystemRows.map(row => ({
         ...row,
         filteredKeySystemIds: [
-          ...(filteredKeyIdsBySubsystem.get(row.systemId) ?? []),
+          ...(filteredIdsBySubsystem.get(row.systemId) ?? []),
         ],
       }));
 
     if (sessionId === null) {
-      return this.buildResult(rows, parentSystemIdBySubsystemSystemId);
+      return this.buildResult(
+        rows,
+        parentSystemIdBySubsystemSystemId,
+        filteredIdsBySubsystem,
+      );
     }
 
     // Pass 1 — Node overlay. Node is the file-scoped half of the shared-PK
@@ -225,12 +213,15 @@ export class SubsystemOverlayFetcher {
   private buildResult(
     rows: Array<SubsystemBase & {filteredKeySystemIds?: number[]}>,
     parentSystemIdBySubsystemSystemId: Map<number, number | null | undefined>,
+    filteredKeyIdsBySubsystem: ReadonlyMap<number, readonly number[]>,
   ): OverlaidSubsystem[] {
     return rows.map(row => ({
       ...row,
       parentSystemId:
         parentSystemIdBySubsystemSystemId.get(row.systemId) ?? null,
-      filteredKeySystemIds: row.filteredKeySystemIds ?? [],
+      filteredKeySystemIds: [
+        ...(filteredKeyIdsBySubsystem.get(row.systemId) ?? []),
+      ],
     }));
   }
 }

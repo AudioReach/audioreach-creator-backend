@@ -16,7 +16,10 @@ import type {Issue} from '../../../../shared/issues/issue.js';
 import type {MoveSubsystemComponentsCommand} from './move-subsystem-components.command.js';
 import {isDescendant} from '../subsystem-helpers.js';
 import {
+  collectMovedNodeIds,
+  ensureNoMovedPartialConnections,
   rebuildMoveSubsystemImpact,
+  type MoveComponent,
   type MoveSubsystemImpact,
 } from './move-subsystem-impact.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
@@ -185,6 +188,40 @@ export class MoveSubsystemComponentsHandler implements CommandHandler<
       if (subsystemSystemIds.length === 0 && subgraphSystemIds.length === 0) {
         throw new DomainRuleViolationException(issues);
       }
+
+      const movedModules: MoveComponent[] = [...modulesBySubgraph.values()]
+        .flat()
+        .filter(
+          module =>
+            command.targetSubsystemSystemId !== null ||
+            (parentBefore.get(module.systemId) ?? null) !== null,
+        )
+        .map(module => ({
+          systemId: module.systemId,
+          parentSystemId: command.targetSubsystemSystemId,
+        }));
+      const movedSubsystems: MoveComponent[] = subsystemSystemIds.map(
+        systemId => ({
+          systemId,
+          parentSystemId: command.targetSubsystemSystemId,
+        }),
+      );
+      const movedNodeIds = collectMovedNodeIds(
+        topology,
+        parentBefore,
+        movedModules,
+        movedSubsystems,
+      );
+      const [dataRouteContext, controlRouteContext] = await Promise.all([
+        this.uow.getDataLinkRepository().findAllLinks(command.fileSystemId),
+        this.uow.getControlLinkRepository().findAllLinks(command.fileSystemId),
+      ]);
+      ensureNoMovedPartialConnections(
+        movedNodeIds,
+        topology,
+        dataRouteContext.standaloneSubsystemDataLinks,
+        controlRouteContext.standaloneSubsystemControlLinks,
+      );
 
       const updatedModules: MoveSubsystemComponentsResult['updatedModules'] =
         [];

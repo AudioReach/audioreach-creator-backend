@@ -31,18 +31,29 @@ export class DataLinkDeletionService {
     mode: LinkDeletionMode = LINK_DELETION_MODE.Full,
   ): Promise<DataLinkDeletionResult> {
     const repository = this.uow.getDataLinkRepository();
-    const [links, reachableUnresolved, routeContext] = await Promise.all([
-      repository.findLinksConnectedToModule(moduleSystemId, fileSystemId),
-      repository.findUnresolvedSubsystemLinksFromModule(
-        moduleSystemId,
-        fileSystemId,
+    const [links, reachableUnresolved, linkGraph, topology] = await Promise.all(
+      [
+        repository.findLinksConnectedToModule(moduleSystemId, fileSystemId),
+        repository.findUnresolvedSubsystemLinksFromModule(
+          moduleSystemId,
+          fileSystemId,
+        ),
+        repository.findAllLinks(fileSystemId),
+        this.uow.getSubsystemRepository().getAllNodesWithParents(fileSystemId),
+      ],
+    );
+    const nodeTypeBySystemId = new Map(
+      topology.map(node => [node.systemId, node.type]),
+    );
+    const standaloneSegmentsById = new Map(
+      [...linkGraph.standaloneSubsystemDataLinks, ...reachableUnresolved].map(
+        segment => [segment.systemId, segment],
       ),
-      repository.findDataLinkRouteContext(fileSystemId),
-    ]);
+    );
     const unresolvedPlan = planUnresolvedDeletion({
       moduleSystemId,
       reachableSegments: reachableUnresolved,
-      routeSegments: routeContext.subsystemDataLinks,
+      routeSegments: linkGraph.standaloneSubsystemDataLinks,
       getSystemId: segment => segment.systemId,
       isUnresolved: segment => segment.dataLinkSystemId === null,
       getNodeSystemIds: segment => [
@@ -52,7 +63,7 @@ export class DataLinkDeletionService {
       classify: unresolvedSegments => {
         const resolution = ChainResolutionService.resolve({
           unresolvedSubsystemLinks: [...unresolvedSegments],
-          nodeTypeMap: new Map(routeContext.nodeTypeBySystemId),
+          nodeTypeMap: new Map(nodeTypeBySystemId),
         });
         return {
           completeChains: resolution.completeChains.map(chain => ({
@@ -86,7 +97,7 @@ export class DataLinkDeletionService {
         await repository.deleteAggregate(link.systemId, fileSystemId);
       } else {
         await repository.deleteSubsystemDataLinks(
-          deletedSegments.map(segment => segment.systemId),
+          deletedSegments,
           fileSystemId,
         );
       }
@@ -96,7 +107,14 @@ export class DataLinkDeletionService {
       mode === LINK_DELETION_MODE.Full
         ? unresolvedPlan.fullModeIds
         : unresolvedPlan.segmentOnlyIds;
-    await repository.deleteSubsystemDataLinks(unresolvedIds, fileSystemId);
+    await repository.deleteSubsystemDataLinks(
+      unresolvedIds
+        .map(systemId => standaloneSegmentsById.get(systemId))
+        .filter(
+          (segment): segment is SubsystemDataLink => segment !== undefined,
+        ),
+      fileSystemId,
+    );
 
     return {
       dataLinks,

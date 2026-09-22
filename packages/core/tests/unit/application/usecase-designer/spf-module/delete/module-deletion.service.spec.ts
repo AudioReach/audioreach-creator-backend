@@ -93,9 +93,9 @@ function createFixture(options?: {
     findUnresolvedSubsystemLinksFromModule: jest
       .fn()
       .mockResolvedValue(options?.unresolvedDataLinks ?? []),
-    findDataLinkRouteContext: jest.fn().mockResolvedValue({
-      subsystemDataLinks: [],
-      nodeTypeBySystemId: new Map(),
+    findAllLinks: jest.fn().mockResolvedValue({
+      dataLinks: [],
+      standaloneSubsystemDataLinks: [],
     }),
     deleteAggregate: jest.fn(),
     deleteSubsystemDataLinks: jest.fn(),
@@ -107,9 +107,9 @@ function createFixture(options?: {
     findUnresolvedSubsystemLinksFromModule: jest
       .fn()
       .mockResolvedValue(options?.unresolvedControlLinks ?? []),
-    findControlLinkRouteContext: jest.fn().mockResolvedValue({
-      subsystemControlLinks: [],
-      nodeTypeBySystemId: new Map(),
+    findAllLinks: jest.fn().mockResolvedValue({
+      controlLinks: [],
+      standaloneSubsystemControlLinks: [],
     }),
     deleteAggregate: jest.fn(),
     deleteSubsystemControlLinks: jest.fn(),
@@ -117,6 +117,7 @@ function createFixture(options?: {
   const subsystemRepository = {
     hasSubsystems: jest.fn().mockResolvedValue(options?.hasSubsystems ?? false),
     clearControlPortIntents: jest.fn(),
+    getAllNodesWithParents: jest.fn().mockResolvedValue([]),
   };
   const usecaseRepository = {
     removeSubgraphReferences: jest
@@ -309,13 +310,13 @@ describe('ModuleDeletionService', () => {
     );
     expect(
       fixture.dataLinkRepository.deleteSubsystemDataLinks,
-    ).toHaveBeenCalledWith([102], 7);
+    ).toHaveBeenCalledWith([{systemId: 102}], 7);
     expect(fixture.controlLinkRepository.deleteAggregate).toHaveBeenCalledWith(
       20,
       7,
     );
     expect(
       fixture.controlLinkRepository.deleteSubsystemControlLinks,
-    ).toHaveBeenCalledWith([202], 7);
+    ).toHaveBeenCalledWith([{systemId: 202}], 7);
   });
 });

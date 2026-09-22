@@ -6,14 +6,13 @@
 import type {DataLink} from '../../../../../domain/entities/usecase-data/links/data-link.js';
 import type {SubsystemDataLink} from '../../../../../domain/entities/usecase-data/links/subsystem-data-link.js';
 import type {PortIoType} from '../../../../../domain/entities/common/enums/port-io-type.js';
-import type {NodeType} from '../../../../../domain/entities/usecase-data/node/node.js';
 import type {EditOptions} from '../../edit-options.js';
 import type {LinksForPair, SubgraphPair} from '../shared/links-for-pair.js';
 import type {SessionChanged} from '../shared/session-changed.js';
 
-export interface SubsystemDataRouteContext {
-  subsystemDataLinks: SubsystemDataLink[];
-  nodeTypeBySystemId: ReadonlyMap<number, NodeType>;
+export interface DataLinkGraph {
+  dataLinks: DataLink[];
+  standaloneSubsystemDataLinks: SubsystemDataLink[];
 }
 
 export interface BoundaryPortPayload {
@@ -36,9 +35,7 @@ export interface DataLinkRepository {
     fileSystemId: number,
   ): Promise<SubsystemDataLink[]>;
 
-  findDataLinkRouteContext(
-    fileSystemId: number,
-  ): Promise<SubsystemDataRouteContext>;
+  findAllLinks(fileSystemId: number): Promise<DataLinkGraph>;
 
   /**
    * Deletes the canonical link and every currently resolved subsystem segment
@@ -46,18 +43,6 @@ export interface DataLinkRepository {
    */
   deleteAggregate(
     dataLinkSystemId: number,
-    fileSystemId: number,
-    options?: EditOptions,
-  ): Promise<void>;
-
-  /**
-   * Deletes the specified subsystem segments. An unresolved segment is deleted
-   * directly. For a resolved segment, the canonical DataLink is deleted and
-   * non-target sibling segments are updated to have a null DataLink FK in the
-   * edit-action overlay so chain resolution can process them later.
-   */
-  deleteSubsystemDataLinks(
-    subsystemLinkSystemIds: number[],
     fileSystemId: number,
     options?: EditOptions,
   ): Promise<void>;
@@ -103,19 +88,18 @@ export interface DataLinkRepository {
    */
   findIntraUcLinksByFile(fileSystemId: number): Promise<DataLink[]>;
 
-  findAllDataLinksWithResolvedSegments(
+  createSubsystemDataLinks(
+    subsystemDataLinks: readonly SubsystemDataLink[],
     fileSystemId: number,
-  ): Promise<DataLink[]>;
-
-  replaceSubsystemDataLinkSegments(
-    dataLinkSystemId: number,
-    segments: SubsystemDataLink[],
     options?: EditOptions,
   ): Promise<void>;
 
-  replaceUnresolvedSubsystemDataLinkSegments(
-    subsystemLinkSystemIds: number[],
-    segments: SubsystemDataLink[],
+  /**
+   * Deletes exactly the specified subsystem segments. This does not alter a
+   * canonical DataLink or sibling segments; use deleteAggregate for that.
+   */
+  deleteSubsystemDataLinks(
+    subsystemDataLinks: readonly SubsystemDataLink[],
     fileSystemId: number,
     options?: EditOptions,
   ): Promise<void>;
