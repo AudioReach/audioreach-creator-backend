@@ -2878,7 +2878,7 @@
     },
     "/arc-api/v1/projects/{projectId}/usecases": {
       "get": {
-        "description": "Returns array of usecases with raw GKV (Graph Key-Value) information.\n\n**Response Structure:**\nEach response item contains:\n- `usecases`: Array containing a single UsecaseIdentifierDto with complete raw GKV\n\n**For subsystem-filtered usecases:**\n- Use the `/usecases/filtered-by-subsystem` endpoint instead\n\n**Optional Filtering:**\nYou can optionally filter usecases using the `filter` query parameter. The filter supports:\n- `spfModuleInstanceId`: Filter by SPF module natural instance IDs\n- `subgraphNaturalId`: Filter by subgraph natural IDs\n- `containerNaturalId`: Filter by container natural IDs\n- Operators: Use `AND`, `OR`, and parentheses for complex filtering\n\nSee the filter parameter documentation for detailed examples and usage.",
+        "description": "Returns array of usecases with raw GKV (Graph Key-Value) information.\n\n**Response Structure:**\nEach response item contains:\n- `usecases`: Array containing a single UsecaseIdentifierDto with complete raw GKV\n\n**For subsystem-filtered usecases:**\n- Use the `/usecases/filtered-by-subsystem` endpoint instead\n\n**Optional Filtering:**\nYou can optionally filter usecases using the `filter` query parameter. The filter supports:\n- `spfModuleInstanceNaturalId`: Filter by SPF module natural instance IDs\n- `subgraphNaturalId`: Filter by subgraph natural IDs\n- `containerNaturalId`: Filter by container natural IDs\n- Operators: Use `AND`, `OR`, and parentheses for complex filtering\n\nSee the filter parameter documentation for detailed examples and usage.",
         "operationId": "UseCaseController_getAllUsecases",
         "parameters": [
           {
@@ -2895,9 +2895,9 @@
             "name": "filter",
             "required": false,
             "in": "query",
-            "description": "Filter expression to filter usecases. Supports natural query syntax with explicit operators.\n\n**Syntax:**\n- Single condition: `field:value`\n- AND operator: `field1:value1 AND field2:value2`\n- OR operator: `field1:value1 OR field1:value2`\n- Parentheses for grouping: `field1:value1 AND (field2:value2 OR field2:value3)`\n\n**Valid Fields:**\n- `spfModuleInstanceId`: SPF Module natural instance ID\n- `subgraphNaturalId`: Subgraph natural ID\n- `containerNaturalId`: Container natural ID\n\n**Value Formats:**\n- Hexadecimal: `0x7656`\n- Decimal: `30294`\n\n**Operators:**\n- `AND`: Both conditions must be true\n- `OR`: At least one condition must be true\n- Parentheses `()`: Group conditions for precedence control\n\n**Examples:**\n- Single condition: `spfModuleInstanceId:0x7656`\n- OR operator: `spfModuleInstanceId:0x7656 OR spfModuleInstanceId:0x7657`\n- AND operator: `spfModuleInstanceId:0x7656 AND subgraphNaturalId:0x8978`\n- Complex with parentheses: `spfModuleInstanceId:0x7656 AND (containerNaturalId:0x8976 OR containerNaturalId:0x9877)`\n- Multiple ANDs: `spfModuleInstanceId:0x7656 AND subgraphNaturalId:0x8978 AND containerNaturalId:0x8976`\n- Multiple ORs: `spfModuleInstanceId:0x7656 OR spfModuleInstanceId:0x7657 OR spfModuleInstanceId:0x7658`\n\n**Note:** Comma-separated values are NOT supported. Use explicit OR operator instead.",
+            "description": "Filter expression to filter usecases. Supports natural query syntax with explicit operators.\n\n**Syntax:**\n- Single condition: `field:value`\n- AND operator: `field1:value1 AND field2:value2`\n- OR operator: `field1:value1 OR field1:value2`\n- Parentheses for grouping: `field1:value1 AND (field2:value2 OR field2:value3)`\n\n**Valid Fields:**\n- `spfModuleInstanceNaturalId`: SPF Module natural instance ID\n- `subgraphNaturalId`: Subgraph natural ID\n- `containerNaturalId`: Container natural ID\n\n**Value Formats:**\n- Hexadecimal: `0x7656`\n- Decimal: `30294`\n\n**Operators:**\n- `AND`: Both conditions must be true\n- `OR`: At least one condition must be true\n- Parentheses `()`: Group conditions for precedence control\n\n**Examples:**\n- Single condition: `spfModuleInstanceNaturalId:0x7656`\n- OR operator: `spfModuleInstanceNaturalId:0x7656 OR spfModuleInstanceNaturalId:0x7657`\n- AND operator: `spfModuleInstanceNaturalId:0x7656 AND subgraphNaturalId:0x8978`\n- Complex with parentheses: `spfModuleInstanceNaturalId:0x7656 AND (containerNaturalId:0x8976 OR containerNaturalId:0x9877)`\n- Multiple ANDs: `spfModuleInstanceNaturalId:0x7656 AND subgraphNaturalId:0x8978 AND containerNaturalId:0x8976`\n- Multiple ORs: `spfModuleInstanceNaturalId:0x7656 OR spfModuleInstanceNaturalId:0x7657 OR spfModuleInstanceNaturalId:0x7658`\n\n**Note:** Comma-separated values are NOT supported. Use explicit OR operator instead.",
             "schema": {
-              "example": "spfModuleInstanceId:0x7656 AND subgraphNaturalId:0x8978",
+              "example": "spfModuleInstanceNaturalId:0x7656 AND subgraphNaturalId:0x8978",
               "type": "string"
             }
           }
@@ -3056,7 +3056,7 @@
             "name": "filter",
             "required": false,
             "in": "query",
-            "description": "Filter expression to filter usecases by subsystem ID. Supports natural query syntax with explicit operators.\n\n**Syntax:**\n- Single condition: `subsystemId:value`\n- AND operator: `subsystemId:value1 AND subsystemId:value2`\n- OR operator: `subsystemId:value1 OR subsystemId:value2`\n- Parentheses for grouping: `subsystemId:value1 AND (subsystemId:value2 OR subsystemId:value3)`\n\n**Valid Fields:**\n- `subsystemId`: Subsystem system ID (only field supported by this endpoint)\n\n**Value Formats:**\n- Hexadecimal: `0x1`\n- Decimal: `1`\n\n**Operators:**\n- `AND`: Both conditions must be true\n- `OR`: At least one condition must be true\n- Parentheses `()`: Group conditions for precedence control\n\n**Examples:**\n- Single subsystem: `subsystemId:0x1`\n- Multiple subsystems (OR): `subsystemId:0x1 OR subsystemId:0x2`\n- Multiple subsystems (AND): `subsystemId:0x1 AND subsystemId:0x2`\n- Complex with parentheses: `subsystemId:0x1 AND (subsystemId:0x2 OR subsystemId:0x3)`\n\n**Note:** \n- Comma-separated values are NOT supported. Use explicit OR operator instead.\n- For filtering by spfModuleInstanceId, subgraphNaturalId, or containerNaturalId, use the `/usecases` endpoint instead.",
+            "description": "Filter expression to filter usecases by subsystem and existing usecase fields. Supports natural query syntax with explicit operators.\n\n**Syntax:**\n- Single condition: `subsystemId:value`\n- AND operator: `subsystemId:value1 AND subsystemId:value2`\n- OR operator: `subsystemId:value1 OR subsystemId:value2`\n- Parentheses for grouping: `subsystemId:value1 AND (subsystemId:value2 OR subsystemId:value3)`\n\n**Valid Fields:**\n- `subsystemId`: Subsystem natural ID\n- `spfModuleInstanceNaturalId`: SPF Module natural instance ID\n- `subgraphNaturalId`: Subgraph natural ID\n- `containerNaturalId`: Container natural ID\n\n**Value Formats:**\n- Hexadecimal: `0x1`\n- Decimal: `1`\n\n**Operators:**\n- `AND`: Both conditions must be true\n- `OR`: At least one condition must be true\n- Parentheses `()`: Group conditions for precedence control\n\n**Examples:**\n- Single subsystem: `subsystemId:0x1`\n- Multiple subsystems (OR): `subsystemId:0x1 OR subsystemId:0x2`\n- Multiple subsystems (AND): `subsystemId:0x1 AND subsystemId:0x2`\n- Complex with parentheses: `subsystemId:0x1 AND (subsystemId:0x2 OR subsystemId:0x3)`\n\n**Note:** \n- Comma-separated values are NOT supported. Use explicit OR operator instead.\n- For filtering by spfModuleInstanceNaturalId, subgraphNaturalId, or containerNaturalId, use the `/usecases` endpoint instead.",
             "schema": {
               "example": "subsystemId:0x1 OR subsystemId:0x2",
               "type": "string"
@@ -7038,91 +7038,6 @@
       }
     },
     "/arc-api/v1/projects/{projectId}/subsystems": {
-      "get": {
-        "operationId": "SubsystemController_querySubsystems",
-        "parameters": [
-          {
-            "name": "projectId",
-            "required": true,
-            "in": "path",
-            "description": "The unique identifier of the project",
-            "schema": {
-              "example": "12345",
-              "type": "string"
-            }
-          },
-          {
-            "name": "systemId",
-            "required": true,
-            "in": "query",
-            "description": "Comma-separated subsystem system IDs",
-            "schema": {
-              "example": "301,302",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "All subsystems found successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/SubsystemResponseDto"
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "207": {
-            "description": "Partial success — some subsystems could not be retrieved (see errors array)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/SubsystemResponseDto"
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Project not found"
-          },
-          "422": {
-            "description": "Failed to get subsystems"
-          }
-        },
-        "summary": "Get subsystems for provided system IDs",
-        "tags": [
-          "subsystems"
-        ]
-      },
       "post": {
         "description": "Creates a new empty subsystem with the given name.\n\n**Optional parameters:**\n- `parentSystemId`: System ID of an existing subsystem to nest this one under. If omitted, the subsystem is created at the root level of the use case.",
         "operationId": "SubsystemController_createSubsystem",
@@ -11289,17 +11204,201 @@
         "properties": {
           "filteredKv": {
             "type": "object",
-            "description": "Subsystem-filtered key-value information"
+            "properties": {
+              "keyValuePairs": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "object",
+                      "properties": {
+                        "naturalId": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "Key id"
+                        },
+                        "name": {
+                          "type": "string",
+                          "description": "Key name"
+                        },
+                        "systemId": {
+                          "type": "string",
+                          "description": "Key system identifier"
+                        }
+                      },
+                      "required": [
+                        "naturalId",
+                        "name",
+                        "systemId"
+                      ],
+                      "description": "Key information"
+                    },
+                    "value": {
+                      "type": "object",
+                      "properties": {
+                        "naturalId": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "Value id"
+                        },
+                        "name": {
+                          "type": "string",
+                          "description": "Value name"
+                        },
+                        "systemId": {
+                          "type": "string",
+                          "description": "Value system identifier"
+                        }
+                      },
+                      "required": [
+                        "naturalId",
+                        "name",
+                        "systemId"
+                      ],
+                      "description": "Value information"
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "value"
+                  ]
+                },
+                "description": "Collection of key-value pairs after subsystem filtering"
+              },
+              "subsystems": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "subsystemNaturalId": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "Subsystem natural identifier"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Subsystem name"
+                    }
+                  },
+                  "required": [
+                    "subsystemNaturalId",
+                    "name"
+                  ]
+                },
+                "description": "Subsystems represented by the filtered key definitions"
+              }
+            },
+            "required": [
+              "keyValuePairs",
+              "subsystems"
+            ]
           },
           "usecases": {
-            "description": "Array of usecase identifiers that match the subsystem filter",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/UsecaseResponseDto"
-            }
+              "type": "object",
+              "properties": {
+                "systemId": {
+                  "type": "string",
+                  "description": "System identifier of the usecase"
+                },
+                "usecaseType": {
+                  "type": "string",
+                  "description": "Type of the usecase"
+                },
+                "keyValuePairs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "object",
+                        "properties": {
+                          "naturalId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Key id"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Key name"
+                          },
+                          "systemId": {
+                            "type": "string",
+                            "description": "Key system identifier"
+                          }
+                        },
+                        "required": [
+                          "naturalId",
+                          "name",
+                          "systemId"
+                        ],
+                        "description": "Key information"
+                      },
+                      "value": {
+                        "type": "object",
+                        "properties": {
+                          "naturalId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Value id"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Value name"
+                          },
+                          "systemId": {
+                            "type": "string",
+                            "description": "Value system identifier"
+                          }
+                        },
+                        "required": [
+                          "naturalId",
+                          "name",
+                          "systemId"
+                        ],
+                        "description": "Value information"
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "value"
+                    ]
+                  },
+                  "description": "Collection of key-value pairs"
+                },
+                "usecaseAliasId": {
+                  "description": "Optional alias identifier for the usecase",
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "usecaseAliasName": {
+                  "description": "Alias name for the usecase",
+                  "type": "string"
+                },
+                "usecaseCategory": {
+                  "description": "Category of the usecase",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "systemId",
+                "usecaseType",
+                "keyValuePairs"
+              ]
+            },
+            "description": "Usecases that share this filtered GKV result"
           }
         },
         "required": [
+          "filteredKv",
           "usecases"
         ]
       },
@@ -17077,167 +17176,6 @@
         ],
         "description": "Subgraph pair"
       },
-      "SubsystemResponseDto": {
-        "type": "object",
-        "properties": {
-          "systemId": {
-            "type": "string",
-            "description": "System ID"
-          },
-          "naturalId": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991,
-            "description": "Component ID"
-          },
-          "name": {
-            "description": "Subsystem name",
-            "type": "string"
-          },
-          "parentSystemId": {
-            "description": "System ID of the parent subsystem, if nested",
-            "type": "string"
-          },
-          "dataPorts": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "systemId": {
-                  "type": "string",
-                  "description": "Port system ID"
-                },
-                "naturalId": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Port definition natural ID"
-                },
-                "name": {
-                  "type": "string",
-                  "description": "Port name"
-                },
-                "portIoType": {
-                  "type": "string",
-                  "enum": [
-                    "Input",
-                    "Output"
-                  ],
-                  "description": "Port IO type"
-                },
-                "portType": {
-                  "type": "string",
-                  "enum": [
-                    "Static",
-                    "Dynamic"
-                  ],
-                  "description": "Port type"
-                },
-                "totalLinksAtPort": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Number of active data links at this port"
-                }
-              },
-              "required": [
-                "systemId",
-                "naturalId",
-                "name",
-                "portIoType",
-                "portType",
-                "totalLinksAtPort"
-              ]
-            },
-            "description": "Data ports"
-          },
-          "controlPorts": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "systemId": {
-                  "type": "string",
-                  "description": "Control port system ID"
-                },
-                "naturalId": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Control port definition natural ID"
-                },
-                "name": {
-                  "type": "string",
-                  "description": "Component name"
-                },
-                "portType": {
-                  "type": "string",
-                  "enum": [
-                    "Static",
-                    "Dynamic"
-                  ],
-                  "description": "Port type"
-                },
-                "controlPortName": {
-                  "description": "Control port name",
-                  "type": "string"
-                },
-                "totalLinksAtPort": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Number of active control links at this port"
-                },
-                "intents": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "naturalId": {
-                        "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991,
-                        "description": "Intent natural ID"
-                      },
-                      "name": {
-                        "description": "Intent name",
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "naturalId"
-                    ]
-                  },
-                  "description": "Control port intents"
-                }
-              },
-              "required": [
-                "systemId",
-                "naturalId",
-                "name",
-                "portType",
-                "totalLinksAtPort",
-                "intents"
-              ]
-            },
-            "description": "Control ports"
-          },
-          "filteredKeys": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/KeyInfoDto"
-            },
-            "description": "Filtered keys assigned to the subsystem"
-          }
-        },
-        "required": [
-          "systemId",
-          "naturalId",
-          "dataPorts",
-          "controlPorts",
-          "filteredKeys"
-        ]
-      },
       "CreateSubsystemRequestDto": {
         "type": "object",
         "properties": {
@@ -17710,17 +17648,12 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991,
             "description": "Container natural ID (containerId from ACDB)"
-          },
-          "name": {
-            "type": "string",
-            "description": "Container type name, or containerTypeSystemId as string when name is not yet populated"
           }
         },
         "required": [
           "relatedEndPointLinks",
           "systemId",
-          "naturalId",
-          "name"
+          "naturalId"
         ]
       },
       "ContainerPropertiesResponseDto": {
