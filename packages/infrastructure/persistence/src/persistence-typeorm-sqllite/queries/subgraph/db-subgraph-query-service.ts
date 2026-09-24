@@ -47,15 +47,21 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
   async getAllSubgraphs(
     fileSystemId: number,
     includes: ConfigurationIncludes,
+    systemIds?: number[],
   ): Promise<Result<SubgraphReadModel[]>> {
     try {
       const session =
         await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
       const sessionId = session?.sessionId ?? null;
+      const filters =
+        systemIds === undefined || systemIds.length === 0
+          ? undefined
+          : {systemId: systemIds};
 
       const subgraphs = await this.subgraphFetcher.fetchMany(
         fileSystemId,
         sessionId,
+        filters,
       );
 
       // Summary — no SGKV data needed.
@@ -75,6 +81,7 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
       const allSgkvs = await this.subgraphFetcher.getSgkvs(
         fileSystemId,
         sessionId,
+        systemIds,
       );
       const sgkvsBySubgraph = new Map<number, typeof allSgkvs>();
       for (const sgkv of allSgkvs) {

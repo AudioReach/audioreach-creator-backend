@@ -5,6 +5,7 @@
 
 import {z} from 'zod';
 import {KeyValuePairsInfoDtoSchema} from '../../spf-module/query/spf-module-dto.js';
+import type {SubgraphReadModel} from '../../../ports/persistence/query-services/subgraph/subgraph-read-model.js';
 
 export const SubgraphDtoSchema = z
   .object({
@@ -23,3 +24,27 @@ export const SubgraphDtoSchema = z
   .describe('Subgraph');
 
 export type SubgraphDto = z.infer<typeof SubgraphDtoSchema>;
+
+export function mapSubgraph(s: SubgraphReadModel): SubgraphDto {
+  return {
+    systemId: String(s.systemId),
+    naturalId: s.naturalId,
+    name: s.name,
+    subGraphSharedType: s.isImported ? 'Imported' : 'None',
+    SGKV: (s.sgkvs ?? []).map(sgkv => ({
+      systemId: String(sgkv.systemId),
+      keyValuePairs: sgkv.keyValuePairs.map(kv => ({
+        key: {
+          naturalId: kv.key.naturalId,
+          name: kv.key.name,
+          systemId: String(kv.key.systemId),
+        },
+        value: {
+          naturalId: kv.value.naturalId,
+          name: kv.value.name,
+          systemId: String(kv.value.systemId),
+        },
+      })),
+    })),
+  };
+}

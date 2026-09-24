@@ -390,8 +390,13 @@ export * from './application/usecase-designer/subgraph/get-properties/get-subgra
 export * from './application/usecase-designer/subgraph/get-properties/get-subgraph-properties.handler.js';
 export {SubgraphPropertiesDtoSchema} from './application/usecase-designer/subgraph/dto/subgraph-properties-dto.js';
 export type {SubgraphPropertiesDto} from './application/usecase-designer/subgraph/dto/subgraph-properties-dto.js';
-export {SubgraphDtoSchema} from './application/usecase-designer/subgraph/dto/subgraph-dto.js';
+export {
+  SubgraphDtoSchema,
+  mapSubgraph,
+} from './application/usecase-designer/subgraph/dto/subgraph-dto.js';
 export type {SubgraphDto} from './application/usecase-designer/subgraph/dto/subgraph-dto.js';
+export * from './application/usecase-designer/subgraph/get-all/get-all-subgraphs.query.js';
+export * from './application/usecase-designer/subgraph/get-all/get-all-subgraphs.handler.js';
 export {
   SubgraphPairDtoSchema,
   DataLinkWithUsecasesDtoSchema,

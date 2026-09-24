@@ -23,6 +23,7 @@ export interface SubgraphQueryService {
 
   /**
    * Returns all subgraphs for the given file, with session overlay applied.
+   * When systemIds is supplied, only those subgraphs are returned.
    *
    * - Summary: scalar fields only; `sgkvs` is `null`.
    * - FullDetails: scalar fields + SGKVs resolved to key-value pairs.
@@ -30,5 +31,6 @@ export interface SubgraphQueryService {
   getAllSubgraphs(
     fileSystemId: number,
     includes: ConfigurationIncludes,
+    systemIds?: number[],
   ): Promise<Result<SubgraphReadModel[]>>;
 }

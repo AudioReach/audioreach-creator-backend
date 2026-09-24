@@ -10,6 +10,7 @@ import {
   SOURCE,
   RESULT_KIND,
   Result,
+  CONFIGURATION_INCLUDES,
 } from '@arc/core';
 import {
   SESSION_MODE,
@@ -75,10 +76,32 @@ async function seedSession(ds: DataSource): Promise<number> {
   return row.sessionId;
 }
 
-async function seedSubgraph(ds: DataSource) {
+async function seedSubgraph(
+  ds: DataSource,
+  opts: {
+    systemId?: number;
+    naturalId?: number;
+    name?: string;
+  } = {},
+) {
   await ds.query(
-    `INSERT INTO subgraphs (system_id, subgraph_id, name, is_imported, file_system_id) VALUES (?, 1, 'sg', 0, ?)`,
-    [SUBGRAPH_SYSTEM_ID, FILE_ID],
+    `INSERT INTO subgraphs (system_id, subgraph_id, name, is_imported, file_system_id) VALUES (?, ?, ?, 0, ?)`,
+    [
+      opts.systemId ?? SUBGRAPH_SYSTEM_ID,
+      opts.naturalId ?? 1,
+      opts.name ?? 'sg',
+      FILE_ID,
+    ],
+  );
+}
+
+async function seedSgkv(
+  ds: DataSource,
+  opts: {systemId: number; subgraphSystemId: number},
+) {
+  await ds.query(
+    `INSERT INTO sgkv (system_id, subgraph_system_id) VALUES (?, ?)`,
+    [opts.systemId, opts.subgraphSystemId],
   );
 }
 
@@ -261,5 +284,78 @@ describe('DbSubgraphQueryService.findPropertyPayloads (integration)', () => {
     expect(result.kind).toBe(RESULT_KIND.Ok);
     expect(result.data).toHaveLength(1);
     expect(result.data![0].propertySystemId).toBe(7);
+  });
+
+  it('filters subgraphs and SGKVs by requested system IDs', async () => {
+    await seedSubgraph(ds, {
+      systemId: SUBGRAPH_SYSTEM_ID,
+      naturalId: 1,
+      name: 'sg-a',
+    });
+    await seedSubgraph(ds, {
+      systemId: 43,
+      naturalId: 2,
+      name: 'sg-b',
+    });
+    await seedSgkv(ds, {
+      systemId: 501,
+      subgraphSystemId: SUBGRAPH_SYSTEM_ID,
+    });
+    await seedSgkv(ds, {systemId: 502, subgraphSystemId: 43});
+
+    const result = await svc.getAllSubgraphs(
+      FILE_ID,
+      CONFIGURATION_INCLUDES.FullDetails,
+      [43],
+    );
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    if (result.kind !== RESULT_KIND.Ok) return;
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0]).toMatchObject({
+      systemId: 43,
+      name: 'sg-b',
+      sgkvs: [{systemId: 502, keyValuePairs: []}],
+    });
+  });
+
+  it('treats an empty system ID list as no filter', async () => {
+    await seedSubgraph(ds, {
+      systemId: SUBGRAPH_SYSTEM_ID,
+      naturalId: 1,
+      name: 'sg-a',
+    });
+    await seedSubgraph(ds, {
+      systemId: 43,
+      naturalId: 2,
+      name: 'sg-b',
+    });
+    await seedSgkv(ds, {
+      systemId: 501,
+      subgraphSystemId: SUBGRAPH_SYSTEM_ID,
+    });
+    await seedSgkv(ds, {systemId: 502, subgraphSystemId: 43});
+
+    const result = await svc.getAllSubgraphs(
+      FILE_ID,
+      CONFIGURATION_INCLUDES.FullDetails,
+      [],
+    );
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    if (result.kind !== RESULT_KIND.Ok) return;
+    expect(result.data).toHaveLength(2);
+    expect(result.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          systemId: SUBGRAPH_SYSTEM_ID,
+          sgkvs: [{systemId: 501, keyValuePairs: []}],
+        }),
+        expect.objectContaining({
+          systemId: 43,
+          sgkvs: [{systemId: 502, keyValuePairs: []}],
+        }),
+      ]),
+    );
   });
 });
