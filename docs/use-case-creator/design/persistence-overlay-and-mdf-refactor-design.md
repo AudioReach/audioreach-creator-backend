@@ -1,8 +1,8 @@
 # Persistence Read Overlay and MDF Refactor: Design
 
 **Requirements:**
-[`../requirements/persistence-overlay-and-mdf-refactor-requirements.md`](../requirements/persistence-overlay-and-mdf-refactor-requirements.md)  
-**Date:** 2026-09-13  
+[`../requirements/persistence-overlay-and-mdf-refactor-requirements.md`](../requirements/persistence-overlay-and-mdf-refactor-requirements.md)
+**Date:** 2026-09-13
 **Status:** Approved
 
 ## 1. Decision Summary

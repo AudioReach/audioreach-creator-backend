@@ -10,15 +10,11 @@ import type {
   IdGenerationPort,
   UnitOfWork,
   EditOptions,
-  Subgraph,
   SessionChanged,
   SgkvEntry,
   KvPair,
 } from '@arc/core';
-import {
-  Subgraph as SubgraphEntity,
-  SubgraphPropertyDefinition,
-} from '@arc/core';
+import {Subgraph, SubgraphPropertyDefinition} from '@arc/core';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {SubgraphOverlayFetcher} from '../../fetchers/subgraph-overlay-fetcher.js';
@@ -247,18 +243,6 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
       );
   }
 
-  async findByIds(
-    fileSystemId: number,
-    sgSystemIds: readonly number[],
-  ): Promise<Subgraph[]> {
-    if (sgSystemIds.length === 0) return [];
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-    const rows = await this.subgraphFetcher.fetchMany(fileSystemId, sessionId, {
-      systemId: [...sgSystemIds],
-    });
-    return rows.map(r => this.hydrate(r));
-  }
-
   async getUsecaseSystemIdForSubgraph(
     subgraphSystemId: number,
     fileSystemId: number,
@@ -350,7 +334,7 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     );
     if (!overlaid) return null;
     return {
-      systemId: overlaid.systemId,
+      subgraph: this.hydrate(overlaid),
       properties: overlaid.properties.map(p => ({
         systemId: p.systemId,
         propertySystemId: p.propertySystemId,
@@ -384,7 +368,7 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     const result = new Map<number, SubgraphWithProperties>();
     for (const row of rows) {
       result.set(row.systemId, {
-        systemId: row.systemId,
+        subgraph: this.hydrate(row),
         properties: (propertiesBySubgraph.get(row.systemId) ?? []).map(p => ({
           systemId: p.systemId,
           propertySystemId: p.propertySystemId,
@@ -395,9 +379,8 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     return result;
   }
 
-  async getSubgraphIdsInSameUsecasesForMany(
+  async findSubgraphIdsSharingUsecases(
     subgraphSystemIds: number[],
-    _fileSystemId: number,
   ): Promise<number[]> {
     if (subgraphSystemIds.length === 0) return [];
 
@@ -553,8 +536,8 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     }
   }
 
-  private hydrate(base: SubgraphBase): SubgraphEntity {
-    return new SubgraphEntity({
+  private hydrate(base: SubgraphBase): Subgraph {
+    return new Subgraph({
       systemId: base.systemId,
       naturalId: base.naturalId,
       name: base.name,

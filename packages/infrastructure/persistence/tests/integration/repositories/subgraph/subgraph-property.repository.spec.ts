@@ -215,7 +215,7 @@ describe('TypeOrmSubgraphRepository — getAggregate', () => {
 
     const result = await repo.getAggregate(SG_ID, FILE_ID);
     expect(result).not.toBeNull();
-    expect(result!.systemId).toBe(SG_ID);
+    expect(result!.subgraph.systemId).toBe(SG_ID);
     expect(result!.properties).toHaveLength(1);
   });
 
@@ -260,17 +260,14 @@ describe('TypeOrmSubgraphRepository — getAggregates', () => {
   });
 });
 
-describe('TypeOrmSubgraphRepository — getSubgraphIdsInSameUsecasesForMany', () => {
+describe('TypeOrmSubgraphRepository — findSubgraphIdsSharingUsecases', () => {
   it('returns empty array when subgraph has no usecases', async () => {
     const ds = getTestDataSource();
     await seedBase(ds);
     const sessionId = await seedSession(ds);
     const repo = makeRepo(ds, sessionId);
 
-    const result = await repo.getSubgraphIdsInSameUsecasesForMany(
-      [SG_ID],
-      FILE_ID,
-    );
+    const result = await repo.findSubgraphIdsSharingUsecases([SG_ID]);
     expect(result).toEqual([]);
   });
 });

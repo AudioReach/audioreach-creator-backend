@@ -173,22 +173,13 @@ export interface ModuleRepository {
   updateHeapId(moduleSystemId: number, heapId: number): Promise<void>;
 
   /**
-   * Returns all non-deleted SpfModule rows belonging to a subgraph.
-   * Overlay-aware: excludes pending DELETE, includes pending CREATE.
-   */
-  getModulesBySubgraphId(
-    subgraphSystemId: number,
-    fileSystemId: number,
-  ): Promise<SpfModuleBase[]>;
-
-  /**
    * Deletes CKV calibration data for a module.
    *
    * Zero-CKV creation/reset is business logic owned by core and is not part
    * of this persistence operation.
    */
-  wipeAllCkvData(moduleSystemId: number, fileSystemId: number): Promise<void>;
+  DeleteAllCkvData(moduleSystemId: number, fileSystemId: number): Promise<void>;
 
   /** Deletes TKV/tag calibration data for a module. */
-  wipeAllTkvData(moduleSystemId: number, fileSystemId: number): Promise<void>;
+  DeleteAllTkvData(moduleSystemId: number, fileSystemId: number): Promise<void>;
 }

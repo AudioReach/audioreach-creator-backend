@@ -10,7 +10,9 @@ import type {KvPair} from '../shared/kv-pair.js';
 import type {SessionChanged} from '../shared/session-changed.js';
 
 export interface SubgraphWithProperties {
-  systemId: number;
+  /** Hydrated domain entity for domain-oriented consumers. */
+  subgraph: Subgraph;
+  /** Effective persistence rows for the subgraph properties. */
   properties: Array<{
     systemId: number;
     propertySystemId: number;
@@ -62,11 +64,6 @@ export interface SubgraphRepository {
     fileSystemId: number,
   ): Promise<SubgraphPropertyDefinition[]>;
 
-  /** Returns effective subgraph property definitions for the active session. */
-  getPropertyDefinitions(
-    fileSystemId: number,
-  ): Promise<SubgraphPropertyDefinition[]>;
-
   /** Returns subgraph with overlay-aware property rows. null if not found. */
   getAggregate(
     subgraphSystemId: number,
@@ -85,9 +82,8 @@ export interface SubgraphRepository {
   ): Promise<Map<number, SubgraphWithProperties>>;
 
   /** Returns linked subgraphs reachable through shared use cases. */
-  getSubgraphIdsInSameUsecasesForMany(
+  findSubgraphIdsSharingUsecases(
     subgraphSystemIds: number[],
-    fileSystemId: number,
   ): Promise<number[]>;
 
   /** Stages a new SubgraphPropertyData row with a prepared payload. */
@@ -127,14 +123,6 @@ export interface SubgraphRepository {
     fileSystemId: number,
     valueDefSystemIds: readonly number[],
   ): Promise<KvPair[]>;
-
-  /**
-   * Returns Subgraph aggregates by systemId. Missing IDs silently omitted.
-   */
-  findByIds(
-    fileSystemId: number,
-    sgSystemIds: readonly number[],
-  ): Promise<Subgraph[]>;
 
   /**
    * Returns Subgraphs added or deleted in the current session — a

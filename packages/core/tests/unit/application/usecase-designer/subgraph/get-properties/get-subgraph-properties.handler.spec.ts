@@ -7,7 +7,7 @@ import {GetSubgraphPropertiesHandler} from '../../../../../../src/application/us
 import {GetSubgraphPropertiesQuery} from '../../../../../../src/application/usecase-designer/subgraph/get-properties/get-subgraph-properties.query.js';
 import type {QueryServices} from '../../../../../../src/application/ports/persistence/query-services/query-services.js';
 import type {PropertyPayloadReadModel} from '../../../../../../src/application/ports/persistence/query-services/shared/property-payload-read-model.js';
-import type {SubgraphPropertyDefinitionWithElementsReadModel} from '../../../../../../src/application/ports/persistence/query-services/subgraph-property-definition/subgraph-property-definition-with-elements-read-model.js';
+import type {SgPropertyDefWithElementsReadModel} from '../../../../../../src/application/ports/persistence/query-services/subgraph-property-definition/subgraph-property-definition-with-elements-read-model.js';
 import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
 import {
   Result,
@@ -28,7 +28,7 @@ const ELEMENTS_STRUCTURE = JSON.stringify([
   },
 ]);
 
-const mockDef: SubgraphPropertyDefinitionWithElementsReadModel = {
+const mockDef: SgPropertyDefWithElementsReadModel = {
   systemId: 101,
   naturalId: 55,
   name: 'gain',

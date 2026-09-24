@@ -220,7 +220,7 @@ packages/core/src/application/usecase-designer/
 ```
 packages/core/src/application/
 ├── ports/persistence/repositories/subgraph/
-│   └── subgraph.repository.ts                                    (modified — add rename, setPropertyData, getAggregate, getSubgraphIdsInSameUsecases)
+│   └── subgraph.repository.ts                                    (modified — add rename, setPropertyData, getAggregate, findSubgraphIdsSharingUsecases)
 ├── ports/persistence/query-services/subgraph-property-definition/
 │   └── subgraph-property-def-query-service.ts                    (modified — add getSubgraphPropertyWithElements)
 ├── orchestration/cqrs/registries/
@@ -248,7 +248,7 @@ packages/core/src/application/
 ```
 packages/infrastructure/persistence/src/persistence-typeorm-sqllite/
 ├── repositories/subgraph/
-│   └── subgraph.repository.ts                                    (modified — implement rename, setPropertyData, getAggregate, getSubgraphIdsInSameUsecases)
+│   └── subgraph.repository.ts                                    (modified — implement rename, setPropertyData, getAggregate, findSubgraphIdsSharingUsecases)
 └── queries/subgraph-property-definition/
     └── db-subgraph-property-def-query-service.ts                 (modified — implement getSubgraphPropertyWithElements)
 ```
@@ -299,9 +299,9 @@ Core (Application)
     1. getAggregate(subgraphSystemId, fileSystemId) → 404 if null
     2. Resolve VSID + Scenario property definitions via subgraphPropertyDefQueryService
     3. No-op if current VSID === requested VSID → return VsidUpdateDto { groupId, affectedSubgraphSystemIds: [] }
-    4. BFS: getSubgraphIdsInSameUsecases(subgraphSystemId, fileSystemId)
+    4. BFS: findSubgraphIdsSharingUsecases([subgraphSystemId])
          → for each hop: skip non-voice subgraphs, skip already-processed, skip if VSID already matches
-         → zero-GKV usecases skipped inside getSubgraphIdsInSameUsecases
+         → zero-GKV usecases skipped inside findSubgraphIdsSharingUsecases
     5. Write new VSID to target + all BFS-discovered subgraphs atomically:
          uow.startTransaction()
          try:
@@ -660,7 +660,7 @@ export class UpdateSubgraphVsidHandler implements CommandHandler<
     }
 
     // Step 7: BFS across use_case_subgraphs + usecase_gkv_values
-    // getSubgraphIdsInSameUsecases encapsulates the two-table query and zero-GKV filter.
+    // findSubgraphIdsSharingUsecases encapsulates the two-table query and zero-GKV filter.
     const processedIds = new Set<number>([command.subgraphSystemId]);
     const toWrite = new Set<number>([command.subgraphSystemId]);
     const queue: number[] = [command.subgraphSystemId];
@@ -668,7 +668,7 @@ export class UpdateSubgraphVsidHandler implements CommandHandler<
     while (queue.length > 0) {
       const currentId = queue.shift()!;
       const linkedIds = await this.uow.getSubgraphRepository()
-        .getSubgraphIdsInSameUsecases(currentId, fileSystemId);
+        .findSubgraphIdsSharingUsecases([currentId]);
 
       for (const linkedId of linkedIds) {
         if (processedIds.has(linkedId)) continue;
@@ -745,7 +745,7 @@ export const VsidUpdateDtoSchema = z.object({
 
 **New port method on `SubgraphRepository`** (see Section 3.7):
 ```typescript
-getSubgraphIdsInSameUsecases(subgraphSystemId: number, fileSystemId: number): Promise<number[]>
+findSubgraphIdsSharingUsecases(subgraphSystemIds: number[]): Promise<number[]>
 ```
 This encapsulates:
 1. `use_case_subgraphs WHERE subgraphSystemId = X` → set of `usecaseSystemId`s
@@ -798,10 +798,7 @@ export interface SubgraphRepository {
   // Step 2: filter out zero-GKV usecases (no rows in usecase_gkv_values)
   // Step 3: use_case_subgraphs WHERE usecaseSystemId IN kept-set → other subgraphSystemIds
   // Does NOT include the input subgraphSystemId itself.
-  getSubgraphIdsInSameUsecases(
-    subgraphSystemId: number,
-    fileSystemId: number,
-  ): Promise<number[]>;
+  findSubgraphIdsSharingUsecases(subgraphSystemIds: number[]): Promise<number[]>;
 }
 ```
 
@@ -1074,14 +1071,13 @@ async setPropertyData(
 | `aggregateId` | `subgraphSystemId` |
 | `delta` | `{ payload: <Uint8Array> }` |
 
-### 4.5 getSubgraphIdsInSameUsecases
+### 4.5 findSubgraphIdsSharingUsecases
 
 Pure SQL — no overlay needed. The `use_case_subgraphs` and `usecase_gkv_values` tables are not overlaid (they are not part of the staging model).
 
 ```typescript
-async getSubgraphIdsInSameUsecases(
-  subgraphSystemId: number,
-  fileSystemId: number,
+async findSubgraphIdsSharingUsecases(
+  subgraphSystemIds: number[],
 ): Promise<number[]> {
   // Step 1: find all usecases containing this subgraph
   const usecaseRows = await this.manager
@@ -1202,11 +1198,11 @@ async getSubgraphIdsInSameUsecases(
 | `getAggregate` — pending CREATE overlay | includes staged property |
 | `getAggregate` — pending DELETE overlay | excludes deleted property |
 | `getAggregate` — not found | returns null |
-| `getSubgraphIdsInSameUsecases` — no usecases | returns `[]` |
-| `getSubgraphIdsInSameUsecases` — all usecases are zero-GKV | returns `[]` |
-| `getSubgraphIdsInSameUsecases` — one non-zero-GKV usecase with two subgraphs | returns the other subgraph ID |
-| `getSubgraphIdsInSameUsecases` — multiple usecases, deduped result | returns distinct subgraph IDs only |
-| `getSubgraphIdsInSameUsecases` — never returns the input subgraphSystemId | self excluded |
+| `findSubgraphIdsSharingUsecases` — no usecases | returns `[]` |
+| `findSubgraphIdsSharingUsecases` — all usecases are zero-GKV | returns `[]` |
+| `findSubgraphIdsSharingUsecases` — one non-zero-GKV usecase with two subgraphs | returns the other subgraph ID |
+| `findSubgraphIdsSharingUsecases` — multiple usecases, deduped result | returns distinct subgraph IDs only |
+| `findSubgraphIdsSharingUsecases` — never returns the input subgraphSystemId | self excluded |
 
 **File:** `packages/infrastructure/persistence/tests/integration/queries/subgraph-property-definition/db-subgraph-property-def.spec.ts` (new or existing — add cases)
 
@@ -1242,7 +1238,7 @@ async getSubgraphIdsInSameUsecases(
 | # | Question |
 |---|---|
 | OQ-1 | ~~Exact natural-key `propertyId` values~~ — **Resolved:** `SUB_GRAPH_PROP_ID_SCENARIO_ID = 0x08001010`, `SUB_GRAPH_PROP_ID_VSID = 0x080010CC`. |
-| OQ-2 | ~~BFS algorithm~~ — **Resolved:** BFS uses `use_case_subgraphs` + `usecase_gkv_values`. For each subgraph in queue: find usecases containing it, skip zero-GKV usecases, find all other subgraphs in those usecases, filter to Voice only, skip if VSID already matches. Encapsulated in `getSubgraphIdsInSameUsecases`. |
-| OQ-3 | ~~`getSgkvs` port extension~~ — **Resolved:** Not needed. BFS uses `getSubgraphIdsInSameUsecases` on `SubgraphRepository` instead. |
+| OQ-2 | ~~BFS algorithm~~ — **Resolved:** BFS uses `use_case_subgraphs` + `usecase_gkv_values`. For each subgraph in queue: find usecases containing it, skip zero-GKV usecases, find all other subgraphs in those usecases, filter to Voice only, skip if VSID already matches. Encapsulated in `findSubgraphIdsSharingUsecases`. |
+| OQ-3 | ~~`getSgkvs` port extension~~ — **Resolved:** Not needed. BFS uses `findSubgraphIdsSharingUsecases` on `SubgraphRepository` instead. |
 | OQ-4 | ~~`elementsStructure` for VSID serialization~~ — **Resolved:** Add `getSubgraphPropertyWithElements(propertySystemId, fileSystemId)` to `SubgraphPropertyDefQueryService` port (Section 3.8). Infra delegates to existing `fetcher.fetchAll` + filter in memory. |
 | OQ-5 | ~~Voice scenario value~~ — **Resolved:** `SUB_GRAPH_PROP_ID_SCENARIO_VALUE_VOICE_CALL = 0x00000003`. Also defined: `AUDIO_PLAYBACK = 0x00000001`, `AUDIO_RECORDING = 0x00000002`. |

@@ -7,6 +7,7 @@ import {Subgraph} from '../../../domain/entities/usecase-data/subgraph/subgraph.
 import {SubgraphPropertyData} from '../../../domain/entities/usecase-data/subgraph/value-objects/subgraph-property.js';
 import type {SubgraphPropertyDefinition} from '../../../domain/entities/definitions/subgraph/subgraph-property-definitions.js';
 import {serializeDefaultParameterData} from '../shared/serialize-elements.js';
+
 export interface SubgraphInit {
   systemId: number;
   subgraphNaturalId: number;
@@ -21,6 +22,7 @@ export function buildSubgraphWithDefaults(
   const properties = propertyDefinitions.map(propDef => {
     const serialized = serializeDefaultParameterData(propDef);
     return new SubgraphPropertyData(
+      0,
       propDef.systemId,
       serialized.ok ? serialized.value : null,
     );

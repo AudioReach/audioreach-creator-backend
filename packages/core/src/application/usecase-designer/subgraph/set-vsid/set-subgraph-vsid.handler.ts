@@ -123,7 +123,6 @@ export class SetSubgraphVsidHandler implements CommandHandler<
     // Pass 1: BFS to collect all reachable IDs
     const reachableIds = await this.bfsReachableIds(
       startId,
-      fileSystemId,
       subgraphRepository,
     );
 
@@ -182,7 +181,6 @@ export class SetSubgraphVsidHandler implements CommandHandler<
 
   private async bfsReachableIds(
     startId: number,
-    fileSystemId: number,
     subgraphRepository: SubgraphRepository,
   ): Promise<Set<number>> {
     const visited = new Set<number>([startId]);
@@ -190,10 +188,7 @@ export class SetSubgraphVsidHandler implements CommandHandler<
 
     while (frontier.length > 0) {
       const linked =
-        await subgraphRepository.getSubgraphIdsInSameUsecasesForMany(
-          frontier,
-          fileSystemId,
-        );
+        await subgraphRepository.findSubgraphIdsSharingUsecases(frontier);
       frontier = linked.filter(id => !visited.has(id));
       for (const id of frontier) visited.add(id);
     }
