@@ -82,6 +82,10 @@ import {GetProjectsQuery} from '../../../project/get-all/get-projects.query.js';
 import {GetProjectsHandler} from '../../../project/get-all/get-projects.handler.js';
 import {GetProjectQuery} from '../../../project/get/get-project.query.js';
 import {GetProjectHandler} from '../../../project/get/get-project.handler.js';
+import {GetSubgraphPeerDataLinksQuery} from '../../../usecase-designer/data-links/get-subgraph-peer/get-subgraph-peer-data-links.query.js';
+import {GetSubgraphPeerDataLinksHandler} from '../../../usecase-designer/data-links/get-subgraph-peer/get-subgraph-peer-data-links.handler.js';
+import {GetSubgraphPeerControlLinksQuery} from '../../../usecase-designer/control-links/get-subgraph-peer/get-subgraph-peer-control-links.query.js';
+import {GetSubgraphPeerControlLinksHandler} from '../../../usecase-designer/control-links/get-subgraph-peer/get-subgraph-peer-control-links.handler.js';
 
 export interface QueryHandlerDependencies {
   queryServices: QueryServices;
@@ -313,6 +317,16 @@ export class QueryHandlerRegistry {
     this.queryHandlerFactories.set(GetProjectQuery, {
       create: (deps: QueryHandlerDependencies) =>
         new GetProjectHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetSubgraphPeerDataLinksQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetSubgraphPeerDataLinksHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetSubgraphPeerControlLinksQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetSubgraphPeerControlLinksHandler(deps.queryServices),
     });
   }
 }

@@ -113,6 +113,9 @@ export * from './application/ports/persistence/query-services/link/data-link-rea
 export * from './application/ports/persistence/query-services/link/control-link-read-model.js';
 export * from './application/ports/persistence/query-services/link/data-link-query-service.js';
 export * from './application/ports/persistence/query-services/link/control-link-query-service.js';
+export * from './application/ports/persistence/query-services/shared/subgraph-peer-link-filter.js';
+export * from './application/ports/persistence/query-services/link/data-link-with-usecase-ids-read-model.js';
+export * from './application/ports/persistence/query-services/link/control-link-with-usecase-ids-read-model.js';
 
 // Subsystem query service + read model
 export * from './application/ports/persistence/query-services/subsystem/subsystem-query-service.js';
@@ -496,10 +499,14 @@ export * from './application/usecase-designer/data-links/create/create-data-link
 export * from './application/usecase-designer/data-links/create/create-data-link-with-subsystems.command.js';
 export * from './application/usecase-designer/data-links/delete/delete-data-link.command.js';
 export * from './application/usecase-designer/data-links/delete/delete-data-link.handler.js';
+export * from './application/usecase-designer/data-links/get-subgraph-peer/get-subgraph-peer-data-links.query.js';
+export * from './application/usecase-designer/data-links/get-subgraph-peer/get-subgraph-peer-data-links.handler.js';
 export * from './application/usecase-designer/control-links/create/create-control-link.command.js';
 export * from './application/usecase-designer/control-links/create/create-control-link.handler.js';
 export * from './application/usecase-designer/control-links/delete/delete-control-link.command.js';
 export * from './application/usecase-designer/control-links/delete/delete-control-link.handler.js';
+export * from './application/usecase-designer/control-links/get-subgraph-peer/get-subgraph-peer-control-links.query.js';
+export * from './application/usecase-designer/control-links/get-subgraph-peer/get-subgraph-peer-control-links.handler.js';
 export {ControlLinkPropertiesDtoSchema} from './application/usecase-designer/control-links/dto/control-link-properties-dto.js';
 export type {ControlLinkPropertiesDto} from './application/usecase-designer/control-links/dto/control-link-properties-dto.js';
 // Generic Worker Abstractions

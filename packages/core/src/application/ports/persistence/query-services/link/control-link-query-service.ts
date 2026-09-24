@@ -5,6 +5,8 @@
 
 import type {Result} from '../../../../shared/result/result.js';
 import type {ControlLinkReadModel} from './control-link-read-model.js';
+import type {SubgraphPeerLinkFilter} from '../shared/subgraph-peer-link-filter.js';
+import type {ControlLinkWithUsecaseIdsReadModel} from './control-link-with-usecase-ids-read-model.js';
 
 export interface ControlLinkQueryService {
   /**
@@ -25,4 +27,13 @@ export interface ControlLinkQueryService {
     subgraphId: number,
     fileSystemId: number,
   ): Promise<Result<ControlLinkReadModel[]>>;
+
+  /**
+   * Returns subgraph-peer links with the effective usecase IDs associated
+   * with each source/destination subgraph pair.
+   */
+  findSubgraphPeerLinks(
+    filter: SubgraphPeerLinkFilter,
+    fileSystemId: number,
+  ): Promise<Result<ControlLinkWithUsecaseIdsReadModel[]>>;
 }

@@ -3101,154 +3101,6 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/usecases/data-link": {
-      "get": {
-        "description": "Returns all ACDB data links in the project where the specified component and port appear on either the source or destination end of the link, along with the usecases each link belongs to.\n\n**Link Type:**\n- Returns ACDB data links (direct connections)\n**Matching criteria:**\n- `sourceNodeSystemId == componentSystemId && sourcePortSystemId == portSystemId`, OR\n- `destinationNodeSystemId == componentSystemId && destinationPortSystemId == portSystemId`\n\n**Response shape per item:**\n- `link`: The matched data link\n- `usecases`: Array of usecases that this data link is part of",
-        "operationId": "UseCaseController_getDataLinksForComponentPort",
-        "parameters": [
-          {
-            "name": "projectId",
-            "required": true,
-            "in": "path",
-            "description": "The unique identifier of the project",
-            "schema": {
-              "example": "12345",
-              "type": "string"
-            }
-          },
-          {
-            "name": "componentSystemId",
-            "required": true,
-            "in": "query",
-            "description": "System ID of the component (module/node, NOT subsystem)",
-            "schema": {
-              "example": "123",
-              "type": "string"
-            }
-          },
-          {
-            "name": "portSystemId",
-            "required": true,
-            "in": "query",
-            "description": "System ID of the port on the component",
-            "schema": {
-              "example": "456",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "ACDB data links with their usecases returned successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/DataLinkWithUsecasesResponseDto"
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Missing or invalid componentSystemId / portSystemId, or subsystem component provided"
-          },
-          "404": {
-            "description": "Project not found, or no data links found for the given component+port"
-          }
-        },
-        "summary": "Get ACDB data links for a component+port combination",
-        "tags": [
-          "usecases"
-        ]
-      }
-    },
-    "/arc-api/v1/projects/{projectId}/usecases/control-link": {
-      "get": {
-        "description": "Returns all ACDB control links in the project where the specified component and port appear on either peer end (A or B) of the link, along with the usecases each link belongs to.\n\n**Link Type:**\n- Returns ACDB control links (direct connections)\n**Matching criteria:**\n- `peerNodeASystemId == componentSystemId && nodeAPortSystemId == portSystemId`, OR\n- `peerNodeBSystemId == componentSystemId && nodeBPortSystemId == portSystemId`\n\n**Response shape per item:**\n- `link`: The matched control link\n- `usecases`: Array of usecases that this control link is part of",
-        "operationId": "UseCaseController_getControlLinksForComponentPort",
-        "parameters": [
-          {
-            "name": "projectId",
-            "required": true,
-            "in": "path",
-            "description": "The unique identifier of the project",
-            "schema": {
-              "example": "12345",
-              "type": "string"
-            }
-          },
-          {
-            "name": "componentSystemId",
-            "required": true,
-            "in": "query",
-            "description": "System ID of the component (module/node, NOT subsystem)",
-            "schema": {
-              "example": "123",
-              "type": "string"
-            }
-          },
-          {
-            "name": "portSystemId",
-            "required": true,
-            "in": "query",
-            "description": "System ID of the port on the component",
-            "schema": {
-              "example": "456",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "ACDB control links with their usecases returned successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/ControlLinkWithUsecasesResponseDto"
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Missing or invalid componentSystemId / portSystemId, or subsystem component provided"
-          },
-          "404": {
-            "description": "Project not found, or no control links found for the given component+port"
-          }
-        },
-        "summary": "Get ACDB control links for a component+port combination",
-        "tags": [
-          "usecases"
-        ]
-      }
-    },
     "/arc-api/v1/projects/{projectId}/usecases/components/query": {
       "post": {
         "description": "**Read-only query operation** that returns components in flat structure.\n\n**Why POST?** Uses POST method to support large lists of usecase IDs that may exceed URL length limits (>2000 characters). This operation does not modify server state and is safe to retry.\n\n**Response Structure:**\n- Returns flat structure with all modules, data links, and control links\n- No subsystem hierarchy included\n**For hierarchical structure with subsystems:**\n- Use the `/components/query-with-subsystems` endpoint instead\n\n**Note:** For components shared across different usecases, only one copy will be returned.",
@@ -7728,9 +7580,10 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/containers/{containerSystemId}/heap-id": {
-      "put": {
-        "operationId": "ContainerController_setContainerHeapId",
+    "/arc-api/v1/projects/{projectId}/data-links": {
+      "post": {
+        "description": "Creates a data link between two modules. Stores all segments (mod→SS, SS→SS, SS→mod) in the DB. Returns a flat ComponentsResponseDto with the created link.",
+        "operationId": "DataLinkController_createDataLink",
         "parameters": [
           {
             "name": "containerSystemId",
@@ -7741,74 +7594,6 @@
               "type": "string"
             }
           },
-          {
-            "name": "projectId",
-            "required": true,
-            "in": "path",
-            "description": "The unique identifier of the project",
-            "schema": {
-              "example": "12345",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "description": "Request body parameter type: SetContainerHeapIdRequestDto",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetContainerHeapIdRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Container and module heap IDs updated",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/SetContainerHeapIdResponseDto"
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Unsupported heap ID"
-          },
-          "403": {
-            "description": "No active session"
-          },
-          "404": {
-            "description": "Container or heap property definition not found"
-          },
-          "500": {
-            "description": "Failed to update heap IDs"
-          }
-        },
-        "summary": "Set a container heap ID",
-        "tags": [
-          "containers"
-        ]
-      }
-    },
-    "/arc-api/v1/projects/{projectId}/data-links": {
-      "post": {
-        "description": "Creates a data link between two modules. Stores all segments (mod→SS, SS→SS, SS→mod) in the DB. Returns a flat ComponentsResponseDto with the created link.",
-        "operationId": "DataLinkController_createDataLink",
-        "parameters": [
           {
             "name": "projectId",
             "required": true,
@@ -7863,7 +7648,89 @@
             "description": "Failed to create data link"
           }
         },
-        "summary": "Create a new data link",
+        "summary": "Create a new data link (flat view)",
+        "tags": [
+          "containers"
+        ]
+      },
+      "get": {
+        "description": "Returns data links between peer subgraphs. With `subgraphSystemId`, returns links going out of the requested subgraph to a different peer subgraph; links within the same subgraph are excluded. `moduleSystemId` and `portSystemId` must be supplied together and may be combined with the subgraph filter. Each link includes its associated usecases.",
+        "operationId": "DataLinkController_getDataLinks",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "subgraphSystemId",
+            "required": false,
+            "in": "query",
+            "description": "Source subgraph system ID. Returns only links leaving this subgraph to a different subgraph.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "moduleSystemId",
+            "required": false,
+            "in": "query",
+            "description": "Module system ID. Must be supplied together with portSystemId.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "portSystemId",
+            "required": false,
+            "in": "query",
+            "description": "Port system ID. Must be supplied together with moduleSystemId.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Data links retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/DataLinkWithUsecasesResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid filter combination or identifier"
+          },
+          "404": {
+            "description": "Project not found"
+          },
+          "422": {
+            "description": "Failed to retrieve link(s)"
+          }
+        },
+        "summary": "GET /arc-api/v1/projects/{projectId}/data-links - Get data links by subgraph or module-port filters",
         "tags": [
           "data-links"
         ]
@@ -8359,6 +8226,90 @@
         "summary": "Get log entries for a project",
         "tags": [
           "Logging"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/control-link": {
+      "get": {
+        "description": "Returns control links between peer subgraphs. With `subgraphSystemId`, returns links going into or out of the requested subgraph to a different peer subgraph; links within the same subgraph are excluded. `moduleSystemId` and `portSystemId` must be supplied together and may be combined with the subgraph filter. Each link includes its associated usecases.",
+        "operationId": "ControlLinkController_getControlLinks",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "subgraphSystemId",
+            "required": false,
+            "in": "query",
+            "description": "Subgraph system ID. Returns links connecting this subgraph to a different peer subgraph.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "moduleSystemId",
+            "required": false,
+            "in": "query",
+            "description": "Module system ID. Must be supplied together with portSystemId.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "portSystemId",
+            "required": false,
+            "in": "query",
+            "description": "Port system ID. Must be supplied together with moduleSystemId.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Control links retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ControlLinkWithUsecasesResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid filter combination or identifier"
+          },
+          "404": {
+            "description": "Project not found"
+          },
+          "422": {
+            "description": "Failed to retrieve link(s)"
+          }
+        },
+        "summary": "GET /arc-api/v1/projects/{projectId}/control-link - Get control links by subgraph or module-port filters",
+        "tags": [
+          "control-links"
         ]
       }
     }
