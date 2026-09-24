@@ -34,7 +34,7 @@ function makeData(options: {
   }>;
   subsystems: Array<{
     systemId: number;
-    subsystemNaturalId?: number;
+    naturalId?: number;
     name: string;
     parentSystemId?: number;
     filteredKeySystemIds: number[];
@@ -53,9 +53,19 @@ function makeData(options: {
       options.usecases.map(value => [value.systemId, value.subgraphSystemIds]),
     ),
     subsystems: options.subsystems.map(value => ({
-      ...value,
-      subsystemNaturalId: value.subsystemNaturalId ?? value.systemId,
-      filteredKeys: [],
+      systemId: value.systemId,
+      naturalId: value.naturalId ?? value.systemId,
+      name: value.name,
+      parentSystemId: value.parentSystemId ?? null,
+      moduleSystemIds: [],
+      subsystemSystemIds: [],
+      filteredKeys: value.filteredKeySystemIds.map(systemId => ({
+        systemId,
+        naturalId: systemId,
+        name: `Key ${systemId}`,
+      })),
+      dataPorts: [],
+      controlPorts: [],
     })),
     subgraphNaturalIdsBySystemId: new Map(
       options.usecases.flatMap(value =>

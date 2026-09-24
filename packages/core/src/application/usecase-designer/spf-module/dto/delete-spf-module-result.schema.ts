@@ -4,6 +4,10 @@
  */
 
 import {z} from 'zod';
+import {
+  DeletedIdSchema,
+  UpdatedSubsystemIntentsSchema,
+} from '../../shared/delete-result.schema.js';
 
 /**
  * Result schema for DELETE /spf-modules/:id.
@@ -15,18 +19,9 @@ import {z} from 'zod';
  * - dataLinks:  IDs of all DataLinks cascade-deleted from the module's data ports
  * - controlLinks: IDs of all ControlLinks cascade-deleted from the module's control ports
  */
-const DeletedIdSchema = z.object({
-  systemId: z.string(),
-});
-
 const DeletedLinkSchema = z.object({
   systemId: z.string(),
   subsystemLinks: z.array(DeletedIdSchema).optional(),
-});
-
-const UpdatedSubsystemSchema = z.object({
-  systemId: z.string(),
-  intentsClearedControlPorts: z.array(DeletedIdSchema),
 });
 
 const UpdatedContainerSchema = z.object({
@@ -47,7 +42,7 @@ export const DeleteSpfModuleResultSchema = z.object({
   updated: z.object({
     containers: z.array(UpdatedContainerSchema),
     usecases: z.array(DeletedIdSchema),
-    subsystems: z.array(UpdatedSubsystemSchema).optional(),
+    subsystems: z.array(UpdatedSubsystemIntentsSchema).optional(),
   }),
 });
 

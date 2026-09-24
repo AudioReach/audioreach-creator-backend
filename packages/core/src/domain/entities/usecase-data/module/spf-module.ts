@@ -62,7 +62,7 @@ export class SpfModule extends Node implements SpfModuleBase {
       type: NodeType.Module,
       dataPorts: init.dataPorts,
       controlPorts: init.controlPorts,
-      parentSystemId: init.parentSystemId,
+      parentSystemId: init.parentSystemId ?? null,
       fileSystemId: init.fileSystemId,
     });
     this.naturalId = init.naturalId;

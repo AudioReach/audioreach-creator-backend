@@ -16,7 +16,7 @@ import {
 import {ApiTags, ApiParam} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
 import {AuthGuard} from '@nestjs/passport';
-import {DataLinkResponseDto} from './dto/data-link-response.dto.js';
+import {DeleteDataLinkResponseDto} from './dto/delete-data-link-response.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
@@ -160,25 +160,27 @@ export class DataLinkController extends BaseController {
   }
 
   /**
-   * Delete a data link.
-   * Returns the deleted link snapshot so the caller can undo the operation.
+   * Delete any data-link ID. The ID may identify a canonical module-to-module
+   * DataLink or a SubsystemDataLink segment; the service resolves it automatically.
+   * Returns all entities deleted by the requested link or segment deletion.
    */
   @Delete(':dataLinkSystemId')
   @ApiParam({
     name: 'dataLinkSystemId',
     required: true,
     type: String,
-    description: 'System id of the data link to delete',
+    description:
+      'Any data-link system ID: either a canonical module-to-module DataLink or a SubsystemDataLink segment. The service detects the ID type automatically.',
   })
   @ApiDocumentationWithExample({
     summary: 'Delete a data link',
     description:
-      'Deletes a data link by systemId. Returns the deleted link snapshot for undo support.',
+      'Accepts any data-link system ID: a canonical module-to-module DataLink or a SubsystemDataLink segment. The service resolves the ID type and returns only affected deleted entities.',
     responses: [
       {
         status: HttpStatus.OK,
         description: 'Data link deleted successfully',
-        dto: DataLinkResponseDto,
+        dto: DeleteDataLinkResponseDto,
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -193,7 +195,7 @@ export class DataLinkController extends BaseController {
   async deleteDataLink(
     @Param('projectId') projectId: string,
     @Param('dataLinkSystemId') dataLinkSystemId: string,
-  ): Promise<ApiResult<DataLinkResponseDto>> {
+  ): Promise<ApiResult<DeleteDataLinkResponseDto>> {
     console.log(
       'Deleting data link:',
       dataLinkSystemId,
@@ -204,7 +206,8 @@ export class DataLinkController extends BaseController {
     const command = new DeleteDataLinkCommand(
       Number.parseInt(dataLinkSystemId, 10),
     );
-    const deleted = await this.commandBus.execute<DataLinkResponseDto>(command);
+    const deleted =
+      await this.commandBus.execute<DeleteDataLinkResponseDto>(command);
     return toApiResult(Result.ok(deleted));
   }
 }

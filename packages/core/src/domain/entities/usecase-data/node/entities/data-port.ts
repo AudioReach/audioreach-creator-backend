@@ -10,19 +10,19 @@ export class DataPort {
   readonly naturalId: number;
   readonly portIoType: PortIoType;
   readonly isStatic: boolean;
-  readonly name?: string;
+  readonly name: string | null;
 
   constructor(params: {
     systemId: number;
     naturalId: number;
     portIoType: PortIoType;
     isStatic: boolean;
-    name?: string;
+    name?: string | null;
   }) {
     this.systemId = params.systemId;
     this.naturalId = params.naturalId;
     this.portIoType = params.portIoType;
     this.isStatic = params.isStatic;
-    this.name = params.name;
+    this.name = params.name ?? null;
   }
 }

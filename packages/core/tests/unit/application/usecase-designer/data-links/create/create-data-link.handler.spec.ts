@@ -79,12 +79,10 @@ function makeSubsystemRepo(subsystemIds: number[] = []): SubsystemRepository {
     subsystemExists: jest
       .fn()
       .mockImplementation(async (id: number) => subsystemIds.includes(id)),
-    getAllNodesWithParents: jest.fn().mockResolvedValue(
-      new Map<number, number | null>([
-        [201, null],
-        [202, null],
-      ]),
-    ),
+    getAllNodesWithParents: jest.fn().mockResolvedValue([
+      {systemId: 201, parentSystemId: null, type: 'module'},
+      {systemId: 202, parentSystemId: null, type: 'module'},
+    ]),
     getPortIoType: jest.fn().mockResolvedValue(null),
     isPortOccupiedAsSource: jest.fn().mockResolvedValue(false),
     isPortOccupiedAsDest: jest.fn().mockResolvedValue(false),

@@ -23,7 +23,7 @@ export interface SubsystemNodeReadModel {
  * Extends the flat ComponentsReadModel by adding a recursive subsystem tree.
  *
  * Top level:
- *   modules[]      — modules with no parentId (not inside any subsystem)
+ *   modules[]      — modules with no parentSystemId (not inside any subsystem)
  *   dataLinks[]    — links where both endpoints are top-level modules
  *   controlLinks[] — same
  *   subsystems[]   — root subsystems (each has the same structure recursively)

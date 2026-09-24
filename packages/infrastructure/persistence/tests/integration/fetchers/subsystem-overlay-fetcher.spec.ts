@@ -164,6 +164,17 @@ describe('SubsystemOverlayFetcher (integration)', () => {
     await qr.release();
   });
 
+  it('returns null parentSystemId for a root subsystem', async () => {
+    await seedSubsystem(ds);
+
+    await expect(fetcher.fetchAll(FILE_ID, null)).resolves.toEqual([
+      expect.objectContaining({
+        systemId: SUBSYSTEM_ID,
+        parentSystemId: null,
+      }),
+    ]);
+  });
+
   it('applies a Node parentSystemId update to the effective subsystem', async () => {
     await seedSubsystem(ds, 10);
     const sessionId = await seedSession(ds);

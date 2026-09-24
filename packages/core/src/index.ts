@@ -73,19 +73,31 @@ export type {
 } from './application/ports/persistence/repositories/module/module-definition.repository.js';
 export type {
   DataLinkRepository,
-  SubsystemDataRouteContext,
+  DataLinkGraph,
   BoundaryPortPayload,
 } from './application/ports/persistence/repositories/data-link/data-link.repository.js';
-export type {ControlLinkRepository} from './application/ports/persistence/repositories/control-link/control-link.repository.js';
+export type {
+  ControlLinkRepository,
+  ControlLinkGraph,
+} from './application/ports/persistence/repositories/control-link/control-link.repository.js';
 export type {SubgraphRepository} from './application/ports/persistence/repositories/subgraph/subgraph.repository.js';
 export type {
   SubsystemControlPortRef,
+  SubsystemKey,
   SubsystemRepository,
+  SubsystemNodeTopology,
+  SubsystemSummary,
 } from './application/ports/persistence/repositories/subsystem/subsystem.repository.js';
 // Module write path — commands (LLD2)
 export {PatchSpfModuleCommand} from './application/usecase-designer/spf-module/patch/patch-spf-module.command.js';
 export {CreateModuleCommand} from './application/usecase-designer/spf-module/create-module/create-module.command.js';
 export {DeleteSpfModuleCommand} from './application/usecase-designer/spf-module/delete/delete-spf-module.command.js';
+export {CreateSubsystemCommand} from './application/usecase-designer/subsystem/create/create-subsystem.command.js';
+export {DeleteSubsystemCommand} from './application/usecase-designer/subsystem/delete/delete-subsystem.command.js';
+export {PatchSubsystemCommand} from './application/usecase-designer/subsystem/patch/patch-subsystem.command.js';
+export {SetSubsystemFilteredKeysCommand} from './application/usecase-designer/subsystem/set-filtered-keys/set-subsystem-filtered-keys.command.js';
+export {MoveSubsystemComponentsCommand} from './application/usecase-designer/subsystem/move/move-subsystem-components.command.js';
+export type {MoveSubsystemComponentsResult} from './application/usecase-designer/subsystem/move/move-subsystem-components.handler.js';
 export {
   LINK_DELETION_MODE,
   isLinkDeletionMode,
@@ -93,6 +105,10 @@ export {
 export type {LinkDeletionMode} from './application/usecase-designer/spf-module/delete/link-deletion-mode.js';
 export {DeleteSpfModuleResultSchema} from './application/usecase-designer/spf-module/dto/delete-spf-module-result.schema.js';
 export type {DeleteSpfModuleResult} from './application/usecase-designer/spf-module/dto/delete-spf-module-result.schema.js';
+export {DeleteDataLinkResultSchema} from './application/usecase-designer/data-links/dto/delete-data-link-result.schema.js';
+export type {DeleteDataLinkResult} from './application/usecase-designer/data-links/dto/delete-data-link-result.schema.js';
+export {DeleteControlLinkResultSchema} from './application/usecase-designer/control-links/dto/delete-control-link-result.schema.js';
+export type {DeleteControlLinkResult} from './application/usecase-designer/control-links/dto/delete-control-link-result.schema.js';
 
 // Application services
 export * from './application/ports/persistence/query-services/query-services.js';
@@ -227,7 +243,7 @@ export {
   CkvDtoSchema,
   TkvDtoSchema,
   TagInfoDtoSchema,
-  DataPortDtoSchema,
+  ModuleDataPortDtoSchema,
   ControlPortDtoSchema,
   KeyValueInfoDtoSchema,
   KeyInfoDtoSchema,
@@ -241,7 +257,7 @@ export type {
   CkvDto,
   TkvDto,
   TagInfoDto,
-  DataPortDto,
+  ModuleDataPortDto,
   ControlPortDto,
   KeyValueInfoDto,
   KeyInfoDto,
@@ -446,8 +462,14 @@ export * from './application/usecase-designer/container/get-property/get-contain
 export * from './application/usecase-designer/container/get-property/get-container-property.handler.js';
 export {ContainerPropertiesDtoSchema} from './application/usecase-designer/container/dto/container-properties-dto.js';
 export type {ContainerPropertiesDto} from './application/usecase-designer/container/dto/container-properties-dto.js';
-export {SubsystemDtoSchema} from './application/usecase-designer/subsystem/dto/subsystem-dto.js';
-export type {SubsystemDto} from './application/usecase-designer/subsystem/dto/subsystem-dto.js';
+export {
+  SubsystemDtoSchema,
+  SubsystemDataPortDtoSchema,
+} from './application/usecase-designer/subsystem/dto/subsystem-dto.js';
+export type {
+  SubsystemDto,
+  SubsystemDataPortDto,
+} from './application/usecase-designer/subsystem/dto/subsystem-dto.js';
 export {SubsystemSnapshotDtoSchema} from './application/usecase-designer/subsystem/dto/subsystem-snapshot.dto.js';
 export type {SubsystemSnapshotDto} from './application/usecase-designer/subsystem/dto/subsystem-snapshot.dto.js';
 export {MoveSubsystemComponentsDtoSchema} from './application/usecase-designer/subsystem/dto/move-subsystem-components-dto.js';

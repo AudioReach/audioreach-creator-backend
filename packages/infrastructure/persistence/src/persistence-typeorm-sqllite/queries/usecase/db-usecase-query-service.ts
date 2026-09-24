@@ -201,6 +201,19 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
       if (modulesResult.kind === RESULT_KIND.Fail) {
         return Result.fail(...modulesResult.issues);
       }
+      const filteredKeySystemIds = [
+        ...new Set(
+          subsystems.flatMap(subsystem => subsystem.filteredKeySystemIds),
+        ),
+      ];
+      const keyDefinitionsResult =
+        await this.keyValueDefQuerySvc.getKeyDefinitionsBySystemIds(
+          filteredKeySystemIds,
+          fileId,
+        );
+      if (keyDefinitionsResult.kind === RESULT_KIND.Fail) {
+        return Result.fail(...keyDefinitionsResult.issues);
+      }
 
       const data = this.mapSubsystemFilteredGkvData(
         usecases,
@@ -208,6 +221,7 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
         subsystems,
         modulesResult.data,
         subgraphs,
+        keyDefinitionsResult.data,
       );
       const issues = [
         ...(usecasesResult.kind === RESULT_KIND.Partial
@@ -215,6 +229,9 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
           : []),
         ...(modulesResult.kind === RESULT_KIND.Partial
           ? modulesResult.issues
+          : []),
+        ...(keyDefinitionsResult.kind === RESULT_KIND.Partial
+          ? keyDefinitionsResult.issues
           : []),
       ];
 
@@ -392,6 +409,11 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
     subsystems: readonly OverlaidSubsystem[],
     modules: readonly SpfModuleReadModel[],
     subgraphs: readonly SubgraphBase[],
+    keyDefinitions: readonly {
+      systemId: number;
+      naturalId: number;
+      name: string;
+    }[],
   ): UsecaseFilteredGkvData {
     const effectiveUsecaseById = new Map(
       effectiveUsecases.map(usecase => [usecase.systemId, usecase]),
@@ -406,19 +428,28 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
       subgraphs.map(subgraph => [subgraph.systemId, subgraph.naturalId]),
     );
 
+    const keyDefinitionsBySystemId = new Map(
+      keyDefinitions.map(key => [key.systemId, key]),
+    );
     const mappedSubsystems: SubsystemReadModel[] = subsystems.map(
       subsystem => ({
         systemId: subsystem.systemId,
-        subsystemNaturalId: subsystem.subsystemId,
+        naturalId: subsystem.subsystemId,
         name: subsystem.name,
         parentSystemId: subsystem.parentSystemId,
-        filteredKeys: [],
-        filteredKeySystemIds: subsystem.filteredKeySystemIds,
+        moduleSystemIds: [],
+        subsystemSystemIds: [],
+        filteredKeys: subsystem.filteredKeySystemIds.flatMap(systemId => {
+          const key = keyDefinitionsBySystemId.get(systemId);
+          return key === undefined ? [] : [key];
+        }),
+        dataPorts: [],
+        controlPorts: [],
       }),
     );
     const mappedModules: SubsystemFilteredModule[] = modules.map(module => ({
       systemId: module.systemId,
-      parentSystemId: module.parentSystemId,
+      parentSystemId: module.parentSystemId ?? undefined,
       moduleNaturalId: module.naturalId,
       subgraphSystemId: module.subgraphSystemId,
       containerSystemId: module.containerSystemId,

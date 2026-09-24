@@ -79,7 +79,6 @@ export const ENTITY_NAMES = {
 
   // ── Subsystem / UseCase ───────────────────────────────────────────────────
   Subsystem: 'Subsystem',
-  // Junction table mapping subsystem system IDs to filtered key-definition IDs.
   SubsystemFilteredKey: 'SubsystemFilteredKey',
   UseCase: 'UseCase',
   UseCaseCategory: 'UseCaseCategory',

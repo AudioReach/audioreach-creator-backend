@@ -12,7 +12,7 @@ import type {NodeRow} from '../node/node.schema.js';
 export interface SubsystemBase {
   systemId: number;
   name: string;
-  subsystemId?: number;
+  subsystemId: number;
 }
 
 export interface SubsystemRow extends EntityBaseRow, SubsystemBase {
@@ -39,7 +39,7 @@ export const SubsystemSchema = new EntitySchema<SubsystemRow>({
     },
     subsystemId: {
       type: 'integer',
-      nullable: true,
+      nullable: false,
       name: 'subsystem_id',
     },
   },

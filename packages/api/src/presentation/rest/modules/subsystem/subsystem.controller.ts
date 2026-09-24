@@ -5,7 +5,6 @@
 
 import {
   Controller,
-  NotImplementedException,
   BadRequestException,
   Body,
   Param,
@@ -32,6 +31,19 @@ import {CreateSubsystemResponseDto} from './dto/response/create-subsystem-respon
 import {DeleteSubsystemResponseDto} from './dto/response/delete-subsystem-response.dto.js';
 import {UpdateSubsystemResponseDto} from './dto/response/update-subsystem-response.dto.js';
 import {UpdateSubsystemFilteredKeysResponseDto} from './dto/response/update-subsystem-filtered-keys-response.dto.js';
+import {toApiResult} from '../../common/result/to-api-result.js';
+import {SessionGuard} from '../../../../guards/session-guard.js';
+import {ArcSession} from '../../../../guards/arc-session.decorator.js';
+import type {ActiveSession, MoveSubsystemComponentsResult} from '@arc/core';
+import {
+  CommandBus,
+  CreateSubsystemCommand,
+  DeleteSubsystemCommand,
+  MoveSubsystemComponentsCommand,
+  PatchSubsystemCommand,
+  Result,
+  SetSubsystemFilteredKeysCommand,
+} from '@arc/core';
 
 /**
  * Controller to support all Subsystem related APIs for usecase design.
@@ -48,7 +60,7 @@ import {UpdateSubsystemFilteredKeysResponseDto} from './dto/response/update-subs
   example: '12345',
 })
 export class SubsystemController extends BaseController {
-  constructor() {
+  constructor(private readonly commandBus: CommandBus) {
     super();
   }
 
@@ -60,6 +72,7 @@ export class SubsystemController extends BaseController {
    * Create an empty subsystem.
    */
   @Post()
+  @UseGuards(SessionGuard)
   @ApiDocumentationWithExample({
     summary: 'Create an empty subsystem',
     description:
@@ -89,14 +102,31 @@ export class SubsystemController extends BaseController {
     ],
   })
   async createSubsystem(
-    @Param('projectId') projectId: string,
+    @Param('projectId') _projectId: string,
     @Body() request: CreateSubsystemRequestDto,
+    @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<CreateSubsystemResponseDto>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      `Creating subsystem in project ${projectId}: ${JSON.stringify(request)}`,
+    const result = await this.commandBus.execute<{
+      subsystemSystemId: number;
+      naturalId: number;
+      name: string;
+      parentSystemId: number | null;
+    }>(
+      new CreateSubsystemCommand(
+        session.fileSystemId,
+        request.name,
+        parseOptionalSystemId(request.parentSystemId) ?? null,
+      ),
+      session,
     );
-    throw new NotImplementedException('createSubsystem is not implemented yet');
+    return toApiResult(Result.ok(result), value => ({
+      systemId: String(value.subsystemSystemId),
+      naturalId: value.naturalId,
+      name: value.name,
+      ...(value.parentSystemId !== null
+        ? {parentSystemId: String(value.parentSystemId)}
+        : {}),
+    }));
   }
 
   //#endregion
@@ -109,6 +139,7 @@ export class SubsystemController extends BaseController {
    * invalid, and constructs new links per the updated structure.
    */
   @Post('components/move')
+  @UseGuards(SessionGuard)
   @ApiDocumentationWithExample({
     summary: 'Move subgraphs or subsystems to a target subsystem',
     description:
@@ -150,8 +181,9 @@ export class SubsystemController extends BaseController {
     ],
   })
   async moveComponents(
-    @Param('projectId') projectId: string,
+    @Param('projectId') _projectId: string,
     @Body() request: MoveSubsystemComponentsRequestDto,
+    @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<MoveSubsystemComponentsResponseDto>> {
     const hasSubgraphs = (request.subgraphSystemIds?.length ?? 0) > 0;
     const hasSubsystems = (request.subsystemSystemIds?.length ?? 0) > 0;
@@ -160,11 +192,55 @@ export class SubsystemController extends BaseController {
         'At least one of subgraphSystemIds or subsystemSystemIds must be provided',
       );
     }
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      `Moving components in project ${projectId}: ${JSON.stringify(request)}`,
+    const result = await this.commandBus.execute<MoveSubsystemComponentsResult>(
+      new MoveSubsystemComponentsCommand(
+        session.fileSystemId,
+        parseSystemIds(request.subgraphSystemIds),
+        parseSystemIds(request.subsystemSystemIds),
+        parseOptionalSystemId(request.targetSubsystemSystemId) ?? null,
+      ),
+      session,
     );
-    throw new NotImplementedException('moveComponents is not implemented yet');
+    const commandResult = result.issues?.length
+      ? Result.partial(result, result.issues)
+      : Result.ok(result);
+    return toApiResult(commandResult, value => ({
+      updatedModules: value.updatedModules.map(component =>
+        mapMovedComponent(component),
+      ),
+      updatedSubsystems: value.updatedSubsystems.map(component =>
+        mapMovedComponent(component),
+      ),
+      addedDataLinks: value.addedDataLinks.map(link => ({
+        systemId: String(link.systemId),
+        sourceSystemId: String(link.sourceNodeSystemId),
+        sourcePortSystemId: String(link.sourcePortSystemId),
+        destinationSystemId: String(link.destinationNodeSystemId),
+        destinationPortSystemId: String(link.destinationPortSystemId),
+        linkType: link.linkType,
+      })),
+      removedDataLinks: value.removedDataLinks.map(String),
+      addedControlLinks: value.addedControlLinks.map(link => ({
+        systemId: String(link.systemId),
+        sourceSystemId: String(link.peerNodeASystemId),
+        sourcePortSystemId: String(link.nodeAPortSystemId),
+        destinationSystemId: String(link.peerNodeBSystemId),
+        destinationPortSystemId: String(link.nodeBPortSystemId),
+        linkType: link.linkType,
+      })),
+      removedControlLinks: value.removedControlLinks.map(String),
+      subsystemPortChanges: value.subsystemPortChanges.map(change => ({
+        systemId: String(change.systemId),
+        addedDataPorts: change.addedDataPorts.map(port =>
+          mapMovedDataPort(port),
+        ),
+        removedDataPorts: change.removedDataPorts.map(String),
+        addedControlPorts: change.addedControlPorts.map(port =>
+          mapMovedControlPort(port),
+        ),
+        removedControlPorts: change.removedControlPorts.map(String),
+      })),
+    }));
   }
 
   //#endregion
@@ -180,6 +256,7 @@ export class SubsystemController extends BaseController {
    * The provided list replaces the current set entirely. An empty array clears all filtered keys.
    */
   @Put(':subsystemSystemId/filtered-keys')
+  @UseGuards(SessionGuard)
   @ApiParam({
     name: 'subsystemSystemId',
     required: true,
@@ -215,17 +292,30 @@ export class SubsystemController extends BaseController {
     ],
   })
   async setSubsystemFilteredKeys(
-    @Param('projectId') projectId: string,
+    @Param('projectId') _projectId: string,
     @Param('subsystemSystemId') subsystemSystemId: string,
     @Body() request: SetSubsystemFilteredKeysRequestDto,
+    @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<UpdateSubsystemFilteredKeysResponseDto>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      `Setting filtered keys for subsystem ${subsystemSystemId} in project ${projectId}: ${JSON.stringify(request)}`,
+    const result = await this.commandBus.execute<{
+      subsystemSystemId: number;
+      filteredKeys: Array<{systemId: number; keyId: number; name: string}>;
+    }>(
+      new SetSubsystemFilteredKeysCommand(
+        parseSystemId(subsystemSystemId),
+        session.fileSystemId,
+        parseSystemIds(request.keySystemIds),
+      ),
+      session,
     );
-    throw new NotImplementedException(
-      'setSubsystemFilteredKeys is not implemented yet',
-    );
+    return toApiResult(Result.ok(result), value => ({
+      systemId: String(value.subsystemSystemId),
+      filteredKeys: value.filteredKeys.map(key => ({
+        systemId: String(key.systemId),
+        naturalId: key.keyId,
+        name: key.name,
+      })),
+    }));
   }
 
   //#endregion
@@ -241,6 +331,7 @@ export class SubsystemController extends BaseController {
    * Port count changes add or remove DataPort / ControlPort entities to reach the target count.
    */
   @Patch(':subsystemSystemId')
+  @UseGuards(SessionGuard)
   @ApiParam({
     name: 'subsystemSystemId',
     required: true,
@@ -290,20 +381,60 @@ export class SubsystemController extends BaseController {
     ],
   })
   async patchSubsystem(
-    @Param('projectId') projectId: string,
+    @Param('projectId') _projectId: string,
     @Param('subsystemSystemId') subsystemSystemId: string,
     @Body() request: PatchSubsystemRequestDto,
+    @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<UpdateSubsystemResponseDto>> {
     if (!Object.values(request).some(v => v !== undefined)) {
       throw new BadRequestException(
         'At least one field must be provided to patch',
       );
     }
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      `Patching subsystem ${subsystemSystemId} in project ${projectId}: ${JSON.stringify(request)}`,
+    const result = await this.commandBus.execute<{
+      subsystem: {
+        systemId: number;
+        naturalId: number;
+        name: string;
+        parentSystemId: number | null;
+        filteredKeys: Array<{systemId: number; keyId: number; name: string}>;
+        dataPorts?: Array<{
+          systemId: number;
+          portId: number;
+          name: string | null;
+          portIoType: string;
+          isStatic: boolean;
+          totalLinksAtPort: number;
+        }>;
+        controlPorts?: Array<{
+          systemId: number;
+          portId: number;
+          name: string | null;
+          isStatic: boolean;
+          allocatedIntents: Array<{
+            systemId: number;
+            intentId: number;
+            name?: string;
+          }>;
+          totalLinksAtPort: number;
+        }>;
+      };
+      issues?: readonly never[];
+    }>(
+      new PatchSubsystemCommand(
+        parseSystemId(subsystemSystemId),
+        session.fileSystemId,
+        request.name,
+        request.inputDataPortCount,
+        request.outputDataPortCount,
+        request.controlPortCount,
+      ),
+      session,
     );
-    throw new NotImplementedException('patchSubsystem is not implemented yet');
+    const commandResult = result.issues?.length
+      ? Result.partial(result, result.issues)
+      : Result.ok(result);
+    return toApiResult(commandResult, value => mapSubsystem(value.subsystem));
   }
 
   //#endregion
@@ -312,12 +443,13 @@ export class SubsystemController extends BaseController {
 
   //#region DELETE
 
-  //#region Remove subsystem
+  //#region Delete subsystem
 
   /**
    * Remove a subsystem. Only succeeds when the subsystem has no children.
    */
   @Delete(':subsystemSystemId')
+  @UseGuards(SessionGuard)
   @ApiParam({
     name: 'subsystemSystemId',
     required: true,
@@ -346,18 +478,177 @@ export class SubsystemController extends BaseController {
       },
     ],
   })
-  async removeSubsystem(
-    @Param('projectId') projectId: string,
+  async deleteSubsystem(
+    @Param('projectId') _projectId: string,
     @Param('subsystemSystemId') subsystemSystemId: string,
+    @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<DeleteSubsystemResponseDto>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      `Removing subsystem ${subsystemSystemId} in project ${projectId}`,
+    const result = await this.commandBus.execute<{
+      deletedSubsystemSnapshot: {
+        systemId: number;
+        naturalId: number;
+        name: string;
+        parentSystemId: number | null;
+      };
+    }>(
+      new DeleteSubsystemCommand(
+        parseSystemId(subsystemSystemId),
+        session.fileSystemId,
+      ),
+      session,
     );
-    throw new NotImplementedException('removeSubsystem is not implemented yet');
+    return toApiResult(Result.ok(result), value => ({
+      systemId: String(value.deletedSubsystemSnapshot.systemId),
+      naturalId: value.deletedSubsystemSnapshot.naturalId,
+      name: value.deletedSubsystemSnapshot.name,
+      ...(value.deletedSubsystemSnapshot.parentSystemId !== null
+        ? {
+            parentSystemId: String(
+              value.deletedSubsystemSnapshot.parentSystemId,
+            ),
+          }
+        : {}),
+    }));
   }
 
   //#endregion
 
   //#endregion
+}
+
+function parseSystemId(value: string): number {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    throw new BadRequestException(`Invalid system ID: ${value}`);
+  }
+  return parsed;
+}
+
+function parseSystemIds(values: string[] | undefined): number[] {
+  return (values ?? []).map(value => parseSystemId(value));
+}
+
+function parseOptionalSystemId(
+  value: string | null | undefined,
+): number | null | undefined {
+  if (value === null) return null;
+  if (value === undefined) return undefined;
+  return parseSystemId(value);
+}
+
+function mapMovedComponent(component: {
+  systemId: number;
+  parentSystemId: number | null;
+}): {systemId: string; parentSystemId?: string} {
+  return {
+    systemId: String(component.systemId),
+    ...(component.parentSystemId !== null
+      ? {parentSystemId: String(component.parentSystemId)}
+      : {}),
+  };
+}
+
+function mapMovedDataPort(port: {
+  systemId: number;
+  naturalId: number;
+  portIoType: string;
+  isStatic: boolean;
+  name: string | null;
+}) {
+  return {
+    systemId: String(port.systemId),
+    naturalId: port.naturalId,
+    name: port.name ?? null,
+    portIoType: mapPortIoType(port.portIoType),
+    portType: port.isStatic ? ('Static' as const) : ('Dynamic' as const),
+    totalLinksAtPort: 0,
+  };
+}
+
+function mapPortIoType(value: string): 'InputOutput' | 'OutputInput' {
+  switch (value) {
+    case 'INPUT_OUTPUT':
+      return 'InputOutput';
+    case 'OUTPUT_INPUT':
+      return 'OutputInput';
+    default:
+      return value as 'InputOutput' | 'OutputInput';
+  }
+}
+
+function mapMovedControlPort(port: {
+  systemId: number;
+  naturalId: number;
+  isStatic: boolean;
+  name?: string;
+}) {
+  return {
+    systemId: String(port.systemId),
+    naturalId: port.naturalId,
+    name: port.name ?? null,
+    portType: port.isStatic ? ('Static' as const) : ('Dynamic' as const),
+    totalLinksAtPort: 0,
+    intents: [],
+  };
+}
+
+function mapSubsystem(subsystem: {
+  systemId: number;
+  naturalId: number;
+  name: string;
+  parentSystemId: number | null;
+  filteredKeys: Array<{systemId: number; keyId: number; name: string}>;
+  dataPorts?: Array<{
+    systemId: number;
+    portId: number;
+    name: string | null;
+    portIoType: string;
+    isStatic: boolean;
+    totalLinksAtPort: number;
+  }>;
+  controlPorts?: Array<{
+    systemId: number;
+    portId: number;
+    name: string | null;
+    isStatic: boolean;
+    allocatedIntents: Array<{
+      systemId: number;
+      intentId: number;
+      name?: string;
+    }>;
+    totalLinksAtPort: number;
+  }>;
+}) {
+  return {
+    systemId: String(subsystem.systemId),
+    naturalId: subsystem.naturalId,
+    name: subsystem.name,
+    ...(subsystem.parentSystemId !== null
+      ? {parentSystemId: String(subsystem.parentSystemId)}
+      : {}),
+    dataPorts: (subsystem.dataPorts ?? []).map(port => ({
+      systemId: String(port.systemId),
+      naturalId: port.portId,
+      name: port.name,
+      portIoType: mapPortIoType(port.portIoType),
+      portType: port.isStatic ? ('Static' as const) : ('Dynamic' as const),
+      totalLinksAtPort: port.totalLinksAtPort,
+    })),
+    controlPorts: (subsystem.controlPorts ?? []).map(port => ({
+      systemId: String(port.systemId),
+      naturalId: port.portId,
+      name: port.name,
+      portType: port.isStatic ? ('Static' as const) : ('Dynamic' as const),
+      totalLinksAtPort: port.totalLinksAtPort,
+      intents: port.allocatedIntents.map(intent => ({
+        naturalId: intent.intentId,
+        ...(intent.name ? {name: intent.name} : {}),
+      })),
+    })),
+    filteredKeys: subsystem.filteredKeys.map(key => ({
+      systemId: String(key.systemId),
+      naturalId: key.keyId,
+      name: key.name,
+    })),
+  };
 }

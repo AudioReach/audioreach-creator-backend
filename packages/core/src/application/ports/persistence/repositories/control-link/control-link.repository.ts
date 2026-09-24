@@ -5,13 +5,12 @@
 
 import type {ControlLink} from '../../../../../domain/entities/usecase-data/links/control-link.js';
 import type {SubsystemControlLink} from '../../../../../domain/entities/usecase-data/links/subsystem-control-link.js';
-import type {NodeType} from '../../../../../domain/entities/usecase-data/node/node.js';
 import type {EditOptions} from '../../edit-options.js';
 import type {SessionChanged} from '../shared/session-changed.js';
 
-export interface SubsystemControlRouteContext {
-  subsystemControlLinks: SubsystemControlLink[];
-  nodeTypeBySystemId: ReadonlyMap<number, NodeType>;
+export interface ControlLinkGraph {
+  controlLinks: ControlLink[];
+  standaloneSubsystemControlLinks: SubsystemControlLink[];
 }
 
 export interface ControlLinkRepository {
@@ -25,9 +24,7 @@ export interface ControlLinkRepository {
     fileSystemId: number,
   ): Promise<SubsystemControlLink[]>;
 
-  findSubsystemControlRouteContext(
-    fileSystemId: number,
-  ): Promise<SubsystemControlRouteContext>;
+  findAllLinks(fileSystemId: number): Promise<ControlLinkGraph>;
 
   /**
    * Deletes the canonical link and every currently resolved subsystem segment
@@ -40,19 +37,18 @@ export interface ControlLinkRepository {
   ): Promise<void>;
 
   /**
-   * Deletes the specified subsystem segments. An unresolved segment is deleted
-   * directly. For a resolved segment, the canonical ControlLink is deleted and
-   * non-target sibling segments are updated to have a null ControlLink FK in
-   * the edit-action overlay so chain resolution can process them later.
+   * Deletes only the canonical ControlLink row. Resolved subsystem segments
+   * remain available for callers that need to detach them as unresolved.
    */
-  deleteSubsystemControlLinks(
-    subsystemLinkSystemIds: number[],
+  deleteCanonical(
+    controlLinkSystemId: number,
     fileSystemId: number,
     options?: EditOptions,
   ): Promise<void>;
 
   /**
-   * Returns all control links whose src or dst port is in portSystemIds.
+   * Returns canonical control links and subsystem segments whose endpoint port
+   * is in portSystemIds. linkSystemId identifies the matching link or segment.
    * Empty input short-circuits — returns [] without querying the DB.
    */
   getLinksByPortSystemIds(
@@ -91,6 +87,32 @@ export interface ControlLinkRepository {
    * Empty file → [].
    */
   findIntraUcLinksByFile(fileSystemId: number): Promise<ControlLink[]>;
+
+  createSubsystemControlLinks(
+    subsystemControlLinks: readonly SubsystemControlLink[],
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
+
+  /**
+   * Removes exactly the specified subsystem segments. This does not alter a
+   * canonical ControlLink or sibling segments; use deleteAggregate for that.
+   */
+  deleteSubsystemControlLinks(
+    subsystemControlLinks: readonly SubsystemControlLink[],
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
+
+  /**
+   * Detaches resolved subsystem segments from their canonical ControlLink.
+   * The segments remain as unresolved edit-session rows.
+   */
+  detachSubsystemControlLinks(
+    subsystemControlLinks: readonly SubsystemControlLink[],
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
 
   /**
    * Returns ControlLinks added or deleted in the current session — a

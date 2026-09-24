@@ -14,10 +14,13 @@ import {Result, IssueFactory} from '@arc/core';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
 import {UseCaseQueryMappers} from '../usecase/usecase-query-mappers.js';
 import {SubsystemOverlayFetcher} from '../../fetchers/subsystem-overlay-fetcher.js';
+import {PortOverlayFetcher} from '../../fetchers/port-overlay-fetcher.js';
+import {NodeOverlayFetcher} from '../../fetchers/node-overlay-fetcher.js';
 import type {ControlLinkBase} from '../../entity-schema/usecase-data/Links/control-link.js';
 import type {DataLinkBase} from '../../entity-schema/usecase-data/Links/data-link.js';
 import type {UsecaseOverlayFetcher} from '../../fetchers/usecase-overlay-fetcher.js';
 import type {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
+import {NODE_TYPE} from '../../entity-schema/usecase-data/node/node.schema.js';
 
 /**
  * Database implementation of SubsystemQueryService.
@@ -26,12 +29,20 @@ import type {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
  * segments provided by their respective fetchers.
  */
 export class DbSubsystemQueryService implements SubsystemQueryService {
+  private readonly subsystemFetcher: SubsystemOverlayFetcher;
+  private readonly portFetcher: PortOverlayFetcher;
+
   constructor(
     private readonly dataSource: DataSource,
-    private readonly subsystemFetcher: SubsystemOverlayFetcher,
+    subsystemFetcher: SubsystemOverlayFetcher,
+    private readonly nodeFetcher: NodeOverlayFetcher,
     private readonly usecaseFetcher: UsecaseOverlayFetcher,
     private readonly linkFetcher: LinkOverlayFetcher,
-  ) {}
+    portFetcher: PortOverlayFetcher,
+  ) {
+    this.subsystemFetcher = subsystemFetcher;
+    this.portFetcher = portFetcher;
+  }
 
   async findAll(fileSystemId: number): Promise<Result<SubsystemReadModel[]>> {
     try {
@@ -39,21 +50,131 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
         this.dataSource,
         fileSystemId,
       );
-      const subsystems = await this.subsystemFetcher.fetchAll(
-        fileSystemId,
-        sessionId,
+      const [subsystems, nodes] = await Promise.all([
+        this.subsystemFetcher.fetchAll(fileSystemId, sessionId),
+        this.nodeFetcher.fetchAll(fileSystemId, sessionId),
+      ]);
+      const childIdsByParent = new Map<
+        number,
+        {moduleSystemIds: number[]; subsystemSystemIds: number[]}
+      >();
+      for (const node of nodes) {
+        const parentSystemId = node.parentSystemId;
+        if (parentSystemId === null) continue;
+        const childIds = childIdsByParent.get(parentSystemId) ?? {
+          moduleSystemIds: [],
+          subsystemSystemIds: [],
+        };
+        if (node.type === NODE_TYPE.Module) {
+          childIds.moduleSystemIds.push(node.systemId);
+        } else {
+          childIds.subsystemSystemIds.push(node.systemId);
+        }
+        childIdsByParent.set(parentSystemId, childIds);
+      }
+
+      const subsystemData = await Promise.all(
+        subsystems.map(async s => {
+          const [dataPorts, controlPorts] = await Promise.all([
+            this.portFetcher.fetchDataPorts(
+              s.systemId,
+              fileSystemId,
+              sessionId,
+            ),
+            this.portFetcher.fetchControlPortsWithIntents(
+              s.systemId,
+              fileSystemId,
+              sessionId,
+            ),
+          ]);
+          return {
+            subsystem: s,
+            ...(childIdsByParent.get(s.systemId) ?? {
+              moduleSystemIds: [],
+              subsystemSystemIds: [],
+            }),
+            dataPorts,
+            controlPorts,
+          };
+        }),
       );
 
-      return Result.ok(
-        subsystems.map(s => ({
+      const dataPortIds = subsystemData.flatMap(({dataPorts}) =>
+        dataPorts.map(port => port.systemId),
+      );
+      const controlPortIds = subsystemData.flatMap(({controlPorts}) =>
+        controlPorts.map(port => port.systemId),
+      );
+      const [dataLinks, controlLinks] = await Promise.all([
+        dataPortIds.length > 0
+          ? this.linkFetcher.loadDataLinkRows(fileSystemId, sessionId, {
+              $or: [
+                {sourcePortSystemId: dataPortIds},
+                {destinationPortSystemId: dataPortIds},
+              ],
+            })
+          : Promise.resolve([] as DataLinkBase[]),
+        controlPortIds.length > 0
+          ? this.linkFetcher.loadControlLinkRows(fileSystemId, sessionId, {
+              $or: [
+                {nodeAPortSystemId: controlPortIds},
+                {nodeBPortSystemId: controlPortIds},
+              ],
+            })
+          : Promise.resolve([] as ControlLinkBase[]),
+      ]);
+      const dataLinkCounts = this.countLinksPerPort(
+        dataPortIds,
+        dataLinks.map(
+          link =>
+            [link.sourcePortSystemId, link.destinationPortSystemId] as const,
+        ),
+      );
+      const controlLinkCounts = this.countLinksPerPort(
+        controlPortIds,
+        controlLinks.map(
+          link => [link.nodeAPortSystemId, link.nodeBPortSystemId] as const,
+        ),
+      );
+
+      const data = subsystemData.map(
+        ({
+          subsystem: s,
+          moduleSystemIds,
+          subsystemSystemIds,
+          dataPorts,
+          controlPorts,
+        }) => ({
           systemId: s.systemId,
-          subsystemNaturalId: s.subsystemId,
+          naturalId: s.subsystemId,
           name: s.name,
           parentSystemId: s.parentSystemId,
-          filteredKeys: [],
-          filteredKeySystemIds: s.filteredKeySystemIds,
-        })),
+          moduleSystemIds,
+          subsystemSystemIds,
+          filteredKeys: [], // TODO: load from SubsystemFilteredKey when filtered-by-subsystem is implemented
+          dataPorts: dataPorts.map(port => ({
+            systemId: port.systemId,
+            naturalId: port.naturalId,
+            name: port.name ?? null,
+            portIoType: port.portIoType,
+            isStatic: port.isStatic,
+            totalLinksAtPort: dataLinkCounts.get(port.systemId) ?? 0,
+          })),
+          controlPorts: controlPorts.map(port => ({
+            systemId: port.systemId,
+            naturalId: port.naturalId,
+            name: port.name ?? null,
+            isStatic: port.isStatic,
+            allocatedIntents: port.intents.map(intent => ({
+              systemId: intent.systemId,
+              naturalId: intent.naturalId,
+              name: '',
+            })),
+            totalLinksAtPort: controlLinkCounts.get(port.systemId) ?? 0,
+          })),
+        }),
       );
+      return Result.ok(data);
     } catch (error) {
       return Result.fail(
         IssueFactory.dbError(
@@ -61,6 +182,24 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
         ),
       );
     }
+  }
+
+  private countLinksPerPort(
+    portSystemIds: number[],
+    linkEndpoints: Array<readonly [number, number]>,
+  ): Map<number, number> {
+    const portIds = new Set(portSystemIds);
+    const counts = new Map<number, number>();
+
+    for (const [firstPortSystemId, secondPortSystemId] of linkEndpoints) {
+      const endpoints = new Set([firstPortSystemId, secondPortSystemId]);
+      for (const portSystemId of endpoints) {
+        if (!portIds.has(portSystemId)) continue;
+        counts.set(portSystemId, (counts.get(portSystemId) ?? 0) + 1);
+      }
+    }
+
+    return counts;
   }
 
   /**
