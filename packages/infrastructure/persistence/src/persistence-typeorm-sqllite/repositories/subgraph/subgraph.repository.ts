@@ -317,7 +317,7 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
       await this.writer.writeCreate(
         {
           targetTable: ENTITY_NAMES.SubgraphPropertyData,
-          targetSystemId: subgraph.systemId,
+          targetSystemId: prop.systemId,
           aggregateId: subgraph.systemId,
           payload: {
             subgraphSystemId: subgraph.systemId,

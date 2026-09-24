@@ -213,11 +213,12 @@ export class CommandHandlerRegistry {
     });
 
     this.commandHandlerFactories.set(StartSessionCommand, {
-      create: deps => new StartSessionHandler(deps.uow),
+      create: deps =>
+        new StartSessionHandler(deps.uow, deps.naturalIdGeneration),
     });
 
     this.commandHandlerFactories.set(EndSessionCommand, {
-      create: deps => new EndSessionHandler(deps.uow),
+      create: deps => new EndSessionHandler(deps.uow, deps.naturalIdGeneration),
     });
 
     this.commandHandlerFactories.set(PatchSpfModuleCommand, {

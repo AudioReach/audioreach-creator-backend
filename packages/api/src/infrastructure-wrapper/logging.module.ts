@@ -15,6 +15,13 @@ import {
 import type {DataSource} from 'typeorm';
 import type {LogQueryService} from '@arc/core';
 import {LoggingDataSourceProvider} from './database/providers/logging-data-source-provider.js';
+import {fileURLToPath} from 'node:url';
+import path from 'node:path';
+
+const logsDir = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../logs',
+);
 
 @Module({
   providers: [
@@ -57,7 +64,7 @@ import {LoggingDataSourceProvider} from './database/providers/logging-data-sourc
             {
               transport: file,
               level: 'trace',
-              options: {logsDir: './logs', filename: 'server-debug.log'},
+              options: {logsDir, filename: 'server-debug.log'},
             },
             {transport: sqlite, level: 'trace'},
           ],

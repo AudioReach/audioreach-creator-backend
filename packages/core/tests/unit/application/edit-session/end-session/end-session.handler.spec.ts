@@ -11,6 +11,7 @@ import {RESULT_KIND} from '../../../../../src/application/shared/result/result.j
 import {StagedChangesExistException} from '../../../../../src/shared/exceptions/staged-changes-exist.exception.js';
 import type {UnitOfWork} from '../../../../../src/application/ports/persistence/unit-of-work.js';
 import type {ISessionRepository} from '../../../../../src/application/ports/persistence/repositories/session/session.repository.js';
+import type {NaturalIdGenerationPort} from '../../../../../src/application/ports/id-generation/natural-id-generation.port.js';
 
 const PROJECT_ID = 'proj-abc-123';
 const SESSION_ID = 7;
@@ -22,6 +23,13 @@ const ACTIVE_SESSION = {
   fileSystemId: FILE_SYSTEM_ID,
   projectId: PROJECT_ID,
 };
+
+function buildMockNaturalIds(): jest.Mocked<NaturalIdGenerationPort> {
+  return {
+    initialize: jest.fn().mockResolvedValue(undefined),
+    clear: jest.fn(),
+  } as unknown as jest.Mocked<NaturalIdGenerationPort>;
+}
 
 function buildMockSessionRepo(): jest.Mocked<ISessionRepository> {
   return {
@@ -62,13 +70,31 @@ function buildMockUow(
 }
 
 describe('EndSessionHandler', () => {
+  it('clears the file cache after the session transaction commits', async () => {
+    const sessionRepo = buildMockSessionRepo();
+    sessionRepo.countStagedChangesForSession.mockResolvedValue(0);
+    sessionRepo.wipeUnstagedForSession.mockResolvedValue(0);
+    sessionRepo.countCommitsForSession.mockResolvedValue(0);
+    sessionRepo.deleteSession.mockResolvedValue(undefined);
+    const clear = jest.fn();
+    const naturalIds = {clear} as unknown as NaturalIdGenerationPort;
+
+    await new EndSessionHandler(buildMockUow(sessionRepo), naturalIds).handle(
+      new EndSessionCommand(PROJECT_ID),
+    );
+
+    expect(clear).toHaveBeenCalledWith(FILE_SYSTEM_ID);
+  });
+
   it('throws StagedChangesExistException and rolls back when staged changes remain', async () => {
     const sessionRepo = buildMockSessionRepo();
     sessionRepo.countStagedChangesForSession.mockResolvedValue(3);
 
     const uow = buildMockUow(sessionRepo);
     await expect(
-      new EndSessionHandler(uow).handle(new EndSessionCommand(PROJECT_ID)),
+      new EndSessionHandler(uow, buildMockNaturalIds()).handle(
+        new EndSessionCommand(PROJECT_ID),
+      ),
     ).rejects.toThrow(StagedChangesExistException);
     expect(uow.rollback).toHaveBeenCalledTimes(1);
     expect(uow.commit).not.toHaveBeenCalled();
@@ -83,9 +109,10 @@ describe('EndSessionHandler', () => {
     sessionRepo.deleteSession.mockResolvedValue(undefined);
 
     const uow = buildMockUow(sessionRepo);
-    const result = await new EndSessionHandler(uow).handle(
-      new EndSessionCommand(PROJECT_ID),
-    );
+    const result = await new EndSessionHandler(
+      uow,
+      buildMockNaturalIds(),
+    ).handle(new EndSessionCommand(PROJECT_ID));
 
     expect(sessionRepo.wipeUnstagedForSession).toHaveBeenCalledWith(SESSION_ID);
     expect(sessionRepo.deleteSession).toHaveBeenCalledWith(SESSION_ID);
@@ -107,9 +134,10 @@ describe('EndSessionHandler', () => {
     sessionRepo.markSessionEnded.mockResolvedValue(undefined);
 
     const uow = buildMockUow(sessionRepo);
-    const result = await new EndSessionHandler(uow).handle(
-      new EndSessionCommand(PROJECT_ID),
-    );
+    const result = await new EndSessionHandler(
+      uow,
+      buildMockNaturalIds(),
+    ).handle(new EndSessionCommand(PROJECT_ID));
 
     expect(sessionRepo.deleteSession).not.toHaveBeenCalled();
     expect(sessionRepo.markSessionEnded).toHaveBeenCalledWith(SESSION_ID);
@@ -130,7 +158,9 @@ describe('EndSessionHandler', () => {
 
     const uow = buildMockUow(sessionRepo);
     await expect(
-      new EndSessionHandler(uow).handle(new EndSessionCommand(PROJECT_ID)),
+      new EndSessionHandler(uow, buildMockNaturalIds()).handle(
+        new EndSessionCommand(PROJECT_ID),
+      ),
     ).rejects.toThrow('DB wipe failed');
     expect(uow.rollback).toHaveBeenCalledTimes(1);
     expect(uow.commit).not.toHaveBeenCalled();
@@ -147,7 +177,9 @@ describe('EndSessionHandler', () => {
 
     const uow = buildMockUow(sessionRepo);
     await expect(
-      new EndSessionHandler(uow).handle(new EndSessionCommand(PROJECT_ID)),
+      new EndSessionHandler(uow, buildMockNaturalIds()).handle(
+        new EndSessionCommand(PROJECT_ID),
+      ),
     ).rejects.toThrow('DB update failed');
     expect(uow.rollback).toHaveBeenCalledTimes(1);
   });

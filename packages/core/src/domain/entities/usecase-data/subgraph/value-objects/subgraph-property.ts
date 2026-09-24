@@ -6,10 +6,16 @@
 import {BinaryPayloadValue} from '../../../common/value-objects/binary-payload-value.js';
 
 export class SubgraphPropertyData extends BinaryPayloadValue {
+  systemId: number;
   readonly propertyDefinitionSystemId: number;
 
-  constructor(propertyDefinitionSystemId: number, payload: Uint8Array | null) {
+  constructor(
+    systemId: number,
+    propertyDefinitionSystemId: number,
+    payload: Uint8Array | null,
+  ) {
     super(payload);
+    this.systemId = systemId;
     this.propertyDefinitionSystemId = propertyDefinitionSystemId;
   }
 

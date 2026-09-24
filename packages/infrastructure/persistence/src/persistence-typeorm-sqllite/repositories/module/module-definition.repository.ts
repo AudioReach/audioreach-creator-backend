@@ -60,8 +60,8 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
     return this.load(definitionSystemId, fileSystemId);
   }
 
-  async findByModuleIdAndProcId(
-    moduleNaturalId: number,
+  async findByDefIdAndProcId(
+    moduleDefinitionSystemId: number,
     processorSystemId: number,
     fileSystemId: number,
   ): Promise<SpfModuleDefinition | null> {
@@ -70,8 +70,8 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
       .createQueryBuilder('smd')
       .select('smd.systemId')
       .where(
-        'smd.naturalId = :moduleNaturalId AND smd.processorSystemId = :processorSystemId AND smd.fileSystemId = :fileSystemId',
-        {moduleNaturalId, processorSystemId, fileSystemId},
+        'smd.systemId = :moduleDefinitionSystemId AND smd.processorSystemId = :processorSystemId AND smd.fileSystemId = :fileSystemId',
+        {moduleDefinitionSystemId, processorSystemId, fileSystemId},
       )
       .getOne();
 

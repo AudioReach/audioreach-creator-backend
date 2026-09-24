@@ -32,6 +32,7 @@ export function buildSubgraphWithDefaults(
   const properties = propertyDefinitions.map(
     propDef =>
       new SubgraphPropertyData(
+        0,
         propDef.systemId,
         null, // TODO: replace with serializeDefaultParameterData(propDef.elementsStructure)
       ),

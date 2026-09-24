@@ -4,7 +4,7 @@
  */
 
 import type {DataSource} from 'typeorm';
-import type {UnitOfWorkFactory, IdGenerationPort} from '@arc/core';
+import type {UnitOfWorkFactory, IdGenerationPort, Logger} from '@arc/core';
 import {PendingChangeCache} from '@arc/persistence';
 import {TypeOrmUnitOfWork} from './typeorm-unit-of-work.js';
 
@@ -17,13 +17,14 @@ import {TypeOrmUnitOfWork} from './typeorm-unit-of-work.js';
 export function createTypeOrmUnitOfWorkFactory(
   dataSource: DataSource,
   idGeneration: IdGenerationPort,
+  logger: Logger,
 ): UnitOfWorkFactory {
   return async () => {
     const queryRunner = dataSource.createQueryRunner();
     await queryRunner.connect();
 
     const cache = new PendingChangeCache();
-    const uow = new TypeOrmUnitOfWork(queryRunner, idGeneration, cache);
+    const uow = new TypeOrmUnitOfWork(queryRunner, idGeneration, cache, logger);
 
     return {
       uow,

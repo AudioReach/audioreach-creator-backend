@@ -28,17 +28,61 @@ function makeQueryRunner(
     return [];
   });
 
-  return {
-    query: queryFn,
-    createQueryBuilder: jest.fn((_entity: string, _alias: string) => ({
+  const manager = {
+    createQueryBuilder: jest.fn((_entity?: string, _alias?: string) => ({
       select: jest.fn().mockReturnThis(),
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
       getRawOne: jest.fn(async () => {
         const results = selectImpl ? selectImpl('SELECT version') : [];
         return (results as {version: number}[])[0] ?? undefined;
       }),
+      execute: jest.fn(async () => ({affected: 1})),
     })),
-    manager: {query: jest.fn()},
+    findOne: jest.fn().mockResolvedValue(undefined),
+    insert: jest.fn(async (_schema: unknown, value: unknown) => {
+      const rows = Array.isArray(value) ? value : [value];
+      const first = rows[0] as Record<string, unknown>;
+      if ('operation' in first) {
+        for (const row of rows as Record<string, unknown>[]) {
+          queryFn('INSERT INTO edit_actions', [
+            row['sessionId'],
+            row['aggregateId'],
+            row['targetSystemId'],
+            row['targetTable'],
+            row['operation'],
+            row['fieldPath'],
+            JSON.stringify(row['newValue']),
+            row['source'],
+            row['changeStatus'],
+            row['groupId'],
+            row['linkedEntityGroupId'],
+          ]);
+        }
+      } else {
+        queryFn('INSERT OR IGNORE INTO session_entity_versions', [
+          first['sessionId'],
+          first['targetSystemId'],
+          first['baseVersion'],
+        ]);
+      }
+      return {
+        identifiers: [
+          {
+            changeId:
+              (returningRows[0] as {change_id?: number})?.change_id ?? 123,
+          },
+        ],
+      };
+    }),
+  };
+
+  return {
+    query: queryFn,
+    createQueryBuilder: manager.createQueryBuilder,
+    manager,
   } as unknown as QueryRunner;
 }
 

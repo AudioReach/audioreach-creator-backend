@@ -30,11 +30,11 @@ The C# desktop tool has an in-memory `UniqueIDGenerator` for this purpose. This 
 | Decision | Choice | Rationale |
 |---|---|---|
 | Storage model | Pure in-memory, per-file | VMID remapping and monotonicity watermark are session-scoped state that fight the DB's stateless model |
-| Initialization | Populated from `EntityBuilderService` during `upload-file` | All natural IDs are in memory at that point; no extra DB query needed |
+| Initialization | Hydrated from the database when `start-session` succeeds | The database is the ground truth for the file before any edit allocation |
 | Natural ID timing | Returned immediately from `getNextId` | Edit handlers must return the natural ID in the API response |
 | `setVmid` output | Returns `VmidRemapping[]` (before/after mapping) | Caller (command handler) drives the DB bulk-update; generator stays DB-free |
 | VMID scope | Per-file | Each file has an independent VMID |
-| Server-restart recovery | Lazy re-hydration from DB via `ensureLoaded` callback | Fallback only; primary path is upload-file initialization |
+| Session lifecycle | Cache is cleared when `end-session` succeeds | The next session reloads the file from the database |
 | Concurrency | No locks needed for allocate/register/release | Node.js single-thread makes synchronous ops atomic; only initialization needs the pending-promise guard |
 
 ---
@@ -147,21 +147,21 @@ The baseline ranges already encode VMID = 0 (the nibble is zero in all baseline 
 #### FR-NIG-15: Per-file generator
 The registry (`NaturalIdRegistry`) holds one `UniqueIdGenerator` per `fileSystemId`. Generators for different files are fully independent.
 
-#### FR-NIG-16: Initialization during upload-file
-After `EntityBuilderService` finishes building all domain entities from a parsed file, it calls `registerBatch(fileSystemId, entries[])` to pre-populate the generator for that file with all existing natural IDs before any edit command can run.
+#### FR-NIG-16: Initialization during start-session
+When a session starts, the registry loads all existing natural IDs for the file from the database before the session is created. The loaded IDs include subgraphs, containers, module instances, and subsystems.
 
 #### FR-NIG-17: `getNextId(fileSystemId, type)` — allocate for a file
 Delegates to the per-file generator's `allocate(type)`. Returns the natural ID synchronously. Must not perform any DB I/O.
 
-#### FR-NIG-18: `release(fileSystemId, type, id)` — unmark on entity delete
-Called by delete command handlers after removing an entity from the DB. Delegates to the per-file generator's `release(type, id)`.
+#### FR-NIG-18: No ID release during a session
+Delete handlers do not release natural IDs. IDs remain reserved until the session ends, preventing reuse within the session. The next session reloads the database state and may reuse IDs that no longer exist.
 
 ---
 
-### 3.7 Lazy Re-hydration Fallback (Server Restart Recovery)
+### 3.7 Session Initialization and Restart Recovery
 
-#### FR-NIG-19: `ensureLoaded(fileSystemId, loader)` — re-hydrate after restart
-If the generator for `fileSystemId` is not in memory (server restarted), accepts an async `loader` callback that returns `Array<{ type, id }>` by querying the DB. Populates the generator via `registerBatch`. Concurrent callers awaiting the same file coalesce onto a single loader invocation (pending-promise guard). No-ops if the generator is already loaded.
+#### FR-NIG-19: `initialize(fileSystemId)` — hydrate at session start
+Loads the database natural IDs for `fileSystemId` exactly once before the session becomes usable. Concurrent initialization calls for the same file coalesce onto a single loader invocation. A successful `end-session` clears the cached generator so the next session reloads from the database.
 
 ---
 
@@ -209,9 +209,9 @@ Returns the highest ID currently in the used set for the type, or `0` if the set
 ## 6. Out of Scope
 
 - Persisting generator state to disk or DB (generator is ephemeral; DB is ground truth for IDs).
-- Notifying consumers when IDs are allocated or released.
+- Notifying consumers when IDs are allocated.
 - Enforcing that a released ID was previously allocated by this generator instance.
-- Cross-type uniqueness (same numeric value may appear in different types' used sets).
+- Reusing IDs deleted during the active session.
 - Thread safety beyond the pending-promise guard for initialization (Node.js single-thread guarantee).
 - Bulk VMID DB update logic — the registry returns remappings; the command handler owns the DB update.
 

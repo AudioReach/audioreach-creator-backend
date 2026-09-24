@@ -6,11 +6,21 @@
 import type {NaturalIdType} from '../../../domain/services/natural-id-generator/natural-id-type.js';
 import type {VmidRemapping} from '../../../domain/services/natural-id-generator/vmid-remapping.js';
 
+export type NaturalIdEntry = {
+  type: NaturalIdType;
+  naturalId: number;
+};
+
+export interface NaturalIdEntriesLoader {
+  load(fileSystemId: number): Promise<NaturalIdEntry[]>;
+}
+
 export interface NaturalIdGenerationPort {
-  registerBatch(
-    fileSystemId: number,
-    entries: Array<{type: NaturalIdType; naturalId: number}>,
-  ): void;
+  registerBatch(fileSystemId: number, entries: NaturalIdEntry[]): void;
+
+  initialize(fileSystemId: number): Promise<void>;
+
+  clear(fileSystemId: number): void;
 
   getNextId(fileSystemId: number, type: NaturalIdType): number;
 

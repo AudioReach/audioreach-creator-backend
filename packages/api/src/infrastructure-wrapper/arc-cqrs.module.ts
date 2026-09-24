@@ -29,6 +29,7 @@ import {
   DbQueryServices,
   EntityIdServiceRegistry,
   TypeOrmSessionRepository,
+  TypeOrmNaturalIdEntriesLoader,
 } from '@arc/persistence';
 import {FixCommandDispatcher} from './validation/fix-command-dispatcher.js';
 import type {DataSource} from 'typeorm';
@@ -84,9 +85,10 @@ import {LoggingModule} from './logging.module.js';
       useFactory: (
         dataSource: DataSource,
         idGeneration: IdGenerationPort,
+        logger: Logger,
       ): UnitOfWorkFactory =>
-        createTypeOrmUnitOfWorkFactory(dataSource, idGeneration),
-      inject: ['DATA_SOURCE', 'ID_GENERATION'],
+        createTypeOrmUnitOfWorkFactory(dataSource, idGeneration, logger),
+      inject: ['DATA_SOURCE', 'ID_GENERATION', 'LOGGER'],
     },
     {
       provide: CommandBus,
@@ -169,7 +171,11 @@ import {LoggingModule} from './logging.module.js';
     },
     {
       provide: 'NATURAL_ID_GENERATION',
-      useFactory: (): NaturalIdGenerationPort => new NaturalIdRegistry(),
+      useFactory: (dataSource: DataSource): NaturalIdGenerationPort =>
+        new NaturalIdRegistry(
+          new TypeOrmNaturalIdEntriesLoader(dataSource.manager),
+        ),
+      inject: ['DATA_SOURCE'],
     },
     {
       provide: 'SESSION_REPOSITORY',

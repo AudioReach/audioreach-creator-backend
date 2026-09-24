@@ -245,6 +245,7 @@ export class SpfModuleController extends BaseController {
    * Create a new SPF module for a given module id and processor id.
    */
   @Post()
+  @UseGuards(SessionGuard)
   @ApiDocumentationWithExample({
     summary: 'Create a new SPF module',
     description:

@@ -11,6 +11,7 @@ import {Result as ResultFactory} from '../../shared/result/result.js';
 import type {SessionResult} from '../session-types.js';
 import {ResourceNotFoundException} from '../../../shared/exceptions/resource-not-found.exception.js';
 import {InvalidOperationException} from '../../../shared/exceptions/invalid-operation.exception.js';
+import type {NaturalIdGenerationPort} from '../../ports/id-generation/natural-id-generation.port.js';
 
 /**
  * Handles StartSessionCommand — Case 3 (requiresSession = false).
@@ -27,10 +28,14 @@ export class StartSessionHandler implements CommandHandler<
   StartSessionCommand,
   Result<SessionResult>
 > {
-  constructor(private readonly uow: UnitOfWork) {}
+  constructor(
+    private readonly uow: UnitOfWork,
+    private readonly naturalIdGeneration: NaturalIdGenerationPort,
+  ) {}
 
   async handle(cmd: StartSessionCommand): Promise<Result<SessionResult>> {
     await this.uow.startTransaction();
+    let initializedFileSystemId: number | undefined;
     try {
       const sessionRepo = this.uow.getSessionRepository();
 
@@ -62,6 +67,11 @@ export class StartSessionHandler implements CommandHandler<
         );
       }
 
+      // Hydrate before the session becomes usable so allocations start from
+      // the database ground truth for this file.
+      await this.naturalIdGeneration.initialize(fileSystemId);
+      initializedFileSystemId = fileSystemId;
+
       const sessionId = await sessionRepo.createSession({
         fileSystemId,
         sessionMode: cmd.mode,
@@ -76,6 +86,9 @@ export class StartSessionHandler implements CommandHandler<
         summary: 'Session started.',
       });
     } catch (error) {
+      if (initializedFileSystemId !== undefined) {
+        this.naturalIdGeneration.clear(initializedFileSystemId);
+      }
       if (this.uow.isInTransaction()) {
         await this.uow.rollback();
       }

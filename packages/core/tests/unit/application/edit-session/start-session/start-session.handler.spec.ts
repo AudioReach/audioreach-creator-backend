@@ -12,10 +12,18 @@ import {ResourceNotFoundException} from '../../../../../src/shared/exceptions/re
 import {InvalidOperationException} from '../../../../../src/shared/exceptions/invalid-operation.exception.js';
 import type {UnitOfWork} from '../../../../../src/application/ports/persistence/unit-of-work.js';
 import type {ISessionRepository} from '../../../../../src/application/ports/persistence/repositories/session/session.repository.js';
+import type {NaturalIdGenerationPort} from '../../../../../src/application/ports/id-generation/natural-id-generation.port.js';
 
 const PROJECT_ID = 'proj-abc-123';
 const FILE_SYSTEM_ID = 42;
 const SESSION_ID = 7;
+
+function buildMockNaturalIds(): jest.Mocked<NaturalIdGenerationPort> {
+  return {
+    initialize: jest.fn().mockResolvedValue(undefined),
+    clear: jest.fn(),
+  } as unknown as jest.Mocked<NaturalIdGenerationPort>;
+}
 
 function buildMockSessionRepo(): jest.Mocked<ISessionRepository> {
   return {
@@ -54,13 +62,36 @@ function buildMockUow(
 }
 
 describe('StartSessionHandler', () => {
+  it('initializes natural IDs before creating the session', async () => {
+    const sessionRepo = buildMockSessionRepo();
+    sessionRepo.findFileSystemIdByProjectId.mockResolvedValue(FILE_SYSTEM_ID);
+    sessionRepo.findActiveSessionByFileSystemId.mockResolvedValue(null);
+    sessionRepo.createSession.mockResolvedValue(SESSION_ID);
+    const initialize = jest
+      .fn<() => Promise<void>>()
+      .mockResolvedValue(undefined);
+    const naturalIds = {initialize} as unknown as NaturalIdGenerationPort;
+
+    await new StartSessionHandler(buildMockUow(sessionRepo), naturalIds).handle(
+      new StartSessionCommand(PROJECT_ID, SESSION_MODE.Designer),
+    );
+
+    expect(initialize).toHaveBeenCalledWith(FILE_SYSTEM_ID);
+    expect(initialize.mock.invocationCallOrder[0]).toBeLessThan(
+      sessionRepo.createSession.mock.invocationCallOrder[0],
+    );
+  });
+
   it('creates a session and returns Result.ok when no active session exists', async () => {
     const sessionRepo = buildMockSessionRepo();
     sessionRepo.findFileSystemIdByProjectId.mockResolvedValue(FILE_SYSTEM_ID);
     sessionRepo.findActiveSessionByFileSystemId.mockResolvedValue(null);
     sessionRepo.createSession.mockResolvedValue(SESSION_ID);
 
-    const handler = new StartSessionHandler(buildMockUow(sessionRepo));
+    const handler = new StartSessionHandler(
+      buildMockUow(sessionRepo),
+      buildMockNaturalIds(),
+    );
     const result = await handler.handle(
       new StartSessionCommand(PROJECT_ID, SESSION_MODE.Designer),
     );
@@ -84,7 +115,10 @@ describe('StartSessionHandler', () => {
     sessionRepo.findActiveSessionByFileSystemId.mockResolvedValue(null);
     sessionRepo.createSession.mockResolvedValue(SESSION_ID);
 
-    await new StartSessionHandler(buildMockUow(sessionRepo)).handle(
+    await new StartSessionHandler(
+      buildMockUow(sessionRepo),
+      buildMockNaturalIds(),
+    ).handle(
       new StartSessionCommand(PROJECT_ID, SESSION_MODE.Tuning, 'user-99'),
     );
 
@@ -99,7 +133,7 @@ describe('StartSessionHandler', () => {
     const uow = buildMockUow(sessionRepo);
 
     await expect(
-      new StartSessionHandler(uow).handle(
+      new StartSessionHandler(uow, buildMockNaturalIds()).handle(
         new StartSessionCommand('unknown-proj', SESSION_MODE.Designer),
       ),
     ).rejects.toThrow(ResourceNotFoundException);
@@ -120,7 +154,7 @@ describe('StartSessionHandler', () => {
     const uow = buildMockUow(sessionRepo);
 
     await expect(
-      new StartSessionHandler(uow).handle(
+      new StartSessionHandler(uow, buildMockNaturalIds()).handle(
         new StartSessionCommand(PROJECT_ID, SESSION_MODE.Designer),
       ),
     ).rejects.toThrow(InvalidOperationException);
@@ -137,7 +171,7 @@ describe('StartSessionHandler', () => {
     const uow = buildMockUow(sessionRepo);
 
     await expect(
-      new StartSessionHandler(uow).handle(
+      new StartSessionHandler(uow, buildMockNaturalIds()).handle(
         new StartSessionCommand(PROJECT_ID, SESSION_MODE.Designer),
       ),
     ).rejects.toThrow('DB error');
