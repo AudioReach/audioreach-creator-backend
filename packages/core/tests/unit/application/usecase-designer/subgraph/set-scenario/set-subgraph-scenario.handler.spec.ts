@@ -79,8 +79,8 @@ function makeUow(subgraph: any) {
     }),
     getModuleRepository: jest.fn().mockReturnValue({
       getModulesBySubgraphId: jest.fn().mockResolvedValue([]),
-      wipeAllCkvData: jest.fn().mockResolvedValue(undefined),
-      wipeAllTkvData: jest.fn().mockResolvedValue(undefined),
+      DeleteAllCkvData: jest.fn().mockResolvedValue(undefined),
+      DeleteAllTkvData: jest.fn().mockResolvedValue(undefined),
     }),
     startTransaction,
     commit,

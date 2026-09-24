@@ -11,7 +11,7 @@ import type {PropertyDefinitionWithElements} from '../../../../usecase-designer/
  * elements structure required for parsing calibration payloads, plus the
  * subgraph-specific `isVoice` flag inherited from `SubgraphPropertyDefinitionSummaryReadModel`.
  */
-export interface SubgraphPropertyDefinitionWithElementsReadModel
+export interface SgPropertyDefWithElementsReadModel
   extends
     SubgraphPropertyDefinitionSummaryReadModel,
     PropertyDefinitionWithElements {}

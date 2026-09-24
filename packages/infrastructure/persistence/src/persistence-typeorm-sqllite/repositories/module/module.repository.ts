@@ -732,25 +732,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     );
   }
 
-  async getModulesBySubgraphId(
-    subgraphSystemId: number,
-    fileSystemId: number,
-  ): Promise<SpfModuleBase[]> {
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-    const rows = await this.spfModuleFetcher.fetchMany(
-      fileSystemId,
-      sessionId,
-      {subgraphSystemId},
-    );
-    return rows.map(r => ({
-      systemId: r.systemId,
-      definitionSystemId: r.definitionSystemId,
-      subgraphSystemId: r.subgraphSystemId,
-      containerSystemId: r.containerSystemId,
-    }));
-  }
-
-  async wipeAllCkvData(
+  async DeleteAllCkvData(
     _moduleSystemId: number,
     _fileSystemId: number,
   ): Promise<void> {
@@ -774,17 +756,17 @@ export class TypeOrmModuleRepository implements ModuleRepository {
      */
   }
 
-  async wipeAllTkvData(
+  async DeleteAllTkvData(
     moduleSystemId: number,
     _fileSystemId: number,
   ): Promise<void> {
     const {session, groupId} = this.uow.getWriteContext();
-    const tkvDeletePlans = await this.readTkvDeletePlans(
+    const tkvDeleteTargets = await this.readTkvDeleteTargets(
       moduleSystemId,
       session.sessionId,
     );
     await this.writeTkvDeletes(
-      tkvDeletePlans,
+      tkvDeleteTargets,
       moduleSystemId,
       session.sessionId,
       groupId,
@@ -825,12 +807,12 @@ export class TypeOrmModuleRepository implements ModuleRepository {
   }
   */
 
-  private async readTkvDeletePlans(
+  private async readTkvDeleteTargets(
     moduleSystemId: number,
     sessionId: number,
   ): Promise<
     Array<{
-      tagMapId: number;
+      tagMapSystemId: number;
       tkvs: Array<{tkvId: number; payloadIds: number[]}>;
     }>
   > {
@@ -843,7 +825,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
 
     const allTkvs = tagMaps.flatMap(tm => tm.tkvs ?? []);
     if (allTkvs.length === 0) {
-      return tagMaps.map(tm => ({tagMapId: tm.systemId, tkvs: []}));
+      return tagMaps.map(tm => ({tagMapSystemId: tm.systemId, tkvs: []}));
     }
 
     // Batch-fetch all TKV payloads in one query
@@ -864,7 +846,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     }
 
     return tagMaps.map(tagMap => ({
-      tagMapId: tagMap.systemId,
+      tagMapSystemId: tagMap.systemId,
       tkvs: (tagMap.tkvs ?? []).map(tkv => ({
         tkvId: tkv.systemId,
         payloadIds: payloadsByTkv.get(tkv.systemId) ?? [],
@@ -969,8 +951,8 @@ export class TypeOrmModuleRepository implements ModuleRepository {
   */
 
   private async writeTkvDeletes(
-    plans: Array<{
-      tagMapId: number;
+    targets: Array<{
+      tagMapSystemId: number;
       tkvs: Array<{tkvId: number; payloadIds: number[]}>;
     }>,
     moduleSystemId: number,
@@ -978,17 +960,17 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     groupId: string,
   ): Promise<void> {
     await Promise.all(
-      plans.map(async plan => {
+      targets.map(async target => {
         // Delete TKV payloads + TKV rows, then the ModuleTagIdMap row
         await Promise.all(
-          plan.tkvs.map(async tkv => {
+          target.tkvs.map(async tkv => {
             await Promise.all(
               tkv.payloadIds.map(payloadId =>
                 this.writer.writeDelete(
                   {
                     targetTable: ENTITY_NAMES.TkvParameterPayload,
                     targetSystemId: payloadId,
-                    aggregateId: plan.tagMapId,
+                    aggregateId: target.tagMapSystemId,
                   },
                   sessionId,
                   groupId,
@@ -1000,7 +982,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
               {
                 targetTable: ENTITY_NAMES.Tkv,
                 targetSystemId: tkv.tkvId,
-                aggregateId: plan.tagMapId,
+                aggregateId: target.tagMapSystemId,
               },
               sessionId,
               groupId,
@@ -1011,7 +993,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         await this.writer.writeDelete(
           {
             targetTable: ENTITY_NAMES.ModuleTagIdMap,
-            targetSystemId: plan.tagMapId,
+            targetSystemId: target.tagMapSystemId,
             aggregateId: moduleSystemId,
           },
           sessionId,

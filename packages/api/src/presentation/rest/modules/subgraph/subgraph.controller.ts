@@ -464,7 +464,7 @@ export class SubgraphController extends BaseController {
     @Body() dto: UpdatePropertyRequestDto,
     @ArcSession() session: ActiveSession,
     @ClientId() clientId: string,
-  ): Promise<ApiResult<SubgraphPropertiesResponseDto>> {
+  ): Promise<ApiResult<PropertyResponseDto>> {
     await this.commandBus.execute<void>(
       new SetSubgraphPropertyCommand(
         subgraphSystemId,

@@ -113,8 +113,8 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
     const moduleRepository = this.uow.getModuleRepository();
     const modules =
       isAudioToVoice || isVoiceToAudio
-        ? await moduleRepository.getModulesBySubgraphId(
-            command.subgraphSystemId,
+        ? await moduleRepository.findModulesBySubgraphIds(
+            [command.subgraphSystemId],
             fileSystemId,
           )
         : [];
@@ -355,8 +355,8 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
   ): Promise<void> {
     await Promise.all(
       modules.map(async mod => {
-        await moduleRepository.wipeAllCkvData(mod.systemId, fileSystemId);
-        await moduleRepository.wipeAllTkvData(mod.systemId, fileSystemId);
+        await moduleRepository.DeleteAllCkvData(mod.systemId, fileSystemId);
+        await moduleRepository.DeleteAllTkvData(mod.systemId, fileSystemId);
       }),
     );
   }
@@ -422,10 +422,9 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
     scenarioDefSystemId: number | undefined,
     subgraphRepository: SubgraphRepository,
   ): Promise<Set<number>> {
-    // Pass 1: BFS using only getSubgraphIdsInSameUsecases
+    // Pass 1: BFS using only findSubgraphIdsSharingUsecases
     const reachableIds = await this.bfsReachableIds(
       startSubgraphId,
-      fileSystemId,
       subgraphRepository,
     );
     reachableIds.delete(startSubgraphId); // exclude self — we only want linked Voice subgraphs
@@ -468,7 +467,6 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
    */
   private async bfsReachableIds(
     startId: number,
-    fileSystemId: number,
     subgraphRepository: SubgraphRepository,
   ): Promise<Set<number>> {
     const visited = new Set<number>([startId]);
@@ -476,10 +474,7 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
 
     while (frontier.length > 0) {
       const linked =
-        await subgraphRepository.getSubgraphIdsInSameUsecasesForMany(
-          frontier,
-          fileSystemId,
-        );
+        await subgraphRepository.findSubgraphIdsSharingUsecases(frontier);
       frontier = linked.filter(id => !visited.has(id));
       for (const id of frontier) visited.add(id);
     }

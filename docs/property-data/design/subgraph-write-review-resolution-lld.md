@@ -9,7 +9,7 @@
 The original property-data design was written before the repository layer was rebased. The rebased implementation now has a routing-focused `SubgraphRepository` with these existing responsibilities:
 
 - `getSgkvs`
-- `findByIds`
+- `getAggregate` / `getAggregates`
 - `findIsMdfInScope`
 - `findChangedInSession`
 - scalar-only domain aggregate hydration through `hydrate(SubgraphBase)`
@@ -90,7 +90,6 @@ The following methods remain unchanged:
 
 ```ts
 getSgkvs(...)
-findByIds(...)
 findIsMdfInScope(...)
 findChangedInSession(...)
 ```
@@ -101,29 +100,29 @@ The existing `hydrate(SubgraphBase)` remains the mapper for these methods.
 
 ### 4.2 Add property-aware subgraph reads
 
-Add dedicated property read-model methods rather than changing `findByIds()` to load properties:
+Use the property-aware aggregate read methods for subgraph reads:
 
-**Current:** Effective property payloads are currently read through `QueryServices.subgraphQueryService.findPropertyPayloads()`, and property-definition metadata is currently read through `QueryServices.subgraphPropertyDefQueryService`. Separately, `findByIds()` returns scalar-only `Subgraph` aggregates and does not load property data.
+**Current:** Effective property payloads are currently read through `QueryServices.subgraphQueryService.findPropertyPayloads()`, and property-definition metadata is currently read through `QueryServices.subgraphPropertyDefQueryService`.
 
-**After change:** Add separate property-aware methods to the UoW-bound subgraph repository for effective property payloads, while preserving the existing scalar-only contract. Keep property-definition metadata on a dedicated property-definition read port:
+**After change:** The UoW-bound subgraph repository returns property-aware read models. Each `SubgraphWithProperties` contains the hydrated domain `Subgraph` entity and effective property rows. Keep property-definition metadata on a dedicated property-definition read port:
 
 ```ts
-findByIdWithProperties(
+getAggregate(
   subgraphSystemId: number,
   fileSystemId: number,
 ): Promise<SubgraphWithProperties | null>;
 
-findByIdsWithProperties(
+getAggregates(
   subgraphSystemIds: readonly number[],
   fileSystemId: number,
 ): Promise<Map<number, SubgraphWithProperties>>;
 ```
 
-`SubgraphWithProperties` remains a query/read model under:
+`SubgraphWithProperties` is an application persistence read model under:
 
-`packages/core/src/application/ports/persistence/query-services/subgraph-property-definition/subgraph-property-definition-with-elements-read-model.ts`
+`packages/core/src/application/ports/persistence/repositories/subgraph/subgraph.repository.ts`
 
-It is not a replacement for the domain `Subgraph` aggregate.
+It carries the domain `Subgraph` aggregate alongside its persistence property rows.
 
 ### 4.3 Add write-side property operations
 
@@ -148,10 +147,7 @@ setPropertyData(
   payload: Uint8Array,
 ): Promise<void>;
 
-getSubgraphIdsInSameUsecases(
-  subgraphSystemId: number,
-  fileSystemId: number,
-): Promise<number[]>;
+findSubgraphIdsSharingUsecases(subgraphSystemIds: number[]): Promise<number[]>;
 ```
 
 `setPropertyData` receives final bytes. It does not receive a property definition and does not serialize data.
@@ -293,12 +289,12 @@ const resetInput = await moduleRepository.getCkvResetInput(
 
 const resetPlan = createCkvResetPlan(resetInput);
 
-await moduleRepository.wipeAllCkvData(
+await moduleRepository.DeleteAllCkvData(
   mod.systemId,
   resetPlan,
 );
 
-await moduleRepository.wipeAllTkvData(mod.systemId);
+await moduleRepository.DeleteAllTkvData(mod.systemId);
 ```
 
 `MutationLog` remains a separate response accumulator for the scenario result. It is not used to make CKV reset decisions and is not passed to persistence as the reset plan. The current `moduleCkvsAdded` response name should be reviewed later because the existing zero CKV is preserved and reset, not added.
@@ -331,9 +327,9 @@ No new property-fetching abstraction is required.
 
 ### 5.2 Property-aware reads
 
-`findByIdWithProperties()` delegates to `subgraphFetcher.fetchOne()` and maps the effective `properties` array to `SubgraphWithProperties`.
+`getAggregate()` delegates to `subgraphFetcher.fetchOne()` and maps the effective `properties` array to `SubgraphWithProperties`.
 
-`findByIdsWithProperties()` must assemble scalar rows and effective property rows without changing the existing scalar-only `fetchMany()` contract. It may use a dedicated batch fetcher method or fetch and group property rows separately.
+`getAggregates()` assembles scalar rows and effective property rows without changing the existing scalar-only `fetchMany()` contract. It uses the dedicated property-data fetcher and groups the property rows by subgraph.
 
 ### 5.3 CKV reset input and plan application
 
@@ -347,15 +343,15 @@ getCkvResetInput(
   fileSystemId: number,
 ): Promise<CkvResetInput>;
 
-wipeAllCkvData(
+DeleteAllCkvData(
   moduleSystemId: number,
   resetPlan: CkvResetPlan,
 ): Promise<void>;
 
-wipeAllTkvData(moduleSystemId: number): Promise<void>;
+DeleteAllTkvData(moduleSystemId: number): Promise<void>;
 ```
 
-`getCkvResetInput()` uses the existing overlay fetchers and maps the effective CKV rows plus full parameter payload read models into `CkvResetInput`. `wipeAllCkvData()` applies the plan by deleting non-zero CKV payloads and rows, then updating the existing zero-CKV payload rows. It does not classify CKVs or serialize defaults. `wipeAllTkvData()` handles TKV/tag data separately.
+`getCkvResetInput()` uses the existing overlay fetchers and maps the effective CKV rows plus full parameter payload read models into `CkvResetInput`. `DeleteAllCkvData()` applies the plan by deleting non-zero CKV payloads and rows, then updating the existing zero-CKV payload rows. It does not classify CKVs or serialize defaults. `DeleteAllTkvData()` handles TKV/tag data separately.
 
 ### 5.4 Property writes
 
@@ -371,7 +367,7 @@ It must not query only base tables because the property row may have been create
 ### 5.5 Name and relationship writes/reads
 
 - `rename()` stages a `Subgraph` name delta.
-- `getSubgraphIdsInSameUsecases()` retains the existing relationship query behavior and excludes zero-GKV usecases and the source subgraph.
+- `findSubgraphIdsSharingUsecases()` retains the existing relationship query behavior and excludes zero-GKV usecases and the source subgraphs.
 - Existing SGKV/routing methods are retained without behavior changes.
 
 ## 6. Zero-CKV design
@@ -406,12 +402,12 @@ The core function:
 
 ### 6.3 Persistence application
 
-`ModuleRepository.wipeAllCkvData(moduleSystemId, resetPlan)` applies the CKV plan by:
+`ModuleRepository.DeleteAllCkvData(moduleSystemId, resetPlan)` applies the CKV plan by:
 
 - deleting non-zero CKV payloads and CKV rows in FK order;
 - updating existing zero-CKV payload rows with the supplied bytes.
 
-`ModuleRepository.wipeAllTkvData(moduleSystemId)` separately deletes TKV/tagged calibration data.
+`ModuleRepository.DeleteAllTkvData(moduleSystemId)` separately deletes TKV/tagged calibration data.
 
 Persistence does not classify CKVs or call `serializeDefaultParameterData()`.
 

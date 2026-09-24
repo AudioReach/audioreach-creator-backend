@@ -265,7 +265,8 @@ subgraphs that exist in the DB.
 ```
 sgIds := effectiveRoutingScope
 
-validSgIds := ISubgraphRepository.findByIds(fileSystemId, sgIds).map(sg => sg.systemId)
+validSgIds := ISubgraphRepository.getAggregates(sgIds, fileSystemId)
+  .values().map(result => result.subgraph.systemId)
 
 for each intra-usecase data-link L whose endpoints are in sgIds
     (post-overlay, minus effective exclusions):
