@@ -17,7 +17,7 @@ export class PatchSubsystemCommand extends BaseCommand {
   constructor(
     public readonly subsystemSystemId: number,
     public readonly fileSystemId: number,
-    public readonly name: string | undefined,
+    public readonly name: string | null | undefined,
     public readonly inputDataPortCount: number | undefined,
     public readonly outputDataPortCount: number | undefined,
     public readonly controlPortCount: number | undefined,

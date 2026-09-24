@@ -48,6 +48,8 @@ const NODE_A = 201;
 const NODE_B = 202;
 const PORT_SRC = 301;
 const PORT_DST = 302;
+const PORT_SEGMENT_SRC = 303;
+const PORT_SEGMENT_DST = 304;
 
 async function seedProjectAndFile(ds: DataSource) {
   await getTestRepository(ProjectSchema).save({
@@ -100,6 +102,14 @@ async function seedFkDependencies(ds: DataSource) {
     `INSERT INTO data_ports (system_id, data_port_id, port_io_type, is_static, node_system_id) VALUES (?, 2, ?, 1, ?)`,
     [PORT_DST, PORT_IO_TYPE.Input, NODE_B],
   );
+  await ds.query(
+    `INSERT INTO data_ports (system_id, data_port_id, port_io_type, is_static, node_system_id) VALUES (?, 3, ?, 1, ?)`,
+    [PORT_SEGMENT_SRC, PORT_IO_TYPE.Output, NODE_A],
+  );
+  await ds.query(
+    `INSERT INTO data_ports (system_id, data_port_id, port_io_type, is_static, node_system_id) VALUES (?, 4, ?, 1, ?)`,
+    [PORT_SEGMENT_DST, PORT_IO_TYPE.Input, NODE_B],
+  );
 }
 
 async function seedDataLink(
@@ -127,6 +137,8 @@ async function seedSubsystemDataLink(
   ds: DataSource,
   systemId: number,
   dataLinkSystemId: number,
+  sourcePortSystemId = PORT_SRC,
+  destinationPortSystemId = PORT_DST,
 ) {
   await ds.query(
     `INSERT INTO subsystem_data_links
@@ -134,7 +146,15 @@ async function seedSubsystemDataLink(
         source_port_system_id, destination_port_system_id,
         data_link_system_id, file_system_id)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [systemId, NODE_A, NODE_B, PORT_SRC, PORT_DST, dataLinkSystemId, FILE_ID],
+    [
+      systemId,
+      NODE_A,
+      NODE_B,
+      sourcePortSystemId,
+      destinationPortSystemId,
+      dataLinkSystemId,
+      FILE_ID,
+    ],
   );
 }
 
@@ -236,6 +256,27 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
     expect(result).toHaveLength(1);
     expect(result[0].linkSystemId).toBe(999);
     expect(result[0].portSystemId).toBe(PORT_SRC);
+  });
+
+  it('returns subsystem segments whose ports are not canonical link ports', async () => {
+    await seedDataLink(ds, 500, PORT_SRC, PORT_DST);
+    await seedSubsystemDataLink(
+      ds,
+      701,
+      500,
+      PORT_SEGMENT_SRC,
+      PORT_SEGMENT_DST,
+    );
+
+    const result = await makeRepo(qr, sessionId).getLinksByPortSystemIds(
+      [PORT_SEGMENT_SRC, PORT_SEGMENT_DST],
+      FILE_ID,
+    );
+
+    expect(result).toEqual([
+      {linkSystemId: 701, portSystemId: PORT_SEGMENT_SRC},
+      {linkSystemId: 701, portSystemId: PORT_SEGMENT_DST},
+    ]);
   });
 
   it('returns [] when no links exist for the given ports', async () => {

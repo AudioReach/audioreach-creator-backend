@@ -12,7 +12,7 @@ import {NodeType} from '../../../../../../src/domain/entities/usecase-data/node/
 import {Subsystem} from '../../../../../../src/domain/entities/usecase-data/subsystem/subsystem.js';
 import {DataPort} from '../../../../../../src/domain/entities/usecase-data/node/entities/data-port.js';
 import {ControlPort} from '../../../../../../src/domain/entities/usecase-data/node/entities/control-port.js';
-import type {ControlLink} from '../../../../../../src/domain/entities/usecase-data/links/control-link.js';
+import {ControlLink} from '../../../../../../src/domain/entities/usecase-data/links/control-link.js';
 import {SubsystemControlLink} from '../../../../../../src/domain/entities/usecase-data/links/subsystem-control-link.js';
 import {SubsystemDataLink} from '../../../../../../src/domain/entities/usecase-data/links/subsystem-data-link.js';
 import {
@@ -131,6 +131,14 @@ describe('rebuildMoveSubsystemImpact', () => {
             .mockResolvedValueOnce(1001),
         } as never,
       },
+      {
+        parentBefore: new Map([
+          [1, null],
+          [2, null],
+          [10, null],
+        ]),
+        movedNodeIds: new Set([1]),
+      },
     );
 
     expect(result.addedDataLinks).toEqual([link]);
@@ -144,6 +152,82 @@ describe('rebuildMoveSubsystemImpact', () => {
     ).toMatchObject({
       sourceNodeSystemId: 1,
     });
+  });
+
+  it('assigns the control-port base ID to a new boundary port', async () => {
+    const link = new ControlLink(
+      60,
+      7,
+      1,
+      2,
+      101,
+      201,
+      0,
+      CONTROL_LINK_TYPE.Normal,
+      11,
+      22,
+    );
+    const addedPorts: ControlPort[] = [];
+    const subsystem = new Subsystem({
+      systemId: 10,
+      fileSystemId: 7,
+      parentSystemId: null,
+      name: 'S1',
+      subsystemId: 1,
+      filteredKeySystemIds: [],
+      dataPorts: [],
+      controlPorts: [],
+    });
+
+    await rebuildMoveSubsystemImpact(
+      7,
+      [
+        {systemId: 1, parentSystemId: null, type: NodeType.Module},
+        {systemId: 2, parentSystemId: null, type: NodeType.Module},
+        {systemId: 10, parentSystemId: null, type: NodeType.Subsystem},
+      ],
+      [{systemId: 1, parentSystemId: 10}],
+      [],
+      {
+        subsystemRepository: {
+          getSubsystem: jest.fn().mockResolvedValue(subsystem),
+          addDataPort: jest.fn(),
+          addControlPort: jest.fn().mockImplementation(port => {
+            addedPorts.push(port);
+          }),
+          removeDataPort: jest.fn(),
+          removeControlPort: jest.fn(),
+        } as never,
+        dataLinkRepository: {
+          findAllLinks: jest.fn().mockResolvedValue({
+            dataLinks: [],
+            standaloneSubsystemDataLinks: [],
+          }),
+          createSubsystemDataLinks: jest.fn(),
+          deleteSubsystemDataLinks: jest.fn(),
+        } as never,
+        controlLinkRepository: {
+          findAllLinks: jest.fn().mockResolvedValue({
+            controlLinks: [link],
+            standaloneSubsystemControlLinks: [],
+          }),
+          createSubsystemControlLinks: jest.fn(),
+          deleteSubsystemControlLinks: jest.fn(),
+        } as never,
+        idGeneration: {getNextId: jest.fn().mockResolvedValue(1000)} as never,
+      },
+      {
+        parentBefore: new Map([
+          [1, null],
+          [2, null],
+          [10, null],
+        ]),
+        movedNodeIds: new Set([1]),
+      },
+    );
+
+    expect(addedPorts).toHaveLength(1);
+    expect(addedPorts[0]?.naturalId).toBe(0x80_00_00_00);
   });
 
   it('rebuilds affected unresolved data and control chains without touching unrelated chains', async () => {
@@ -321,6 +405,18 @@ describe('rebuildMoveSubsystemImpact', () => {
           deleteSubsystemControlLinks: removeControlLinks,
         } as never,
         idGeneration: {getNextId: jest.fn()} as never,
+      },
+      {
+        parentBefore: new Map([
+          [1, 10],
+          [10, 20],
+          [20, null],
+          [2, 30],
+          [3, 30],
+          [30, null],
+          [40, null],
+        ]),
+        movedNodeIds: new Set([1, 10]),
       },
     );
 

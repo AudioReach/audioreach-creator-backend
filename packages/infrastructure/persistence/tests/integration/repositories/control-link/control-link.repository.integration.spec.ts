@@ -47,6 +47,8 @@ const NODE_A = 201;
 const NODE_B = 202;
 const PORT_CP_A = 301;
 const PORT_CP_B = 302;
+const PORT_SEGMENT_A = 303;
+const PORT_SEGMENT_B = 304;
 
 async function seedProjectAndFile(ds: DataSource) {
   await getTestRepository(ProjectSchema).save({
@@ -99,6 +101,14 @@ async function seedFkDependencies(ds: DataSource) {
     `INSERT INTO control_ports (system_id, port_id, is_static, node_system_id) VALUES (?, 2, 1, ?)`,
     [PORT_CP_B, NODE_B],
   );
+  await ds.query(
+    `INSERT INTO control_ports (system_id, port_id, is_static, node_system_id) VALUES (?, 3, 1, ?)`,
+    [PORT_SEGMENT_A, NODE_A],
+  );
+  await ds.query(
+    `INSERT INTO control_ports (system_id, port_id, is_static, node_system_id) VALUES (?, 4, 1, ?)`,
+    [PORT_SEGMENT_B, NODE_B],
+  );
 }
 
 async function seedControlLink(
@@ -117,6 +127,8 @@ async function seedSubsystemControlLink(
   ds: DataSource,
   systemId: number,
   controlLinkSystemId: number,
+  nodeAPortSystemId = PORT_CP_A,
+  nodeBPortSystemId = PORT_CP_B,
 ) {
   await ds.query(
     `INSERT INTO subsystem_control_links
@@ -128,8 +140,8 @@ async function seedSubsystemControlLink(
       systemId,
       NODE_A,
       NODE_B,
-      PORT_CP_A,
-      PORT_CP_B,
+      nodeAPortSystemId,
+      nodeBPortSystemId,
       controlLinkSystemId,
       FILE_ID,
     ],
@@ -234,6 +246,27 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
     expect(result).toHaveLength(1);
     expect(result[0].linkSystemId).toBe(888);
     expect(result[0].portSystemId).toBe(PORT_CP_A);
+  });
+
+  it('returns subsystem segments whose ports are not canonical link ports', async () => {
+    await seedControlLink(ds, 800, PORT_CP_A, PORT_CP_B);
+    await seedSubsystemControlLink(
+      ds,
+      801,
+      800,
+      PORT_SEGMENT_A,
+      PORT_SEGMENT_B,
+    );
+
+    const result = await makeRepo(qr, sessionId).getLinksByPortSystemIds(
+      [PORT_SEGMENT_A, PORT_SEGMENT_B],
+      FILE_ID,
+    );
+
+    expect(result).toEqual([
+      {linkSystemId: 801, portSystemId: PORT_SEGMENT_A},
+      {linkSystemId: 801, portSystemId: PORT_SEGMENT_B},
+    ]);
   });
 
   it('returns [] when no links exist for the given ports', async () => {

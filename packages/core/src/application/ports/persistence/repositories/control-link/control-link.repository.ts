@@ -47,7 +47,8 @@ export interface ControlLinkRepository {
   ): Promise<void>;
 
   /**
-   * Returns all control links whose src or dst port is in portSystemIds.
+   * Returns canonical control links and subsystem segments whose endpoint port
+   * is in portSystemIds. linkSystemId identifies the matching link or segment.
    * Empty input short-circuits — returns [] without querying the DB.
    */
   getLinksByPortSystemIds(

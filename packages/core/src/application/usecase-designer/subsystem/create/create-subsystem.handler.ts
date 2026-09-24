@@ -17,6 +17,11 @@ import {
 import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import type {CreateSubsystemCommand} from './create-subsystem.command.js';
+import {
+  defaultSubsystemName,
+  findSubsystemNameConflict,
+  resolveSubsystemNameInput,
+} from '../subsystem-helpers.js';
 
 export type CreateSubsystemResult = {
   groupId: string;
@@ -39,7 +44,8 @@ export class CreateSubsystemHandler implements CommandHandler<
   async handle(
     command: CreateSubsystemCommand,
   ): Promise<CreateSubsystemResult> {
-    if (command.name !== undefined && command.name.length > 255) {
+    const requestedName = resolveSubsystemNameInput(command.name);
+    if (typeof requestedName === 'string' && requestedName.length > 255) {
       throw new InvalidOperationException(
         'Subsystem name must not exceed 255 characters.',
       );
@@ -50,15 +56,17 @@ export class CreateSubsystemHandler implements CommandHandler<
       const subsystems = await this.uow
         .getSubsystemRepository()
         .getSubsystems(command.fileSystemId);
-      const normalizedName = command.name?.toLocaleLowerCase();
       const conflictingSubsystem =
-        normalizedName === undefined
-          ? undefined
-          : subsystems.find(s => s.name.toLocaleLowerCase() === normalizedName);
-      if (conflictingSubsystem !== undefined) {
+        typeof requestedName === 'string'
+          ? findSubsystemNameConflict(subsystems, requestedName)
+          : undefined;
+      if (
+        conflictingSubsystem !== undefined &&
+        typeof requestedName === 'string'
+      ) {
         throw new DomainRuleViolationException([
           IssueFactory.duplicateSubsystemName(
-            command.name!,
+            requestedName,
             conflictingSubsystem.systemId,
           ),
         ]);
@@ -88,9 +96,7 @@ export class CreateSubsystemHandler implements CommandHandler<
         command.fileSystemId,
         NaturalIdType.SUBSYSTEM,
       );
-      const name =
-        command.name ??
-        `SS_0x${subsystemNaturalId.toString(16).padStart(8, '0').toUpperCase()}`;
+      const name = requestedName ?? defaultSubsystemName(subsystemNaturalId);
 
       await this.uow.getSubsystemRepository().createSubsystem(
         new Subsystem({

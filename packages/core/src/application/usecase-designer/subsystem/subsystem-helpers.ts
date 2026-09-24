@@ -59,3 +59,27 @@ export function isDescendant(
   }
   return false;
 }
+
+export function resolveSubsystemNameInput(
+  name: string | null | undefined,
+): string | null | undefined {
+  if (name === undefined) return undefined;
+  return name === null || name.trim() === '' ? null : name;
+}
+
+export function defaultSubsystemName(naturalId: number): string {
+  return `SS_0x${naturalId.toString(16).padStart(8, '0').toUpperCase()}`;
+}
+
+export function findSubsystemNameConflict(
+  subsystems: readonly SubsystemSummary[],
+  name: string,
+  excludedSystemId?: number,
+): SubsystemSummary | undefined {
+  const normalizedName = name.toLocaleLowerCase();
+  return subsystems.find(
+    subsystem =>
+      subsystem.systemId !== excludedSystemId &&
+      subsystem.name.toLocaleLowerCase() === normalizedName,
+  );
+}

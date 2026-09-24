@@ -2,10 +2,11 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-export class InitialCreate1789965901198 implements MigrationInterface {
-  name = 'InitialCreate1789965901198';
+export class InitialCreate1790247192565 implements MigrationInterface {
+  name = 'InitialCreate1790247192565';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
