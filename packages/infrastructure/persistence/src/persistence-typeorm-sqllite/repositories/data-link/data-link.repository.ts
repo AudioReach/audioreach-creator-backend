@@ -198,18 +198,8 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
       sessionId,
       {dataLinkSystemId},
     );
+    await this.deleteCanonical(dataLinkSystemId, fileSystemId, options);
     const {session, groupId} = this.uow.getWriteContext();
-    await this.getWriter().writeDelete(
-      {
-        targetTable: ENTITY_NAMES.DataLink,
-        targetSystemId: dataLinkSystemId,
-        aggregateId: dataLinkSystemId,
-        ...options,
-      },
-      session.sessionId,
-      groupId,
-      this.manager,
-    );
     for (const segment of resolvedSegments) {
       await this.getWriter().writeDelete(
         {
@@ -223,6 +213,25 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
         this.manager,
       );
     }
+  }
+
+  async deleteCanonical(
+    dataLinkSystemId: number,
+    _fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    await this.getWriter().writeDelete(
+      {
+        targetTable: ENTITY_NAMES.DataLink,
+        targetSystemId: dataLinkSystemId,
+        aggregateId: dataLinkSystemId,
+        ...options,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
   }
 
   async getLinksByPortSystemIds(
@@ -344,6 +353,28 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
           targetTable: ENTITY_NAMES.SubsystemDataLink,
           targetSystemId: segment.systemId,
           aggregateId: segment.dataLinkSystemId ?? segment.systemId,
+          ...options,
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+  }
+
+  async detachSubsystemDataLinks(
+    subsystemDataLinks: readonly SubsystemDataLink[],
+    _fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    for (const segment of subsystemDataLinks) {
+      await this.writer.writeDelta(
+        {
+          targetTable: ENTITY_NAMES.SubsystemDataLink,
+          targetSystemId: segment.systemId,
+          aggregateId: segment.dataLinkSystemId ?? segment.systemId,
+          delta: {dataLinkSystemId: null},
           ...options,
         },
         session.sessionId,

@@ -37,6 +37,16 @@ export interface ControlLinkRepository {
   ): Promise<void>;
 
   /**
+   * Deletes only the canonical ControlLink row. Resolved subsystem segments
+   * remain available for callers that need to detach them as unresolved.
+   */
+  deleteCanonical(
+    controlLinkSystemId: number,
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
+
+  /**
    * Returns all control links whose src or dst port is in portSystemIds.
    * Empty input short-circuits — returns [] without querying the DB.
    */
@@ -88,6 +98,16 @@ export interface ControlLinkRepository {
    * canonical ControlLink or sibling segments; use deleteAggregate for that.
    */
   deleteSubsystemControlLinks(
+    subsystemControlLinks: readonly SubsystemControlLink[],
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
+
+  /**
+   * Detaches resolved subsystem segments from their canonical ControlLink.
+   * The segments remain as unresolved edit-session rows.
+   */
+  detachSubsystemControlLinks(
     subsystemControlLinks: readonly SubsystemControlLink[],
     fileSystemId: number,
     options?: EditOptions,

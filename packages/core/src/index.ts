@@ -105,6 +105,10 @@ export {
 export type {LinkDeletionMode} from './application/usecase-designer/spf-module/delete/link-deletion-mode.js';
 export {DeleteSpfModuleResultSchema} from './application/usecase-designer/spf-module/dto/delete-spf-module-result.schema.js';
 export type {DeleteSpfModuleResult} from './application/usecase-designer/spf-module/dto/delete-spf-module-result.schema.js';
+export {DeleteDataLinkResultSchema} from './application/usecase-designer/data-links/dto/delete-data-link-result.schema.js';
+export type {DeleteDataLinkResult} from './application/usecase-designer/data-links/dto/delete-data-link-result.schema.js';
+export {DeleteControlLinkResultSchema} from './application/usecase-designer/control-links/dto/delete-control-link-result.schema.js';
+export type {DeleteControlLinkResult} from './application/usecase-designer/control-links/dto/delete-control-link-result.schema.js';
 
 // Application services
 export * from './application/ports/persistence/query-services/query-services.js';

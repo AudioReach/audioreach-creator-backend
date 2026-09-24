@@ -48,7 +48,18 @@ export interface DataLinkRepository {
   ): Promise<void>;
 
   /**
-   * Returns all data links whose src or dst port is in portSystemIds.
+   * Deletes only the canonical DataLink row. Resolved subsystem segments
+   * remain available for callers that need to detach them as unresolved.
+   */
+  deleteCanonical(
+    dataLinkSystemId: number,
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
+
+  /**
+   * Returns canonical data links and subsystem segments whose src or dst port
+   * is in portSystemIds. linkSystemId identifies the matching link or segment.
    * Empty input short-circuits — returns [] without querying the DB.
    */
   getLinksByPortSystemIds(
@@ -99,6 +110,16 @@ export interface DataLinkRepository {
    * canonical DataLink or sibling segments; use deleteAggregate for that.
    */
   deleteSubsystemDataLinks(
+    subsystemDataLinks: readonly SubsystemDataLink[],
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
+
+  /**
+   * Detaches resolved subsystem segments from their canonical DataLink. The
+   * segments remain as unresolved edit-session rows.
+   */
+  detachSubsystemDataLinks(
     subsystemDataLinks: readonly SubsystemDataLink[],
     fileSystemId: number,
     options?: EditOptions,
