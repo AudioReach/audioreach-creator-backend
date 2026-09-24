@@ -37,7 +37,7 @@ export class CreateModuleHandler implements CommandHandler<
       const defRepo = uow.getModuleDefinitionRepository();
 
       // 1. Load module definition — 404 on miss
-      const definition = await defRepo.findByModuleIdAndProcId(
+      const definition = await defRepo.findByDefIdAndProcId(
         command.moduleDefinitionSystemId,
         command.processorSystemId,
         fileSystemId,
@@ -175,6 +175,9 @@ export class CreateModuleHandler implements CommandHandler<
         },
         sgPropDefs,
       );
+      for (const property of subgraph.properties) {
+        property.systemId = await this.idGeneration.getNextId(fileSystemId);
+      }
       await subgraphRepo.createSubgraph(subgraph);
       return subgraphSystemId;
     }

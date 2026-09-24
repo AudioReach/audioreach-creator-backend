@@ -28,9 +28,9 @@ export interface ModuleDefinitionRepository {
    * Looks up the definition by natural (moduleDefinitionId, processorSystemId) key.
    * Used by AddModuleHandler — caller supplies these from the command fields.
    */
-  findByModuleIdAndProcId(
-    moduleId: number,
-    procId: number,
+  findByDefIdAndProcId(
+    moduleDefinitionSystemId: number,
+    processorSystemId: number,
     fileSystemId: number,
   ): Promise<SpfModuleDefinition | null>;
 

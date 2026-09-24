@@ -5,21 +5,38 @@
 
 import {NaturalIdGenerator} from '../../../domain/services/natural-id-generator/natural-id-generator.js';
 import {NaturalIdType} from '../../../domain/services/natural-id-generator/natural-id-type.js';
-import type {NaturalIdGenerationPort} from '../../ports/id-generation/natural-id-generation.port.js';
+import type {
+  NaturalIdEntriesLoader,
+  NaturalIdEntry,
+  NaturalIdGenerationPort,
+} from '../../ports/id-generation/natural-id-generation.port.js';
 import type {VmidRemapping} from '../../../domain/services/natural-id-generator/vmid-remapping.js';
 
 export class NaturalIdRegistry implements NaturalIdGenerationPort {
   private readonly generators = new Map<number, NaturalIdGenerator>();
   private readonly pendingInit = new Map<number, Promise<void>>();
 
-  registerBatch(
-    fileSystemId: number,
-    entries: Array<{type: NaturalIdType; naturalId: number}>,
-  ): void {
+  constructor(private readonly loader?: NaturalIdEntriesLoader) {}
+
+  registerBatch(fileSystemId: number, entries: NaturalIdEntry[]): void {
     const gen = this.getOrCreate(fileSystemId);
     for (const {type, naturalId} of entries) {
       gen.register(type, naturalId);
     }
+  }
+
+  async initialize(fileSystemId: number): Promise<void> {
+    if (!this.loader) {
+      throw new Error('Natural ID registry has no persistence loader');
+    }
+    await this.ensureLoaded(fileSystemId, () =>
+      this.loader!.load(fileSystemId),
+    );
+  }
+
+  clear(fileSystemId: number): void {
+    this.generators.delete(fileSystemId);
+    this.pendingInit.delete(fileSystemId);
   }
 
   getNextId(fileSystemId: number, type: NaturalIdType): number {

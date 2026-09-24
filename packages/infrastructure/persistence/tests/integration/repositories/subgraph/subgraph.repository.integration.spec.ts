@@ -358,6 +358,64 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
     });
   });
 
+  describe('createSubgraph', () => {
+    it('uses unique SubgraphPropertyData IDs for multiple properties', async () => {
+      const sessionId = await seedSession(ds);
+      const repo = makeRepo(qr.manager, sessionId);
+      const subgraphSystemId = 9001;
+
+      await qr.startTransaction();
+      await repo.createSubgraph(
+        new Subgraph({
+          systemId: subgraphSystemId,
+          naturalId: 91,
+          subgraphId: 91,
+          name: 'session-created-with-properties',
+          isImported: false,
+          isExported: false,
+          fileSystemId: FILE_ID,
+          sgkvs: [],
+          properties: [
+            {
+              systemId: 9000,
+              propertyDefinitionSystemId: 5001,
+              getPayloadCopy: () => new Uint8Array([1]),
+            },
+            {
+              systemId: 9001,
+              propertyDefinitionSystemId: 5002,
+              getPayloadCopy: () => new Uint8Array([2]),
+            },
+          ] as any,
+        }),
+      );
+      await qr.commitTransaction();
+
+      const rows = await ds.query(
+        `SELECT target_system_id, aggregate_id, target_table, field_path
+         FROM edit_actions
+         WHERE session_id = ? AND target_table = 'SubgraphPropertyData'
+         ORDER BY target_system_id`,
+        [sessionId],
+      );
+
+      expect(rows).toEqual([
+        {
+          target_system_id: 9000,
+          aggregate_id: subgraphSystemId,
+          target_table: 'SubgraphPropertyData',
+          field_path: '$',
+        },
+        {
+          target_system_id: 9001,
+          aggregate_id: subgraphSystemId,
+          target_table: 'SubgraphPropertyData',
+          field_path: '$',
+        },
+      ]);
+    });
+  });
+
   // ── findByIds ────────────────────────────────────────────────────────────────
 
   describe('findByIds', () => {

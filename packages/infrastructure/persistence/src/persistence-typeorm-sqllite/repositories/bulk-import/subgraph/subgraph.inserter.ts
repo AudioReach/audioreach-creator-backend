@@ -145,12 +145,11 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
 
     if (propEntries.length === 0) return emptyStepResult();
 
-    const fileId = subgraphs[0].fileSystemId;
     const rows: InsertRow<SubgraphPropertyDataRow>[] = [];
     const contextBySystemId = new Map<number, {readonly subgraph: Subgraph}>();
 
     for (const entry of propEntries) {
-      const systemId = await this.idGeneration.getNextId(fileId);
+      const systemId = entry.prop.systemId;
       rows.push({
         systemId,
         subgraphSystemId: entry.subgraph.systemId,

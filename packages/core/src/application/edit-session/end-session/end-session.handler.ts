@@ -10,6 +10,7 @@ import type {Result} from '../../shared/result/result.js';
 import {Result as ResultFactory} from '../../shared/result/result.js';
 import type {SessionResult} from '../session-types.js';
 import {StagedChangesExistException} from '../../../shared/exceptions/staged-changes-exist.exception.js';
+import type {NaturalIdGenerationPort} from '../../ports/id-generation/natural-id-generation.port.js';
 
 /**
  * Implements REQ-SESS-09 (wipe UNSTAGED) and REQ-SESS-10 (retain as audit). (§7b.2)
@@ -21,7 +22,10 @@ export class EndSessionHandler implements CommandHandler<
   EndSessionCommand,
   Result<SessionResult>
 > {
-  constructor(private readonly uow: UnitOfWork) {}
+  constructor(
+    private readonly uow: UnitOfWork,
+    private readonly naturalIdGeneration: NaturalIdGenerationPort,
+  ) {}
 
   async handle(_cmd: EndSessionCommand): Promise<Result<SessionResult>> {
     await this.uow.startTransaction();
@@ -50,6 +54,7 @@ export class EndSessionHandler implements CommandHandler<
       }
 
       await this.uow.commit();
+      this.naturalIdGeneration.clear(session.fileSystemId);
       return ResultFactory.ok<SessionResult>({
         sessionId: session.sessionId,
         projectId: session.projectId,

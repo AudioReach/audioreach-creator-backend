@@ -4,7 +4,7 @@
  */
 
 import {CHANGE_STATUS, CHANGE_OPERATION, SOURCE} from '@arc/core';
-import type {ChangeStatus, Source} from '@arc/core';
+import type {ChangeStatus, Logger, Source} from '@arc/core';
 import type {EntityManager} from 'typeorm';
 import type {EntityName} from '../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
@@ -83,6 +83,7 @@ export class PendingChangeWriter {
   constructor(
     private readonly queryService: EditActionsQueryService,
     private readonly pendingChangeCache: PendingChangeCache,
+    private readonly logger?: Logger,
   ) {}
 
   async writeDelta(
@@ -313,6 +314,14 @@ export class PendingChangeWriter {
       null,
     );
 
+    this.logDebug(
+      'checkedCurrentAction',
+      spec,
+      sessionId,
+      null,
+      existing !== null,
+    );
+
     const mergedPayload: Record<string, unknown> = existing
       ? {...(existing.newValue as Record<string, unknown>), ...spec.delta}
       : {...spec.delta};
@@ -325,6 +334,7 @@ export class PendingChangeWriter {
         null,
         manager,
       );
+      this.logDebug('supersededCurrentAction', spec, sessionId, null, true);
     } else {
       await this.captureBaseVersion(
         sessionId,
@@ -382,6 +392,8 @@ export class PendingChangeWriter {
       manager,
     );
 
+    this.logDebug('supersededCurrentAction', spec, sessionId, fieldGroup, true);
+
     if (spec.cache === true) {
       this.pendingChangeCache.enqueueRow(row);
       return null;
@@ -414,6 +426,23 @@ export class PendingChangeWriter {
       `UPDATE edit_actions SET valid_until = $1 WHERE session_id = $2 AND target_system_id = $3 AND target_table = $4 AND ${fieldPathClause} AND valid_until IS NULL`,
       params,
     );
+  }
+
+  private logDebug(
+    msg: string,
+    spec: Pick<WriteDeltaSpec, 'targetTable' | 'targetSystemId'>,
+    sessionId: number,
+    fieldPath: string | null,
+    existing?: boolean,
+  ): void {
+    const existingSuffix =
+      existing === undefined ? '' : `, existing=${existing}`;
+    this.logger?.logDebug({
+      msg,
+      description: `edit_actions key session=${sessionId}, table=${spec.targetTable}, target=${spec.targetSystemId}, fieldPath=${fieldPath ?? '<null>'}${existingSuffix}`,
+      component: 'PendingChangeWriter',
+      tag: 'edit-actions',
+    });
   }
 
   private async captureBaseVersion(
@@ -449,23 +478,37 @@ export class PendingChangeWriter {
     row: EditActionRow,
     manager: EntityManager,
   ): Promise<number> {
-    // eslint-disable-next-line custom/no-raw-persistence-queries -- manual JSON serialization of newValue requires raw INSERT; manager.insert() does not support column-level JSON.stringify
-    const result: unknown = await manager.query(
-      `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, linked_entity_group_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING change_id`,
-      [
-        row.sessionId,
-        row.aggregateId,
-        row.targetSystemId,
-        row.targetTable,
-        row.operation,
-        row.fieldPath,
-        JSON.stringify(serializeBlobs(row.newValue)),
-        row.source,
-        row.changeStatus,
-        row.groupId,
-        row.linkedEntityGroupId,
-      ],
-    );
+    this.logDebug('insertingAction', row, row.sessionId, row.fieldPath);
+
+    let result: unknown;
+    try {
+      // eslint-disable-next-line custom/no-raw-persistence-queries -- manual JSON serialization of newValue requires raw INSERT; manager.insert() does not support column-level JSON.stringify
+      result = await manager.query(
+        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, linked_entity_group_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING change_id`,
+        [
+          row.sessionId,
+          row.aggregateId,
+          row.targetSystemId,
+          row.targetTable,
+          row.operation,
+          row.fieldPath,
+          JSON.stringify(serializeBlobs(row.newValue)),
+          row.source,
+          row.changeStatus,
+          row.groupId,
+          row.linkedEntityGroupId,
+        ],
+      );
+    } catch (error) {
+      this.logger?.logError({
+        msg: 'insertActionFailed',
+        description: `Failed to insert edit_actions key session=${row.sessionId}, table=${row.targetTable}, target=${row.targetSystemId}, fieldPath=${row.fieldPath ?? '<null>'}, operation=${row.operation}, groupId=${row.groupId ?? '<null>'}`,
+        component: 'PendingChangeWriter',
+        tag: 'edit-actions',
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
+      throw error;
+    }
     const returnedChangeId = getGeneratedChangeId(result);
     if (returnedChangeId !== undefined) return returnedChangeId;
 

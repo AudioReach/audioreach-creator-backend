@@ -140,11 +140,11 @@ export class TypeOrmContainerRepository implements ContainerRepository {
       await this.writer.writeCreate(
         {
           targetTable: ENTITY_NAMES.ContainerPropertyData,
-          targetSystemId: container.systemId,
+          targetSystemId: propDefSystemId,
           aggregateId: container.systemId,
           payload: {
             containerSystemId: container.systemId,
-            propertySystemId: propDefSystemId,
+            containerPropertyDefinitionSystemId: propDefSystemId,
             payload: propVal.getPayloadCopy() ?? null,
           },
           ...options,

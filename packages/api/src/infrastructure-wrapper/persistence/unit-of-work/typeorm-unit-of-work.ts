@@ -20,6 +20,7 @@ import type {
   SubgraphRepository,
   SubsystemRepository,
   UsecaseRepository,
+  Logger,
 } from '@arc/core';
 import type {QueryRunner, EntityManager} from 'typeorm';
 import {
@@ -58,6 +59,7 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
     private readonly queryRunner: QueryRunner,
     private readonly idGeneration: IdGenerationPort,
     private readonly pendingChangeCache: PendingChangeCache,
+    private readonly logger: Logger,
   ) {}
 
   async startTransaction(): Promise<void> {
@@ -133,7 +135,11 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
 
   private getPendingChangeWriter(): PendingChangeWriter {
     const queryService = new EditActionsQueryService(this.queryRunner.manager);
-    return new PendingChangeWriter(queryService, this.pendingChangeCache);
+    return new PendingChangeWriter(
+      queryService,
+      this.pendingChangeCache,
+      this.logger,
+    );
   }
 
   getModuleRepository(): ModuleRepository {

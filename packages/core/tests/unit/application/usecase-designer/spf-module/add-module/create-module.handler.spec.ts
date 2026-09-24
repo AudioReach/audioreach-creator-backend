@@ -49,7 +49,7 @@ function makeDefinition(
 function makeDefRepo(definition = makeDefinition()) {
   return {
     findBySystemId: jest.fn().mockResolvedValue(definition),
-    findByModuleIdAndProcId: jest.fn().mockResolvedValue(definition),
+    findByDefIdAndProcId: jest.fn().mockResolvedValue(definition),
   } as unknown as ModuleDefinitionRepository;
 }
 
@@ -352,7 +352,7 @@ describe('CreateModuleHandler — failure paths', () => {
   it('throws ResourceNotFoundException when definition not found', async () => {
     const defRepo = makeDefRepo();
     (
-      defRepo.findByModuleIdAndProcId as ReturnType<typeof jest.fn>
+      defRepo.findByDefIdAndProcId as ReturnType<typeof jest.fn>
     ).mockResolvedValue(null);
     const uow = makeUow({defRepo});
     const handler = new CreateModuleHandler(

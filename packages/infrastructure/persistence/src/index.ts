@@ -9,3 +9,4 @@ export * from './persistence-typeorm-sqllite/repositories/project/typeorm-projec
 // ID generation
 export * from './id-generation/composite-id.js';
 export * from './id-generation/entity-id-service.registry.js';
+export * from './id-generation/typeorm-natural-id-entries-loader.js';

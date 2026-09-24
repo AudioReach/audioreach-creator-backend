@@ -98,6 +98,9 @@ export class SubgraphBuilder {
       for (const sgkv of subgraph.sgkvs) {
         sgkv.systemId = await this.idGenerator.getNextId(fileSystemId);
       }
+      for (const property of subgraph.properties) {
+        property.systemId = await this.idGenerator.getNextId(fileSystemId);
+      }
     }
   }
 
@@ -169,7 +172,9 @@ export class SubgraphBuilder {
         continue;
       }
 
-      properties.push(new SubgraphPropertyData(propertySystemId, propertyData));
+      properties.push(
+        new SubgraphPropertyData(0, propertySystemId, propertyData),
+      );
     }
 
     const uiEntry = uiSubgraphMap.get(subgraphPropertyData.subgraphId);

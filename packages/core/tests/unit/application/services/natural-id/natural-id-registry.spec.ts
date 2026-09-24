@@ -60,6 +60,41 @@ describe('NaturalIdRegistry', () => {
     expect(registry.getNextId(1, NaturalIdType.SUBGRAPH)).toBe(0xb0000002);
   });
 
+  it('load-03: initialize hydrates IDs through the configured loader', async () => {
+    const loader = {
+      load: jest
+        .fn()
+        .mockResolvedValue([
+          {type: NaturalIdType.SUBGRAPH, naturalId: 0xb0000001},
+        ]),
+    };
+    const loadedRegistry = new NaturalIdRegistry(loader);
+
+    await loadedRegistry.initialize(1);
+
+    expect(loader.load).toHaveBeenCalledWith(1);
+    expect(loadedRegistry.getNextId(1, NaturalIdType.SUBGRAPH)).toBe(
+      0xb0000002,
+    );
+  });
+
+  it('load-04: clear removes file state so the next initialization reloads it', async () => {
+    const loader = {
+      load: jest
+        .fn()
+        .mockResolvedValue([
+          {type: NaturalIdType.SUBGRAPH, naturalId: 0xb0000001},
+        ]),
+    };
+    const loadedRegistry = new NaturalIdRegistry(loader);
+
+    await loadedRegistry.initialize(1);
+    loadedRegistry.clear(1);
+    await loadedRegistry.initialize(1);
+
+    expect(loader.load).toHaveBeenCalledTimes(2);
+  });
+
   it('vmid-01: setVmid returns correct remappings; subsequent getNextId uses new range', () => {
     registry.registerBatch(1, [
       {type: NaturalIdType.SUBGRAPH, naturalId: 0xb0000001},
