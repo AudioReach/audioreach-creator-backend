@@ -4,11 +4,21 @@
  */
 
 import type {DataSource} from 'typeorm';
-import type {DataLinkQueryService, Result, DataLinkReadModel} from '@arc/core';
+import type {
+  DataLinkQueryService,
+  Result,
+  DataLinkReadModel,
+  DataLinkWithUsecaseIdsReadModel,
+  SubgraphPeerLinkFilter,
+} from '@arc/core';
 import {Result as R, IssueFactory} from '@arc/core';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
 import {UseCaseQueryMappers} from '../usecase/usecase-query-mappers.js';
-import {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
+import {
+  LinkOverlayFetcher,
+  type DataLinkFilters,
+} from '../../fetchers/link-overlay-fetcher.js';
+import type {DataLinkBase} from '../../entity-schema/usecase-data/Links/data-link.js';
 import {UsecaseOverlayFetcher} from '../../fetchers/usecase-overlay-fetcher.js';
 
 /**
@@ -77,6 +87,109 @@ export class DbDataLinkQueryService implements DataLinkQueryService {
         ),
       );
     }
+  }
+
+  async findSubgraphPeerLinks(
+    filter: SubgraphPeerLinkFilter,
+    fileSystemId: number,
+  ): Promise<Result<DataLinkWithUsecaseIdsReadModel[]>> {
+    try {
+      const sessionId = await resolveActiveSessionId(
+        this.dataSource,
+        fileSystemId,
+      );
+      const links = await this.linkFetcher.loadDataLinkRows(
+        fileSystemId,
+        sessionId,
+        this.buildCandidateFilters(filter),
+      );
+      const matchingLinks = links.filter(link =>
+        this.matchesSubgraphPeerFilter(link, filter),
+      );
+      if (matchingLinks.length === 0) return R.ok([]);
+
+      const usecases = await this.usecaseFetcher.getUsecases(
+        fileSystemId,
+        sessionId,
+      );
+
+      return R.ok(
+        matchingLinks.map(link => ({
+          link: UseCaseQueryMappers.mapToComponentDataLinkReadModel(link),
+          usecaseSystemIds: usecases
+            .filter(usecase =>
+              usecase.subgraphPairs.some(
+                pair =>
+                  pair.sourceSubgraphSystemId === link.sourceSubgraphSystemId &&
+                  pair.destSubgraphSystemId === link.destSubgraphSystemId,
+              ),
+            )
+            .map(usecase => usecase.systemId),
+        })),
+      );
+    } catch (error) {
+      return R.fail(
+        IssueFactory.dbError(
+          error instanceof Error
+            ? error.message
+            : 'Failed to load subgraph-peer data links',
+        ),
+      );
+    }
+  }
+
+  private buildCandidateFilters(
+    filter: SubgraphPeerLinkFilter,
+  ): DataLinkFilters | undefined {
+    // Build a broad OR prefilter for the database query. The final subgraph
+    // and module-port intersection is applied by matchesSubgraphPeerFilter.
+    const {subgraphSystemId, moduleSystemId, portSystemId} = filter;
+    const candidateFilters: DataLinkFilters[] = [];
+
+    if (subgraphSystemId !== undefined) {
+      candidateFilters.push(
+        {sourceSubgraphSystemId: subgraphSystemId},
+        {destSubgraphSystemId: subgraphSystemId},
+      );
+    }
+
+    if (moduleSystemId !== undefined && portSystemId !== undefined) {
+      candidateFilters.push(
+        {
+          sourceNodeSystemId: moduleSystemId,
+          sourcePortSystemId: portSystemId,
+        },
+        {
+          destinationNodeSystemId: moduleSystemId,
+          destinationPortSystemId: portSystemId,
+        },
+      );
+    }
+
+    return candidateFilters.length > 0 ? {$or: candidateFilters} : undefined;
+  }
+
+  private matchesSubgraphPeerFilter(
+    link: DataLinkBase,
+    filter: SubgraphPeerLinkFilter,
+  ): boolean {
+    const hasModulePortFilter =
+      filter.moduleSystemId !== undefined || filter.portSystemId !== undefined;
+    const matchesModulePort =
+      filter.moduleSystemId !== undefined && filter.portSystemId !== undefined
+        ? (link.sourceNodeSystemId === filter.moduleSystemId &&
+            link.sourcePortSystemId === filter.portSystemId) ||
+          (link.destinationNodeSystemId === filter.moduleSystemId &&
+            link.destinationPortSystemId === filter.portSystemId)
+        : !hasModulePortFilter;
+
+    const matchesSubgraph =
+      filter.subgraphSystemId === undefined ||
+      ((link.sourceSubgraphSystemId === filter.subgraphSystemId ||
+        link.destSubgraphSystemId === filter.subgraphSystemId) &&
+        link.sourceSubgraphSystemId !== link.destSubgraphSystemId);
+
+    return matchesSubgraph && matchesModulePort;
   }
 
   async findBySubgraphId(

@@ -6,17 +6,19 @@
 import {
   Controller,
   NotImplementedException,
+  BadRequestException,
   Post,
   Get,
   Patch,
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   UseInterceptors,
   HttpStatus,
 } from '@nestjs/common';
-import {ApiTags, ApiParam} from '@nestjs/swagger';
+import {ApiTags, ApiParam, ApiQuery} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
 import {AuthGuard} from '@nestjs/passport';
 import {CreateControlLinkRequest} from './dto/control-link-request.dto.js';
@@ -28,13 +30,19 @@ import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.deco
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {toApiResult} from '../../common/result/to-api-result.js';
+import {ClientId} from '../../../../decorators/client-id.decorator.js';
+import {parseSubgraphPeerLinkFilter} from '../../common/utils/subgraph-peer-link-filter.js';
 import {ComponentsResponseDto} from '../../common/dto/component-collection-response.dto.js';
 import {ComponentsWithSubsystemsResponseDto} from '../../common/dto/component-collection-with-subsystems.dto.js';
+import {ControlLinkWithUsecasesResponseDto} from '../usecase/dto/control-link-with-usecases.dto.js';
 import {
   CommandBus,
+  QueryBus,
   CreateControlLinkCommand,
   DeleteControlLinkCommand,
   Result,
+  GetSubgraphPeerControlLinksQuery,
+  type ControlLinkWithUsecasesDto,
 } from '@arc/core';
 
 /**
@@ -52,8 +60,83 @@ import {
   example: '12345',
 })
 export class ControlLinkController extends BaseController {
-  constructor(private readonly commandBus: CommandBus) {
+  constructor(
+    private readonly queryBus: QueryBus,
+    private readonly commandBus: CommandBus,
+  ) {
     super();
+  }
+
+  @Get()
+  @ApiQuery({
+    name: 'subgraphSystemId',
+    required: false,
+    type: String,
+    description:
+      'Subgraph system ID. Returns links connecting this subgraph to a different peer subgraph.',
+  })
+  @ApiQuery({
+    name: 'moduleSystemId',
+    required: false,
+    type: String,
+    description:
+      'Module system ID. Must be supplied together with portSystemId.',
+  })
+  @ApiQuery({
+    name: 'portSystemId',
+    required: false,
+    type: String,
+    description:
+      'Port system ID. Must be supplied together with moduleSystemId.',
+  })
+  @ApiDocumentationWithExample({
+    summary:
+      'GET /arc-api/v1/projects/{projectId}/control-links - Get control links by subgraph or module-port filters',
+    description:
+      'Returns control links between peer subgraphs. With `subgraphSystemId`, returns links going into or out of the requested subgraph to a different peer subgraph; links within the same subgraph are excluded. `moduleSystemId` and `portSystemId` must be supplied together and may be combined with the subgraph filter. Each link includes its associated usecases.',
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'Control links retrieved successfully',
+        dto: [ControlLinkWithUsecasesResponseDto],
+      },
+      {
+        status: HttpStatus.BAD_REQUEST,
+        description: 'Invalid filter combination or identifier',
+      },
+      {status: HttpStatus.NOT_FOUND, description: 'Project not found'},
+      {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Failed to retrieve link(s)',
+      },
+    ],
+  })
+  async getControlLinks(
+    @Param('projectId') projectId: string,
+    @ClientId() clientId: string,
+    @Query('subgraphSystemId') subgraphSystemId?: string,
+    @Query('moduleSystemId') moduleSystemId?: string,
+    @Query('portSystemId') portSystemId?: string,
+  ): Promise<ApiResult<ControlLinkWithUsecasesResponseDto[]>> {
+    const projectIdValue = projectId.trim();
+    const parsedProjectId = Number(projectIdValue);
+    if (
+      projectIdValue.length === 0 ||
+      !/^\d+$/.test(projectIdValue) ||
+      !Number.isSafeInteger(parsedProjectId)
+    ) {
+      throw new BadRequestException(`Invalid project ID: ${projectId}`);
+    }
+
+    const filter = parseSubgraphPeerLinkFilter({
+      subgraphSystemId,
+      moduleSystemId,
+      portSystemId,
+    });
+    const result = await this.queryBus.execute<
+      Result<ControlLinkWithUsecasesDto[]>
+    >(new GetSubgraphPeerControlLinksQuery(parsedProjectId, clientId, filter));
+    return toApiResult(result);
   }
 
   /**

@@ -5,15 +5,18 @@
 
 import {
   Controller,
+  Get,
   Post,
   Delete,
+  BadRequestException,
   Body,
   Param,
+  Query,
   UseGuards,
   UseInterceptors,
   HttpStatus,
 } from '@nestjs/common';
-import {ApiTags, ApiParam} from '@nestjs/swagger';
+import {ApiTags, ApiParam, ApiQuery} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
 import {AuthGuard} from '@nestjs/passport';
 import {DataLinkResponseDto} from './dto/data-link-response.dto.js';
@@ -21,16 +24,22 @@ import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.deco
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {toApiResult} from '../../common/result/to-api-result.js';
+import {ClientId} from '../../../../decorators/client-id.decorator.js';
+import {parseSubgraphPeerLinkFilter} from '../../common/utils/subgraph-peer-link-filter.js';
 import {CreateDataLinkRequest} from './dto/request/create-data-link-request.dto.js';
+import {DataLinkWithUsecasesResponseDto} from '../usecase/dto/data-link-with-usecases.dto.js';
 import {CreateDataLinkWithSubsystemsRequest} from './dto/request/create-data-link-with-subsystems-request.dto.js';
 import {ComponentsResponseDto} from '../../common/dto/component-collection-response.dto.js';
 import {ComponentsWithSubsystemsResponseDto} from '../../common/dto/component-collection-with-subsystems.dto.js';
 import {
   CommandBus,
+  QueryBus,
   CreateDataLinkCommand,
   CreateDataLinkWithSubsystemsCommand,
   DeleteDataLinkCommand,
   Result,
+  GetSubgraphPeerDataLinksQuery,
+  type DataLinkWithUsecasesDto,
   type ComponentCollectionWithSubsystemsDto as ComponentCollectionWithSubsystemsDtoType,
 } from '@arc/core';
 
@@ -49,8 +58,83 @@ import {
   example: '12345',
 })
 export class DataLinkController extends BaseController {
-  constructor(private readonly commandBus: CommandBus) {
+  constructor(
+    private readonly queryBus: QueryBus,
+    private readonly commandBus: CommandBus,
+  ) {
     super();
+  }
+
+  @Get()
+  @ApiQuery({
+    name: 'subgraphSystemId',
+    required: false,
+    type: String,
+    description:
+      'Subgraph system ID. Returns links going into or out of this subgraph to a different peer subgraph.',
+  })
+  @ApiQuery({
+    name: 'moduleSystemId',
+    required: false,
+    type: String,
+    description:
+      'Module system ID. Must be supplied together with portSystemId.',
+  })
+  @ApiQuery({
+    name: 'portSystemId',
+    required: false,
+    type: String,
+    description:
+      'Port system ID. Must be supplied together with moduleSystemId.',
+  })
+  @ApiDocumentationWithExample({
+    summary:
+      'GET /arc-api/v1/projects/{projectId}/data-links - Get data links by subgraph or module-port filters',
+    description:
+      'Returns data links between peer subgraphs. With `subgraphSystemId`, returns links going into or out of the requested subgraph to a different peer subgraph; links within the same subgraph are excluded. `moduleSystemId` and `portSystemId` must be supplied together and may be combined with the subgraph filter. Each link includes its associated usecases.',
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'Data links retrieved successfully',
+        dto: [DataLinkWithUsecasesResponseDto],
+      },
+      {
+        status: HttpStatus.BAD_REQUEST,
+        description: 'Invalid filter combination or identifier',
+      },
+      {status: HttpStatus.NOT_FOUND, description: 'Project not found'},
+      {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Failed to retrieve link(s)',
+      },
+    ],
+  })
+  async getDataLinks(
+    @Param('projectId') projectId: string,
+    @ClientId() clientId: string,
+    @Query('subgraphSystemId') subgraphSystemId?: string,
+    @Query('moduleSystemId') moduleSystemId?: string,
+    @Query('portSystemId') portSystemId?: string,
+  ): Promise<ApiResult<DataLinkWithUsecasesResponseDto[]>> {
+    const projectIdValue = projectId.trim();
+    const parsedProjectId = Number(projectIdValue);
+    if (
+      projectIdValue.length === 0 ||
+      !/^\d+$/.test(projectIdValue) ||
+      !Number.isSafeInteger(parsedProjectId)
+    ) {
+      throw new BadRequestException(`Invalid project ID: ${projectId}`);
+    }
+
+    const filter = parseSubgraphPeerLinkFilter({
+      subgraphSystemId,
+      moduleSystemId,
+      portSystemId,
+    });
+    const result = await this.queryBus.execute<
+      Result<DataLinkWithUsecasesDto[]>
+    >(new GetSubgraphPeerDataLinksQuery(parsedProjectId, clientId, filter));
+    return toApiResult(result);
   }
 
   /**
