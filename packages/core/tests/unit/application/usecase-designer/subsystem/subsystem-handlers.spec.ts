@@ -5,9 +5,10 @@
 
 import {describe, expect, it, jest} from '@jest/globals';
 import {
+  ControlPort,
   DataLink,
   DataPort,
-  LINK_TYPE,
+  DATA_LINK_TYPE,
   PORT_IO_TYPE,
   SubsystemDataLink,
   Subsystem,
@@ -158,7 +159,7 @@ function makeDataLink(
     destinationNodeSystemId,
     sourcePortSystemId: systemId + 1000,
     destinationPortSystemId: systemId + 2000,
-    linkType: LINK_TYPE.IntraUsecase,
+    linkType: DATA_LINK_TYPE.Normal,
     sourceSubgraphSystemId: 1,
     destSubgraphSystemId: 2,
     fileSystemId: FILE_ID,
@@ -200,6 +201,22 @@ describe('CreateSubsystemHandler', () => {
     expect(uow.commit).toHaveBeenCalledTimes(1);
   });
 
+  it('uses an auto-generated name when the requested name is blank', async () => {
+    const repository = makeSubsystemRepository();
+    const uow = makeUow({subsystemRepository: repository});
+
+    const result = await new CreateSubsystemHandler(
+      uow,
+      makeIdGeneration(),
+      makeNaturalIdGeneration(),
+    ).handle(new CreateSubsystemCommand(FILE_ID, '', null));
+
+    expect(result.name).toBe('SS_0x00000007');
+    expect(repository.createSubsystem).toHaveBeenCalledWith(
+      expect.objectContaining({name: 'SS_0x00000007'}),
+    );
+  });
+
   it('rejects duplicate names', async () => {
     const repository = makeSubsystemRepository({
       getSubsystems: jest
@@ -230,7 +247,7 @@ describe('DeleteSubsystemHandler', () => {
           name: 'Parent',
           parentSystemId: null,
           moduleSystemIds: [],
-          subsystemSystemIds: [],
+          subsystemSystemIds: [101],
         },
         {
           systemId: 101,
@@ -384,6 +401,141 @@ describe('PatchSubsystemHandler', () => {
 
     expect(repository.removeDataPort).toHaveBeenCalledWith(102, SUBSYSTEM_ID);
     expect(uow.commit).toHaveBeenCalledTimes(1);
+  });
+
+  it('resets the name when it is null', async () => {
+    const repository = makeSubsystemRepository({
+      getSubsystem: jest.fn().mockResolvedValue(makeSubsystem({name: 'Named'})),
+    });
+    const uow = makeUow({subsystemRepository: repository});
+
+    const result = await new PatchSubsystemHandler(
+      uow,
+      makeIdGeneration(),
+    ).handle(
+      new PatchSubsystemCommand(
+        SUBSYSTEM_ID,
+        FILE_ID,
+        null,
+        undefined,
+        undefined,
+        undefined,
+      ),
+    );
+
+    expect(repository.renameSubsystem).toHaveBeenCalledWith(
+      SUBSYSTEM_ID,
+      'SS_0x00000001',
+    );
+    expect(result.subsystem.name).toBe('SS_0x00000001');
+  });
+
+  it('blocks a reduction when a subsystem data-link references the port', async () => {
+    const ports = [
+      new DataPort({
+        systemId: 101,
+        dataPortId: 1,
+        portIoType: PORT_IO_TYPE.Input,
+        isStatic: false,
+      }),
+      new DataPort({
+        systemId: 102,
+        dataPortId: 2,
+        portIoType: PORT_IO_TYPE.Input,
+        isStatic: false,
+      }),
+    ];
+    const repository = makeSubsystemRepository({
+      getSubsystem: jest
+        .fn()
+        .mockResolvedValue(makeSubsystem({dataPorts: ports})),
+    });
+    const dataLinks = makeDataLinkRepository({
+      getLinksByPortSystemIds: jest.fn().mockResolvedValue([
+        {portSystemId: 101, linkSystemId: 700},
+        {portSystemId: 102, linkSystemId: 701},
+      ]),
+    });
+    const uow = makeUow({
+      subsystemRepository: repository,
+      dataLinkRepository: dataLinks,
+    });
+
+    await expect(
+      new PatchSubsystemHandler(uow, makeIdGeneration()).handle(
+        new PatchSubsystemCommand(
+          SUBSYSTEM_ID,
+          FILE_ID,
+          undefined,
+          1,
+          undefined,
+          undefined,
+        ),
+      ),
+    ).rejects.toMatchObject({
+      issues: expect.arrayContaining([
+        expect.objectContaining({
+          impactedEntity: {entityType: 'DataPort', systemId: 102},
+          message: expect.stringContaining('linkSystemIds: [701]'),
+        }),
+      ]),
+    });
+
+    expect(repository.removeDataPort).not.toHaveBeenCalled();
+  });
+
+  it('blocks a reduction when a subsystem control-link references the port', async () => {
+    const controlPorts = [
+      new ControlPort({
+        systemId: 201,
+        naturalId: 1,
+        isStatic: false,
+        nodeSystemId: SUBSYSTEM_ID,
+        intentSystemIds: [],
+      }),
+      new ControlPort({
+        systemId: 202,
+        naturalId: 2,
+        isStatic: false,
+        nodeSystemId: SUBSYSTEM_ID,
+        intentSystemIds: [],
+      }),
+    ];
+    const repository = makeSubsystemRepository({
+      getSubsystem: jest.fn().mockResolvedValue(makeSubsystem({controlPorts})),
+    });
+    const controlLinks = makeControlLinkRepository({
+      getLinksByPortSystemIds: jest.fn().mockResolvedValue([
+        {portSystemId: 201, linkSystemId: 800},
+        {portSystemId: 202, linkSystemId: 801},
+      ]),
+    });
+    const uow = makeUow({
+      subsystemRepository: repository,
+      controlLinkRepository: controlLinks,
+    });
+
+    await expect(
+      new PatchSubsystemHandler(uow, makeIdGeneration()).handle(
+        new PatchSubsystemCommand(
+          SUBSYSTEM_ID,
+          FILE_ID,
+          undefined,
+          undefined,
+          undefined,
+          1,
+        ),
+      ),
+    ).rejects.toMatchObject({
+      issues: expect.arrayContaining([
+        expect.objectContaining({
+          impactedEntity: {entityType: 'ControlPort', systemId: 202},
+          message: expect.stringContaining('linkSystemIds: [801]'),
+        }),
+      ]),
+    });
+
+    expect(repository.removeControlPort).not.toHaveBeenCalled();
   });
 });
 

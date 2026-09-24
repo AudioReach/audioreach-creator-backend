@@ -12,14 +12,15 @@ import {IsOptional, IsString, MaxLength} from 'class-validator';
 export class CreateSubsystemRequestDto {
   @ApiProperty({
     description:
-      'Subsystem name. Must be unique within the project. If not provided, a name will be auto-generated.',
+      'Subsystem name. Must be unique within the project. Null or blank uses an auto-generated name.',
     required: false,
+    nullable: true,
     maxLength: 255,
   })
   @IsOptional()
   @IsString()
   @MaxLength(255)
-  name?: string;
+  name?: string | null;
 
   @ApiProperty({
     description:

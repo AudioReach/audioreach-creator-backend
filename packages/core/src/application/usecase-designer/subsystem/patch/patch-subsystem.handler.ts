@@ -24,7 +24,12 @@ import {
   nextDataPortIds,
 } from '../../../../domain/services/port-id-calculator/port-id-calculator.js';
 import type {PatchSubsystemCommand} from './patch-subsystem.command.js';
-import type {SubsystemPatchReadModel} from '../subsystem-helpers.js';
+import {
+  defaultSubsystemName,
+  findSubsystemNameConflict,
+  resolveSubsystemNameInput,
+  type SubsystemPatchReadModel,
+} from '../subsystem-helpers.js';
 
 export type PatchSubsystemResult = {
   groupId: string;
@@ -55,7 +60,8 @@ export class PatchSubsystemHandler implements CommandHandler<
         'At least one field must be provided.',
       );
     }
-    if (command.name !== undefined && command.name.length > 255) {
+    const requestedName = resolveSubsystemNameInput(command.name);
+    if (typeof requestedName === 'string' && requestedName.length > 255) {
       throw new InvalidOperationException(
         'Subsystem name must not exceed 255 characters.',
       );
@@ -80,31 +86,33 @@ export class PatchSubsystemHandler implements CommandHandler<
         );
       }
 
-      let succeeded = command.name !== undefined && command.name.trim() === '';
+      let succeeded = false;
       let updatedName = subsystem.name;
-      if (command.name !== undefined && command.name.trim() !== '') {
+      if (requestedName !== undefined) {
+        const name = requestedName ?? defaultSubsystemName(subsystem.naturalId);
         const subsystems = await subsystemRepository.getSubsystems(
           command.fileSystemId,
         );
-        const normalizedName = command.name.toLocaleLowerCase();
-        const conflictingSubsystem = subsystems.find(
-          item =>
-            item.systemId !== command.subsystemSystemId &&
-            item.name.toLocaleLowerCase() === normalizedName,
+        const conflictingSubsystem = findSubsystemNameConflict(
+          subsystems,
+          name,
+          command.subsystemSystemId,
         );
         if (conflictingSubsystem !== undefined) {
           throw new DomainRuleViolationException([
             IssueFactory.duplicateSubsystemName(
-              command.name,
+              name,
               conflictingSubsystem.systemId,
             ),
           ]);
         }
-        await subsystemRepository.renameSubsystem(
-          command.subsystemSystemId,
-          command.name,
-        );
-        updatedName = command.name;
+        if (name !== subsystem.name) {
+          await subsystemRepository.renameSubsystem(
+            command.subsystemSystemId,
+            name,
+          );
+          updatedName = name;
+        }
         succeeded = true;
       }
 

@@ -281,6 +281,7 @@ export class MoveSubsystemComponentsHandler implements CommandHandler<
           controlLinkRepository: this.uow.getControlLinkRepository(),
           idGeneration: this.idGeneration,
         },
+        {parentBefore, movedNodeIds},
       );
 
       await this.uow.commit();

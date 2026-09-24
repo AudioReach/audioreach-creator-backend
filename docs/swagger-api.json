@@ -17202,8 +17202,9 @@
         "type": "object",
         "properties": {
           "name": {
-            "type": "string",
-            "description": "Subsystem name. Must be unique within the project. If not provided, a name will be auto-generated.",
+            "type": "object",
+            "description": "Subsystem name. Must be unique within the project. Null or blank uses an auto-generated name.",
+            "nullable": true,
             "maxLength": 255
           },
           "parentSystemId": {
@@ -17606,8 +17607,9 @@
         "type": "object",
         "properties": {
           "name": {
-            "type": "string",
-            "description": "Subsystem name. Max 255 characters.",
+            "type": "object",
+            "description": "Subsystem name. Null or blank resets the auto-generated name. Max 255 characters.",
+            "nullable": true,
             "maxLength": 255
           },
           "inputDataPortCount": {

@@ -7,9 +7,14 @@ import {ControlPort} from '../../../../domain/entities/usecase-data/node/entitie
 import {DataPort} from '../../../../domain/entities/usecase-data/node/entities/data-port.js';
 import {NodeType} from '../../../../domain/entities/usecase-data/node/node.js';
 import {PORT_IO_TYPE} from '../../../../domain/entities/common/enums/port-io-type.js';
+import {MODULE_PORT_STRATEGIES} from '../../../../domain/entities/common/enums/module-port-strategy.js';
 import {SubsystemBoundaryPathService} from '../../../../domain/services/subsystem-data-links/subsystem-boundary-path.service.js';
 import {ChainResolutionService} from '../../../../domain/services/subsystem-data-links/datalink-chain-resolution.service.js';
 import {ControlChainResolutionService} from '../../../../domain/services/subsystem-control-links/control-chain-resolution.service.js';
+import {
+  nextControlPortIds,
+  nextDataPortIds,
+} from '../../../../domain/services/port-id-calculator/port-id-calculator.js';
 import {SubsystemDataLink} from '../../../../domain/entities/usecase-data/links/subsystem-data-link.js';
 import {SubsystemControlLink} from '../../../../domain/entities/usecase-data/links/subsystem-control-link.js';
 import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
@@ -44,6 +49,11 @@ export type MoveSubsystemImpact = {
   addedControlLinks: ControlLink[];
   removedControlLinks: number[];
   subsystemPortChanges: SubsystemPortChange[];
+};
+
+export type MoveImpactScope = {
+  parentBefore: Map<number, number | null>;
+  movedNodeIds: ReadonlySet<number>;
 };
 
 type MoveImpactDependencies = {
@@ -370,11 +380,17 @@ async function prepareDataPorts(
     const subsystem = subsystemStates.get(nodeSystemId);
     if (!subsystem) continue;
     const existingPortId = oldPorts.get(nodeSystemId);
+    const naturalId = nextDataPortIds(
+      new Set(subsystem.dataPorts.map(port => port.naturalId)),
+      false,
+      MODULE_PORT_STRATEGIES.SEQUENTIAL,
+      1,
+    )[0];
     const port =
       existingPortId === undefined
         ? new DataPort({
             systemId: await dependencies.idGeneration.getNextId(fileSystemId),
-            naturalId: nextPortId(subsystem.dataPorts),
+            naturalId,
             portIoType:
               route.requiredPortType.get(nodeSystemId) ??
               PORT_IO_TYPE.OutputInput,
@@ -384,7 +400,7 @@ async function prepareDataPorts(
         : (subsystem.dataPorts.find(item => item.systemId === existingPortId) ??
           new DataPort({
             systemId: existingPortId,
-            naturalId: nextPortId(subsystem.dataPorts),
+            naturalId,
             portIoType:
               route.requiredPortType.get(nodeSystemId) ??
               PORT_IO_TYPE.OutputInput,
@@ -605,11 +621,15 @@ async function prepareControlPorts(
     const subsystem = subsystemStates.get(nodeSystemId);
     if (!subsystem) continue;
     const existingPortId = oldPorts.get(nodeSystemId);
+    const naturalId = nextControlPortIds(
+      new Set(subsystem.controlPorts.map(port => port.naturalId)),
+      1,
+    )[0];
     const port =
       existingPortId === undefined
         ? new ControlPort({
             systemId: await dependencies.idGeneration.getNextId(fileSystemId),
-            naturalId: nextPortId(subsystem.controlPorts),
+            naturalId,
             isStatic: false,
             nodeSystemId,
             name: '',
@@ -620,7 +640,7 @@ async function prepareControlPorts(
           ) ??
           new ControlPort({
             systemId: existingPortId,
-            naturalId: nextPortId(subsystem.controlPorts),
+            naturalId,
             isStatic: false,
             nodeSystemId,
             name: '',
@@ -865,12 +885,6 @@ function getRoute(
   return {nodeSequence, requiredPortType};
 }
 
-function nextPortId(ports: readonly {naturalId: number}[]): number {
-  let max = 0;
-  for (const port of ports) max = Math.max(max, port.naturalId);
-  return max + 1;
-}
-
 function getOrCreatePortChange(
   changes: Map<number, SubsystemPortChange>,
   systemId: number,
@@ -923,10 +937,9 @@ export async function rebuildMoveSubsystemImpact(
   updatedModules: MoveComponent[],
   updatedSubsystems: MoveComponent[],
   dependencies: MoveImpactDependencies,
+  scope: MoveImpactScope,
 ): Promise<MoveSubsystemImpact> {
-  const parentBefore = new Map(
-    topology.map(node => [node.systemId, node.parentSystemId]),
-  );
+  const {parentBefore, movedNodeIds} = scope;
   const parentAfter = new Map(parentBefore);
   for (const component of [...updatedModules, ...updatedSubsystems]) {
     parentAfter.set(component.systemId, component.parentSystemId);
@@ -960,12 +973,6 @@ export async function rebuildMoveSubsystemImpact(
   ]);
   const {dataLinks} = dataRouteContext;
   const {controlLinks} = controlRouteContext;
-  const movedNodeIds = collectMovedNodeIds(
-    topology,
-    parentBefore,
-    updatedModules,
-    updatedSubsystems,
-  );
   const nodeTypeBySystemId = new Map(
     topology.map(node => [node.systemId, node.type]),
   );

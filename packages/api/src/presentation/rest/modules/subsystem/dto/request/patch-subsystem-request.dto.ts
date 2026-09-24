@@ -12,14 +12,16 @@ import {IsInt, IsOptional, IsString, MaxLength, Min} from 'class-validator';
  */
 export class PatchSubsystemRequestDto {
   @ApiProperty({
-    description: 'Subsystem name. Max 255 characters.',
+    description:
+      'Subsystem name. Null or blank resets the auto-generated name. Max 255 characters.',
     required: false,
+    nullable: true,
     maxLength: 255,
   })
   @IsOptional()
   @IsString()
   @MaxLength(255)
-  name?: string;
+  name?: string | null;
 
   @ApiProperty({
     description:
