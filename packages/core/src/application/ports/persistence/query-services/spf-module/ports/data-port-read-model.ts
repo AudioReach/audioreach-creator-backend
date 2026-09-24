@@ -3,11 +3,13 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {PortIoType} from '../../../../../../domain/entities/common/enums/port-io-type.js';
+
 export interface DataPortReadModel {
   readonly systemId: number;
   readonly naturalId: number;
   readonly name: string | null;
-  readonly portIoType: string;
+  readonly portIoType: PortIoType;
   readonly isStatic: boolean;
   readonly totalLinksAtPort: number;
 }

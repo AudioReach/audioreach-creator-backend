@@ -146,12 +146,21 @@ export class SubgraphOverlayFetcher {
   }
 
   /**
-   * Returns all SGKV rows for the given file with session overlay.
+   * Returns SGKV rows for the given file and optional subgraph IDs with
+   * session overlay.
    * Delegates to the injected SubgraphSgkvFetcher.
    */
-  async getSgkvs(fileSystemId: number, sessionId: number | null) {
+  async getSgkvs(
+    fileSystemId: number,
+    sessionId: number | null,
+    subgraphSystemIds?: number[],
+  ) {
     if (!this.sgkvFetcher) return [];
-    return this.sgkvFetcher.fetchMany(fileSystemId, sessionId);
+    return this.sgkvFetcher.fetchMany(
+      fileSystemId,
+      sessionId,
+      subgraphSystemIds,
+    );
   }
 
   /**

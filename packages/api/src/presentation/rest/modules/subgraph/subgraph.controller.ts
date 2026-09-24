@@ -62,6 +62,7 @@ import {
   QueryBus,
   CommandBus,
   GetComponentsQuery,
+  GetAllSubgraphsQuery,
   GetSubgraphPropertiesQuery,
   UpdateSubgraphScenarioCommand,
   UpdateSubgraphVsidCommand,
@@ -82,6 +83,7 @@ import {
   type VcpmCkvDto,
   type CreateVcpmCkvDto,
   type CkvCalDataDto,
+  type SubgraphDto,
 } from '@arc/core';
 /**
  * Controller to support all subgraph related APIs for usecase design.
@@ -152,12 +154,35 @@ export class SubgraphController extends BaseController {
   })
   async getAllSubgraphs(
     @Param('projectId') projectId: string,
+    @ClientId() clientId: string,
     @Query('systemId') systemId?: string,
   ): Promise<ApiResult<SubgraphResponseDto[]>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    const systemIdSuffix = systemId ? ` for system IDs ${systemId}` : '';
-    console.log(`Getting subgraphs in project ${projectId}${systemIdSuffix}`);
-    throw new NotImplementedException('getAllSubgraphs is not implemented yet');
+    if (systemId !== undefined && !systemId.trim()) {
+      throw new BadRequestException(
+        'systemId query parameter cannot be empty when provided',
+      );
+    }
+
+    const systemIds = systemId
+      ?.split(',')
+      .map(id => id.trim())
+      .filter(Boolean)
+      .map(id => {
+        const parsed = Number.parseInt(id, 10);
+        if (Number.isNaN(parsed)) {
+          throw new BadRequestException(`Invalid subgraph system ID: ${id}`);
+        }
+        return parsed;
+      });
+    const query = new GetAllSubgraphsQuery(
+      Number.parseInt(projectId, 10),
+      clientId,
+      systemIds,
+    );
+    const result = await this.queryBus.execute<Result<SubgraphDto[]>>(query);
+    return toApiResult(result, data =>
+      data.map(s => ({...s, relatedEndPointLinks: []})),
+    );
   }
 
   /**
@@ -430,6 +455,7 @@ export class SubgraphController extends BaseController {
     @Param('propSystemId', ParseIntPipe) propSystemId: number,
     @Body() dto: UpdatePropertyRequestDto,
     @ArcSession() session: ActiveSession,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<SubgraphPropertiesResponseDto>> {
     await this.commandBus.execute<void>(
       new UpdateSubgraphPropertyCommand(subgraphSystemId, propSystemId, [dto]),
@@ -438,7 +464,7 @@ export class SubgraphController extends BaseController {
     const query = new GetSubgraphPropertiesQuery(
       Number.parseInt(projectId, 10),
       subgraphSystemId,
-      'api-client',
+      clientId,
     );
     const result =
       await this.queryBus.execute<Result<SubgraphPropertiesResponseDto>>(query);
@@ -520,11 +546,12 @@ export class SubgraphController extends BaseController {
   async getVcpmCkv(
     @Param('projectId') projectId: string,
     @Param('subgraphSystemId') subgraphSystemId: string,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<VcpmCkvResponseDto>> {
     const query = new GetVcpmCkvQuery(
       Number.parseInt(projectId, 10),
       Number.parseInt(subgraphSystemId, 10),
-      'api-client',
+      clientId,
     );
     const result = await this.queryBus.execute<Result<VcpmCkvDto>>(query);
     return toApiResult(result);
@@ -570,13 +597,14 @@ export class SubgraphController extends BaseController {
     @Param('projectId') projectId: string,
     @Param('subgraphSystemId') subgraphSystemId: string,
     @Param('ckvSystemId') ckvSystemId: string,
+    @ClientId() clientId: string,
     @Query('param-system-ids') paramSystemIds?: string,
   ): Promise<ApiResult<CkvCalDataResponseDto>> {
     const query = new GetVcpmCalDataQuery(
       projectId,
       subgraphSystemId,
       ckvSystemId,
-      'api-client',
+      clientId,
       paramSystemIds,
     );
     const result = await this.queryBus.execute<Result<CkvCalDataDto>>(query);
@@ -709,6 +737,7 @@ export class SubgraphController extends BaseController {
     @Param('ckvSystemId', ParseIntPipe) ckvSystemId: number,
     @Body() dto: UpdatePropertyRequestDto,
     @ArcSession() session: ActiveSession,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<CkvCalDataResponseDto>> {
     await this.commandBus.execute<void>(
       new UpdateVcpmCalDataCommand(subgraphSystemId, ckvSystemId, [dto]),
@@ -718,7 +747,7 @@ export class SubgraphController extends BaseController {
       projectId,
       String(subgraphSystemId),
       String(ckvSystemId),
-      'api-client',
+      clientId,
     );
     const result = await this.queryBus.execute<Result<CkvCalDataDto>>(query);
     return toApiResult(result);

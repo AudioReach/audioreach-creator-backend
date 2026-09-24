@@ -37,7 +37,8 @@ export class SubgraphSgkvFetcher {
    *
    * @param fileSystemId   Scope to this file.
    * @param sessionId      Active session; null returns baseline only.
-   * @param sgSystemIds    Optional: restrict to these subgraph system IDs.
+   * @param sgSystemIds    Optional: restrict to these IDs when non-empty;
+   *                       undefined or [] means no restriction.
    */
   async fetchMany(
     fileSystemId: number,

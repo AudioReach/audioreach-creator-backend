@@ -13,6 +13,7 @@ import type {
 } from '../../../ports/persistence/query-services/spf-module/tuning/tuning-config-read-model.js';
 import type {DataPortReadModel} from '../../../ports/persistence/query-services/spf-module/ports/data-port-read-model.js';
 import type {ControlPortReadModel} from '../../../ports/persistence/query-services/spf-module/ports/control-port-read-model.js';
+import {PORT_IO_TYPE} from '../../../../domain/entities/common/enums/port-io-type.js';
 import {RESULT_KIND} from '../../../shared/result/result.js';
 import type {Result} from '../../../shared/result/result.js';
 
@@ -182,7 +183,7 @@ export function mapDataPort(p: DataPortReadModel): DataPortDto {
     systemId: String(p.systemId),
     naturalId: p.naturalId,
     name: p.name ?? '',
-    portIoType: p.portIoType === 'Input' ? 'Input' : 'Output',
+    portIoType: p.portIoType === PORT_IO_TYPE.Input ? 'Input' : 'Output',
     portType: p.isStatic ? 'Static' : 'Dynamic',
     totalLinksAtPort: p.totalLinksAtPort,
   };
