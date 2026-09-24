@@ -191,6 +191,27 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
         sessionId,
         {controlLinkSystemId},
       );
+    await this.deleteCanonical(controlLinkSystemId, fileSystemId, options);
+    for (const segment of resolvedSegments) {
+      await this.getWriter().writeDelete(
+        {
+          targetTable: ENTITY_NAMES.SubsystemControlLink,
+          targetSystemId: segment.systemId,
+          aggregateId: controlLinkSystemId,
+          ...options,
+        },
+        sessionId,
+        this.uow.getWriteContext().groupId,
+        this.manager,
+      );
+    }
+  }
+
+  async deleteCanonical(
+    controlLinkSystemId: number,
+    _fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void> {
     const {session, groupId} = this.uow.getWriteContext();
     await this.getWriter().writeDelete(
       {
@@ -203,19 +224,6 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
       groupId,
       this.manager,
     );
-    for (const segment of resolvedSegments) {
-      await this.getWriter().writeDelete(
-        {
-          targetTable: ENTITY_NAMES.SubsystemControlLink,
-          targetSystemId: segment.systemId,
-          aggregateId: controlLinkSystemId,
-          ...options,
-        },
-        session.sessionId,
-        groupId,
-        this.manager,
-      );
-    }
   }
 
   async getLinksByPortSystemIds(
@@ -329,6 +337,28 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
           targetTable: ENTITY_NAMES.SubsystemControlLink,
           targetSystemId: segment.systemId,
           aggregateId: segment.controlLinkSystemId ?? segment.systemId,
+          ...options,
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+  }
+
+  async detachSubsystemControlLinks(
+    subsystemControlLinks: readonly SubsystemControlLink[],
+    _fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    for (const segment of subsystemControlLinks) {
+      await this.writer.writeDelta(
+        {
+          targetTable: ENTITY_NAMES.SubsystemControlLink,
+          targetSystemId: segment.systemId,
+          aggregateId: segment.controlLinkSystemId ?? segment.systemId,
+          delta: {controlLinkSystemId: null},
           ...options,
         },
         session.sessionId,

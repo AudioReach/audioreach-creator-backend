@@ -7936,7 +7936,7 @@
     },
     "/arc-api/v1/projects/{projectId}/data-links/{dataLinkSystemId}": {
       "delete": {
-        "description": "Deletes a data link by systemId. Returns the deleted link snapshot for undo support.",
+        "description": "Accepts any data-link system ID: a canonical module-to-module DataLink or a SubsystemDataLink segment. The service resolves the ID type and returns only affected deleted entities.",
         "operationId": "DataLinkController_deleteDataLink",
         "parameters": [
           {
@@ -7953,7 +7953,7 @@
             "name": "dataLinkSystemId",
             "required": true,
             "in": "path",
-            "description": "System id of the data link to delete",
+            "description": "Any data-link system ID: either a canonical module-to-module DataLink or a SubsystemDataLink segment. The service detects the ID type automatically.",
             "schema": {
               "type": "string"
             }
@@ -7972,7 +7972,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/DataLinkResponseDto"
+                          "$ref": "#/components/schemas/DeleteDataLinkResponseDto"
                         }
                       }
                     }
@@ -8255,7 +8255,7 @@
     },
     "/arc-api/v1/projects/{projectId}/control-links/{controlLinkSystemId}": {
       "delete": {
-        "description": "Deletes a control link by systemId. Returns the deleted link snapshot for undo support.",
+        "description": "Accepts any control-link system ID: a canonical module-to-module ControlLink or a SubsystemControlLink segment. Returns deleted entities and affected subsystems with cleared port intents.",
         "operationId": "ControlLinkController_deleteControlLink",
         "parameters": [
           {
@@ -8272,7 +8272,7 @@
             "name": "controlLinkSystemId",
             "required": true,
             "in": "path",
-            "description": "System id of the control link to delete",
+            "description": "Any control-link system ID: either a canonical module-to-module ControlLink or a SubsystemControlLink segment. The service detects the ID type automatically.",
             "schema": {
               "type": "string"
             }
@@ -8291,7 +8291,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/ControlLinkResponseDto"
+                          "$ref": "#/components/schemas/DeleteControlLinkResponseDto"
                         }
                       }
                     }
@@ -17824,48 +17824,49 @@
           "linkType"
         ]
       },
-      "DataLinkResponseDto": {
+      "DeleteDataLinkResponseDto": {
         "type": "object",
         "properties": {
-          "relatedEndPointLinks": {
-            "description": "Related endpoint links",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/EndPointLink"
-            }
-          },
-          "systemId": {
-            "type": "string",
-            "description": "Data link system ID"
-          },
-          "sourceSystemId": {
-            "type": "string",
-            "description": "Source component system ID"
-          },
-          "sourcePortSystemId": {
-            "type": "string",
-            "description": "Source port system ID"
-          },
-          "destinationSystemId": {
-            "type": "string",
-            "description": "Destination component system ID"
-          },
-          "destinationPortSystemId": {
-            "type": "string",
-            "description": "Destination port system ID"
-          },
-          "linkType": {
-            "type": "string",
-            "description": "Topology classification of the link"
+          "deleted": {
+            "type": "object",
+            "properties": {
+              "dataLinks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "systemId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "systemId"
+                  ]
+                }
+              },
+              "subsystemDataLinks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "systemId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "systemId"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "dataLinks",
+              "subsystemDataLinks"
+            ]
           }
         },
         "required": [
-          "systemId",
-          "sourceSystemId",
-          "sourcePortSystemId",
-          "destinationSystemId",
-          "destinationPortSystemId",
-          "linkType"
+          "deleted"
         ]
       },
       "CreateControlLinkRequest": {
@@ -17966,6 +17967,89 @@
           "destinationSystemId",
           "destinationPortSystemId",
           "linkType"
+        ]
+      },
+      "DeleteControlLinkResponseDto": {
+        "type": "object",
+        "properties": {
+          "deleted": {
+            "type": "object",
+            "properties": {
+              "controlLinks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "systemId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "systemId"
+                  ]
+                }
+              },
+              "subsystemControlLinks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "systemId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "systemId"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "controlLinks",
+              "subsystemControlLinks"
+            ]
+          },
+          "updated": {
+            "type": "object",
+            "properties": {
+              "subsystems": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "systemId": {
+                      "type": "string"
+                    },
+                    "intentsClearedControlPorts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "systemId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "systemId"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "systemId",
+                    "intentsClearedControlPorts"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "subsystems"
+            ]
+          }
+        },
+        "required": [
+          "deleted",
+          "updated"
         ]
       },
       "CreateLogEntryRequestDto": {

@@ -339,6 +339,49 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
     );
   });
 
+  it('deletes only the canonical link when resolved segments must be detached', async () => {
+    await seedDataLink(ds, 500, PORT_SRC, PORT_DST);
+    await seedSubsystemDataLink(ds, 701, 500);
+    await seedSubsystemDataLink(ds, 702, 500);
+
+    await makeRepo(qr, sessionId).deleteCanonical(500, FILE_ID);
+
+    const actions = await getActiveActions(qr, sessionId);
+    expect(
+      actions.filter(
+        action =>
+          action.targetTable === ENTITY_NAMES.DataLink &&
+          action.targetSystemId === 500 &&
+          action.operation === CHANGE_OPERATION.Delete,
+      ),
+    ).toHaveLength(1);
+    expect(
+      actions.filter(
+        action =>
+          action.targetTable === ENTITY_NAMES.SubsystemDataLink &&
+          action.operation === CHANGE_OPERATION.Delete,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('detaches resolved subsystem segments by updating their canonical FK', async () => {
+    await seedDataLink(ds, 500, PORT_SRC, PORT_DST);
+    await seedSubsystemDataLink(ds, 701, 500);
+
+    const segment = (await makeRepo(qr, sessionId).findAllLinks(FILE_ID))
+      .dataLinks[0]?.subsystemDataLinks[0];
+    await makeRepo(qr, sessionId).detachSubsystemDataLinks([segment!], FILE_ID);
+
+    const actions = await getActiveActions(qr, sessionId);
+    const action = actions.find(
+      candidate =>
+        candidate.targetTable === ENTITY_NAMES.SubsystemDataLink &&
+        candidate.targetSystemId === 701,
+    );
+    expect(action?.operation).toBe(CHANGE_OPERATION.Update);
+    expect(action?.newValue).toMatchObject({dataLinkSystemId: null});
+  });
+
   it('deletes an unresolved segment without deleting a canonical link', async () => {
     await seedUnresolvedSubsystemDataLink(qr, sessionId, 703);
 
