@@ -7,7 +7,8 @@
 # Auto-Usecase Routing: Extended Requirements
 
 **Date:** 2026-06-02
-**Status:** Draft — all contradictions resolved, pending user review
+**Last updated:** 2026-09-25
+**Status:** Frozen
 **Owner:** Nithin Simon
 **Source docs:** `docs/subgraph-kv-usecase-creation/subgraph-routing-requirements.md`,
 `docs/subgraph-kv-usecase-creation/subgraph-routing-lld.md`
@@ -25,6 +26,26 @@ the source docs that are either:
 
 Requirements already fully captured in core requirements are omitted (see §11).
 
+## 0. Routing Snapshot Authority
+
+Both create handlers use one shared `RoutingGraphSnapshotBuilder` after chain resolution,
+session-edit loading, selected-UC loading, and request validation. `requestPolicy` keeps
+explicit caller intent separate from `graphSnapshot`, which contains routable subgraphs,
+requested SGKVs, MDF classification, routable links, complete overlay link catalogs,
+committed UCs, and session edits. The builder performs one read of each graph catalog and
+one MDF pass, then discards derived exclusion sets.
+
+`ManualPairDiscoveryService` and `PreValidationService` are pure snapshot consumers and
+perform no repository reads. Phases 2–3 and 5–10 consume the snapshot without duplicate
+graph reads. Phase 2 has one narrow exception: after impact aggregation and before legacy
+EC reconstruction, `DeletionReconstructionService` may call
+`SubgraphRepository.getSgkvs(fileSystemId, legacyEcEndpointSystemIds)` once for the
+legacy-EC endpoint baseline comparison; no other Phase 2 consumer may use that repository.
+Phase 4 may read SGKV baselines plus one batched, effective-overlay, file-scoped Value
+Definition-to-Key mapping for request normalization; Phase 11 writes only. This section
+supersedes earlier statements in this document that assign link discovery or MDF
+classification to individual consumers.
+
 ---
 
 ## 1. EC (Echo Cancellation) Routing
@@ -40,6 +61,15 @@ connections. The `isEc` property already exists on the `DataLink` entity in the 
 schema (`is_ec` column, nullable — set only on `intra_usecase` links). An EC connection
 is a distinct link type that triggers special 3-usecase generation (FR-EC-03) rather
 than normal DFS continuation.
+
+An **MDF-transparent EC chain** is the specific directed pattern
+`A → MDF₁ → ... → MDFₙ → B`, where `n >= 1`, every intermediate SG has
+`IsMdf = true`, and every adjacent intra-usecase data-link has `isEc = true`. This
+maximal contiguous chain represents one logical EC connection with endpoints A and B.
+For FR-EC-05 path validation, FR-EC-07 UC validation, and UC type recomputation after
+an FR-MDF-01 direct rewrite, the chain shall be evaluated as one EC connection rather
+than as independent EC links. FR-MDF-01 direct rewriting does not invoke FR-EC-02 or
+FR-EC-03 candidate generation.
 
 #### FR-EC-02: EC connection as path boundary
 When the DFS traversal encounters an EC connection, it shall treat that connection as a
@@ -75,10 +105,11 @@ exists for a routing path); FR-EC-04's warning-only stance reflects that Left an
 Right paths remain valid routing candidates independent of Bridge validity.
 
 #### FR-EC-05: Single EC connection per path
-A routing path must contain at most one EC connection. If the DFS traversal encounters
-a second EC connection on the same path, the system shall return an error identifying
-the path and both EC connections. Multiple EC connections on a single path are not
-valid.
+A routing path must contain at most one logical EC connection. An MDF-transparent EC
+chain defined by FR-EC-01 consumes one EC-connection slot regardless of its physical
+link count. If the DFS traversal encounters a second logical EC connection on the same
+path, the system shall return an error identifying the path and both EC connections.
+Multiple logical EC connections on a single path are not valid.
 
 ### 1.3 EC Usecase Lifecycle
 
@@ -93,6 +124,10 @@ When graph changes are evaluated against existing EC bridge UCs:
   (an unusual coincidence), FR-DUP-04 user-choice applies per the unified rule.
 - If the left or right subgraph is deleted, or the EC connection link is deleted →
   mark as **DELETED**.
+
+The final case excludes a confirmed pure MDF substitution under FR-MDF-01. When the
+deleted EC link is replaced by one eligible MDF-transparent EC chain, the existing EC UC
+is updated directly, retains its identity and `EC` type, and is not marked deleted.
 
 When an EC bridge UC is DELETED due to structural component deletion, it follows the
 same deletion workflow as any UC (core reqs FR-DEL-01 through FR-DEL-05): all UCs
@@ -152,16 +187,15 @@ reconstruction DFS behavior depends on whether the EC endpoints are KV-changed:
 
 **Rule C — Max EC-links-per-UC:**
 
-A UC (legacy or new-scheme) shall contain at most **one** EC data-link in its pair
-set. Exception: when a legacy EC UC has an isMdf-transparent-bridge substitution at
-its EC boundary (per FR-MDF-01 "Transparent bridge substitution (MDF Scenario 4)"),
-the resulting pair set may contain **two** `isEc=true` data-links flanking the
-inserted isMdf SG in the specific pattern `B → SG_MDF → C`. Functionally, this
-represents one EC crossing made transparent by MDF; both flanking data-links inherit
-`isEc=true`.
+A UC (legacy or new-scheme) shall contain at most **one logical EC connection** in its
+pair set. Its physical representation is normally one `isEc = true` data-link. When a
+pure MDF substitution occurs at that boundary, the representation may instead be the
+MDF-transparent EC chain defined by FR-EC-01, with every physical link in the chain
+retaining `isEc = true`. The entire chain counts as one logical EC crossing.
 
-Any other configuration with two or more EC data-links in a UC's pair set is a
-pre-validation error (`ARC-ROUTING-EC-MULTIPLE-LINKS`).
+Any configuration containing two or more `isEc = true` data-links that do not form one
+such maximal contiguous MDF-transparent EC chain, or containing that chain plus another
+EC link, is a pre-validation error (`ARC-ROUTING-EC-MULTIPLE-LINKS`).
 
 **Rule D — Reconstruction outcomes for legacy EC UCs:**
 
@@ -181,11 +215,13 @@ non-EC side of the path, e.g., between A and the EC's left endpoint B):
 
 **Rule E — `Usecase.type` is a computed property:**
 
-A UC's `type` is derived from its pair set:
-- `type = EC` iff the pair set contains at least one `isEc=true` data-link.
-- `type = ISLAND` iff any pair in the pair set has no data-link coverage
+A UC's `type` is derived from its pair set with precedence `EC`, then `ISLAND`, then
+`LINKED`:
+- `type = EC` iff the pair set contains at least one logical EC connection. This takes
+  precedence even when another pair lacks data-link coverage.
+- Otherwise, `type = ISLAND` iff any pair in the pair set has no data-link coverage
   (only control-link support, per FR-STATUS-02 semantics).
-- `type = LINKED` otherwise.
+- Otherwise, `type = LINKED`.
 
 When a routing operation adds or removes a supporting data-link, the affected UC's
 `type` shall be updated at Phase 11 (RoutingChangeStager) based on the resulting
@@ -202,9 +238,10 @@ pair set. Examples:
 
 ---
 
-## 2. MDF V2 — Implicit Intermediate Subgraph Support
+## 2. MDF V2 — Explicit MDF Routing And Pure Substitution
 
-*Deferred in core reqs (Out of Scope). Captured here as the follow-on spec.*
+*In scope: explicit MDF pass-through behavior and pure MDF substitution. Still deferred:
+implicitly injecting an MDF SG that the caller omitted from `activeSubgraphs`.*
 
 MDF bridge subgraphs already exist in the DB as real subgraphs. The routing algorithm
 traverses paths like `SG_A → MDF_Bridge_SG → SG_C` naturally. The core routing
@@ -228,16 +265,76 @@ subgraph:
 - **No KVs allowed:** If the API input assigns any non-empty SGKV values to an IsMdf
   subgraph, the system shall return an error. The empty contribution is normalized to
   one empty SGKV instance during KV resolution (Phase 4).
-- **Transparent bridge substitution (MDF Scenario 4):** When a user deletes a direct
-  intra-usecase data-link between two SGs *and* adds one or more IsMdf SGs forming a
-  bridge path between them (typical of MDF offloading at subgraph boundaries), the
-  deletion shall be classified as a structural mutation for every UC referencing the
-  deleted pair. Those UCs are members of the FR-DEL-02 affected set and must be
-  selected. The routing algorithm detects the transparent-bridge alternate path within
-  the effective routing scope and lets the normal pipeline discover the new path via
-  cone and DFS traversal. FR-DUP-03(b1) identity-preserving interior extension then
-  silently updates the selected existing UC in place — inserting the IsMdf SG(s) into
-  the UC's SG set and rewriting the pair set accordingly. No new UC is created.
+- **Transparent bridge substitution (MDF Scenario 4):** A pure MDF substitution is
+  transparent structural maintenance of an existing UC, not deletion impact. The
+  system shall recognize a pure substitution only when all of the following hold:
+  1. One direct intra-usecase data-link from SG A to SG B is deleted in the current
+     session, and no surviving direct intra-usecase data-link or control-link in either
+     direction continues to support the stored `(A, B)` pair. A surviving support link
+     instead invokes the normal direction-correction or type-degradation rules.
+  2. The effective post-edit data-link overlay contains exactly one simple directed,
+     traversable intra-usecase replacement path from A to B with at least one
+     intermediate SG.
+  3. Every intermediate SG on that path has `IsMdf = true`, is present in the effective
+     routing scope, appears explicitly in `activeSubgraphs`, and has an intentional
+     empty SGKV contribution.
+  4. The replacement path preserves the deleted link's routing semantics. A non-EC
+     link (`isEc` is false or unset) is replaced only by non-EC links. An EC link is
+     replaced only by an MDF-transparent EC chain under FR-EC-01, whose links all retain
+     `isEc = true` and together represent one logical EC crossing.
+  5. For a UC referencing the deleted directed pair, no other deleted component or
+     unsupported pair independently requires that UC's deletion, degradation, or
+     user-selected reconstruction.
+- **Multiple substitutions and UC-level atomicity:** Eligibility is evaluated per
+  deleted pair. If one committed UC contains multiple deleted pairs, the direct-update
+  exception applies only when every deletion impact on that UC is an independently
+  valid pure MDF substitution and their combined pair/SG rewrite is deterministic and
+  non-conflicting. Rewrites conflict if the same deleted pair maps to different
+  replacement chains, one rewrite adds a pair that another removes, or their union
+  violates UC topology or EC invariants. Shared endpoints or MDF members alone are not
+  conflicts when the resulting SG and pair sets are otherwise deterministic. All
+  substitutions are then applied in one atomic UC update. The system shall complete
+  eligibility for every impacted pair before staging any part of the direct update. If
+  any impact fails eligibility or the rewrites conflict, no partial MDF rewrite is
+  staged; the entire UC follows the normal affected-selection and reconstruction
+  workflow.
+- **Direct structural rewrite:** For every committed pre-session UC containing one or
+  more eligible deleted directed pairs, the system shall atomically stage one
+  identity-preserving `source=AUTO_ROUTING` update that, for every substitution:
+  1. Preserves the UC `systemId`, GKV, alias, category, and unrelated topology.
+  2. Removes the original `(A, B)` pair.
+  3. Adds every intermediate MDF SG to the UC's SG set, without duplicating existing
+     membership.
+  4. Adds each directed adjacent pair from the replacement path, without duplicating
+     existing pairs.
+  5. Records an empty SGKV contribution for each newly added MDF SG where the
+     persistence contract requires assignment metadata.
+  6. Recomputes the UC type from the resulting complete pair set. In particular, an EC
+     substitution remains `EC` and its MDF chain is treated as one EC crossing.
+  7. Reports the same UC identity as updated; it shall not delete and recreate the UC.
+     No new UC shall be created for the substitution.
+  This system-owned maintenance applies to both automatic and manual create-usecase
+  routing calls; manual mode still does not run ordinary automatic reconstruction.
+- **Deletion-gate exception:** A UC shall not enter the FR-DEL-01/02 affected set solely
+  because of a confirmed pure MDF substitution. The system shall not mark that UC for
+  deletion, require it in `selectedUsecaseSystemIds`, create a reconstruction candidate,
+  or depend on cone traversal, DFS, SGKV combination expansion, or FR-DUP-03(b1) to
+  preserve it. The selection exemption does not relax routing-scope validation: MDF SGs
+  remain subject to FR-API-03 and FR-CONE-07 explicit-scope requirements.
+- **Active manual-update precedence:** When an active manual update targets the same
+  committed UC, the system shall not stage a competing automatic MDF update. If the
+  manual update's effective topology already removes the direct pair and contains the
+  strict MDF chain, the manual update remains authoritative. If it retains the deleted
+  link or superseded direct pair, existing manual-dependency validation shall reject the
+  routing operation before topology-change analysis. A valid manual update suppresses
+  only the duplicate automatic MDF write; it does not exempt any ordinary deletion
+  impact on the same UC from FR-DEL-01/02.
+- **Fallback:** If any pure-substitution condition is not proven, including zero or
+  multiple eligible replacement paths, a non-MDF intermediate, a non-empty MDF SGKV,
+  surviving direct support, incompatible direction or EC classification, conflicting
+  substitutions, or another broken component in the same UC, the system shall not
+  apply the transparent-update exception. It shall use normal FR-DEL-01 through
+  FR-DEL-06 affected-UC selection and reconstruction behavior.
 
 *The mechanism for detecting and setting `IsMdf` (e.g., based on the presence of
 IPC Tx and IPC Rx modules within the subgraph) is deferred to the MDF V2 feature
@@ -250,9 +347,11 @@ implementation. MDF changes KV contribution behavior, not routing-scope membersh
 *Extends core reqs §3.9 (FR-DEL-01 through FR-DEL-05).*
 
 #### FR-DEL-06: Endpoint-anchored path reconstruction pass
-After the main DFS (FR-DEL-04 of core reqs) completes, the system shall perform an
-additional reconstruction pass for each UC marked for deletion. The pass has two
-sub-modes depending on the UC's **topology** — single-path vs multi-path.
+Pure MDF substitutions confirmed under FR-MDF-01 bypass this reconstruction pass and
+are staged as direct structural updates. For all other deletion impacts, after the main
+DFS (FR-DEL-04 of core reqs) completes, the system shall perform an additional
+reconstruction pass for each UC marked for deletion. The pass has two sub-modes
+depending on the UC's **topology** — single-path vs multi-path.
 
 **Topology detection (cheap, per UC):**
 
@@ -361,16 +460,16 @@ pre-validation) → routing pipeline (KV resolution, cone, DFS, etc.).
   These writes are staged as `edit_actions` with `source = MANUAL` and
   `changeStatus = STAGED` — they represent user intent expressed by drawing the
   subsystem chains, not algorithm output.
-- After resolution, the routing algorithm reads the effective `data_links` and
-  `control_links` overlay including the newly-resolved rows. The routing algorithm
-  itself is unaware of SLS / CSLS (FR-VL-27 of the subsystem-links spec).
+- After resolution, the handlers build one `graphSnapshot` from the effective `data_links`
+  and `control_links` overlay including the newly-resolved rows. The routing algorithm
+  itself is unaware of SLS / CSLS (FR-VL-27 of the subsystem-links spec), and no phase
+  reloads those catalogs.
 
 **Applies to both endpoints:**
 - `create-usecases` (auto-routing, FR-UC-02) — routing depends on complete
   intra-usecase data-links.
-- `create-manual-usecases` (manual, FR-UC-01) — manual pair derivation queries DB
-  data-links and control-links (FR-UC-01 step 4); those queries also depend on
-  chain resolution being complete.
+- `create-manual-usecases` (manual, FR-UC-01) — snapshot preparation reads data-links
+  and control-links once; manual pair derivation consumes the prepared links.
 
 **Handler orchestration note (design-level):** Chain resolution runs at the top of
 the handler, before the routing pipeline begins. It is not part of the routing
@@ -444,6 +543,15 @@ For every newly created staged UC (regardless of `LINKED` or `ISLAND` type):
   (rare), or the commit is rejected — the user must run auto-routing to normalize
   the UC's type (transition to `ISLAND`), delete the affected UC, or restore
   the missing data-link.
+
+- **Stale pair after pure MDF substitution:** FR-MDF-01's direct structural rewrite
+  applies to committed pre-session UCs, not newly created staged UCs. This exclusion is
+  intentional and applies to both automatic and manual staged creations. A newly staged
+  UC that still contains the superseded direct pair `(A, B)` after that pair is replaced
+  by an MDF path shall fail re-validation even if bridge-mediated coverage could
+  otherwise satisfy `LINKED` coherence. A manual action that references the deleted link
+  also fails check (d). The user must rerun routing or restage the manual UC so it is
+  derived from the effective graph and contains the MDF chain explicitly.
 
 - **`ISLAND`-type validity:** If the UC's type is **`ISLAND`**, pair-link
   presence (I7) is the sole per-pair requirement. A pair with control-link coverage
@@ -595,6 +703,12 @@ a path that includes an MDF bridge SG, it is treated as pass-through — no KV
 contribution. It must nevertheless be an explicit member of `activeSubgraphs` when it
 is in the effective routing scope, using an empty SGKV contribution (FR-MDF-01).
 
+MDF Scenario 4 does not rely on this general traversal to preserve a UC. When one
+deleted direct pair has one unambiguous MDF-only replacement path, the routing workflow
+stages the pair-local structural rewrite defined by FR-MDF-01. The UC is not added to
+the affected-selection gate solely for that substitution. General traversal remains
+responsible for all non-transparent and ambiguous topology changes.
+
 ### W5 / FR-UC-UPDATE-01: Replace an existing UC's structure
 
 The system shall expose
@@ -700,11 +814,14 @@ issue with `Path A` / `Path B` (two new paths) or `Keep existing` / `Create new 
 An `ISLAND` UC containing a deleted component follows the same deletion workflow.
 The user may choose to preserve it as `ISLAND` (FR-DEL-05).
 
-### C-05: MDF Implicit Injection — RESOLVED (no scope exemption)
+### C-05: MDF Implicit Injection — RESOLVED (scope remains explicit)
 **Resolution:** MDF subgraphs (`IsMdf = true`) are pass-through nodes but are not exempt
 from FR-API-03 or FR-CONE-07. An MDF SG in the effective routing scope must be explicit
 in `activeSubgraphs` with an empty contribution; assigning non-empty KVs is an error.
-See FR-MDF-01.
+A confirmed pure MDF substitution is separately exempt from the FR-DEL-02 affected-UC
+selection gate because it is a deterministic identity-preserving structural rewrite,
+not deletion or reconstruction. Failure to prove every FR-MDF-01 condition restores the
+normal deletion-impact and selection rules.
 
 ---
 

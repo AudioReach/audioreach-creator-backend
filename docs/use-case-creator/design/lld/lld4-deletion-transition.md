@@ -3,11 +3,30 @@
  SPDX-License-Identifier: BSD-3-Clause
 -->
 
-# LLD4 — Deletion Scope & `ISLAND` → `LINKED` Transition
+# LLD4 — Topology Change Analysis & `ISLAND` → `LINKED` Transition
+
+## Current Snapshot Boundary
+
+This refactor supersedes the former flat `RoutingInput` and duplicate graph-read
+descriptions in this LLD. Deletion phases consume
+`input.graphSnapshot.sessionEdits`, `input.graphSnapshot.committedUsecases`, and the
+prepared overlay/routable link collections. The snapshot builder owns the one committed
+UC catalog read, overlay graph reads, MDF classification, and construction-local
+exclusion filtering. Phase 2 publishes one finalized per-UC decision inside
+`topologyChangeAnalysis`; Phase 7 produces `dfsPaths` and must not duplicate Phase 2
+reconstruction paths. Manual discovery and Phase 1 do not access repositories.
 
 **Status:** Draft
 **Parent:** [`../overall-design.md`](../overall-design.md)
-**Last updated:** 2026-08-10
+**Last updated:** 2026-09-25
+
+The algorithmic pseudocode in later sections predates the snapshot boundary. In that
+pseudocode, `input.graphEdits` means `input.graphSnapshot.sessionEdits`,
+`input.activeSubgraphs` means `input.graphSnapshot.subgraphs`,
+`input.scopePolicy` means `input.requestPolicy`, and `context.allUcs` means
+`input.graphSnapshot.committedUsecases`. These are conceptual mappings only;
+implementations must use the current grouped context outputs and must not restore the
+legacy fields or duplicate graph reads.
 
 ---
 
@@ -18,10 +37,11 @@ UCs before the routing search runs:
 
 | Phase | Service | Placement |
 |---|---|---|
-| 2 | `DeletionScopeService` | Half A — pre-routing |
+| 2 | `TopologyChangeAnalysisService` | Half A — pre-routing |
 | 3 | `IslandTransitionService` | Half A |
 
 By the end of Phase 3, the pipeline holds:
+- Direct pure-MDF structural updates that bypass deletion selection and reconstruction
 - The set of UCs marked for deletion (`markedForDeletion`)
 - The set of `ISLAND` → `LINKED` transitions (`islandTransitions`)
 - Any direction corrections on control-link-held pairs
@@ -44,6 +64,7 @@ collision handling apply.
 | FR-DEL-06 | 2 | §5.4 (topology + reconstruction) |
 | FR-VAL-04 | 2 | §5.2 (affected UC-scope completeness) |
 | FR-API-07 (deletion-side closure) | 2 | §5.2 (after FR-DEL-02) |
+| FR-MDF-01 (pure substitution) | 1, 2, 11 | §4.1, §5.1 |
 | FR-STATUS-04 Step 1 | 3 | §6.1 (direction correction) |
 | FR-STATUS-04 Step 2 | 3 | §6.2 (coverage + transition) |
 | FR-EXT-01/02/03 | — | §7 (context only — cone + main DFS own these) |
@@ -59,73 +80,94 @@ collision handling apply.
 
 ## 3. Position in Pipeline
 
-**Upstream (input to Phase 2):** `RoutingContext.input` fully built by handler:
-- `input.graphEdits` — assembled from aggregate repos' `findManualEditsSinceLastRouting`
-- `input.selectedUsecases` — effective snapshots; their IDs provide the FR-DEL-02 selected set
-- `input.activeSubgraphs` — normalized selections; their IDs provide the effective
-  reconstruction boundary
-- `input.scopePolicy.requestedSubgraphSystemIds` — original request membership for
-  deletion-side closure
-- `input.scopePolicy.excludedSubgraphSystemIds` — explicit SG-exclusion intent
-- `input.islandUcs` — committed `ISLAND` UCs present before the run (used by Phase 3)
+**Upstream (input to Phase 2):** `RoutingContext.input` fully built by the handler:
+- `input.requestPolicy` — explicit request intent and exclusions for closure checks
+- `input.selectedUsecases` — effective overlay snapshots for selected-UC gates
+- `input.graphSnapshot.sessionEdits` — session graph changes
+- `input.graphSnapshot.committedUsecases` — complete pre-run UC catalog
+- `input.graphSnapshot.subgraphs` and complete overlay link catalogs — deletion and
+  reconstruction topology
+- routable snapshot links and MDF flags — request-scoped traversal inputs
 
-Phase 2 obtains local `selectedUsecaseIds` and `effectiveRoutingScope` views through the
-same pure input-derivation helper used by the other routing phases. They are not stored
-as separate input/context fields.
+Phase 2 derives local selected IDs and scope membership from these immutable collections;
+they are not stored as separate input/context fields.
 
-**Downstream (output after Phase 3):** `RoutingContext` populated with:
-- `context.affectedUcSystemIds` — full file-wide set requiring deletion, structural
-  mutation, or type degradation
-- `context.markedForDeletion` — UC identifiers pending deletion (from Phase 2)
-- `context.reconstructionPaths` — bounded-DFS paths for single-path deleted UCs
-  (from Phase 2; joined into `context.dfsPaths` before Phase 8)
-- `context.deletionPreservedUCs` — multi-path UCs where all pairs survived (from
-  Phase 2; SG-set trimming instructions for Phase 11)
-- `context.degradedToIsland` — `LINKED` UCs whose data-link was deleted but
-  a control-link remains between the same SGs (from Phase 2; auto
-  `LINKED` → `ISLAND` transition per FR-STATUS-02(b))
-- `context.islandTransitions` — from Phase 3 (`ISLAND` → `LINKED`)
+In both modes, Phase 1 has already validated `activeManualUsecaseEdits`. Phase 2 uses
+valid manual projections only to prevent a competing MDF update for the same UC; an
+ordinary deletion impact remains subject to FR-DEL-02.
 
-**Repo dependencies:**
-- `IUsecaseRepository.findAll(fileSystemId, {readMode: 'COMMITTED'})` — Phase 2 loads
-  all UCs (pre-session state) into `context.allUcs`. Subsequent per-SG, per-link-pair,
-  and per-UC lookups are **in-memory filters** over `context.allUcs`; no removed reverse
-  lookup methods are called. Committed readMode is essential because delete-crud
-  handlers cascade to UC junctions, so overlay reads would hide affected rows.
-- `IDataLinkRepository.findLinksByPair(sgA, sgB, fileSystemId, excludedIds)` — Phase 2
-  deletion-impact checks pass no request-only exclusions; Phase 3 may apply routing exclusions
-- `IControlLinkRepository.findLinksByPair(sgA, sgB, fileSystemId, excludedIds)` — same
-  distinction for I7 support and Phase 3 direction correction
-- `IDataLinkRepository.findIntraUsecaseByFile(fileSystemId, excludedIds)` — Phase 2 bounded-DFS reconstruction
+**Downstream (output after Phase 3):** `RoutingContext` is populated with grouped
+`topologyChangeAnalysis` and `islandTransitions` descriptors. Reconstruction paths join
+the shared `routingCandidates` state before Phase 8; no parallel legacy output arrays
+are retained.
 
-All graph/link repo calls use the effective edit-crud overlay (committed + STAGED).
-The explicit `findAll(..., {readMode: 'COMMITTED'})` UC snapshot is the exception used
-to retain deletion impact evidence hidden by overlay cascades.
+**Repo dependencies:** Phase 2 and Phase 3 do not read graph or UC repositories. Their
+request-scoped reads are completed by the snapshot builder, which uses the committed UC
+read to retain deletion evidence hidden by overlay cascades. Phase 2 retains one narrow
+`SubgraphRepository` dependency solely for the existing legacy-EC endpoint SGKV baseline
+comparison; it does not reload topology. After ordinary decisions are finalized and
+before bounded legacy reconstruction, `DeletionReconstructionService` may call
+`getSgkvs(fileSystemId, legacyEcEndpointSystemIds)` once. No MDF, gate, preservation,
+degradation, or other Phase 2 consumer may use this repository.
 
 ---
 
 ## 4. Data Structures
 
-### Affected UC Set (Phase 2 output)
+### 4.1 `TopologyChangeAnalysis` (Phase 2 output)
 
-The union of UCs requiring deletion, structural mutation, or type degradation. This is
-the set gated by FR-DEL-02 and returned in full when any member is unselected.
+Phase 2 publishes exactly one finalized decision for every impacted committed UC:
 
-### 4.1 `MarkedForDeletion` (Phase 2 output)
+```
+TopologyChangeAnalysis {
+  affectedUsecaseSystemIds: Set<UcSystemId>
+  decisions: UsecaseTopologyDecision[]
+}
+
+UsecaseTopologyDecision :=
+    MdfSubstitution
+  | PreserveUsecase
+  | DegradeToIsland
+  | DeleteOrReconstruct
+```
+
+`MdfSubstitution` contains all pair replacements and one complete structural projection:
+removed pairs, added MDF members, added chain pairs, resulting topology/type, and empty
+MDF assignment metadata. It is intentionally excluded from
+`affectedUsecaseSystemIds`. All other decision kinds retain their existing FR-DEL-02
+selection semantics.
+
+The implementation details and downstream projection contract are defined in
+[`../pure-mdf-substitution-design.md`](../pure-mdf-substitution-design.md).
+
+### 4.2 Affected UC Set (Phase 2 output)
+
+The union of UCs requiring ordinary deletion handling, selected reconstruction or
+preservation, or type degradation. This is the set gated by FR-DEL-02 and returned in
+full when any member is unselected. A pure MDF structural update is recorded separately
+and is not a member of this set.
+
+### 4.3 `MarkedForDeletion` (`DeleteOrReconstruct` detail)
 
 ```
 MarkedForDeletion {
-  ucSystemIds:  Set<UcSystemId>
-  reasonPerUc:  Map<UcSystemId, DeletionReason>
+  ucSystemIds:             Set<UcSystemId>
+  deletedComponentPerUc:   Map<UcSystemId, DeletedComponent>
 }
 
-DeletionReason =
-  | { kind: 'component-deleted'; itemKind: 'subgraph' | 'data-link' | 'control-link'; itemSystemId: number }
-  | { kind: 'pair-broken-single-path' }        // single-path UC, reconstruction failed
-  | { kind: 'pair-broken-multi-path' }         // multi-path UC, some pairs broken
+DeletedComponent {
+  type:      'SUBGRAPH' | 'DATA_LINK' | 'CONTROL_LINK'
+  systemId:  number
+}
 ```
 
-### 4.2 `DeletionPreservedUC` (Phase 2 output)
+Every final deletion mark retains only its deleted-component cause. Single-path and
+multi-path analysis determine whether a mark is preserved, unmarked, or reconstructed;
+they are internal routing behavior and are not part of the mark contract or issue
+payload. When several components affect the same UC, the deterministic cause precedence
+is subgraph, then data link, then control link.
+
+### 4.4 `DeletionPreservedUC` (`PreserveUsecase` detail)
 
 For multi-path UCs where all original pairs survive:
 
@@ -136,7 +178,7 @@ DeletionPreservedUC {
 }
 ```
 
-### 4.3 `ReconstructionPath` (Phase 2 output)
+### 4.5 `ReconstructionPath` (`DeleteOrReconstruct` detail)
 
 For single-path UCs where bounded DFS finds an alternate route:
 
@@ -147,197 +189,155 @@ ReconstructionPath {
 }
 ```
 
-Phase 2 pushes these into `context.dfsPaths` at the end of its run — the paths then
-flow through Phase 8's Combination Expansion uniformly with main-DFS output.
+Phase 2 stores these under the matching `DELETE_OR_RECONSTRUCT` decision. Combination
+Expansion consumes them alongside Phase 7 `dfsPaths` without duplicating them in both
+collections.
 
-### 4.4 `DegradedUc` (Phase 2 output — FR-STATUS-02(b))
+### 4.6 `IslandUseCaseCandidate` (`DegradeToIsland` detail)
 
 For `LINKED` UCs where a data-link deletion left the pair with only control-link
 support:
 
 ```
-DegradedUc {
-  ucSystemId:      UcSystemId
-  degradedPairs:   Array<{
-    sourceSgSystemId: number;
-    destSgSystemId:   number;
-    deletedDataLinkId: number;
-  }>
+IslandUseCaseCandidate {
+  usecase:              UseCase
+  dataLinkLossPairs:    DataLinkLossPair[]
+}
+
+DataLinkLossPair {
+  sourceSubgraphSystemId:    number
+  destSubgraphSystemId:      number
+  deletedDataLinkSystemId:   number
 }
 ```
 
 Phase 11 emits: `IUsecaseRepository.update(ucId, {type: 'ISLAND'})`. A single
 `ARC-ROUTING-UC-AUTO-ISLAND` warning is emitted per UC,
-carrying the list of degraded pairs.
+carrying the list of data-link-loss pairs.
 
-### 4.5 `IslandTransition` (Phase 3 `ISLAND` → `LINKED` output)
+### 4.7 `IslandTransition` (Phase 3 `ISLAND` → `LINKED` output)
 
 ```
 IslandTransition {
-  ucSystemId:            UcSystemId
-  directionCorrections:  DirectionCorrection[]     // Step 1 output
-  transitioning:         boolean                   // Step 2 result: true = ISLAND → LINKED
-  addedSgSystemIds:      number[]                  // transparent-bridge SGs added by coverage paths
-  addedPairs:            Pair[]                    // bridge-mediated pairs added
+  usecase:                    UseCase
+  directionCorrections:       DirectionCorrection[] // Step 1 output
+  addedSubgraphSystemIds:     number[]              // transparent-bridge SGs added by coverage paths
+  addedPairs:                 SubgraphPair[]         // bridge-mediated directed pairs
 }
 
 DirectionCorrection {
-  pairSystemId:  number
-  newDirection:  { sourceSgSystemId: number; destSgSystemId: number }
+  currentSourceSubgraphSystemId: number
+  currentDestSubgraphSystemId:   number
+  newSourceSubgraphSystemId:     number
+  newDestSubgraphSystemId:       number
 }
 ```
 
+Only fully covered UCs receive an `IslandTransition`, so a separate `transitioning`
+flag is unnecessary. The descriptor carries the immutable committed `UseCase`; Phase 11
+uses its `systemId` when staging the update. Pair relationship-row identifiers remain a
+persistence concern and do not enter the core contract.
+
 ---
 
-## 5. Phase 2 — DeletionScopeService
+## 5. Phase 2 — TopologyChangeAnalysisService
 
 Runs after Phase 1 (PreValidation) and before Phase 3. It examines the file-wide
-committed pre-session UC set, classifies every UC that requires deletion, structural
-mutation, or type degradation, fails fast on FR-DEL-02, then handles topology-aware
-reconstruction per FR-DEL-06.
+committed pre-session UC set, aggregates all topology effects per UC, publishes one
+finalized decision, fails fast on FR-DEL-02 for ordinary affected UCs, then handles
+topology-aware reconstruction per FR-DEL-06.
 
-In manual mode, Phase 2 is a no-op. Manual creation performs no file-wide affected-UC
-classification, FR-DEL-02 gate, reconstruction, degradation, or existing-UC mutation.
-Manual pair discovery remains limited to the explicitly supplied effective routing scope;
-commit-time validation protects existing UCs from unresolved structural damage.
+Manual mode still performs file-wide impact discovery and both deletion-side gates. It
+does not run ordinary automatic reconstruction, degradation, or preservation. A pure MDF
+substitution remains a system-owned direct structural update in either routing mode
+because it is not deletion reconstruction. Manual pair discovery remains limited to the
+explicitly supplied effective routing scope; commit-time validation protects staged UCs
+from stale references.
 
 ### 5.1 FR-DEL-01: Detect all affected UCs
 
-**Rule:** For each deleted component (SG or intra-usecase link), determine whether
-the deletion actually breaks anything in a UC. Only breaking deletions add the UC to
-`impactedUcIds`. Structural substitutions are added to `structurallyAffectedUcIds`, and
-`LINKED`-to-`ISLAND` transitions are added to `degradedToIsland`. The union
-of these sets is the file-wide affected-UC set used by FR-DEL-02. Fully covered link
-deletions that require no UC mutation produce no output.
+**Rule:** Build a read-only snapshot-derived inventory, aggregate every component effect
+by UC identity, and finalize each UC once. Pure MDF substitutions publish a direct update
+and are excluded from the affected set. Ordinary deletion, preservation, degradation,
+and reconstruction decisions form the file-wide affected set used by FR-DEL-02. Fully
+covered link deletions that require no UC mutation produce no output.
 
-**Deletion precedence for `reasonPerUc`:** SG deletion > data-link deletion >
+**Deletion precedence for `deletedComponentPerUc`:** SG deletion > data-link deletion >
 control-link deletion. Higher-precedence reasons are set first and not overwritten
 by later, lower-precedence deletions on the same UC.
 
 **Algorithm:**
 
 ```
-impactedUcIds: Set<UcSystemId> := ∅
-structurallyAffectedUcIds: Set<UcSystemId> := ∅
-reasonPerUc:   Map<UcSystemId, DeletionReason> := empty
+inventory := buildTopologyImpactInventory(input.graphSnapshot)
+drafts := Map<UcSystemId, UsecaseImpactDraft>()
 
-// Priority 1 (highest): SG deletions — always impacting
-for each sg in input.graphEdits.deletedSgs:
-  ucs := context.allUcs.filter(uc => uc.subgraphSystemIds.includes(sg.systemId))
-  for each uc in ucs:
-    if not impactedUcIds.has(uc.systemId):
-      impactedUcIds.add(uc.systemId)
-      reasonPerUc.set(uc.systemId, {kind: 'component-deleted', itemKind: 'subgraph', itemSystemId: sg.systemId})
+for each deleted subgraph in stable ID order:
+  record ordinary deletion impact for every committed UC containing it
 
-// Priority 2: data-link deletions — impacting only if pair loses data-link coverage
-for each dl in input.graphEdits.deletedDataLinks:
-  // Routing-only exclusions must not make a persisted UC appear structurally broken.
-  survivingDataLinks := IDataLinkRepository.findLinksByPair(dl.sourceSg, dl.destSg, fileSystemId, [])
-  survivingCtrlLinks := IControlLinkRepository.findLinksByPair(dl.sourceSg, dl.destSg, fileSystemId, [])
-
-  if survivingDataLinks.length > 0:
-    continue  // another data-link supports the pair; fully covered; no impact, no warning
-
-  // NEW: Transparent bridge substitution check (MDF Scenario 4 — subgraph-boundary offload)
-  // If a path from dl.sourceSg → dl.destSg exists through IsMdf-only intermediates,
-  // this is a transparent topology change (MDF module offload with intermediate SG).
-  // The main pipeline discovers the new path via cone/DFS and FR-DUP-03(b1)
-  // updates existing UCs to include the bridge. Record those UCs for FR-DEL-02.
-  transparentBridgePath := findTransparentBridgePath(
-                              from        = dl.sourceSg,
-                              to          = dl.destSg,
-                              adjacency   = intraUsecaseDataLinkAdjacency restricted to effectiveRoutingScope,
-                              isMdfFilter = intermediates must have IsMdf=true,
-                              maxDepth    = NFR-PERF-01 cap,
-                            )
-  if transparentBridgePath is not null:
-    for each uc in context.allUcs containing the deleted pair:
-      structurallyAffectedUcIds.add(uc.systemId)
+for each deleted data-link in stable ID order:
+  if another direct data-link survives:
     continue
 
-  if survivingCtrlLinks.length > 0:
-    // Only control-link left — pair I7-supported but not data-link-covered.
-    // Auto-transition LINKED → ISLAND per FR-STATUS-02(b); warn user.
-    ucs := context.allUcs.filter(uc => uc.subgraphPairs.some(p =>
-             (p.sourceSubgraphSystemId == dl.sourceSg && p.destSubgraphSystemId == dl.destSg) ||
-             (p.sourceSubgraphSystemId == dl.destSg && p.destSubgraphSystemId == dl.sourceSg)))
-    for each uc in ucs:
-      if uc.type == 'LINKED':                     // only LINKED UCs auto-transition
-        addOrMerge(context.degradedToIsland, uc.systemId, {
-          sourceSgSystemId: dl.sourceSg,
-          destSgSystemId:   dl.destSg,
-          deletedDataLinkId: dl.systemId,
-        })
+  if a direct control-link survives:
+    record LINKED-to-ISLAND degradation where applicable
     continue
 
-  // No surviving links between the pair — pair broken; UC impacted.
-  ucs := context.allUcs.filter(uc => uc.subgraphPairs.some(p =>
-           (p.sourceSubgraphSystemId == dl.sourceSg && p.destSubgraphSystemId == dl.destSg) ||
-           (p.sourceSubgraphSystemId == dl.destSg && p.destSubgraphSystemId == dl.sourceSg)))
-  for each uc in ucs:
-    if not impactedUcIds.has(uc.systemId):
-      impactedUcIds.add(uc.systemId)
-      reasonPerUc.set(uc.systemId, {kind: 'component-deleted', itemKind: 'data-link', itemSystemId: dl.systemId})
+  substitution := mdfSubstitutionAnalyzer.analyze(deletedDataLink, inventory)
+  for each committed UC containing the exact directed deleted pair:
+    if substitution exists:
+      record provisional MDF substitution in that UC's draft
+    else:
+      record ordinary data-link deletion impact
 
-// Priority 3 (lowest): control-link deletions — impacting only if pair loses all support
-for each cl in input.graphEdits.deletedControlLinks:
-  survivingDataLinks := IDataLinkRepository.findLinksByPair(cl.sourceSg, cl.destSg, fileSystemId, [])
-  survivingCtrlLinks := IControlLinkRepository.findLinksByPair(cl.sourceSg, cl.destSg, fileSystemId, [])
+for each deleted control-link in stable ID order:
+  if no direct data-link or control-link survives:
+    record ordinary control-link deletion impact for every UC containing the pair
 
-  if survivingDataLinks.length > 0 or survivingCtrlLinks.length > 0:
-    continue  // pair still supported (data or another control); deletion is benign; no impact
+decisions := []
+for each UC draft in stable UC ID order:
+  if every topology-changing deletion is a compatible MDF substitution
+     and the draft contains no ordinary deletion impact:
+    decisions.push(buildAtomicMdfSubstitutionDecision(draft))
+  else:
+    discard every provisional MDF substitution
+    decisions.push(finalizeOrdinaryDeletionDecision(draft))
 
-  // Pair loses all support (I7 broken) — UC impacted
-  ucs := context.allUcs.filter(uc => uc.subgraphPairs.some(p =>
-           (p.sourceSubgraphSystemId == cl.sourceSg && p.destSubgraphSystemId == cl.destSg) ||
-           (p.sourceSubgraphSystemId == cl.destSg && p.destSubgraphSystemId == cl.sourceSg)))
-  for each uc in ucs:
-    if not impactedUcIds.has(uc.systemId):
-      impactedUcIds.add(uc.systemId)
-      reasonPerUc.set(uc.systemId, {kind: 'component-deleted', itemKind: 'control-link', itemSystemId: cl.systemId})
-
-// End: emit warnings for auto-transition cases
-for each entry in context.degradedToIsland:
-  context.warnings.push({
-    code: ARC-ROUTING-UC-AUTO-ISLAND,
-    impactedEntity: { kind: 'usecase', systemId: entry.ucSystemId },
-    details: { degradedPairs: entry.degradedPairs }
-  })
-
-affectedUcIds := impactedUcIds
-                 ∪ structurallyAffectedUcIds
-                 ∪ set(context.degradedToIsland[*].ucSystemId)
-context.affectedUcSystemIds := affectedUcIds
+affectedUcIds := set(decisions excluding MDF_SUBSTITUTION by UC system ID)
+context.topologyChangeAnalysis := {affectedUsecaseSystemIds: affectedUcIds, decisions}
 ```
 
 **Notes:**
 - Deletion-impact `findLinksByPair` calls use the post-overlay state after STAGED
   deletions but deliberately ignore request-only routing exclusions. Therefore
   "surviving" means present in the actual post-deletion graph.
-- `findTransparentBridgePath` runs bounded DFS from `sourceSg` to `destSg` in the
-  post-deletion adjacency restricted to local `effectiveRoutingScope`, only stepping
-  through SGs where `isMdf=true`. Returns the full path (including endpoints) if found,
-  null otherwise. For **MDF Scenario 4**, every UC containing the replaced pair is
-  structurally affected and enters the FR-DEL-02 selection gate. Phase 5–9 then discover
-  the new path and FR-DUP-03(b1) updates the selected UC in place.
-- `addOrMerge` is pseudocode for "add to the list, merging pairs if the UC already
-  has an entry." One warning per UC, even if multiple pairs degraded in it.
+- `MdfSubstitutionAnalyzer` returns a complete substitution or `null`. A complete
+  substitution requires one strict directed chain with MDF-only intermediates, matching
+  EC semantics, explicit scope, and no surviving direct support.
+- Direct support is checked against complete post-overlay catalogs before request
+  exclusions. An excluded but physically surviving direct link still prevents MDF
+  substitution. Replacement-chain discovery then uses only routable, non-excluded scope;
+  excluding a chain member/link makes the strict substitution unavailable.
+- Pure MDF decisions do not enter FR-DEL-02 and do not depend on Phase 5–9 discovery.
+  Phase 11 applies their authoritative structural projection directly.
+- Classification and orphan validation consume an in-memory projection of the finalized
+  MDF topology so DFS rediscovery cannot create duplicate work.
+- `addOrMerge` is pseudocode for "add a candidate, merging data-link-loss pairs if the UC
+  already has an entry." One warning per UC, even if multiple pairs lost data-link support.
 - `ISLAND` UCs with data-link deletion + control-link left: no auto-transition
   needed (already `ISLAND`). No warning either — this is expected state churn on
   `ISLAND` UCs. If the pair loses all support, the UC does become impacted via
   the "no surviving links" branch above.
 
-**Complexity:** O(deletions × avg-UCs-per-item + deletions × constant-link-lookup).
-Repo methods use indexed lookups. Bounded by NFR-PERF-01.
+**Complexity:** indexes are built once. Impact aggregation is O(deletions ×
+avg-UCs-per-item); MDF checks use cycle-safe bounded traversal over request-scoped
+adjacency. No per-deletion repository reads are introduced.
 
 **Edge cases:**
 - **Same UC touched by multiple deletions:** precedence rule (SG > data-link >
-  control-link) governs `reasonPerUc`. If a UC is also `degradedToIsland`
-  AND `impactedUcIds`, the `impactedUcIds` marking wins — the UC goes to the
-  deletion flow (topology detection + reconstruction attempt). Rationale: if a UC
-  has both a broken pair (loss of all support) and a degraded pair (data-link gone,
-  control-link left), the broken pair takes precedence — the UC needs the full
-  deletion workflow.
+  control-link) governs the retained ordinary deleted-component cause. If a UC has both
+  a broken pair and a degraded pair, the final decision is `DELETE_OR_RECONSTRUCT`; the
+  broken pair takes precedence over degradation.
 - **Deleted control-link on an `ISLAND` UC:** control-link deletion where pair
   loses all support → UC impacted (marked for deletion). The UC was already
   `ISLAND`; deletion workflow decides its fate. No degradation transition.
@@ -349,7 +349,10 @@ Repo methods use indexed lookups. Bounded by NFR-PERF-01.
 **Rule:** If any UC in `affectedUcIds` is absent from the IDs derived from
 `input.selectedUsecases`, return an error containing the **full affected set**
 and the missing subset. Routing does not proceed. This includes UCs that would be
-deleted, structurally updated, or degraded from `LINKED` to `ISLAND`.
+deleted, ordinarily reconstructed/preserved, or selected as a `LINKED` to `ISLAND`
+candidate. A UC whose only decision is `MDF_SUBSTITUTION` is not in `affectedUcIds` and
+does not require UC selection. Its MDF members remain subject to explicit routing-scope
+validation.
 
 **Algorithm:**
 
@@ -415,20 +418,24 @@ for this pass. Deletion-side `ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT` is evaluat
 the client retries with the full affected UC selection. This preserves the client
 workflow that first learns every UC and SG it must add.
 
-**Edge case — empty affected set.** No components were deleted, or the deletions
-require no UC mutation. FR-DEL-02 has nothing to check, but deletion-side FR-API-07 still
-runs because an orphan deleted link may have no affected UC. Phase 3 still runs
-(transitions are triggered by *additions* too, not just deletions).
+**Edge case — empty affected set.** No components were deleted, the deletions require no
+ordinary UC handling, or every resulting decision is a pure MDF substitution. FR-DEL-02
+has nothing to check, but deletion-side FR-API-07 still runs because an orphan deleted
+link may have no affected UC. Pure MDF decisions remain available for Phase 11. Phase 3
+still runs (transitions are triggered by *additions* too, not just deletions).
 
 ### 5.3 FR-DEL-03: Mark UCs for deletion
 
-**Rule:** Once FR-DEL-02 passes, every impacted UC is marked pending deletion.
+**Rule:** Once FR-DEL-02 passes, every finalized `DELETE_OR_RECONSTRUCT` decision is
+marked pending deletion. `MDF_SUBSTITUTION`, `PRESERVE`, and `DEGRADE_TO_ISLAND`
+decisions are never marked pending deletion.
 
 **Algorithm:**
 
 ```
-context.markedForDeletion.ucSystemIds := impactedUcIds
-context.markedForDeletion.reasonPerUc := reasonPerUc
+context.topologyChangeAnalysis.decisions
+  .filter(decision => decision.kind == 'DELETE_OR_RECONSTRUCT')
+  .forEach(decision => stage provisional deletion mark from decision.deletedComponent)
 ```
 
 The mark is **provisional** — FR-DEL-06 (§5.4) may un-mark a multi-path UC whose
@@ -443,8 +450,8 @@ the appropriate reconstruction mode.
 **Algorithm — topology detection per UC:**
 
 ```
-for each ucId in impactedUcIds:
-  uc := context.allUcs.find(u => u.systemId == ucId)
+for each decision where decision.kind == 'DELETE_OR_RECONSTRUCT':
+  uc := decision.usecase
   starts := SGs in uc.subgraphs with no incoming pair (in uc.pairs)
   ends   := SGs in uc.subgraphs with no outgoing pair
   if starts.size == 1 and ends.size == 1:
@@ -474,8 +481,8 @@ for each uc in multiPathUcs:
       brokenPairs.push(pair)
       continue
     // Supporting link (data or control) still present? (I7)
-    hasDataLink := IDataLinkRepository.findLinksByPair(A, B, fileSystemId, []).length > 0
-    hasCtrlLink := IControlLinkRepository.findLinksByPair(A, B, fileSystemId, []).length > 0
+    hasDataLink := inventory.survivingDataLinkPairKeys.has(unorderedPairKey(A, B))
+    hasCtrlLink := inventory.survivingControlLinkPairKeys.has(unorderedPairKey(A, B))
     if hasDataLink or hasCtrlLink:
       survivingPairs.push(pair)
     else:
@@ -485,13 +492,10 @@ for each uc in multiPathUcs:
     // All pairs survive — deletion is a false-positive impact
     // (e.g., an isolated SG in uc.subgraphs was deleted, no pair broken)
     droppedSgIds := input.graphEdits.deletedSgs.filter(sg => sg ∈ uc.subgraphs).map(sg => sg.systemId)
-    context.deletionPreservedUCs.push({ucSystemId: uc.systemId, droppedSgIds})
-    context.markedForDeletion.ucSystemIds.delete(uc.systemId)   // un-mark
-    context.markedForDeletion.reasonPerUc.delete(uc.systemId)
+    replace decision with PRESERVE {usecase: uc, droppedSgIds}
   else:
     // Stays marked for deletion; user decides preserve/accept via FR-DEL-05
-    context.markedForDeletion.reasonPerUc.set(uc.systemId, {kind: 'pair-broken-multi-path'})
-    // No reconstruction attempted
+    // Keep the existing deleted-component cause. No reconstruction is attempted.
 ```
 
 **Design rationale — multi-path UCs get no reconstruction.** These UCs were created
@@ -512,7 +516,7 @@ for each {uc, startSg, endSg} in singlePathUcs:
   // Step 6: If start or end SG was deleted, no reconstruction possible
   if startSg ∈ input.graphEdits.deletedSgs or endSg ∈ input.graphEdits.deletedSgs:
     // UC stays marked for deletion; no reconstruction
-    context.markedForDeletion.reasonPerUc.set(uc.systemId, {kind: 'pair-broken-single-path'})
+    // Keep the existing deleted-component cause.
     continue
 
   // Steps 2, 3, 4: bounded DFS from startSg to endSg
@@ -520,12 +524,12 @@ for each {uc, startSg, endSg} in singlePathUcs:
 
   // Step 7: no valid path found → UC stays marked for deletion
   if paths.length == 0:
-    context.markedForDeletion.reasonPerUc.set(uc.systemId, {kind: 'pair-broken-single-path'})
+    // Keep the existing deleted-component cause.
     continue
 
   // Add paths to reconstructionPaths for Phase 8 Combination Expansion
   for each path in paths:
-    context.reconstructionPaths.push({originalUcSystemId: uc.systemId, path})
+    decision.reconstructionPaths.push({originalUcSystemId: uc.systemId, path})
 ```
 
 Skipping endpoint-anchored reconstruction does not suppress normal routing of the
@@ -557,9 +561,7 @@ fragments remain subject to FR-DEL-04's manual-only rule.
   B := ecLink.sourceSg
   C := ecLink.destSg
 
-  filteringUcs := input.selectedUsecases.filter(
-    selected => selected.systemId ∉ context.markedForDeletion.ucSystemIds)
-  ucFilter := buildUcFilter(filteringUcs)   # same preserved snapshot and rule as FR-KV-02
+  ucFilter := buildUcFilter(input.selectedUsecases)   # same request-start comparison frame as FR-KV-02
   bBaseline := applyUcFilterToSg(B, ucFilter, ISubgraphRepository)   # shared utility
   cBaseline := applyUcFilterToSg(C, ucFilter, ISubgraphRepository)
   bApi := input.activeSubgraphs.find(entry => entry.systemId == B).sgkvs
@@ -579,11 +581,14 @@ fragments remain subject to FR-DEL-04's manual-only rule.
   the reconstruction DFS uses the default `ecTreatment = 'boundary'` (standard
   behavior).
 
-**Merge into main dfsPaths:**
+**Phase 8 path input:**
 
 ```
-// After all reconstruction paths are computed:
-context.dfsPaths.push(...context.reconstructionPaths.map(rp => rp.path))
+reconstructionPaths := context.topologyChangeAnalysis.decisions
+  .filter(decision => decision.kind == 'DELETE_OR_RECONSTRUCT')
+  .flatMap(decision => decision.reconstructionPaths.map(item => item.path))
+
+pathsForExpansion := [...context.dfsPaths, ...reconstructionPaths]
 ```
 
 **Why merge into `dfsPaths`?** Phase 8 (Combination Expansion, LLD2) processes every
@@ -593,8 +598,9 @@ interior extension silent auto-update dedup reconstruction candidates at Phase 9
 against the main DFS output and existing DB UCs; any other overlap or disjoint result
 surfaces via FR-DUP-04.
 
-**Phase 8 receives paths from two sources but doesn't care which is which.** Both are
-`DfsPath` values.
+**Phase 8 receives paths from two sources but doesn't care which is which.** Main DFS
+paths come from `context.dfsPaths`; reconstruction paths come from the matching topology
+decisions. Both carry `DfsPath` values.
 
 **Design rationale — reconstruction DFS in Phase 2, not later.** The DFS is
 self-contained (start→end bounded search); it doesn't need KV data from Phase 4 or
@@ -605,12 +611,17 @@ in one place and gives Phase 8 a single unified path list to expand.
 
 ## 6. Phase 3 — `IslandTransitionService`
 
-Runs after Phase 2 (DeletionScope). Handles FR-STATUS-04: promote `ISLAND` UCs
+Runs after Phase 2 (Topology Change Analysis). Handles FR-STATUS-04: promote `ISLAND` UCs
 to `LINKED` when new links restore coverage, with control-link-guarded direction
 correction as a preliminary step.
 
 Manual mode: this phase is a no-op — manual UC creation doesn't scan existing
 `ISLAND` UCs for transitions.
+
+Phase 3 is snapshot-only. It reads committed UCs and the prepared routable graph from
+`input.graphSnapshot`; it does not query UC or link repositories. Eligible UCs are
+committed pre-run `ISLAND` UCs whose SG members and pair endpoints are all in the
+effective snapshot scope and which Phase 2 did not mark for deletion.
 
 ### 6.1 FR-STATUS-04 Step 1: Direction correction
 
@@ -618,17 +629,25 @@ Manual mode: this phase is a no-op — manual UC creation doesn't scan existing
 in direction `B → A` AND a control-link exists between A and B (the pair is
 "control-link-held"), correct the stored pair to `(B, A)`.
 
-**Algorithm — per pair in each pre-existing `ISLAND` UC:**
+**Algorithm — per pair in each eligible pre-existing `ISLAND` UC:**
 
 ```
-for each uc in input.islandUcs where uc.type == 'ISLAND':
-  transition := { ucSystemId: uc.systemId, directionCorrections: [], ... }
+scopeSgIds := set(input.graphSnapshot.subgraphs[*].subgraph.systemId)
+markedUcIds := set(context.topologyChangeAnalysis.decisions
+  .filter(decision => decision.kind == 'DELETE_OR_RECONSTRUCT')[*].usecase.systemId)
+islandUcs := input.graphSnapshot.committedUsecases
+  .filter(uc => uc.type == 'ISLAND')
+  .filter(uc => every UC SG member and pair endpoint is in scopeSgIds)
+  .filter(uc => uc.systemId not in markedUcIds)
+
+for each uc in islandUcs ordered by uc.systemId:
+  provisionalCorrections := []
 
   for each pair (A, B) in uc.pairs:
-    dataLinkAtoB := IDataLinkRepository.findLinksByPair(A, B, fileSystemId, excluded)
-                     .filter(dl => dl.sourceSg == A and dl.destSg == B)
-    dataLinkBtoA := IDataLinkRepository.findLinksByPair(A, B, fileSystemId, excluded)
-                     .filter(dl => dl.sourceSg == B and dl.destSg == A)
+    dataLinkAtoB := input.graphSnapshot.routableDataLinks
+      .filter(dl => dl.sourceSg == A and dl.destSg == B)
+    dataLinkBtoA := input.graphSnapshot.routableDataLinks
+      .filter(dl => dl.sourceSg == B and dl.destSg == A)
 
     if dataLinkAtoB.length > 0:
       continue  // stored direction matches; no correction needed
@@ -636,15 +655,18 @@ for each uc in input.islandUcs where uc.type == 'ISLAND':
       continue  // no data-link in either direction; no correction; Step 2 will find uncovered
 
     // Opposite-direction data-link exists. Is pair control-link-held?
-    controlLinks := IControlLinkRepository.findLinksByPair(A, B, fileSystemId, excluded)
+    controlLinks := input.graphSnapshot.routableControlLinks
+      .filter(cl => cl connects A and B in either direction)
     if controlLinks.length == 0:
       continue  // no control-link → pair was originally data-link-derived and that
                 // data-link was deleted (FR-DEL scenario, not this rule)
 
     // Control-link-held pair with opposite data-link → correct direction
-    transition.directionCorrections.push({
-      currentDirection: { sourceSgSystemId: A.systemId, destSgSystemId: B.systemId },
-      newDirection: { sourceSgSystemId: B.systemId, destSgSystemId: A.systemId }
+    provisionalCorrections.push({
+      currentSourceSubgraphSystemId: A.systemId,
+      currentDestSubgraphSystemId: B.systemId,
+      newSourceSubgraphSystemId: B.systemId,
+      newDestSubgraphSystemId: A.systemId
     })
 ```
 
@@ -655,9 +677,9 @@ When a data-link later appears, its direction *is* authoritative and overrides t
 pair. Pairs whose original data-link has been deleted follow the deletion scenario
 (FR-DEL) — not this rule — because there's no data-link now to override anything.
 
-**Applied vs recorded:** The direction correction is recorded in
-`transition.directionCorrections` but *not applied* to the pair in memory yet.
-Step 2 (§6.2) evaluates coverage using the corrected direction, and Phase 11
+**Applied vs recorded:** Direction corrections remain provisional and do not mutate the
+committed `UseCase`. Step 2 (§6.2) evaluates a local pair view with those corrections
+applied. Only a fully covered UC publishes them in its `IslandTransition`; Phase 11
 (RoutingChangeStager) emits the actual `edit_action` update.
 
 **I7 preservation:** After correction, the pair is still supported by both the
@@ -677,9 +699,8 @@ If **all** pairs are covered, promote the UC to `LINKED`.
 **Algorithm:**
 
 ```
-for each transition in [preliminary transitions from §6.1]:
-  uc := findUcById(transition.ucSystemId)
-  effectivePairs := applyDirectionCorrections(uc.pairs, transition.directionCorrections)
+for each uc and provisionalCorrections from §6.1:
+  effectivePairs := applyDirectionCorrections(uc.pairs, provisionalCorrections)
 
   allCovered := true
   addedSgs := new Set<number>()
@@ -687,14 +708,16 @@ for each transition in [preliminary transitions from §6.1]:
 
   for each pair (A, B) in effectivePairs:
     // Direct data-link check
-    dl := IDataLinkRepository.findLinksByPair(A, B, fileSystemId, excluded)
-           .filter(dl => dl.sourceSg == A and dl.destSg == B)
+    dl := input.graphSnapshot.routableDataLinks
+      .filter(dl => dl.sourceSg == A and dl.destSg == B)
     if dl.length > 0:
       continue  // covered directly
 
-    // Bridge-mediated coverage: bounded DFS from A to B, allowed intermediates = SGs with IsMdf=true
+    // Bridge-mediated coverage: deterministic bounded DFS over routableDataLinks.
+    // Every intermediate must be in snapshot scope and have IsMdf=true.
     bridgePath := boundedDfsThroughBridges(
-      A, B, effectiveRoutingScope, excluded, maxDepth)
+      A, B, input.graphSnapshot.routableDataLinks,
+      input.graphSnapshot.subgraphs, maxDepth = scopeSgIds.size)
     if bridgePath is null:
       allCovered := false
       break
@@ -707,10 +730,12 @@ for each transition in [preliminary transitions from §6.1]:
       addedPairs.add({sourceSg: edge.from, destSg: edge.to})
 
   if allCovered:
-    transition.transitioning := true
-    transition.addedSgSystemIds := Array.from(addedSgs)
-    transition.addedPairs := Array.from(addedPairs)
-    context.islandTransitions.push(transition)
+    context.islandTransitions.push({
+      usecase: uc,
+      directionCorrections: sort(provisionalCorrections),
+      addedSubgraphSystemIds: sort(Array.from(addedSgs)),
+      addedPairs: sort(Array.from(addedPairs))
+    })
   else:
     // Direction corrections don't apply if the UC doesn't transition
     // (per FR-STATUS-04: "Partial coverage does not trigger conversion")
@@ -730,10 +755,14 @@ disallows this.
 `ISLAND`. The partially-corrected direction is not persisted (rolled back
 implicitly by discarding the transition).
 
-**Complexity:** each pair does one direct data-link lookup + potentially one bounded
-DFS through bridge SGs. Bounded by NFR-PERF-01.
+**Complexity:** each pair does one in-memory direct data-link lookup and potentially one
+bounded DFS through bridge SGs. Bounded by NFR-PERF-01.
 
-**Output written to `context.islandTransitions`.** Phase 11 emits:
+Output publication is atomic per UC and deterministic: Phase 3 builds provisional
+corrections/additions locally, publishes only fully covered descriptors, deduplicates
+bridge additions, and orders descriptors and nested collections by numeric IDs.
+
+**Output written to `context.islandTransitions`.** Phase 11 consumes each descriptor and emits:
 - `IUsecaseRepository.update(ucId, {type: 'LINKED', subgraphs: existing ∪ addedSgs, pairs: existing ∪ addedPairs})`
 - One `reverseDirection(ucId, currentSourceSgSystemId, currentDestSgSystemId)` per
   entry in `directionCorrections`. The persistence adapter resolves the relationship
@@ -792,21 +821,28 @@ branches.
 - T-P2-c3: Control-link deleted, no other link between same SGs → UC impacted (pair loses I7 support)
 - T-P2-d1: Data-link deleted, another data-link between same SGs → NOT impacted, no warning
 - T-P2-d2: Data-link deleted, only control-link left between same SGs → UC is affected by type degradation, gets `ARC-ROUTING-UC-AUTO-ISLAND`, and transitions to `ISLAND` when selected
-- T-P2-d2-selection: The degraded UC is absent from `selectedUsecaseSystemIds` → 422 with full affected and missing sets
+- T-P2-d2-selection: The island-use-case candidate is absent from `selectedUsecaseSystemIds` → 422 with full affected and missing sets
 - T-P2-d3: Data-link deleted, no other link → UC impacted (pair broken)
 - T-P2-d4: Data-link deleted, only control-link left, UC is already `ISLAND` → no auto-transition (already `ISLAND`), no warning
 - T-P2-exclusion: A surviving support link is request-excluded but not deleted → it
   still prevents a false file-wide deletion impact
-- T-P2-mdf-a: **MDF Scenario 4 (single intermediate)** — direct L1(SG1→SG2) deleted; SG_INT (isMdf=true) added; L2(SG1→SG_INT) and L3(SG_INT→SG2) added → transparent bridge path found → UC-A is affected by structural mutation and must be selected → downstream Phase 9 FR-DUP-03(b1) identity-preserving interior extension UPDATES UC-A to include SG_INT
-- T-P2-mdf-selection: A UC requiring transparent-bridge structural update is absent from `selectedUsecaseSystemIds` → 422 with full affected and missing sets
-- T-P2-mdf-b: **MDF Scenario 4 (chain of IsMdf bridges)** — L1(SG1→SG2) deleted; chain SG_INT1→SG_INT2 (both isMdf=true) inserted → transparent bridge path found via chain → selected UC-A UPDATED to include both bridges
-- T-P2-mdf-c: **Not MDF (non-IsMdf intermediate)** — L1(SG1→SG2) deleted; a regular SG (not isMdf) inserted between them → transparent bridge check fails → falls through to normal impact flow → FR-DEL-02 fires if UC-A unselected
-- T-P2-mdf-d: **Mixed — some deletions transparent, some not** — two data-links deleted; one has transparent bridge substitution, other doesn't → transparent one skipped, other impacts UC → FR-DEL-02 fires for the non-transparent one
+- T-P2-mdf-a: **MDF Scenario 4 (single intermediate)** — direct L1(SG1→SG2) deleted; SG_INT (`IsMdf=true`) and links SG1→SG_INT→SG2 form one strict chain → Phase 2 emits `MDF_SUBSTITUTION`; UC-A is not in FR-DEL-02 and Phase 11 removes the old pair and adds the MDF topology
+- T-P2-mdf-selection: UC-A is absent from `selectedUsecaseSystemIds` but has only a pure MDF substitution → no FR-DEL-02 error; the direct update still occurs
+- T-P2-mdf-b: **MDF Scenario 4 (MDF chain)** — SG1→SG_INT1→SG_INT2→SG2 replaces the direct pair → one atomic UC-A update adds both MDF members and all chain pairs
+- T-P2-mdf-c: **Not MDF (non-MDF intermediate)** — a regular SG replaces the direct link → analyzer returns no substitution and normal FR-DEL-02 handling applies
+- T-P2-mdf-d: **Mixed UC impacts** — one deleted pair has an MDF chain and another has an ordinary deletion impact → all provisional MDF substitutions for that UC are discarded and FR-DEL-02 applies to the UC
+- T-P2-mdf-e: Replacement topology branches into multiple MDF chains → not the strict MDF scenario; normal FR-DEL-02 handling applies
+- T-P2-mdf-f: Direct control/data support remains on the original pair → not an MDF substitution; existing benign/degradation rules take precedence
+- T-P2-mdf-g: MDF chain replaces an EC link and every chain link is EC → direct update preserves one logical EC crossing and `type=EC`
+- T-P2-mdf-h: A physically surviving direct support link is request-excluded → it still prevents MDF substitution; request exclusions do not manufacture deletion impact
+- T-P2-mdf-i: An MDF chain SG/link is request-excluded → the chain is unavailable and normal deletion handling applies
+- T-P2-mdf-j: Valid active manual update already contains the MDF chain for an unselected UC → no duplicate auto update and no FR-DEL-02 error solely for that substitution
+- T-P2-mdf-k: The same manually updated UC has another ordinary deletion impact → FR-DEL-02 still requires that UC
 - T-P2-e: No deletions → Phase 2 short-circuits
-- T-P2-f-precedence: Same UC touched by SG deletion AND data-link deletion → `reasonPerUc` = SG (higher precedence)
-- T-P2-g-precedence: Same UC touched by data-link deletion AND control-link deletion (both breaking) → `reasonPerUc` = data-link
+- T-P2-f-precedence: Same UC touched by SG deletion AND data-link deletion → deleted-component cause = SG (higher precedence)
+- T-P2-g-precedence: Same UC touched by data-link deletion AND control-link deletion (both breaking) → deleted-component cause = data-link
 - T-P2-h: All affected UCs already in `selectedUsecaseSystemIds` → no error; proceed
-- T-P2-i: UC has one broken pair AND one degraded pair (data-link deleted, only control-link left) → UC goes to `impactedUcIds` (broken pair takes precedence); degradation entry NOT added
+- T-P2-i: UC has one broken pair AND one data-link-loss pair (data-link deleted, only control-link left) → final decision is `DELETE_OR_RECONSTRUCT` (broken pair takes precedence); degradation decision is not emitted
 
 **Phase 2 — deletion-side structural-edit closure (FR-API-07):**
 - T-P2-edit-a: A deletion affects an unselected UC and also has a missing/excluded surviving endpoint → return only `ARC-ROUTING-DEL-02` on the first pass
@@ -825,7 +861,7 @@ branches.
 
 **Phase 2 — single-path reconstruction (FR-DEL-06 steps 1–7):**
 - T-P2-j: Single-path UC [A → B → C], link B→C deleted, alternate B→X→C exists → reconstruction path [A, B, X, C] emitted
-- T-P2-k: Single-path UC [A → B → C], start SG A deleted → no reconstruction; UC stays marked with reason `pair-broken-single-path`
+- T-P2-k: Single-path UC [A → B → C], start SG A deleted → no reconstruction; UC stays marked with deleted-component cause SG A
 - T-P2-l: Single-path UC [A → B → C], all intermediate paths lost (no alt route) → no reconstruction; UC stays marked
 - T-P2-m: Single-path UC with cycle in graph (A → B → C, plus B → A) → bounded DFS terminates on cycle; no cyclic reconstruction path emitted
 - T-P2-n: Reconstruction path duplicates a path from main DFS (later, Phase 7) → both in `dfsPaths`; FR-DUP-03(a)/(b1) silent branches dedup at Phase 9 (exact match → no-op; identity-preserving interior extension → silent auto-update). Any other overlap surfaces via FR-DUP-04.
@@ -844,12 +880,13 @@ branches.
 - T-P3-f: One pair covered via bridge SG `IsMdf=true` → transition; bridge SG + mediated pairs added to UC
 - T-P3-g: One pair covered via non-bridge SG intermediate → pair not covered; UC stays `ISLAND`
 - T-P3-h: Partial coverage (some pairs yes, some no) → UC stays `ISLAND`; direction corrections NOT persisted
-- T-P3-i: Manual mode → Phase 3 runs but no-ops (input.islandUcs empty for manual)
+- T-P3-i: Manual mode → Phase 3 returns success without scanning committed `ISLAND` UCs
 - T-P3-j: Chain of bridge SGs A → br1 → br2 → B → transition with br1 and br2 both added
 
 **Phase 2 + Phase 3 interaction:**
 - T-P2P3-a: UC-A impacted by deletion; also an `ISLAND` UC transitions. Independent — both effects recorded.
-- T-P2P3-b: UC-B is impacted (in `markedForDeletion`) AND also in `islandUcs` — Phase 3 skips it (only scans non-deleted `ISLAND` UCs). Add filter in Phase 3 to exclude `markedForDeletion`.
+- T-P2P3-b: UC-B is impacted (in `markedForDeletion`) and is also a committed
+  `ISLAND` UC — Phase 3 skips it
 
 **Legacy test integration:** T-cases from
 `C:\Workspaces\qact.win.8.3.qact_83_ref\SGKV-Routing-Tests-Design-Agnostic.md` covering
@@ -881,13 +918,12 @@ multiple alternate routes (e.g., A→X→C and A→Y→C), do we emit all of the
 one? Design assumption: **emit all**. Phase 8 expands each into UC candidates; Phase
 9 dedups. Emitting all gives the user visibility into alternatives.
 
-**D5 — Direction correction on unselected UCs.** FR-STATUS-04 scans `input.islandUcs`
-(all `ISLAND` UCs in the DB). Do we correct pairs on `ISLAND` UCs that
-weren't in `selectedUsecaseSystemIds`? Design assumption: **yes if they're in
-scope**. `islandUcs` includes all `ISLAND` UCs; direction correction is a
-lightweight in-scope UC repair, not "new routing," so it's safe to run broadly.
-Alternative interpretation (restrict to selected UCs) would leave `ISLAND` UCs
-in outdated state — worse UX. Final call: implementation plan.
+**D5 — Direction correction on unselected UCs.** FR-STATUS-04 scans committed
+`ISLAND` UCs from `input.graphSnapshot.committedUsecases`. The implemented decision is
+to evaluate them even when they are absent from `selectedUsecases`, provided all their SG
+members and pair endpoints are in effective snapshot scope and Phase 2 did not mark them
+for deletion. Direction correction is a lightweight in-scope UC repair rather than new
+routing; restricting it to selected UCs would leave eligible `ISLAND` UCs outdated.
 
 ---
 

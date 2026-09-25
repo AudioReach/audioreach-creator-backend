@@ -64,6 +64,8 @@ function createUow(events: string[]) {
   };
 }
 
+const idGeneration = {getNextId: jest.fn(async () => 100)} as never;
+
 describe('CreateManualUsecasesHandler', () => {
   it('rejects duplicate active subgraphs before starting a transaction', async () => {
     const events: string[] = [];
@@ -74,6 +76,7 @@ describe('CreateManualUsecasesHandler', () => {
     const engine = {run: jest.fn()};
     const handler = new CreateManualUsecasesHandler(
       uow as never,
+      idGeneration,
       resolver as never,
       engine as never,
       snapshotBuilder as never,
@@ -130,6 +133,7 @@ describe('CreateManualUsecasesHandler', () => {
     };
     const handler = new CreateManualUsecasesHandler(
       uow as never,
+      idGeneration,
       {resolveAllChains: jest.fn(async () => Result.ok())} as never,
       engine as never,
       snapshotBuilder as never,
@@ -166,14 +170,15 @@ describe('CreateManualUsecasesHandler', () => {
     );
     expect(engine.run).toHaveBeenCalledWith(
       expect.objectContaining({
-        requestPolicy: expect.objectContaining({
-          explicitlyExcludedDataLinkSystemIds: new Set([900]),
+        selection: expect.objectContaining({
+          excludedDataLinkSystemIds: [900],
         }),
         graphSnapshot: expect.objectContaining({
           subgraphs: snapshot().subgraphs,
         }),
       }),
       uow,
+      idGeneration,
     );
   });
 
@@ -185,6 +190,7 @@ describe('CreateManualUsecasesHandler', () => {
     const engine = {run: jest.fn()};
     const handler = new CreateManualUsecasesHandler(
       uow as never,
+      idGeneration,
       {resolveAllChains: jest.fn(async () => Result.ok())} as never,
       engine as never,
       {
@@ -216,6 +222,7 @@ describe('CreateManualUsecasesHandler', () => {
     const engine = {run: jest.fn()};
     const handler = new CreateManualUsecasesHandler(
       uow as never,
+      idGeneration,
       {resolveAllChains: jest.fn(async () => Result.ok())} as never,
       engine as never,
       {build: jest.fn(async () => Result.ok(snapshot()))} as never,

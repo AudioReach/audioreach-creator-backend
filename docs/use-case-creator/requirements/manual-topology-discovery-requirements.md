@@ -17,6 +17,14 @@ reconciliation.
 EC-specific generation, GKV resolution, duplicate-GKV handling, staging, and commit
 behavior remain unchanged except where explicitly stated below.
 
+### Snapshot boundary
+
+The handler prepares one immutable `RoutingGraphSnapshot` before discovery. It supplies
+selected UCs, `RoutingSubgraph` entries, routable data/control links, and the complete
+request policy to `ManualPairDiscoveryService`. Discovery performs no repository reads,
+does not derive effective exclusions, and borrows link/entity references from the
+snapshot for emitted topology pairs.
+
 ## 2. Definitions
 
 - **Selected SG:** An SG belonging to at least one usecase identified by

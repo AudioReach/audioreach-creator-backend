@@ -15,7 +15,6 @@ import type {
   ActiveSubgraphSelection,
   GraphEditSummary,
   RoutingGraphSnapshot,
-  RoutingRequestPolicy,
 } from '../contracts/routing-input.js';
 import {
   copyGraphEditSummary,
@@ -27,7 +26,8 @@ import {MdfClassificationService} from './mdf-classification.service.js';
 export interface RoutingGraphSnapshotBuildInput {
   readonly fileSystemId: number;
   readonly effectiveActiveSubgraphs: readonly ActiveSubgraphSelection[];
-  readonly requestPolicy: RoutingRequestPolicy;
+  readonly excludedDataLinkSystemIds: readonly number[];
+  readonly excludedControlLinkSystemIds: readonly number[];
   readonly sessionEdits: GraphEditSummary;
 }
 
@@ -44,15 +44,9 @@ function isInScope(
 function isRoutable(
   link: DataLink | ControlLink,
   effectiveIds: ReadonlySet<number>,
-  excludedSubgraphIds: ReadonlySet<number>,
   excludedLinkIds: ReadonlySet<number>,
 ): boolean {
-  return (
-    isInScope(link, effectiveIds) &&
-    !excludedSubgraphIds.has(link.sourceSubgraphSystemId) &&
-    !excludedSubgraphIds.has(link.destSubgraphSystemId) &&
-    !excludedLinkIds.has(link.systemId)
-  );
+  return isInScope(link, effectiveIds) && !excludedLinkIds.has(link.systemId);
 }
 
 /** Builds the single prepared graph view shared by routing consumers. */
@@ -136,23 +130,13 @@ export class RoutingGraphSnapshotBuilder {
       });
     });
 
-    const excludedSubgraphIds =
-      input.requestPolicy.explicitlyExcludedSubgraphSystemIds;
+    const excludedDataLinkIds = new Set(input.excludedDataLinkSystemIds);
+    const excludedControlLinkIds = new Set(input.excludedControlLinkSystemIds);
     const routableDataLinks = overlayDataLinks.filter(link =>
-      isRoutable(
-        link,
-        effectiveIds,
-        excludedSubgraphIds,
-        input.requestPolicy.explicitlyExcludedDataLinkSystemIds,
-      ),
+      isRoutable(link, effectiveIds, excludedDataLinkIds),
     );
     const routableControlLinks = overlayControlLinks.filter(link =>
-      isRoutable(
-        link,
-        effectiveIds,
-        excludedSubgraphIds,
-        input.requestPolicy.explicitlyExcludedControlLinkSystemIds,
-      ),
+      isRoutable(link, effectiveIds, excludedControlLinkIds),
     );
 
     return Result.ok(

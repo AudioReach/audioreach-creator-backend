@@ -227,6 +227,91 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
     );
   });
 
+  it('uses the complete latest overlay relationships across multiple action groups', async () => {
+    const createChangeId = await seedCreateActions();
+    await seedAction({
+      groupId: 'latest-category-group',
+      targetSystemId: 911,
+      targetTable: ENTITY_NAMES.UseCaseCategory,
+      operation: CHANGE_OPERATION.Create,
+      payload: {usecaseSystemId: USECASE_ID, name: 'media'},
+    });
+
+    const result = await service.getChangeDetails(FILE_ID, [
+      {
+        systemId: USECASE_ID,
+        changeId: createChangeId,
+        operation: CHANGE_OPERATION.Create,
+        source: SOURCE.AutoRouting,
+      },
+    ]);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    if (result.kind !== RESULT_KIND.Ok) return;
+    expect(result.data[0]).toEqual(
+      expect.objectContaining({
+        before: null,
+        after: expect.objectContaining({categories: ['voice', 'media']}),
+      }),
+    );
+  });
+
+  it('returns every matching supporting link in ascending systemId order', async () => {
+    const createChangeId = await seedCreateActions();
+    await seedAction({
+      groupId: 'additional-data-link-group',
+      targetSystemId: 909,
+      targetTable: ENTITY_NAMES.DataLink,
+      operation: CHANGE_OPERATION.Create,
+      payload: {
+        fileSystemId: FILE_ID,
+        sourceNodeSystemId: 11,
+        destinationNodeSystemId: 12,
+        sourcePortSystemId: 13,
+        destinationPortSystemId: 14,
+        linkType: DATA_LINK_TYPE.Normal,
+        sourceSubgraphSystemId: 501,
+        destSubgraphSystemId: 502,
+        isEc: false,
+      },
+    });
+    await seedAction({
+      groupId: 'additional-control-link-group',
+      targetSystemId: 910,
+      targetTable: ENTITY_NAMES.ControlLink,
+      operation: CHANGE_OPERATION.Create,
+      payload: {
+        fileSystemId: FILE_ID,
+        peerNodeASystemId: 15,
+        peerNodeBSystemId: 16,
+        nodeAPortSystemId: 17,
+        nodeBPortSystemId: 18,
+        heapId: 19,
+        linkType: DATA_LINK_TYPE.Normal,
+        sourceSubgraphSystemId: 501,
+        destSubgraphSystemId: 502,
+      },
+    });
+
+    const result = await service.getChangeDetails(FILE_ID, [
+      {
+        systemId: USECASE_ID,
+        changeId: createChangeId,
+        operation: CHANGE_OPERATION.Create,
+        source: SOURCE.AutoRouting,
+      },
+    ]);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    if (result.kind !== RESULT_KIND.Ok) return;
+    expect(result.data[0]?.after?.dataLinks.map(link => link.systemId)).toEqual(
+      [906, 909],
+    );
+    expect(
+      result.data[0]?.after?.controlLinks.map(link => link.systemId),
+    ).toEqual([908, 910]);
+  });
+
   it('rejects duplicate emitted UseCase IDs', async () => {
     const result = await service.getChangeDetails(FILE_ID, [
       {

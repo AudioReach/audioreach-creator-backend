@@ -19,9 +19,18 @@ import type {ReadOptions} from '../shared/read-options.js';
  * Auto-routing edits omit this payload.
  */
 export interface ReferencedComponents {
-  sgSystemIds: number[];
-  dataLinkSystemIds: number[];
-  controlLinkSystemIds: number[];
+  readonly sgSystemIds: readonly number[];
+  readonly dataLinkSystemIds: readonly number[];
+  readonly controlLinkSystemIds: readonly number[];
+}
+
+/**
+ * Content-only SGKV additions required by a routing edit. Retained on the
+ * root UseCase edit payload for commit processing; not complete UseCase state.
+ */
+export interface UsecaseSgkvAssignment {
+  readonly subgraphSystemId: number;
+  readonly valueDefinitionSystemIds: readonly number[];
 }
 
 export interface ActiveManualUsecaseEdit {
@@ -120,13 +129,14 @@ export interface UsecaseRepository {
    * (in `UseCaseSubgraph`) and per `uc.subgraphPairs` element (in
    * `UseCaseSubgraphPair`), all sharing the ambient groupId.
    *
-   * When provided, `referencedComponents` is merged into the base CREATE
-   * payload. Auto-routing omits the third parameter.
+   * When provided, routing SGKV additions and `referencedComponents` are
+   * merged into the base CREATE payload.
    */
   create(
     uc: UseCase,
     options?: EditOptions,
     referencedComponents?: ReferencedComponents,
+    sgkvAssignments?: readonly UsecaseSgkvAssignment[],
   ): Promise<UsecaseChangeRef | null>;
 
   /**
@@ -151,15 +161,16 @@ export interface UsecaseRepository {
    *   5. `addedPairs` → per-pair CREATE on `UseCaseSubgraphPair`.
    *   6. optional `newType` → base-row UPDATE on `UseCase`.
    *
-   * When `referencedComponents` is provided it is merged into the base-row
-   * UPDATE's `new_value` (creating one if `newType` is absent — the row
-   * exists solely to carry the payload).
+   * When routing SGKV additions or `referencedComponents` are provided, they
+   * are merged into the base-row UPDATE's `new_value` (creating one if
+   * `newType` is absent — the row exists solely to carry the payload).
    */
   applyStructuralChange(
     ucSystemId: number,
     delta: StructuralDelta,
     options?: EditOptions,
     referencedComponents?: ReferencedComponents,
+    sgkvAssignments?: readonly UsecaseSgkvAssignment[],
   ): Promise<UsecaseChangeRef | null>;
 
   /**

@@ -9,7 +9,7 @@ import {
   parseRoutingCommandInput,
   type RoutingCommandInput,
 } from '../contracts/routing-command-input.js';
-import type {ActiveSubgraphSelection} from '../contracts/routing-input.js';
+import type {RoutingSelection} from '../contracts/routing-input.js';
 
 export class CreateUsecasesCommand extends BaseCommand {
   static override readonly requiresSession = true;
@@ -18,23 +18,13 @@ export class CreateUsecasesCommand extends BaseCommand {
     SESSION_MODE.DiffMerge,
   ] as const;
 
-  readonly selectedUsecaseSystemIds: readonly number[];
-  readonly activeSubgraphs: readonly ActiveSubgraphSelection[];
-  readonly excludedDataLinkSystemIds: readonly number[];
-  readonly excludedControlLinkSystemIds: readonly number[];
-  readonly excludedSubgraphSystemIds: readonly number[];
+  readonly selection: RoutingSelection;
 
   constructor(
     public readonly fileSystemId: number,
     input: RoutingCommandInput,
   ) {
     super();
-    const parsedInput = parseRoutingCommandInput(input);
-    this.selectedUsecaseSystemIds = parsedInput.selectedUsecaseSystemIds;
-    this.activeSubgraphs = parsedInput.activeSubgraphs;
-    this.excludedDataLinkSystemIds = parsedInput.excludedDataLinkSystemIds;
-    this.excludedControlLinkSystemIds =
-      parsedInput.excludedControlLinkSystemIds;
-    this.excludedSubgraphSystemIds = parsedInput.excludedSubgraphSystemIds;
+    this.selection = parseRoutingCommandInput(input);
   }
 }

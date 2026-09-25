@@ -39,8 +39,14 @@ export interface UsecaseDeletionMark {
   readonly deletedComponent: DeletedComponent;
 }
 
+/**
+ * An affected multi-path UseCase kept by automatic deletion analysis because
+ * every stored pair remains supported. Staging removes only the listed deleted
+ * subgraphs instead of deleting the UseCase.
+ */
 export interface DeletionPreservedUsecase {
   readonly usecase: UseCase;
+  /** Deleted subgraphs that have no incident stored pairs in this UseCase. */
   readonly droppedSubgraphSystemIds: readonly number[];
 }
 
@@ -132,10 +138,34 @@ export interface RoutingCombination {
   readonly gkv: readonly KvPair[];
 }
 
-export interface ClassifiedUsecase {
-  readonly systemId: number;
-  readonly action: ChangeOperation;
+export const ROUTING_CLASSIFICATION_KIND = {
+  Create: 'CREATE',
+  ExactMatch: 'EXACT_MATCH',
+  InteriorExtension: 'INTERIOR_EXTENSION',
+} as const;
+
+export interface CreateUsecaseClassification {
+  readonly kind: typeof ROUTING_CLASSIFICATION_KIND.Create;
+  readonly candidate: RoutingCombination;
 }
+
+export interface ExactMatchClassification {
+  readonly kind: typeof ROUTING_CLASSIFICATION_KIND.ExactMatch;
+  readonly candidate: RoutingCombination;
+  readonly existingUsecase: UseCase;
+}
+
+export interface InteriorExtensionClassification {
+  readonly kind: typeof ROUTING_CLASSIFICATION_KIND.InteriorExtension;
+  readonly candidate: RoutingCombination;
+  readonly existingUsecase: UseCase;
+  readonly cancelPendingDelete: boolean;
+}
+
+export type ClassifiedUsecase =
+  | CreateUsecaseClassification
+  | ExactMatchClassification
+  | InteriorExtensionClassification;
 
 export const ORPHAN_KIND = {
   Subgraph: 'SUBGRAPH',

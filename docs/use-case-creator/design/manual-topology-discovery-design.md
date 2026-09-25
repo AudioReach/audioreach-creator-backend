@@ -110,13 +110,13 @@ The discovery input is explicit:
 
 ```typescript
 export interface ManualTopologyDiscoveryInput {
-  readonly fileSystemId: number;
-  /** Handler-preserved effective-overlay snapshots, in request order. */
+  /** Handler-preserved effective-overlay UseCase snapshots. */
   readonly selectedUsecases: readonly UseCase[];
-  /** Already filtered for excluded and session-deleted SGs. */
-  readonly activeSubgraphs: readonly ActiveSubgraphSelection[];
-  readonly excludedDataLinkSystemIds: ReadonlySet<number>;
-  readonly excludedControlLinkSystemIds: ReadonlySet<number>;
+  /** Prepared effective-overlay subgraphs with request SGKV selections and MDF state. */
+  readonly subgraphs: readonly RoutingSubgraph[];
+  /** Final routable links from the shared graph snapshot. */
+  readonly dataLinks: readonly DataLink[];
+  readonly controlLinks: readonly ControlLink[];
 }
 ```
 
@@ -138,8 +138,10 @@ pair is deliberately not retained as final topology direction.
 
 ### 5.2 `ManualLinkSupportResolver`
 
-An application service that loads latest-overlay links for authorized candidates,
-applies exclusions, and produces invariant-checked `ManualTopologyPair` values.
+An application service that resolves authorized candidates against the already-prepared
+routable data-link and control-link collections in `ManualTopologyDiscoveryInput` and
+produces invariant-checked `ManualTopologyPair` values. It performs no repository reads
+and does not reapply exclusions.
 
 It owns all fallback and suppression policy. Downstream phases must not re-query links
 or filter the result against selected usecases.
@@ -160,8 +162,7 @@ The orchestration service:
 ```typescript
 discover(
   input: ManualTopologyDiscoveryInput,
-  uow: UnitOfWork,
-): Promise<Result<ManualTopology>>;
+): Result<ManualTopology>;
 ```
 
 It invokes candidate building, support resolution, cycle validation, and final
@@ -184,13 +185,10 @@ The result is a deduplicated unordered candidate list.
 
 ### 6.2 Resolve data links
 
-Load all effective links whose `linkType` is `INTRA_USECASE` and whose two endpoint SG
-IDs equal an authorized candidate relationship. Perform this lookup for both data-link
-directions. Link lookup does not depend on whether another usecase owns the same pair;
-selected-usecase filtering has already been completed by candidate authorization.
-
-Request exclusions must not be applied by the repository because the resolver must
-distinguish these states:
+The shared `RoutingGraphSnapshotBuilder` loads all effective intra-usecase links once and
+applies request policy. Discovery receives only final routable links, so it performs no
+repository lookup, exclusion derivation, or selected-usecase filtering. The builder keeps
+complete overlay catalogs separately so it can distinguish these states:
 
 1. no data link exists;
 2. data links exist and at least one remains eligible;
@@ -209,8 +207,8 @@ is derived with `pair.dataLinks.some(link => link.isEc === true)`.
 
 ### 6.3 Resolve control fallback
 
-Batch-load effective intra-usecase control links only for queued candidates. Apply
-explicit control-link exclusions in the resolver.
+Use the prepared routable control-link collection only for queued candidates. Explicit
+control-link exclusions have already been applied by the builder.
 
 If support remains, emit one pair with the links in `controlLinks`, an empty
 `dataLinks`, and direction:
@@ -237,32 +235,19 @@ not retain support are not exposed.
 
 ## 7. Repository Ports
 
-Data and control repositories return session-overlay entities without applying
-request-only exclusions. TypeORM rows remain inside persistence.
+The snapshot builder reads session-overlay entities without applying request-only filters
+in persistence. TypeORM rows remain inside persistence.
 
-Chain resolution, selected-usecase loading, candidate construction, and both link reads
-execute through the same handler-owned UoW transaction. No graph mutation occurs between
-selected-usecase loading and topology completion. The topology therefore represents one
-consistent post-chain-resolution overlay snapshot; it is not assembled from independent
-repository sessions.
-
-Data lookup should be batched across all candidate relationships and both directions.
-The existing directional batch API may be reused by expanding each unordered candidate
-to its two directions.
-
-Control lookup should also be batched. If the current control repository supports only
-one pair per call, extend its core port and persistence adapter rather than issuing an
-N+1 query loop.
-
-Request exclusions are applied after repository reads by
-`ManualLinkSupportResolver`. Session deletes remain persistence-overlay concerns and are
-already absent from effective results.
+Chain resolution, selected-usecase loading, and snapshot construction execute through the
+same handler-owned UoW transaction. No graph mutation occurs between snapshot reads and
+topology completion. The topology therefore represents one consistent post-chain-resolution
+overlay snapshot. Discovery performs no repository reads.
 
 ## 8. Downstream Consumption
 
 ### 8.1 Combination expansion
 
-Manual Phase 8 uses the ordered effective `activeSubgraphs` for GKV Cartesian expansion
+Manual Phase 8 uses the ordered snapshot `subgraphs` and their requested SGKVs for GKV Cartesian expansion
 and applies the same `ManualTopology` to every generated candidate.
 
 ### 8.2 Isolated SGs

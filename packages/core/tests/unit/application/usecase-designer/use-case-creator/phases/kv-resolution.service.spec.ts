@@ -57,15 +57,19 @@ function makeContext(
   return new RoutingContext(
     createAutoRoutingInput({
       fileSystemId: FILE_ID,
-      selectedUsecases,
-      requestPolicy: {
-        requestedSubgraphSystemIds: new Set(
-          subgraphs.map(entry => entry.subgraph.systemId),
+      selection: {
+        selectedUsecaseSystemIds: selectedUsecases.map(
+          usecase => usecase.systemId,
         ),
-        explicitlyExcludedSubgraphSystemIds: new Set(),
-        explicitlyExcludedDataLinkSystemIds: new Set(),
-        explicitlyExcludedControlLinkSystemIds: new Set(),
+        activeSubgraphs: subgraphs.map(entry => ({
+          systemId: entry.subgraph.systemId,
+          sgkvs: entry.requestedSgkvs,
+        })),
+        excludedSubgraphSystemIds: [],
+        excludedDataLinkSystemIds: [],
+        excludedControlLinkSystemIds: [],
       },
+      selectedUsecases,
       graphSnapshot: {
         subgraphs,
         routableDataLinks: [],
@@ -75,6 +79,7 @@ function makeContext(
         committedUsecases: [],
         sessionEdits: emptyGraphEdits(),
       },
+      activeManualUsecaseEdits: [],
     }),
   );
 }

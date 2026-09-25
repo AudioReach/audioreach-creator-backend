@@ -268,6 +268,82 @@ describe('TypeOrmSessionRepository (integration)', () => {
     });
   });
 
+  describe('deleteEditActionsByChangeIds', () => {
+    it('deletes only active MANUAL UseCase CREATE/UPDATE rows named by ID', async () => {
+      const {fileSystemId} = await seedProjectAndFile();
+      const sessionId = await repo.createSession({
+        fileSystemId,
+        sessionMode: SESSION_MODE.Designer,
+        userId: null,
+      });
+      const insertAction = async (
+        targetSystemId: number,
+        targetTable: string,
+        operation: string,
+        source: string,
+        validUntil: string | null = null,
+      ) => {
+        await ds.query(
+          `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, valid_until)
+           VALUES (?, 1, ?, ?, ?, NULL, '{}', ?, ?, NULL, ?)`,
+          [
+            sessionId,
+            targetSystemId,
+            targetTable,
+            operation,
+            source,
+            CHANGE_STATUS.Staged,
+            validUntil,
+          ],
+        );
+      };
+
+      await insertAction(10, 'UseCase', CHANGE_OPERATION.Update, SOURCE.Manual);
+      await insertAction(11, 'UseCase', CHANGE_OPERATION.Create, SOURCE.Manual);
+      await insertAction(
+        12,
+        'UseCase',
+        CHANGE_OPERATION.Update,
+        SOURCE.Manual,
+        '2026-01-01 00:00:00',
+      );
+      await insertAction(
+        13,
+        'DataLink',
+        CHANGE_OPERATION.Update,
+        SOURCE.Manual,
+      );
+      await insertAction(
+        14,
+        'UseCase',
+        CHANGE_OPERATION.Update,
+        SOURCE.AutoRouting,
+      );
+
+      const rows: Array<{change_id: number}> = await ds.query(
+        `SELECT change_id FROM edit_actions WHERE session_id = ? ORDER BY change_id`,
+        [sessionId],
+      );
+      expect(
+        await repo.deleteEditActionsByChangeIds(
+          sessionId,
+          rows.map(row => row.change_id),
+        ),
+      ).toBe(2);
+
+      const remaining: Array<{target_table: string; target_system_id: number}> =
+        await ds.query(
+          `SELECT target_table, target_system_id FROM edit_actions WHERE session_id = ? ORDER BY target_system_id`,
+          [sessionId],
+        );
+      expect(remaining).toEqual([
+        {target_table: 'UseCase', target_system_id: 12},
+        {target_table: 'DataLink', target_system_id: 13},
+        {target_table: 'UseCase', target_system_id: 14},
+      ]);
+    });
+  });
+
   describe('countCommitsForSession', () => {
     it('returns 0 before any commits', async () => {
       const {fileSystemId} = await seedProjectAndFile();
