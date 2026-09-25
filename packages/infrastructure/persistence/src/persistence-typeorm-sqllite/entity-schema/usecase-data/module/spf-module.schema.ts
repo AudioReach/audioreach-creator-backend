@@ -48,7 +48,7 @@ export const SpfModuleSchema = new EntitySchema<SpfModuleRow>({
   columns: {
     ...BaseColumnSchemaPart,
     naturalId: {name: 'instance_id', type: 'integer'},
-    alias: {type: 'varchar', length: 250},
+    alias: {type: 'varchar', length: 250, nullable: true},
 
     //  scalar FK columns you will set directly
     subgraphSystemId: {name: 'subgraph_system_id', type: 'integer'},

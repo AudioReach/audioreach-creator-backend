@@ -19,6 +19,10 @@ import type {Logger} from '../../../../../shared/types/logger.interface.js';
 import type {IdGenerationPort} from '../../../../ports/id-generation/id-generation.port.js';
 import type {WorkerPoolPort} from '../../../../ports/worker/worker-pool.port.js';
 import type {WorkerTask} from '../../../../ports/worker/worker-types.js';
+import type {Issue} from '../../../../../shared/issues/issue.js';
+import {ISSUE_ENTITY_TYPE} from '../../../../../shared/issues/impacted-entity.js';
+import {IssueSeverity} from '../../../../../shared/issues/severity.js';
+import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
 import {
   asNaturalId,
   asSystemId,
@@ -50,6 +54,7 @@ export interface SubsystemBuildResult {
   subsystems: Subsystem[];
   dataLinks: DataLink[];
   controlLinks: ControlLink[];
+  issues: Issue[];
 }
 
 // ─── Internal types ───────────────────────────────────────────────────────────
@@ -94,13 +99,37 @@ export class SubsystemBuilder {
     controlLinks: ControlLink[],
   ): Promise<SubsystemBuildResult> {
     if (!uiSubsystems || uiSubsystems.length === 0) {
-      return {subsystems: [], dataLinks, controlLinks};
+      return {subsystems: [], dataLinks, controlLinks, issues: []};
     }
 
     const subsystems = await this.buildSubsystemShells(
       uiSubsystems,
       fileSystemId,
     );
+    return this.completeBuild(
+      uiSubsystems,
+      subsystems,
+      dataLinks,
+      controlLinks,
+      fileSystemId,
+    );
+  }
+
+  async buildSubsystems(
+    uiSubsystems: UiSubsystem[],
+    fileSystemId: number,
+  ): Promise<Subsystem[]> {
+    if (!uiSubsystems || uiSubsystems.length === 0) return [];
+    return this.buildSubsystemShells(uiSubsystems, fileSystemId);
+  }
+
+  async completeBuild(
+    uiSubsystems: UiSubsystem[],
+    subsystems: Subsystem[],
+    dataLinks: DataLink[],
+    controlLinks: ControlLink[],
+    fileSystemId: number,
+  ): Promise<SubsystemBuildResult> {
     const updatedSubsystems = await this.attachBoundaryPorts(
       subsystems,
       dataLinks,
@@ -108,7 +137,34 @@ export class SubsystemBuilder {
       fileSystemId,
     );
 
-    return {subsystems: updatedSubsystems, dataLinks, controlLinks};
+    return {
+      subsystems: updatedSubsystems,
+      dataLinks,
+      controlLinks,
+      issues: this.buildIssues(uiSubsystems),
+    };
+  }
+
+  private buildIssues(uiSubsystems: UiSubsystem[]): Issue[] {
+    const issues: Issue[] = [];
+    for (const subsystem of uiSubsystems) {
+      for (const child of subsystem.children) {
+        if (child.type !== 'Subgraph') continue;
+        if (this.foreignKeyMapper.getSubgraphSystemId(asNaturalId(child.id))) {
+          continue;
+        }
+        issues.push({
+          code: ERROR_CODES.INVALID_FOREIGN_KEY,
+          message: `AWSP subsystem '${subsystem.name}' references stale subgraph 0x${child.id.toString(16)}; no ACDB subgraph mapping exists`,
+          severity: IssueSeverity.Warning,
+          impactedEntity: {
+            entityType: ISSUE_ENTITY_TYPE.Subgraph,
+            systemId: child.id,
+          },
+        });
+      }
+    }
+    return issues;
   }
 
   /**

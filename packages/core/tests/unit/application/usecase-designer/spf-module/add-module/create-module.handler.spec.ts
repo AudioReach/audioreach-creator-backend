@@ -221,6 +221,11 @@ describe('CreateModuleHandler — Variant 1 (auto-create subgraph + container)',
       containerRepo.createContainer as ReturnType<typeof jest.fn>
     ).mock.calls[0][0];
     expect(createdContainer.properties.has(900)).toBe(true);
+    expect(
+      [...createdContainer.properties.values()].every(
+        property => property.systemId > 0,
+      ),
+    ).toBe(true);
   });
 
   it('uses first containerTypesSystemIds entry for the new container', async () => {
