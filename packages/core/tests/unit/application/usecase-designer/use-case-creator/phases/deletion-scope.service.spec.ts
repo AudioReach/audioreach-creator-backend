@@ -130,23 +130,26 @@ function createFixture(options: FixtureOptions = {}) {
     inferredSubgraphIds.add(link.destSubgraphSystemId);
   }
   const subgraphIds = [...inferredSubgraphIds];
+  const requestedSubgraphSystemIds =
+    options.requestedSubgraphSystemIds ?? subgraphIds;
   const inputInit = {
     fileSystemId: 1,
-    selectedUsecases,
-    requestPolicy: {
-      requestedSubgraphSystemIds: new Set(
-        options.requestedSubgraphSystemIds ?? subgraphIds,
+    selection: {
+      selectedUsecaseSystemIds: selectedUsecases.map(
+        usecase => usecase.systemId,
       ),
-      explicitlyExcludedSubgraphSystemIds: new Set(
+      activeSubgraphs: requestedSubgraphSystemIds.map(systemId => ({
+        systemId,
+        sgkvs: options.requestedSgkvsBySubgraph?.[systemId] ?? [],
+      })),
+      excludedSubgraphSystemIds:
         options.explicitlyExcludedSubgraphSystemIds ?? [],
-      ),
-      explicitlyExcludedDataLinkSystemIds: new Set(
+      excludedDataLinkSystemIds:
         options.explicitlyExcludedDataLinkSystemIds ?? [],
-      ),
-      explicitlyExcludedControlLinkSystemIds: new Set(
+      excludedControlLinkSystemIds:
         options.explicitlyExcludedControlLinkSystemIds ?? [],
-      ),
     },
+    selectedUsecases,
     graphSnapshot: {
       subgraphs: subgraphIds.map(systemId => ({
         subgraph: {systemId} as never,
@@ -160,6 +163,7 @@ function createFixture(options: FixtureOptions = {}) {
       committedUsecases,
       sessionEdits,
     },
+    activeManualUsecaseEdits: [],
   };
   const input =
     options.mode === 'MANUAL'

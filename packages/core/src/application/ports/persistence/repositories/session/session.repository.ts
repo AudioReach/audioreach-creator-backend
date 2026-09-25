@@ -96,6 +96,12 @@ export interface ISessionRepository {
    */
   deleteEditActionsBySource(sessionId: number, source: Source): Promise<number>;
 
+  /** Deletes active MANUAL UseCase CREATE/UPDATE edit rows for the supplied IDs. */
+  deleteEditActionsByChangeIds(
+    sessionId: number,
+    changeIds: readonly number[],
+  ): Promise<number>;
+
   /**
    * Counts active (validUntil IS NULL) STAGED edit_actions rows for the session.
    * Used by EndSessionHandler to guard against ending a session with uncommitted staged changes.

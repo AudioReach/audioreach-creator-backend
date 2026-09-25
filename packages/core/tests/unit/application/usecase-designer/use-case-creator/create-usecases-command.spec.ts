@@ -21,13 +21,13 @@ describe.each([
   it('parses all request ID strings in Core', () => {
     const command = new CommandType(1, input);
 
-    expect(command.selectedUsecaseSystemIds).toEqual([10, 11]);
-    expect(command.activeSubgraphs).toEqual([
+    expect(command.selection.selectedUsecaseSystemIds).toEqual([10, 11]);
+    expect(command.selection.activeSubgraphs).toEqual([
       {systemId: 20, sgkvs: [[30, 31], [32]]},
     ]);
-    expect(command.excludedDataLinkSystemIds).toEqual([40]);
-    expect(command.excludedControlLinkSystemIds).toEqual([50]);
-    expect(command.excludedSubgraphSystemIds).toEqual([60]);
+    expect(command.selection.excludedDataLinkSystemIds).toEqual([40]);
+    expect(command.selection.excludedControlLinkSystemIds).toEqual([50]);
+    expect(command.selection.excludedSubgraphSystemIds).toEqual([60]);
   });
 
   it('rejects malformed nested IDs', () => {

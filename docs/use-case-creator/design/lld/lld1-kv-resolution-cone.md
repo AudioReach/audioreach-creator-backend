@@ -5,9 +5,33 @@
 
 # LLD1 — Pre-Validation, KV Resolution, Seed & Cone
 
+## Current Snapshot Boundary
+
+This refactor supersedes the former per-phase scope/exclusion derivation described below.
+Handlers pass the original `requestPolicy` and effective active selections to one shared
+`RoutingGraphSnapshotBuilder`. The builder reads overlay subgraphs, overlay data/control
+links, committed UseCases, and MDF metadata once, applies exclusions once, and publishes
+`graphSnapshot` with `RoutingSubgraph.requestedSgkvs`, routable links, complete overlay
+catalogs, committed UseCases, and `sessionEdits`.
+
+Phase 1 validates `graphSnapshot.subgraphs` against
+`graphSnapshot.routableDataLinks` and emits island warnings without repository reads.
+Phase 4 no longer re-runs MDF classification. It reads persisted SGKVs for the comparison
+baseline and performs one batched, effective-overlay, file-scoped Value Definition-to-Key
+lookup to normalize arbitrary valid API selections.
+Phases 5–6 consume `graphSnapshot.sessionEdits` and routable links. No phase recreates
+effective exclusion sets, and no phase reloads graph catalogs.
+
 **Status:** Draft
 **Parent:** [`../overall-design.md`](../overall-design.md)
-**Last updated:** 2026-09-04
+**Last updated:** 2026-09-25
+
+The algorithmic pseudocode in later sections predates the snapshot boundary. In that
+pseudocode, `input.activeSubgraphs` means `input.graphSnapshot.subgraphs`,
+`input.scopePolicy` means `input.requestPolicy`, and `input.graphEdits` means
+`input.graphSnapshot.sessionEdits`. These are conceptual mappings only; implementations
+must use the current contracts above and must not add the legacy fields back to input or
+context.
 
 ---
 
@@ -36,6 +60,8 @@ cone.
 | FR-API-03 | Handler pre-step | §5.2 |
 | FR-PREVAL-01 | 1 | §5.3 |
 | FR-PREVAL-02 | 1 | §5.4 |
+| FR-MDF-01 (no MDF values) | 1 | §5.5 |
+| Stale active manual dependency check | 1 | §5.6 |
 | FR-KV-01 | 4 | §6.1 |
 | FR-KV-02 | 4 | §6.2 |
 | FR-KV-03 | 4 | §6.3 |
@@ -47,21 +73,19 @@ cone.
 | FR-CONE-04 | 6 | §8.1 |
 | FR-CONE-07 | 6 | §8.2 |
 
-FR-VAL-04 (deletion UC-scope completeness) is enforced at Phase 2 (DeletionScope) —
-see LLD4. It's not part of Phase 1 because it depends on impacted-UC detection.
+FR-VAL-04 (deletion UC-scope completeness) is enforced at Phase 2 (Topology Change
+Analysis) — see LLD4. It's not part of Phase 1 because it depends on impacted-UC
+detection.
 
 ---
 
 ## 3. Position in Pipeline
 
-**Upstream (input to Phase 1):** `RoutingContext.input` fully built by handler:
-- `input.selectedUsecases` — those UCs loaded once from the effective overlay by the handler
-- `input.activeSubgraphs` — normalized `[{systemId, sgkvs: number[][]}]` after
-  excluded/session-deleted SG removal
-- `input.scopePolicy.requestedSubgraphSystemIds` — SG IDs in the original client map
-- `input.scopePolicy.excludedSubgraphSystemIds` — explicit SG exclusions
-- `input.graphEdits` — `GraphEditSummary` assembled by the handler from `findManualEditsSinceLastRouting` on subgraph/data-link/control-link repos
-- `input.excludedDataLinkSystemIds`, `input.excludedControlLinkSystemIds` (FR-API-05)
+**Upstream (input to Phase 1):** `RoutingContext.input` fully built by the handler:
+- `input.selectedUsecases` — UCs loaded once from the effective overlay
+- `input.requestPolicy` — immutable client request intent and explicit exclusions
+- `input.graphSnapshot` — immutable routable subgraphs/links, complete overlay catalogs,
+  committed UCs, session edits, and MDF flags
 
 **Downstream (output after Phase 6):** `RoutingContext` populated with:
 - `context.kvResolutions` — per-SG resolved SGKV instances (from Phase 4)
@@ -71,47 +95,20 @@ see LLD4. It's not part of Phase 1 because it depends on impacted-UC detection.
 Phase 7 (DFS, LLD2) reads `cones` and `kvResolutions`.
 
 **Repo dependencies:**
-- `ISubgraphRepository.getSgkvsBySgIds(fileSystemId, sgSystemIds)` — Phase 4 (SGKV is child of Subgraph aggregate)
-- `IUsecaseRepository.findAll(fileSystemId)` — Phase 5 (FR-CONE-02 new-SG detection)
-## 3.1 Effective exclusion set (FR-API-05 + FR-API-06)
+- SGKV baseline and Value Definition-to-Key resolution remain Phase 4 dependencies only.
+- The mapping read is independent of existing SGKV membership: users may select any
+  Value Definition owned by a Key Definition in the same file.
+- Graph and MDF repositories are not Phase 1–6 dependencies; those reads belong to the
+  shared snapshot builder.
 
-Before phase algorithms run, the handler derives the scope sets and an **effective
-exclusion set** from the client payload and its selected-UC snapshot:
+## 3.1 Snapshot authority (FR-API-05 + FR-API-06)
 
-```
-requestedSubgraphIds     := set(input.scopePolicy.requestedSubgraphSystemIds)
-effectiveExcludedSgIds   := set(input.scopePolicy.excludedSubgraphSystemIds)
-effectiveExcludedDlIds   := set(input.excludedDataLinkSystemIds)
-                              ∪ { dl.systemId : dl is intra-usecase data-link where
-                                                dl.sourceSg ∈ effectiveExcludedSgIds
-                                                OR dl.destSg ∈ effectiveExcludedSgIds }
-effectiveExcludedClIds   := set(input.excludedControlLinkSystemIds)
-                               ∪ { cl.systemId : cl is intra-usecase control-link where
-                                                 cl.sourceSg ∈ effectiveExcludedSgIds
-                                                 OR cl.destSg ∈ effectiveExcludedSgIds }
-deletedSgIds             := set(input.graphEdits.deletedSgs[*].systemId)
-```
-
-The scope equations are:
-
-```
-selectedUsecaseIds      := set(input.selectedUsecases[*].systemId)
-selectedScopeSubgraphs  := union(input.selectedUsecases[*].subgraphs)
-effectiveRoutingScope   := set(input.activeSubgraphs[*].systemId)
-outOfSelectionSubgraphs := effectiveRoutingScope \ selectedScopeSubgraphs
-```
-
-These are local immutable views produced by a shared pure helper from `RoutingInput`.
-Each phase calls the helper when it needs scope membership; the sets are not stored on
-`RoutingInput` or copied onto `RoutingContext`.
-
-Every repo call that takes an `excludedIds` parameter passes the corresponding
-`effectiveExcluded*` set. SG-level exclusion automatically extends to incident links —
-callers don't need to enumerate them client-side.
-
-**Data retained in `RoutingContext.input`:** `selectedUsecases`, normalized
-`activeSubgraphs`, `scopePolicy`, graph edits, and explicit link exclusions. All scope and
-effective-exclusion sets above are local derivations, not additional input/context fields.
+Before phase algorithms run, `RoutingGraphSnapshotBuilder` applies request policy and
+produces the effective scope and link exclusions. SG-level exclusion automatically
+extends to incident intra-usecase links. Phase services consume
+`graphSnapshot.subgraphs`, `graphSnapshot.routableDataLinks`,
+`graphSnapshot.routableControlLinks`, and `graphSnapshot.sessionEdits`; they do not
+recreate exclusion sets or call graph repositories.
 
 ---
 
@@ -121,8 +118,7 @@ effective-exclusion sets above are local derivations, not additional input/conte
 
 ```
 SgkvInstance {
-  sgkvSystemId:  number | null   // null for API-provided instances not yet in DB
-  keyValues:     KeyValue[]      // (keyDefSystemId, valueDefSystemId) pairs
+  keyValues: KeyValue[]  // canonical (keyDefSystemId, valueDefSystemId) pairs
 }
 
 KeyValue {
@@ -131,14 +127,18 @@ KeyValue {
 }
 ```
 
-Two instances are **equal** iff `keyValues` are set-equal by `(keyDefSystemId, valueDefSystemId)`.
-`sgkvSystemId` is not part of equality — an API-provided instance may match a DB
-instance even if the client didn't supply the ID.
+Two instances are **equal** iff `keyValues` are set-equal by
+`(keyDefSystemId, valueDefSystemId)`. Routing instances are deliberately content-only:
+Phase 4 does not expose, reserve, or reuse `sgkv.system_id`. The commit path resolves an
+existing ID by exact content or creates a new SGKV atomically under FR-KV-COMMIT-01.
 
 **Note on client input:** the API DTO sends `valueSystemIds[][]` only (Values, no
 Keys) — each Value belongs to exactly one Key Definition, so `keyDefSystemId` is
-derivable. Phase 4 (KvResolution) does this lookup once (via subgraph/definition
-repo) and populates the full `(keyDefSystemId, valueDefSystemId)` pair in
+derivable. Phase 4 (KvResolution) resolves all requested Value IDs once through
+`SubgraphRepository.resolveKeyValues(fileSystemId, valueDefSystemIds)`. The repository
+uses the effective definition overlay, constrains parent Keys to the file, and does not
+require the Values to appear in an existing SGKV. Phase 4 then populates the full
+`(keyDefSystemId, valueDefSystemId)` pair in
 `SgkvInstance` so downstream conflict detection (FR-DFS-06) can key on
 `keyDefSystemId` directly without repeated lookups.
 
@@ -184,8 +184,9 @@ Cones {
 ## 5. Phase 1 — PreValidationService
 
 The handler completes §5.1 and §5.2 before manual pair discovery or engine invocation.
-Phase 1 then performs the structural checks in §5.3 and §5.4. These checks are fast and
-run before expensive work.
+Phase 1 then performs the structural, MDF-value, and dependency checks in §5.3 through
+§5.6. These
+checks are fast and run before expensive work.
 
 ### 5.1 FR-API-07: Addition-side structural-edit closure
 
@@ -313,12 +314,31 @@ UC via control-link fallback in manual mode).
 it's still an island for FR-PREVAL-02 (rule is data-link-specific). Manual mode may
 still route it via FR-UC-01 step 4.
 
+### 5.5 FR-MDF-01: MDF values are invalid
+
+**Rule:** Every `RoutingSubgraph` with `isMdf=true` must have only empty requested SGKV
+instances. If any requested instance contains a Value Definition ID, Phase 1 returns the
+blocking `ARC-ROUTING-MDF-01` issue.
+
+This check runs before Phase 2 topology analysis. Downstream MDF substitution logic may
+therefore rely on the invariant that an in-scope MDF SG contributes no values.
+
+### 5.6 Active manual dependency validation
+
+In both routing modes, Phase 1 validates active manual UC edit references against the
+graph snapshot before Phase 2 builds the affected set. A manual update that still
+references a deleted SG/link returns `ARC-ROUTING-MANUAL-UC-BROKEN-DEPS` immediately.
+
+A valid active manual update remains authoritative for its target UC. Phase 2 may inspect
+its projected topology to suppress a duplicate MDF update, but the manual edit does not
+exempt an ordinary deletion impact from FR-DEL-02.
+
 ---
 
 ## 6. Phase 4 — KvResolutionService
 
-Runs after Half A's Phases 1–3 (PreValidation, DeletionScope, and the legacy-named
-`IslandTransitionService` for `ISLAND` → `LINKED`).
+Runs after Half A's Phases 1–3 (PreValidation, Topology Change Analysis, and the
+legacy-named `IslandTransitionService` for `ISLAND` → `LINKED`).
 Prepares the SGKV data that Phase 8 (Combination Expansion) will consume.
 
 Implements the three-step KV pipeline (FR-KV-01/02/03) exactly as specified.
@@ -333,8 +353,8 @@ from DB for baseline comparison only.
 ```
 sgIdsToLoad := effectiveRoutingScope
 
-dbSgkvs: Map<SgSystemId, SgkvInstance[]>
-       := ISubgraphRepository.getSgkvsBySgIds(fileSystemId, sgIdsToLoad)
+dbSgkvs: Map<SgSystemId, SgkvEntry[]>
+       := ISubgraphRepository.getSgkvs(fileSystemId, sgIdsToLoad)
 ```
 
 `dbSgkvs` is a scratch value used only for FR-KV-02. Nothing else reads it.
@@ -345,9 +365,9 @@ replace it with the API input.
 
 ### 6.2 FR-KV-02: Step 2 — Apply UC filter
 
-**Rule:** Build a filter map from the selected UCs' `gkv_entries` — **excluding UCs
-that are in `context.markedForDeletion`** (per revised FR-KV-02) — then retain only
-KV pairs whose `(keyDefSystemId, valueDefSystemId)` appears in the filter. Instances
+**Rule:** Build a filter map from every initially selected UC's `gkv_entries`, including
+UCs that Phase 2 later marks for deletion, then retain only KV pairs whose
+`(keyDefSystemId, valueDefSystemId)` appears in the filter. Instances
 left with zero KVs are dropped.
 
 **Algorithm:**
@@ -356,12 +376,8 @@ left with zero KVs are dropped.
 if input.selectedUsecases is empty:
   ucFilteredBaseline := empty map (per FR-CONE-05)
 else:
-  // Exclude UCs marked for deletion by Phase 2 (FR-KV-02 revised)
-  filteringUcs := input.selectedUsecases.filter(
-    uc => uc.systemId ∉ context.markedForDeletion.ucSystemIds)
-
   ucFilter: Map<KeyDefId, Set<ValueDefId>> := empty
-  for each uc in filteringUcs:
+  for each uc in input.selectedUsecases:
     for each (keyDefSystemId, valueDefSystemId) in uc.gkv:
       ucFilter[keyDefSystemId].add(valueDefSystemId)
 
@@ -373,10 +389,9 @@ else:
         ucFilter[kv.keyDefSystemId]?.has(kv.valueDefSystemId)
       )
       if filteredKVs.length > 0:
-        filteredInstances.push({sgkvSystemId: instance.sgkvSystemId, keyValues: filteredKVs})
+        filteredInstances.push({keyValues: filteredKVs})
     ucFilteredBaseline[sgId] := filteredInstances
 
-context.kvResolutions.ucFilteredBaseline := ucFilteredBaseline
 ```
 
 **Result:** the UC-filtered SGKV instance set per SG. **Used solely for seed
@@ -392,28 +407,37 @@ replace it entirely with the API-provided SGKV instances. Handler-level FR-API-0
 validation has already guaranteed explicit input for every selected-scope SG that may
 route.
 
+Before constructing `perSg`, collect every requested Value Definition ID and call
+`ISubgraphRepository.resolveKeyValues(fileSystemId, requestedValueIds)` once. The lookup
+is independent of `dbSgkvs`: a valid same-file Value may be selected even when it has
+never appeared in a persisted SGKV for that SG. If any requested ID is missing or belongs
+to another file, fail with `ARC-ROUTING-SGKV-VALUE-NOT-FOUND`. Use the resulting Key
+mapping to enforce I6.
+
 **Algorithm:**
 
 ```
 perSg: Map<SgSystemId, SgkvInstance[]> := empty
-for each entry in input.activeSubgraphs:
-  // FR-API-06: silently drop excluded SGs from the API map
-  if entry.systemId ∈ effectiveExcludedSgIds:
-    continue
-  perSg[entry.systemId] := entry.sgkvs is empty
-    ? [{sgkvSystemId: null, keyValues: []}]
-    : entry.sgkvs
-context.kvResolutions.perSg := perSg
+for each entry in input.graphSnapshot.subgraphs:
+  // Snapshot preparation has already removed excluded/deleted SGs.
+  perSg[entry.subgraph.systemId] := entry.requestedSgkvs is empty
+    ? [{keyValues: []}]
+    : entry.requestedSgkvs.map(values => ({keyValues: resolve(values)}))
+context.kvResolutions := {perSg, ucFilteredBaseline}
 ```
+
+`resolve(values)` maps each Value ID to its owning Key, sorts pairs canonically, and
+returns content only. It performs no existing-SGKV identity lookup. Phase 4 publishes
+the complete grouped result only after every requested SGKV passes missing-value and I6
+validation.
 
 **Edge cases:**
 - **Empty list `[]` for a user-provided SG** — the SG contributes one empty SGKV instance. Valid; means "user
   declares no KV contribution for this SG."
 - **Selected-scope SG missing from the API map** — already rejected by handler-level
   FR-API-03 before this phase.
-- **IsMdf SG present in `activeSubgraphs` with non-empty KVs** — malformed input; per
-  FR-MDF-01 MDF SGs accept only an empty contribution. Blocking
-  `ARC-ROUTING-MDF-01`.
+- **IsMdf SG present in `activeSubgraphs` with non-empty KVs** — already rejected by
+  Phase 1 under FR-MDF-01. Phase 4 never receives this input.
 - **IsMdf SG omitted from `activeSubgraphs`** — it is not part of the effective routing
   scope. If it is a non-excluded selected-scope SG, FR-API-03 rejects the request. If it
   is a current-session added SG or a required data-link endpoint, FR-API-07 rejects the
@@ -440,6 +464,8 @@ UC-filtered baseline. Set-based equality (by KV content).
 
 ```
 for each sgId in kvResolutions.perSg.keys():
+  if graphSnapshot.subgraphsById[sgId].isMdf:
+    continue  // normalized empty MDF membership is not a KV change
   apiSet := setOf(kvResolutions.perSg[sgId])
   baselineSet := setOf(kvResolutions.ucFilteredBaseline[sgId] ?? [])
   if !setEqual(apiSet, baselineSet):
@@ -447,6 +473,9 @@ for each sgId in kvResolutions.perSg.keys():
 ```
 
 Set equality: compare `keyValues` as sorted `(keyDefSystemId, valueDefSystemId)` lists. Order-free.
+
+MDF SGs are excluded only from the `kv-changed` reason. Existing `new-sg`, link-edit,
+and out-of-selection seed rules still apply to MDF topology.
 
 ### 7.2 FR-CONE-02: New SGs as seeds
 
@@ -623,9 +652,12 @@ traversal.
 |---|---|---|---|
 | 1 | `ARC-ROUTING-PREVAL-DATALINK-INTEGRITY` | Blocking (422) | Data-link references non-existent SG |
 | 1 | `ARC-ROUTING-ISLAND-DETECTED` | Warning (200) | SG has no intra-usecase data-link |
+| 1 | `ARC-ROUTING-MDF-01` | Blocking (422) | MDF SG contains a requested KV value |
+| 1 | `ARC-ROUTING-MANUAL-UC-BROKEN-DEPS` | Blocking (422) | Active manual UC edit references a deleted dependency |
 | Handler pre-step | `ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT` | Blocking (422) | Current-session added entity is explicitly excluded, or an added SG/data-link endpoint is missing, excluded, or deleted |
 | Handler pre-step | `ARC-ROUTING-PREVAL-SCOPE-INCOMPLETE` | Blocking (422) | Non-excluded selected-scope SG missing from `activeSubgraphs` |
 | 4 | `ARC-ROUTING-SGKV-MALFORMED` | Blocking (422) | SGKV instance has 2+ values for same Key (I6) |
+| 4 | `ARC-ROUTING-SGKV-VALUE-NOT-FOUND` | Blocking (422) | Requested Value Definition is missing or belongs to another file |
 
 All blocking codes trigger `Result.fail`; orchestrator halts; handler rolls back tx.
 
@@ -651,6 +683,9 @@ covers all requirement branches.
 - T-P1-b: One data-link points to deleted SG → `ARC-ROUTING-PREVAL-DATALINK-INTEGRITY`
 - T-P1-c: SG in scope with zero intra-usecase data-links → `ARC-ROUTING-ISLAND-DETECTED` warning
 - T-P1-d: SG has control-link only (no data-link) → still counts as island (data-link specific)
+- T-P1-mdf: IsMdf SG has a user-provided non-empty KV → `ARC-ROUTING-MDF-01` blocking before topology analysis
+- T-P1-manual-a: Active manual update retains the deleted direct pair/link → `ARC-ROUTING-MANUAL-UC-BROKEN-DEPS` before Phase 2
+- T-P1-manual-b: Active manual update already contains the effective MDF chain → validation succeeds; Phase 2 suppresses only the duplicate automatic MDF write
 
 **Phase 4 (KV):**
 - T-P4-a: Empty selected UCs → baseline is `∅`; every effective-scope SG becomes seed
@@ -660,9 +695,11 @@ covers all requirement branches.
 - T-P4-e: SGKV with 2 Values for same Key → `ARC-ROUTING-SGKV-MALFORMED`
 - T-P4-f: **IsMdf SG with explicit empty contribution** → normalized to one empty SGKV instance
 - T-P4-g: **Selected IsMdf SG omitted from input** → handler-level `ARC-ROUTING-PREVAL-SCOPE-INCOMPLETE`
-- T-P4-h: **IsMdf SG with user-provided non-empty KV** → `ARC-ROUTING-MDF-01` blocking
+- T-P4-h: **IsMdf SG with user-provided non-empty KV** → unreachable; rejected by T-P1-mdf
 - T-P4-i: **Eligible unchanged excluded SG in activeSubgraphs (FR-API-06)** — user includes an unchanged, non-required SG in `activeSubgraphs` and `excludedSubgraphSystemIds` → silently dropped from `perSg`; no error
 - T-P4-j: **Eligible excluded SG's unchanged incident links auto-excluded** — unchanged SG-X in `excludedSubgraphSystemIds`; unchanged data-links L1(X→Y) and L2(Z→X) → both L1 and L2 in `effectiveExcludedDlIds`, treated as excluded even without being listed in `excludedDataLinkSystemIds`
+- T-P4-k: **Valid same-file Value absent from the SG's persisted SGKVs** → accepted and resolved to its owning Key; output remains content-only
+- T-P4-l: **Missing or out-of-file Value Definition** → `ARC-ROUTING-SGKV-VALUE-NOT-FOUND`; no partial `kvResolutions` publication
 
 **Phase 5 (Seeds):**
 - T-P5-a: API SGKV differs from UC-filtered baseline → seed (FR-CONE-01)
@@ -674,6 +711,7 @@ covers all requirement branches.
 - T-P5-g: New control-link → NOT seed (data-link-only rule)
 - T-P5-h: Out-of-selection SG in effective scope → seed (FR-CONE-06)
 - T-P5-i: New data-link between already-paired SGs → still seed (design choice per §7.3)
+- T-P5-mdf: Normalized empty MDF instance differs from an empty persisted baseline → not a `kv-changed` seed; independent topology reasons may still seed it
 
 **Phase 6 (Cone):**
 - T-P6-a: Bidirectional expansion from single seed
@@ -687,16 +725,18 @@ covers all requirement branches.
 
 ## 11. Open Questions / Assumptions
 
-**A1 — SGKV identity across sessions.** An API-provided instance whose KVs match a
-DB SGKV — do we treat them as the same instance (reuse `sgkvSystemId`) or as
-distinct (new instance, `sgkvSystemId = null`)? Assumption: match by content, reuse
-`sgkvSystemId` when possible. Confirms with FR-KV-COMMIT-01's "not already
-represented" language. Final call: LLD6 / implementation plan.
+**A1 — SGKV identity across sessions (resolved).** Phase 4 carries no SGKV persistence
+ID. Routing and staging identify an SGKV only by canonical Key/Value content. At commit,
+the write path rechecks the target SG for an exact order-independent Value set, reuses an
+existing `system_id` when found, and otherwise allocates and inserts a new SGKV in the
+same transaction. Phase 8/9 preserve the selected per-SG assignment and Phase 11 stages
+`{subgraphSystemId, valueDefinitionSystemIds[]}` with each relevant UC change; the union
+GKV alone is not sufficient to reconstruct SG ownership. Only accepted/staged UC actions
+are materialized. This is the authoritative FR-KV-COMMIT-01 behavior.
 
-**A2 — SGKV identity within a call.** If two SGs in `input.activeSubgraphs` reference
-the same SGKV DB record (rare but possible), do we dedupe or treat as two separate
-instances? Assumption: each SG's `sgkvInstances[]` is independent — no cross-SG
-identity. Only the SGKV values matter for FR-DFS-06 conflict detection.
+**A2 — SGKV identity within a call (resolved).** Each SG's `sgkvInstances[]` is
+independent. Equal content on two SGs is not deduplicated across SGs because SGKV rows are
+owned by their target SG. Only Key/Value content matters for FR-DFS-06 conflict detection.
 
 **A3 — `graphEdits` freshness.** The handler builds `graphEdits` via
 the three aggregate repos' `findManualEditsSinceLastRouting` methods before invoking `RoutingEngine`. If the chain-resolver pre-step

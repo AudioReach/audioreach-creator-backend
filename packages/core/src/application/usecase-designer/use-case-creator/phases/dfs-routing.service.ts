@@ -44,6 +44,14 @@ function collectComponent(
   return componentSubgraphIds;
 }
 
+/** Mutable state shared by all DFS branches in one routing run. */
+interface DfsTraversalState {
+  readonly outgoingNeighbors: ReadonlyMap<number, readonly number[]>;
+  readonly coveredSubgraphIds: Set<number>;
+  readonly discoveredPaths: DfsPath[];
+  readonly cycleWarnings: Issue[];
+}
+
 export class DfsRoutingService {
   // eslint-disable-next-line @typescript-eslint/require-await -- Phase execution remains promise-based for ordered orchestration.
   async run(
@@ -102,49 +110,11 @@ export class DfsRoutingService {
       );
     }
 
-    // `covered` is only for rootless-component discovery. `activePathSubgraphIds`
-    // remains branch-local so shared downstream nodes still produce every path.
-    const coveredSubgraphIds = new Set<number>();
-    // The active set belongs to one branch; the global covered set must not
-    // suppress alternate paths through shared downstream subgraphs.
-    const visit = (
-      currentSubgraphSystemId: number,
-      currentPath: readonly number[],
-      activePathSubgraphIds: ReadonlySet<number>,
-    ): void => {
-      coveredSubgraphIds.add(currentSubgraphSystemId);
-      const outgoingSubgraphIds =
-        outgoingNeighbors.get(currentSubgraphSystemId) ?? [];
-      if (outgoingSubgraphIds.length === 0) {
-        if (currentPath.length >= 2) {
-          discoveredPaths.push({
-            subgraphSystemIds: [...currentPath],
-            termination: PATH_TERMINATION.NaturalLeaf,
-            ecBoundaryLinkId: null,
-          });
-        }
-        return;
-      }
-      for (const nextSubgraphSystemId of outgoingSubgraphIds) {
-        if (activePathSubgraphIds.has(nextSubgraphSystemId)) {
-          discoveredPaths.push({
-            subgraphSystemIds: [...currentPath],
-            termination: PATH_TERMINATION.Cycle,
-            ecBoundaryLinkId: null,
-          });
-          cycleWarnings.push(
-            RoutingIssueFactory.cycleDetected(nextSubgraphSystemId),
-          );
-          continue;
-        }
-        const nextActivePathSubgraphIds = new Set(activePathSubgraphIds);
-        nextActivePathSubgraphIds.add(nextSubgraphSystemId);
-        visit(
-          nextSubgraphSystemId,
-          [...currentPath, nextSubgraphSystemId],
-          nextActivePathSubgraphIds,
-        );
-      }
+    const traversal: DfsTraversalState = {
+      outgoingNeighbors,
+      coveredSubgraphIds: new Set<number>(),
+      discoveredPaths,
+      cycleWarnings,
     };
 
     const rootSubgraphIds = [...context.cones.rootSgs]
@@ -154,15 +124,20 @@ export class DfsRoutingService {
           leftSubgraphSystemId - rightSubgraphSystemId,
       );
     for (const rootSubgraphId of rootSubgraphIds) {
-      if (!coveredSubgraphIds.has(rootSubgraphId)) {
-        visit(rootSubgraphId, [rootSubgraphId], new Set([rootSubgraphId]));
+      if (!traversal.coveredSubgraphIds.has(rootSubgraphId)) {
+        this.traversePath(
+          traversal,
+          rootSubgraphId,
+          [rootSubgraphId],
+          new Set([rootSubgraphId]),
+        );
       }
     }
 
     // A pure cycle has no root. Start each remaining weak component at its lowest ID.
     while (true) {
       const uncoveredSubgraphIds = [...coneSubgraphSystemIds]
-        .filter(subgraphId => !coveredSubgraphIds.has(subgraphId))
+        .filter(subgraphId => !traversal.coveredSubgraphIds.has(subgraphId))
         .sort(
           (leftSubgraphSystemId, rightSubgraphSystemId) =>
             leftSubgraphSystemId - rightSubgraphSystemId,
@@ -174,12 +149,13 @@ export class DfsRoutingService {
         incomingNeighbors,
       );
       const componentStartSubgraphId = [...componentSubgraphIds]
-        .filter(subgraphId => !coveredSubgraphIds.has(subgraphId))
+        .filter(subgraphId => !traversal.coveredSubgraphIds.has(subgraphId))
         .sort(
           (leftSubgraphSystemId, rightSubgraphSystemId) =>
             leftSubgraphSystemId - rightSubgraphSystemId,
         )[0];
-      visit(
+      this.traversePath(
+        traversal,
         componentStartSubgraphId,
         [componentStartSubgraphId],
         new Set([componentStartSubgraphId]),
@@ -206,5 +182,52 @@ export class DfsRoutingService {
     context.dfsPaths.push(...discoveredPaths);
     context.warnings.push(...cycleWarnings);
     return Result.ok();
+  }
+
+  /**
+   * Visits one directed path branch. Coverage is shared across branches only
+   * to locate rootless components; the active set is branch-local so shared
+   * downstream nodes still produce each distinct path.
+   */
+  private traversePath(
+    traversal: DfsTraversalState,
+    currentSubgraphSystemId: number,
+    currentPath: readonly number[],
+    activePathSubgraphIds: ReadonlySet<number>,
+  ): void {
+    traversal.coveredSubgraphIds.add(currentSubgraphSystemId);
+    const outgoingSubgraphIds =
+      traversal.outgoingNeighbors.get(currentSubgraphSystemId) ?? [];
+    if (outgoingSubgraphIds.length === 0) {
+      if (currentPath.length >= 2) {
+        traversal.discoveredPaths.push({
+          subgraphSystemIds: [...currentPath],
+          termination: PATH_TERMINATION.NaturalLeaf,
+          ecBoundaryLinkId: null,
+        });
+      }
+      return;
+    }
+    for (const nextSubgraphSystemId of outgoingSubgraphIds) {
+      if (activePathSubgraphIds.has(nextSubgraphSystemId)) {
+        traversal.discoveredPaths.push({
+          subgraphSystemIds: [...currentPath],
+          termination: PATH_TERMINATION.Cycle,
+          ecBoundaryLinkId: null,
+        });
+        traversal.cycleWarnings.push(
+          RoutingIssueFactory.cycleDetected(nextSubgraphSystemId),
+        );
+        continue;
+      }
+      const nextActivePathSubgraphIds = new Set(activePathSubgraphIds);
+      nextActivePathSubgraphIds.add(nextSubgraphSystemId);
+      this.traversePath(
+        traversal,
+        nextSubgraphSystemId,
+        [...currentPath, nextSubgraphSystemId],
+        nextActivePathSubgraphIds,
+      );
+    }
   }
 }

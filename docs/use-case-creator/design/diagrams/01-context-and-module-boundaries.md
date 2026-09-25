@@ -77,8 +77,6 @@ flowchart LR
     classDef infra    fill:#ffedd5,stroke:#ea580c,color:#7c2d12
 
     routingEngine["RoutingEngine"]
-    orchestrator["RoutingPipelineOrchestrator"]
-
     subgraph Pipeline["Pipeline phases (sequential)"]
         direction LR
         pre["1 Pre-validation"]
@@ -101,12 +99,11 @@ flowchart LR
         pendingWriter["PendingChangeWriter"]
     end
 
-    routingEngine --> orchestrator
-    orchestrator --> pre
-    orchestrator --> repos
+    routingEngine --> pre
+    routingEngine --> repos
     emitter --> pendingWriter
 
-    class routingEngine,orchestrator,pre,del,transition,kv,seed,cone,dfs,combo,classify,validate,emitter,response feature
+    class routingEngine,pre,del,transition,kv,seed,cone,dfs,combo,classify,validate,emitter,response feature
     class repos,pendingWriter infra
 ```
 
@@ -117,6 +114,6 @@ flowchart LR
 - Color bands: Interface (blue) · Framework/Glue (gray) · Upstream subsystem-links (yellow) · This feature (green) · Infrastructure (orange)
 
 ## Notes
-Both HTTP entry points funnel through `SessionGuard` and `CommandBus` into their respective handlers. Each handler calls `IChainResolver.resolveAllChains(uow)` (owned by the `subsystem-links` module) as a mandatory pre-step. The chain resolver writes STAGED `data_link`/`control_link` `edit_actions` directly into the session and returns only success/failure. Each handler then loads graph edits and selected UCs, enforces FR-API-07 addition-side closure, derives temporary selected/input/out-of-selection/effective scope sets, and enforces FR-API-03 before manual discovery or engine execution. Only normalized `activeSubgraphs` and the minimal original-request `scopePolicy` cross the engine boundary. Automatic Phase 2 enforces deletion-side closure after the FR-DEL-02 affected-UC gate; manual Phase 2 is a no-op. For raw-mode projects the chain resolver is a fast no-op; the routing engine has no concept of chain resolution.
+Both HTTP entry points funnel through `SessionGuard` and `CommandBus` into their respective handlers. Each handler calls `IChainResolver.resolveAllChains(uow)` (owned by the `subsystem-links` module) as a mandatory pre-step. The chain resolver writes STAGED `data_link`/`control_link` `edit_actions` directly into the session and returns only success/failure. Each handler then loads graph edits and selected UCs, enforces FR-API-07 addition-side closure, and enforces FR-API-03 before manual discovery or engine execution. The handler passes request policy, effective selections, and session edits to one `RoutingGraphSnapshotBuilder`. The builder owns overlay graph reads, committed UC reads, MDF classification, and exclusion application; only immutable `graphSnapshot` collections cross the engine boundary. Phase 2 aggregates topology decisions, excludes pure MDF substitutions from FR-DEL-02, and enforces deletion-side closure after the ordinary affected-UC gate. Manual Phase 2 runs the same gates and direct MDF maintenance but skips ordinary automatic reconstruction. For raw-mode projects the chain resolver is a fast no-op; the routing engine has no concept of chain resolution.
 
-After the pre-step, each handler calls `RoutingEngine.run(routingInput, uow)` — this is the only public API of the routing subfolder. `RoutingEngine` delegates to `RoutingPipelineOrchestrator`, which drives the twelve phases shown above. The orchestrator reads through repositories and delegates writes to `RoutingChangeStager → PendingChangeWriter`. `UnitOfWork` wraps those operations in one edit session.
+After the pre-step, each handler calls `RoutingEngine.run(routingInput, uow)` — this is the only public API of the routing subfolder. `RoutingEngine` stores the concrete phase services and drives them through an ordered list of zero-argument closures. Pure phases receive only `RoutingContext`; Phases 2 and 4 receive the narrow subgraph repository, Phase 11 receives the request `UnitOfWork`, and Phase 12 receives only `groupId`. Phase 2 performs a conditional legacy-EC SGKV baseline read; Phase 4 performs its SGKV baseline and batched file-scoped Value Definition-to-Key reads. `UnitOfWork` wraps those operations in one edit session.

@@ -17,6 +17,13 @@ export interface SubsystemRepository {
   subsystemExists(systemId: number, fileSystemId: number): Promise<boolean>;
   hasSubsystems(fileSystemId: number): Promise<boolean>;
 
+  /**
+   * Returns subsystem IDs with no module in their subsystem hierarchy.
+   */
+  findOrphanSubsystemSystemIds(
+    fileSystemId: number,
+  ): Promise<readonly number[]>;
+
   clearControlPortIntents(
     ports: SubsystemControlPortRef[],
     fileSystemId: number,

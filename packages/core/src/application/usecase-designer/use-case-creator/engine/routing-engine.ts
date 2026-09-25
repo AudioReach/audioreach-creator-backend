@@ -8,8 +8,10 @@ import {
   Result,
 } from '../../../../application/shared/result/result.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
+import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 import {RoutingContext} from '../contracts/routing-context.js';
 import type {RoutingInput} from '../contracts/routing-input.js';
+import type {SameGkvCollision} from '../contracts/same-gkv-collision.js';
 import {createEmptyRoutingOutcome} from '../contracts/routing-outcome.js';
 import type {RoutingOutcome} from '../contracts/routing-outcome.js';
 import type {PreValidationService} from '../phases/pre-validation.service.js';
@@ -24,6 +26,7 @@ import type {ClassificationService} from '../phases/classification.service.js';
 import type {OrphanValidationService} from '../phases/orphan-validation.service.js';
 import type {RoutingChangeStager} from '../phases/routing-change-stager.js';
 import type {ResponseBuilder} from '../phases/response-builder.js';
+import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
 
 export class RoutingEngine {
   constructor(
@@ -44,6 +47,7 @@ export class RoutingEngine {
   async run(
     input: RoutingInput,
     uow: UnitOfWork,
+    idGeneration: IdGenerationPort,
   ): Promise<Result<RoutingOutcome>> {
     const context = new RoutingContext(input);
     const phases: readonly (() => Promise<Result<void>>)[] = [
@@ -56,8 +60,8 @@ export class RoutingEngine {
       () => this.dfsRouting.run(context),
       () => this.combinationExpansion.run(context),
       () => this.classification.run(context),
-      () => this.orphanValidation.run(context),
-      () => this.routingChangeStager.run(context, uow),
+      () => this.orphanValidation.run(context, uow.getSubsystemRepository()),
+      () => this.routingChangeStager.run(context, uow, idGeneration),
       () => this.responseBuilder.run(context, uow.getWriteContext().groupId),
     ];
     for (const runPhase of phases) {
@@ -72,5 +76,37 @@ export class RoutingEngine {
           context.warnings,
         ),
     );
+  }
+
+  async resolveCollision(
+    input: RoutingInput,
+    uow: UnitOfWork,
+    collisionId: string,
+  ): Promise<Result<SameGkvCollision>> {
+    const context = new RoutingContext(input);
+    const prerequisitePhases: readonly (() => Promise<Result<void>>)[] = [
+      () => this.preValidation.run(context),
+      () => this.deletionScope.run(context, uow.getSubgraphRepository()),
+      () => this.islandTransition.run(context),
+      () => this.kvResolution.run(context, uow.getSubgraphRepository()),
+      () => this.seedDetection.run(context),
+      () => this.coneComputation.run(context),
+      () => this.dfsRouting.run(context),
+      () => this.combinationExpansion.run(context),
+    ];
+    for (const runPhase of prerequisitePhases) {
+      const result = await runPhase();
+      if (result.kind === RESULT_KIND.Fail)
+        return Result.fail(...result.issues);
+    }
+
+    const classificationResult = await this.classification.run(context);
+    const collision = context.sameGkvCollisions.find(
+      current => current.collisionId === collisionId,
+    );
+    if (collision !== undefined) return Result.ok(collision);
+    if (classificationResult.kind === RESULT_KIND.Fail)
+      return Result.fail(...classificationResult.issues);
+    return Result.fail(RoutingIssueFactory.sameGkvChoiceStale(collisionId));
   }
 }

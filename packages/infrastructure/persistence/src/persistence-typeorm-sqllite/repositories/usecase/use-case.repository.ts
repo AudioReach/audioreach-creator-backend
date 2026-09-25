@@ -9,6 +9,7 @@ import type {
   ActiveManualUsecaseEdit,
   ReadOptions,
   ReferencedComponents,
+  UsecaseSgkvAssignment,
   StructuralDelta,
   UsecaseChangeRef,
   UnitOfWork,
@@ -173,6 +174,7 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     uc: UseCase,
     options?: EditOptions,
     referencedComponents?: ReferencedComponents,
+    sgkvAssignments?: readonly UsecaseSgkvAssignment[],
   ): Promise<UsecaseChangeRef | null> {
     const {session, groupId} = this.uow.getWriteContext();
 
@@ -187,6 +189,7 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
           type: uc.type ?? null,
           fileSystemId: uc.fileSystemId,
           ...(referencedComponents ? {referencedComponents} : {}),
+          ...(sgkvAssignments ? {sgkvAssignments} : {}),
         },
         ...options,
       },
@@ -280,6 +283,7 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     delta: StructuralDelta,
     options?: EditOptions,
     referencedComponents?: ReferencedComponents,
+    sgkvAssignments?: readonly UsecaseSgkvAssignment[],
   ): Promise<UsecaseChangeRef | null> {
     const {session, groupId} = this.uow.getWriteContext();
     let emittedStructuralChange = false;
@@ -389,6 +393,7 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
       session.sessionId,
       groupId,
       emittedStructuralChange,
+      sgkvAssignments,
     );
     return this.toChangeRef(ucSystemId, rootChangeId);
   }
@@ -470,11 +475,15 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     sessionId: number,
     groupId: string,
     writeMarker = false,
+    sgkvAssignments?: readonly UsecaseSgkvAssignment[],
   ): Promise<number | null> {
     const usecaseDelta: Record<string, unknown> = {};
     if (newType !== undefined) usecaseDelta.type = newType;
     if (referencedComponents !== undefined) {
       usecaseDelta.referencedComponents = referencedComponents;
+    }
+    if (sgkvAssignments !== undefined) {
+      usecaseDelta.sgkvAssignments = sgkvAssignments;
     }
     if (
       Object.keys(usecaseDelta).length === 0 &&

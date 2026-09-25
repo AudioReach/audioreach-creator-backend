@@ -22,6 +22,11 @@ import {
   emptyGraphEdits,
   type RoutingGraphSnapshot,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
+import type {
+  ActiveSubgraphSelection,
+  RoutingSelection,
+} from '../../../../../../src/application/use-case-designer/use-case-creator/contracts/routing-input.js';
+import type {ActiveManualUsecaseEdit} from '../../../../../../src/application/ports/persistence/repositories/usecase/usecase.repository.js';
 import {
   SEED_REASON,
   type Cones,
@@ -67,16 +72,32 @@ function createSnapshot(subgraph = createSubgraph(31)): RoutingGraphSnapshot {
 function createInput() {
   return createManualRoutingInput({
     fileSystemId: 1,
-    selectedUsecases: [createUsecase(21, [31])],
-    requestPolicy: {
-      requestedSubgraphSystemIds: new Set([31]),
-      explicitlyExcludedSubgraphSystemIds: new Set(),
-      explicitlyExcludedDataLinkSystemIds: new Set(),
-      explicitlyExcludedControlLinkSystemIds: new Set(),
+    selection: {
+      selectedUsecaseSystemIds: [21],
+      activeSubgraphs: [{systemId: 31, sgkvs: [[11]]}],
+      excludedSubgraphSystemIds: [],
+      excludedDataLinkSystemIds: [],
+      excludedControlLinkSystemIds: [],
     },
+    selectedUsecases: [createUsecase(21, [31])],
     graphSnapshot: createSnapshot(),
     manualTopology: {pairs: []},
   });
+}
+
+function createActiveManualUsecaseEdit(
+  changeId: number,
+): ActiveManualUsecaseEdit {
+  return {
+    changeId,
+    operation: CHANGE_OPERATION.Create,
+    usecase: createUsecase(changeId, [31]),
+    referencedComponents: {
+      sgSystemIds: [31],
+      dataLinkSystemIds: [],
+      controlLinkSystemIds: [],
+    },
+  };
 }
 
 describe('routing contracts', () => {
@@ -121,11 +142,11 @@ describe('routing contracts', () => {
     expect(issue.message).toContain('key 9: subgraphs [20, 30]');
   });
 
-  it('copies request policy, snapshot collections, and nested requested SGKVs', () => {
+  it('copies selection, snapshot collections, and nested requested SGKVs', () => {
     const sourceSgkvs = [[11], [12, 13]];
     const selectedUsecases = [createUsecase(21, [31])];
-    const requested = new Set([31]);
-    const excluded = new Set<number>();
+    const selectedUsecaseSystemIds = [21];
+    const excludedSubgraphSystemIds: number[] = [];
     const subgraph = createSubgraph(31);
     const snapshot: RoutingGraphSnapshot = {
       ...createSnapshot(subgraph),
@@ -133,48 +154,82 @@ describe('routing contracts', () => {
     };
     const input = createManualRoutingInput({
       fileSystemId: 1,
-      selectedUsecases,
-      requestPolicy: {
-        requestedSubgraphSystemIds: requested,
-        explicitlyExcludedSubgraphSystemIds: excluded,
-        explicitlyExcludedDataLinkSystemIds: new Set([101]),
-        explicitlyExcludedControlLinkSystemIds: new Set([201]),
+      selection: {
+        selectedUsecaseSystemIds,
+        activeSubgraphs: [{systemId: 31, sgkvs: sourceSgkvs}],
+        excludedSubgraphSystemIds,
+        excludedDataLinkSystemIds: [101],
+        excludedControlLinkSystemIds: [201],
       },
+      selectedUsecases,
       graphSnapshot: snapshot,
       manualTopology: {pairs: []},
     });
     sourceSgkvs[0]!.push(99);
     selectedUsecases.push(createUsecase(22, [32]));
-    requested.add(32);
-    excluded.add(31);
+    selectedUsecaseSystemIds.push(22);
+    excludedSubgraphSystemIds.push(31);
     expect(input.graphSnapshot.subgraphs[0]!.subgraph).toBe(subgraph);
     expect(input.graphSnapshot.subgraphs[0]!.requestedSgkvs).toEqual([
       [11],
       [12, 13],
     ]);
     expect(input.selectedUsecases).toHaveLength(1);
-    expect(input.requestPolicy.requestedSubgraphSystemIds).toEqual(
-      new Set([31]),
-    );
-    expect(input.requestPolicy.explicitlyExcludedSubgraphSystemIds).toEqual(
-      new Set(),
-    );
+    expect(input.selection.selectedUsecaseSystemIds).toEqual([21]);
+    expect(input.selection.excludedSubgraphSystemIds).toEqual([]);
   });
 
   it('keeps automatic inputs free of manual topology and manual inputs require topology', () => {
     const auto = createAutoRoutingInput({
       fileSystemId: 1,
-      selectedUsecases: [],
-      requestPolicy: {
-        requestedSubgraphSystemIds: new Set(),
-        explicitlyExcludedSubgraphSystemIds: new Set(),
-        explicitlyExcludedDataLinkSystemIds: new Set(),
-        explicitlyExcludedControlLinkSystemIds: new Set(),
+      selection: {
+        selectedUsecaseSystemIds: [],
+        activeSubgraphs: [],
+        excludedSubgraphSystemIds: [],
+        excludedDataLinkSystemIds: [],
+        excludedControlLinkSystemIds: [],
       },
+      selectedUsecases: [],
       graphSnapshot: createSnapshot(),
+      activeManualUsecaseEdits: [],
     });
     expect(auto).not.toHaveProperty('manualTopology');
     expect(createInput().manualTopology).toEqual({pairs: []});
+  });
+
+  it('copies automatic selection and active-manual-edit containers', () => {
+    const base = createInput();
+    const selectedUsecaseSystemIds = [100];
+    const requestedSgkv = [101];
+    const activeSubgraphs: ActiveSubgraphSelection[] = [
+      {systemId: 10, sgkvs: [requestedSgkv]},
+    ];
+    const selection: RoutingSelection = {
+      selectedUsecaseSystemIds,
+      activeSubgraphs,
+      excludedSubgraphSystemIds: [],
+      excludedDataLinkSystemIds: [],
+      excludedControlLinkSystemIds: [],
+    };
+    const activeManualUsecaseEdits = [createActiveManualUsecaseEdit(41)];
+    const input = createAutoRoutingInput({
+      fileSystemId: base.fileSystemId,
+      selection,
+      selectedUsecases: base.selectedUsecases,
+      graphSnapshot: base.graphSnapshot,
+      activeManualUsecaseEdits,
+    });
+
+    selectedUsecaseSystemIds.push(999);
+    requestedSgkv.push(999);
+    activeManualUsecaseEdits.push(createActiveManualUsecaseEdit(42));
+
+    expect(input.selection.selectedUsecaseSystemIds).not.toContain(999);
+    expect(input.selection.activeSubgraphs[0]?.sgkvs[0]).not.toContain(999);
+    expect(input.activeManualUsecaseEdits).toHaveLength(1);
+
+    const manual = createInput();
+    expect(manual).not.toHaveProperty('activeManualUsecaseEdits');
   });
 
   it('uses grouped content-only Phase 4-6 outputs', () => {
@@ -252,7 +307,7 @@ describe('routing contracts', () => {
     expect(scope.effectiveActiveSubgraphs).toEqual([{systemId: 10, sgkvs: []}]);
   });
 
-  it('preserves session edits in the snapshot and keeps request policy separate', () => {
+  it('preserves session edits in the snapshot and keeps selection separate', () => {
     const deletedSubgraph = createSubgraph(20);
     const sessionEdits = {
       ...emptyGraphEdits(),
@@ -260,10 +315,13 @@ describe('routing contracts', () => {
     };
     const input = createManualRoutingInput({
       ...createInput(),
-      requestPolicy: {
-        ...createInput().requestPolicy,
-        requestedSubgraphSystemIds: new Set([10, 20]),
-        explicitlyExcludedSubgraphSystemIds: new Set([20]),
+      selection: {
+        ...createInput().selection,
+        activeSubgraphs: [
+          {systemId: 10, sgkvs: []},
+          {systemId: 20, sgkvs: []},
+        ],
+        excludedSubgraphSystemIds: [20],
       },
       graphSnapshot: {
         ...createSnapshot(),
@@ -276,9 +334,7 @@ describe('routing contracts', () => {
     expect(input.graphSnapshot.sessionEdits.deletedSgs).toEqual([
       deletedSubgraph,
     ]);
-    expect(
-      context.input.requestPolicy.explicitlyExcludedSubgraphSystemIds,
-    ).toEqual(new Set([20]));
+    expect(context.input.selection.excludedSubgraphSystemIds).toEqual([20]);
     expect(Object.isFrozen(input.graphSnapshot.sessionEdits)).toBe(true);
     expect(Object.isFrozen(input.graphSnapshot.sessionEdits.deletedSgs)).toBe(
       true,

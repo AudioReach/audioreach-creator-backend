@@ -5,6 +5,7 @@
 
 export * from './contracts/routing-input.js';
 export * from './contracts/routing-state.js';
+export * from './contracts/same-gkv-collision.js';
 export * from './contracts/routing-outcome.js';
 export * from './contracts/routing-context.js';
 export * from './engine/routing-engine.js';
@@ -15,3 +16,7 @@ export * from './create-usecases/create-usecases.command.js';
 export * from './create-usecases/create-usecases.handler.js';
 export * from './create-manual-usecases/create-manual-usecases.command.js';
 export * from './create-manual-usecases/create-manual-usecases.handler.js';
+export * from './remove-stale-manual-usecase-edit/remove-stale-manual-usecase-edit.command.js';
+export * from './remove-stale-manual-usecase-edit/remove-stale-manual-usecase-edit.handler.js';
+export * from './resolve-same-gkv-collision/resolve-same-gkv-collision.command.js';
+export * from './resolve-same-gkv-collision/resolve-same-gkv-collision.handler.js';

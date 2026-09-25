@@ -46,8 +46,8 @@
 
 **Out of scope (deferred per overall-design §11):**
 - None. EC was previously excluded but is now in scope with LLD5 (`lld5-ec-routing.md`).
-- MDF single-rule (FR-MDF-01) is in scope; folded into plan. MDF V2 implicit
-  intermediates are still deferred.
+- Explicit MDF pass-through and pure substitution (FR-MDF-01) are in scope. Implicitly
+  injecting an MDF intermediate omitted from `activeSubgraphs` remains deferred.
 
 **Skipped in source file** (numbers absent from legacy catalogue):
 T1-028, T2-054, T2-055, T2-056, T2-063, T2-064 — no test content to map.
@@ -152,7 +152,7 @@ Cartesian expansion, conflict detection, GKV aggregation.
 | T2-025 | KV deselection collapses key set → duplicates existing | FR-DUP-04 | **C5:** same treatment as T2-023 |
 | T2-046 | KV addition to intermediate node, existing unchanged | FR-DFS-05 + FR-LIFE-01 | Structure intact → existing preserved |
 
-### 3.7 Phase 2 · DeletionScopeService (LLD4)
+### 3.7 Phase 2 · TopologyChangeAnalysisService (LLD4)
 
 Impact detection, fail-fast, multi-path pair survival, single-path reconstruction.
 

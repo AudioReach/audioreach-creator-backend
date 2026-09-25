@@ -4,7 +4,7 @@
  */
 
 import {parseId} from '../../shared/parse-id.js';
-import type {ActiveSubgraphSelection} from './routing-input.js';
+import type {RoutingSelection} from './routing-input.js';
 
 /** Raw SGKV selection received by either create-usecases command. */
 export interface ActiveSubgraphSelectionInput {
@@ -21,18 +21,10 @@ export interface RoutingCommandInput {
   readonly excludedSubgraphSystemIds?: readonly string[];
 }
 
-export interface ParsedRoutingCommandInput {
-  readonly selectedUsecaseSystemIds: readonly number[];
-  readonly activeSubgraphs: readonly ActiveSubgraphSelection[];
-  readonly excludedDataLinkSystemIds: readonly number[];
-  readonly excludedControlLinkSystemIds: readonly number[];
-  readonly excludedSubgraphSystemIds: readonly number[];
-}
-
 /** Parses the string IDs at the command boundary before routing begins. */
 export function parseRoutingCommandInput(
   input: RoutingCommandInput,
-): ParsedRoutingCommandInput {
+): RoutingSelection {
   return {
     selectedUsecaseSystemIds: input.selectedUsecaseSystemIds.map(value =>
       parseId(value, 'selectedUsecaseSystemIds'),

@@ -7,9 +7,23 @@
 
 **Status:** Draft
 **Parent:** [`../overall-design.md`](../overall-design.md)
-**Last updated:** 2026-08-10
+**Last updated:** 2026-09-25
 
 ---
+
+## Current Snapshot Boundary
+
+EC phases consume the common `RoutingInput.graphSnapshot`. The snapshot builder has
+already applied request policy, loaded complete overlay link catalogs and committed UCs,
+and classified MDF subgraphs. EC logic must not read repositories directly or recreate
+`activeSubgraphs`, exclusions, `context.allUcs`, or `mdfSubgraphSystemIds`.
+
+Pseudocode retained below uses `context.allUcs` as shorthand for
+`input.graphSnapshot.committedUsecases` and `input.graphEdits` as shorthand for
+`input.graphSnapshot.sessionEdits`; these legacy names are not implementation contracts.
+
+EC-specific candidates remain phase-owned output. They are grouped under the existing
+routing candidate state and are not additional graph-read caches.
 
 ## 1. Purpose & Scope
 
@@ -59,7 +73,7 @@ change; it consumes the existing attribute.
 **Upstream inputs used:**
 - `context.cones.sgSystemIds` — from Phase 6 (unchanged, includes EC-adjacent SGs)
 - `context.kvResolutions.perSg` — from Phase 4 (unchanged)
-- Existing UCs — for Phase 9 lifecycle handling (via `IUsecaseRepository`)
+- `input.graphSnapshot.committedUsecases` — for Phase 9 lifecycle handling
 
 **Downstream outputs added to `RoutingContext`:**
 - `context.dfsPaths` — extended with EC boundary flags (see §4.1)
@@ -254,8 +268,10 @@ dfsVisitRightSide(current, currentPath, stack, ecLinkId):
 
 ### 5.3 FR-EC-05: Single EC connection per path
 
-**Rule:** A routing path must contain at most one EC connection. Two ECs on the
-same path → blocking error.
+**Rule:** A routing path must contain at most one logical EC connection. A contiguous
+chain `A → MDF1 → ... → MDFn → B` whose intermediates all have `IsMdf=true` and whose
+links all have `isEc=true` counts as one logical EC crossing. Any second logical EC
+connection on the same path produces a blocking error.
 
 **Enforcement:** covered inline in §5.2 — the `ecEncounteredInPath` flag on the
 left side and the equivalent check on the right side. Any second EC encountered
@@ -278,10 +294,10 @@ returns `Result.fail`.
 
 ### 5.4 FR-EC-07 Rule C: Max-1-EC-per-UC (with MDF exception)
 
-**Rule:** A UC's pair set may contain at most **one** `isEc=true` data-link.
-Exception: the specific MDF-substituted pattern `B → SG_MDF → C` where both flanking
-data-links are `isEc=true` and SG_MDF is `isMdf=true` counts as one logical EC
-crossing and is permitted.
+**Rule:** A UC's pair set may contain at most **one logical EC connection**. Its normal
+representation is one `isEc=true` data-link. A pure MDF substitution may represent the
+same crossing as `B → MDF1 → ... → MDFn → C`, where every intermediate has
+`IsMdf=true` and every adjacent data-link has `isEc=true`.
 
 **Enforcement:** Phase 1 (PreValidationService, LLD1 §5) — added as a new
 pre-validation check FR-EC-07-C. Runs on every UC in the file's effective overlay
@@ -297,13 +313,9 @@ for each uc in IUsecaseRepository.findAll(fileSystemId):
               .filter(link => link is not null and link.isEc == true)
               .distinctBy(link.systemId)
 
-  if ecLinks.length <= 1:
-    continue   // OK
-
-  // More than one EC data-link in this UC — check MDF exception
-  isMdfException := (ecLinks.length == 2) and matchesMdfPattern(uc, ecLinks)
-  if isMdfException:
-    continue   // OK per Rule C exception
+  logicalEcConnections := collapseContiguousMdfEcChains(uc, ecLinks)
+  if logicalEcConnections.length <= 1:
+    continue
 
   return Result.fail([{
     code: ARC-ROUTING-EC-MULTIPLE-LINKS,
@@ -315,13 +327,10 @@ for each uc in IUsecaseRepository.findAll(fileSystemId):
   }])
 ```
 
-Where `matchesMdfPattern(uc, [ec1, ec2])` returns true iff:
-- `ec1` and `ec2` share exactly one endpoint SG,
-- The shared SG has `isMdf=true`,
-- The three SGs involved (`ec1.sourceSg`, sharedSg, `ec2.destSg` — or the mirror
-  arrangement depending on direction) form a chain `B → SG_MDF → C` where B is the
-  original left endpoint of the EC boundary and C is the original right endpoint,
-  and both `ec1` and `ec2` are in the UC's pair set.
+`collapseContiguousMdfEcChains` collapses only a directed chain whose interior members
+all have `IsMdf=true`. Branching EC links, disconnected EC links, mixed EC/non-EC chain
+links, or one MDF EC chain plus another EC link remain multiple logical connections and
+fail validation.
 
 **Design note:** the check runs on every UC (not just legacy ones) because a
 new-scheme Bridge UC has exactly 2 SGs and exactly 1 EC data-link — it never fires.
@@ -448,7 +457,9 @@ for each candidate in [context.combinations, context.ecBridgeCandidates]:
                           and uc.subgraphSystemIds.length > 2
                           and uc.subgraphSystemIds.includes(B)
                           and uc.subgraphSystemIds.includes(C))
-                          .filter(uc => not context.markedForDeletion.ucSystemIds.has(uc.systemId))
+                          .filter(uc => not context.topologyChangeAnalysis.decisions
+                            .some(decision => decision.kind == 'DELETE_OR_RECONSTRUCT'
+                              and decision.usecase.systemId == uc.systemId))
       if coveringLegacy.length > 0:
         continue   # suppress this Bridge candidate (redundant with legacy)
 
@@ -521,17 +532,23 @@ coexist" — different GKVs means no clash).
 EC connection link is deleted → the EC bridge UC is marked DELETED, following the
 same deletion workflow as any UC (FR-DEL-01..05).
 
-**Enforcement:** this is a Phase 2 (DeletionScope, LLD4) concern. LLD4 §5.1 examines
-the file-wide committed pre-session UC set and includes EC UCs in the affected set when
-they require deletion, structural mutation, or type degradation.
+**Pure MDF exception:** If the EC link is replaced by one strict MDF EC chain, Phase 2
+publishes an `MDF_SUBSTITUTION` decision instead. The EC UC is not marked deleted, does
+not enter FR-DEL-02 solely for this change, and is updated directly with the same
+identity, GKV, and `EC` type.
+
+**Enforcement:** this is a Phase 2 (Topology Change Analysis, LLD4) concern. LLD4 §5.1
+examines the file-wide committed pre-session UC set and finalizes either the direct MDF
+decision or ordinary deletion handling.
 
 **Design note — impact detection for EC connection deletion:** the `is_ec` attribute
 is on the data-link, so a deleted EC connection appears as a deleted data-link in
 `input.graphEdits.deletedDataLinks`. LLD4 §5.1's data-link deletion branch handles
 it. Phase 2 matches the deleted endpoint pair against each UC's stored pair set. The
-Bridge UC and any legacy UC containing that pair are affected; Left and Right UCs are
-not affected solely by deletion of the EC edge because neither contains that pair.
-FR-DEL-02 gates exactly the resulting file-wide affected set.
+Bridge UC and any legacy UC containing that pair ordinarily become affected; Left and
+Right UCs are not affected solely by deletion of the EC edge because neither contains
+that pair. A strict MDF replacement instead updates every matching EC UC directly and
+excludes those pure decisions from the FR-DEL-02 affected set.
 
 ---
 
@@ -564,7 +581,7 @@ FR-DEL-02 gates exactly the resulting file-wide affected set.
 
 **Phase 9 — EC lifecycle:**
 - T-EC-j: EC bridge UC exists; user changes KV on left SG → new Bridge UC created; existing preserved (FR-EC-06)
-- T-EC-k: EC connection deleted → Bridge UC and any legacy UC containing the EC pair are affected; Left and Right UCs are not affected solely by the edge deletion
+- T-EC-k: EC connection deleted without MDF replacement → Bridge UC and any legacy UC containing the EC pair are affected; Left and Right UCs are not affected solely by the edge deletion
 - T-EC-l: EC left SG deleted → every UC whose SG set contains the left SG is affected (normally Left and Bridge, plus matching legacy UCs); FR-DEL-02 requires exactly that full set
 
 **Legacy EC UC scenarios (FR-EC-07):**
@@ -577,7 +594,7 @@ FR-DEL-02 gates exactly the resulting file-wide affected set.
 | T-EC-legacy-d | X inserted between A and B; X has no SGKV; endpoint KVs unchanged | No | Yes (R2 narrow check passes) | Suppressed (R1) | Legacy **UPDATED** (X added, un-marked from deletion via FR-DUP-03(b1) identity-preserving interior extension); Left/Right emit |
 | T-EC-legacy-e | X inserted; X has SGKV; endpoint KVs unchanged | No | Yes (R2 narrow check passes) | Suppressed (R1) | Legacy deleted; new legacy-shape UC created (`type=EC`, 6 SGs, different GKV); Left/Right emit |
 | T-EC-legacy-f | X inserted; B or C SGKV changed (endpoint KV changed) | Yes | No (R2 narrow check falls through — EC treated as boundary) | Emitted (R1 doesn't fire) | Reconstruction fails → legacy deleted; Phase 7 main DFS produces new 3-UC set with changed KVs |
-| T-EC-legacy-g | isMdf `SG_MDF` inserted at EC boundary (replaces B-eclink-C with B→SG_MDF→C, both `isEc=true`) | No | Phase 2 records the legacy UC as structurally affected; FR-DEL-02 requires selection | Not applicable (no new EC connection introduced) | Legacy **UPDATED** with SG_MDF added; `type` stays `EC` (FR-EC-07 Rule C MDF exception applies) |
+| T-EC-legacy-g | `IsMdf` SG inserted at EC boundary (replaces B-eclink-C with B→SG_MDF→C, both `isEc=true`) | No | Not run; Phase 2 owns the direct MDF update | Not applicable (no new logical EC connection introduced) | Legacy **UPDATED** without selection; old pair removed, SG_MDF and chain pairs added, identity/GKV preserved, `type` stays `EC` |
 | T-EC-legacy-h | B-eclink-C link deleted entirely (no MDF substitution) | Depends on other KVs | Depends | Not applicable (EC gone) | Legacy's pair set loses all EC links → after reconstruction, `type` recomputed to `LINKED` (or `ISLAND` if coverage breaks) |
 | T-EC-legacy-i | UC contains 2 EC links (not via MDF pattern) — pre-existing or constructed via edits | N/A | N/A | N/A | Blocking pre-validation error `ARC-ROUTING-EC-MULTIPLE-LINKS` (FR-EC-07 Rule C) |
 | T-EC-legacy-j | Internal SG D deleted | N/A | Depends on availability of alternate A→E path | Suppressed if reconstruction succeeds; otherwise emitted from main DFS | Standard deletion flow: legacy `updated` (if reconstruction finds path) or `deleted` per FR-DEL-05 (if it doesn't) |
