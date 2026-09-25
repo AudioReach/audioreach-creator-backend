@@ -160,6 +160,23 @@ describe('SubsystemBuilder', () => {
     );
   });
 
+  it('should report stale AWSP subgraph children as warnings', async () => {
+    const result = await builder.build(
+      [{id: 1, name: 'A', children: [{id: 10, type: 'Subgraph'}]}],
+      100,
+      [],
+      [],
+    );
+
+    expect(result.issues).toEqual([
+      expect.objectContaining({
+        code: 'ERR_3001',
+        severity: 'WARNING',
+        impactedEntity: {entityType: 'Subgraph', systemId: 10},
+      }),
+    ]);
+  });
+
   it('should populate filteredKeySystemIds from filteredGraphKeys', async () => {
     mockFkMapper.getKeySystemId.mockReturnValue(asSystemId(500));
     const meta: UiMetadata = {

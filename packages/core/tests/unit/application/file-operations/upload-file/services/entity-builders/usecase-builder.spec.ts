@@ -253,32 +253,6 @@ describe('UsecaseBuilder', () => {
     });
 
     describe('Error Handling', () => {
-      it('should skip usecase when no key-value pairs exist', async () => {
-        const usecaseEntries: UsecaseEntry[] = [
-          {
-            keyValuePairList: new KeyValuePairList([]),
-            sgPropOffset: 0,
-            sgList: [],
-            sgPairList: [],
-          },
-        ];
-
-        const result = await builder.buildUsecases(
-          usecaseEntries,
-          TEST_FILE_SYSTEM_ID,
-        );
-
-        expect(result).toHaveLength(0);
-        expect(mockLogger.logWarn).toHaveBeenCalledWith(
-          expect.objectContaining({
-            msg: 'usecase_conversion_failed',
-            description: expect.stringContaining(
-              'Failed to convert usecase entry',
-            ),
-          }),
-        );
-      });
-
       it('should skip usecase when all key-value mappings fail', async () => {
         mockForeignKeyMapper.getValueSystemId = jest
           .fn()

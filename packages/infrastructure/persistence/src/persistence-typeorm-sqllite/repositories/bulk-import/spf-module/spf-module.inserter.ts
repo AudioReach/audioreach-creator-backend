@@ -329,7 +329,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
     const rows: InsertRow<SpfModuleRow>[] = modules.map(m => ({
       systemId: m.systemId,
       naturalId: m.naturalId,
-      alias: m.alias,
+      alias: m.alias ?? null,
       subgraphSystemId: m.subgraphSystemId,
       containerSystemId: m.containerSystemId,
       definitionSystemId: m.definitionSystemId,

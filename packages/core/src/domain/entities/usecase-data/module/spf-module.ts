@@ -69,7 +69,7 @@ export class SpfModule extends Node implements SpfModuleBase {
     this.definitionSystemId = init.definitionSystemId;
     this.containerSystemId = init.containerSystemId;
     this.subgraphSystemId = init.subgraphSystemId;
-    this.alias = init.alias ?? '';
+    this.alias = init.alias;
   }
 
   addTagData(tagData: TagData) {

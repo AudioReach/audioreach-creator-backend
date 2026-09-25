@@ -42,6 +42,7 @@ import {PARSED_CHUNK_TYPES} from '../../shared/constants/chunk-types.js';
 import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
 import type {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
 import type {Subsystem} from '../../../../domain/entities/usecase-data/subsystem/subsystem.js';
+import type {UiSubsystem} from '../../shared/awsp-serializers/v1/ui-metadata/index.js';
 import {UiSwitchesResolver} from './ui-switches-resolver.js';
 
 /**
@@ -109,6 +110,7 @@ export class UploadFileOrchestrator {
   // Entity arrays accumulated during build phases, used for reviewed-at collection
   private builtSubgraphs: Subgraph[] = [];
   private builtSpfModules: SpfModule[] = [];
+  private preparedSubsystems: Subsystem[] = [];
   private builtUsecases: UseCase[] = [];
 
   /**
@@ -433,8 +435,12 @@ export class UploadFileOrchestrator {
       // Phase 3: Build and Insert Containers (no dependencies)
       await this.buildAndInsertContainers(bulkRepo);
 
-      // Phase 4: Build and Insert SPF Modules with Calibration Data
-      await this.buildAndInsertSpfModules(bulkRepo);
+      const uiSubsystems = this.parsedAwsp?.getUiMetadata()?.subsystems ?? [];
+      await this.buildSubsystems(uiSubsystems);
+
+      // Phase 4: Build SPF Modules with Calibration Data and resolve their
+      // subsystem parents before the existing insertion logic runs.
+      await this.buildAndInsertSpfModules(bulkRepo, this.preparedSubsystems);
 
       // Phase 4b: Build and Insert Driver Modules with DKV Calibration Data
       await this.buildAndInsertDriverModules(bulkRepo);
@@ -442,21 +448,25 @@ export class UploadFileOrchestrator {
       // Phase 5: Build links, compute subsystem boundary ports, insert all three
       const dataLinks = await this.buildDataLinks();
       const {controlLinks, controlPortIntents} = await this.buildControlLinks();
-      const uiSubsystems = this.parsedAwsp?.getUiMetadata()?.subsystems ?? [];
       const {
         subsystems,
         dataLinks: finalDataLinks,
         controlLinks: finalControlLinks,
+        issues: subsystemIssues,
       } = uiSubsystems.length > 0
-        ? await this.builderService.buildSubsystems(
+        ? await this.builderService.completeSubsystems(
             uiSubsystems,
-            this.currentFileSystemId,
+            this.preparedSubsystems,
             dataLinks,
             controlLinks,
+            this.currentFileSystemId,
           )
-        : {subsystems: [], dataLinks, controlLinks};
+        : {subsystems: [], dataLinks, controlLinks, issues: []};
+
+      this.issueCollector.addIssues(subsystemIssues);
 
       await this.insertSubsystems(bulkRepo, subsystems);
+      await this.insertSpfModules(bulkRepo);
       await this.insertDataLinks(bulkRepo, finalDataLinks);
       await this.insertControlLinks(
         bulkRepo,
@@ -1209,7 +1219,8 @@ export class UploadFileOrchestrator {
    * This phase handles both KeyVectors and SPF Modules (with attached CKVs)
    */
   private async buildAndInsertSpfModules(
-    bulkRepo: BulkImportRepository,
+    _bulkRepo: BulkImportRepository,
+    preparedSubsystems: Subsystem[],
   ): Promise<void> {
     // Profile building phase
     this.profiler?.start(PROFILER_OPERATIONS.SPF_MODULE_BUILDING);
@@ -1231,15 +1242,31 @@ export class UploadFileOrchestrator {
 
     // Store built entities for reviewed-at collection
     this.builtSpfModules = result.entities;
+    this.builderService.assignSpfModuleParents(
+      this.builtSpfModules,
+      preparedSubsystems,
+    );
+  }
 
-    if (result.entities.length > 0) {
-      // Insert SPF Modules (with CKVs already attached)
+  private async buildSubsystems(uiSubsystems: UiSubsystem[]): Promise<void> {
+    this.preparedSubsystems = await this.builderService.buildSubsystems(
+      uiSubsystems,
+      this.currentFileSystemId,
+    );
+  }
+
+  private async insertSpfModules(
+    bulkRepo: BulkImportRepository,
+  ): Promise<void> {
+    if (this.builtSpfModules.length > 0) {
       this.profiler?.start(PROFILER_OPERATIONS.SPF_MODULE_INSERT);
-      const insertResult = await bulkRepo.insertSpfModules(result.entities);
+      const insertResult = await bulkRepo.insertSpfModules(
+        this.builtSpfModules,
+      );
       const insertMetrics = this.profiler?.end(
         PROFILER_OPERATIONS.SPF_MODULE_INSERT,
       );
-      this.logEntityInsertMetrics(insertMetrics, result.entities.length);
+      this.logEntityInsertMetrics(insertMetrics, this.builtSpfModules.length);
       this.logMemorySnapshot(
         this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_SPF_MODULE_INSERT),
       );
@@ -1251,14 +1278,14 @@ export class UploadFileOrchestrator {
       if (insertResult.ok) {
         this.logger?.logInfo({
           msg: 'spf_modules_with_calibration_persisted',
-          description: `Successfully inserted ${result.entities.length} SPF modules (build: ${result.issues.length} issues)`,
+          description: `Successfully inserted ${this.builtSpfModules.length} SPF modules`,
           component: 'UploadFileOrchestrator',
           tag: 'database-persistence',
         });
       } else {
         this.logger?.logError({
           msg: 'spf_modules_insertion_failed',
-          description: `Failed to insert some SPF modules: ${insertResult.errors.length} insertion failures out of ${result.entities.length} entities (build: ${result.issues.length} issues)`,
+          description: `Failed to insert some SPF modules: ${insertResult.errors.length} insertion failures out of ${this.builtSpfModules.length} entities`,
           component: 'UploadFileOrchestrator',
           tag: 'database-persistence',
           error:

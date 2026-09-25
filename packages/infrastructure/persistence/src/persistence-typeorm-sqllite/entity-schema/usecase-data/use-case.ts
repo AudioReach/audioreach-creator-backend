@@ -14,8 +14,8 @@ import {type UsecaseType, USECASE_TYPE} from '@arc/core';
 
 export interface UseCaseBase {
   systemId: number;
-  aliasId: number;
-  alias: string;
+  aliasId: number | null;
+  alias: string | null;
   fileSystemId: number;
   type?: UsecaseType;
   orderedKeys?: string;
@@ -56,10 +56,12 @@ export const UseCaseSchema = new EntitySchema<UseCaseRow>({
     aliasId: {
       type: 'integer',
       name: 'alias_id',
+      nullable: true,
     },
     alias: {
       type: 'varchar',
       length: 255,
+      nullable: true,
     },
     fileSystemId: {
       type: 'integer',

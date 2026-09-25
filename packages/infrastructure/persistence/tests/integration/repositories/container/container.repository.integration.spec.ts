@@ -24,7 +24,7 @@ import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-s
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 import {ProjectSessionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
-import {Container} from '@arc/core';
+import {Container, ContainerPropertyValue} from '@arc/core';
 import {
   describe,
   it,
@@ -181,6 +181,36 @@ describe('TypeOrmContainerRepository (integration)', () => {
     );
     expect(rows).toHaveLength(1);
     expect(rows[0].target_system_id).toBe(50);
+  });
+
+  it('uses distinct property-data IDs when creating multiple containers', async () => {
+    const sessionId = await seedSession(ds);
+    await qr.startTransaction();
+    const repo = makeRepo(qr, sessionId);
+    const first = new Container(50, 2, 7, FILE_ID);
+    first.properties.set(900, new ContainerPropertyValue(900, null, 501));
+    const second = new Container(60, 3, 7, FILE_ID);
+    second.properties.set(900, new ContainerPropertyValue(900, null, 601));
+    expect(first.properties.get(900)?.systemId).toBe(501);
+    expect(second.properties.get(900)?.systemId).toBe(601);
+
+    await repo.createContainer(first);
+    await repo.createContainer(second);
+    await qr.commitTransaction();
+
+    const rows: any[] = await ds.query(
+      `SELECT target_system_id, new_value FROM edit_actions
+       WHERE session_id = ? AND target_table = ? AND operation = ?
+       ORDER BY target_system_id`,
+      [sessionId, ENTITY_NAMES.ContainerPropertyData, CHANGE_OPERATION.Create],
+    );
+    expect(rows.map(row => row.target_system_id)).toEqual([501, 601]);
+    expect(
+      JSON.parse(rows[0].new_value).containerPropertyDefinitionSystemId,
+    ).toBe(900);
+    expect(
+      JSON.parse(rows[1].new_value).containerPropertyDefinitionSystemId,
+    ).toBe(900);
   });
 
   it('loads effective container property definitions as domain entities', async () => {
