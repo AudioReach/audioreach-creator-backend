@@ -309,10 +309,11 @@ definition edit actions.
 ### 7.2 Classification service
 
 Add `MdfClassificationService` in the use-case-creator application services.
-It receives candidate subgraph system IDs and a UnitOfWork, then:
+It receives the effective overlay `Subgraph` entities, the file-system ID, and a
+`UnitOfWork`, then:
 
 1. returns immediately for empty input;
-2. loads effective candidate Subgraphs with `findByIds`;
+2. uses the supplied effective candidate Subgraphs;
 3. batch-loads their effective modules;
 4. batch-loads distinct committed definition identities;
 5. groups modules by subgraph;
@@ -323,15 +324,17 @@ Missing definition projections make that candidate non-MDF.
 
 ### 7.3 Routing integration
 
-`KvResolutionService` invokes the classifier with the SG IDs derived from normalized
-`context.input.activeSubgraphs` (the effective routing scope). `RoutingContext` gains:
+`RoutingGraphSnapshotBuilder` invokes the classifier with the effective overlay
+`Subgraph` entities after applying the request policy. It stores the result as
+`RoutingSubgraph.isMdf`; `KvResolutionService` consumes that snapshot flag and does not
+re-run MDF classification. `RoutingContext` does not gain a duplicate MDF set:
 
 ```typescript
-readonly mdfSubgraphSystemIds = new Set<number>();
+// No mdfSubgraphSystemIds field: MDF is stored on RoutingSubgraph.
 ```
 
-The service populates this set for subsequent KV behavior. This refactor does
-not implement deferred MDF KV normalization, rejection, or routing semantics.
+This refactor does not implement deferred MDF KV normalization, rejection, or routing
+semantics.
 
 `SubgraphOverlayFetcher.fetchMdfInScope` and its SpfModule/definition
 dependencies are removed.
@@ -378,8 +381,9 @@ missing/extra/duplicate modules, missing definitions, deduplicated batch IDs,
 and repository failures.
 
 Persistence integration tests cover plural module lookup and committed
-definition identity projection. Routing tests verify that `KvResolutionService`
-populates `RoutingContext.mdfSubgraphSystemIds`.
+definition identity projection. Routing tests verify that the snapshot builder stores MDF
+classification on `RoutingSubgraph.isMdf` and that `KvResolutionService` does not
+reclassify the graph.
 
 ## 9. Documentation Updates
 

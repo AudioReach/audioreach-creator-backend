@@ -38,8 +38,8 @@ flowchart TD
 
         subgraph HALFA["Half A — Resolve fate of existing UCs (pre-routing checks)"]
             direction TB
-            P1["1 · PreValidationService\n(FR-PREVAL-01/02)"]:::halfA
-            P2["2 · DeletionScopeService\n(FR-DEL-01/02/06 + FR-API-07 deletions)\naffected-UC gate → deletion closure → pair survival"]:::halfA
+            P1["1 · PreValidationService\n(integrity + MDF values + stale manual dependencies)"]:::halfA
+            P2["2 · TopologyChangeAnalysisService\n(FR-MDF-01 + FR-DEL-01/02/06)\naggregate decisions → affected-UC gate → reconstruction"]:::halfA
             P3["3 · IslandTransitionService\n(ISLAND → LINKED)"]:::halfA
             P1 --> P2 --> P3
         end
@@ -94,7 +94,7 @@ flowchart LR
     subgraph AUTO["Auto mode (create-usecases)"]
         direction TB
         A1["1 · PreValidationService"]:::runs
-        A2["2 · DeletionScopeService\n(affected-UC detection + fail-fast FR-DEL-02)"]:::runs
+        A2["2 · TopologyChangeAnalysisService\n(MDF direct updates + affected-UC gate)"]:::runs
         A3["3 · IslandTransitionService\n(ISLAND → LINKED)"]:::runs
         A4["4 · KvResolutionService\n(resolves GKVs from payload)"]:::runs
         A5["5 · SeedDetectionService\n(discovers seed SGs)"]:::runs
@@ -111,7 +111,7 @@ flowchart LR
     subgraph MANUAL["Manual mode (create-manual-usecases)"]
         direction TB
         M1["1 · PreValidationService"]:::runs
-        M2["2 · DeletionScopeService\n(skipped — no existing-UC reconciliation)"]:::skipped
+        M2["2 · TopologyChangeAnalysisService\n(gates + pure MDF updates; no ordinary reconstruction)"]:::different
         M3["3 · IslandTransitionService\n(skipped — no ISLAND transition scan)"]:::skipped
         M4["4 · KvResolutionService\n(resolves provided GKVs)"]:::different
         M5["5 · SeedDetectionService\n(skipped — SGs provided)"]:::skipped
@@ -144,8 +144,9 @@ FR-DEL-02 first for unselected affected UCs, then validates deletion-side FR-API
 closure. The routing pipeline is strictly sequential and is organized
 into three explicit halves. Half A ("Resolve fate of existing UCs") runs first as
 intentional pre-routing checks: PreValidationService guards inputs,
-DeletionScopeService discovers every file-wide UC requiring deletion, structural
-mutation, or type degradation and fail-fasts when one is unselected, and
+TopologyChangeAnalysisService finalizes direct pure-MDF updates and discovers every
+file-wide UC requiring ordinary deletion handling or type degradation, failing fast when
+one is unselected, and
 `IslandTransitionService` handles `ISLAND` →
 `LINKED` type transitions. Half B ("Produce new UCs from
 input GKVs") performs routing proper: KV resolution, seed and cone computation, DFS
@@ -156,11 +157,12 @@ validation, staging edit_actions via `IUsecaseRepository`, and response construc
 Each of the 12 phases reads from and writes to a shared `RoutingContext` object, but
 individual service implementations are stateless. The FR-COMMIT-01 safety-net is
 separate from routing and runs when the caller triggers `POST /commit-changes`. In
-Manual mode skips Phase 2 file-wide discovery, FR-DEL-02 gating, reconstruction,
-degradation, and existing-UC mutation; phases 3, 5, 6, and 7 are also bypassed. Pair
+Manual mode runs Phase 2 file-wide discovery, FR-DEL-02/deletion-side gates, and direct
+pure-MDF maintenance, but skips ordinary reconstruction, degradation, and preservation;
+phases 3, 5, 6, and 7 are also bypassed. Pair
 discovery examines every relationship involving an out-of-selection SG and only those
 selected-selected relationships represented by a selected UC. Phase 8 still expands the
-ordered normalized `activeSubgraphs` scope, and Phase 9 runs
+ordered routable subgraphs from `graphSnapshot`, and Phase 9 runs
 in partial mode for idempotency. For projects without subsystems, the chain resolver is
 a fast no-op.
 

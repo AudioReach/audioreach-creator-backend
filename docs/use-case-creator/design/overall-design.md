@@ -7,11 +7,11 @@
 
 **Status:** Draft
 **Owner:** Nithin Simon
-**Last updated:** 2026-09-15
+**Last updated:** 2026-09-25
 
 **Requirements:**
-- Core: [`../2026-06-01-auto-usecase-routing-requirements.md`](../2026-06-01-auto-usecase-routing-requirements.md)
-- Extended: [`../2026-06-02-auto-usecase-routing-requirements-extended.md`](../2026-06-02-auto-usecase-routing-requirements-extended.md)
+- Core: [`../auto-usecase-routing-requirements.md`](../auto-usecase-routing-requirements.md)
+- Extended: [`../auto-usecase-routing-requirements-extended.md`](../auto-usecase-routing-requirements-extended.md)
 
 **Diagrams:** [`./diagrams/`](./diagrams/) — supplementary flowcharts and tables referenced from this document.
 
@@ -39,6 +39,31 @@ LLDs listed in §12.
   document only defines the *contract* it must uphold (FR-COMMIT-01).
 
 ---
+
+## 2A. Current Snapshot Preparation Authority
+
+This section supersedes earlier flat-input and per-consumer graph-read descriptions in
+this document. Both handlers resolve chains, read session edits and selected overlay UCs,
+validate request closure, then call one shared `RoutingGraphSnapshotBuilder`. The builder
+performs the only request-scoped reads of subgraphs, overlay data/control links, committed
+UseCases, and MDF metadata. It applies `requestPolicy` once and returns an immutable
+`graphSnapshot` containing `RoutingSubgraph`, routable links, complete overlay catalogs,
+the committed UC catalog, and `sessionEdits`.
+
+`RoutingInput` contains `fileSystemId`, `selectedUsecases`, `requestPolicy`,
+`graphSnapshot`, and `activeManualUsecaseEdits`; manual input additionally contains
+`manualTopology`. Automatic input does not contain an `islandUcs` field.
+`ManualPairDiscoveryService` and `PreValidationService`
+consume snapshot collections only and perform no repository reads. Phases 2–3 and 5–10
+consume the snapshot without duplicate graph reads. Phase 4 may read SGKV baselines and
+one batched, effective-overlay, file-scoped Value Definition-to-Key mapping so arbitrary
+valid API selections can become content-only SGKV instances; it does not resolve SGKV
+database IDs. Phase 11 writes only. Derived exclusion sets and lookup maps are
+construction- or phase-local and are never retained in input or context.
+
+Phase 2 has one documented exception to snapshot-only data: legacy EC reconstruction may
+perform one batched SGKV baseline read through the narrow `SubgraphRepository`. It never
+reloads graph topology or the committed UC catalog.
 
 ## 2. Feature Context & Module Boundaries
 
@@ -94,21 +119,19 @@ for the full lifecycle and auto/manual mode phase applicability.
 `IChainResolver.resolveAllChains(uow)`. Failure → handler throws → HTTP 422; routing
 pipeline never starts, no side effects. Success → resolver has written STAGED link
 edits into the session. Each handler then loads the UCs named by
-`selectedUsecaseSystemIds` once from the effective session overlay and preserves that
-snapshot as `selectedUsecases` in `RoutingInput`. It derives `selectedScopeSubgraphs`,
-`inputSubgraphs`, `outOfSelectionSubgraphs`, and `effectiveRoutingScope`, and rejects
-before KV resolution, seed detection, or manual pair discovery if FR-API-07 addition-
-side closure fails: added SGs and added data-link endpoints must be active and
-non-excluded, and no current-session added SG/link may be explicitly excluded. Added
-control-links are checked for direct exclusion but do not force their endpoints into
-auto scope. The handler then enforces
-`selectedScopeSubgraphs − excludedSubgraphSystemIds − deletedSubgraphSystemIds ⊆
-inputSubgraphs`. Session-deleted SGs are silently removed from stale client input and
-from `effectiveRoutingScope`, while their DELETE records remain in `graphEdits`. The
-handler then invokes `RoutingEngine.run`. Those names describe handler-local derivations,
-not four stored input fields. The engine receives normalized `activeSubgraphs` plus a
-minimal `scopePolicy`: original requested SG IDs and explicit SG exclusions. This retains
-the request intent required by Phase 2 without duplicating every derived set.
+`selectedUsecaseSystemIds` once from the effective session overlay, reads session graph
+edits, and validates FR-API-07 addition-side and selected-scope closure before KV
+resolution, seed detection, or manual pair discovery. The handler passes the resulting
+request policy, selected UCs, graph edits, and effective scope to one
+`RoutingGraphSnapshotBuilder`.
+
+The builder is the sole request-scoped reader of effective subgraphs, overlay
+data/control links, committed UCs, and MDF metadata. It applies request exclusions once
+and returns immutable `graphSnapshot` collections: routable subgraphs/links, complete
+overlay link catalogs for deletion impact, committed UCs, session edits, and MDF flags.
+Session-deleted SGs are excluded from routable collections but remain in session edits as
+deletion evidence. The handler then invokes `RoutingEngine.run`; downstream phases do not
+perform duplicate graph reads or reconstruct flat scope fields.
 
 **Routing pipeline — 12 sequential phases in three halves:**
 
@@ -120,8 +143,8 @@ depends only on graph state ahead of work that depends on user-provided GKVs.
 
 | # | Phase | Responsibility | LLD |
 |---|---|---|---|
-| 1 | PreValidationService | Input shape and referential integrity checks after handler-level FR-API-07 addition-side and FR-API-03 selected-scope validation (FR-PREVAL-01/02) | LLD1 |
-| 2 | DeletionScopeService | Discover file-wide UCs requiring deletion, structural mutation, or type degradation; fail-fast with full affected and missing ID sets; after FR-DEL-02 passes, enforce FR-API-07 deletion-side closure and run FR-DEL-06 pair survival (FR-DEL-01/02/06) | LLD4 |
+| 1 | PreValidationService | Input shape, MDF no-value invariant, and referential integrity checks after handler-level FR-API-07 addition-side and FR-API-03 selected-scope validation (FR-PREVAL-01/02, FR-MDF-01) | LLD1 |
+| 2 | TopologyChangeAnalysisService | Aggregate all file-wide committed-UC topology impacts; publish direct pure-MDF updates outside the affected gate; fail fast with full affected/missing ID sets for ordinary impacts; enforce FR-API-07 deletion-side closure and run FR-DEL-06 pair survival (FR-MDF-01, FR-DEL-01/02/06) | LLD4 |
 | 3 | `IslandTransitionService` | `ISLAND` → `LINKED` transitions + direction correction (FR-STATUS-04) | LLD4 |
 
 **Half B — Produce new UCs from input GKVs (routing proper):**
@@ -143,16 +166,17 @@ depends only on graph state ahead of work that depends on user-provided GKVs.
 | 11 | RoutingChangeStager | Emit `edit_actions` via domain-verb edit-repo ports; source=AUTO_ROUTING, UNSTAGED | LLD6 |
 | 12 | ResponseBuilder | Assemble the framework-free `RoutingOutcome` containing emitted change descriptors, issues, and `groupId` | LLD6 |
 
-**Rationale for the split.** Phases 2 and 3 (Half A) depend only on `graphEdits`,
-`islandUcs`, and existing UC/link state — none of them need routing output. Running them
-first has two payoffs:
+**Rationale for the split.** Phases 2 and 3 (Half A) depend only on the prepared
+`graphSnapshot` and request policy — none of them need routing output. Running them first
+has two payoffs:
 - **Fail-fast on FR-DEL-02** — if the caller omitted an affected UC from the selected UC
   snapshots, the automatic pipeline rejects before spending ~60ms of DFS work.
 - **Cleaner mental model** — "resolve existing" and "produce new" are separate
   concerns; the split makes that legible.
 
-**Stateless services.** Each phase is a stateless service; all mutable state lives in
-`RoutingContext` (per-request) and `UnitOfWork` (per-tx). Same instance can serve N
+**Stateless services.** Each phase is a stateless service; mutable pipeline state lives in
+`RoutingContext` (per-request), while the handler-owned `UnitOfWork` retains transaction
+state. Phases do not retain either object, so the same service instance can serve N
 parallel requests for different files.
 
 **Error propagation.** Any phase can return `Result.fail(issues[])`. On fail:
@@ -162,10 +186,13 @@ in `RoutingContext.warnings` and surface in the response's `issues[]` — they d
 halt the pipeline.
 
 **Auto vs Manual mode.** Manual mode runs the same orchestrator with the same phase
-list, but Phase 2 performs no file-wide affected-UC discovery, FR-DEL-02 gate,
-reconstruction, degradation, or existing-UC mutation. Commit-time validation protects
-existing UCs from unresolved structural damage. Phases 3, 5, 6, and 7 are no-ops. Phase
-4 resolves the provided GKVs. Phase 8 expands the ordered
+list. Phase 1 validates active manual dependencies before topology decisions in both
+modes. Phase 2 performs file-wide affected-UC discovery and both
+deletion-side gates; it
+also retains direct pure-MDF maintenance decisions, but skips ordinary automatic
+reconstruction, degradation, and preservation. Commit-time validation protects existing
+UCs from unresolved structural damage. Phases 3, 5, 6, and 7 are no-ops. Phase 4 resolves
+the provided GKVs. Phase 8 expands the ordered
 effective-routing-scope synthetic path so every valid SGKV Cartesian combination becomes
 a candidate UC. Phase 9 runs partial (idempotency check only). This avoids two divergent
 code paths while keeping manual topology explicit.
@@ -214,31 +241,24 @@ Each phase writes its owned field once; downstream phases read. The only excepti
 `warnings` — appendable by any phase.
 
 **Input structure.** `input` is immutable after the handler builds it. Scope derivation
-names remain useful algorithm vocabulary, but only the irreducible fields below cross the
-engine boundary. Contents by
-mode:
+names remain useful algorithm vocabulary, but only request policy and the prepared graph
+snapshot cross the engine boundary. Contents by mode:
 
 | Field | Auto | Manual | Source |
 |---|---|---|---|
 | `mode` | ✓ | ✓ | handler |
-| `activeSubgraphs` (normalized SG + SGKV selections after excluded/deleted SG removal) | ✓ | ✓ | handler from client payload |
+| `requestPolicy` (explicit SG/link exclusions and requested scope intent) | ✓ | ✓ | handler from client payload |
 | `selectedUsecases` (single effective-overlay snapshot) | ✓ | ✓ | handler |
-| `scopePolicy.requestedSubgraphSystemIds` (SG IDs in original `activeSubgraphs`) | ✓ | ✓ | handler from client payload |
-| `scopePolicy.excludedSubgraphSystemIds` | ✓ | ✓ | handler from client payload |
-| `excludedDataLinkSystemIds` | ✓ | ✓ | client payload |
-| `excludedControlLinkSystemIds` | ✓ | ✓ | client payload |
-| `graphEdits` (added/deleted SGs, data-links, control-links since last routing) | ✓ | ✓ | handler (assembled from aggregate repo `findManualEditsSinceLastRouting` calls) |
-| `islandUcs` (committed `ISLAND` UCs present before the run) | ✓ | — | handler (repo query) |
+| `graphSnapshot` (routable scope, complete overlay links, committed UCs, MDF flags, and session edits) | ✓ | ✓ | shared builder after handler validation |
 | `manualTopology` (pairs with pair-local supporting data/control links; isolated SGs derived from scope) | — | ✓ | `ManualPairDiscoveryService` after chain resolution |
 
-`selectedUsecases`, `graphEdits`, and `islandUcs` are handler-derived. Downstream phases
-reuse `selectedUsecases`; they do not reload selected UCs and risk observing a different
-overlay snapshot. When a phase needs selected scope, out-of-selection scope, or effective
-routing IDs, it derives them from `selectedUsecases`, normalized `activeSubgraphs`, and
-`scopePolicy`. `selectedUsecaseSystemIds` are similarly recoverable from the snapshots.
+`selectedUsecases` and `graphSnapshot` are handler-derived. Downstream phases reuse these
+immutable snapshots; they do not reload selected UCs or graph entities and risk observing
+a different overlay. `graphSnapshot.committedUsecases` is the complete pre-run catalog,
+while `graphSnapshot.subgraphs` and routable links are the final request-scoped views.
 
-In manual mode, the SGs forming the new UC are the IDs in normalized `activeSubgraphs`
-(the effective routing scope). Pair
+In manual mode, the SGs forming the new UC are the IDs in the routable
+`graphSnapshot.subgraphs` (the effective routing scope). Pair
 derivation happens server-side (FR-UC-01) via data-link query with control-link fallback.
 `ManualPairDiscoveryService` examines every unordered relationship involving an
 out-of-selection SG. A selected-selected relationship is eligible only when at least one
@@ -248,19 +268,14 @@ Phase 8 consumes the same ordered effective-scope selection.
 Request order is retained only for deterministic combination expansion and does not
 define topology.
 
-**Why `graphEdits`:** Phase 5 (SeedDetection) needs to know *what the user just changed*
-so it can focus routing on those SGs rather than re-scan the whole graph. Phase 2
-(DeletionScope) uses the deletion entries to find impacted UCs. Without this delta,
-routing would be O(graph) instead of O(edits) — blowing NFR-PERF-01.
+**Why `graphSnapshot`:** Phase 2 needs complete committed UC and overlay-link catalogs
+for file-wide impact detection, while Phases 1 and 8 need final routable collections.
+Keeping both views in one immutable snapshot prevents each phase from applying different
+scope or exclusion rules and preserves the request-time overlay boundary.
 
-**Why `islandUcs`:** Phase 3 (`IslandTransitionService`) has to scan current `ISLAND` UCs for eligibility to promote to
-`LINKED`. Not derivable from edit deltas — it's a
-"which past UCs are still incomplete" catalog. Auto mode only; manual mode never
-transitions UCs.
-
-**Not in `RoutingContext`:** link data, subgraph definitions, `UnitOfWork`,
-chain-resolution outcome. Phases that need those read from repositories directly (which
-return the edit-crud overlay — committed state + STAGED edits).
+**Not in `RoutingContext`:** repositories, `UnitOfWork`, chain-resolution outcome, or
+duplicate MDF/UC/link catalogs. Phases consume the immutable input snapshot and write only
+their owned grouped outputs.
 
 `RoutingContext` also does not copy input exclusions into mutable sets. Phases read
 exclusions from immutable `context.input` and create private local lookup sets when
@@ -280,6 +295,14 @@ while preserving the successful edit actions. Routing is neither rerun nor compe
 **Phase return semantics.** Each phase returns `Result<void>`. On `Result.fail`, the
 orchestrator halts and the handler rolls back. Warnings are non-blocking; they're
 appended to `context.warnings` and the pipeline continues.
+
+**Phase invocation contracts.** There is no generalized `RoutingPhase` interface.
+`RoutingEngine` stores concrete services and builds an ordered list of zero-argument
+closures for each run. Pure phases receive only `RoutingContext`;
+`TopologyChangeAnalysisService` and `KvResolutionService` receive the narrow
+`SubgraphRepository`; the write phase `RoutingChangeStager` receives `UnitOfWork`; and
+`ResponseBuilder` receives only the write-context `groupId`. This preserves centralized
+fail-fast ordering while making each phase's persistence capability explicit.
 
 ---
 
@@ -304,7 +327,14 @@ at any point rolls back the whole tx. This is NFR-CONSIST-01.
 
 **Note on SGKV persistence:** SGKV instances from the API input are used as **in-memory
 input only** during routing. Persistence to the `sgkv` table happens at commit time per
-FR-KV-COMMIT-01, not inside the routing transaction.
+FR-KV-COMMIT-01, not inside the routing transaction. Routing and staging carry canonical
+Value Definition sets, not `sgkv.system_id` values. During commit, each accepted set is
+matched against the target SG's current SGKVs by exact order-independent content; an
+existing ID is reused, otherwise a new SGKV ID and relationships are created atomically.
+The staged UC change retains its per-subgraph assignment as
+`{subgraphSystemId, valueDefinitionSystemIds[]}` because the UC's union GKV is insufficient
+to reconstruct SG ownership. Only assignments belonging to accepted/staged UC changes are
+materialized.
 
 **Write path — all routing writes carry:**
 
@@ -362,10 +392,10 @@ writing `edit_actions`.
 | Port | Owner | Status | Consumed by |
 |---|---|---|---|
 | `IChainResolver` | subsystem-links module | Existing (external) | Handler pre-step |
-| `IUsecaseRepository` | existing (extended) | Existing + new methods (see below) | Handler, Phase 2, Phase 3, Phase 9, Phase 10, Phase 11 |
-| `ISubgraphRepository` | existing (extended) | Existing + SGKV read + manual-edits query | Handler, Phase 1, Phase 4, Phase 5, Phase 6 |
-| `IDataLinkRepository` | existing (extended) | Existing + pair-existence + manual-edits query | Handler, Phase 1, Phase 2, Phase 7, Phase 10 |
-| `IControlLinkRepository` | existing (extended) | Existing + pair-existence + manual-edits query | Handler, Phase 2, Phase 10 |
+| `IUsecaseRepository` | existing (extended) | Existing + new methods (see below) | Handler, `RoutingGraphSnapshotBuilder`, Phase 11 |
+| `ISubgraphRepository` | existing (extended) | Existing + SGKV baseline read + file-scoped Value-to-Key resolution + manual-edits query | Handler, `RoutingGraphSnapshotBuilder`, Phase 4 |
+| `IDataLinkRepository` | existing (extended) | Existing + pair-existence + manual-edits query | Handler, `RoutingGraphSnapshotBuilder`, Phase 11 |
+| `IControlLinkRepository` | existing (extended) | Existing + pair-existence + manual-edits query | Handler, `RoutingGraphSnapshotBuilder`, Phase 11 |
 | `IIdGenerationPort` | existing | Existing | Handler (new UC systemIds passed to Phase 11) |
 | `IUnitOfWork` | edit-crud LLD1 | Existing | Handler (tx boundary) |
 
@@ -380,21 +410,22 @@ queries and stitched together by the handler. This matches the pattern in
 
 | Repo | New method | Purpose |
 |---|---|---|
-| `IUsecaseRepository` | `findAll(fileSystemId, {readMode?})` | Phase 2 — load all UCs (readMode=Committed for pre-session impact detection). Consumers filter in memory over `context.allUcs`. |
+| `IUsecaseRepository` | `findAll(fileSystemId, {readMode?})` | Snapshot builder — load the complete committed UC catalog (readMode=Committed for pre-session impact detection). |
 | | `findBySystemIds(fileSystemId, ucSystemIds, {readMode?})` | Handler — batch load specific UCs. |
-| | `findWithActiveManualEdits(fileSystemId)` | Phase 9 — active MANUAL CREATE/UPDATE records with `changeId`, effective UC, operation, and nullable dependency payload for stale-edit validation/autofix. |
+| | `findWithActiveManualEdits(fileSystemId)` | Handler preparation + Phase 1 — active MANUAL CREATE/UPDATE records with `changeId`, effective UC, operation, and nullable dependency payload for stale-edit validation/autofix and same-UC MDF precedence. |
 | | `create(uc, options?, referencedComponents?)` | Phase 11 |
 | | `applyStructuralChange(uc, delta, options?, referencedComponents?)` | Phase 11 — atomic add/remove SGs+pairs+type update; also FR-EC-07 Rule D un-mark. |
 | | `changeType(uc, newType, options?)` | Phase 11 — type-only mutation (FR-STATUS-02(b), pure Rule E). |
 | | `reverseDirection(uc, currentSourceSg, currentDestSg, options?)` | Phase 11 — FR-STATUS-04 Step 1 flip. |
 | | `delete(uc, options?)` | Phase 11 |
-| `ISubgraphRepository` | `getSgkvsBySgIds(sgIds, fileSystemId)` | Phase 4 — SGKV is child of SG aggregate |
+| `ISubgraphRepository` | `getSgkvs(fileSystemId, sgIds)` | Phase 2 narrow legacy-EC endpoint comparison and Phase 4 UC-filtered seed baseline. |
+| | `resolveKeyValues(fileSystemId, valueDefSystemIds)` | Phase 4 — batch-resolve arbitrary requested Values to owning Keys through the effective file-scoped definition overlay; independent of existing SGKV membership. |
 | | `findManualEditsSinceLastRouting(sessionId, fileSystemId)` | Handler — SGs added/deleted this session |
-| `IDataLinkRepository` | `findIntraUsecaseByFile(fileSystemId, excludedIds)` | Phases 1, 6, 7 |
-| | `findLinksByPair(sgA, sgB, fileSystemId, excludedIds)` | Phase 2 — FR-DEL-06 multi-path existence check |
+| `IDataLinkRepository` | `findIntraUsecaseByFile(fileSystemId, excludedIds)` | Snapshot builder — complete overlay catalog and routable link view |
+| | `findLinksByPair(sgA, sgB, fileSystemId, excludedIds)` | Phase 11 persistence support |
 | | `findManualEditsSinceLastRouting(sessionId, fileSystemId)` | Handler — data-links added/deleted this session |
-| `IControlLinkRepository` | `findIntraUsecaseByFile(fileSystemId, excludedIds)` | Phase 10 — I5 orphan check |
-| | `findLinksByPair(sgA, sgB, fileSystemId, excludedIds)` | Phase 2 — I7 pair-link presence via control-link |
+| `IControlLinkRepository` | `findIntraUsecaseByFile(fileSystemId, excludedIds)` | Snapshot builder — complete overlay catalog and routable link view |
+| | `findLinksByPair(sgA, sgB, fileSystemId, excludedIds)` | Phase 11 persistence support |
 | | `findManualEditsSinceLastRouting(sessionId, fileSystemId)` | Handler — control-links added/deleted this session |
 
 **Write-side convention.** Domain verbs, no `record*` prefix. `source=AUTO_ROUTING` and
@@ -424,21 +455,29 @@ Each adapter filters `edit_actions` by `source=MANUAL` internally. The three ada
 share a private helper in `@arc/persistence` to avoid duplicating the `edit_actions`
 query pattern — that helper is not a public port.
 
-**RoutingEngine constructor (indicative; final in the implementation plan):**
+**RoutingEngine orchestration (indicative):**
 
 ```ts
 class RoutingEngine {
   constructor(
-    private readonly repos: {
-      usecase:     IUsecaseRepository;
-      subgraph:    ISubgraphRepository;
-      dataLink:    IDataLinkRepository;
-      controlLink: IControlLinkRepository;
-    },
-    private readonly idGeneration: IIdGenerationPort,
+    private readonly preValidation: PreValidationService,
+    private readonly topologyChangeAnalysis: TopologyChangeAnalysisService,
+    // ... remaining concrete phase services in fixed order ...
+    private readonly routingChangeStager: RoutingChangeStager,
+    private readonly responseBuilder: ResponseBuilder,
   ) {}
 
-  async run(input: RoutingInput, uow: IUnitOfWork): Promise<Result<RoutingOutcome>>;
+  async run(input: RoutingInput, uow: IUnitOfWork): Promise<Result<RoutingOutcome>> {
+    const context = new RoutingContext(input);
+    const phases = [
+      () => this.preValidation.run(context),
+      () => this.topologyChangeAnalysis.run(context, uow.getSubgraphRepository()),
+      // ... pure phases receive context; Phase 4 receives SubgraphRepository ...
+      () => this.routingChangeStager.run(context, uow),
+      () => this.responseBuilder.run(context, uow.getWriteContext().groupId),
+    ];
+    // Await in order and return immediately on Result.fail.
+  }
 }
 ```
 
@@ -593,8 +632,8 @@ infrastructure* (rule violation or systems failure?).
 | Infrastructure | DB timeout, unexpected exception | 500 | `success=false, errors=[Internal]` | rollback |
 | Session/mode | No active session, wrong mode | 400 / 403 | `success=false, errors=[SessionMissing]` | never opened |
 | Chain resolver failure | Incomplete SLS/CSLS chain | 422 | `success=false, errors=[ChainIncomplete]` | rollback |
-| Pre-validation blocking | FR-API-03, FR-API-07 addition side, FR-PREVAL-01/02 | 422 | `success=false, errors=[issue codes]` | rollback |
-| Mid-pipeline blocking | FR-DEL-02, FR-API-07 deletion side, FR-DUP-04 (same-GKV user choice), FR-DFS-08, FR-EC-05, FR-MDF-01, stale MANUAL edit-action (see mode note below) | 422 | `success=false, errors=[issue codes]` | rollback |
+| Pre-validation blocking | FR-API-03, FR-API-07 addition side, FR-PREVAL-01/02, FR-MDF-01, stale MANUAL edit-action | 422 | `success=false, errors=[issue codes]` | rollback |
+| Mid-pipeline blocking | FR-DEL-02, FR-API-07 deletion side, FR-DUP-04 (same-GKV user choice), FR-DFS-08, FR-EC-05 | 422 | `success=false, errors=[issue codes]` | rollback |
 | Warnings (routing time) | Orphans, cycles, islands | 200 | `success=true, data.issues=[WARN…]` | commit |
 | Commit-time orphans | Any orphan detected at commit | 422 | `success=false, errors=[ARC-COMMIT-ORPHAN-*]` | commit rejected |
 
@@ -602,15 +641,17 @@ infrastructure* (rule violation or systems failure?).
 autofix hints so the user can act. At commit time, orphans are blocking (FR-COMMIT-01(c))
 — persisting them would violate I5 permanently.
 
-**Mode note on mid-pipeline errors.** Phases skipped in manual mode (2, 3, 5, 6, and 7)
-cannot produce their error codes. Manual Phase 2 is a complete no-op and cannot produce
-`ARC-ROUTING-DEL-02`. Phase 8 runs in manual mode, so
+**Mode note on mid-pipeline errors.** Phases 3, 5, 6, and 7 are skipped in manual mode
+and cannot produce their error codes. Manual Phase 2 still produces
+`ARC-ROUTING-DEL-02` and deletion-side scope errors, and may publish a direct MDF update;
+it skips ordinary automatic reconstruction/degradation. Phase 8 runs in manual mode, so
 `ARC-ROUTING-DFS-08` remains possible when no valid KV combination exists.
 `ARC-ROUTING-SAME-GKV-CHOICE-REQUIRED` (FR-DUP-04 same-GKV collision) can occur in
 manual mode only via Phase 9's idempotency-only path when the newly created manual UC
 collides with an existing DB UC by GKV without exact match — but in practice manual UC
 creation is a single-UC event so this is rare. The stale MANUAL edit-action check
-(`ARC-ROUTING-MANUAL-UC-BROKEN-DEPS`) is auto-mode only.
+(`ARC-ROUTING-MANUAL-UC-BROKEN-DEPS`) runs in Phase 1 in both modes before
+topology-change analysis.
 
 **Result<T> flow.**
 
@@ -644,6 +685,10 @@ Blocking (surface in `errors[]`, HTTP 422):
   effective graph. Runs before Phase 9 Classification. Autofix: remove the flagged
   edit-action rows. Mirrors `ARC-COMMIT-MANUAL-UC-BROKEN-DEPS` at routing time.
 - `ARC-ROUTING-DFS-08` — no valid KV combinations
+- `ARC-ROUTING-SGKV-MALFORMED` — one requested SGKV contains multiple Values
+  belonging to the same Key Definition (I6).
+- `ARC-ROUTING-SGKV-VALUE-NOT-FOUND` — a requested Value Definition is absent
+  from the effective definition overlay or belongs to a Key Definition in another file.
 - `ARC-ROUTING-EC-05` — EC violation
 - `ARC-ROUTING-MDF-01` — MDF KV-assigned conflict
 - `ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT` — a current-session added/deleted SG or
@@ -677,7 +722,7 @@ Warnings (surface in `data.issues[]`, HTTP 200):
 - `ARC-ROUTING-ISLAND-DETECTED`
 - `ARC-ROUTING-UC-AUTO-ISLAND` — `LINKED` UC auto-transitioned to `ISLAND`
   because a data-link was deleted while a control-link remained between the same SGs
-  (FR-STATUS-02(b)); payload lists degraded pairs so the user can decide whether to
+  (FR-STATUS-02(b)); payload lists data-link-loss pairs so the user can decide whether to
   also remove the control-link.
 
 Every issue carries an `impactedEntity` payload (SG / subsystem / link systemId + kind,
@@ -763,7 +808,8 @@ Revisit these only if real workloads consistently exceed 30/50 and 100ms.
 Per the frozen requirements §6:
 
 - **Nested usecase preservation** across sessions — deferred.
-- **MDF V2 implicit intermediate subgraphs** — deferred.
+- **Implicit injection of omitted MDF intermediate subgraphs** — deferred. Explicitly
+  supplied MDF pass-through routing and pure MDF substitution are in scope.
 - **UI/UX implementation details** — not part of this spec.
 - **Concurrent routing sessions on the same file** — out of scope; single-session model.
 - **Control links as DFS traversal targets** — DFS is data-link driven. Control links
@@ -771,7 +817,8 @@ Per the frozen requirements §6:
 
 **In scope for this delivery** (previously listed here as out-of-scope; corrected 2026-08-10):
 - EC (Echo Cancellation) routing — 3-UC generation for Rx/Tx domain bridges. Owned by LLD5.
-- MDF single-rule support (FR-MDF-01 IsMdf attribute) — folded into plan.
+- MDF pass-through and pure substitution (FR-MDF-01) — owned by LLD1, LLD4, and the
+  focused pure-MDF design.
 - Structural UC replacement (FR-UC-UPDATE-01) — delivered as a separate write API
   after the routing and commit-safety chapters. It reuses manual SGKV/GKV validation
   but is not a third mode of the 12-phase routing pipeline.
@@ -791,13 +838,13 @@ into the implementation plan.
 | LLD2 | `lld2-dfs-core.md` | Phases 7–8: DFS routing and combination expansion. FR-DFS-01..09 |
 | LLD4 | `lld4-deletion-transition.md` | Phases 2–3: DeletionScope and `IslandTransitionService` (`ISLAND` → `LINKED`). FR-DEL-01..06, FR-VAL-04, FR-API-07 deletion side with FR-DEL-02 precedence, FR-STATUS-04, FR-EXT-01..03 |
 | LLD5 | `lld5-ec-routing.md` | EC (Echo Cancellation) routing: detection, DFS boundary override, 3-UC generation, Bridge KV compatibility, single-EC-per-path, EC bridge lifecycle, legacy EC UC compatibility (Bridge suppression, cross-EC reconstruction delegation, max-1-EC-per-UC with MDF exception, type recomputation). FR-EC-01..07 |
-| — (folded into plan) | — | Phase 9 Classification + Phase 10 OrphanValidation: FR-DUP-03(a) exact-match no-op + FR-DUP-03(b1) identity-preserving interior extension silent auto-update + FR-DUP-04 same-GKV user-choice collision handling (including `ARC-ROUTING-SAME-GKV-CHOICE-REQUIRED` issue emission, apply-fix command, re-run recognition via GKV+SG+pair match against `source=MANUAL` edit-actions, Phase 9 pre-check for stale MANUAL edit-actions emitting `ARC-ROUTING-MANUAL-UC-BROKEN-DEPS`), FR-VAL-01/02/03, FR-LIFE-01/02/03, FR-STATUS-01/02/03. Rule-driven; the plan carries the rule table directly. Also folds in FR-EC-07 Rule D (Phase 11 emission of reconstruction-updated UCs and un-marking from `markedForDeletion` on FR-DUP-03(b1) match) and FR-EC-07 Rule E (recomputing `Usecase.type` from pair set at Phase 11 stager). |
-| — (folded into plan) | — | Phase 11 RoutingChangeStager + Phase 12 ResponseBuilder + DTO/adapter shapes: FR-KV-COMMIT-01/02/03. MDF single rule (FR-MDF-01). Manual UC creation flow (FR-UC-01) including server-side pair discovery via `IDataLinkRepository.findLinksByPair` + control-link fallback per FR-UC-01 step 4 with smaller-SG-ID direction rule and isolated-SG warning. `degradedToIsland` UC updates from FR-STATUS-02(b) emit `usecaseRepo.update(uc, {type: 'ISLAND'})` plus the `ARC-ROUTING-UC-AUTO-ISLAND` warning. |
+| — (folded into plan) | — | Phase 1 stale-MANUAL dependency validation; Phase 9 Classification + Phase 10 OrphanValidation: FR-DUP-03(a) exact-match no-op + FR-DUP-03(b1) identity-preserving interior extension silent auto-update + FR-DUP-04 same-GKV user-choice collision handling (including `ARC-ROUTING-SAME-GKV-CHOICE-REQUIRED` issue emission, apply-fix command, and re-run recognition via GKV+SG+pair match against `source=MANUAL` edit-actions), FR-VAL-01/02/03, FR-LIFE-01/02/03, FR-STATUS-01/02/03. Rule-driven; the plan carries the rule table directly. Also folds in FR-EC-07 Rule D (Phase 11 emission of reconstruction-updated UCs and un-marking from `markedForDeletion` on FR-DUP-03(b1) match) and FR-EC-07 Rule E (recomputing `Usecase.type` from pair set at Phase 11 stager). |
+| — (folded into plan) | — | Phase 11 RoutingChangeStager + Phase 12 ResponseBuilder + DTO/adapter shapes. Phase 11 preserves content-only per-SG SGKV assignments in relevant UC actions but does not resolve or persist SGKV IDs. MDF single rule (FR-MDF-01). Manual UC creation flow (FR-UC-01) including server-side pair discovery via `IDataLinkRepository.findLinksByPair` + control-link fallback per FR-UC-01 step 4 with smaller-SG-ID direction rule and isolated-SG warning. `IslandUseCaseCandidate` updates from FR-STATUS-02(b) emit `usecaseRepo.update(uc, {type: 'ISLAND'})` plus the `ARC-ROUTING-UC-AUTO-ISLAND` warning. |
 | — (folded into plan) | — | Structural UC replacement API (FR-UC-UPDATE-01): separate PUT handler; shared manual SGKV/GKV validation; atomic GKV + SG + pair replacement; no new routing-engine mode. |
-| — (not owned by this feature) | — | `FR-STAGE-01` (orphan handling on stage API) is owned by the edit-crud stage-changes handler, not this feature. Same for `FR-COMMIT-01` — commit safety-net contract, including (b2) affected-existing-UC validation after staged deletion; enforced at `POST /commit-changes` by the edit-crud commit LLD. This feature only defines the contract those handlers must uphold. |
+| — (edit-crud commit integration; roadmap Chapter 10) | — | FR-KV-COMMIT-01/02/03 materializes only accepted/staged per-SG SGKV assignments: exact-content reuse or atomic creation at commit. `FR-COMMIT-01` provides the commit safety-net checks, including (b2) affected-existing-UC validation after staged deletion. `FR-STAGE-01` remains owned by the edit-crud stage-changes handler. |
 
-Commit-time safety net (FR-COMMIT-01) is not owned by this feature's LLDs — it's a
-contract on the edit-crud commit LLD.
+Commit-time SGKV materialization and the FR-COMMIT-01 safety net are not routing phases;
+they are contracts on the edit-crud commit LLD and are scheduled in roadmap Chapter 10.
 
 ---
 

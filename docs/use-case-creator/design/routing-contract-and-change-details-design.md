@@ -64,31 +64,41 @@ rollback—not compensation—provides atomicity.
 ### 3.1 Final shared contract
 
 ```typescript
-interface RoutingInputBase {
-  readonly selectedUsecases: readonly UseCase[];
-  readonly activeSubgraphs: readonly ActiveSubgraphSelection[];
-  readonly scopePolicy: RoutingScopePolicy;
-  readonly excludedDataLinkSystemIds: readonly number[];
-  readonly excludedControlLinkSystemIds: readonly number[];
-  readonly graphEdits: GraphEditSummary;
+interface RoutingRequestPolicy {
+  readonly requestedSubgraphSystemIds: ReadonlySet<number>;
+  readonly explicitlyExcludedSubgraphSystemIds: ReadonlySet<number>;
+  readonly explicitlyExcludedDataLinkSystemIds: ReadonlySet<number>;
+  readonly explicitlyExcludedControlLinkSystemIds: ReadonlySet<number>;
 }
 
-interface RoutingScopePolicy {
-  /** IDs present in the original activeSubgraphs request before filtering. */
-  readonly requestedSubgraphSystemIds: ReadonlySet<number>;
-  /** SGs the caller explicitly excluded. */
-  readonly excludedSubgraphSystemIds: ReadonlySet<number>;
+interface RoutingSubgraph {
+  readonly subgraph: Subgraph;
+  readonly requestedSgkvs: readonly (readonly number[])[];
+  readonly isMdf: boolean;
+}
+
+interface RoutingGraphSnapshot {
+  readonly subgraphs: readonly RoutingSubgraph[];
+  readonly routableDataLinks: readonly DataLink[];
+  readonly routableControlLinks: readonly ControlLink[];
+  readonly overlayDataLinks: readonly DataLink[];
+  readonly overlayControlLinks: readonly ControlLink[];
+  readonly committedUsecases: readonly UseCase[];
+  readonly sessionEdits: GraphEditSummary;
+}
+
+interface RoutingInputBase {
+  readonly selectedUsecases: readonly UseCase[];
+  readonly requestPolicy: RoutingRequestPolicy;
+  readonly graphSnapshot: RoutingGraphSnapshot;
+  readonly fileSystemId: number;
 }
 ```
 
-`activeSubgraphs` contains only selections that remain after explicit SG exclusions and
-session-deleted SG removal. Caller order is retained for deterministic combination
-expansion.
-
-`scopePolicy` retains the minimum original-request facts needed by deletion-side closure.
-For example, after normalization removes an SG, Phase 2 can still distinguish an omitted
-SG from an explicitly excluded SG or a session-deleted requested SG. The engine does not
-retain the discarded SGKV selections.
+`requestPolicy` retains explicit caller intent. The builder applies that policy once to
+the effective overlay and returns the sole routability authority in `graphSnapshot`.
+Snapshot arrays and nested SGKV arrays are copied/frozen containers while domain entities
+remain borrowed immutable references.
 
 Automatic and manual variants retain their existing discriminator and mode-specific
 data:
@@ -96,7 +106,6 @@ data:
 ```typescript
 interface AutoRoutingInput extends RoutingInputBase {
   readonly mode: typeof ROUTING_MODE.Auto;
-  readonly islandUcs: readonly UseCase[];
 }
 
 interface ManualRoutingInput extends RoutingInputBase {
@@ -106,6 +115,11 @@ interface ManualRoutingInput extends RoutingInputBase {
 ```
 
 `ManualTopology` uses the separately approved pair-local support contract.
+
+`RoutingGraphSnapshotBuilder` performs one overlay subgraph read, one overlay data-link
+read, one overlay control-link read, one committed UseCase read, and one MDF classification
+pass. `ManualPairDiscoveryService` and `PreValidationService` consume the prepared data
+without repository access.
 
 ### 3.2 Removed fields
 
@@ -118,10 +132,10 @@ Remove these fields from `RoutingInputBase`, `RoutingInputInit`, and input-copy 
 - `effectiveRoutingScope`; and
 - the top-level `excludedSubgraphSystemIds` field.
 
-The selected IDs have already been resolved into `selectedUsecases`. The derived scope
-sets are reconstructed when needed. `effectiveRoutingScope` duplicates normalized
-`activeSubgraphs`. The original requested-ID and explicit-exclusion facts survive only in
-the clearly named `scopePolicy` value.
+The selected IDs have already been resolved into `selectedUsecases`. Derived scope and
+effective exclusion sets are construction-local. The original requested-ID and explicit
+exclusion facts survive only in `requestPolicy`; consumers use `graphSnapshot` rather than
+reconstructing routability.
 
 ### 3.3 Handler-local derivation
 
@@ -132,14 +146,15 @@ to handlers for:
 - missing-SG errors;
 - manual selected/out-of-selection candidate authorization;
 - explicit and session-deleted SG removal; and
-- constructing normalized `activeSubgraphs`.
+- passing effective active selections to `RoutingGraphSnapshotBuilder`.
 
-Only normalized execution fields and the minimal `scopePolicy` facts cross the engine
-boundary. Manual discovery receives temporary selected/out-of-selection sets directly
-before the handler discards them.
+The handler passes effective active selections and session edits to the shared snapshot
+builder. Only `requestPolicy`, `selectedUsecases`, and the resulting `graphSnapshot` cross
+the engine boundary. Manual discovery receives snapshot-owned subgraphs and routable links
+directly.
 
 Phases that need the effective SG ID set derive it locally from
-`context.input.activeSubgraphs` rather than receiving a second stored set.
+`context.input.graphSnapshot.subgraphs` rather than receiving a second stored set.
 
 ## 4. Routing Context
 
@@ -151,9 +166,9 @@ excludedControlLinkSystemIds: Set<number>
 excludedSubgraphSystemIds: Set<number>
 ```
 
-Phases read data/control exclusions and `scopePolicy.excludedSubgraphSystemIds` from
-`context.input`. A phase that needs constant-time membership may create a private local
-set. There is no context-level second source of truth.
+Phases read request policy and prepared routable collections from `context.input`. A phase
+that needs constant-time membership may create a private local set. There is no
+context-level second source of truth or mutable graph cache.
 
 All distinct phase outputs remain. Stubbed fields are not deleted merely because their
 owning phase has not yet been implemented.

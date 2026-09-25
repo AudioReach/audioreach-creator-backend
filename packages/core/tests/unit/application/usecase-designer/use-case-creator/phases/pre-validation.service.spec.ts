@@ -33,13 +33,14 @@ function createFixture(options?: {
   const controlLinks = [...(options?.controlLinks ?? [])];
   const input = createAutoRoutingInput({
     fileSystemId: 7,
-    selectedUsecases: [],
-    requestPolicy: {
-      requestedSubgraphSystemIds: new Set(activeIds),
-      explicitlyExcludedSubgraphSystemIds: new Set(),
-      explicitlyExcludedDataLinkSystemIds: new Set(),
-      explicitlyExcludedControlLinkSystemIds: new Set(),
+    selection: {
+      selectedUsecaseSystemIds: [],
+      activeSubgraphs: activeIds.map(systemId => ({systemId, sgkvs: []})),
+      excludedSubgraphSystemIds: [],
+      excludedDataLinkSystemIds: [],
+      excludedControlLinkSystemIds: [],
     },
+    selectedUsecases: [],
     graphSnapshot: {
       subgraphs: existingIds.map(systemId => ({
         subgraph: {systemId} as never,
@@ -53,6 +54,7 @@ function createFixture(options?: {
       committedUsecases: [],
       sessionEdits: emptyGraphEdits(),
     },
+    activeManualUsecaseEdits: [],
   });
   return {
     context: new RoutingContext(input),

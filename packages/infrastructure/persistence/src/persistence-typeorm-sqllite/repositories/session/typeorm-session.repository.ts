@@ -17,7 +17,8 @@ import {
 import {SessionCommitSchema} from '../../entity-schema/edit-session/session-commit.schema.js';
 import {ArcDbFileSchema} from '../../entity-schema/project-data/arc-db-file.schema.js';
 import {EditActionSchema} from '../../entity-schema/edit-session/edit-action.schema.js';
-import {CHANGE_STATUS} from '@arc/core';
+import {CHANGE_OPERATION, CHANGE_STATUS, SOURCE} from '@arc/core';
+import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 
 /**
  * TypeORM adapter for ISessionRepository (spec §7b.3).
@@ -138,6 +139,29 @@ export class TypeOrmSessionRepository implements ISessionRepository {
       .from(EditActionSchema)
       .where('sessionId = :sessionId', {sessionId})
       .andWhere('source = :source', {source})
+      .execute();
+    return result.affected ?? 0;
+  }
+
+  async deleteEditActionsByChangeIds(
+    sessionId: number,
+    changeIds: readonly number[],
+  ): Promise<number> {
+    if (changeIds.length === 0) return 0;
+    const result = await this.manager
+      .createQueryBuilder()
+      .delete()
+      .from(EditActionSchema)
+      .where('sessionId = :sessionId', {sessionId})
+      .andWhere('changeId IN (:...changeIds)', {changeIds})
+      .andWhere('source = :source', {source: SOURCE.Manual})
+      .andWhere('targetTable = :targetTable', {
+        targetTable: ENTITY_NAMES.UseCase,
+      })
+      .andWhere('operation IN (:...operations)', {
+        operations: [CHANGE_OPERATION.Create, CHANGE_OPERATION.Update],
+      })
+      .andWhere('validUntil IS NULL')
       .execute();
     return result.affected ?? 0;
   }

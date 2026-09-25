@@ -102,7 +102,10 @@ link-integrity issue.
 
 `ManualPairDiscoveryService` and `PreValidationService` consume snapshot data only and
 perform no graph repository reads. Phases 2–3 and 5–10 consume the snapshot without
-duplicate graph reads; Phase 4 may read SGKV baselines only; Phase 11 writes only.
+duplicate graph reads; Phase 4 may read SGKV baselines plus one batched,
+effective-overlay, file-scoped Value Definition-to-Key mapping needed to normalize API
+SGKVs. Phase 4 outputs content-only SGKV values and does not resolve persistence IDs.
+Phase 11 writes only.
 
 ## 5. Routing Context Requirements
 

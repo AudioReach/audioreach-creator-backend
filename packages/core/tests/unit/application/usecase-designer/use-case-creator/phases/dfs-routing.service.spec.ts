@@ -53,13 +53,17 @@ function makeContext(
 ): RoutingContext {
   const input = createAutoRoutingInput({
     fileSystemId: FILE_ID,
-    selectedUsecases: [],
-    requestPolicy: {
-      requestedSubgraphSystemIds: new Set(subgraphSystemIds),
-      explicitlyExcludedSubgraphSystemIds: new Set(),
-      explicitlyExcludedDataLinkSystemIds: new Set(),
-      explicitlyExcludedControlLinkSystemIds: new Set(),
+    selection: {
+      selectedUsecaseSystemIds: [],
+      activeSubgraphs: subgraphSystemIds.map(systemId => ({
+        systemId,
+        sgkvs: [],
+      })),
+      excludedSubgraphSystemIds: [],
+      excludedDataLinkSystemIds: [],
+      excludedControlLinkSystemIds: [],
     },
+    selectedUsecases: [],
     graphSnapshot: {
       subgraphs: subgraphSystemIds.map(makeSubgraph),
       routableDataLinks: links,
@@ -69,6 +73,7 @@ function makeContext(
       committedUsecases: [],
       sessionEdits: emptyGraphEdits(),
     },
+    activeManualUsecaseEdits: [],
   });
   const context = new RoutingContext(input);
   context.cones = {

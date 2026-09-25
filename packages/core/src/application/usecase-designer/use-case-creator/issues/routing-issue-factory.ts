@@ -8,6 +8,28 @@ import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
 import {ISSUE_CODE} from '../../../../shared/issues/operational-codes.js';
 import {IssueSeverity} from '../../../../shared/issues/severity.js';
 import type {DataLinkLossPair} from '../contracts/routing-state.js';
+import {
+  COLLISION_OPERAND_KIND,
+  COLLISION_RESOLUTION_MODE,
+  type CollisionResolutionMode,
+  type SameGkvCollision,
+} from '../contracts/same-gkv-collision.js';
+import type {RoutingSelection} from '../contracts/routing-input.js';
+import type {ActiveManualUsecaseEdit} from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
+
+/** Invalid dependencies referenced by an active manual UseCase edit. */
+export interface ManualUsecaseDependencyMissing {
+  /** The edit no longer resolves to an effective UseCase. */
+  readonly effectiveUsecaseMissing: boolean;
+  /** The edit has no component-reference metadata to validate. */
+  readonly referencedComponentsMissing: boolean;
+  /** Referenced subgraphs that are absent from the effective UseCase or deleted in this session. */
+  readonly subgraphSystemIds: readonly number[];
+  /** Referenced data links that are absent from the session overlay or deleted in this session. */
+  readonly dataLinkSystemIds: readonly number[];
+  /** Referenced control links that are absent from the session overlay or deleted in this session. */
+  readonly controlLinkSystemIds: readonly number[];
+}
 
 export interface RoutingEditScopeConflictDetails {
   readonly excludedAddedSubgraphSystemIds?: readonly number[];
@@ -36,6 +58,135 @@ export interface RoutingCombinationConflictDetails {
 
 function sortedIds(ids: Iterable<number>): number[] {
   return [...ids].sort((left, right) => left - right);
+}
+
+interface CollisionTopologyDetails {
+  readonly kind: SameGkvCollision['operands'][number]['kind'];
+  readonly usecaseSystemId?: number;
+  readonly subgraphSystemIds: readonly number[];
+  readonly subgraphPairs: readonly {
+    readonly sourceSubgraphSystemId: number;
+    readonly destSubgraphSystemId: number;
+  }[];
+}
+
+function collisionOperandDetails(
+  operand: SameGkvCollision['operands'][number],
+): CollisionTopologyDetails {
+  const subgraphSystemIds =
+    operand.kind === COLLISION_OPERAND_KIND.New
+      ? operand.candidate.path.subgraphSystemIds
+      : operand.usecase.subgraphSystemIds;
+  const subgraphPairs =
+    operand.kind === COLLISION_OPERAND_KIND.New
+      ? operand.candidate.path.subgraphSystemIds
+          .slice(1)
+          .map((dest, index) => ({
+            sourceSubgraphSystemId:
+              operand.candidate.path.subgraphSystemIds[index],
+            destSubgraphSystemId: dest,
+          }))
+      : operand.usecase.subgraphPairs;
+  return {
+    kind: operand.kind,
+    ...(operand.kind === COLLISION_OPERAND_KIND.Existing
+      ? {usecaseSystemId: operand.usecase.systemId}
+      : {}),
+    subgraphSystemIds: sortedIds(new Set(subgraphSystemIds)),
+    subgraphPairs: [...subgraphPairs].sort(
+      (left, right) =>
+        left.sourceSubgraphSystemId - right.sourceSubgraphSystemId ||
+        left.destSubgraphSystemId - right.destSubgraphSystemId,
+    ),
+  };
+}
+
+function mergeCollisionTopology(
+  operands: readonly CollisionTopologyDetails[],
+): CollisionTopologyDetails {
+  const pairs = new Map<
+    string,
+    CollisionTopologyDetails['subgraphPairs'][number]
+  >();
+  for (const pair of operands.flatMap(operand => operand.subgraphPairs)) {
+    pairs.set(
+      `${pair.sourceSubgraphSystemId}>${pair.destSubgraphSystemId}`,
+      pair,
+    );
+  }
+  const existingUsecaseSystemId = operands.find(
+    operand => operand.kind === COLLISION_OPERAND_KIND.Existing,
+  )?.usecaseSystemId;
+  return {
+    kind:
+      existingUsecaseSystemId === undefined
+        ? COLLISION_OPERAND_KIND.New
+        : COLLISION_OPERAND_KIND.Existing,
+    ...(existingUsecaseSystemId === undefined
+      ? {}
+      : {usecaseSystemId: existingUsecaseSystemId}),
+    subgraphSystemIds: sortedIds(
+      new Set(operands.flatMap(operand => operand.subgraphSystemIds)),
+    ),
+    subgraphPairs: [...pairs.values()].sort(
+      (left, right) =>
+        left.sourceSubgraphSystemId - right.sourceSubgraphSystemId ||
+        left.destSubgraphSystemId - right.destSubgraphSystemId,
+    ),
+  };
+}
+
+function selectedCollisionTopology(
+  collision: SameGkvCollision,
+  mode: CollisionResolutionMode,
+): CollisionTopologyDetails {
+  const operands: readonly [
+    CollisionTopologyDetails,
+    CollisionTopologyDetails,
+  ] = [
+    collisionOperandDetails(collision.operands[0]),
+    collisionOperandDetails(collision.operands[1]),
+  ];
+  if (mode === COLLISION_RESOLUTION_MODE.PathB) return operands[1];
+  if (mode === COLLISION_RESOLUTION_MODE.Merge)
+    return mergeCollisionTopology(operands);
+  if (mode === COLLISION_RESOLUTION_MODE.KeepExisting) {
+    return (
+      operands.find(
+        operand => operand.kind === COLLISION_OPERAND_KIND.Existing,
+      ) ?? operands[0]
+    );
+  }
+  return operands[0];
+}
+
+function describeCollisionResolution(
+  collision: SameGkvCollision,
+  mode: CollisionResolutionMode,
+): string {
+  const topology = selectedCollisionTopology(collision, mode);
+  const pairs = topology.subgraphPairs
+    .map(pair => `${pair.sourceSubgraphSystemId}->${pair.destSubgraphSystemId}`)
+    .join(', ');
+  const topologyDescription =
+    `SGs [${topology.subgraphSystemIds.join(', ')}]` + ` with pairs [${pairs}]`;
+  const existingUsecaseSystemId = collision.operands.find(
+    operand => operand.kind === COLLISION_OPERAND_KIND.Existing,
+  )?.usecase.systemId;
+  switch (mode) {
+    case COLLISION_RESOLUTION_MODE.KeepExisting:
+      return `Keep existing UseCase ${topology.usecaseSystemId ?? 'unknown'}: ${topologyDescription}.`;
+    case COLLISION_RESOLUTION_MODE.ReplaceWithNew:
+      return `Replace existing UseCase ${existingUsecaseSystemId ?? 'unknown'} with the new topology: ${topologyDescription}.`;
+    case COLLISION_RESOLUTION_MODE.Merge:
+      return existingUsecaseSystemId === undefined
+        ? `Create the merged topology: ${topologyDescription}.`
+        : `Update existing UseCase ${existingUsecaseSystemId} with the merged topology: ${topologyDescription}.`;
+    case COLLISION_RESOLUTION_MODE.PathA:
+      return `Create Path A: ${topologyDescription}.`;
+    case COLLISION_RESOLUTION_MODE.PathB:
+      return `Create Path B: ${topologyDescription}.`;
+  }
 }
 
 function describeConflict(
@@ -350,6 +501,158 @@ export const RoutingIssueFactory = {
         entityType: ISSUE_ENTITY_TYPE.UseCase,
         systemId: usecaseSystemId,
       },
+    };
+  },
+
+  manualUsecaseDependenciesBroken(
+    edit: ActiveManualUsecaseEdit,
+    missing: ManualUsecaseDependencyMissing,
+  ): Issue {
+    const missingParts = [
+      missing.effectiveUsecaseMissing ? 'effective UseCase' : undefined,
+      missing.referencedComponentsMissing
+        ? 'referencedComponents metadata'
+        : undefined,
+      missing.subgraphSystemIds.length > 0
+        ? `subgraphs [${sortedIds(missing.subgraphSystemIds).join(', ')}]`
+        : undefined,
+      missing.dataLinkSystemIds.length > 0
+        ? `data links [${sortedIds(missing.dataLinkSystemIds).join(', ')}]`
+        : undefined,
+      missing.controlLinkSystemIds.length > 0
+        ? `control links [${sortedIds(missing.controlLinkSystemIds).join(', ')}]`
+        : undefined,
+    ].filter((part): part is string => part !== undefined);
+    const issue: Issue = {
+      code: ISSUE_CODE.ROUTING_MANUAL_UC_BROKEN_DEPS,
+      message:
+        `Active MANUAL UseCase edit ${edit.changeId} has stale dependencies: ` +
+        `${missingParts.join('; ')}. Remove the stale edit-action row and rerun routing.`,
+      severity: IssueSeverity.Error,
+      fixOptions: [
+        {
+          systemId: `remove-stale-manual-usecase-edit-${edit.changeId}`,
+          description: 'Remove the stale MANUAL UseCase edit-action row.',
+          commandType: 'RemoveStaleManualUsecaseEditCommand',
+          commandPayload: {changeIds: [edit.changeId]},
+          requiredClientInputs: [],
+        },
+      ],
+    };
+    if (edit.usecase !== null) {
+      issue.impactedEntity = {
+        entityType: ISSUE_ENTITY_TYPE.UseCase,
+        systemId: edit.usecase.systemId,
+      };
+    }
+    return issue;
+  },
+
+  sameGkvChoiceRequired(
+    collision: SameGkvCollision,
+    selection: RoutingSelection,
+  ): Issue {
+    const impactedUsecases = collision.operands
+      .filter(
+        (
+          operand,
+        ): operand is Extract<
+          SameGkvCollision['operands'][number],
+          {readonly kind: 'EXISTING'}
+        > => operand.kind === 'EXISTING',
+      )
+      .map(operand => operand.usecase.systemId)
+      .sort((left, right) => left - right);
+    const collisionOperands = collision.operands.map(operand =>
+      collisionOperandDetails(operand),
+    );
+    const issue: Issue = {
+      code: ISSUE_CODE.ROUTING_SAME_GKV_CHOICE_REQUIRED,
+      message: `Same-GKV collision ${collision.collisionId} requires a routing choice.`,
+      severity: IssueSeverity.Error,
+      fixOptions: collision.options.map(mode => ({
+        systemId: `${collision.collisionId}-${mode}`,
+        description: describeCollisionResolution(collision, mode),
+        commandType: 'ResolveSameGkvCollisionCommand',
+        commandPayload: {
+          mode,
+          collisionId: collision.collisionId,
+          replayInput: selection,
+          collisionOperands,
+          selectedTopology: selectedCollisionTopology(collision, mode),
+        },
+        requiredClientInputs: [],
+      })),
+    };
+    if (impactedUsecases.length > 0) issue.impactedUsecases = impactedUsecases;
+    return issue;
+  },
+
+  sameGkvChoiceStale(collisionId: string): Issue {
+    return {
+      code: ISSUE_CODE.ROUTING_SAME_GKV_CHOICE_STALE,
+      message: `Same-GKV collision ${collisionId} is no longer reproducible. Rerun routing.`,
+      severity: IssueSeverity.Error,
+    };
+  },
+
+  orphanSubgraph(systemId: number): Issue {
+    return {
+      code: ISSUE_CODE.ROUTING_ORPHAN_SUBGRAPH,
+      message: `Subgraph ${systemId} is not referenced by any projected UseCase.`,
+      severity: IssueSeverity.Warning,
+      impactedEntity: {entityType: ISSUE_ENTITY_TYPE.Subgraph, systemId},
+    };
+  },
+
+  orphanSubgraphHasKvs(systemId: number): Issue {
+    return {
+      code: ISSUE_CODE.ROUTING_ORPHAN_SG_HAS_KVS,
+      message:
+        `Orphan subgraph ${systemId} still has SGKVs. ` +
+        'Review it through the manual topology workflow.',
+      severity: IssueSeverity.Warning,
+      impactedEntity: {entityType: ISSUE_ENTITY_TYPE.Subgraph, systemId},
+    };
+  },
+
+  orphanSubsystem(systemId: number): Issue {
+    return {
+      code: ISSUE_CODE.ROUTING_ORPHAN_SUBSYSTEM,
+      message: `Subsystem ${systemId} has no module in its hierarchy.`,
+      severity: IssueSeverity.Warning,
+      impactedEntity: {entityType: ISSUE_ENTITY_TYPE.Subsystem, systemId},
+    };
+  },
+
+  orphanDataLink(systemId: number): Issue {
+    return {
+      code: ISSUE_CODE.ROUTING_ORPHAN_DATA_LINK,
+      message: `Data link ${systemId} is not covered by any projected directed UseCase pair.`,
+      severity: IssueSeverity.Warning,
+      impactedEntity: {entityType: ISSUE_ENTITY_TYPE.DataLink, systemId},
+    };
+  },
+
+  orphanControlLink(systemId: number): Issue {
+    return {
+      code: ISSUE_CODE.ROUTING_ORPHAN_CONTROL_LINK,
+      message: `Control link ${systemId} is not covered by any projected UseCase pair.`,
+      severity: IssueSeverity.Warning,
+      impactedEntity: {entityType: ISSUE_ENTITY_TYPE.ControlLink, systemId},
+    };
+  },
+
+  stagingPairEndpointMissing(
+    sourceSubgraphSystemId: number,
+    destSubgraphSystemId: number,
+  ): Issue {
+    return {
+      code: ISSUE_CODE.ROUTING_STAGING_PAIR_ENDPOINT_MISSING,
+      message:
+        `Cannot stage UseCase pair ${sourceSubgraphSystemId}->${destSubgraphSystemId}: ` +
+        'one or both subgraph endpoints are absent from the resulting UseCase.',
+      severity: IssueSeverity.Error,
     };
   },
 } as const;

@@ -8,6 +8,7 @@ import type {DataLink} from '../../../../domain/entities/usecase-data/links/data
 import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/subgraph.js';
 import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
 import type {SubgraphPair} from '../../../ports/persistence/repositories/shared/links-for-pair.js';
+import type {ActiveManualUsecaseEdit} from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
 
 export const ROUTING_MODE = {Auto: 'AUTO', Manual: 'MANUAL'} as const;
 export type RoutingMode = (typeof ROUTING_MODE)[keyof typeof ROUTING_MODE];
@@ -17,6 +18,15 @@ export interface ActiveSubgraphSelection {
   readonly sgkvs: readonly (readonly number[])[];
 }
 
+/** Parsed, JSON-safe representation of the client's routing selection. */
+export interface RoutingSelection {
+  readonly selectedUsecaseSystemIds: readonly number[];
+  readonly activeSubgraphs: readonly ActiveSubgraphSelection[];
+  readonly excludedSubgraphSystemIds: readonly number[];
+  readonly excludedDataLinkSystemIds: readonly number[];
+  readonly excludedControlLinkSystemIds: readonly number[];
+}
+
 export interface GraphEditSummary {
   readonly addedSgs: readonly Subgraph[];
   readonly deletedSgs: readonly Subgraph[];
@@ -24,13 +34,6 @@ export interface GraphEditSummary {
   readonly deletedDataLinks: readonly DataLink[];
   readonly addedControlLinks: readonly ControlLink[];
   readonly deletedControlLinks: readonly ControlLink[];
-}
-
-export interface RoutingRequestPolicy {
-  readonly requestedSubgraphSystemIds: ReadonlySet<number>;
-  readonly explicitlyExcludedSubgraphSystemIds: ReadonlySet<number>;
-  readonly explicitlyExcludedDataLinkSystemIds: ReadonlySet<number>;
-  readonly explicitlyExcludedControlLinkSystemIds: ReadonlySet<number>;
 }
 
 export interface RoutingSubgraph {
@@ -62,13 +65,14 @@ export interface ManualTopology {
 interface RoutingInputBase {
   readonly mode: RoutingMode;
   readonly fileSystemId: number;
+  readonly selection: RoutingSelection;
   readonly selectedUsecases: readonly UseCase[];
-  readonly requestPolicy: RoutingRequestPolicy;
   readonly graphSnapshot: RoutingGraphSnapshot;
 }
 
 export interface AutoRoutingInput extends RoutingInputBase {
   readonly mode: typeof ROUTING_MODE.Auto;
+  readonly activeManualUsecaseEdits: readonly ActiveManualUsecaseEdit[];
 }
 
 export interface ManualRoutingInput extends RoutingInputBase {
@@ -78,12 +82,19 @@ export interface ManualRoutingInput extends RoutingInputBase {
 
 export type RoutingInput = AutoRoutingInput | ManualRoutingInput;
 
-export interface RoutingInputInit {
+interface RoutingInputInitBase {
   readonly fileSystemId: number;
+  readonly selection: RoutingSelection;
   readonly selectedUsecases: readonly UseCase[];
-  readonly requestPolicy: RoutingRequestPolicy;
   readonly graphSnapshot: RoutingGraphSnapshot;
 }
+
+export interface AutoRoutingInputInit extends RoutingInputInitBase {
+  readonly activeManualUsecaseEdits: readonly ActiveManualUsecaseEdit[];
+}
+
+export interface ManualRoutingInputInit
+  extends RoutingInputInitBase, Pick<ManualRoutingInput, 'manualTopology'> {}
 
 export interface DerivedRoutingScope {
   readonly selectedScopeSubgraphs: ReadonlySet<number>;
@@ -204,26 +215,56 @@ function copyTopologyPair(pair: ManualTopologyPair): ManualTopologyPair {
   throw new Error('Manual topology pairs require exactly one support type');
 }
 
-function copyBase(init: RoutingInputInit): Omit<RoutingInputBase, 'mode'> {
+function copyBase(init: RoutingInputInitBase): Omit<RoutingInputBase, 'mode'> {
   return {
     fileSystemId: init.fileSystemId,
+    selection: copyRoutingSelection(init.selection),
     selectedUsecases: [...init.selectedUsecases],
-    requestPolicy: {
-      requestedSubgraphSystemIds: new Set(
-        init.requestPolicy.requestedSubgraphSystemIds,
-      ),
-      explicitlyExcludedSubgraphSystemIds: new Set(
-        init.requestPolicy.explicitlyExcludedSubgraphSystemIds,
-      ),
-      explicitlyExcludedDataLinkSystemIds: new Set(
-        init.requestPolicy.explicitlyExcludedDataLinkSystemIds,
-      ),
-      explicitlyExcludedControlLinkSystemIds: new Set(
-        init.requestPolicy.explicitlyExcludedControlLinkSystemIds,
-      ),
-    },
     graphSnapshot: copyGraphSnapshot(init.graphSnapshot),
   };
+}
+
+function copyRoutingSelection(selection: RoutingSelection): RoutingSelection {
+  return Object.freeze({
+    selectedUsecaseSystemIds: Object.freeze([
+      ...selection.selectedUsecaseSystemIds,
+    ]),
+    activeSubgraphs: Object.freeze(copySelections(selection.activeSubgraphs)),
+    excludedSubgraphSystemIds: Object.freeze([
+      ...selection.excludedSubgraphSystemIds,
+    ]),
+    excludedDataLinkSystemIds: Object.freeze([
+      ...selection.excludedDataLinkSystemIds,
+    ]),
+    excludedControlLinkSystemIds: Object.freeze([
+      ...selection.excludedControlLinkSystemIds,
+    ]),
+  });
+}
+
+function copyActiveManualUsecaseEdits(
+  edits: readonly ActiveManualUsecaseEdit[],
+): readonly ActiveManualUsecaseEdit[] {
+  return Object.freeze(
+    edits.map(edit =>
+      Object.freeze({
+        ...edit,
+        referencedComponents: edit.referencedComponents
+          ? Object.freeze({
+              sgSystemIds: Object.freeze([
+                ...edit.referencedComponents.sgSystemIds,
+              ]),
+              dataLinkSystemIds: Object.freeze([
+                ...edit.referencedComponents.dataLinkSystemIds,
+              ]),
+              controlLinkSystemIds: Object.freeze([
+                ...edit.referencedComponents.controlLinkSystemIds,
+              ]),
+            })
+          : null,
+      }),
+    ),
+  );
 }
 
 /** Creates a manual pair holding borrowed immutable data-link references. */
@@ -280,16 +321,19 @@ export function createControlLinkManualTopologyPair(
 }
 
 export function createAutoRoutingInput(
-  init: RoutingInputInit,
+  init: AutoRoutingInputInit,
 ): AutoRoutingInput {
   return {
     ...copyBase(init),
     mode: ROUTING_MODE.Auto,
+    activeManualUsecaseEdits: copyActiveManualUsecaseEdits(
+      init.activeManualUsecaseEdits,
+    ),
   };
 }
 
 export function createManualRoutingInput(
-  init: RoutingInputInit & {readonly manualTopology: ManualTopology},
+  init: ManualRoutingInputInit,
 ): ManualRoutingInput {
   return {
     ...copyBase(init),

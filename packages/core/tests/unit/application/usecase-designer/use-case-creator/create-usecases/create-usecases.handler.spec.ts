@@ -23,9 +23,15 @@ function snapshot(): RoutingGraphSnapshot {
   };
 }
 
+const idGeneration = {getNextId: jest.fn(async () => 100)} as never;
+
 function createUow(events: string[], options?: {addedSubgraph?: boolean}) {
   const findBySystemIds = jest.fn(async () => {
     events.push('selected-usecases:read');
+    return [];
+  });
+  const findWithActiveManualEdits = jest.fn(async () => {
+    events.push('manual-usecase-edits:read');
     return [];
   });
   const changed = (name: string) =>
@@ -60,9 +66,13 @@ function createUow(events: string[], options?: {addedSubgraph?: boolean}) {
       getControlLinkRepository: () => ({
         findChangedInSession: changed('edits:read'),
       }),
-      getUsecaseRepository: () => ({findBySystemIds}),
+      getUsecaseRepository: () => ({
+        findBySystemIds,
+        findWithActiveManualEdits,
+      }),
     },
     findBySystemIds,
+    findWithActiveManualEdits,
   };
 }
 
@@ -75,6 +85,7 @@ describe('CreateUsecasesHandler', () => {
     const engine = {run: jest.fn()};
     const handler = new CreateUsecasesHandler(
       catalog.uow as never,
+      idGeneration,
       resolver as never,
       engine as never,
       snapshotBuilder as never,
@@ -129,6 +140,7 @@ describe('CreateUsecasesHandler', () => {
     };
     const handler = new CreateUsecasesHandler(
       catalog.uow as never,
+      idGeneration,
       resolver as never,
       engine as never,
       snapshotBuilder as never,
@@ -149,18 +161,22 @@ describe('CreateUsecasesHandler', () => {
       'edits:read',
       'edits:read',
       'selected-usecases:read',
+      'manual-usecase-edits:read',
       'snapshot:build',
       'engine:run',
       'transaction:commit',
     ]);
     expect(snapshotBuilder.build).toHaveBeenCalledTimes(1);
+    expect(catalog.findWithActiveManualEdits).toHaveBeenCalledWith(1);
     expect(engine.run).toHaveBeenCalledWith(
       expect.objectContaining({
         fileSystemId: 1,
         selectedUsecases: [],
         graphSnapshot: expect.objectContaining({subgraphs: []}),
+        activeManualUsecaseEdits: [],
       }),
       catalog.uow,
+      idGeneration,
     );
   });
 
@@ -171,6 +187,7 @@ describe('CreateUsecasesHandler', () => {
     const engine = {run: jest.fn()};
     const handler = new CreateUsecasesHandler(
       catalog.uow as never,
+      idGeneration,
       {resolveAllChains: jest.fn(async () => Result.ok())} as never,
       engine as never,
       snapshotBuilder as never,
@@ -195,6 +212,7 @@ describe('CreateUsecasesHandler', () => {
     const catalog = createUow(events);
     const handler = new CreateUsecasesHandler(
       catalog.uow as never,
+      idGeneration,
       {resolveAllChains: jest.fn(async () => Result.ok())} as never,
       {
         run: jest.fn(async () =>

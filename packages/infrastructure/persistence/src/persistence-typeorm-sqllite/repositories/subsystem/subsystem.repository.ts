@@ -18,12 +18,16 @@ import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-q
 import {IntentFetcher} from '../../fetchers/intent-fetcher.js';
 import {PortOverlayFetcher} from '../../fetchers/port-overlay-fetcher.js';
 import {SubsystemOverlayFetcher} from '../../fetchers/subsystem-overlay-fetcher.js';
+import {SpfModuleOverlayFetcher} from '../../fetchers/spf-module-overlay-fetcher.js';
+import {NodeOverlayFetcher} from '../../fetchers/node-overlay-fetcher.js';
 
 export class TypeOrmSubsystemRepository implements SubsystemRepository {
   private readonly writer: PendingChangeWriter;
   private readonly uow: UnitOfWork;
   private readonly portFetcher: PortOverlayFetcher;
   private readonly subsystemFetcher: SubsystemOverlayFetcher;
+  private readonly moduleFetcher: SpfModuleOverlayFetcher;
+  private readonly nodeFetcher: NodeOverlayFetcher;
   private readonly editActionsQs: EditActionsQueryService;
 
   constructor(
@@ -40,6 +44,8 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
       this.manager,
       editActions,
     );
+    this.moduleFetcher = new SpfModuleOverlayFetcher(this.manager, editActions);
+    this.nodeFetcher = new NodeOverlayFetcher(this.manager, editActions);
     this.portFetcher = new PortOverlayFetcher(
       this.manager,
       editActions,
@@ -72,6 +78,46 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
       sessionId,
     );
     return subsystems.length > 0;
+  }
+
+  async findOrphanSubsystemSystemIds(
+    fileSystemId: number,
+  ): Promise<readonly number[]> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const [subsystems, modules] = await Promise.all([
+      this.subsystemFetcher.fetchAll(fileSystemId, sessionId),
+      this.moduleFetcher.fetchMany(fileSystemId, sessionId),
+    ]);
+    const moduleNodes = await this.nodeFetcher.fetchMany(
+      modules.map(module => module.systemId),
+      fileSystemId,
+      sessionId,
+    );
+    const moduleNodeById = new Map(
+      moduleNodes.map(node => [node.systemId, node]),
+    );
+    const subsystemById = new Map(
+      subsystems.map(subsystem => [subsystem.systemId, subsystem]),
+    );
+    const subsystemHasModule = new Set<number>();
+
+    for (const module of modules) {
+      let parentSystemId = moduleNodeById.get(module.systemId)?.parentSystemId;
+      const visited = new Set<number>();
+      while (parentSystemId != null) {
+        if (visited.has(parentSystemId)) break;
+        visited.add(parentSystemId);
+        const subsystem = subsystemById.get(parentSystemId);
+        if (subsystem === undefined) break;
+        subsystemHasModule.add(parentSystemId);
+        parentSystemId = subsystem.parentSystemId;
+      }
+    }
+
+    return subsystems
+      .map(subsystem => subsystem.systemId)
+      .filter(systemId => !subsystemHasModule.has(systemId))
+      .sort((left, right) => left - right);
   }
 
   async clearControlPortIntents(

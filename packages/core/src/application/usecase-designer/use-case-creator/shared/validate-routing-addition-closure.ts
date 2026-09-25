@@ -9,17 +9,18 @@ import {
   type RoutingEditScopeConflictDetails,
 } from '../issues/routing-issue-factory.js';
 import type {
-  ActiveSubgraphSelection,
   GraphEditSummary,
+  RoutingSelection,
 } from '../contracts/routing-input.js';
 import {DATA_LINK_TYPE} from '../../../../domain/entities/usecase-data/links/data-link-type.js';
 
-export interface RoutingAdditionClosureInput {
-  readonly activeSubgraphs: readonly ActiveSubgraphSelection[];
-  readonly excludedSubgraphSystemIds: readonly number[];
-  readonly excludedDataLinkSystemIds: readonly number[];
-  readonly excludedControlLinkSystemIds: readonly number[];
-}
+export type RoutingAdditionClosureInput = Pick<
+  RoutingSelection,
+  | 'activeSubgraphs'
+  | 'excludedSubgraphSystemIds'
+  | 'excludedDataLinkSystemIds'
+  | 'excludedControlLinkSystemIds'
+>;
 
 function intersection(
   candidates: ReadonlySet<number>,

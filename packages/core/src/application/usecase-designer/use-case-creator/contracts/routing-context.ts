@@ -19,6 +19,7 @@ import type {
   RoutingCandidates,
   Seeds,
 } from './routing-state.js';
+import type {SameGkvCollision} from './same-gkv-collision.js';
 
 export class RoutingContext {
   /** Immutable, handler-normalized input shared by every phase in one routing run. */
@@ -45,6 +46,8 @@ export class RoutingContext {
   };
   /** Phase 9 decisions for candidate UCs after GKV/topology matching and lifecycle checks. */
   readonly classifiedUcs: ClassifiedUsecase[] = [];
+  /** Phase 9 same-GKV collisions retained for bounded replay/apply-fix handling. */
+  readonly sameGkvCollisions: SameGkvCollision[] = [];
   /** Phase 10 orphan candidates found by effective-graph validation. */
   readonly orphanCandidates: OrphanCandidate[] = [];
   /** Non-blocking issues accumulated by phases; warnings do not stop the engine. */

@@ -69,6 +69,21 @@ algorithm, with the discovered usecases identified by a canonical key-value iden
 | **Orphan SG** | A SG that is not a member of any UC (`LINKED`, `ISLAND`, `EC`, or newly staged). Orphan SGs are an error condition. |
 | **Orphan subsystem** | A subsystem that contains no SG that is a member of any valid UC. |
 
+### 2.1 Prepared routing snapshot
+
+Both routing endpoints retain explicit caller policy separately from prepared execution
+state. After chain resolution, handler-level closure validation, session-edit loading, and
+selected-UC loading, a shared `RoutingGraphSnapshotBuilder` creates one snapshot per
+request. The snapshot contains `RoutingSubgraph` entries with borrowed `Subgraph` entities,
+copied requested SGKVs, and one MDF flag; routable data/control links; complete overlay
+link catalogs; the committed pre-session UC catalog; and session edits.
+
+The builder reads each graph catalog once and applies request exclusions once. Missing
+effective active subgraphs are blocking not-found issues; malformed scoped data links
+retain link-level integrity diagnostics. `ManualPairDiscoveryService` and
+`PreValidationService` consume the snapshot without repository reads. No later phase may
+reload graph catalogs or reconstruct effective exclusions.
+
 ---
 
 ## 3. Functional Requirements
@@ -137,9 +152,9 @@ contributed to any path's GKV).
 #### FR-API-02: Selected usecase list
 The API input shall include a list of existing UC system-IDs that represent the user's
 active session context. Before routing, the handler shall load these UCs once from the
-effective session overlay and preserve that snapshot as derived routing input. The
-snapshot is used to derive selected-scope subgraphs, validate input completeness, build
-the UC filter (§3.2), and supply existing UC data to downstream phases.
+effective session overlay and preserve that snapshot as `selectedUsecases`. The shared
+snapshot builder separately loads the complete committed UC catalog once for
+deletion-impact and lifecycle rules. Neither UC view may be reloaded during a run.
 
 #### FR-API-03: Selected-scope input completeness pre-validation
 Before KV resolution, seed detection, or manual pair discovery, the system shall derive
@@ -154,19 +169,17 @@ it as a current-session added SG or data-link endpoint. An eligible excluded SG 
 also present in `activeSubgraphs` is silently removed before routing. A session-deleted
 SG is not required in the map and is silently removed if stale client input still
 includes it. Its DELETE action remains available to deletion analysis and seed detection
-through `graphEdits`.
+through `graphSnapshot.sessionEdits`.
 
 After this check succeeds, the effective routing scope is
 `inputSubgraphs − excludedSubgraphSystemIds − deletedSubgraphSystemIds`. There is no DB
 fallback for SGKV input: every SG used by routing receives its SGKV instances, or an
 intentional `[]`, from `activeSubgraphs`.
 
-The names above describe handler-local derivations. The routing engine receives
-`activeSubgraphs` already reduced to the effective scope. It also receives only the
-irreducible original-request policy facts needed by deletion-side validation: the SG IDs
-originally present in `activeSubgraphs` and the explicit SG-exclusion set. Selected UC
-IDs and selected/out-of-selection/effective scope sets are derived when needed rather
-than copied into routing input.
+The names above describe handler-local derivations. The routing engine receives a
+`requestPolicy` preserving explicit caller intent and one prepared `graphSnapshot`.
+Selected UC IDs and effective exclusion sets are not copied into routing context; the
+snapshot is the sole routability authority.
 
 *Rationale:* The system never uses DB KVs as a routing KV source. The API map is the
 sole KV source for routing. A SG absent from the map has no KV data for the algorithm
@@ -176,18 +189,17 @@ to use. Providing `[]` is the deliberate way to declare "no KV contribution."
 Manual UC creation (FR-UC-01) is served by a dedicated endpoint (`create-manual-usecases`)
 separate from the auto-routing endpoint (`create-usecases` for FR-UC-02).
 
-The manual endpoint's routing input includes:
+The manual endpoint's request includes:
 - The set of SGs with their SGKV instances (SG→SGKV map, same shape as FR-API-01).
 - The `selectedUsecaseSystemIds` list (FR-API-02) for selected-scope derivation and UC
   filter construction.
 - The optional SG and link exclusion lists from FR-API-05/06, subject to FR-API-07
   structural-edit closure.
 
-**Link system IDs are NOT required in the request.** The server discovers intra-usecase
-data-links and (as fallback) intra-usecase control-links between every SG pair in the
-effective routing scope by querying the DB (per FR-UC-01 step 4). This differs from
-auto-routing, where link discovery is performed via DFS traversal of the effective
-graph.
+**Link system IDs are NOT required in the request.** The shared snapshot builder reads
+the effective overlay data/control catalogs once and applies request policy. Manual pair
+discovery consumes the snapshot's routable links without repository access. This gives
+manual and automatic routing the same preparation model.
 
 #### FR-API-05: Optional link exclusion for the current routing pass
 The API input may optionally include two lists of intra-usecase link system IDs to
@@ -366,8 +378,8 @@ them. DB SGKV data is used solely for the seed-detection comparison in Step 2; i
 never used as a routing KV source.
 
 #### FR-KV-02: Step 2 — Apply UC filter
-The system shall build a UC filter from the **selected UCs that are not marked for
-deletion in the current routing session**: for each such UC, extract every (Key,
+The system shall build a UC filter from **all UCs selected at request start**, including
+UCs that Phase 2 later marks for deletion: for each selected UC, extract every (Key,
 Value) pair from the UC's `gkv_entries`. Build a map `Key → Set<Value>`. Then, for
 each SGKV instance of each SG, retain only the KV pairs where both the Key and the
 specific Value appear in the UC filter map. Discard non-matching KV pairs from each
@@ -375,12 +387,12 @@ instance. If an SGKV instance has no remaining KV pairs after filtering, that
 instance is dropped. The result is the **UC-filtered SGKV instance set** for each SG
 — zero or more instances, each trimmed to only relevant KV pairs.
 
-**UCs marked for deletion are excluded from the filter build** (an implementation
-detail owned by the routing engine — reads `context.markedForDeletion` from Phase 2).
-Rationale: those UCs are being discarded, so their GKV entries should not participate
-in defining a "valid KV" set for surviving SGs. This causes SGs that were only part
-of a deleted UC to have an empty UC-filtered baseline — surfacing as orphans in
-Phase 10 if the user provides no replacement KVs in the API input.
+**UCs marked for deletion remain in the filter build.** The client prepares
+`activeSubgraphs` from the selected-UC set before routing knows which UCs Phase 2 will
+mark for deletion. Removing those UCs only from the server-side baseline would make
+unchanged client input appear to be a KV edit. Deletion-driven rerouting remains
+represented by FR-CONE-03's surviving deleted-link endpoint seeds instead of being
+inferred as `KV_CHANGED`.
 
 *Rationale:* This prevents KVs from unrelated usecases (e.g., `Instance` keys, sample
 rates from un-selected UCs) from generating irrelevant new GKV combinations.
@@ -398,6 +410,17 @@ For each SG present in the API's SG map, the system shall discard the Step-2 res
 replace it entirely with the SGKV instances from the API input. A SG mapped to an empty
 list (`[]`) contributes one empty SGKV instance — the user explicitly declares no KV
 contribution for it.
+
+The user may select any Value Definition belonging to a Key Definition in the same file,
+whether or not that Value Definition already appears in an SGKV persisted for the target
+SG. Phase 4 shall resolve all requested Value Definition IDs to their owning Key
+Definitions in one batched, effective-overlay, file-scoped read. A missing or out-of-file
+Value Definition is a blocking input error. Existing SGKV rows are not the authority for
+which Values the user may select.
+
+Routing SGKV instances are content-only values: they contain canonical `(Key, Value)`
+pairs and do not carry or reserve an `sgkv.system_id`. Existing-versus-new SGKV identity
+is resolved later at commit time under FR-KV-COMMIT-01.
 
 FR-API-03/07 have already established that all required non-excluded, non-deleted SGs
 appear in the API map. Therefore every SG in the effective routing scope has explicit
@@ -514,8 +537,8 @@ point are also emitted as leaf paths.
 
 #### FR-DFS-04: Cycle detection
 If the DFS visits a SG already in the current traversal stack (cycle), the path
-terminates at that point. The cycle is logged as a warning and the path is emitted as
-if the repeated SG were a leaf.
+terminates at the current SG. The cycle is logged as a warning identifying the repeated
+SG, and the repeated SG is not appended to the emitted path.
 
 #### FR-DFS-05: SGKV combination expansion
 When a SG in the path has multiple SGKV instances available (from DB after UC filter, or
@@ -573,6 +596,11 @@ an existing DB UC, no new UC is created and no issue is emitted. If the existing
 transition it to `LINKED`.
 
 **(b1) Identity-preserving interior extension — silent auto-update.**
+
+Pure MDF Scenario 4 substitutions are handled directly by extended FR-MDF-01 and do
+not depend on this classification branch. This branch applies to all other routed or
+reconstructed candidates.
+
 If a newly routed path satisfies **all** of:
 
 - Same GKV as an existing DB UC, AND
@@ -596,9 +624,8 @@ set and pair set is replaced with the new pair set. The UPDATE is staged as a
 `create-usecases` invocation). The routing result reports the affected UC as an
 *updated* UC — same identity, not deleted and recreated.
 
-This branch covers three design use cases that intentionally preserve UC identity
+This branch covers two design use cases that intentionally preserve UC identity
 through transparent structural change:
-- MDF Scenario 4 transparent bridge substitution (FR-MDF-01);
 - FR-EC-07 Rule D legacy EC UC reconstruction with added empty-KV SG;
 - FR-DEL-06 bounded-DFS reconstruction for single-path deletion-marked UCs.
 
@@ -793,6 +820,11 @@ must be present in `selectedUsecaseSystemIds`. If the client retries with the re
 expanded selection, FR-API-03/07 validate that selection's required non-excluded,
 non-deleted SGs before KV resolution or seed detection.
 
+**Pure MDF exception:** A UC that requires only the deterministic pair-local MDF
+substitution defined by extended FR-MDF-01 is not part of this affected-selection set.
+The MDF SGs and replacement links remain subject to their normal explicit-scope and
+validation requirements. Any additional impact on the same UC removes this exception.
+
 ---
 
 ### 3.8 UC Lifecycle — Creation and Preservation
@@ -857,10 +889,20 @@ support remains and no UC mutation is required. This discovery and the FR-DEL-02
 apply to both automatic and manual creation calls. Manual routing does not run automatic
 deletion reconstruction.
 
+A confirmed pure MDF substitution under extended FR-MDF-01 is an explicit exception:
+its deterministic structural maintenance update is recorded separately and does not
+place the UC in the affected set solely because the direct pair was replaced. If that UC
+has any other deletion impact, it remains subject to the normal affected-set rules.
+
 #### FR-DEL-02: All affected UCs must be selected — error if not
 If any UC in the affected set is absent from `selectedUsecaseSystemIds`, the system
 shall return an error containing the **full affected set** and the missing subset. No
 routing or UC mutation proceeds until every affected UC is selected.
+
+The pure MDF updates excluded from the affected set by FR-DEL-01 do not require UC
+selection. This does not exempt their MDF SGs from explicit routing-scope input.
+An active manual update for the same UC takes precedence as defined by extended
+FR-MDF-01; automatic routing must not stage a competing structural update.
 
 This error takes precedence over deletion-side FR-API-07 closure. The client first
 receives the complete affected-UC set; after it retries with that expanded selection,
@@ -883,6 +925,9 @@ an unrecoverable broken component as **pending deletion**. Affected UCs whose to
 is preserved or reconstructed are staged for structural update instead. `LINKED` UCs
 whose pair loses data-link coverage but retains control-link support are staged for type
 degradation to `ISLAND`. The latter two categories are not presented as deletions.
+
+Pure MDF substitutions are classified before this deletion branch. They are never
+marked pending deletion and therefore require no later delete cancellation.
 
 #### FR-DEL-04: New UCs created from broken paths
 After classifying affected UCs, the routing algorithm runs DFS on the effective routing
@@ -958,9 +1003,23 @@ immediately. The UI presents the same two options as FR-VAL-01:
 ### 3.12 KV Persistence at Commit Time
 
 #### FR-KV-COMMIT-01: New KVs added to SGKV at commit
-When a routing session is committed, the system shall write any SGKV instances from the
-API input that are not already represented in that SG's SGKV DB records as new SGKV
-entries.
+When a routing session is committed, the system shall resolve each accepted content-only
+SGKV against the target SG's current SGKV records by exact, order-independent Value
+Definition set equality. If an equal SGKV exists, the commit path shall reuse its
+`system_id`. Otherwise it shall allocate an ID and insert a new SGKV and its value
+relationships in the same commit transaction.
+
+No routing phase and no pre-commit edit action shall treat an SGKV database ID as part of
+the SGKV's semantic identity. Edit actions carry the canonical Value Definition IDs needed
+to perform the commit-time lookup. The commit path rechecks before insert so retries are
+idempotent and do not create duplicate SGKV rows.
+
+Because the UC's union GKV cannot reconstruct which SG contributed each SGKV, every staged
+UC CREATE or structural UPDATE that can introduce SGKVs shall retain the selected
+per-subgraph SGKV assignment as content:
+`{subgraphSystemId, valueDefinitionSystemIds[]}`. Commit materializes only assignments
+referenced by accepted/staged UC actions; unselected routing candidates do not create SGKV
+rows.
 
 #### FR-KV-COMMIT-02: Existing SGKVs are not deleted at commit
 Existing SGKV records are never deleted at commit time. Another UC (not selected in the
@@ -997,6 +1056,10 @@ A UC transitions to **`ISLAND`** in either of these cases:
     remove it. This case typically occurs only when the user forgot to delete the
     control-link alongside the data-link.
 
+Case (b), and the direction-correction behavior in FR-STATUS-04, take precedence over
+the pure MDF exception in extended FR-MDF-01. A surviving direct intra-usecase data-link
+or control-link in either direction disqualifies that pair from pure MDF substitution.
+
 `ISLAND` UCs satisfy the orphan check (FR-VAL-01) for their member SGs — those
 SGs are considered "in a valid UC."
 
@@ -1008,9 +1071,9 @@ only from user preservation of deletion-affected UCs (FR-DEL-05), or from manual
 UC creation (FR-UC-01) when the user explicitly constructs a UC with missing links.
 
 #### FR-STATUS-04: `ISLAND` UC transition to `LINKED`
-During a routing session, after DFS path discovery completes, the system shall evaluate
-each `ISLAND` UC whose SG members are within the routing scope. Evaluation runs in
-two steps: (1) direction correction, then (2) coverage check.
+During a routing session, Phase 3 evaluates each `ISLAND` UC whose SG members are within
+the routing scope before KV resolution and main DFS discovery. Evaluation runs in two
+steps: (1) direction correction, then (2) coverage check.
 
 **Step 1 — Direction correction (control-link-held pairs only):**
 
@@ -1134,7 +1197,9 @@ held in the `edit_actions` / edit-session tables.
 ## 6. Out of Scope
 
 - **Nested usecase preservation** across sessions — deferred.
-- **MDF V2 implicit intermediate subgraphs** — deferred.
+- **Implicit injection of omitted MDF intermediate subgraphs** — deferred. Explicitly
+  supplied MDF pass-through routing and pure MDF substitution are defined by extended
+  FR-MDF-01 and are in scope.
 - **UI/UX implementation details** — not part of this spec.
 - **Concurrent routing sessions on the same file** — out of scope; single-session model.
 - **Control links** — DFS routing is driven by data links only; control links are not

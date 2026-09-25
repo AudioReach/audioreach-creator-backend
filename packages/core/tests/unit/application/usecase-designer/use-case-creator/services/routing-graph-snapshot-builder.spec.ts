@@ -47,14 +47,8 @@ function buildInput(
   return {
     fileSystemId: 7,
     effectiveActiveSubgraphs,
-    requestPolicy: {
-      requestedSubgraphSystemIds: new Set(
-        effectiveActiveSubgraphs.map(selection => selection.systemId),
-      ),
-      explicitlyExcludedSubgraphSystemIds: new Set<number>(),
-      explicitlyExcludedDataLinkSystemIds: new Set<number>(),
-      explicitlyExcludedControlLinkSystemIds: new Set<number>(),
-    },
+    excludedDataLinkSystemIds: [],
+    excludedControlLinkSystemIds: [],
     sessionEdits: emptyGraphEdits(),
     ...overrides,
   };
@@ -149,12 +143,8 @@ describe('RoutingGraphSnapshotBuilder', () => {
         {systemId: 20, sgkvs: [[2]]},
       ],
       {
-        requestPolicy: {
-          requestedSubgraphSystemIds: new Set([10, 20]),
-          explicitlyExcludedSubgraphSystemIds: new Set(),
-          explicitlyExcludedDataLinkSystemIds: new Set([102]),
-          explicitlyExcludedControlLinkSystemIds: new Set([200]),
-        },
+        excludedDataLinkSystemIds: [102],
+        excludedControlLinkSystemIds: [200],
       },
     );
 

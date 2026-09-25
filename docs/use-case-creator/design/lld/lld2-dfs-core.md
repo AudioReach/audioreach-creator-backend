@@ -172,9 +172,9 @@ if outgoing is empty:
 
 for each next in outgoing:
   if next ∈ stack:
-    // cycle — emit path as leaf and continue with siblings (FR-DFS-04)
-    if currentPath.length ≥ 2:
-      paths.push({sgSystemIds: currentPath.concat(next), termination: 'cycle', ecBoundaryLinkId: null})
+     // cycle — emit the path up to the current SG and continue with siblings (FR-DFS-04)
+     if currentPath.length ≥ 2:
+       paths.push({sgSystemIds: currentPath.copy(), termination: 'cycle', ecBoundaryLinkId: null})
     context.warnings.push({
       code: ARC-ROUTING-CYCLE-DETECTED,
       impactedEntity: { kind: 'subgraph', systemId: next }
@@ -199,15 +199,15 @@ paths × ~10 depth = ~2000 operations. Sub-millisecond.
 
 ### 5.4 FR-DFS-04: Cycle detection
 
-**Rule:** If DFS visits an SG already in the current traversal stack, terminate the
-branch, emit the truncated path (including the repeated SG as leaf), and log a
-warning. Do not throw or halt.
+**Rule:** If DFS encounters an SG already in the current traversal stack, terminate the
+branch, emit the path up to the current SG, and log a warning identifying the repeated
+SG. Do not append the repeated SG to the emitted path, throw, or halt.
 
 **Algorithm:** covered inline in §5.3 — the `if next ∈ stack` branch.
 
-**Semantic clarification:** we emit `[…, cycleSg]` including the repeated SG at the
-end. This makes the cycle visible to downstream phases (classifier can see the leaf
-is `cycleSg`) and to the user (the warning's `impactedEntity` names the cycle point).
+**Semantic clarification:** for `A → B → C → A`, we emit `[A, B, C]` with
+`termination: 'cycle'`. The warning's `impactedEntity` names the repeated cycle point
+`A`; the source graph remains authoritative for the closing edge.
 
 **Design choice — cycle path is not a blocker:** matches FR-DFS-04. Legacy tool
 raised `CycleDetectedError`; we deliberately don't. Rationale: during design, users
@@ -429,7 +429,7 @@ same GKV, does Phase 9 (Classification) emit two UCs or one merged UC with pair
 set `{(A,B), (B,D), (A,C), (C,D)}`? This is a Phase 9 (LLD3 → plan) question, not
 LLD2's. LLD2 emits both as separate candidates; Phase 9 decides.
 
-**B3 — Cycle in combination-expansion cost.** A cycle path `[A, B, C, A]` treated as
+**B3 — Cycle in combination-expansion cost.** A cycle path `[A, B, C]` treated as
 `[A, B, C]` (per B1) has 3 SGs; combinatorics unchanged from a non-cyclic 3-SG path.
 No special cost.
 

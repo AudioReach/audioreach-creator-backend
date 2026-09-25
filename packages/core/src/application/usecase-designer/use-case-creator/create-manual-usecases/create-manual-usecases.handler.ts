@@ -9,6 +9,7 @@ import {RESULT_KIND} from '../../../shared/result/result.js';
 import type {Result} from '../../../shared/result/result.js';
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
+import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 import {
   createManualRoutingInput,
   deriveRoutingScope,
@@ -30,6 +31,7 @@ export class CreateManualUsecasesHandler implements CommandHandler<
 > {
   constructor(
     private readonly uow: UnitOfWork,
+    private readonly idGeneration: IdGenerationPort,
     private readonly subsystemLinkResolutionService: SubsystemLinkResolutionService = new SubsystemLinkResolutionService(),
     private readonly engine: RoutingEngine = createRoutingEngine(),
     private readonly snapshotBuilder: RoutingGraphSnapshotBuilder = new RoutingGraphSnapshotBuilder(),
@@ -39,8 +41,9 @@ export class CreateManualUsecasesHandler implements CommandHandler<
   async handle(
     command: CreateManualUsecasesCommand,
   ): Promise<Result<RoutingOutcome>> {
+    const {selection} = command;
     const duplicateSubgraphIds = findDuplicateActiveSubgraphSystemIds(
-      command.activeSubgraphs,
+      selection.activeSubgraphs,
     );
     if (duplicateSubgraphIds.size > 0)
       throw new DomainRuleViolationException([
@@ -63,16 +66,16 @@ export class CreateManualUsecasesHandler implements CommandHandler<
         .getUsecaseRepository()
         .findBySystemIds(
           command.fileSystemId,
-          command.selectedUsecaseSystemIds,
+          selection.selectedUsecaseSystemIds,
         );
       const scope = deriveRoutingScope(
         selectedUsecases,
-        command.activeSubgraphs,
-        command.excludedSubgraphSystemIds,
+        selection.activeSubgraphs,
+        selection.excludedSubgraphSystemIds,
         graphEdits.deletedSgs.map(subgraph => subgraph.systemId),
       );
       const additionIssues = validateRoutingAdditionClosure(
-        command,
+        selection,
         graphEdits,
       );
       if (additionIssues.length > 0)
@@ -87,20 +90,8 @@ export class CreateManualUsecasesHandler implements CommandHandler<
         {
           fileSystemId: command.fileSystemId,
           effectiveActiveSubgraphs: scope.effectiveActiveSubgraphs,
-          requestPolicy: {
-            requestedSubgraphSystemIds: new Set(
-              command.activeSubgraphs.map(selection => selection.systemId),
-            ),
-            explicitlyExcludedSubgraphSystemIds: new Set(
-              command.excludedSubgraphSystemIds,
-            ),
-            explicitlyExcludedDataLinkSystemIds: new Set(
-              command.excludedDataLinkSystemIds,
-            ),
-            explicitlyExcludedControlLinkSystemIds: new Set(
-              command.excludedControlLinkSystemIds,
-            ),
-          },
+          excludedDataLinkSystemIds: selection.excludedDataLinkSystemIds,
+          excludedControlLinkSystemIds: selection.excludedControlLinkSystemIds,
           sessionEdits: graphEdits,
         },
         this.uow,
@@ -117,25 +108,12 @@ export class CreateManualUsecasesHandler implements CommandHandler<
         throw new DomainRuleViolationException(topology.issues);
       const input = createManualRoutingInput({
         fileSystemId: command.fileSystemId,
+        selection,
         selectedUsecases,
-        requestPolicy: {
-          requestedSubgraphSystemIds: new Set(
-            command.activeSubgraphs.map(selection => selection.systemId),
-          ),
-          explicitlyExcludedSubgraphSystemIds: new Set(
-            command.excludedSubgraphSystemIds,
-          ),
-          explicitlyExcludedDataLinkSystemIds: new Set(
-            command.excludedDataLinkSystemIds,
-          ),
-          explicitlyExcludedControlLinkSystemIds: new Set(
-            command.excludedControlLinkSystemIds,
-          ),
-        },
         graphSnapshot: snapshot.data,
         manualTopology: topology.data,
       });
-      const result = await this.engine.run(input, this.uow);
+      const result = await this.engine.run(input, this.uow, this.idGeneration);
       if (result.kind === RESULT_KIND.Fail)
         throw new DomainRuleViolationException(result.issues);
       await this.uow.commit();

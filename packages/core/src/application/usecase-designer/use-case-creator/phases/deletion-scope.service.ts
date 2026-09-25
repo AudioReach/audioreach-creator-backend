@@ -345,10 +345,22 @@ function buildDeletionSideConflicts(
   deletedDataLinks: readonly DataLink[],
   deletedControlLinks: readonly ControlLink[],
 ): DeletionSideConflicts {
-  // FR-API-07 closure is evaluated against explicit caller policy after DEL-02. Deleted
+  // FR-API-07 closure is evaluated against the caller's selection after DEL-02. Deleted
   // control-link endpoints are intentionally excluded because control links do not expand
   // automatic routing scope.
-  const {requestPolicy} = context.input;
+  const {selection} = context.input;
+  const requestedSubgraphSystemIds = new Set(
+    selection.activeSubgraphs.map(subgraph => subgraph.systemId),
+  );
+  const explicitlyExcludedSubgraphSystemIds = new Set(
+    selection.excludedSubgraphSystemIds,
+  );
+  const explicitlyExcludedDataLinkSystemIds = new Set(
+    selection.excludedDataLinkSystemIds,
+  );
+  const explicitlyExcludedControlLinkSystemIds = new Set(
+    selection.excludedControlLinkSystemIds,
+  );
   const requiredSurvivingEndpointSubgraphSystemIds = new Set<number>();
   for (const dataLink of deletedDataLinks) {
     if (!deletedSubgraphSystemIds.has(dataLink.sourceSubgraphSystemId)) {
@@ -364,7 +376,7 @@ function buildDeletionSideConflicts(
   }
 
   const excludedDeletedSubgraphSystemIds = [...deletedSubgraphSystemIds].filter(
-    systemId => requestPolicy.explicitlyExcludedSubgraphSystemIds.has(systemId),
+    systemId => explicitlyExcludedSubgraphSystemIds.has(systemId),
   );
   const deletedDataLinkSystemIds = new Set(
     deletedDataLinks.map(link => link.systemId),
@@ -373,21 +385,17 @@ function buildDeletionSideConflicts(
     deletedControlLinks.map(link => link.systemId),
   );
   const excludedDeletedDataLinkSystemIds = [...deletedDataLinkSystemIds].filter(
-    systemId => requestPolicy.explicitlyExcludedDataLinkSystemIds.has(systemId),
+    systemId => explicitlyExcludedDataLinkSystemIds.has(systemId),
   );
   const excludedDeletedControlLinkSystemIds = [
     ...deletedControlLinkSystemIds,
-  ].filter(systemId =>
-    requestPolicy.explicitlyExcludedControlLinkSystemIds.has(systemId),
-  );
+  ].filter(systemId => explicitlyExcludedControlLinkSystemIds.has(systemId));
   const missingSurvivingEndpointSubgraphSystemIds = [
     ...requiredSurvivingEndpointSubgraphSystemIds,
-  ].filter(systemId => !requestPolicy.requestedSubgraphSystemIds.has(systemId));
+  ].filter(systemId => !requestedSubgraphSystemIds.has(systemId));
   const excludedSurvivingEndpointSubgraphSystemIds = [
     ...requiredSurvivingEndpointSubgraphSystemIds,
-  ].filter(systemId =>
-    requestPolicy.explicitlyExcludedSubgraphSystemIds.has(systemId),
-  );
+  ].filter(systemId => explicitlyExcludedSubgraphSystemIds.has(systemId));
 
   return {
     ...(excludedDeletedSubgraphSystemIds.length > 0 && {

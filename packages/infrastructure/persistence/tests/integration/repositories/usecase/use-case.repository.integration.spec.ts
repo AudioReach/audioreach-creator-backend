@@ -928,5 +928,33 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
         },
       });
     });
+
+    it('stores content-only SGKV assignments on the root UseCase action', async () => {
+      await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
+      await qr.startTransaction();
+      await makeRepo(qr.manager, sessionId).applyStructuralChange(
+        1000,
+        {newType: USECASE_TYPE.Linked},
+        {source: SOURCE.AutoRouting},
+        undefined,
+        [
+          {subgraphSystemId: SG_ID_1, valueDefinitionSystemIds: [101, 102]},
+          {subgraphSystemId: SG_ID_2, valueDefinitionSystemIds: []},
+        ],
+      );
+      await qr.commitTransaction();
+
+      const [rootRow] = await ds.query(
+        `SELECT new_value FROM edit_actions WHERE session_id = ? AND aggregate_id = ? AND target_table = 'UseCase'`,
+        [sessionId, 1000],
+      );
+      expect(JSON.parse(rootRow.new_value)).toEqual({
+        type: USECASE_TYPE.Linked,
+        sgkvAssignments: [
+          {subgraphSystemId: SG_ID_1, valueDefinitionSystemIds: [101, 102]},
+          {subgraphSystemId: SG_ID_2, valueDefinitionSystemIds: []},
+        ],
+      });
+    });
   });
 });

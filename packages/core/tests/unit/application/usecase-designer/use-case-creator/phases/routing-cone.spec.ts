@@ -136,16 +136,21 @@ function makeContext(options: ContextOptions): RoutingContext {
   return new RoutingContext(
     createAutoRoutingInput({
       fileSystemId: FILE_ID,
-      selectedUsecases,
-      requestPolicy: {
-        requestedSubgraphSystemIds: new Set(options.subgraphSystemIds),
-        explicitlyExcludedSubgraphSystemIds: new Set(
-          options.excludedSubgraphSystemIds ?? [],
+      selection: {
+        selectedUsecaseSystemIds: selectedUsecases.map(
+          usecase => usecase.systemId,
         ),
-        explicitlyExcludedDataLinkSystemIds: new Set(),
-        explicitlyExcludedControlLinkSystemIds: new Set(),
+        activeSubgraphs: subgraphs.map(entry => ({
+          systemId: entry.subgraph.systemId,
+          sgkvs: entry.requestedSgkvs,
+        })),
+        excludedSubgraphSystemIds: options.excludedSubgraphSystemIds ?? [],
+        excludedDataLinkSystemIds: [],
+        excludedControlLinkSystemIds: [],
       },
+      selectedUsecases,
       graphSnapshot,
+      activeManualUsecaseEdits: [],
     }),
   );
 }
