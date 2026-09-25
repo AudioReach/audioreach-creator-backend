@@ -63,57 +63,26 @@ export class UnstageChangesResponseDto extends ChangesetDto {
   declare failedChangeIds: string[];
 }
 
-// Commit-specific DTOs
-export class CommitChangesRequestDto {
-  @ApiProperty({
-    description:
-      'Optional array of change IDs to commit. If not provided, all staged changes will be committed.',
-    type: [String],
-    required: false,
-  })
-  @IsArray()
-  @IsString({each: true})
-  changeIds?: string[];
+// Apply-specific DTOs. An apply always processes every current staged action
+// for the active session; callers cannot select individual change IDs.
+export class CommitChangesRequestDto {}
+
+export class CommitChangesResponseDto {
+  @ApiProperty({description: 'Recorded session commit identifier'})
+  commitId!: number;
+
+  @ApiProperty({description: 'Number of physical rows applied'})
+  appliedEntityCount!: number;
+
+  @ApiProperty({description: 'Number of aggregates with physical mutations'})
+  appliedAggregateCount!: number;
 }
 
-export class CommitChangesResponseDto extends ChangesetDto {
-  @ApiProperty({description: 'Successfully committed change IDs'})
-  declare processedChangeIds: string[];
+// Discard-specific DTOs. The empty request prevents selective discard from
+// being reintroduced through the public API.
+export class DiscardChangesRequestDto {}
 
-  @ApiProperty({description: 'Change IDs that failed to commit'})
-  declare failedChangeIds: string[];
-
-  @ApiProperty({
-    description: 'Change IDs that were missing required dependencies',
-    type: [String],
-    required: false,
-  })
-  missingDependencies?: string[];
-}
-
-// Discard-specific DTOs
-export class DiscardChangesRequestDto {
-  @ApiProperty({
-    description:
-      'Optional array of change IDs to discard. If not provided, all changes will be discarded.',
-    type: [String],
-    required: false,
-  })
-  @IsArray()
-  @IsString({each: true})
-  changeIds?: string[];
-}
-
-export class DiscardChangesResponseDto extends ChangesetDto {
-  @ApiProperty({description: 'Successfully discarded change IDs'})
-  declare processedChangeIds: string[];
-
-  @ApiProperty({description: 'Change IDs that failed to discard'})
-  declare failedChangeIds: string[];
-
-  @ApiProperty({
-    description: 'Change IDs that were discarded due to dependency cascade',
-    type: [String],
-  })
-  cascadedChangeIds!: string[];
+export class DiscardChangesResponseDto {
+  @ApiProperty({description: 'Number of edit-action rows removed'})
+  discardedEditActionCount!: number;
 }

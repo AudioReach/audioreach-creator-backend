@@ -7,6 +7,7 @@ import type {
   SessionMode,
   Source,
 } from '../../../../shared/change-vocabulary.js';
+import type {ApplyActionSlot} from '../../../../edit-session/apply-changes/apply-changes.types.js';
 
 /**
  * Read-side snapshot of a project session row.
@@ -70,6 +71,24 @@ export interface ISessionRepository {
    * Returns the number of commit rows recorded for the session.
    */
   countCommitsForSession(sessionId: number): Promise<number>;
+
+  /** Records one successful apply attempt, including zero-mutation applies. */
+  recordCommit(input: {
+    sessionId: number;
+    changeCount: number;
+  }): Promise<number>;
+
+  /**
+   * Deletes applied action slots and their older versions after physical writes
+   * and commit recording succeed inside the same transaction.
+   */
+  deleteAppliedActionHistory(
+    sessionId: number,
+    slots: readonly ApplyActionSlot[],
+  ): Promise<number>;
+
+  /** Deletes every edit-action row for the active session. */
+  deleteAllEditActions(sessionId: number): Promise<number>;
 
   /**
    * Hard-deletes the session row. Cascades to edit_actions and

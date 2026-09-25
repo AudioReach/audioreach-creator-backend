@@ -17,6 +17,19 @@ export * from './application/orchestration/cqrs/errors.js';
 export {StartSessionCommand} from './application/edit-session/start-session/start-session.command.js';
 export {EndSessionCommand} from './application/edit-session/end-session/end-session.command.js';
 export type {SessionResult} from './application/edit-session/session-types.js';
+export * from './application/edit-session/apply-changes/apply-changes.types.js';
+export * from './application/edit-session/apply-changes/apply-rule-registry.js';
+export * from './application/edit-session/apply-changes/system-id-apply-rule.js';
+export * from './application/edit-session/apply-changes/composite-value-apply-rule.js';
+export * from './application/edit-session/apply-changes/reduce-current-actions.js';
+export * from './application/edit-session/apply-changes/order-staged-mutations.js';
+export * from './application/edit-session/apply-changes/apply-changes.command.js';
+export * from './application/edit-session/apply-changes/apply-changes.handler.js';
+export type {ApplyChangesPort} from './application/ports/persistence/apply-changes/apply-changes.port.js';
+export * from './application/edit-session/discard-changes/discard-changes.command.js';
+export * from './application/edit-session/discard-changes/discard-changes.handler.js';
+export * from './application/edit-session/discard-changes/discard-changes.types.js';
+export type {DiscardChangesPort} from './application/ports/persistence/discard-changes/discard-changes.port.js';
 
 // Shared errors
 export * from './shared/errors/index.js';

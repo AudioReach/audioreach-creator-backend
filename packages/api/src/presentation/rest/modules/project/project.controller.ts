@@ -44,6 +44,8 @@ import {
   Result,
   StartSessionCommand,
   EndSessionCommand,
+  ApplyChangesCommand,
+  DiscardChangesCommand,
   GetProjectsQuery,
   GetProjectQuery,
   UpdateProjectCommand,
@@ -67,6 +69,8 @@ import type {
   ProjectDto,
   RoutingOutcome,
   UsecaseChangeDetails,
+  ApplyChangesResult,
+  DiscardChangesResult,
 } from '@arc/core';
 import {promises as fsPromises} from 'node:fs';
 
@@ -1256,19 +1260,14 @@ export class ProjectController {
   }
 
   @Post('/:projectId/commit-changes')
+  @UseGuards(SessionGuard)
+  @HttpCode(HttpStatus.OK)
   @ApiParam({name: 'projectId', description: 'Id of project', required: true})
   @ApiBody({type: CommitChangesRequestDto})
   @ApiOperation({
-    summary: 'Commit changes',
+    summary: 'Apply staged changes',
     description:
-      'Commit staged changes in the project based on project Id.\n\n' +
-      'Available in all session modes (TUNING, DESIGNER, DISCOVERY_WIZARD, DIFF_MERGE).\n\n' +
-      'Behavior:\n' +
-      '- If changeIds is not provided or empty, all staged changes will be committed\n' +
-      '- If changeIds is provided, only the specified changes will be committed\n' +
-      '- All dependencies of the specified changes must be staged, otherwise the commit will fail\n' +
-      '- The operation validates that all required dependencies are present before committing\n' +
-      '- Pass ?enforceValidation=true to run COMMIT-group validation rules before applying changes; validation failures return 422',
+      'Apply every current staged edit action in the active session. The operation is atomic, records a session commit, and removes the applied edit-action history after all writes succeed. The request does not accept change IDs or a caller-supplied commit message.',
   })
   @ApiExtraModels(ApiResult, CommitChangesResponseDto)
   @ApiResponse({
@@ -1322,23 +1321,24 @@ export class ProjectController {
   async commitChanges(
     @Param('projectId') _projectId: string,
     @Body() _commitChangesRequest: CommitChangesRequestDto,
+    @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<CommitChangesResponseDto>> {
-    await Promise.resolve();
-    throw new NotImplementedException('commitChanges is not implemented yet');
+    const result = await this.commandBus.execute<ApplyChangesResult>(
+      new ApplyChangesCommand(),
+      session,
+    );
+    return {data: result};
   }
 
   @Post('/:projectId/discard-changes')
+  @UseGuards(SessionGuard)
+  @HttpCode(HttpStatus.OK)
   @ApiParam({name: 'projectId', description: 'Id of project', required: true})
   @ApiBody({type: DiscardChangesRequestDto})
   @ApiOperation({
     summary: 'Discard changes',
     description:
-      'Discard uncommitted changes in the project based on project Id.\n\n' +
-      'Behavior:\n' +
-      '- If changeIds is not provided or empty, all changes will be discarded\n' +
-      '- If changeIds is provided, only the specified changes will be discarded\n' +
-      '- Dependent changes will be automatically discarded as well (cascade delete)\n' +
-      '- WARNING: Discarded changes cannot be recovered',
+      'Remove every edit-action row belonging to the active session, including current, stale, staged, and unstaged rows. Permanent project data is not changed. The operation is atomic and does not accept change IDs.',
   })
   @ApiExtraModels(ApiResult, DiscardChangesResponseDto)
   @ApiResponse({
@@ -1392,9 +1392,13 @@ export class ProjectController {
   async discardChanges(
     @Param('projectId') _projectId: string,
     @Body() _discardChangesRequest: DiscardChangesRequestDto,
+    @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<DiscardChangesResponseDto>> {
-    await Promise.resolve();
-    throw new NotImplementedException('discardChanges is not implemented yet');
+    const result = await this.commandBus.execute<DiscardChangesResult>(
+      new DiscardChangesCommand(),
+      session,
+    );
+    return {data: result};
   }
 
   @Post('/:projectId/start-session')

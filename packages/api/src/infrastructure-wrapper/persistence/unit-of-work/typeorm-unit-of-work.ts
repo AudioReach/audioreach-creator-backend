@@ -20,6 +20,8 @@ import type {
   SubgraphRepository,
   SubsystemRepository,
   UsecaseRepository,
+  ApplyChangesPort,
+  DiscardChangesPort,
   Logger,
 } from '@arc/core';
 import type {QueryRunner, EntityManager} from 'typeorm';
@@ -39,6 +41,11 @@ import {
   TypeOrmUsecaseRepository,
   PendingChangeWriter,
   EditActionsQueryService,
+  TypeOrmApplyChangesService,
+  TypeOrmDiscardChangesService,
+  TypeOrmOperationExecutor,
+  createDefaultApplyRuleRegistry,
+  createDefaultApplyTargetRegistry,
 } from '@arc/persistence';
 import type {PendingChangeCache} from '@arc/persistence';
 
@@ -129,6 +136,24 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
 
   getSessionRepository(): ISessionRepository {
     return new TypeOrmSessionRepository(this.queryRunner.manager);
+  }
+
+  getApplyChangesPort(): ApplyChangesPort {
+    const manager = this.queryRunner.manager;
+    return new TypeOrmApplyChangesService(
+      this.getWriteContext(),
+      new EditActionsQueryService(manager),
+      createDefaultApplyRuleRegistry(),
+      new TypeOrmOperationExecutor(manager, createDefaultApplyTargetRegistry()),
+      new TypeOrmSessionRepository(manager),
+    );
+  }
+
+  getDiscardChangesPort(): DiscardChangesPort {
+    return new TypeOrmDiscardChangesService(
+      this.getWriteContext(),
+      new TypeOrmSessionRepository(this.queryRunner.manager),
+    );
   }
 
   // ── Module write path (LLD2) ──────────────────────────────────────────────
