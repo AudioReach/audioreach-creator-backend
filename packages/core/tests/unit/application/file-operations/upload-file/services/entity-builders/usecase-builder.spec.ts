@@ -253,7 +253,7 @@ describe('UsecaseBuilder', () => {
     });
 
     describe('Error Handling', () => {
-      it('should skip usecase when no key-value pairs exist', async () => {
+      it('should preserve usecase when no key-value pairs exist', async () => {
         const usecaseEntries: UsecaseEntry[] = [
           {
             keyValuePairList: new KeyValuePairList([]),
@@ -268,14 +268,10 @@ describe('UsecaseBuilder', () => {
           TEST_FILE_SYSTEM_ID,
         );
 
-        expect(result).toHaveLength(0);
-        expect(mockLogger.logWarn).toHaveBeenCalledWith(
-          expect.objectContaining({
-            msg: 'usecase_conversion_failed',
-            description: expect.stringContaining(
-              'Failed to convert usecase entry',
-            ),
-          }),
+        expect(result).toHaveLength(1);
+        expect(result[0].keyVector.valueSystemIds).toEqual([]);
+        expect(mockLogger.logWarn).not.toHaveBeenCalledWith(
+          expect.objectContaining({msg: 'usecase_conversion_failed'}),
         );
       });
 

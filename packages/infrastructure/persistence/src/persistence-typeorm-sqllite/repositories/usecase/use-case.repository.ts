@@ -571,8 +571,8 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     return new UseCase({
       systemId: uc.systemId,
       fileSystemId: uc.fileSystemId,
-      alias: uc.alias,
-      aliasId: uc.aliasId,
+      alias: uc.alias ?? undefined,
+      aliasId: uc.aliasId ?? undefined,
       type: uc.type ?? undefined,
       categories: uc.categoryNames,
       subgraphSystemIds: uc.subgraphSystemIds,

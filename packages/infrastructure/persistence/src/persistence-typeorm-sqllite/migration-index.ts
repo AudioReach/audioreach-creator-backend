@@ -3,6 +3,6 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {InitialCreate1789965901198} from './migrations/1789965901198-initial-create.js';
+import {InitialCreate1790254554962} from './migrations/1790254554962-initial-create.js';
 
-export const migrations = [InitialCreate1789965901198];
+export const migrations = [InitialCreate1790254554962];

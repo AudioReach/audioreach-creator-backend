@@ -505,7 +505,7 @@ export interface UiUsecaseDownloadModel {
   systemId: number;
   keyIds: number[];
   valueIds: number[];
-  aliasNaturalId: number;
+  aliasNaturalId?: number;
   aliasName: string;
   type?: UsecaseType;
   orderedKeys?: string;

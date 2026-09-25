@@ -138,8 +138,8 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
         return {
           systemId: uc.systemId,
           gkv,
-          alias: uc.alias,
-          aliasId: uc.aliasId,
+          alias: uc.alias ?? undefined,
+          aliasId: uc.aliasId ?? undefined,
           categories: uc.categoryNames,
           type: uc.type,
         };

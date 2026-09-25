@@ -71,8 +71,8 @@ export class UseCaseInserter {
   private async insertUseCaseRows(items: UseCase[]): Promise<StepResult> {
     const rows: InsertRow<UseCaseRow>[] = items.map(item => ({
       systemId: item.systemId,
-      ['aliasId']: item.aliasId,
-      alias: item.alias,
+      ['aliasId']: item.aliasId ?? null,
+      alias: item.alias ?? null,
       fileSystemId: item.fileSystemId,
       type: item.type,
       orderedKeys: item.orderedKeys
