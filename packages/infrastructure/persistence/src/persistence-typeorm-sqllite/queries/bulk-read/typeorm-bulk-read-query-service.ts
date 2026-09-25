@@ -2104,7 +2104,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         systemId: uc.systemId,
         keyIds,
         valueIds,
-        aliasNaturalId: uc.aliasId,
+        aliasNaturalId: uc.aliasId ?? undefined,
         aliasName: uc.alias ?? '',
         type: uc.type,
         orderedKeys: uc.orderedKeys ?? undefined,
