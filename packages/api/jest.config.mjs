@@ -26,7 +26,6 @@ export default {
       moduleNameMapper: {
         '^(\\.{1,2}/.*)\\.js$': '$1',
       },
-      resolver: 'jest-ts-webcompat-resolver',
       collectCoverageFrom: ['src/**/*.ts', '!src/main.ts'],
       coverageDirectory: './coverage',
       coverageReporters: ['html', 'json'],
@@ -46,7 +45,6 @@ export default {
           },
         ],
       },
-      resolver: 'jest-ts-webcompat-resolver',
       collectCoverageFrom: ['src/**/*.ts', '!src/main.ts'],
       coverageDirectory: './coverage',
       coverageReporters: ['html', 'json'],
@@ -72,7 +70,6 @@ export default {
       moduleNameMapper: {
         '^(\\.{1,2}/.*)\\.js$': '$1',
       },
-      resolver: 'jest-ts-webcompat-resolver',
       collectCoverageFrom: ['src/**/*.ts', '!src/main.ts'],
       coverageDirectory: './coverage',
       coverageReporters: ['html', 'json'],

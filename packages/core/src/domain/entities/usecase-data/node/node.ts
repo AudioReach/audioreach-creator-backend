@@ -15,7 +15,7 @@ export type NodeType = (typeof NodeType)[keyof typeof NodeType];
 
 export class Node {
   systemId: number;
-  readonly parentSystemId?: number;
+  parentSystemId?: number;
   readonly type: NodeType;
   fileSystemId: number;
 
@@ -36,5 +36,9 @@ export class Node {
     this.parentSystemId = initparams.parentSystemId;
     this.dataPorts = initparams.dataPorts;
     this.controlPorts = initparams.controlPorts;
+  }
+
+  setParentSystemId(parentSystemId: number | undefined): void {
+    this.parentSystemId = parentSystemId;
   }
 }

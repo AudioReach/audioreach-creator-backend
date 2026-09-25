@@ -178,6 +178,9 @@ export class PatchSpfModuleHandler implements CommandHandler<
         newContainerId,
         fileSystemId,
       );
+      for (const property of newContainer.properties.values()) {
+        property.systemId = await this.idGeneration.getNextId(fileSystemId);
+      }
       await containerRepo.createContainer(newContainer);
       targetContainer = newContainer;
     } else {

@@ -10,7 +10,7 @@
     }
   ],
   "settings": {
-    "jest.jestCommandLine": "yarn jest",
+    "jest.jestCommandLine": "pnpm exec jest",
     "jest.rootPath": ".",
     "jest.autoRun": {
       "watch": false,

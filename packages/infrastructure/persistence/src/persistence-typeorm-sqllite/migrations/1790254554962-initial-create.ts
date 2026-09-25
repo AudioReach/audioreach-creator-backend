@@ -2,11 +2,10 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-export class InitialCreate1789965901198 implements MigrationInterface {
-  name = 'InitialCreate1789965901198';
+export class InitialCreate1790254554962 implements MigrationInterface {
+  name = 'InitialCreate1790254554962';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -370,7 +369,7 @@ export class InitialCreate1789965901198 implements MigrationInterface {
       `CREATE TABLE "subsystem_filtered_keys_key_definition" ("subsystems_system_id" integer NOT NULL, "key_definition_system_id" integer NOT NULL, PRIMARY KEY ("subsystems_system_id", "key_definition_system_id"))`,
     );
     await queryRunner.query(
-      `CREATE TABLE "use_cases" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "alias_id" integer NOT NULL, "alias" varchar(255) NOT NULL, "file_system_id" integer NOT NULL, "type" varchar CHECK( "type" IN ('EC','LINKED','ISLAND') ), "ordered_keys" text)`,
+      `CREATE TABLE "use_cases" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "alias_id" integer, "alias" varchar(255), "file_system_id" integer NOT NULL, "type" varchar CHECK( "type" IN ('EC','LINKED','ISLAND') ), "ordered_keys" text)`,
     );
     await queryRunner.query(
       `CREATE INDEX "ix_use_case_alias" ON "use_cases" ("alias_id") `,
@@ -1337,7 +1336,7 @@ export class InitialCreate1789965901198 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "ix_use_case_alias"`);
     await queryRunner.query(`DROP INDEX "ix_use_case_file"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_use_cases" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "alias_id" integer NOT NULL, "alias" varchar(255) NOT NULL, "file_system_id" integer NOT NULL, "type" varchar CHECK( "type" IN ('EC','LINKED','ISLAND') ), "ordered_keys" text, CONSTRAINT "FK_8d8dca62e57c8b800925aec755a" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_use_cases" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "alias_id" integer, "alias" varchar(255), "file_system_id" integer NOT NULL, "type" varchar CHECK( "type" IN ('EC','LINKED','ISLAND') ), "ordered_keys" text, CONSTRAINT "FK_8d8dca62e57c8b800925aec755a" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
       `INSERT INTO "temporary_use_cases"("system_id", "created_at", "updated_at", "version", "alias_id", "alias", "file_system_id", "type", "ordered_keys") SELECT "system_id", "created_at", "updated_at", "version", "alias_id", "alias", "file_system_id", "type", "ordered_keys" FROM "use_cases"`,
@@ -1749,7 +1748,7 @@ export class InitialCreate1789965901198 implements MigrationInterface {
       `ALTER TABLE "use_cases" RENAME TO "temporary_use_cases"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "use_cases" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "alias_id" integer NOT NULL, "alias" varchar(255) NOT NULL, "file_system_id" integer NOT NULL, "type" varchar CHECK( "type" IN ('EC','LINKED','ISLAND') ), "ordered_keys" text)`,
+      `CREATE TABLE "use_cases" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "alias_id" integer, "alias" varchar(255), "file_system_id" integer NOT NULL, "type" varchar CHECK( "type" IN ('EC','LINKED','ISLAND') ), "ordered_keys" text)`,
     );
     await queryRunner.query(
       `INSERT INTO "use_cases"("system_id", "created_at", "updated_at", "version", "alias_id", "alias", "file_system_id", "type", "ordered_keys") SELECT "system_id", "created_at", "updated_at", "version", "alias_id", "alias", "file_system_id", "type", "ordered_keys" FROM "temporary_use_cases"`,
