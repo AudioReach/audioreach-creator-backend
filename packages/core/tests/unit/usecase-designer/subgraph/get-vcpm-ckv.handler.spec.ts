@@ -70,6 +70,25 @@ describe('GetVcpmCkvHandler', () => {
     );
   });
 
+  it('does not map a subgraph query failure to ResourceNotFoundException', async () => {
+    const handler = new GetVcpmCkvHandler(
+      makeServices(
+        MOCK_AGGREGATE,
+        Result.fail({
+          code: 'INTERNAL_ERROR',
+          message: 'Database unavailable',
+          severity: 'ERROR',
+        }),
+      ),
+    );
+
+    const error = await handler.handle(makeQuery()).catch(error => error);
+
+    expect(error).toBeInstanceOf(Error);
+    expect(error).not.toBeInstanceOf(ResourceNotFoundException);
+    expect(error.message).toBe('Database unavailable');
+  });
+
   it('returns no configured parameters for an empty aggregate', async () => {
     const handler = new GetVcpmCkvHandler(
       makeServices({...MOCK_AGGREGATE, parameterCkvLinks: []}),

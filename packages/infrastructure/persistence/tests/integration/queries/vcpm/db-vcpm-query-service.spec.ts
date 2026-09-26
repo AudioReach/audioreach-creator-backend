@@ -22,6 +22,11 @@ import {VcpmParameterPayloadFetcher} from '../../../../src/persistence-typeorm-s
 import {VcpmModuleParameterDefinitionFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/definitions/vcpm-module-definitions/vcpm-module-parameter-definition-fetcher.js';
 import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 import {TypeOrmSessionRepository} from '../../../../src/persistence-typeorm-sqllite/repositories/session/typeorm-session.repository.js';
+import {
+  ProjectSessionSchema,
+  SESSION_MODE,
+  SESSION_STATUS,
+} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
 import {DbKeyValueDefQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/key-value/db-key-value-def-query-service.js';
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
@@ -29,6 +34,7 @@ import {
   describe,
   it,
   expect,
+  jest,
   beforeAll,
   afterAll,
   beforeEach,
@@ -97,31 +103,47 @@ async function seedAll(ds: DataSource) {
   );
 }
 
-function makeService(ds: DataSource): DbSubgraphQueryService {
+function makeService(ds: DataSource): {
+  service: DbSubgraphQueryService;
+  editActionsSvc: EditActionsQueryService;
+} {
   const editActionsSvc = new EditActionsQueryService(ds.manager);
-  const vcpmInstanceFetcher = new VcpmInstanceFetcher(
-    ds.manager,
-    editActionsSvc,
-  );
+  const vcpmInstanceFetcher = new VcpmInstanceFetcher(ds.manager);
   const keyValueService = new DbKeyValueDefQueryService(ds, editActionsSvc);
-  return new DbSubgraphQueryService(
-    new TypeOrmSessionRepository(ds.manager),
-    keyValueService,
-    new SubgraphOverlayFetcher(
-      ds.manager,
+  return {
+    service: new DbSubgraphQueryService(
+      new TypeOrmSessionRepository(ds.manager),
+      keyValueService,
+      new SubgraphOverlayFetcher(
+        ds.manager,
+        editActionsSvc,
+        new SubgraphPropertyDataFetcher(ds.manager, editActionsSvc),
+        new SubgraphSgkvFetcher(ds.manager, editActionsSvc),
+      ),
       editActionsSvc,
-      new SubgraphPropertyDataFetcher(ds.manager, editActionsSvc),
-      new SubgraphSgkvFetcher(ds.manager, editActionsSvc),
+      new VcpmCkvFetcher(ds.manager, vcpmInstanceFetcher),
+      new VcpmParameterPayloadFetcher(ds.manager),
+      new VcpmModuleParameterDefinitionFetcher(ds.manager),
     ),
-    new VcpmCkvFetcher(ds.manager, editActionsSvc, vcpmInstanceFetcher),
-    new VcpmParameterPayloadFetcher(ds.manager, editActionsSvc),
-    new VcpmModuleParameterDefinitionFetcher(ds.manager),
-  );
+    editActionsSvc,
+  };
+}
+
+async function seedActiveSession(ds: DataSource): Promise<void> {
+  await getTestRepository(ProjectSessionSchema).save({
+    fileSystemId: FILE_ID,
+    userId: 'u',
+    clientId: 'c',
+    sessionMode: SESSION_MODE.Designer,
+    status: SESSION_STATUS.Active,
+    endedAt: null,
+  });
 }
 
 describe('DbSubgraphQueryService VCPM aggregate (integration)', () => {
   let ds: DataSource;
   let service: DbSubgraphQueryService;
+  let editActionsSvc: EditActionsQueryService;
 
   beforeAll(async () => {
     await setupIntegrationTest();
@@ -133,10 +155,13 @@ describe('DbSubgraphQueryService VCPM aggregate (integration)', () => {
     await setupEachTest();
     ds = getTestDataSource();
     await seedAll(ds);
-    service = makeService(ds);
+    const made = makeService(ds);
+    service = made.service;
+    editActionsSvc = made.editActionsSvc;
   });
 
   it('returns CKVs, links, and VCPM definitions for a subgraph summary', async () => {
+    const getByAggregateIdSpy = jest.spyOn(editActionsSvc, 'getByAggregateId');
     const result = await service.getVcpmAggregateBySubgraph(
       SUBGRAPH_ID,
       FILE_ID,
@@ -150,9 +175,28 @@ describe('DbSubgraphQueryService VCPM aggregate (integration)', () => {
     expect(result.data.payloads).toEqual([]);
     expect(result.data.parameterDefinitions[0].systemId).toBe(PARAM_DEF_ID);
     expect(result.data.parameterDefinitions[0].paramId).toBe(1);
+    expect(getByAggregateIdSpy).not.toHaveBeenCalled();
+  });
+
+  it('loads the edit-action aggregate once for an active-session summary', async () => {
+    await seedActiveSession(ds);
+    const getByAggregateIdSpy = jest.spyOn(editActionsSvc, 'getByAggregateId');
+
+    await service.getVcpmAggregateBySubgraph(SUBGRAPH_ID, FILE_ID);
+
+    expect(getByAggregateIdSpy).toHaveBeenCalledTimes(1);
   });
 
   it('returns only the selected CKV and its payloads for calibration data', async () => {
+    const fetchLinksSpy = jest.spyOn(
+      (
+        service as unknown as {
+          parameterPayloadFetcher: VcpmParameterPayloadFetcher;
+        }
+      ).parameterPayloadFetcher,
+      'fetchParameterCkvLinksBySubgraph',
+    );
+
     const result = await service.getVcpmAggregateBySubgraph(
       SUBGRAPH_ID,
       FILE_ID,
@@ -164,7 +208,21 @@ describe('DbSubgraphQueryService VCPM aggregate (integration)', () => {
     expect(result.data.payloads[0].payload).toEqual(
       new Uint8Array([1, 2, 3, 4]),
     );
+    expect(result.data.parameterCkvLinks).toEqual([]);
     expect(result.data.parameterDefinitions).toHaveLength(1);
+    expect(fetchLinksSpy).not.toHaveBeenCalled();
+  });
+
+  it('loads the edit-action aggregate once for an active-session selected CKV', async () => {
+    await seedActiveSession(ds);
+    const getByAggregateIdSpy = jest.spyOn(editActionsSvc, 'getByAggregateId');
+
+    await service.getVcpmAggregateBySubgraph(SUBGRAPH_ID, FILE_ID, {
+      ckvSystemId: CKV_ID,
+      paramSystemIds: [PARAM_DEF_ID],
+    });
+
+    expect(getByAggregateIdSpy).toHaveBeenCalledTimes(1);
   });
 
   it('returns an empty aggregate when the requested CKV is outside the subgraph', async () => {

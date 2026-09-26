@@ -6,8 +6,8 @@
 import type {EntityManager} from 'typeorm';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
 import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
-import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
 import type {VcpmParameterPayloadBase} from '../entity-schema/usecase-data/subgraph/subgraph-vcpm-data.js';
+import type {VcpmQueryContext} from './vcpm-query-context.js';
 
 export interface VcpmParameterCkvLinkRow {
   parameterSystemId: number;
@@ -22,15 +22,12 @@ type RawParameterCkvLinkRow = Pick<
 export class VcpmParameterPayloadFetcher {
   private readonly overlay = new OverlayMergeImpl();
 
-  constructor(
-    private readonly manager: EntityManager,
-    private readonly editActionsSvc: EditActionsQueryService,
-  ) {}
+  constructor(private readonly manager: EntityManager) {}
 
   async fetchParameterCkvLinksBySubgraph(
     subgraphSystemId: number,
     fileSystemId: number,
-    sessionId: number | null,
+    context: VcpmQueryContext,
     effectiveCkvSystemIds: ReadonlySet<number>,
   ): Promise<VcpmParameterCkvLinkRow[]> {
     const baseRows = (await this.manager
@@ -50,13 +47,9 @@ export class VcpmParameterPayloadFetcher {
     const scopedRows = baseRows.filter(row =>
       effectiveCkvSystemIds.has(row.vcpmCkvSystemId),
     );
-    if (sessionId === null) return this.toLinks(scopedRows);
+    if (context.sessionId === null) return this.toLinks(scopedRows);
 
-    const actions = await this.editActionsSvc.getByAggregateId(
-      sessionId,
-      subgraphSystemId,
-    );
-    const payloadActions = actions.filter(
+    const payloadActions = context.editActions.filter(
       action => action.targetTable === ENTITY_NAMES.VcpmParameterPayload,
     );
     const effectiveRows = this.overlay.applyToCollection(
@@ -75,13 +68,13 @@ export class VcpmParameterPayloadFetcher {
     ckvSystemId: number,
     subgraphSystemId: number,
     fileSystemId: number,
-    sessionId: number | null,
+    context: VcpmQueryContext,
     effectiveCkvSystemIds: ReadonlySet<number>,
     paramSystemIds?: number[],
   ): Promise<VcpmParameterPayloadBase[]> {
     if (!effectiveCkvSystemIds.has(ckvSystemId)) return [];
 
-    const baseRows = (await this.manager
+    const payloadQuery = this.manager
       .getRepository(ENTITY_NAMES.VcpmParameterPayload)
       .createQueryBuilder('pp')
       .innerJoin('pp.vcpmCkv', 'ckv')
@@ -92,25 +85,30 @@ export class VcpmParameterPayloadFetcher {
         'subgraph.systemId = :subgraphSystemId AND subgraph.fileSystemId = :fileSystemId',
         {subgraphSystemId, fileSystemId},
       )
-      .where('pp.vcpmCkvSystemId = :ckvSystemId', {ckvSystemId})
-      .getMany()) as unknown as VcpmParameterPayloadBase[];
+      .where('pp.vcpmCkvSystemId = :ckvSystemId', {ckvSystemId});
+
+    if (paramSystemIds !== undefined && paramSystemIds.length > 0) {
+      payloadQuery.andWhere(
+        'pp.vcpmParameterSystemId IN (:...paramSystemIds)',
+        {paramSystemIds},
+      );
+    }
+
+    const baseRows =
+      (await payloadQuery.getMany()) as unknown as VcpmParameterPayloadBase[];
 
     const matchesParameterFilter = (parameterSystemId: number): boolean =>
       paramSystemIds === undefined ||
       paramSystemIds.length === 0 ||
       paramSystemIds.includes(parameterSystemId);
 
-    if (sessionId === null) {
+    if (context.sessionId === null) {
       return baseRows.filter(row =>
         matchesParameterFilter(row.vcpmParameterSystemId),
       );
     }
 
-    const actions = await this.editActionsSvc.getByAggregateId(
-      sessionId,
-      subgraphSystemId,
-    );
-    const payloadActions = actions.filter(
+    const payloadActions = context.editActions.filter(
       action => action.targetTable === ENTITY_NAMES.VcpmParameterPayload,
     );
     const effectiveRows = this.overlay.applyToCollection(

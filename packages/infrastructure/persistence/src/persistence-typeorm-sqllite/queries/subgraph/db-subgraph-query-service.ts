@@ -4,10 +4,12 @@
  */
 
 import {SubgraphOverlayFetcher} from '../../fetchers/subgraph-overlay-fetcher.js';
+import type {VcpmQueryContext} from '../../fetchers/vcpm-query-context.js';
 import type {VcpmCkvFetcher} from '../../fetchers/vcpm-ckv-fetcher.js';
 import type {VcpmParameterPayloadFetcher} from '../../fetchers/vcpm-parameter-payload-fetcher.js';
 import type {VcpmModuleParameterDefinitionFetcher} from '../../fetchers/definitions/vcpm-module-definitions/vcpm-module-parameter-definition-fetcher.js';
 import type {VcpmCkvBase} from '../../entity-schema/usecase-data/subgraph/subgraph-vcpm-data.js';
+import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {
   type SubgraphQueryService,
   type SubgraphReadModel,
@@ -47,6 +49,7 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
     private readonly sessionRepo: ISessionRepository,
     private readonly keyValueDefSvc: KeyValueDefQueryService,
     subgraphFetcher: SubgraphOverlayFetcher,
+    private readonly editActionsQuerySvc: EditActionsQueryService,
     private readonly vcpmCkvFetcher: VcpmCkvFetcher,
     private readonly parameterPayloadFetcher: VcpmParameterPayloadFetcher,
     private readonly parameterDefinitionFetcher: VcpmModuleParameterDefinitionFetcher,
@@ -223,6 +226,16 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
       const session =
         await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
       const sessionId = session?.sessionId ?? null;
+      const context: VcpmQueryContext = {
+        sessionId,
+        editActions:
+          sessionId === null
+            ? []
+            : await this.editActionsQuerySvc.getByAggregateId(
+                sessionId,
+                subgraphSystemId,
+              ),
+      };
 
       const selectedCkv =
         options.ckvSystemId === undefined
@@ -231,14 +244,14 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
               options.ckvSystemId,
               subgraphSystemId,
               fileSystemId,
-              sessionId,
+              context,
             );
       let ckvRows: VcpmCkvBase[];
       if (options.ckvSystemId === undefined) {
         ckvRows = await this.vcpmCkvFetcher.fetchMany(
           subgraphSystemId,
           fileSystemId,
-          sessionId,
+          context,
         );
       } else if (selectedCkv === null) {
         ckvRows = [];
@@ -249,12 +262,14 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
 
       const [ckvs, linkRows] = await Promise.all([
         this.resolveVcpmCkvValues(ckvRows, fileSystemId),
-        this.parameterPayloadFetcher.fetchParameterCkvLinksBySubgraph(
-          subgraphSystemId,
-          fileSystemId,
-          sessionId,
-          effectiveCkvSystemIds,
-        ),
+        options.ckvSystemId === undefined
+          ? this.parameterPayloadFetcher.fetchParameterCkvLinksBySubgraph(
+              subgraphSystemId,
+              fileSystemId,
+              context,
+              effectiveCkvSystemIds,
+            )
+          : Promise.resolve([]),
       ]);
 
       const linksByParameter = new Map<number, Set<number>>();
@@ -272,7 +287,7 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
               options.ckvSystemId,
               subgraphSystemId,
               fileSystemId,
-              sessionId,
+              context,
               effectiveCkvSystemIds,
               options.paramSystemIds,
             );
@@ -280,7 +295,7 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
         systemId: row.systemId,
         vcpmParameterSystemId: row.vcpmParameterSystemId,
         vcpmCkvSystemId: row.vcpmCkvSystemId,
-        payload: row.payload === null ? null : new Uint8Array(row.payload),
+        payload: new Uint8Array(row.payload),
       }));
 
       const parameterSystemIds = [

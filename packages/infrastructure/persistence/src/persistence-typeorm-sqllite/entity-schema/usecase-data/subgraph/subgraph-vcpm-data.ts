@@ -29,7 +29,7 @@ export interface VcpmParameterPayloadBase {
   systemId: number;
   vcpmParameterSystemId: number;
   vcpmCkvSystemId: number;
-  payload: Uint8Array | null;
+  payload: Uint8Array;
 }
 
 export interface VcpmParameterDefinitionBase {

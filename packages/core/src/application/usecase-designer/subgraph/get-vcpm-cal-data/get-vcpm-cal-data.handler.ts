@@ -32,9 +32,8 @@ export class GetVcpmCalDataHandler implements QueryHandler<
         fileSystemId,
       );
     if (subgraphResult.kind === RESULT_KIND.Fail) {
-      throw new ResourceNotFoundException(
-        `Subgraph ${query.subgraphSystemId} not found`,
-        subgraphResult.issues,
+      throw new Error(
+        subgraphResult.issues[0]?.message ?? 'Failed to load subgraph',
       );
     }
     if (subgraphResult.data === null) {
