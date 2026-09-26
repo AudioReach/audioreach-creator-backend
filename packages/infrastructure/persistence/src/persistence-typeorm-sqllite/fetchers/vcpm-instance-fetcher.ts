@@ -6,21 +6,18 @@
 import type {EntityManager} from 'typeorm';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
 import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
-import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
 import type {VcpmInstanceBase} from '../entity-schema/usecase-data/subgraph/subgraph-vcpm-data.js';
+import type {VcpmQueryContext} from './vcpm-query-context.js';
 
 export class VcpmInstanceFetcher {
   private readonly overlay = new OverlayMergeImpl();
 
-  constructor(
-    private readonly manager: EntityManager,
-    private readonly editActionsSvc: EditActionsQueryService,
-  ) {}
+  constructor(private readonly manager: EntityManager) {}
 
   async fetchMany(
     subgraphSystemId: number,
     fileSystemId: number,
-    sessionId: number | null,
+    context: VcpmQueryContext,
   ): Promise<VcpmInstanceBase[]> {
     const baseRows = (await this.manager
       .getRepository(ENTITY_NAMES.VcpmInstance)
@@ -33,13 +30,9 @@ export class VcpmInstanceFetcher {
       )
       .getMany()) as unknown as VcpmInstanceBase[];
 
-    if (sessionId === null) return baseRows;
+    if (context.sessionId === null) return baseRows;
 
-    const actions = await this.editActionsSvc.getByAggregateId(
-      sessionId,
-      subgraphSystemId,
-    );
-    const instanceActions = actions.filter(
+    const instanceActions = context.editActions.filter(
       action => action.targetTable === ENTITY_NAMES.VcpmInstance,
     );
 

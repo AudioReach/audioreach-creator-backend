@@ -20,6 +20,7 @@ import {EditActionsQueryService} from '../../../src/persistence-typeorm-sqllite/
 import {VcpmInstanceFetcher} from '../../../src/persistence-typeorm-sqllite/fetchers/vcpm-instance-fetcher.js';
 import {VcpmCkvFetcher} from '../../../src/persistence-typeorm-sqllite/fetchers/vcpm-ckv-fetcher.js';
 import {VcpmParameterPayloadFetcher} from '../../../src/persistence-typeorm-sqllite/fetchers/vcpm-parameter-payload-fetcher.js';
+import type {VcpmQueryContext} from '../../../src/persistence-typeorm-sqllite/fetchers/vcpm-query-context.js';
 import {ENTITY_NAMES} from '../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {ProjectSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
@@ -122,6 +123,20 @@ async function seedAction(
   );
 }
 
+async function makeContext(
+  ds: DataSource,
+  sessionId: number | null,
+): Promise<VcpmQueryContext> {
+  const editActionsSvc = new EditActionsQueryService(ds.manager);
+  return {
+    sessionId,
+    editActions:
+      sessionId === null
+        ? []
+        : await editActionsSvc.getByAggregateId(sessionId, SUBGRAPH_ID),
+  };
+}
+
 describe('VCPM split fetchers (integration)', () => {
   let ds: DataSource;
   let instanceFetcher: VcpmInstanceFetcher;
@@ -138,17 +153,9 @@ describe('VCPM split fetchers (integration)', () => {
     await setupEachTest();
     ds = getTestDataSource();
     await seedBase(ds);
-    const editActionsSvc = new EditActionsQueryService(ds.manager);
-    instanceFetcher = new VcpmInstanceFetcher(ds.manager, editActionsSvc);
-    ckvFetcher = new VcpmCkvFetcher(
-      ds.manager,
-      editActionsSvc,
-      instanceFetcher,
-    );
-    payloadFetcher = new VcpmParameterPayloadFetcher(
-      ds.manager,
-      editActionsSvc,
-    );
+    instanceFetcher = new VcpmInstanceFetcher(ds.manager);
+    ckvFetcher = new VcpmCkvFetcher(ds.manager, instanceFetcher);
+    payloadFetcher = new VcpmParameterPayloadFetcher(ds.manager);
   });
 
   it('applies instance and CKV create/delete overlays', async () => {
@@ -160,8 +167,9 @@ describe('VCPM split fetchers (integration)', () => {
       operation: CHANGE_OPERATION.Delete,
       newValue: {},
     });
+    const context = await makeContext(ds, sessionId);
     expect(
-      await instanceFetcher.fetchMany(SUBGRAPH_ID, FILE_ID, sessionId),
+      await instanceFetcher.fetchMany(SUBGRAPH_ID, FILE_ID, context),
     ).toEqual([]);
 
     await ds.query(`DELETE FROM vcpm_instances WHERE system_id = ?`, [
@@ -177,19 +185,21 @@ describe('VCPM split fetchers (integration)', () => {
         vcpmDefinitionId: VCPM_DEF_ID,
       },
     });
+    const contextAfterCreate = await makeContext(ds, sessionId);
     const instances = await instanceFetcher.fetchMany(
       SUBGRAPH_ID,
       FILE_ID,
-      sessionId,
+      contextAfterCreate,
     );
     expect(instances[0].systemId).toBe(VCPM_INSTANCE_ID + 1);
   });
 
   it('projects payload associations without returning payload bytes', async () => {
+    const context = await makeContext(ds, null);
     const links = await payloadFetcher.fetchParameterCkvLinksBySubgraph(
       SUBGRAPH_ID,
       FILE_ID,
-      null,
+      context,
       new Set([CKV_ID]),
     );
     expect(links).toEqual([{parameterSystemId: PARAM_ID, ckvSystemId: CKV_ID}]);
@@ -207,10 +217,11 @@ describe('VCPM split fetchers (integration)', () => {
       fieldPath: 'vcpmCkvSystemId',
       newValue: CKV_ID + 1,
     });
+    const context = await makeContext(ds, sessionId);
     const links = await payloadFetcher.fetchParameterCkvLinksBySubgraph(
       SUBGRAPH_ID,
       FILE_ID,
-      sessionId,
+      context,
       new Set([CKV_ID]),
     );
     expect(links).toEqual([]);
@@ -225,12 +236,13 @@ describe('VCPM split fetchers (integration)', () => {
       operation: CHANGE_OPERATION.Delete,
       newValue: {},
     });
+    const context = await makeContext(ds, sessionId);
     expect(
       await payloadFetcher.fetchMany(
         CKV_ID,
         SUBGRAPH_ID,
         FILE_ID,
-        sessionId,
+        context,
         new Set([CKV_ID]),
         [PARAM_ID],
       ),

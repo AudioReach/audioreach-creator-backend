@@ -177,18 +177,13 @@ export class DbQueryServices implements QueryServices {
       editActionsQueryService,
     );
 
-    const vcpmInstanceFetcher = new VcpmInstanceFetcher(
-      dataSource.manager,
-      editActionsQueryService,
-    );
+    const vcpmInstanceFetcher = new VcpmInstanceFetcher(dataSource.manager);
     const vcpmCkvFetcher = new VcpmCkvFetcher(
       dataSource.manager,
-      editActionsQueryService,
       vcpmInstanceFetcher,
     );
     const vcpmParameterPayloadFetcher = new VcpmParameterPayloadFetcher(
       dataSource.manager,
-      editActionsQueryService,
     );
     const vcpmParameterDefinitionFetcher =
       new VcpmModuleParameterDefinitionFetcher(dataSource.manager);
@@ -238,6 +233,7 @@ export class DbQueryServices implements QueryServices {
       sessionRepo,
       this.keyValueDefQueryService,
       subgraphOverlayFetcher,
+      editActionsQueryService,
       vcpmCkvFetcher,
       vcpmParameterPayloadFetcher,
       vcpmParameterDefinitionFetcher,

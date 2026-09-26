@@ -177,10 +177,7 @@ describe('DbSubgraphQueryService.findPropertyPayloads (integration)', () => {
     ds = getTestDataSource();
     await seedProjectAndFile(ds);
     const editActionsSvc = new EditActionsQueryService(ds.manager);
-    const vcpmInstanceFetcher = new VcpmInstanceFetcher(
-      ds.manager,
-      editActionsSvc,
-    );
+    const vcpmInstanceFetcher = new VcpmInstanceFetcher(ds.manager);
     svc = new DbSubgraphQueryService(
       new TypeOrmSessionRepository(ds.manager),
       {getKeyValueSummaryForGivenValues: async () => Result.ok([])} as any,
@@ -190,8 +187,9 @@ describe('DbSubgraphQueryService.findPropertyPayloads (integration)', () => {
         new SubgraphPropertyDataFetcher(ds.manager, editActionsSvc),
         new SubgraphSgkvFetcher(ds.manager, editActionsSvc),
       ),
-      new VcpmCkvFetcher(ds.manager, editActionsSvc, vcpmInstanceFetcher),
-      new VcpmParameterPayloadFetcher(ds.manager, editActionsSvc),
+      editActionsSvc,
+      new VcpmCkvFetcher(ds.manager, vcpmInstanceFetcher),
+      new VcpmParameterPayloadFetcher(ds.manager),
       new VcpmModuleParameterDefinitionFetcher(ds.manager),
     );
   });
