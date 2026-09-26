@@ -107,6 +107,8 @@ function serializeElement(
   parsedSoFar: Map<string, number>,
   logger?: Logger,
 ): SerializeResult {
+  if (def.alignment) writer.align(def.alignment);
+
   switch ((def as {elementType: string}).elementType) {
     case PARAMETER_ELEMENT_TYPE.ConfigElement:
       return serializeConfigElement(
@@ -347,19 +349,9 @@ function serializeArray(
     };
   }
 
-  let expectedLength: number;
-  if (def.arrayLenFormulaStr) {
-    try {
-      expectedLength = evaluateFormula(def.arrayLenFormulaStr, parsedSoFar);
-    } catch (error) {
-      return {
-        ok: false,
-        error: `Failed to evaluate array length formula: ${(error as Error).message}`,
-      };
-    }
-  } else {
-    expectedLength = def.arrayLength ?? input.value.length;
-  }
+  const expectedLength = def.arrayLenFormulaStr
+    ? getDefaultArrayLength(def, parsedSoFar)
+    : (def.arrayLength ?? input.value.length);
 
   if (input.value.length !== expectedLength) {
     return {
@@ -393,19 +385,9 @@ function serializeStructArray(
     };
   }
 
-  let expectedLength: number;
-  if (def.arrayLenFormulaStr) {
-    try {
-      expectedLength = evaluateFormula(def.arrayLenFormulaStr, parsedSoFar);
-    } catch (error) {
-      return {
-        ok: false,
-        error: `Failed to evaluate array length formula: ${(error as Error).message}`,
-      };
-    }
-  } else {
-    expectedLength = def.arrayLength ?? input.value.length;
-  }
+  const expectedLength = def.arrayLenFormulaStr
+    ? getDefaultArrayLength(def, parsedSoFar)
+    : (def.arrayLength ?? input.value.length);
 
   if (input.value.length !== expectedLength) {
     return {
@@ -420,4 +402,97 @@ function serializeStructArray(
     writer.align(4);
   }
   return {ok: true, value: new Uint8Array(0)};
+}
+
+export function serializeDefaultParameterData(
+  definition: ParameterDefinitionBase,
+): SerializeResult {
+  try {
+    const schema = convertParamDefinition(definition.elementsStructure);
+    const defaultElements = buildDefaultElements(schema, new Map());
+    return serializeParameterData(definition, defaultElements);
+  } catch (error) {
+    return {
+      ok: false,
+      error: `Failed to build defaults from elementsStructure: ${(error as Error).message}`,
+    };
+  }
+}
+
+function buildDefaultElements(
+  schema: DefinitionElement[],
+  parsedSoFar: Map<string, number>,
+): ElementData[] {
+  return schema.map(el => buildDefaultElement(el, parsedSoFar));
+}
+
+function getDefaultArrayLength(
+  element: ElementArray | StructArray,
+  parsedSoFar: Map<string, number>,
+): number {
+  if (!element.arrayLenFormulaStr) return element.arrayLength ?? 0;
+
+  try {
+    const formulaLength = evaluateFormula(
+      element.arrayLenFormulaStr,
+      parsedSoFar,
+    );
+    return formulaLength > 0 ? formulaLength : (element.arrayLength ?? 0);
+  } catch {
+    return element.arrayLength ?? 0;
+  }
+}
+
+function buildDefaultElement(
+  el: DefinitionElement,
+  parsedSoFar: Map<string, number>,
+): ElementData {
+  switch (el.elementType) {
+    case PARAMETER_ELEMENT_TYPE.ConfigElement: {
+      const cfg = el;
+      const value =
+        cfg.defaultValue ?? (cfg.dataType === DATA_TYPE.RawData ? '' : '0');
+      if (cfg.name && cfg.dataType !== DATA_TYPE.RawData) {
+        const numericValue = Number(value);
+        if (Number.isFinite(numericValue))
+          parsedSoFar.set(cfg.name, numericValue);
+      }
+      return {
+        type: PARAMETER_ELEMENT_TYPE.ConfigElement,
+        value,
+      } as ConfigElementData;
+    }
+    case PARAMETER_ELEMENT_TYPE.Struct: {
+      const s = el;
+      return {
+        type: PARAMETER_ELEMENT_TYPE.Struct,
+        value: buildDefaultElements(s.elements, parsedSoFar),
+      } as StructData;
+    }
+    case PARAMETER_ELEMENT_TYPE.ElementArray: {
+      const a = el;
+      const length = getDefaultArrayLength(a, parsedSoFar);
+      return {
+        type: PARAMETER_ELEMENT_TYPE.ElementArray,
+        value: Array.from({length}, () =>
+          buildDefaultElement(a.template, parsedSoFar),
+        ),
+      } as ElementArrayData;
+    }
+    case PARAMETER_ELEMENT_TYPE.StructArray: {
+      const sa = el;
+      const length = getDefaultArrayLength(sa, parsedSoFar);
+      return {
+        type: PARAMETER_ELEMENT_TYPE.ElementArray,
+        value: Array.from({length}, () =>
+          buildDefaultElement(sa.template, parsedSoFar),
+        ),
+      } as ElementArrayData;
+    }
+    default:
+      return {
+        type: PARAMETER_ELEMENT_TYPE.ConfigElement,
+        value: '0',
+      } as ConfigElementData;
+  }
 }

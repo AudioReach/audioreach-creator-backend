@@ -117,6 +117,26 @@ import {CreateUsecasesCommand} from '../../../usecase-designer/use-case-creator/
 import {CreateUsecasesHandler} from '../../../usecase-designer/use-case-creator/create-usecases/create-usecases.handler.js';
 import {CreateManualUsecasesCommand} from '../../../usecase-designer/use-case-creator/create-manual-usecases/create-manual-usecases.command.js';
 import {CreateManualUsecasesHandler} from '../../../usecase-designer/use-case-creator/create-manual-usecases/create-manual-usecases.handler.js';
+import {AddCkvsCommand} from '../../../usecase-designer/spf-module/add-ckvs/add-ckvs.command.js';
+import {AddCkvsHandler} from '../../../usecase-designer/spf-module/add-ckvs/add-ckvs.handler.js';
+import {RemoveCkvsCommand} from '../../../usecase-designer/spf-module/remove-ckvs/remove-ckvs.command.js';
+import {RemoveCkvsHandler} from '../../../usecase-designer/spf-module/remove-ckvs/remove-ckvs.handler.js';
+import {AddTagsCommand} from '../../../usecase-designer/spf-module/add-tags/add-tags.command.js';
+import {AddTagsHandler} from '../../../usecase-designer/spf-module/add-tags/add-tags.handler.js';
+import {RemoveTagsCommand} from '../../../usecase-designer/spf-module/remove-tags/remove-tags.command.js';
+import {RemoveTagsHandler} from '../../../usecase-designer/spf-module/remove-tags/remove-tags.handler.js';
+import {AddTkvsCommand} from '../../../usecase-designer/spf-module/add-tkvs/add-tkvs.command.js';
+import {AddTkvsHandler} from '../../../usecase-designer/spf-module/add-tkvs/add-tkvs.handler.js';
+import {RemoveTkvsCommand} from '../../../usecase-designer/spf-module/remove-tkvs/remove-tkvs.command.js';
+import {RemoveTkvsHandler} from '../../../usecase-designer/spf-module/remove-tkvs/remove-tkvs.handler.js';
+import {AddCkvParametersCommand} from '../../../usecase-designer/spf-module/add-ckv-parameters/add-ckv-parameters.command.js';
+import {AddCkvParametersHandler} from '../../../usecase-designer/spf-module/add-ckv-parameters/add-ckv-parameters.handler.js';
+import {RemoveCkvParametersCommand} from '../../../usecase-designer/spf-module/remove-ckv-parameters/remove-ckv-parameters.command.js';
+import {RemoveCkvParametersHandler} from '../../../usecase-designer/spf-module/remove-ckv-parameters/remove-ckv-parameters.handler.js';
+import {AddTkvParametersCommand} from '../../../usecase-designer/spf-module/add-tkv-parameters/add-tkv-parameters.command.js';
+import {AddTkvParametersHandler} from '../../../usecase-designer/spf-module/add-tkv-parameters/add-tkv-parameters.handler.js';
+import {RemoveTkvParametersCommand} from '../../../usecase-designer/spf-module/remove-tkv-parameters/remove-tkv-parameters.command.js';
+import {RemoveTkvParametersHandler} from '../../../usecase-designer/spf-module/remove-tkv-parameters/remove-tkv-parameters.handler.js';
 
 export interface CommandHandlerDependencies {
   uow: UnitOfWork;
@@ -298,6 +318,41 @@ export class CommandHandlerRegistry {
 
     this.commandHandlerFactories.set(CreateManualUsecasesCommand, {
       create: deps => new CreateManualUsecasesHandler(deps.uow),
+    });
+    this.commandHandlerFactories.set(AddCkvsCommand, {
+      create: deps =>
+        new AddCkvsHandler(deps.uow, deps.idGeneration, deps.queryServices),
+    });
+    this.commandHandlerFactories.set(RemoveCkvsCommand, {
+      create: deps =>
+        new RemoveCkvsHandler(deps.uow, deps.idGeneration, deps.queryServices),
+    });
+    this.commandHandlerFactories.set(AddTagsCommand, {
+      create: deps =>
+        new AddTagsHandler(deps.uow, deps.idGeneration, deps.queryServices),
+    });
+    this.commandHandlerFactories.set(RemoveTagsCommand, {
+      create: deps => new RemoveTagsHandler(deps.uow, deps.queryServices),
+    });
+    this.commandHandlerFactories.set(AddTkvsCommand, {
+      create: deps =>
+        new AddTkvsHandler(deps.uow, deps.idGeneration, deps.queryServices),
+    });
+    this.commandHandlerFactories.set(RemoveTkvsCommand, {
+      create: deps => new RemoveTkvsHandler(deps.uow, deps.queryServices),
+    });
+    this.commandHandlerFactories.set(AddCkvParametersCommand, {
+      create: deps => new AddCkvParametersHandler(deps.uow, deps.idGeneration),
+    });
+    this.commandHandlerFactories.set(RemoveCkvParametersCommand, {
+      create: deps =>
+        new RemoveCkvParametersHandler(deps.uow, deps.idGeneration),
+    });
+    this.commandHandlerFactories.set(AddTkvParametersCommand, {
+      create: deps => new AddTkvParametersHandler(deps.uow, deps.idGeneration),
+    });
+    this.commandHandlerFactories.set(RemoveTkvParametersCommand, {
+      create: deps => new RemoveTkvParametersHandler(deps.uow),
     });
   }
 }

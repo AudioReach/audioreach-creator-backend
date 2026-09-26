@@ -303,8 +303,11 @@ function parseElement(
   switch (element.elementType) {
     case PARAMETER_ELEMENT_TYPE.ConfigElement:
       return parseConfigElement(element, reader);
-    case PARAMETER_ELEMENT_TYPE.Struct:
-      return parseStruct(element, reader, parsedSoFar);
+    case PARAMETER_ELEMENT_TYPE.Struct: {
+      const parsed = parseStruct(element, reader, parsedSoFar);
+      reader.align(4);
+      return parsed;
+    }
     case PARAMETER_ELEMENT_TYPE.ElementArray:
       return parseArrayElement(element, reader, parsedSoFar);
     case PARAMETER_ELEMENT_TYPE.StructArray:
