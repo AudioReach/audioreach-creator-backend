@@ -1,0 +1,273 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from '@jest/globals';
+import type {DataSource} from 'typeorm';
+import {
+  setupIntegrationTest,
+  teardownIntegrationTest,
+  setupEachTest,
+  getTestDataSource,
+  getTestRepository,
+} from '../../helpers/test-database-setup.js';
+import {TypeOrmSubgraphRepository} from '../../../../src/persistence-typeorm-sqllite/repositories/subgraph/subgraph.repository.js';
+import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
+import {PendingChangeWriter} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
+import {PendingChangeCache} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
+import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
+import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
+import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
+import {
+  ProjectSessionSchema,
+  SESSION_MODE,
+  SESSION_STATUS,
+} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
+
+const FILE_ID = 200;
+const SG_ID = 50;
+const PROP_DEF_SYS_ID = 101;
+const PROP_DATA_SYS_ID = 301;
+
+beforeAll(async () => setupIntegrationTest());
+afterAll(async () => teardownIntegrationTest());
+beforeEach(async () => setupEachTest());
+
+async function seedBase(ds: DataSource) {
+  await getTestRepository(ProjectSchema).save({
+    systemId: 1,
+    name: 'P',
+    description: '',
+    type: 'Offline',
+  });
+  await getTestRepository(ArcDbFileSchema).save({
+    systemId: FILE_ID,
+    projectSystemId: 1,
+    fileName: 'f.acdb',
+    description: '',
+    metadata: '{}',
+    isTarget: true,
+    lastReservedId: 0,
+  });
+  await ds.query(
+    `INSERT INTO subgraphs (system_id, subgraph_id, name, is_imported, file_system_id) VALUES (?, 10, 'sg', 0, ?)`,
+    [SG_ID, FILE_ID],
+  );
+  await ds.query(
+    `INSERT INTO subgraph_property_definitions (system_id, property_id, name, property_type, is_voice, file_system_id, max_size, elements_structure) VALUES (?, 55, 'gain', 'SPF', 0, ?, 4, '[]')`,
+    [PROP_DEF_SYS_ID, FILE_ID],
+  );
+  await ds.query(
+    `INSERT INTO subgraph_property_data (system_id, subgraph_system_id, subgraph_property_system_id, payload) VALUES (?, ?, ?, X'00000000')`,
+    [PROP_DATA_SYS_ID, SG_ID, PROP_DEF_SYS_ID],
+  );
+}
+
+async function seedSession(ds: DataSource): Promise<number> {
+  const row = await getTestRepository(ProjectSessionSchema).save({
+    fileSystemId: FILE_ID,
+    userId: 'u',
+    clientId: 'c',
+    sessionMode: SESSION_MODE.Designer,
+    status: SESSION_STATUS.Active,
+    endedAt: null,
+  });
+  return row.sessionId;
+}
+
+function makeRepo(
+  ds: DataSource,
+  sessionId: number,
+  fileSystemId = FILE_ID,
+): TypeOrmSubgraphRepository {
+  const editActionsQs = new EditActionsQueryService(ds);
+  const cache = new PendingChangeCache();
+  const writer = new PendingChangeWriter(editActionsQs, cache);
+  const uow = {
+    getWriteContext: () => ({
+      session: {sessionId, fileSystemId},
+      groupId: 'g1',
+    }),
+  } as any;
+  const idGeneration = {
+    getNextId: async () => Math.floor(Math.random() * 100_000) + 10_000,
+  } as any;
+  return new TypeOrmSubgraphRepository(writer, ds.manager, uow, idGeneration);
+}
+
+describe('TypeOrmSubgraphRepository — rename', () => {
+  it('writes a delta edit_action row on the Subgraph row', async () => {
+    const ds = getTestDataSource();
+    await seedBase(ds);
+    const sessionId = await seedSession(ds);
+    const repo = makeRepo(ds, sessionId);
+
+    await repo.rename(SG_ID, 'renamed');
+
+    const rows = await ds.manager
+      .getRepository(ENTITY_NAMES.EditAction)
+      .createQueryBuilder('ea')
+      .where('ea.targetTable = :t AND ea.targetSystemId = :id', {
+        t: 'Subgraph',
+        id: SG_ID,
+      })
+      .getMany();
+    expect(rows).toHaveLength(1);
+    // newValue holds the serialized field update
+    expect(rows[0]!.newValue).toBeDefined();
+  });
+});
+
+describe('TypeOrmSubgraphRepository — setPropertyData', () => {
+  it('writes a delta edit_action row on SubgraphPropertyData', async () => {
+    const ds = getTestDataSource();
+    await seedBase(ds);
+    const sessionId = await seedSession(ds);
+    const repo = makeRepo(ds, sessionId);
+
+    await repo.setPropertyData(
+      SG_ID,
+      PROP_DEF_SYS_ID,
+      new Uint8Array([1, 2, 3, 4]),
+    );
+
+    const rows = await ds.manager
+      .getRepository(ENTITY_NAMES.EditAction)
+      .createQueryBuilder('ea')
+      .where('ea.targetTable = :t AND ea.targetSystemId = :id', {
+        t: 'SubgraphPropertyData',
+        id: PROP_DATA_SYS_ID,
+      })
+      .getMany();
+    expect(rows).toHaveLength(1);
+  });
+
+  it('throws when property row does not exist on subgraph', async () => {
+    const ds = getTestDataSource();
+    await seedBase(ds);
+    const sessionId = await seedSession(ds);
+    const repo = makeRepo(ds, sessionId);
+
+    await expect(
+      repo.setPropertyData(SG_ID, 9999, new Uint8Array([1])),
+    ).rejects.toThrow();
+  });
+});
+
+describe('TypeOrmSubgraphRepository — addProperty', () => {
+  it('writes the prepared payload without loading a property definition', async () => {
+    const ds = getTestDataSource();
+    await seedBase(ds);
+    const sessionId = await seedSession(ds);
+    const repo = makeRepo(ds, sessionId);
+    const payload = new Uint8Array([0xde, 0xad, 0xbe, 0xef]);
+
+    const propertyDataSystemId = await repo.addProperty(
+      SG_ID,
+      PROP_DEF_SYS_ID,
+      payload,
+    );
+
+    const rows: Array<{
+      target_table: string;
+      aggregate_id: number;
+      target_system_id: number;
+      new_value: string;
+    }> = await ds.query(
+      `SELECT target_table, aggregate_id, target_system_id, new_value FROM edit_actions WHERE session_id = ?`,
+      [sessionId],
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      target_table: ENTITY_NAMES.SubgraphPropertyData,
+      aggregate_id: SG_ID,
+      target_system_id: propertyDataSystemId,
+    });
+    const value = JSON.parse(rows[0]!.new_value) as {
+      subgraphSystemId: number;
+      propertySystemId: number;
+      payload: {__blob: string};
+    };
+    expect(value).toMatchObject({
+      subgraphSystemId: SG_ID,
+      propertySystemId: PROP_DEF_SYS_ID,
+    });
+    expect(Buffer.from(value.payload.__blob, 'base64')).toEqual(
+      Buffer.from(payload),
+    );
+  });
+});
+
+describe('TypeOrmSubgraphRepository — getAggregate', () => {
+  it('returns subgraph with property rows from base data', async () => {
+    const ds = getTestDataSource();
+    await seedBase(ds);
+    const sessionId = await seedSession(ds);
+    const repo = makeRepo(ds, sessionId);
+
+    const result = await repo.getAggregate(SG_ID, FILE_ID);
+    expect(result).not.toBeNull();
+    expect(result!.subgraph.systemId).toBe(SG_ID);
+    expect(result!.properties).toHaveLength(1);
+  });
+
+  it('returns null when subgraph does not exist', async () => {
+    const ds = getTestDataSource();
+    await seedBase(ds);
+    const sessionId = await seedSession(ds);
+    const repo = makeRepo(ds, sessionId);
+
+    const result = await repo.getAggregate(9999, FILE_ID);
+    expect(result).toBeNull();
+  });
+});
+
+describe('TypeOrmSubgraphRepository — getAggregates', () => {
+  it('returns each requested subgraph with its properties', async () => {
+    const ds = getTestDataSource();
+    await seedBase(ds);
+    await ds.query(
+      `INSERT INTO subgraphs (system_id, subgraph_id, name, is_imported, file_system_id) VALUES (?, 11, 'sg-2', 0, ?)`,
+      [51, FILE_ID],
+    );
+    await ds.query(
+      `INSERT INTO subgraph_property_definitions (system_id, property_id, name, property_type, is_voice, file_system_id, max_size, elements_structure) VALUES (?, 56, 'gain-2', 'SPF', 0, ?, 4, '[]')`,
+      [102, FILE_ID],
+    );
+    await ds.query(
+      `INSERT INTO subgraph_property_data (system_id, subgraph_system_id, subgraph_property_system_id, payload) VALUES (?, ?, ?, X'01020304')`,
+      [302, 51, 102],
+    );
+    const sessionId = await seedSession(ds);
+    const repo = makeRepo(ds, sessionId);
+
+    const result = await repo.getAggregates([SG_ID, 51], FILE_ID);
+
+    expect(result.get(SG_ID)?.properties).toEqual([
+      expect.objectContaining({systemId: PROP_DATA_SYS_ID}),
+    ]);
+    expect(result.get(51)?.properties).toEqual([
+      expect.objectContaining({systemId: 302, propertySystemId: 102}),
+    ]);
+  });
+});
+
+describe('TypeOrmSubgraphRepository — findSubgraphIdsSharingUsecases', () => {
+  it('returns empty array when subgraph has no usecases', async () => {
+    const ds = getTestDataSource();
+    await seedBase(ds);
+    const sessionId = await seedSession(ds);
+    const repo = makeRepo(ds, sessionId);
+
+    const result = await repo.findSubgraphIdsSharingUsecases([SG_ID]);
+    expect(result).toEqual([]);
+  });
+});

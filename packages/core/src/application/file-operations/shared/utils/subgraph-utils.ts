@@ -6,7 +6,7 @@
 import {
   SUB_GRAPH_PROP_ID_SCENARIO_ID,
   SUB_GRAPH_PROP_ID_SCENARIO_VALUE_VOICE_CALL,
-} from '../constants/spf-ids.js';
+} from '../../../../domain/entities/definitions/subgraph/subgraph-ids.js';
 import type {SubgraphPropertyDownloadModel} from '../../../ports/persistence/query-services/bulk-read/bulk-read-query-service.js';
 
 /**

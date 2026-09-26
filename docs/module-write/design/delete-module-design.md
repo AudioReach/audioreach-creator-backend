@@ -424,8 +424,8 @@ deleteSubgraph(
 ): Promise<void>;
 ```
 
-Use the existing overlay-aware `findByIds(fileSystemId, [subgraphSystemId])` for
-the imported-subgraph guard; do not add a single-ID read method.
+Use the existing overlay-aware `getAggregate(subgraphSystemId, fileSystemId)`
+for the imported-subgraph guard; do not add a single-ID read method.
 
 The adapter records delete actions for the subgraph root and owned `subgraph_property_data`, SGKV, and VCPM rows that exist in effective state.
 
@@ -510,7 +510,7 @@ packages/core/src/application/usecase-designer/spf-module/delete/module-deletion
 Responsibilities:
 
 - load `SpfModuleBase`, including its optional alias for logging;
-- validate the imported-subgraph guard through `SubgraphRepository.findByIds` and
+- validate the imported-subgraph guard through `SubgraphRepository.getAggregate` and
   `Subgraph.isImported`;
 - pass the command's `LinkDeletionMode` to DataLink and ControlLink deletion;
 - coordinate link deletion, module deletion, container lifecycle, subgraph lifecycle, and UseCase cleanup;
@@ -726,7 +726,7 @@ Detailed operation sequence:
 1. Resolve `fileSystemId` from the active session in `WriteContext`, following existing write-command conventions.
 2. Load the requested module through `ModuleRepository.findModuleById`.
 3. If missing, throw `ResourceNotFoundException` carrying the not-found issue.
-4. Load its subgraph through `findByIds`; if `isImported`, throw
+4. Load its subgraph through `getAggregate`; if `isImported`, throw
    `DomainRuleViolationException` carrying `ARC-MOD-SUBGRAPH-IMPORTED`.
 5. Delete connected DataLinks under the requested `linkDeletionMode`.
 6. Delete connected ControlLinks under the requested `linkDeletionMode`.

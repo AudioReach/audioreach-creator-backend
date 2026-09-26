@@ -8,7 +8,7 @@ import {
   MODULE_PROP_ID_CTRL_HEAP_ID,
   MODULE_PROP_ID_CTRL_LINK_INTENTS,
   HEAP_ID_DEFAULT,
-} from '../../constants/spf-ids.js';
+} from '../../../../../domain/entities/definitions/spf-ids.js';
 
 /**
  * Extract heapId from control link properties map

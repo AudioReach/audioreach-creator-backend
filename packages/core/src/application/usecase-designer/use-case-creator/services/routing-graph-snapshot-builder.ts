@@ -80,20 +80,21 @@ export class RoutingGraphSnapshotBuilder {
       selections.map(selection => selection.systemId),
     );
     const [
-      subgraphs,
+      subgraphData,
       overlayDataLinks,
       overlayControlLinks,
       committedUsecases,
     ] = await Promise.all([
       uow
         .getSubgraphRepository()
-        .findByIds(input.fileSystemId, [...effectiveIds]),
+        .getAggregates([...effectiveIds], input.fileSystemId),
       uow.getDataLinkRepository().findIntraUcLinksByFile(input.fileSystemId),
       uow.getControlLinkRepository().findIntraUcLinksByFile(input.fileSystemId),
       uow.getUsecaseRepository().findAll(input.fileSystemId, {
         readMode: READ_MODE.Committed,
       }),
     ]);
+    const subgraphs = [...subgraphData.values()].map(data => data.subgraph);
 
     const subgraphsById = new Map(
       subgraphs.map(subgraph => [subgraph.systemId, subgraph]),

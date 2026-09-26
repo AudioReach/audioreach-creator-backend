@@ -312,7 +312,7 @@ Add `MdfClassificationService` in the use-case-creator application services.
 It receives candidate subgraph system IDs and a UnitOfWork, then:
 
 1. returns immediately for empty input;
-2. loads effective candidate Subgraphs with `findByIds`;
+2. loads effective candidate Subgraphs with `getAggregates`;
 3. batch-loads their effective modules;
 4. batch-loads distinct committed definition identities;
 5. groups modules by subgraph;

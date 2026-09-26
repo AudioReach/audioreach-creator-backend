@@ -52,10 +52,6 @@ class InMemorySubgraphRepo implements SubgraphRepository {
     return out;
   }
 
-  async findByIds(): Promise<never[]> {
-    throw new Error('findByIds not exercised by applyUcFilterToSg tests');
-  }
-
   async findChangedInSession(): Promise<SessionChanged<Subgraph>> {
     throw new Error(
       'findChangedInSession not exercised by applyUcFilterToSg tests',

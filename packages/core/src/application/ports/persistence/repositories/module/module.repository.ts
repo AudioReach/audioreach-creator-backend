@@ -171,4 +171,15 @@ export interface ModuleRepository {
    * All cascade writes for one API call share the same groupId (stamped by CommandBus).
    */
   updateHeapId(moduleSystemId: number, heapId: number): Promise<void>;
+
+  /**
+   * Deletes CKV calibration data for a module.
+   *
+   * Zero-CKV creation/reset is business logic owned by core and is not part
+   * of this persistence operation.
+   */
+  DeleteAllCkvData(moduleSystemId: number, fileSystemId: number): Promise<void>;
+
+  /** Deletes TKV/tag calibration data for a module. */
+  DeleteAllTkvData(moduleSystemId: number, fileSystemId: number): Promise<void>;
 }

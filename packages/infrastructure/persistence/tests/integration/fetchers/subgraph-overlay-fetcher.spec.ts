@@ -70,11 +70,21 @@ async function seedSession(ds: DataSource): Promise<number> {
 
 async function seedSubgraph(
   ds: DataSource,
-  opts: {systemId: number; fileSystemId: number},
+  opts: {
+    systemId: number;
+    fileSystemId: number;
+    subgraphId?: number;
+    name?: string;
+  },
 ) {
   await ds.query(
-    `INSERT INTO subgraphs (system_id, subgraph_id, name, is_imported, file_system_id) VALUES (?, 1, 'sg', 0, ?)`,
-    [opts.systemId, opts.fileSystemId],
+    `INSERT INTO subgraphs (system_id, subgraph_id, name, is_imported, file_system_id) VALUES (?, ?, ?, 0, ?)`,
+    [
+      opts.systemId,
+      opts.subgraphId ?? opts.systemId,
+      opts.name ?? `sg-${opts.systemId}`,
+      opts.fileSystemId,
+    ],
   );
 }
 
@@ -191,6 +201,23 @@ describe('SubgraphOverlayFetcher (integration)', () => {
     const result = await fetcher.fetchOne(SUBGRAPH_ID, FILE_ID, null);
     expect(result!.properties).toHaveLength(1);
     expect(result!.properties[0].propertySystemId).toBe(7); // normalised from subgraphPropertySystemId
+  });
+
+  it('bulk-fetches filtered subgraph rows', async () => {
+    await seedSubgraph(ds, {systemId: SUBGRAPH_ID, fileSystemId: FILE_ID});
+    await seedSubgraph(ds, {
+      systemId: 43,
+      subgraphId: 2,
+      fileSystemId: FILE_ID,
+    });
+    const result = await fetcher.fetchMany(FILE_ID, null, {
+      systemId: [SUBGRAPH_ID, 43],
+    });
+
+    expect(result).toHaveLength(2);
+    expect(result.map(row => row.systemId)).toEqual(
+      expect.arrayContaining([SUBGRAPH_ID, 43]),
+    );
   });
 
   it('returns CREATE-staged subgraph even with no base row', async () => {

@@ -4,7 +4,6 @@
  */
 
 import type {DataSource, QueryRunner} from 'typeorm';
-import {SOURCE, Subgraph} from '@arc/core';
 import {
   setupIntegrationTest,
   teardownIntegrationTest,
@@ -33,7 +32,7 @@ import {
   beforeEach,
   afterEach,
 } from '@jest/globals';
-import {SubgraphPropertyDefinition} from '@arc/core';
+import {SOURCE, Subgraph, SubgraphPropertyDefinition} from '@arc/core';
 
 const FILE_ID = 100;
 const OTHER_FILE_ID = 200;
@@ -150,7 +149,10 @@ function makeRepo(
       groupId: 'test-group',
     }),
   } as any;
-  return new TypeOrmSubgraphRepository(writer, manager, uow);
+  const idGeneration = {
+    getNextId: async () => 10_000,
+  } as any;
+  return new TypeOrmSubgraphRepository(writer, manager, uow, idGeneration);
 }
 
 describe('TypeOrmSubgraphRepository (integration)', () => {
@@ -416,26 +418,27 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
     });
   });
 
-  // ── findByIds ────────────────────────────────────────────────────────────────
+  // ── getAggregate(s) ─────────────────────────────────────────────────────────
 
-  describe('findByIds', () => {
+  describe('getAggregate(s)', () => {
     it('returns [] for empty input', async () => {
-      expect(await makeRepo(qr.manager).findByIds(FILE_ID, [])).toEqual([]);
+      expect(await makeRepo(qr.manager).getAggregates([], FILE_ID)).toEqual(
+        new Map(),
+      );
     });
 
     it('returns hydrated Subgraph objects for matching systemIds', async () => {
-      const result = await makeRepo(qr.manager).findByIds(FILE_ID, [SG_A]);
-      expect(result).toHaveLength(1);
-      expect(result[0].systemId).toBe(SG_A);
-      expect(result[0].name).toBe('sg-a');
+      const result = await makeRepo(qr.manager).getAggregate(SG_A, FILE_ID);
+      expect(result?.subgraph.systemId).toBe(SG_A);
+      expect(result?.subgraph.name).toBe('sg-a');
     });
 
     it('silently omits missing IDs', async () => {
-      const result = await makeRepo(qr.manager).findByIds(FILE_ID, [
-        SG_A,
-        9999,
-      ]);
-      expect(result.map(s => s.systemId)).toEqual([SG_A]);
+      const result = await makeRepo(qr.manager).getAggregates(
+        [SG_A, 9999],
+        FILE_ID,
+      );
+      expect([...result.keys()]).toEqual([SG_A]);
     });
 
     it('includes only the requested session-created subgraph', async () => {
@@ -455,10 +458,12 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
       );
       await qr.commitTransaction();
 
-      await expect(repo.findByIds(FILE_ID, [9001])).resolves.toEqual([
-        expect.objectContaining({systemId: 9001}),
-      ]);
-      await expect(repo.findByIds(FILE_ID, [9002])).resolves.toEqual([]);
+      await expect(repo.getAggregate(9001, FILE_ID)).resolves.toEqual(
+        expect.objectContaining({
+          subgraph: expect.objectContaining({systemId: 9001}),
+        }),
+      );
+      await expect(repo.getAggregate(9002, FILE_ID)).resolves.toBeNull();
     });
   });
 

@@ -80,7 +80,7 @@ All downstream files that construct or read this field are updated in the same c
 
 ### 3.2 Container property IDs — use existing constants
 
-**No new file.** The constants already exist in `packages/core/src/application/file-operations/shared/constants/spf-ids.ts`:
+**No new file.** The constants already exist in `packages/core/src/domain/entities/definitions/spf-ids.ts`:
 
 ```ts
 export const CONTAINER_PROP_ID_STACK_SIZE = 0x08_00_10_13;

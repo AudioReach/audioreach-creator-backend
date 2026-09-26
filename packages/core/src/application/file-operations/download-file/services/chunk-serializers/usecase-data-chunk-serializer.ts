@@ -15,7 +15,6 @@ import type {
 import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
 import {
   SPF_APM_MODULE_ID,
-  PARAM_ID_SUB_GRAPH_CONFIG,
   PARAM_ID_CONTAINER_CONFIG,
   PARAM_ID_MODULES_LIST,
   PARAM_ID_MODULE_PROP,
@@ -27,7 +26,8 @@ import {
   CONTAINER_PROP_ID_PARENT_CONTAINER,
   HEAP_ID_DEFAULT,
   ID_DONT_CARE_DUMMY,
-} from '../../../shared/constants/spf-ids.js';
+} from '../../../../../domain/entities/definitions/spf-ids.js';
+import {PARAM_ID_SUB_GRAPH_CONFIG} from '../../../../../domain/entities/definitions/subgraph/subgraph-ids.js';
 import {isVoiceSubgraph} from '../../../shared/utils/subgraph-utils.js';
 
 /**

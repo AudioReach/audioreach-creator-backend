@@ -8,7 +8,7 @@ import {
   type SubgraphPropertyDefQueryService,
   type SubgraphPropertyDefinitionSummaryReadModel,
   type SubgraphPropertyDefinitionReadModel,
-  type SubgraphPropertyDefinitionWithElementsReadModel,
+  type SgPropertyDefWithElementsReadModel,
   type ISessionRepository,
   Result,
   ERROR_CODES,
@@ -119,9 +119,9 @@ export class DbSubgraphPropertyDefQueryService implements SubgraphPropertyDefQue
     }
   }
 
-  async getAllDetailedSubgraphPropertyDefinitionsWithElements(
+  async getSubgraphPropertiesWithElements(
     fileSystemId: number,
-  ): Promise<Result<SubgraphPropertyDefinitionWithElementsReadModel[]>> {
+  ): Promise<Result<SgPropertyDefWithElementsReadModel[]>> {
     try {
       const session =
         await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
@@ -137,6 +137,37 @@ export class DbSubgraphPropertyDefQueryService implements SubgraphPropertyDefQue
           error instanceof Error
             ? error.message
             : 'Failed to load subgraph property definitions with elements',
+        severity: IssueSeverity.Error,
+      });
+    }
+  }
+
+  async getSubgraphPropertyWithElements(
+    propertySystemId: number,
+    fileSystemId: number,
+  ): Promise<Result<SgPropertyDefWithElementsReadModel>> {
+    try {
+      const session =
+        await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
+      const rows = await this.fetcher.fetchAll(
+        fileSystemId,
+        session?.sessionId ?? null,
+      );
+      const match = rows.find(r => r.systemId === propertySystemId);
+      return match
+        ? Result.ok(this.toDetailWithElementsReadModel(match))
+        : Result.fail({
+            code: ERROR_CODES.ENTITY_NOT_FOUND,
+            message: `SubgraphPropertyDefinition not found for systemId=${propertySystemId}`,
+            severity: IssueSeverity.Error,
+          });
+    } catch (error) {
+      return Result.fail({
+        code: ERROR_CODES.INTERNAL_ERROR,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to load subgraph property definition',
         severity: IssueSeverity.Error,
       });
     }
@@ -168,7 +199,7 @@ export class DbSubgraphPropertyDefQueryService implements SubgraphPropertyDefQue
 
   private toDetailWithElementsReadModel(
     row: SubgraphPropertyBase,
-  ): SubgraphPropertyDefinitionWithElementsReadModel {
+  ): SgPropertyDefWithElementsReadModel {
     return {
       systemId: row.systemId,
       naturalId: row.naturalId,
