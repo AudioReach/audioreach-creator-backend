@@ -58,6 +58,10 @@ import {TkvParameterPayloadFetcher} from '../fetchers/tkv-parameter-payload-fetc
 import {TkvOverlayFetcher} from '../fetchers/tkv-overlay-fetcher.js';
 import {SpfModuleOverlayFetcher} from '../fetchers/spf-module-overlay-fetcher.js';
 import {SpfModuleParameterDefinitionFetcher} from '../fetchers/definitions/spf-module-definitions/spf-module-parameter-definition-fetcher.js';
+import {VcpmInstanceFetcher} from '../fetchers/vcpm-instance-fetcher.js';
+import {VcpmCkvFetcher} from '../fetchers/vcpm-ckv-fetcher.js';
+import {VcpmParameterPayloadFetcher} from '../fetchers/vcpm-parameter-payload-fetcher.js';
+import {VcpmModuleParameterDefinitionFetcher} from '../fetchers/definitions/vcpm-module-definitions/vcpm-module-parameter-definition-fetcher.js';
 import {SubsystemOverlayFetcher} from '../fetchers/subsystem-overlay-fetcher.js';
 
 class DbModuleQueryService implements ModuleQueryService {}
@@ -173,6 +177,17 @@ export class DbQueryServices implements QueryServices {
       editActionsQueryService,
     );
 
+    const vcpmInstanceFetcher = new VcpmInstanceFetcher(dataSource.manager);
+    const vcpmCkvFetcher = new VcpmCkvFetcher(
+      dataSource.manager,
+      vcpmInstanceFetcher,
+    );
+    const vcpmParameterPayloadFetcher = new VcpmParameterPayloadFetcher(
+      dataSource.manager,
+    );
+    const vcpmParameterDefinitionFetcher =
+      new VcpmModuleParameterDefinitionFetcher(dataSource.manager);
+
     this.tagDefinitionQueryService = new DbTagDefinitionQueryService(
       dataSource,
       editActionsQueryService,
@@ -218,6 +233,10 @@ export class DbQueryServices implements QueryServices {
       sessionRepo,
       this.keyValueDefQueryService,
       subgraphOverlayFetcher,
+      editActionsQueryService,
+      vcpmCkvFetcher,
+      vcpmParameterPayloadFetcher,
+      vcpmParameterDefinitionFetcher,
     );
 
     this.driverModuleDefinitionQueryService =

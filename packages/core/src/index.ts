@@ -229,13 +229,23 @@ export {
   TagInfoDtoSchema,
   DataPortDtoSchema,
   ControlPortDtoSchema,
-  KeyValueInfoDtoSchema,
-  KeyInfoDtoSchema,
-  ValueInfoDtoSchema,
   KeyValuePairsInfoDtoSchema,
   SubsystemFilteredKeyValuePairsInfoDtoSchema,
   ParamInfoDtoSchema,
 } from './application/usecase-designer/spf-module/query/spf-module-dto.js';
+export {
+  KeyValueInfoDtoSchema,
+  KeyInfoDtoSchema,
+  ValueInfoDtoSchema,
+} from './shared/dto/key-value-info-dto.js';
+export type {
+  KeyValueInfoDto,
+  KeyInfoDto,
+  ValueInfoDto,
+} from './shared/dto/key-value-info-dto.js';
+
+// VCPM aggregate query read models
+export * from './application/ports/persistence/query-services/vcpm/vcpm-read-model.js';
 export type {
   SpfModuleDto,
   CkvDto,
@@ -243,9 +253,6 @@ export type {
   TagInfoDto,
   DataPortDto,
   ControlPortDto,
-  KeyValueInfoDto,
-  KeyInfoDto,
-  ValueInfoDto,
   KeyValuePairsInfoDto,
   SubsystemFilteredKeyValuePairsInfoDto,
   ParamInfoDto,

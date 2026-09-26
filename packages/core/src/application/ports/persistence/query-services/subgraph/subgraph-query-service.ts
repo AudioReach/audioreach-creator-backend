@@ -7,6 +7,10 @@ import type {PropertyPayloadReadModel} from '../shared/property-payload-read-mod
 import type {Result} from '../../../../shared/result/result.js';
 import type {ConfigurationIncludes} from '../configuration-includes.js';
 import type {SubgraphReadModel} from './subgraph-read-model.js';
+import type {
+  VcpmAggregateOptions,
+  VcpmAggregateReadModel,
+} from '../vcpm/vcpm-read-model.js';
 
 export interface SubgraphQueryService {
   /**
@@ -33,4 +37,10 @@ export interface SubgraphQueryService {
     includes: ConfigurationIncludes,
     systemIds?: number[],
   ): Promise<Result<SubgraphReadModel[]>>;
+
+  getVcpmAggregateBySubgraph(
+    subgraphSystemId: number,
+    fileSystemId: number,
+    options?: VcpmAggregateOptions,
+  ): Promise<Result<VcpmAggregateReadModel>>;
 }
