@@ -25,7 +25,12 @@ import type {RoutingContext} from '../contracts/routing-context.js';
 import type {
   RoutingCombination,
   UsecaseChangeDescriptor,
+  DeleteOrReconstructDecision,
+  PreserveUsecaseDecision,
+  TransitionToIslandDecision,
+  MdfSubstitutionDecision,
 } from '../contracts/routing-state.js';
+import {USECASE_TOPOLOGY_DECISION_KIND as TOPOLOGY_DECISION_KIND} from '../contracts/routing-state.js';
 import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
 import {collectUsecaseSgkvAdditions} from '../shared/routing-sgkv-assignments.js';
 import {computeUsecaseType} from '../shared/usecase-type-classifier.js';
@@ -46,6 +51,26 @@ interface StructuralChangeDelta {
   readonly cancelPendingDelete?: boolean;
 }
 
+function mdfStructuralDelta(
+  decision: MdfSubstitutionDecision,
+): StructuralChangeDelta {
+  const {structuralChange} = decision;
+  return {
+    removedPairs: structuralChange.removedPairs,
+    addedSgSystemIds: structuralChange.addedSubgraphSystemIds,
+    addedPairs: structuralChange.addedPairs,
+    ...(structuralChange.resultingType === decision.usecase.type
+      ? {}
+      : {newType: structuralChange.resultingType}),
+  };
+}
+
+/**
+ * Converts finalized routing decisions into atomic repository writes.
+ *
+ * MDF substitutions are staged before ordinary deletion and candidate writes. Descriptor
+ * coalescing keeps the response tied to persisted aggregate changes, not intermediate state.
+ */
 export class RoutingChangeStager {
   // This method deliberately preserves the routing phase order in one transaction.
   // eslint-disable-next-line sonarjs/cognitive-complexity
@@ -54,37 +79,73 @@ export class RoutingChangeStager {
     uow: UnitOfWork,
     idGenerator: IdGenerationPort,
   ): Promise<ResultType<void>> {
+    const analysis = context.topologyChangeAnalysis;
+    if (analysis === null) {
+      throw new Error('Topology change analysis must run before staging');
+    }
+    const deleteOrReconstructDecisions = analysis.decisions.filter(
+      (decision): decision is DeleteOrReconstructDecision =>
+        decision.kind === TOPOLOGY_DECISION_KIND.DeleteOrReconstruct,
+    );
+    const preserveDecisions = analysis.decisions.filter(
+      (decision): decision is PreserveUsecaseDecision =>
+        decision.kind === TOPOLOGY_DECISION_KIND.Preserve,
+    );
+    const transitionToIslandDecisions = analysis.decisions.filter(
+      (decision): decision is TransitionToIslandDecision =>
+        decision.kind === TOPOLOGY_DECISION_KIND.TransitionToIsland,
+    );
     const staging: StagingState = {
       repository: uow.getUsecaseRepository(),
       options: {source: SOURCE.AutoRouting},
       descriptors: new Map<number, UsecaseChangeDescriptor>(),
     };
 
+    const mdfDecisions = analysis.decisions.filter(
+      (decision): decision is MdfSubstitutionDecision =>
+        decision.kind === TOPOLOGY_DECISION_KIND.MdfSubstitution,
+    );
+    for (const decision of [...mdfDecisions].sort(
+      (left, right) => left.usecase.systemId - right.usecase.systemId,
+    )) {
+      const result = await this.applyStructuralChange(
+        staging,
+        decision.usecase,
+        mdfStructuralDelta(decision),
+        CHANGE_OPERATION.Update,
+        decision.structuralChange.sgkvAssignments,
+      );
+      if (result.kind === RESULT_KIND.Fail) return result;
+    }
+
     // Apply deletion analysis before routing results
     // update or create UseCases.
-    for (const mark of [
-      ...(context.deletionAnalysis?.markedForDeletion ?? []),
-    ].sort((left, right) => left.usecase.systemId - right.usecase.systemId)) {
+    for (const decision of [...deleteOrReconstructDecisions].sort(
+      (left, right) => left.usecase.systemId - right.usecase.systemId,
+    )) {
       this.recordChange(
         staging,
-        await staging.repository.delete(mark.usecase.systemId, staging.options),
+        await staging.repository.delete(
+          decision.usecase.systemId,
+          staging.options,
+        ),
         CHANGE_OPERATION.Delete,
       );
     }
 
     // Retained UseCases lose components removed from the current routing scope.
-    for (const preserved of [
-      ...(context.deletionAnalysis?.preservedUsecases ?? []),
-    ].sort((left, right) => left.usecase.systemId - right.usecase.systemId)) {
-      const dropped = new Set(preserved.droppedSubgraphSystemIds);
-      const removedPairs = preserved.usecase.subgraphPairs.filter(
+    for (const decision of [...preserveDecisions].sort(
+      (left, right) => left.usecase.systemId - right.usecase.systemId,
+    )) {
+      const dropped = new Set(decision.droppedSubgraphSystemIds);
+      const removedPairs = decision.usecase.subgraphPairs.filter(
         pair =>
           dropped.has(pair.sourceSubgraphSystemId) ||
           dropped.has(pair.destSubgraphSystemId),
       );
       const result = await this.applyStructuralChange(
         staging,
-        preserved.usecase,
+        decision.usecase,
         {
           removedSgSystemIds: [...dropped].sort((left, right) => left - right),
           removedPairs,
@@ -94,12 +155,24 @@ export class RoutingChangeStager {
     }
 
     // Preserve retained island UseCases by updating their topology type.
-    for (const island of [
-      ...(context.deletionAnalysis?.islandUseCaseCandidates ?? []),
-    ].sort((left, right) => left.usecase.systemId - right.usecase.systemId)) {
-      const result = await this.applyStructuralChange(staging, island.usecase, {
-        newType: USECASE_TYPE.Island,
-      });
+    for (const decision of [...transitionToIslandDecisions].sort(
+      (left, right) => left.usecase.systemId - right.usecase.systemId,
+    )) {
+      const dropped = new Set(decision.droppedSubgraphSystemIds);
+      const removedPairs = decision.usecase.subgraphPairs.filter(
+        pair =>
+          dropped.has(pair.sourceSubgraphSystemId) ||
+          dropped.has(pair.destSubgraphSystemId),
+      );
+      const result = await this.applyStructuralChange(
+        staging,
+        decision.usecase,
+        {
+          removedSgSystemIds: [...dropped].sort((left, right) => left - right),
+          removedPairs,
+          newType: USECASE_TYPE.Island,
+        },
+      );
       if (result.kind === RESULT_KIND.Fail) return result;
     }
 

@@ -619,7 +619,7 @@ using iterative queue.
 isWithinScope(sg) := sg ∈ effectiveRoutingScope
 ```
 
-Phase 2 (DeletionScope, LLD4) uses a bounded DFS existence check per impacted pair
+Phase 2 (TopologyChangeAnalysisService, LLD4) uses a bounded DFS existence check per impacted pair
 (FR-DEL-06 multi-path survival), not the cone. Phase 6's cone covers the routing
 region for Phase 7's path-enumeration DFS — including post-deletion fragments, because
 each surviving in-scope endpoint of a deleted link is a seed via FR-CONE-03. Both DFSes

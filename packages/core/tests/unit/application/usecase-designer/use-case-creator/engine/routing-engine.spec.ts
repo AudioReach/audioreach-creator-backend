@@ -15,9 +15,16 @@ import {
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
 import type {RoutingContext} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
 import {RoutingEngine} from '../../../../../../src/application/usecase-designer/use-case-creator/engine/routing-engine.js';
+import {ClassificationService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/classification.service.js';
 import {DfsRoutingService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/dfs-routing.service.js';
 import {CombinationExpansionService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/combination-expansion.service.js';
+import {
+  USECASE_TOPOLOGY_DECISION_KIND,
+  type RoutingCombination,
+} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
+import {SameGkvCollisionService} from '../../../../../../src/application/usecase-designer/use-case-creator/services/same-gkv-collision.service.js';
 import {DATA_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
+import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
 
 const input = createAutoRoutingInput({
   fileSystemId: 7,
@@ -130,6 +137,13 @@ describe('RoutingEngine', () => {
     const phases = Array.from({length: 12}, (_, index) =>
       phase(`phase-${index + 1}`, order),
     );
+    phases[1] = phase('phase-2', order, context => {
+      context.topologyChangeAnalysis = {
+        affectedUsecaseSystemIds: new Set(),
+        decisions: [],
+      };
+      return Result.ok();
+    });
     phases[3] = phase('phase-4', order, context => {
       context.kvResolutions = {
         perSg: new Map([
@@ -368,5 +382,151 @@ describe('RoutingEngine', () => {
     expect(order).toEqual(
       Array.from({length: 9}, (_, index) => `phase-${index + 1}`),
     );
+  });
+
+  it('replays collision detection against the finalized MDF-projected topology without staging', async () => {
+    const committed = new UseCase({
+      systemId: 101,
+      fileSystemId: 7,
+      keyVector: {valueSystemIds: [100]},
+      subgraphSystemIds: [10, 20],
+      subgraphPairs: [{sourceSubgraphSystemId: 10, destSubgraphSystemId: 20}],
+      type: 'LINKED',
+    });
+    const replayInput = createAutoRoutingInput({
+      fileSystemId: 7,
+      selection: {
+        selectedUsecaseSystemIds: [],
+        activeSubgraphs: [
+          {systemId: 10, sgkvs: []},
+          {systemId: 15, sgkvs: []},
+          {systemId: 20, sgkvs: []},
+          {systemId: 30, sgkvs: []},
+          {systemId: 40, sgkvs: []},
+        ],
+        excludedSubgraphSystemIds: [],
+        excludedDataLinkSystemIds: [],
+        excludedControlLinkSystemIds: [],
+      },
+      selectedUsecases: [],
+      graphSnapshot: {
+        subgraphs: [10, 15, 20, 30, 40].map(systemId => ({
+          subgraph: {systemId} as never,
+          requestedSgkvs: [],
+          isMdf: systemId === 15,
+        })),
+        routableDataLinks: [],
+        routableControlLinks: [],
+        overlayDataLinks: [],
+        overlayControlLinks: [],
+        committedUsecases: [committed],
+        sessionEdits: emptyGraphEdits(),
+      },
+      activeManualUsecaseEdits: [],
+    });
+    const order: string[] = [];
+    const collisionCandidate: RoutingCombination = {
+      path: {
+        subgraphSystemIds: [30, 40],
+        termination: 'NATURAL_LEAF',
+        ecBoundaryLinkId: null,
+      },
+      sgkvAssignment: new Map([
+        [30, {keyValues: []}],
+        [40, {keyValues: []}],
+      ]),
+      gkv: [{keyDefSystemId: 1100, valueDefSystemId: 100}],
+    };
+    const expectedCollision = new SameGkvCollisionService().detect(
+      collisionCandidate,
+      new UseCase({
+        systemId: 101,
+        fileSystemId: 7,
+        keyVector: {valueSystemIds: [100]},
+        subgraphSystemIds: [10, 15, 20],
+        subgraphPairs: [
+          {sourceSubgraphSystemId: 10, destSubgraphSystemId: 15},
+          {sourceSubgraphSystemId: 15, destSubgraphSystemId: 20},
+        ],
+        type: 'LINKED',
+      }),
+    );
+    expect(expectedCollision).not.toBeNull();
+    const phases = Array.from({length: 12}, (_, index) =>
+      phase(`phase-${index + 1}`, order),
+    );
+    phases[1] = phase('phase-2', order, context => {
+      context.topologyChangeAnalysis = {
+        affectedUsecaseSystemIds: new Set(),
+        decisions: [
+          {
+            kind: USECASE_TOPOLOGY_DECISION_KIND.MdfSubstitution,
+            usecase: committed,
+            substitutions: [],
+            structuralChange: {
+              addedSubgraphSystemIds: [15],
+              removedSubgraphSystemIds: [],
+              addedPairs: [
+                {sourceSubgraphSystemId: 10, destSubgraphSystemId: 15},
+                {sourceSubgraphSystemId: 15, destSubgraphSystemId: 20},
+              ],
+              removedPairs: [
+                {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+              ],
+              resultingSubgraphSystemIds: [10, 15, 20],
+              resultingPairs: [
+                {sourceSubgraphSystemId: 10, destSubgraphSystemId: 15},
+                {sourceSubgraphSystemId: 15, destSubgraphSystemId: 20},
+              ],
+              resultingType: 'LINKED',
+              sgkvAssignments: [],
+            },
+          },
+        ],
+      };
+      return Result.ok();
+    });
+    phases[7] = phase('phase-8', order, context => {
+      context.routingCandidates.combinations.push(collisionCandidate);
+      return Result.ok();
+    });
+    phases[8] = {
+      run: jest.fn(async (context: RoutingContext) => {
+        order.push('phase-9');
+        return new ClassificationService().run(context);
+      }),
+    } as never;
+    const engine = engineFrom(phases);
+
+    const result = await engine.resolveCollision(
+      replayInput,
+      unitOfWork(),
+      expectedCollision!.collisionId,
+    );
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    if (result.kind === RESULT_KIND.Ok) {
+      const existingOperand = result.data.operands.find(
+        operand => operand.kind === 'EXISTING',
+      );
+      expect(existingOperand).toEqual(
+        expect.objectContaining({
+          usecase: expect.objectContaining({
+            subgraphSystemIds: [10, 15, 20],
+            subgraphPairs: [
+              {sourceSubgraphSystemId: 10, destSubgraphSystemId: 15},
+              {sourceSubgraphSystemId: 15, destSubgraphSystemId: 20},
+            ],
+          }),
+        }),
+      );
+    }
+    expect(order).toEqual(
+      Array.from({length: 9}, (_, index) => `phase-${index + 1}`),
+    );
+    expect(phases[9]!.run).not.toHaveBeenCalled();
+    expect(phases[10]!.run).not.toHaveBeenCalled();
+    expect(phases[11]!.run).not.toHaveBeenCalled();
+    expect(committed.subgraphSystemIds).toEqual([10, 20]);
   });
 });

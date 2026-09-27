@@ -15,6 +15,7 @@ import {DATA_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data
 import {RoutingContext} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
 import {
   PATH_TERMINATION,
+  USECASE_TOPOLOGY_DECISION_KIND,
   type DfsPath,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {DfsRoutingService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/dfs-routing.service.js';
@@ -76,6 +77,10 @@ function makeContext(
     activeManualUsecaseEdits: [],
   });
   const context = new RoutingContext(input);
+  context.topologyChangeAnalysis = {
+    affectedUsecaseSystemIds: new Set(),
+    decisions: [],
+  };
   context.cones = {
     sgSystemIds: new Set(subgraphSystemIds),
     rootSgs: new Set(roots),
@@ -249,9 +254,17 @@ describe('DfsRoutingService', () => {
       {originalUsecaseSystemId: 1, path: naturalLeaf([1, 2])},
       {originalUsecaseSystemId: 10, path: naturalLeaf([3, 4])},
     ];
-    context.deletionAnalysis = {
-      reconstructionPaths,
-    } as never;
+    context.topologyChangeAnalysis = {
+      affectedUsecaseSystemIds: new Set([1]),
+      decisions: [
+        {
+          kind: USECASE_TOPOLOGY_DECISION_KIND.DeleteOrReconstruct,
+          usecase: {systemId: 1} as never,
+          deletedComponent: {type: 'DATA_LINK', systemId: 1},
+          reconstructionPaths: reconstructionPaths.map(item => item.path),
+        },
+      ],
+    };
     const original = structuredClone(reconstructionPaths);
 
     await service.run(context);

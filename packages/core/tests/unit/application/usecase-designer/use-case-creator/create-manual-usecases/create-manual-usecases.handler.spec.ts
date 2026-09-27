@@ -56,6 +56,10 @@ function createUow(events: string[]) {
       }),
     }),
     getUsecaseRepository: () => ({
+      findWithActiveManualEdits: jest.fn(async () => {
+        events.push('manual-edits:read');
+        return [];
+      }),
       findBySystemIds: jest.fn(async () => {
         events.push('selected-usecases:read');
         return [];
@@ -154,6 +158,7 @@ describe('CreateManualUsecasesHandler', () => {
       'edits:read',
       'edits:read',
       'edits:read',
+      'manual-edits:read',
       'selected-usecases:read',
       'snapshot:build',
       'manual-topology:discover',

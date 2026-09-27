@@ -336,6 +336,18 @@ export const RoutingIssueFactory = {
     };
   },
 
+  mdfKvAssigned(subgraphSystemId: number): Issue {
+    return {
+      code: ISSUE_CODE.ROUTING_MDF_KV_ASSIGNED,
+      severity: IssueSeverity.Error,
+      impactedEntity: {
+        entityType: ISSUE_ENTITY_TYPE.Subgraph,
+        systemId: subgraphSystemId,
+      },
+      message: `MDF subgraph ${subgraphSystemId} cannot contain requested KV values.`,
+    };
+  },
+
   islandDetected(subgraphSystemId: number): Issue {
     return {
       code: ISSUE_CODE.ROUTING_ISLAND_DETECTED,

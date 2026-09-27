@@ -6,6 +6,15 @@
 import {RoutingIssueFactory} from '../../../../../../src/application/usecase-designer/use-case-creator/issues/routing-issue-factory.js';
 
 describe('RoutingIssueFactory', () => {
+  it('creates the MDF requested-KV issue', () => {
+    expect(RoutingIssueFactory.mdfKvAssigned(20)).toEqual({
+      code: 'ARC-ROUTING-MDF-01',
+      severity: 'ERROR',
+      impactedEntity: {entityType: 'Subgraph', systemId: 20},
+      message: 'MDF subgraph 20 cannot contain requested KV values.',
+    });
+  });
+
   it('creates deterministic SGKV malformed and missing-value issues', () => {
     const malformed = RoutingIssueFactory.sgkvMalformed(10, [30, 20, 20]);
     const missing = RoutingIssueFactory.sgkvValuesNotFound(10, [30, 20, 20]);

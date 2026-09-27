@@ -59,7 +59,14 @@ function addKvChangeSeeds(
   context: RoutingContext,
 ): void {
   if (context.kvResolutions === null) return;
+  const routingSubgraphsById = new Map(
+    context.input.graphSnapshot.subgraphs.map(entry => [
+      entry.subgraph.systemId,
+      entry,
+    ]),
+  );
   for (const [sgSystemId, apiInstances] of context.kvResolutions.perSg) {
+    if (routingSubgraphsById.get(sgSystemId)?.isMdf === true) continue;
     const baselineInstances =
       context.kvResolutions.ucFilteredBaseline.get(sgSystemId) ?? [];
     const apiSet = canonicalInstanceSet(apiInstances);
@@ -135,6 +142,12 @@ function addOutOfSelectionSeeds(
   }
 }
 
+/**
+ * Converts graph and KV changes into automatic-routing starting points.
+ *
+ * MDF members do not contribute KV seeds. Manual routing bypasses this phase because its
+ * requested topology is explicit.
+ */
 export class SeedDetectionService {
   // eslint-disable-next-line @typescript-eslint/require-await -- Phase execution remains promise-based for ordered orchestration.
   async run(context: RoutingContext): Promise<ResultType<void>> {

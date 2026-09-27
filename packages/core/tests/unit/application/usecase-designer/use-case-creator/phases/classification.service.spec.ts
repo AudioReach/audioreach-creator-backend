@@ -10,6 +10,7 @@ import {createAutoRoutingInput} from '../../../../../../src/application/usecase-
 import {RoutingContext} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
 import {
   ROUTING_CLASSIFICATION_KIND,
+  USECASE_TOPOLOGY_DECISION_KIND,
   type RoutingCombination,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {ClassificationService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/classification.service.js';
@@ -69,7 +70,7 @@ function context(
   committedUsecases: UseCase[] = [],
   activeManualUsecaseEdits: ActiveManualUsecaseEdit[] = [],
 ): RoutingContext {
-  return new RoutingContext(
+  const routingContext = new RoutingContext(
     createAutoRoutingInput({
       fileSystemId: 1,
       selection: {
@@ -99,6 +100,11 @@ function context(
       activeManualUsecaseEdits,
     }),
   );
+  routingContext.topologyChangeAnalysis = {
+    affectedUsecaseSystemIds: new Set(),
+    decisions: [],
+  };
+  return routingContext;
 }
 
 describe('ClassificationService', () => {
@@ -129,17 +135,16 @@ describe('ClassificationService', () => {
   it('marks an interior extension to a Phase 2 deletion for cancellation', async () => {
     const existing = usecase(1, [10, 30], [[10, 30]], [100, 200]);
     const routingContext = context([existing]);
-    routingContext.deletionAnalysis = {
+    routingContext.topologyChangeAnalysis = {
       affectedUsecaseSystemIds: new Set([1]),
-      markedForDeletion: [
+      decisions: [
         {
+          kind: USECASE_TOPOLOGY_DECISION_KIND.DeleteOrReconstruct,
           usecase: existing,
           deletedComponent: {type: 'SUBGRAPH', systemId: 20},
+          reconstructionPaths: [],
         },
       ],
-      preservedUsecases: [],
-      islandUseCaseCandidates: [],
-      reconstructionPaths: [],
     };
     routingContext.routingCandidates.combinations.push(
       combination([10, 20, 30], [100, 200], {20: []}),
@@ -153,6 +158,59 @@ describe('ClassificationService', () => {
         cancelPendingDelete: true,
       }),
     );
+  });
+
+  it('classifies a candidate against the finalized MDF structural change', async () => {
+    const existing = usecase(101, [10, 20], [[10, 20]], [100]);
+    const routingContext = context([existing]);
+    routingContext.topologyChangeAnalysis = {
+      affectedUsecaseSystemIds: new Set(),
+      decisions: [
+        {
+          kind: USECASE_TOPOLOGY_DECISION_KIND.MdfSubstitution,
+          usecase: existing,
+          substitutions: [],
+          structuralChange: {
+            addedSubgraphSystemIds: [15],
+            removedSubgraphSystemIds: [],
+            addedPairs: [
+              {sourceSubgraphSystemId: 10, destSubgraphSystemId: 15},
+              {sourceSubgraphSystemId: 15, destSubgraphSystemId: 20},
+            ],
+            removedPairs: [
+              {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+            ],
+            resultingSubgraphSystemIds: [10, 15, 20],
+            resultingPairs: [
+              {sourceSubgraphSystemId: 10, destSubgraphSystemId: 15},
+              {sourceSubgraphSystemId: 15, destSubgraphSystemId: 20},
+            ],
+            resultingType: 'LINKED',
+            sgkvAssignments: [],
+          },
+        },
+      ],
+    } as never;
+    routingContext.routingCandidates.combinations.push(
+      combination([10, 15, 20], [100]),
+    );
+
+    const result = await new ClassificationService().run(routingContext);
+
+    expect(result.kind).toBe('OK');
+    expect(routingContext.classifiedUcs).toEqual([
+      expect.objectContaining({
+        kind: ROUTING_CLASSIFICATION_KIND.ExactMatch,
+        existingUsecase: expect.objectContaining({
+          systemId: 101,
+          subgraphSystemIds: [10, 15, 20],
+          subgraphPairs: [
+            {sourceSubgraphSystemId: 10, destSubgraphSystemId: 15},
+            {sourceSubgraphSystemId: 15, destSubgraphSystemId: 20},
+          ],
+        }),
+      }),
+    ]);
   });
 
   it('blocks unresolved same-GKV collisions without publishing classifications', async () => {
@@ -241,5 +299,64 @@ describe('ClassificationService', () => {
         }),
       }),
     ]);
+  });
+
+  it('computes an interior extension from the finalized MDF shape', async () => {
+    const committed = usecase(102, [10, 20], [[10, 20]], [100]);
+    const routingContext = context([committed]);
+    routingContext.topologyChangeAnalysis = {
+      affectedUsecaseSystemIds: new Set(),
+      decisions: [
+        {
+          kind: USECASE_TOPOLOGY_DECISION_KIND.MdfSubstitution,
+          usecase: committed,
+          substitutions: [],
+          structuralChange: {
+            addedSubgraphSystemIds: [15],
+            removedSubgraphSystemIds: [],
+            addedPairs: [
+              {sourceSubgraphSystemId: 10, destSubgraphSystemId: 15},
+              {sourceSubgraphSystemId: 15, destSubgraphSystemId: 20},
+            ],
+            removedPairs: [
+              {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+            ],
+            resultingSubgraphSystemIds: [10, 15, 20],
+            resultingPairs: [
+              {sourceSubgraphSystemId: 10, destSubgraphSystemId: 15},
+              {sourceSubgraphSystemId: 15, destSubgraphSystemId: 20},
+            ],
+            resultingType: 'LINKED',
+            sgkvAssignments: [],
+          },
+        },
+      ],
+    };
+    routingContext.routingCandidates.combinations.push(
+      combination([10, 30, 15, 20], [100]),
+    );
+
+    const result = await new ClassificationService().run(routingContext);
+
+    expect(result.kind).toBe('OK');
+    expect(routingContext.classifiedUcs).toEqual([
+      expect.objectContaining({
+        kind: ROUTING_CLASSIFICATION_KIND.InteriorExtension,
+        existingUsecase: expect.objectContaining({
+          subgraphSystemIds: [10, 15, 20],
+          subgraphPairs: [
+            {sourceSubgraphSystemId: 10, destSubgraphSystemId: 15},
+            {sourceSubgraphSystemId: 15, destSubgraphSystemId: 20},
+          ],
+        }),
+      }),
+    ]);
+    expect(routingContext.classifiedUcs[0]).toEqual(
+      expect.objectContaining({
+        candidate: expect.objectContaining({
+          path: expect.objectContaining({subgraphSystemIds: [10, 30, 15, 20]}),
+        }),
+      }),
+    );
   });
 });

@@ -89,4 +89,102 @@ describe('OrphanValidationService', () => {
       context.orphanCandidates.map(candidate => candidate.systemId),
     ).toEqual([20, 200, 300, 400]);
   });
+
+  it('recognizes MDF members and replacement links from the finalized structural change', async () => {
+    const context = makeContext();
+    const committed = new UseCase({
+      systemId: 101,
+      fileSystemId: 1,
+      keyVector: {valueSystemIds: []},
+      subgraphSystemIds: [10, 20],
+      subgraphPairs: [{sourceSubgraphSystemId: 10, destSubgraphSystemId: 20}],
+      type: 'LINKED',
+    });
+    const snapshot = context.input.graphSnapshot as unknown as Record<
+      string,
+      unknown
+    >;
+    snapshot.subgraphs = [10, 15, 20].map(systemId => ({
+      subgraph: {systemId, sgkvs: []},
+      requestedSgkvs: [],
+      isMdf: systemId === 15,
+    }));
+    snapshot.committedUsecases = [committed];
+    snapshot.overlayDataLinks = [
+      {systemId: 301, sourceSubgraphSystemId: 10, destSubgraphSystemId: 15},
+      {systemId: 302, sourceSubgraphSystemId: 15, destSubgraphSystemId: 20},
+    ];
+    snapshot.overlayControlLinks = [];
+    context.topologyChangeAnalysis = {
+      affectedUsecaseSystemIds: new Set(),
+      decisions: [
+        {
+          kind: 'MDF_SUBSTITUTION',
+          usecase: committed,
+          substitutions: [],
+          structuralChange: {
+            addedSubgraphSystemIds: [15],
+            removedSubgraphSystemIds: [],
+            addedPairs: [
+              {sourceSubgraphSystemId: 10, destSubgraphSystemId: 15},
+              {sourceSubgraphSystemId: 15, destSubgraphSystemId: 20},
+            ],
+            removedPairs: [
+              {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+            ],
+            resultingSubgraphSystemIds: [10, 15, 20],
+            resultingPairs: [
+              {sourceSubgraphSystemId: 10, destSubgraphSystemId: 15},
+              {sourceSubgraphSystemId: 15, destSubgraphSystemId: 20},
+            ],
+            resultingType: 'LINKED',
+            sgkvAssignments: [],
+          },
+        },
+      ],
+    };
+
+    const result = await new OrphanValidationService().run(context, {
+      findOrphanSubsystemSystemIds: async () => [],
+    } as never);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(context.warnings.map(issue => issue.code)).not.toEqual(
+      expect.arrayContaining([
+        'ARC-ROUTING-ORPHAN-SUBGRAPH',
+        'ARC-ROUTING-ORPHAN-DATA-LINK',
+      ]),
+    );
+    expect(context.orphanCandidates).toEqual([]);
+  });
+
+  it('still reports genuinely unreferenced subgraphs and links after projection', async () => {
+    const context = makeContext();
+    const snapshot = context.input.graphSnapshot as unknown as Record<
+      string,
+      unknown
+    >;
+    snapshot.subgraphs = [
+      ...(snapshot.subgraphs as readonly unknown[]),
+      {subgraph: {systemId: 98, sgkvs: []}, requestedSgkvs: [], isMdf: false},
+      {subgraph: {systemId: 99, sgkvs: []}, requestedSgkvs: [], isMdf: false},
+    ];
+    snapshot.overlayDataLinks = [
+      ...(snapshot.overlayDataLinks as readonly unknown[]),
+      {systemId: 998, sourceSubgraphSystemId: 98, destSubgraphSystemId: 99},
+    ];
+
+    const result = await new OrphanValidationService().run(context, {
+      findOrphanSubsystemSystemIds: async () => [],
+    } as never);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(context.orphanCandidates).toEqual(
+      expect.arrayContaining([
+        {kind: 'SUBGRAPH', systemId: 98},
+        {kind: 'SUBGRAPH', systemId: 99},
+        {kind: 'DATA_LINK', systemId: 998},
+      ]),
+    );
+  });
 });

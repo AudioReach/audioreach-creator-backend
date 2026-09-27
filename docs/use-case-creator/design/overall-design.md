@@ -562,10 +562,10 @@ new handler + engine + adapters.
 | **I1** | GKV uniqueness — no two UCs in a file share the same GKV, regardless of `type`. Same-GKV collisions resolve via FR-DUP-03(a) exact-match no-op, FR-DUP-03(b1) identity-preserving interior extension silent auto-update, or FR-DUP-04 user-choice. In manual mode the collision rule is suppressed — manual creation emits one UC at a time and hits FR-DUP-03(a) exact-match no-op if the same GKV already exists. EC UCs (`type=EC`) are subject to this rule; a coincidental same-GKV collision between an EC UC and a `LINKED`/`ISLAND` UC (or between two EC Bridges from different EC connections) surfaces via FR-DUP-04. | Phase 9 (Classification) |
 | **I2** | Subgraph-pair completeness — every pair `(A, B)` in a UC's `use_case_subgraph_pairs` must have both `A` and `B` in the UC's `use_case_subgraphs`. | Phase 9 (Classification) — pair emission always adds both endpoints |
 | **I3** | GKV derivation — a UC's stored GKV equals the union of KVs from the SGKV combination active at creation or last re-routing. Historical record. | Phase 9 (Classification) — GKV computed from `combinations` snapshot, not re-derived on read |
-| **I4** | No structural deletion for KV changes — a KV-only change never deletes or modifies a UC record. | Phase 2 (DeletionScope) — deletion triggers only on link/SG removal |
+| **I4** | No structural deletion for KV changes — a KV-only change never deletes or modifies a UC record. | Phase 2 (TopologyChangeAnalysisService) — deletion triggers only on link/SG removal |
 | **I5** | Orphan-free commit — every SG must be a member of ≥1 UC with non-empty GKV; every intra-usecase link (data-link OR control-link) must be in ≥1 UC's pair set; every subsystem must contain ≥1 SG that is a member of some UC. | Phase 10 (OrphanValidation) as warning + FR-COMMIT-01(c) as blocking safety net |
 | **I6** | SGKV internal consistency — at most one KV pair per Key Definition per SGKV. | Phase 4 (KvResolution) — rejects malformed SGKVs |
-| **I7** | Pair-link presence — an SG pair `(A, B)` may exist in a UC's pair set only if ≥1 intra-usecase link (data or control) is currently present between A and B. Underpins FR-STATUS-04 direction correction. | Phase 7 (DFS) at creation; Phase 2 (DeletionScope) at removal; FR-COMMIT-01 at commit |
+| **I7** | Pair-link presence — an SG pair `(A, B)` may exist in a UC's pair set only if ≥1 intra-usecase link (data or control) is currently present between A and B. Underpins FR-STATUS-04 direction correction. | Phase 7 (DFS) at creation; Phase 2 (TopologyChangeAnalysisService) at removal; FR-COMMIT-01 at commit |
 
 **Two invariants worth emphasizing:**
 
@@ -762,7 +762,7 @@ not by graph size. LLD2 will refine the DFS budget with measurements.
 4. **Session-scope edits (Phase 5)** — `graphEdits` bounded by edit count, not graph
    size.
 
-**Fail-fast lever.** Phase 2 (DeletionScope) rejects FR-DEL-02 violations before Half B
+**Fail-fast lever.** Phase 2 (TopologyChangeAnalysisService) rejects FR-DEL-02 violations before Half B
 runs. If the caller omitted any UC requiring deletion, structural mutation, or type
 degradation from `selectedUsecaseSystemIds`, the call returns HTTP 422 with the full
 affected set and missing subset instead of running full DFS first.
@@ -836,7 +836,7 @@ into the implementation plan.
 | — (handler pre-step) | see §2, §3 | FR-PREVAL-03 (SLS/CSLS chain resolution). Consumed via `IChainResolver` port; owned by the subsystem-links module. |
 | LLD1 | `lld1-kv-resolution-cone.md` | Handler addition-side closure plus Phases 1, 4, 5, 6: PreValidation, KvResolution, SeedDetection, ConeComputation. FR-PREVAL-01/02, FR-API-03, FR-API-07 addition side, FR-KV-01/02/03, FR-CONE-01..07 |
 | LLD2 | `lld2-dfs-core.md` | Phases 7–8: DFS routing and combination expansion. FR-DFS-01..09 |
-| LLD4 | `lld4-deletion-transition.md` | Phases 2–3: DeletionScope and `IslandTransitionService` (`ISLAND` → `LINKED`). FR-DEL-01..06, FR-VAL-04, FR-API-07 deletion side with FR-DEL-02 precedence, FR-STATUS-04, FR-EXT-01..03 |
+| LLD4 | `lld4-deletion-transition.md` | Phases 2–3: `TopologyChangeAnalysisService` and `IslandTransitionService` (`ISLAND` → `LINKED`). FR-DEL-01..06, FR-VAL-04, FR-API-07 deletion side with FR-DEL-02 precedence, FR-STATUS-04, FR-EXT-01..03 |
 | LLD5 | `lld5-ec-routing.md` | EC (Echo Cancellation) routing: detection, DFS boundary override, 3-UC generation, Bridge KV compatibility, single-EC-per-path, EC bridge lifecycle, legacy EC UC compatibility (Bridge suppression, cross-EC reconstruction delegation, max-1-EC-per-UC with MDF exception, type recomputation). FR-EC-01..07 |
 | — (folded into plan) | — | Phase 1 stale-MANUAL dependency validation; Phase 9 Classification + Phase 10 OrphanValidation: FR-DUP-03(a) exact-match no-op + FR-DUP-03(b1) identity-preserving interior extension silent auto-update + FR-DUP-04 same-GKV user-choice collision handling (including `ARC-ROUTING-SAME-GKV-CHOICE-REQUIRED` issue emission, apply-fix command, and re-run recognition via GKV+SG+pair match against `source=MANUAL` edit-actions), FR-VAL-01/02/03, FR-LIFE-01/02/03, FR-STATUS-01/02/03. Rule-driven; the plan carries the rule table directly. Also folds in FR-EC-07 Rule D (Phase 11 emission of reconstruction-updated UCs and un-marking from `markedForDeletion` on FR-DUP-03(b1) match) and FR-EC-07 Rule E (recomputing `Usecase.type` from pair set at Phase 11 stager). |
 | — (folded into plan) | — | Phase 11 RoutingChangeStager + Phase 12 ResponseBuilder + DTO/adapter shapes. Phase 11 preserves content-only per-SG SGKV assignments in relevant UC actions but does not resolve or persist SGKV IDs. MDF single rule (FR-MDF-01). Manual UC creation flow (FR-UC-01) including server-side pair discovery via `IDataLinkRepository.findLinksByPair` + control-link fallback per FR-UC-01 step 4 with smaller-SG-ID direction rule and isolated-SG warning. `IslandUseCaseCandidate` updates from FR-STATUS-02(b) emit `usecaseRepo.update(uc, {type: 'ISLAND'})` plus the `ARC-ROUTING-UC-AUTO-ISLAND` warning. |

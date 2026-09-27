@@ -15,7 +15,7 @@ import type {SameGkvCollision} from '../contracts/same-gkv-collision.js';
 import {createEmptyRoutingOutcome} from '../contracts/routing-outcome.js';
 import type {RoutingOutcome} from '../contracts/routing-outcome.js';
 import type {PreValidationService} from '../phases/pre-validation.service.js';
-import type {DeletionScopeService} from '../phases/deletion-scope.service.js';
+import type {TopologyChangeAnalysisService} from '../phases/topology-change-analysis.service.js';
 import type {IslandTransitionService} from '../phases/island-transition.service.js';
 import type {KvResolutionService} from '../phases/kv-resolution.service.js';
 import type {SeedDetectionService} from '../phases/seed-detection.service.js';
@@ -28,10 +28,17 @@ import type {RoutingChangeStager} from '../phases/routing-change-stager.js';
 import type {ResponseBuilder} from '../phases/response-builder.js';
 import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
 
+/**
+ * Runs the routing phases in dependency order and owns no business state between calls.
+ *
+ * A normal run executes analysis, candidate generation, validation, staging, and response
+ * projection. Collision replay runs only the prerequisite phases and classification so it
+ * can return a collision without staging database changes.
+ */
 export class RoutingEngine {
   constructor(
     private readonly preValidation: PreValidationService,
-    private readonly deletionScope: DeletionScopeService,
+    private readonly topologyChangeAnalysis: TopologyChangeAnalysisService,
     private readonly islandTransition: IslandTransitionService,
     private readonly kvResolution: KvResolutionService,
     private readonly seedDetection: SeedDetectionService,
@@ -52,7 +59,8 @@ export class RoutingEngine {
     const context = new RoutingContext(input);
     const phases: readonly (() => Promise<Result<void>>)[] = [
       () => this.preValidation.run(context),
-      () => this.deletionScope.run(context, uow.getSubgraphRepository()),
+      () =>
+        this.topologyChangeAnalysis.run(context, uow.getSubgraphRepository()),
       () => this.islandTransition.run(context),
       () => this.kvResolution.run(context, uow.getSubgraphRepository()),
       () => this.seedDetection.run(context),
@@ -86,7 +94,8 @@ export class RoutingEngine {
     const context = new RoutingContext(input);
     const prerequisitePhases: readonly (() => Promise<Result<void>>)[] = [
       () => this.preValidation.run(context),
-      () => this.deletionScope.run(context, uow.getSubgraphRepository()),
+      () =>
+        this.topologyChangeAnalysis.run(context, uow.getSubgraphRepository()),
       () => this.islandTransition.run(context),
       () => this.kvResolution.run(context, uow.getSubgraphRepository()),
       () => this.seedDetection.run(context),

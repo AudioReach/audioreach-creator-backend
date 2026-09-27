@@ -13,7 +13,7 @@ import {
   ROUTING_MODE,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
 import {RoutingContext} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
-import {ClassificationService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/classification.service.js';
+import {PreValidationService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/pre-validation.service.js';
 import {ManualUsecaseDependencyValidator} from '../../../../../../src/application/usecase-designer/use-case-creator/services/manual-usecase-dependency-validator.js';
 import {RoutingIssueFactory} from '../../../../../../src/application/usecase-designer/use-case-creator/issues/routing-issue-factory.js';
 
@@ -123,7 +123,7 @@ describe('ManualUsecaseDependencyValidator', () => {
   });
 });
 
-describe('ClassificationService stale manual pre-check', () => {
+describe('PreValidationService stale manual dependency check', () => {
   it('aggregates stale MANUAL dependency failures before collision classification', async () => {
     const issue = RoutingIssueFactory.manualUsecaseDependenciesBroken(edit(7), {
       effectiveUsecaseMissing: false,
@@ -147,7 +147,7 @@ describe('ClassificationService stale manual pre-check', () => {
       activeManualUsecaseEdits: [edit(7)],
     });
     const context = new RoutingContext(input);
-    const service = new ClassificationService(validator as never);
+    const service = new PreValidationService(validator as never);
 
     const result = await service.run(context);
 
@@ -157,7 +157,7 @@ describe('ClassificationService stale manual pre-check', () => {
     expect(validator.run).toHaveBeenCalledTimes(1);
   });
 
-  it('sorts stale rows by changeId and skips the pre-check in manual mode', async () => {
+  it('sorts stale rows and validates both routing modes', async () => {
     const staleIssue = RoutingIssueFactory.manualUsecaseDependenciesBroken(
       edit(7),
       {
@@ -198,7 +198,7 @@ describe('ClassificationService stale manual pre-check', () => {
       ],
     });
     const autoContext = new RoutingContext(input);
-    const autoService = new ClassificationService(validator);
+    const autoService = new PreValidationService(validator);
 
     const autoResult = await autoService.run(autoContext);
 
@@ -216,12 +216,16 @@ describe('ClassificationService stale manual pre-check', () => {
       ...input,
       mode: ROUTING_MODE.Manual,
     } as never);
+    manualContext.topologyChangeAnalysis = {
+      affectedUsecaseSystemIds: new Set(),
+      decisions: [],
+    };
     const manualValidator = {run: jest.fn(() => [staleIssue])};
-    const manualService = new ClassificationService(manualValidator as never);
+    const manualService = new PreValidationService(manualValidator as never);
 
     const manualResult = await manualService.run(manualContext);
 
-    expect(manualResult.kind).toBe(RESULT_KIND.Ok);
-    expect(manualValidator.run).not.toHaveBeenCalled();
+    expect(manualResult.kind).toBe(RESULT_KIND.Fail);
+    expect(manualValidator.run).toHaveBeenCalledTimes(1);
   });
 });

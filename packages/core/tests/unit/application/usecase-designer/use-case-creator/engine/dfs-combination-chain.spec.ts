@@ -14,6 +14,7 @@ import {
 import {RoutingContext} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
 import {
   PATH_TERMINATION,
+  USECASE_TOPOLOGY_DECISION_KIND,
   type KvResolutions,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {ConeComputationService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/cone-computation.service.js';
@@ -49,7 +50,7 @@ function makeDataLink(
 
 function makeContext(): RoutingContext {
   const links = [makeDataLink(1, 1, 2)];
-  return new RoutingContext(
+  const context = new RoutingContext(
     createAutoRoutingInput({
       fileSystemId: FILE_ID,
       selection: {
@@ -75,6 +76,11 @@ function makeContext(): RoutingContext {
       activeManualUsecaseEdits: [],
     }),
   );
+  context.topologyChangeAnalysis = {
+    affectedUsecaseSystemIds: new Set(),
+    decisions: [],
+  };
+  return context;
 }
 
 function setKvResolutions(context: RoutingContext): void {
@@ -98,18 +104,23 @@ describe('Phase 6 through Phase 8 routing chain', () => {
       sgSystemIds: new Set([1]),
       reasons: new Map(),
     };
-    context.deletionAnalysis = {
-      reconstructionPaths: [
+    context.topologyChangeAnalysis = {
+      affectedUsecaseSystemIds: new Set([9]),
+      decisions: [
         {
-          originalUsecaseSystemId: 9,
-          path: {
-            subgraphSystemIds: [4, 5],
-            termination: PATH_TERMINATION.NaturalLeaf,
-            ecBoundaryLinkId: null,
-          },
+          kind: USECASE_TOPOLOGY_DECISION_KIND.DeleteOrReconstruct,
+          usecase: {systemId: 9} as never,
+          deletedComponent: {type: 'DATA_LINK', systemId: 1},
+          reconstructionPaths: [
+            {
+              subgraphSystemIds: [4, 5],
+              termination: PATH_TERMINATION.NaturalLeaf,
+              ecBoundaryLinkId: null,
+            },
+          ],
         },
       ],
-    } as never;
+    };
     const coneResult = await new ConeComputationService().run(context);
     const dfsResult = await new DfsRoutingService().run(context);
     const combinationResult = await new CombinationExpansionService().run(
@@ -143,18 +154,23 @@ describe('Phase 6 through Phase 8 routing chain', () => {
     const context = makeContext();
     setKvResolutions(context);
     context.seeds = {sgSystemIds: new Set([1]), reasons: new Map()};
-    context.deletionAnalysis = {
-      reconstructionPaths: [
+    context.topologyChangeAnalysis = {
+      affectedUsecaseSystemIds: new Set([1]),
+      decisions: [
         {
-          originalUsecaseSystemId: 1,
-          path: {
-            subgraphSystemIds: [4, 5],
-            termination: PATH_TERMINATION.NaturalLeaf,
-            ecBoundaryLinkId: null,
-          },
+          kind: USECASE_TOPOLOGY_DECISION_KIND.DeleteOrReconstruct,
+          usecase: {systemId: 1} as never,
+          deletedComponent: {type: 'DATA_LINK', systemId: 1},
+          reconstructionPaths: [
+            {
+              subgraphSystemIds: [4, 5],
+              termination: PATH_TERMINATION.NaturalLeaf,
+              ecBoundaryLinkId: null,
+            },
+          ],
         },
       ],
-    } as never;
+    };
 
     await new ConeComputationService().run(context);
     await new DfsRoutingService().run(context);
