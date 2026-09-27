@@ -115,7 +115,7 @@ expansion bounded by the effective routing scope.
 | Legacy test | Description | Target FR | Adaptation |
 |---|---|---|---|
 | T1-021 | Missing KV selection entry (non-excluded selected-scope SG absent from API map) | FR-API-03 | Blocking `ARC-ROUTING-PREVAL-SCOPE-INCOMPLETE` before KV/seed/cone work |
-| T1-022 | Unselected UC impacted by modification | FR-DEL-02 (Phase 2) | Cross-reference — this fits DeletionScope, not Cone |
+| T1-022 | Unselected UC impacted by modification | FR-DEL-02 (Phase 2) | Cross-reference — this fits TopologyChangeAnalysisService, not Cone |
 
 ### 3.5 Phase 7 · DfsRoutingService (LLD2)
 
@@ -154,7 +154,8 @@ Cartesian expansion, conflict detection, GKV aggregation.
 
 ### 3.7 Phase 2 · TopologyChangeAnalysisService (LLD4)
 
-Impact detection, fail-fast, multi-path pair survival, single-path reconstruction.
+Impact detection, fail-fast, multi-path pair survival, single-path reconstruction, and
+pure MDF substitution.
 
 | Legacy test | Description | Target FR | Adaptation |
 |---|---|---|---|
@@ -286,15 +287,15 @@ T1-028, T2-054, T2-055, T2-056, T2-063, T2-064
 | Phase 6 (Cone) | T1-021, T1-022 | 2 |
 | Phase 7 (DFS) | T1-001, T1-004, T1-005, T1-006, T2-001, T2-002, T2-014, T2-015, T2-016, T2-017, T2-018 | 11 |
 | Phase 8 (CombinationExpansion) | T1-002, T1-003, T2-009, T2-010, T2-011, T2-012, T2-023, T2-024, T2-025, T2-046 | 10 |
-| Phase 2 (DeletionScope) | T1-014, T1-022, T2-003, T2-030, T2-033, T2-034, T2-060, T2-061, T2-062, T2-067 | 10 |
+| Phase 2 (TopologyChangeAnalysisService) | T1-014, T1-022, T2-003, T2-030, T2-033, T2-034, T2-060, T2-061, T2-062, T2-067; MDF-XP-09, MDF-XP-11, MDF-XP-12 | 10 legacy + 3 cross-phase |
 | Phase 3 (`IslandTransitionService`) | T1-015, T1-016, T2-036, T2-068 | 4 |
 | Phase 9 (Classification) | T1-008, T1-012, T1-029, T1-030, T1-031, T1-032, T1-033, T1-034, T1-035, T1-036, T2-002, T2-021, T2-026, T2-027, T2-028, T2-046, T2-047, T2-048, T2-049, T2-050 | 20 |
 | Phase 10 (OrphanValidation) | T1-010, T1-011, T1-020, T2-029, T2-030 | 5 |
 | Phase 11+12 (Stager + Response) | T1-027, T2-057 | 2 |
-| MDF bridge (folded into plan under FR-MDF-01) | T1-019, T1-023, T2-052, T2-053, T2-066 | 5 |
-| EC routing (LLD5) | T1-017, T1-018, T2-037, T2-038, T2-039, T2-040, T2-041, T2-042, T2-043, T2-044, T2-045, T2-065 | 12 |
+| MDF bridge and pure substitution (folded into plan under FR-MDF-01) | T1-019, T1-023, T2-052, T2-053, T2-066; MDF-XP-01 through MDF-XP-08, MDF-XP-11 through MDF-XP-14 | 5 legacy + 12 cross-phase |
+| EC routing (LLD5) | T1-017, T1-018, T2-037, T2-038, T2-039, T2-040, T2-041, T2-042, T2-043, T2-044, T2-045, T2-065; MDF-XP-10 | 12 legacy + 1 cross-phase |
 
-Numbers sum to more than 65 because several tests exercise multiple phases (e.g., T2-034 covers DeletionScope + OrphanValidation + Classification).
+Numbers sum to more than 65 because several tests exercise multiple phases (e.g., T2-034 covers TopologyChangeAnalysisService + OrphanValidation + Classification).
 
 ---
 

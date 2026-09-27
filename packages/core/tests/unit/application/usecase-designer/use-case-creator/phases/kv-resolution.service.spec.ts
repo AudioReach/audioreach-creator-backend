@@ -14,6 +14,7 @@ import {
   type RoutingGraphSnapshot,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
 import {RoutingContext} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
+import {USECASE_TOPOLOGY_DECISION_KIND} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {KvResolutionService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/kv-resolution.service.js';
 
 const FILE_ID = 1;
@@ -127,17 +128,16 @@ describe('KvResolutionService', () => {
       ],
     });
     const context = makeContext([sgA, sgB], [selected, deleted]);
-    context.deletionAnalysis = {
+    context.topologyChangeAnalysis = {
       affectedUsecaseSystemIds: new Set([deleted.systemId]),
-      markedForDeletion: [
+      decisions: [
         {
+          kind: USECASE_TOPOLOGY_DECISION_KIND.DeleteOrReconstruct,
           usecase: deleted,
           deletedComponent: {type: 'SUBGRAPH', systemId: 10},
+          reconstructionPaths: [],
         },
       ],
-      preservedUsecases: [],
-      islandUseCaseCandidates: [],
-      reconstructionPaths: [],
     };
 
     const result = await new KvResolutionService().run(context, repository);

@@ -5,6 +5,7 @@
 
 import {Result} from '../../../../application/shared/result/result.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
+import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
 import {ROUTING_MODE} from '../contracts/routing-input.js';
 import type {AutoRoutingInput} from '../contracts/routing-input.js';
 import type {RoutingContext} from '../contracts/routing-context.js';
@@ -13,14 +14,16 @@ import {
   ROUTING_CLASSIFICATION_KIND,
   type ClassifiedUsecase,
   type RoutingCombination,
+  USECASE_TOPOLOGY_DECISION_KIND,
+  type DeleteOrReconstructDecision,
 } from '../contracts/routing-state.js';
-import {ManualUsecaseDependencyValidator} from '../services/manual-usecase-dependency-validator.js';
 import {SameGkvCollisionService} from '../services/same-gkv-collision.service.js';
 import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
 import {
   addedInteriorSubgraphIds,
   exactTopologyEquals,
 } from '../shared/usecase-topology.js';
+import {projectCommittedUcsWithMdfSubstitutions} from '../shared/projected-usecase-topology.js';
 
 /**
  * Classifies routed candidates as existing topology matches, extensions, or
@@ -28,24 +31,23 @@ import {
  */
 export class ClassificationService {
   constructor(
-    private readonly manualUsecaseDependencyValidator: ManualUsecaseDependencyValidator = new ManualUsecaseDependencyValidator(),
     private readonly sameGkvCollisionService: SameGkvCollisionService = new SameGkvCollisionService(),
   ) {}
 
   run(context: RoutingContext): Promise<ReturnType<typeof Result.ok<void>>> {
-    if (context.input.mode === ROUTING_MODE.Auto) {
-      // Automatic routing cannot safely proceed from a stale manual edit.
-      const issues = this.manualUsecaseDependencyValidator.run(
-        context.input.activeManualUsecaseEdits,
-        context.input.graphSnapshot,
-      );
-      if (issues.length > 0) return Promise.resolve(Result.fail(...issues));
-    }
-
     const candidates = [
       ...context.routingCandidates.combinations,
       ...context.routingCandidates.ecBridgeCandidates,
     ];
+    const analysis = context.topologyChangeAnalysis;
+    if (analysis === null) {
+      throw new Error('Topology change analysis must run before this phase');
+    }
+    const projectedUsecases = projectCommittedUcsWithMdfSubstitutions(context);
+    const deleteOrReconstructDecisions = analysis.decisions.filter(
+      (decision): decision is DeleteOrReconstructDecision =>
+        decision.kind === USECASE_TOPOLOGY_DECISION_KIND.DeleteOrReconstruct,
+    );
     const manuallyResolvedCandidates = new Set<RoutingCombination>();
     if (context.input.mode === ROUTING_MODE.Auto) {
       // A collision must be resolved before deciding whether its candidates
@@ -53,6 +55,7 @@ export class ClassificationService {
       const collisionIssues = this.findUnresolvedCollisionIssues(
         candidates,
         context,
+        projectedUsecases,
         manuallyResolvedCandidates,
       );
       if (collisionIssues.length > 0) {
@@ -64,8 +67,8 @@ export class ClassificationService {
     for (const candidate of candidates) {
       // An active manual edit already materializes this collision resolution.
       if (manuallyResolvedCandidates.has(candidate)) continue;
-      const exactUsecase = context.input.graphSnapshot.committedUsecases.find(
-        existingUsecase => exactTopologyEquals(candidate, existingUsecase),
+      const exactUsecase = projectedUsecases.find(existingUsecase =>
+        exactTopologyEquals(candidate, existingUsecase),
       );
       if (exactUsecase) {
         // The stager skips exact matches, so this candidate produces no write.
@@ -77,7 +80,7 @@ export class ClassificationService {
         continue;
       }
 
-      const interiorExtension = context.input.graphSnapshot.committedUsecases
+      const interiorExtension = projectedUsecases
         .map(existingUsecase => ({
           existingUsecase,
           addedSubgraphSystemIds: addedInteriorSubgraphIds(
@@ -93,9 +96,9 @@ export class ClassificationService {
           candidate,
           existingUsecase: interiorExtension.existingUsecase,
           cancelPendingDelete: Boolean(
-            context.deletionAnalysis?.markedForDeletion.some(
-              mark =>
-                mark.usecase.systemId ===
+            deleteOrReconstructDecisions.some(
+              decision =>
+                decision.usecase.systemId ===
                 interiorExtension.existingUsecase.systemId,
             ),
           ),
@@ -116,6 +119,7 @@ export class ClassificationService {
   private findUnresolvedCollisionIssues(
     candidates: readonly RoutingContext['routingCandidates']['combinations'][number][],
     context: RoutingContext,
+    projectedUsecases: readonly UseCase[],
     manuallyResolvedCandidates: Set<RoutingCombination>,
   ): Issue[] {
     if (context.input.mode !== ROUTING_MODE.Auto) return [];
@@ -124,7 +128,7 @@ export class ClassificationService {
     // not presented as same-GKV alternatives.
     const candidateCollisionOperands = candidates.filter(
       candidate =>
-        !input.graphSnapshot.committedUsecases.some(
+        !projectedUsecases.some(
           existingUsecase =>
             exactTopologyEquals(candidate, existingUsecase) ||
             addedInteriorSubgraphIds(candidate, existingUsecase).length > 0,
@@ -142,6 +146,7 @@ export class ClassificationService {
         left,
         context,
         input,
+        projectedUsecases,
         manuallyResolvedCandidates,
       ),
     ]);
@@ -169,9 +174,10 @@ export class ClassificationService {
     candidate: RoutingContext['routingCandidates']['combinations'][number],
     context: RoutingContext,
     input: AutoRoutingInput,
+    projectedUsecases: readonly UseCase[],
     manuallyResolvedCandidates: Set<RoutingCombination>,
   ): Issue[] {
-    return input.graphSnapshot.committedUsecases.flatMap(existing => {
+    return projectedUsecases.flatMap(existing => {
       const collision = this.sameGkvCollisionService.detect(
         candidate,
         existing,

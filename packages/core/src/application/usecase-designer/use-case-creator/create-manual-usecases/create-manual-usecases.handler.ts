@@ -25,6 +25,13 @@ import {RoutingGraphSnapshotBuilder} from '../services/routing-graph-snapshot-bu
 import {SubsystemLinkResolutionService} from '../services/subsystem-link-resolution.service.js';
 import {CreateManualUsecasesCommand} from './create-manual-usecases.command.js';
 
+/**
+ * Adapts the manual-usecase command into the shared routing pipeline.
+ *
+ * The handler validates the request, resolves subsystem links, builds the immutable graph
+ * snapshot, discovers requested manual pairs, and delegates routing and persistence to the
+ * engine.
+ */
 export class CreateManualUsecasesHandler implements CommandHandler<
   CreateManualUsecasesCommand,
   Result<RoutingOutcome>
@@ -62,6 +69,9 @@ export class CreateManualUsecasesHandler implements CommandHandler<
         this.uow,
         command.fileSystemId,
       );
+      const activeManualUsecaseEdits = await this.uow
+        .getUsecaseRepository()
+        .findWithActiveManualEdits(command.fileSystemId);
       const selectedUsecases = await this.uow
         .getUsecaseRepository()
         .findBySystemIds(
@@ -112,6 +122,7 @@ export class CreateManualUsecasesHandler implements CommandHandler<
         selectedUsecases,
         graphSnapshot: snapshot.data,
         manualTopology: topology.data,
+        activeManualUsecaseEdits,
       });
       const result = await this.engine.run(input, this.uow, this.idGeneration);
       if (result.kind === RESULT_KIND.Fail)

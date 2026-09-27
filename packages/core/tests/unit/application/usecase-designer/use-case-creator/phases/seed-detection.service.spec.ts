@@ -17,13 +17,17 @@ import {
   type RoutingGraphSnapshot,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
 import {RoutingContext} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
-import type {KvResolutions} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
+import {
+  USECASE_TOPOLOGY_DECISION_KIND,
+  type KvResolutions,
+} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {SeedDetectionService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/seed-detection.service.js';
 
 const FILE_ID = 1;
 
 function makeSubgraph(
   systemId: number,
+  isMdf = false,
 ): RoutingGraphSnapshot['subgraphs'][number] {
   return {
     subgraph: new Subgraph({
@@ -34,7 +38,7 @@ function makeSubgraph(
       fileSystemId: FILE_ID,
     }),
     requestedSgkvs: [],
-    isMdf: false,
+    isMdf,
   };
 }
 
@@ -57,8 +61,12 @@ function makeContext(
   selectedUsecases: readonly UseCase[],
   committedUsecases: readonly UseCase[] = selectedUsecases,
   sessionEdits = emptyGraphEdits(),
+  mdfSubgraphSystemIds: readonly number[] = [],
 ): RoutingContext {
-  const subgraphs = subgraphSystemIds.map(makeSubgraph);
+  const mdfIds = new Set(mdfSubgraphSystemIds);
+  const subgraphs = subgraphSystemIds.map(systemId =>
+    makeSubgraph(systemId, mdfIds.has(systemId)),
+  );
   const init = {
     fileSystemId: FILE_ID,
     selection: {
@@ -203,6 +211,87 @@ describe('SeedDetectionService', () => {
     });
   });
 
+  it('does not create KV_CHANGED for a normalized empty MDF instance', async () => {
+    const selected = makeUsecase(50, [20]);
+    const context = makeContext(
+      ROUTING_MODE.Auto,
+      [20],
+      [selected],
+      [selected],
+      emptyGraphEdits(),
+      [20],
+    );
+    setKvResolutions(context, new Map([[20, [{keyValues: []}]]]), new Map());
+
+    await new SeedDetectionService().run(context);
+
+    expect(context.seeds?.sgSystemIds).toEqual(new Set());
+    expect(context.seeds?.reasons.has(20)).toBe(false);
+  });
+
+  it('retains NEW_SUBGRAPH seeding for an MDF subgraph', async () => {
+    const selected = makeUsecase(50, [10]);
+    const context = makeContext(
+      ROUTING_MODE.Auto,
+      [10, 20],
+      [selected],
+      [selected],
+      emptyGraphEdits(),
+      [20],
+    );
+    setKvResolutions(
+      context,
+      new Map([
+        [10, [{keyValues: []}]],
+        [20, [{keyValues: []}]],
+      ]),
+      new Map([
+        [10, [{keyValues: []}]],
+        [20, [{keyValues: []}]],
+      ]),
+    );
+
+    await new SeedDetectionService().run(context);
+
+    expect(context.seeds).toEqual({
+      sgSystemIds: new Set([20]),
+      reasons: new Map([[20, 'NEW_SUBGRAPH']]),
+    });
+  });
+
+  it('retains link seeding for an existing MDF endpoint', async () => {
+    const selected = makeUsecase(50, [10, 20]);
+    const context = makeContext(
+      ROUTING_MODE.Auto,
+      [10, 20],
+      [selected],
+      [selected],
+      {...emptyGraphEdits(), addedDataLinks: [makeDataLink(701, 10, 20)]},
+      [20],
+    );
+    setKvResolutions(
+      context,
+      new Map([
+        [10, [{keyValues: []}]],
+        [20, [{keyValues: []}]],
+      ]),
+      new Map([
+        [10, [{keyValues: []}]],
+        [20, [{keyValues: []}]],
+      ]),
+    );
+
+    await new SeedDetectionService().run(context);
+
+    expect(context.seeds).toEqual({
+      sgSystemIds: new Set([10, 20]),
+      reasons: new Map([
+        [10, 'LINK_ADDED'],
+        [20, 'LINK_ADDED'],
+      ]),
+    });
+  });
+
   it('does not mislabel unchanged KVs from a deletion-marked UC and relies on deleted-link seeds', async () => {
     const selected = makeUsecase(50, [10, 20, 30]);
     const context = makeContext(
@@ -226,17 +315,16 @@ describe('SeedDetectionService', () => {
         [20, [{keyValues: []}]],
       ]),
     );
-    context.deletionAnalysis = {
+    context.topologyChangeAnalysis = {
       affectedUsecaseSystemIds: new Set([selected.systemId]),
-      markedForDeletion: [
+      decisions: [
         {
+          kind: USECASE_TOPOLOGY_DECISION_KIND.DeleteOrReconstruct,
           usecase: selected,
           deletedComponent: {type: 'SUBGRAPH', systemId: 30},
+          reconstructionPaths: [],
         },
       ],
-      preservedUsecases: [],
-      islandUseCaseCandidates: [],
-      reconstructionPaths: [],
     };
 
     await new SeedDetectionService().run(context);

@@ -82,6 +82,7 @@ function createInput() {
     selectedUsecases: [createUsecase(21, [31])],
     graphSnapshot: createSnapshot(),
     manualTopology: {pairs: []},
+    activeManualUsecaseEdits: [],
   });
 }
 
@@ -164,6 +165,7 @@ describe('routing contracts', () => {
       selectedUsecases,
       graphSnapshot: snapshot,
       manualTopology: {pairs: []},
+      activeManualUsecaseEdits: [],
     });
     sourceSgkvs[0]!.push(99);
     selectedUsecases.push(createUsecase(22, [32]));
@@ -229,7 +231,7 @@ describe('routing contracts', () => {
     expect(input.activeManualUsecaseEdits).toHaveLength(1);
 
     const manual = createInput();
-    expect(manual).not.toHaveProperty('activeManualUsecaseEdits');
+    expect(manual.activeManualUsecaseEdits).toEqual([]);
   });
 
   it('uses grouped content-only Phase 4-6 outputs', () => {

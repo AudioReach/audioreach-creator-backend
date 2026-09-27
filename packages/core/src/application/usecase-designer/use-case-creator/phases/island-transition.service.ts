@@ -12,7 +12,9 @@ import {ROUTING_MODE} from '../contracts/routing-input.js';
 import type {
   DirectionCorrection,
   IslandTransition,
+  TransitionToIslandDecision,
 } from '../contracts/routing-state.js';
+import {USECASE_TOPOLOGY_DECISION_KIND as TOPOLOGY_DECISION_KIND} from '../contracts/routing-state.js';
 
 interface DirectedPair {
   readonly sourceSubgraphSystemId: number;
@@ -362,32 +364,39 @@ function evaluateIslandUsecase(
   };
 }
 
+/**
+ * Re-evaluates finalized island decisions against the effective graph.
+ *
+ * When a valid data-link path or MDF bridge is available, this phase prepares direction
+ * corrections and added topology for a later LINKED transition. It does not change the
+ * Phase 2 deletion-impact classification.
+ */
 export class IslandTransitionService {
   run(context: RoutingContext): Promise<ReturnType<typeof Result.ok<void>>> {
-    const deletionAnalysis = context.deletionAnalysis;
+    const topologyChangeAnalysis = context.topologyChangeAnalysis;
     if (
-      deletionAnalysis === null ||
+      topologyChangeAnalysis === null ||
       context.input.mode === ROUTING_MODE.Manual
     ) {
       return Promise.resolve(Result.ok());
     }
 
     const effectiveGraph = buildEffectiveGraph(context);
-    const markedForDeletionSystemIds = new Set(
-      deletionAnalysis.markedForDeletion.map(
-        deletionMark => deletionMark.usecase.systemId,
-      ),
+    const islandDecisions = topologyChangeAnalysis.decisions.filter(
+      (decision): decision is TransitionToIslandDecision =>
+        decision.kind === TOPOLOGY_DECISION_KIND.TransitionToIsland,
     );
     const eligibleIslandUsecases = sortedBySystemId(
-      context.input.graphSnapshot.committedUsecases.filter(
-        usecase =>
-          usecase.type === 'ISLAND' &&
-          !markedForDeletionSystemIds.has(usecase.systemId) &&
-          isUsecaseWithinEffectiveScope(
-            usecase,
-            effectiveGraph.scopeSubgraphSystemIds,
-          ),
-      ),
+      islandDecisions
+        .map(decision => decision.usecase)
+        .filter(
+          usecase =>
+            usecase.type === 'ISLAND' &&
+            isUsecaseWithinEffectiveScope(
+              usecase,
+              effectiveGraph.scopeSubgraphSystemIds,
+            ),
+        ),
     );
     if (eligibleIslandUsecases.length === 0) {
       return Promise.resolve(Result.ok());

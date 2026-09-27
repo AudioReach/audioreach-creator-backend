@@ -26,6 +26,10 @@ function createFixture(options?: {
   readonly existingIds?: readonly number[];
   readonly dataLinks?: readonly DataLink[];
   readonly controlLinks?: readonly ControlLink[];
+  readonly requestedSgkvsBySubgraph?: Readonly<
+    Record<number, readonly (readonly number[])[]>
+  >;
+  readonly mdfSubgraphIds?: readonly number[];
 }) {
   const activeIds = options?.activeIds ?? [10, 20];
   const existingIds = options?.existingIds ?? activeIds;
@@ -44,8 +48,8 @@ function createFixture(options?: {
     graphSnapshot: {
       subgraphs: existingIds.map(systemId => ({
         subgraph: {systemId} as never,
-        requestedSgkvs: [],
-        isMdf: false,
+        requestedSgkvs: options?.requestedSgkvsBySubgraph?.[systemId] ?? [],
+        isMdf: options?.mdfSubgraphIds?.includes(systemId) ?? false,
       })),
       routableDataLinks: dataLinks,
       routableControlLinks: controlLinks,
@@ -72,6 +76,48 @@ describe('PreValidationService', () => {
     expect(result.kind).toBe(RESULT_KIND.Ok);
     expect(fixture.context.warnings).toEqual([]);
   });
+
+  it('rejects every MDF subgraph with non-empty requested KV values', async () => {
+    const fixture = createFixture({
+      activeIds: [10, 20, 30],
+      existingIds: [10, 20, 30],
+      mdfSubgraphIds: [20, 30],
+      requestedSgkvsBySubgraph: {
+        10: [[501]],
+        20: [[601]],
+        30: [[], [701, 702]],
+      },
+    });
+
+    const result = await service.run(fixture.context);
+
+    expect(result.kind).toBe(RESULT_KIND.Fail);
+    if (result.kind === RESULT_KIND.Fail) {
+      expect(result.issues.map(issue => issue.code)).toEqual([
+        'ARC-ROUTING-MDF-01',
+        'ARC-ROUTING-MDF-01',
+      ]);
+      expect(
+        result.issues.map(issue => issue.impactedEntity?.systemId),
+      ).toEqual([20, 30]);
+    }
+    expect(fixture.context.warnings).toEqual([]);
+  });
+
+  it.each([[[]], [[[]]]])(
+    'accepts MDF selections without values: %p',
+    async requestedSgkvs => {
+      const fixture = createFixture({
+        mdfSubgraphIds: [20],
+        existingIds: [10, 20],
+        requestedSgkvsBySubgraph: {20: requestedSgkvs},
+      });
+
+      const result = await service.run(fixture.context);
+
+      expect(result.kind).toBe(RESULT_KIND.Ok);
+    },
+  );
 
   it.each([
     ['source', link(100, 10, 20), [20]],

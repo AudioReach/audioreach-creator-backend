@@ -8,7 +8,10 @@ import {
   type ChangeOperation,
   type Source,
 } from '../../../shared/change-vocabulary.js';
-import type {UsecaseChangeRef} from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
+import type {
+  UsecaseChangeRef,
+  UsecaseSgkvAssignment,
+} from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
 import type {SubgraphPair} from '../../../ports/persistence/repositories/shared/links-for-pair.js';
 import type {KvPair} from '../../../ports/persistence/repositories/shared/kv-pair.js';
 import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
@@ -27,45 +30,98 @@ export interface DeletedComponent {
   readonly systemId: number;
 }
 
+/** Identifies a stored pair that lost its data-link support but retains control-link support. */
 export interface DataLinkLossPair {
   readonly sourceSubgraphSystemId: number;
   readonly destSubgraphSystemId: number;
   readonly deletedDataLinkSystemId: number;
 }
 
-export interface UsecaseDeletionMark {
-  readonly usecase: UseCase;
-  /** The highest-precedence deleted component that requires this UC to be removed. */
-  readonly deletedComponent: DeletedComponent;
+/** Exact topology replacing one removed committed pair through MDF members. */
+export interface MdfPairSubstitution {
+  readonly removedPair: SubgraphPair;
+  readonly replacementSubgraphSystemIds: readonly number[];
+  readonly replacementPairs: readonly SubgraphPair[];
 }
 
 /**
- * An affected multi-path UseCase kept by automatic deletion analysis because
- * every stored pair remains supported. Staging removes only the listed deleted
- * subgraphs instead of deleting the UseCase.
+ * Finalized structural change for one committed UseCase. Delta fields drive persistence;
+ * resulting fields let later phases inspect the same post-change shape without rebuilding it.
+ * This is distinct from `ProjectedUsecaseTopology`, the session-wide read model.
  */
-export interface DeletionPreservedUsecase {
+export interface UsecaseStructuralChange {
+  readonly addedSubgraphSystemIds: readonly number[];
+  readonly removedSubgraphSystemIds: readonly number[];
+  readonly addedPairs: readonly SubgraphPair[];
+  readonly removedPairs: readonly SubgraphPair[];
+  readonly resultingSubgraphSystemIds: readonly number[];
+  readonly resultingPairs: readonly SubgraphPair[];
+  readonly resultingType: UseCase['type'];
+  readonly sgkvAssignments: readonly UsecaseSgkvAssignment[];
+}
+
+/** Phase 2 assigns exactly one of these outcomes to each impacted committed UseCase. */
+export const USECASE_TOPOLOGY_DECISION_KIND = {
+  MdfSubstitution: 'MDF_SUBSTITUTION',
+  Preserve: 'PRESERVE',
+  TransitionToIsland: 'TRANSITION_TO_ISLAND',
+  DeleteOrReconstruct: 'DELETE_OR_RECONSTRUCT',
+} as const;
+
+export type UsecaseTopologyDecisionKind =
+  (typeof USECASE_TOPOLOGY_DECISION_KIND)[keyof typeof USECASE_TOPOLOGY_DECISION_KIND];
+
+/** Direct system-owned maintenance that preserves the existing UseCase identity. */
+export interface MdfSubstitutionDecision {
+  readonly kind: typeof USECASE_TOPOLOGY_DECISION_KIND.MdfSubstitution;
   readonly usecase: UseCase;
-  /** Deleted subgraphs that have no incident stored pairs in this UseCase. */
+  readonly substitutions: readonly MdfPairSubstitution[];
+  /** Shared by classification, orphan projection, collision replay, and staging. */
+  readonly structuralChange: UsecaseStructuralChange;
+}
+
+/** Retains a safe multi-path UseCase while removing members deleted from the routing scope. */
+export interface PreserveUsecaseDecision {
+  readonly kind: typeof USECASE_TOPOLOGY_DECISION_KIND.Preserve;
+  readonly usecase: UseCase;
   readonly droppedSubgraphSystemIds: readonly number[];
 }
 
-export interface IslandUseCaseCandidate {
+/**
+ * Retains a UseCase after data-link loss by changing it to ISLAND while preserving
+ * control-link-supported topology and removing any safely dropped members.
+ */
+export interface TransitionToIslandDecision {
+  readonly kind: typeof USECASE_TOPOLOGY_DECISION_KIND.TransitionToIsland;
   readonly usecase: UseCase;
   readonly dataLinkLossPairs: readonly DataLinkLossPair[];
+  readonly droppedSubgraphSystemIds: readonly number[];
 }
 
-export interface DeletionReconstructionPath {
-  readonly originalUsecaseSystemId: number;
-  readonly path: DfsPath;
+/**
+ * Retires an invalid committed UseCase. Automatic routing may attach bounded successor
+ * paths; manual routing leaves those paths empty and requires explicit user topology.
+ */
+export interface DeleteOrReconstructDecision {
+  readonly kind: typeof USECASE_TOPOLOGY_DECISION_KIND.DeleteOrReconstruct;
+  readonly usecase: UseCase;
+  readonly deletedComponent: DeletedComponent;
+  readonly reconstructionPaths: readonly DfsPath[];
 }
 
-export interface DeletionAnalysis {
+export type UsecaseTopologyDecision =
+  | MdfSubstitutionDecision
+  | PreserveUsecaseDecision
+  | TransitionToIslandDecision
+  | DeleteOrReconstructDecision;
+
+/**
+ * Complete Phase 2 output published once to later phases. The affected set controls
+ * ordinary deletion gates, whereas decisions also include direct MDF maintenance writes.
+ */
+export interface TopologyChangeAnalysis {
   readonly affectedUsecaseSystemIds: ReadonlySet<number>;
-  readonly markedForDeletion: readonly UsecaseDeletionMark[];
-  readonly preservedUsecases: readonly DeletionPreservedUsecase[];
-  readonly islandUseCaseCandidates: readonly IslandUseCaseCandidate[];
-  readonly reconstructionPaths: readonly DeletionReconstructionPath[];
+  readonly decisions: readonly UsecaseTopologyDecision[];
 }
 
 export interface DirectionCorrection {
@@ -75,6 +131,7 @@ export interface DirectionCorrection {
   readonly newDestSubgraphSystemId: number;
 }
 
+/** Phase 3 work that can promote an ISLAND UseCase when effective routing supports it. */
 export interface IslandTransition {
   readonly usecase: UseCase;
   readonly directionCorrections: readonly DirectionCorrection[];

@@ -13,6 +13,7 @@ import {
   CHANGE_OPERATION,
 } from '../../../../../../src/application/shared/change-vocabulary.js';
 import {DATA_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
+import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
 
 function candidate(path: readonly number[]) {
   return {
@@ -29,9 +30,13 @@ function candidate(path: readonly number[]) {
   };
 }
 
-function context(): RoutingContext {
-  return new RoutingContext({
-    mode: ROUTING_MODE.Auto,
+function context(
+  mode:
+    | typeof ROUTING_MODE.Auto
+    | typeof ROUTING_MODE.Manual = ROUTING_MODE.Auto,
+): RoutingContext {
+  const routingContext = new RoutingContext({
+    mode,
     fileSystemId: 1,
     selectedUsecases: [],
     requestPolicy: {
@@ -72,6 +77,11 @@ function context(): RoutingContext {
     },
     activeManualUsecaseEdits: [],
   } as never);
+  routingContext.topologyChangeAnalysis = {
+    affectedUsecaseSystemIds: new Set(),
+    decisions: [],
+  };
+  return routingContext;
 }
 
 describe('RoutingChangeStager', () => {
@@ -144,5 +154,158 @@ describe('RoutingChangeStager', () => {
     expect(result.kind).toBe(RESULT_KIND.Ok);
     expect(create).not.toHaveBeenCalled();
     expect(routingContext.emittedUcChanges).toEqual([]);
+  });
+
+  it.each([ROUTING_MODE.Auto, ROUTING_MODE.Manual])(
+    'stages one identity-preserving MDF UPDATE in %s mode',
+    async mode => {
+      const routingContext = context(mode);
+      const committed = new UseCase({
+        systemId: 101,
+        fileSystemId: 1,
+        keyVector: {valueSystemIds: [701]},
+        alias: 'media',
+        subgraphSystemIds: [10, 20],
+        subgraphPairs: [{sourceSubgraphSystemId: 10, destSubgraphSystemId: 20}],
+        type: 'LINKED',
+      });
+      routingContext.topologyChangeAnalysis = {
+        affectedUsecaseSystemIds: new Set(),
+        decisions: [
+          {
+            kind: 'MDF_SUBSTITUTION',
+            usecase: committed,
+            substitutions: [
+              {
+                removedPair: {
+                  sourceSubgraphSystemId: 10,
+                  destSubgraphSystemId: 20,
+                },
+                replacementSubgraphSystemIds: [15],
+                replacementPairs: [
+                  {sourceSubgraphSystemId: 10, destSubgraphSystemId: 15},
+                  {sourceSubgraphSystemId: 15, destSubgraphSystemId: 20},
+                ],
+              },
+            ],
+            structuralChange: {
+              addedSubgraphSystemIds: [15],
+              removedSubgraphSystemIds: [],
+              addedPairs: [
+                {sourceSubgraphSystemId: 10, destSubgraphSystemId: 15},
+                {sourceSubgraphSystemId: 15, destSubgraphSystemId: 20},
+              ],
+              removedPairs: [
+                {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+              ],
+              resultingSubgraphSystemIds: [10, 15, 20],
+              resultingPairs: [
+                {sourceSubgraphSystemId: 10, destSubgraphSystemId: 15},
+                {sourceSubgraphSystemId: 15, destSubgraphSystemId: 20},
+              ],
+              resultingType: 'LINKED',
+              sgkvAssignments: [
+                {subgraphSystemId: 15, valueDefinitionSystemIds: []},
+              ],
+            },
+          },
+        ],
+      };
+      const applyStructuralChange = jest
+        .fn()
+        .mockResolvedValue({systemId: 101, changeId: 9001});
+
+      const result = await new RoutingChangeStager().run(
+        routingContext,
+        {
+          getUsecaseRepository: () => ({applyStructuralChange}),
+        } as never,
+        {getNextId: jest.fn()} as never,
+      );
+
+      expect(result.kind).toBe(RESULT_KIND.Ok);
+      expect(applyStructuralChange).toHaveBeenCalledWith(
+        101,
+        {
+          removedPairs: [
+            {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+          ],
+          addedSgSystemIds: [15],
+          addedPairs: [
+            {sourceSubgraphSystemId: 10, destSubgraphSystemId: 15},
+            {sourceSubgraphSystemId: 15, destSubgraphSystemId: 20},
+          ],
+        },
+        {source: SOURCE.AutoRouting},
+        undefined,
+        [{subgraphSystemId: 15, valueDefinitionSystemIds: []}],
+      );
+      expect(routingContext.emittedUcChanges).toEqual([
+        {
+          systemId: 101,
+          changeId: 9001,
+          operation: CHANGE_OPERATION.Update,
+          source: SOURCE.AutoRouting,
+        },
+      ]);
+    },
+  );
+
+  it('stages one structural write for combined preservation and degradation', async () => {
+    const routingContext = context();
+    const committed = new UseCase({
+      systemId: 100,
+      fileSystemId: 1,
+      keyVector: {valueSystemIds: []},
+      subgraphSystemIds: [1, 2, 3, 4],
+      subgraphPairs: [
+        {sourceSubgraphSystemId: 1, destSubgraphSystemId: 2},
+        {sourceSubgraphSystemId: 3, destSubgraphSystemId: 4},
+      ],
+      type: 'LINKED',
+    });
+    routingContext.topologyChangeAnalysis = {
+      affectedUsecaseSystemIds: new Set([100]),
+      decisions: [
+        {
+          kind: 'TRANSITION_TO_ISLAND',
+          usecase: committed,
+          dataLinkLossPairs: [
+            {
+              sourceSubgraphSystemId: 1,
+              destSubgraphSystemId: 2,
+              deletedDataLinkSystemId: 10,
+            },
+          ],
+          droppedSubgraphSystemIds: [4],
+        },
+      ],
+    };
+    const applyStructuralChange = jest
+      .fn()
+      .mockResolvedValue({systemId: 100, changeId: 9002});
+
+    const result = await new RoutingChangeStager().run(
+      routingContext,
+      {
+        getUsecaseRepository: () => ({applyStructuralChange}),
+      } as never,
+      {getNextId: jest.fn()} as never,
+    );
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(applyStructuralChange).toHaveBeenCalledTimes(1);
+    expect(applyStructuralChange).toHaveBeenCalledWith(
+      100,
+      {
+        removedSgSystemIds: [4],
+        removedPairs: [{sourceSubgraphSystemId: 3, destSubgraphSystemId: 4}],
+        newType: 'ISLAND',
+      },
+      expect.anything(),
+      undefined,
+      undefined,
+    );
+    expect(routingContext.emittedUcChanges).toHaveLength(1);
   });
 });

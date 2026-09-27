@@ -13,7 +13,7 @@ import type {
   Cones,
   KvResolutions,
   OrphanCandidate,
-  DeletionAnalysis,
+  TopologyChangeAnalysis,
   IslandTransition,
   RoutingCombination,
   RoutingCandidates,
@@ -21,11 +21,18 @@ import type {
 } from './routing-state.js';
 import type {SameGkvCollision} from './same-gkv-collision.js';
 
+/**
+ * Mutable per-invocation state passed through the ordered routing phases.
+ *
+ * The input snapshot is fixed at construction time. Each phase publishes its result here
+ * for later phases, keeping orchestration state out of domain entities and preventing one
+ * routing request from leaking state into another.
+ */
 export class RoutingContext {
   /** Immutable, handler-normalized input shared by every phase in one routing run. */
   readonly input: RoutingInput;
-  /** Grouped Phase 2 deletion analysis. */
-  deletionAnalysis: DeletionAnalysis | null = null;
+  /** Complete Phase 2 per-UseCase topology decisions and affected set. */
+  topologyChangeAnalysis: TopologyChangeAnalysis | null = null;
   /** Complete Phase 3 island-transition descriptors. */
   readonly islandTransitions: IslandTransition[] = [];
   /** Phase 4 resolved SGKV selections used by later routing phases. */

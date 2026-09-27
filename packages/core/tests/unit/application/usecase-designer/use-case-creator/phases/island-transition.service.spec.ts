@@ -11,12 +11,15 @@ import {
   emptyGraphEdits,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
 import {RoutingContext} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
-import {DELETED_COMPONENT_TYPE} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
+import {
+  DELETED_COMPONENT_TYPE,
+  USECASE_TOPOLOGY_DECISION_KIND,
+  type TopologyChangeAnalysis,
+} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {IslandTransitionService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/island-transition.service.js';
 import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
 import type {ControlLink} from '../../../../../../src/domain/entities/usecase-data/links/control-link.js';
 import type {DataLink} from '../../../../../../src/domain/entities/usecase-data/links/data-link.js';
-import type {DeletionAnalysis} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 
 type UsecaseType = 'EC' | 'ISLAND' | 'LINKED';
 
@@ -27,7 +30,7 @@ interface FixtureOptions {
   readonly mdfSubgraphIds?: readonly number[];
   readonly routableDataLinks?: readonly DataLink[];
   readonly routableControlLinks?: readonly ControlLink[];
-  readonly deletionAnalysis?: DeletionAnalysis | null;
+  readonly topologyChangeAnalysis?: TopologyChangeAnalysis | null;
 }
 
 function usecase(
@@ -74,13 +77,23 @@ function controlLink(
   } as unknown as ControlLink;
 }
 
-function emptyDeletionAnalysis(): DeletionAnalysis {
+function emptyTopologyChangeAnalysis(
+  usecases: readonly UseCase[],
+): TopologyChangeAnalysis {
   return {
-    affectedUsecaseSystemIds: new Set(),
-    markedForDeletion: [],
-    preservedUsecases: [],
-    islandUseCaseCandidates: [],
-    reconstructionPaths: [],
+    affectedUsecaseSystemIds: new Set(
+      usecases
+        .filter(currentUsecase => currentUsecase.type === 'ISLAND')
+        .map(currentUsecase => currentUsecase.systemId),
+    ),
+    decisions: usecases
+      .filter(currentUsecase => currentUsecase.type === 'ISLAND')
+      .map(currentUsecase => ({
+        kind: USECASE_TOPOLOGY_DECISION_KIND.TransitionToIsland,
+        usecase: currentUsecase,
+        dataLinkLossPairs: [],
+        droppedSubgraphSystemIds: [],
+      })),
   };
 }
 
@@ -133,8 +146,9 @@ function createFixture(options: FixtureOptions = {}) {
       ? createManualRoutingInput({...inputInit, manualTopology: {pairs: []}})
       : createAutoRoutingInput(inputInit);
   const context = new RoutingContext(input);
-  context.deletionAnalysis =
-    options.deletionAnalysis ?? emptyDeletionAnalysis();
+  context.topologyChangeAnalysis =
+    options.topologyChangeAnalysis ??
+    emptyTopologyChangeAnalysis(committedUsecases);
   const repositoryAccess = jest.fn(() => {
     throw new Error('Phase 3 must not access repositories');
   });
@@ -160,9 +174,9 @@ describe('IslandTransitionService', () => {
         ),
       ],
       routableDataLinks: [dataLink(101, 1, 2)],
-      deletionAnalysis: null,
+      topologyChangeAnalysis: null,
     });
-    fixture.context.deletionAnalysis = null;
+    fixture.context.topologyChangeAnalysis = null;
 
     const result = await runPhase(fixture);
 
@@ -451,22 +465,24 @@ describe('IslandTransitionService', () => {
       [1, 2],
       [{sourceSubgraphSystemId: 1, destSubgraphSystemId: 2}],
     );
-    const deletionAnalysis: DeletionAnalysis = {
-      ...emptyDeletionAnalysis(),
-      markedForDeletion: [
+    const topologyChangeAnalysis: TopologyChangeAnalysis = {
+      affectedUsecaseSystemIds: new Set([currentUsecase.systemId]),
+      decisions: [
         {
+          kind: USECASE_TOPOLOGY_DECISION_KIND.DeleteOrReconstruct,
           usecase: currentUsecase,
           deletedComponent: {
             type: DELETED_COMPONENT_TYPE.DataLink,
             systemId: 101,
           },
+          reconstructionPaths: [],
         },
       ],
     };
     const fixture = createFixture({
       usecases: [currentUsecase],
       routableDataLinks: [dataLink(101, 1, 2)],
-      deletionAnalysis,
+      topologyChangeAnalysis,
     });
 
     await runPhase(fixture);

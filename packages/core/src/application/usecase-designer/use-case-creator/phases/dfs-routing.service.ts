@@ -6,7 +6,12 @@
 import {Result} from '../../../../application/shared/result/result.js';
 import type {RoutingContext} from '../contracts/routing-context.js';
 import {ROUTING_MODE} from '../contracts/routing-input.js';
-import {PATH_TERMINATION, type DfsPath} from '../contracts/routing-state.js';
+import {
+  PATH_TERMINATION,
+  USECASE_TOPOLOGY_DECISION_KIND,
+  type DfsPath,
+  type DeleteOrReconstructDecision,
+} from '../contracts/routing-state.js';
 import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
 import {DATA_LINK_TYPE} from '../../../../domain/entities/usecase-data/links/data-link-type.js';
@@ -52,6 +57,13 @@ interface DfsTraversalState {
   readonly cycleWarnings: Issue[];
 }
 
+/**
+ * Discovers bounded automatic routing paths inside the computed cones.
+ *
+ * Manual routing bypasses this phase because its topology is explicit. Automatic routing
+ * records deterministic cycle and EC-boundary outcomes and supplies successor paths for
+ * eligible deletion decisions.
+ */
 export class DfsRoutingService {
   // eslint-disable-next-line @typescript-eslint/require-await -- Phase execution remains promise-based for ordered orchestration.
   async run(
@@ -164,16 +176,29 @@ export class DfsRoutingService {
 
     // Reconstruction paths are already computed by Phase 2; Phase 7 only orders
     // and appends them after newly discovered snapshot paths.
-    const orderedReconstructionPaths = [
-      ...(context.deletionAnalysis?.reconstructionPaths ?? []),
-    ].sort(
-      (left, right) =>
-        left.originalUsecaseSystemId - right.originalUsecaseSystemId ||
-        comparePathIds(
-          left.path.subgraphSystemIds,
-          right.path.subgraphSystemIds,
-        ),
-    );
+    const analysis = context.topologyChangeAnalysis;
+    if (analysis === null) {
+      throw new Error('Topology change analysis must run before DFS');
+    }
+    const orderedReconstructionPaths = analysis.decisions
+      .filter(
+        (decision): decision is DeleteOrReconstructDecision =>
+          decision.kind === USECASE_TOPOLOGY_DECISION_KIND.DeleteOrReconstruct,
+      )
+      .flatMap(decision =>
+        decision.reconstructionPaths.map(path => ({
+          originalUsecaseSystemId: decision.usecase.systemId,
+          path,
+        })),
+      )
+      .sort(
+        (left, right) =>
+          left.originalUsecaseSystemId - right.originalUsecaseSystemId ||
+          comparePathIds(
+            left.path.subgraphSystemIds,
+            right.path.subgraphSystemIds,
+          ),
+      );
     discoveredPaths.push(
       ...orderedReconstructionPaths.map(
         reconstructionDescriptor => reconstructionDescriptor.path,

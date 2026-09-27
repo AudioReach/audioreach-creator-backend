@@ -4,14 +4,22 @@
  */
 
 import {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
+import {USECASE_TYPE} from '../../../../domain/entities/usecase-data/usecase/usecase-type.js';
 import type {SubgraphPair} from '../../../ports/persistence/repositories/shared/links-for-pair.js';
 import type {RoutingContext} from '../contracts/routing-context.js';
 import type {
   ClassifiedUsecase,
   InteriorExtensionClassification,
   RoutingCombination,
+  UsecaseStructuralChange,
+  UsecaseTopologyDecision,
 } from '../contracts/routing-state.js';
+import {USECASE_TOPOLOGY_DECISION_KIND as TOPOLOGY_DECISION_KIND} from '../contracts/routing-state.js';
 
+/**
+ * Session-wide read model composed from committed UCs and finalized routing changes.
+ * Unlike `UsecaseStructuralChange`, this contains no persistence delta for one aggregate.
+ */
 export interface ProjectedUsecaseTopology {
   readonly usecases: readonly UseCase[];
   readonly subgraphSystemIds: ReadonlySet<number>;
@@ -37,8 +45,9 @@ export function unorderedProjectedPairKey(
 
 function cloneUsecase(
   usecase: UseCase,
-  subgraphSystemIds = usecase.subgraphSystemIds,
-  subgraphPairs = usecase.subgraphPairs,
+  subgraphSystemIds: readonly number[] = usecase.subgraphSystemIds,
+  subgraphPairs: readonly SubgraphPair[] = usecase.subgraphPairs,
+  type = usecase.type,
 ): UseCase {
   return new UseCase({
     systemId: usecase.systemId,
@@ -49,9 +58,59 @@ function cloneUsecase(
     categories: usecase.categories ? [...usecase.categories] : undefined,
     subgraphSystemIds: [...subgraphSystemIds],
     subgraphPairs: subgraphPairs.map(pair => ({...pair})),
-    type: usecase.type,
+    type,
     orderedKeys: usecase.orderedKeys?.map(key => ({...key})),
   });
+}
+
+/**
+ * Materializes one finalized aggregate change as a cloned UseCase. This does not build the
+ * session-wide `ProjectedUsecaseTopology`; callers compose that broader read model separately.
+ */
+export function projectUsecaseStructure(
+  usecase: UseCase,
+  structuralChange: UsecaseStructuralChange,
+): UseCase {
+  return cloneUsecase(
+    usecase,
+    structuralChange.resultingSubgraphSystemIds,
+    structuralChange.resultingPairs,
+    structuralChange.resultingType,
+  );
+}
+
+export function projectCommittedUcsWithMdfSubstitutions(
+  context: RoutingContext,
+): readonly UseCase[] {
+  const analysis = context.topologyChangeAnalysis;
+  if (analysis === null) {
+    throw new Error('Topology change analysis must run before classification');
+  }
+
+  const structuralChanges = new Map(
+    analysis.decisions
+      .filter(
+        (
+          decision,
+        ): decision is Extract<
+          (typeof analysis.decisions)[number],
+          {readonly kind: typeof TOPOLOGY_DECISION_KIND.MdfSubstitution}
+        > => decision.kind === TOPOLOGY_DECISION_KIND.MdfSubstitution,
+      )
+      .map(
+        decision =>
+          [decision.usecase.systemId, decision.structuralChange] as const,
+      ),
+  );
+
+  return context.input.graphSnapshot.committedUsecases
+    .map(usecase => {
+      const structuralChange = structuralChanges.get(usecase.systemId);
+      return structuralChange === undefined
+        ? usecase
+        : projectUsecaseStructure(usecase, structuralChange);
+    })
+    .sort((left, right) => left.systemId - right.systemId);
 }
 
 function candidateUsecase(
@@ -138,70 +197,119 @@ function applyClassifiedUsecase(
   projected.set(candidate.systemId, candidate);
 }
 
-function applyPhaseTwoAndThree(
+function applyPreserveDecision(
+  projected: Map<number, UseCase>,
+  decision: Extract<UsecaseTopologyDecision, {kind: 'PRESERVE'}>,
+): void {
+  const current = projected.get(decision.usecase.systemId);
+  if (!current) return;
+  const dropped = new Set(decision.droppedSubgraphSystemIds);
+  projected.set(
+    current.systemId,
+    cloneUsecase(
+      current,
+      current.subgraphSystemIds.filter(id => !dropped.has(id)),
+      current.subgraphPairs.filter(
+        pair =>
+          !dropped.has(pair.sourceSubgraphSystemId) &&
+          !dropped.has(pair.destSubgraphSystemId),
+      ),
+    ),
+  );
+}
+
+function applyTopologyDecision(
+  projected: Map<number, UseCase>,
+  decision: UsecaseTopologyDecision,
+): void {
+  switch (decision.kind) {
+    case TOPOLOGY_DECISION_KIND.MdfSubstitution: {
+      const current = projected.get(decision.usecase.systemId);
+      if (current !== undefined)
+        projected.set(
+          current.systemId,
+          projectUsecaseStructure(current, decision.structuralChange),
+        );
+      return;
+    }
+    case TOPOLOGY_DECISION_KIND.TransitionToIsland: {
+      const current = projected.get(decision.usecase.systemId);
+      if (current === undefined) return;
+      const dropped = new Set(decision.droppedSubgraphSystemIds);
+      projected.set(
+        current.systemId,
+        cloneUsecase(
+          current,
+          current.subgraphSystemIds.filter(id => !dropped.has(id)),
+          current.subgraphPairs.filter(
+            pair =>
+              !dropped.has(pair.sourceSubgraphSystemId) &&
+              !dropped.has(pair.destSubgraphSystemId),
+          ),
+          USECASE_TYPE.Island,
+        ),
+      );
+      return;
+    }
+    case TOPOLOGY_DECISION_KIND.DeleteOrReconstruct:
+      projected.delete(decision.usecase.systemId);
+      return;
+    case TOPOLOGY_DECISION_KIND.Preserve:
+      applyPreserveDecision(projected, decision);
+      return;
+  }
+}
+
+function applyIslandTransition(
+  projected: Map<number, UseCase>,
+  transition: RoutingContext['islandTransitions'][number],
+): void {
+  const current = projected.get(transition.usecase.systemId);
+  if (!current) return;
+  const corrections = new Map(
+    transition.directionCorrections.map(correction => [
+      directedProjectedPairKey(
+        correction.currentSourceSubgraphSystemId,
+        correction.currentDestSubgraphSystemId,
+      ),
+      {
+        sourceSubgraphSystemId: correction.newSourceSubgraphSystemId,
+        destSubgraphSystemId: correction.newDestSubgraphSystemId,
+      },
+    ]),
+  );
+  const pairs = current.subgraphPairs.map(
+    pair =>
+      corrections.get(
+        directedProjectedPairKey(
+          pair.sourceSubgraphSystemId,
+          pair.destSubgraphSystemId,
+        ),
+      ) ?? pair,
+  );
+  projected.set(
+    current.systemId,
+    cloneUsecase(
+      current,
+      [
+        ...new Set([
+          ...current.subgraphSystemIds,
+          ...transition.addedSubgraphSystemIds,
+        ]),
+      ],
+      uniquePairs([...pairs, ...transition.addedPairs]),
+    ),
+  );
+}
+
+function applyFinalizedTopologyChanges(
   context: RoutingContext,
   projected: Map<number, UseCase>,
 ): void {
-  const deletion = context.deletionAnalysis;
-  for (const marked of deletion?.markedForDeletion ?? [])
-    projected.delete(marked.usecase.systemId);
-
-  for (const preserved of deletion?.preservedUsecases ?? []) {
-    const current = projected.get(preserved.usecase.systemId);
-    if (!current) continue;
-    const dropped = new Set(preserved.droppedSubgraphSystemIds);
-    projected.set(
-      current.systemId,
-      cloneUsecase(
-        current,
-        current.subgraphSystemIds.filter(id => !dropped.has(id)),
-        current.subgraphPairs.filter(
-          pair =>
-            !dropped.has(pair.sourceSubgraphSystemId) &&
-            !dropped.has(pair.destSubgraphSystemId),
-        ),
-      ),
-    );
-  }
-
-  for (const transition of context.islandTransitions) {
-    const current = projected.get(transition.usecase.systemId);
-    if (!current) continue;
-    const corrections = new Map(
-      transition.directionCorrections.map(correction => [
-        directedProjectedPairKey(
-          correction.currentSourceSubgraphSystemId,
-          correction.currentDestSubgraphSystemId,
-        ),
-        {
-          sourceSubgraphSystemId: correction.newSourceSubgraphSystemId,
-          destSubgraphSystemId: correction.newDestSubgraphSystemId,
-        },
-      ]),
-    );
-    const pairs = current.subgraphPairs.map(
-      pair =>
-        corrections.get(
-          directedProjectedPairKey(
-            pair.sourceSubgraphSystemId,
-            pair.destSubgraphSystemId,
-          ),
-        ) ?? pair,
-    );
-    projected.set(
-      current.systemId,
-      cloneUsecase(
-        current,
-        [
-          ...new Set([
-            ...current.subgraphSystemIds,
-            ...transition.addedSubgraphSystemIds,
-          ]),
-        ],
-        uniquePairs([...pairs, ...transition.addedPairs]),
-      ),
-    );
-  }
+  for (const decision of context.topologyChangeAnalysis?.decisions ?? [])
+    applyTopologyDecision(projected, decision);
+  for (const transition of context.islandTransitions)
+    applyIslandTransition(projected, transition);
 }
 
 export function buildProjectedUsecaseTopology(
@@ -211,14 +319,12 @@ export function buildProjectedUsecaseTopology(
   for (const usecase of context.input.graphSnapshot.committedUsecases)
     projected.set(usecase.systemId, cloneUsecase(usecase));
 
-  if (context.input.mode === 'AUTO') {
-    for (const edit of context.input.activeManualUsecaseEdits) {
-      if (edit.usecase !== null)
-        projected.set(edit.usecase.systemId, cloneUsecase(edit.usecase));
-    }
+  for (const edit of context.input.activeManualUsecaseEdits) {
+    if (edit.usecase !== null)
+      projected.set(edit.usecase.systemId, cloneUsecase(edit.usecase));
   }
 
-  applyPhaseTwoAndThree(context, projected);
+  applyFinalizedTopologyChanges(context, projected);
   for (const classification of context.classifiedUcs)
     applyClassifiedUsecase(
       projected,

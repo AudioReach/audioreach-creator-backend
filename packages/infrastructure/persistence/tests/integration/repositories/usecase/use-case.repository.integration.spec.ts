@@ -956,5 +956,75 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
         ],
       });
     });
+
+    it('stages an identity-preserving MDF substitution as one structural update', async () => {
+      const mdfSubgraphId = 502;
+      await seedSubgraph(ds, mdfSubgraphId);
+      await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
+      await linkSg(ds, 1000, SG_ID_1);
+      await linkSg(ds, 1000, SG_ID_2);
+      await linkPair(ds, 1000, SG_ID_1, SG_ID_2);
+      await qr.startTransaction();
+
+      const repo = makeRepo(qr.manager, sessionId);
+      const result = await repo.applyStructuralChange(
+        1000,
+        {
+          removedPairs: [
+            {sourceSubgraphSystemId: SG_ID_1, destSubgraphSystemId: SG_ID_2},
+          ],
+          addedSgSystemIds: [mdfSubgraphId],
+          addedPairs: [
+            {
+              sourceSubgraphSystemId: SG_ID_1,
+              destSubgraphSystemId: mdfSubgraphId,
+            },
+            {
+              sourceSubgraphSystemId: mdfSubgraphId,
+              destSubgraphSystemId: SG_ID_2,
+            },
+          ],
+        },
+        {source: SOURCE.AutoRouting},
+        undefined,
+        [{subgraphSystemId: mdfSubgraphId, valueDefinitionSystemIds: []}],
+      );
+      await qr.commitTransaction();
+
+      const rows: any[] = await ds.query(
+        `SELECT change_id, target_table, operation, new_value FROM edit_actions WHERE session_id = ? AND aggregate_id = ? ORDER BY change_id`,
+        [sessionId, 1000],
+      );
+      expect(
+        rows.map((row: any) => `${row.target_table}:${row.operation}`),
+      ).toEqual([
+        'UseCaseSubgraphPair:DELETE',
+        'UseCaseSubgraph:CREATE',
+        'UseCaseSubgraphPair:CREATE',
+        'UseCaseSubgraphPair:CREATE',
+        'UseCase:UPDATE',
+      ]);
+      const rootRow = rows.find((row: any) => row.target_table === 'UseCase');
+      expect(JSON.parse(rootRow.new_value)).toEqual({
+        sgkvAssignments: [
+          {subgraphSystemId: mdfSubgraphId, valueDefinitionSystemIds: []},
+        ],
+      });
+      expect(result).toEqual({
+        systemId: 1000,
+        changeId: rootRow.change_id,
+      });
+
+      const [effective] = await repo.findBySystemIds(FILE_ID, [1000]);
+      expect(effective.systemId).toBe(1000);
+      expect(effective.type).toBe(USECASE_TYPE.Linked);
+      expect(
+        effective.subgraphSystemIds.sort((left, right) => left - right),
+      ).toEqual([SG_ID_1, SG_ID_2, mdfSubgraphId]);
+      expect(effective.subgraphPairs).toEqual([
+        {sourceSubgraphSystemId: SG_ID_1, destSubgraphSystemId: mdfSubgraphId},
+        {sourceSubgraphSystemId: mdfSubgraphId, destSubgraphSystemId: SG_ID_2},
+      ]);
+    });
   });
 });

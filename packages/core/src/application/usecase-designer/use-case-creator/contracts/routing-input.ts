@@ -62,17 +62,21 @@ export interface ManualTopology {
   readonly pairs: readonly ManualTopologyPair[];
 }
 
+/**
+ * Fields shared by both routing modes and copied by their input factories.
+ * Automatic routing accepts this shape directly; manual routing adds topology.
+ */
 interface RoutingInputBase {
-  readonly mode: RoutingMode;
   readonly fileSystemId: number;
   readonly selection: RoutingSelection;
   readonly selectedUsecases: readonly UseCase[];
   readonly graphSnapshot: RoutingGraphSnapshot;
+  /** Used in both modes to validate dependencies and resolve edit precedence. */
+  readonly activeManualUsecaseEdits: readonly ActiveManualUsecaseEdit[];
 }
 
 export interface AutoRoutingInput extends RoutingInputBase {
   readonly mode: typeof ROUTING_MODE.Auto;
-  readonly activeManualUsecaseEdits: readonly ActiveManualUsecaseEdit[];
 }
 
 export interface ManualRoutingInput extends RoutingInputBase {
@@ -82,19 +86,9 @@ export interface ManualRoutingInput extends RoutingInputBase {
 
 export type RoutingInput = AutoRoutingInput | ManualRoutingInput;
 
-interface RoutingInputInitBase {
-  readonly fileSystemId: number;
-  readonly selection: RoutingSelection;
-  readonly selectedUsecases: readonly UseCase[];
-  readonly graphSnapshot: RoutingGraphSnapshot;
-}
-
-export interface AutoRoutingInputInit extends RoutingInputInitBase {
-  readonly activeManualUsecaseEdits: readonly ActiveManualUsecaseEdit[];
-}
-
+/** Adds the topology consumed only by `createManualRoutingInput`. */
 export interface ManualRoutingInputInit
-  extends RoutingInputInitBase, Pick<ManualRoutingInput, 'manualTopology'> {}
+  extends RoutingInputBase, Pick<ManualRoutingInput, 'manualTopology'> {}
 
 export interface DerivedRoutingScope {
   readonly selectedScopeSubgraphs: ReadonlySet<number>;
@@ -215,12 +209,15 @@ function copyTopologyPair(pair: ManualTopologyPair): ManualTopologyPair {
   throw new Error('Manual topology pairs require exactly one support type');
 }
 
-function copyBase(init: RoutingInputInitBase): Omit<RoutingInputBase, 'mode'> {
+function copyBase(init: RoutingInputBase): RoutingInputBase {
   return {
     fileSystemId: init.fileSystemId,
     selection: copyRoutingSelection(init.selection),
     selectedUsecases: [...init.selectedUsecases],
     graphSnapshot: copyGraphSnapshot(init.graphSnapshot),
+    activeManualUsecaseEdits: copyActiveManualUsecaseEdits(
+      init.activeManualUsecaseEdits,
+    ),
   };
 }
 
@@ -321,14 +318,11 @@ export function createControlLinkManualTopologyPair(
 }
 
 export function createAutoRoutingInput(
-  init: AutoRoutingInputInit,
+  init: RoutingInputBase,
 ): AutoRoutingInput {
   return {
     ...copyBase(init),
     mode: ROUTING_MODE.Auto,
-    activeManualUsecaseEdits: copyActiveManualUsecaseEdits(
-      init.activeManualUsecaseEdits,
-    ),
   };
 }
 

@@ -127,11 +127,11 @@ TopologyChangeAnalysis {
 UsecaseTopologyDecision :=
     MdfSubstitution
   | PreserveUsecase
-  | DegradeToIsland
+   | TransitionToIsland
   | DeleteOrReconstruct
 ```
 
-`MdfSubstitution` contains all pair replacements and one complete structural projection:
+`MdfSubstitution` contains all pair replacements and one complete structural change:
 removed pairs, added MDF members, added chain pairs, resulting topology/type, and empty
 MDF assignment metadata. It is intentionally excluded from
 `affectedUsecaseSystemIds`. All other decision kinds retain their existing FR-DEL-02
@@ -193,7 +193,7 @@ Phase 2 stores these under the matching `DELETE_OR_RECONSTRUCT` decision. Combin
 Expansion consumes them alongside Phase 7 `dfsPaths` without duplicating them in both
 collections.
 
-### 4.6 `IslandUseCaseCandidate` (`DegradeToIsland` detail)
+### 4.6 `IslandUseCaseCandidate` (`TransitionToIsland` detail)
 
 For `LINKED` UCs where a data-link deletion left the pair with only control-link
 support:
@@ -319,7 +319,7 @@ context.topologyChangeAnalysis := {affectedUsecaseSystemIds: affectedUcIds, deci
   substitution. Replacement-chain discovery then uses only routable, non-excluded scope;
   excluding a chain member/link makes the strict substitution unavailable.
 - Pure MDF decisions do not enter FR-DEL-02 and do not depend on Phase 5–9 discovery.
-  Phase 11 applies their authoritative structural projection directly.
+  Phase 11 applies their authoritative structural change directly.
 - Classification and orphan validation consume an in-memory projection of the finalized
   MDF topology so DFS rediscovery cannot create duplicate work.
 - `addOrMerge` is pseudocode for "add a candidate, merging data-link-loss pairs if the UC
@@ -336,7 +336,7 @@ adjacency. No per-deletion repository reads are introduced.
 **Edge cases:**
 - **Same UC touched by multiple deletions:** precedence rule (SG > data-link >
   control-link) governs the retained ordinary deleted-component cause. If a UC has both
-  a broken pair and a degraded pair, the final decision is `DELETE_OR_RECONSTRUCT`; the
+   a broken pair and a pair eligible for island transition, the final decision is `DELETE_OR_RECONSTRUCT`; the
   broken pair takes precedence over degradation.
 - **Deleted control-link on an `ISLAND` UC:** control-link deletion where pair
   loses all support → UC impacted (marked for deletion). The UC was already
@@ -427,7 +427,7 @@ still runs (transitions are triggered by *additions* too, not just deletions).
 ### 5.3 FR-DEL-03: Mark UCs for deletion
 
 **Rule:** Once FR-DEL-02 passes, every finalized `DELETE_OR_RECONSTRUCT` decision is
-marked pending deletion. `MDF_SUBSTITUTION`, `PRESERVE`, and `DEGRADE_TO_ISLAND`
+marked pending deletion. `MDF_SUBSTITUTION`, `PRESERVE`, and `TRANSITION_TO_ISLAND`
 decisions are never marked pending deletion.
 
 **Algorithm:**
