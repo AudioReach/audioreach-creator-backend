@@ -327,7 +327,8 @@ decision.
 
 ### 6.1 API layer
 
-The data-link and control-link controllers expose project-level GET methods. These
+The data-link and control-link controllers expose subgraph-peer GET methods scoped
+to a project. These
 methods parse the query DTO, validate the filter combinations, and dispatch core
 queries. They must not query TypeORM or implement link matching directly.
 
@@ -336,33 +337,33 @@ Suggested signatures:
 ```typescript
 async getDataLinks(
   projectId: string,
-  query: GetProjectDataLinksQueryDto,
+  query: GetSubgraphPeerDataLinksQueryDto,
 ): Promise<ApiResult<DataLinkWithUsecasesResponseDto[]>>;
 
 async getControlLinks(
   projectId: string,
-  query: GetProjectControlLinksQueryDto,
+  query: GetSubgraphPeerControlLinksQueryDto,
 ): Promise<ApiResult<ControlLinkWithUsecasesResponseDto[]>>;
 ```
 
 ### 6.2 Core layer
 
-Add project-level query operations following the existing feature convention:
+Add subgraph-peer query operations following the existing feature convention:
 
 ```text
-packages/core/src/application/usecase-designer/data-link/get-project-data-links/
-  get-project-data-links.query.ts
-  get-project-data-links.handler.ts
+packages/core/src/application/usecase-designer/data-links/get-subgraph-peer/
+  get-subgraph-peer-data-links.query.ts
+  get-subgraph-peer-data-links.handler.ts
 
-packages/core/src/application/usecase-designer/control-link/get-project-control-links/
-  get-project-control-links.query.ts
-  get-project-control-links.handler.ts
+packages/core/src/application/usecase-designer/control-links/get-subgraph-peer/
+  get-subgraph-peer-control-links.query.ts
+  get-subgraph-peer-control-links.handler.ts
 ```
 
 The data-link query carries:
 
 ```typescript
-interface ProjectLinkFilter {
+interface SubgraphPeerLinkFilter {
   subgraphSystemId?: number;
   moduleSystemId?: number;
   portSystemId?: number;

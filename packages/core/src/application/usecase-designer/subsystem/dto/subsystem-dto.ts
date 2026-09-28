@@ -9,6 +9,7 @@ import {
   DataPortDtoSchema,
   ControlPortDtoSchema,
 } from '../../spf-module/query/spf-module-dto.js';
+import type {SubsystemReadModel} from '../../../ports/persistence/query-services/subsystem/subsystem-read-model.js';
 
 export const SubsystemDtoSchema = z.object({
   systemId: z.string().describe('System ID'),
@@ -26,3 +27,20 @@ export const SubsystemDtoSchema = z.object({
 });
 
 export type SubsystemDto = z.infer<typeof SubsystemDtoSchema>;
+
+export function mapSubsystem(s: SubsystemReadModel): SubsystemDto {
+  return {
+    systemId: String(s.systemId),
+    naturalId: s.subsystemNaturalId ?? s.systemId,
+    name: s.name,
+    parentSystemId:
+      s.parentSystemId === undefined ? undefined : String(s.parentSystemId),
+    dataPorts: [],
+    controlPorts: [],
+    filteredKeys: s.filteredKeys.map(key => ({
+      naturalId: key.naturalId,
+      name: key.name,
+      systemId: String(key.systemId),
+    })),
+  };
+}

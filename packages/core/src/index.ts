@@ -407,6 +407,8 @@ export {
 export type {SubgraphDto} from './application/usecase-designer/subgraph/dto/subgraph-dto.js';
 export * from './application/usecase-designer/subgraph/get-all/get-all-subgraphs.query.js';
 export * from './application/usecase-designer/subgraph/get-all/get-all-subgraphs.handler.js';
+export * from './application/usecase-designer/subsystem/get-all/get-all-subsystems.query.js';
+export * from './application/usecase-designer/subsystem/get-all/get-all-subsystems.handler.js';
 export {
   SubgraphPairDtoSchema,
   DataLinkWithUsecasesDtoSchema,
@@ -457,6 +459,7 @@ export * from './application/usecase-designer/container/get-property/get-contain
 export {ContainerPropertiesDtoSchema} from './application/usecase-designer/container/dto/container-properties-dto.js';
 export type {ContainerPropertiesDto} from './application/usecase-designer/container/dto/container-properties-dto.js';
 export {SubsystemDtoSchema} from './application/usecase-designer/subsystem/dto/subsystem-dto.js';
+export {mapSubsystem} from './application/usecase-designer/subsystem/dto/subsystem-dto.js';
 export type {SubsystemDto} from './application/usecase-designer/subsystem/dto/subsystem-dto.js';
 export {SubsystemSnapshotDtoSchema} from './application/usecase-designer/subsystem/dto/subsystem-snapshot.dto.js';
 export type {SubsystemSnapshotDto} from './application/usecase-designer/subsystem/dto/subsystem-snapshot.dto.js';

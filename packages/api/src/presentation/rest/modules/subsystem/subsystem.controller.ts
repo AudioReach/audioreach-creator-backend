@@ -13,16 +13,20 @@ import {
   UseGuards,
   UseInterceptors,
   Post,
+  Get,
   Patch,
   Put,
   Delete,
+  Query,
 } from '@nestjs/common';
-import {ApiTags, ApiParam} from '@nestjs/swagger';
+import {ApiTags, ApiParam, ApiQuery} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
 import {AuthGuard} from '@nestjs/passport';
+import {ClientId} from '../../../../decorators/client-id.decorator.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
+import {toApiResult} from '../../common/result/to-api-result.js';
 import {CreateSubsystemRequestDto} from './dto/request/create-subsystem-request.dto.js';
 import {MoveSubsystemComponentsRequestDto} from './dto/request/move-subsystem-components-request.dto.js';
 import {PatchSubsystemRequestDto} from './dto/request/patch-subsystem-request.dto.js';
@@ -32,6 +36,8 @@ import {CreateSubsystemResponseDto} from './dto/response/create-subsystem-respon
 import {DeleteSubsystemResponseDto} from './dto/response/delete-subsystem-response.dto.js';
 import {UpdateSubsystemResponseDto} from './dto/response/update-subsystem-response.dto.js';
 import {UpdateSubsystemFilteredKeysResponseDto} from './dto/response/update-subsystem-filtered-keys-response.dto.js';
+import {SubsystemResponseDto} from './dto/response/subsystem-response.dto.js';
+import {QueryBus, GetAllSubsystemsQuery, Result} from '@arc/core';
 
 /**
  * Controller to support all Subsystem related APIs for usecase design.
@@ -48,8 +54,72 @@ import {UpdateSubsystemFilteredKeysResponseDto} from './dto/response/update-subs
   example: '12345',
 })
 export class SubsystemController extends BaseController {
-  constructor() {
+  constructor(private readonly queryBus: QueryBus) {
     super();
+  }
+
+  /**
+   * Get all subsystems in the project, optionally filtered by system IDs.
+   */
+  @Get()
+  @ApiQuery({
+    name: 'systemId',
+    required: false,
+    type: String,
+    description: 'Optional comma-separated subsystem system IDs',
+    example: '301,302',
+  })
+  @ApiDocumentationWithExample({
+    summary: 'Get subsystems, optionally filtered by system IDs',
+    description:
+      'Returns all subsystems when systemId is omitted, or only the requested subsystems when systemId is provided.',
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'All subsystems found successfully',
+        dto: [SubsystemResponseDto],
+      },
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project not found',
+      },
+      {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Failed to get subsystem(s)',
+      },
+    ],
+  })
+  async getAllSubsystems(
+    @Param('projectId') projectId: string,
+    @Query('systemId') systemId: string | undefined,
+    @ClientId() clientId: string,
+  ): Promise<ApiResult<SubsystemResponseDto[]>> {
+    if (systemId !== undefined && !systemId.trim()) {
+      throw new BadRequestException(
+        'systemId query parameter cannot be empty when provided',
+      );
+    }
+
+    const systemIds = systemId
+      ?.split(',')
+      .map(id => id.trim())
+      .filter(Boolean)
+      .map(id => {
+        const parsed = Number.parseInt(id, 10);
+        if (Number.isNaN(parsed)) {
+          throw new BadRequestException(`Invalid subsystem system ID: ${id}`);
+        }
+        return parsed;
+      });
+
+    const query = new GetAllSubsystemsQuery(
+      Number.parseInt(projectId, 10),
+      clientId,
+      systemIds,
+    );
+    const result =
+      await this.queryBus.execute<Result<SubsystemResponseDto[]>>(query);
+    return toApiResult(result);
   }
 
   //#region POST
