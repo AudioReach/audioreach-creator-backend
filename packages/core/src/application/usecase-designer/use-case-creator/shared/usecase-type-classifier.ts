@@ -3,6 +3,12 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+/**
+ * Computes the resulting UseCase type from pair support.
+ *
+ * Used by topology decision analysis, routing-change staging, and collision
+ * resolution staging.
+ */
 import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
 import {DATA_LINK_TYPE} from '../../../../domain/entities/usecase-data/links/data-link-type.js';
 import type {UsecaseType} from '../../../../domain/entities/usecase-data/usecase/usecase-type.js';

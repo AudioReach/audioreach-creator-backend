@@ -145,7 +145,7 @@ describe('pure MDF replay routing chain', () => {
     expect(harness.observed.topologyDecisionKinds).toEqual([
       'MDF_SUBSTITUTION',
     ]);
-    expect(harness.observed.phaseOrder).not.toContain('ROUTING_CHANGE_STAGER');
+    expect(harness.observed.phaseOrder).not.toContain('ROUTING_CHANGE_STAGING');
     expect(harness.writes.deltas).toEqual([]);
     expect(harness.writes.descriptors).toEqual([]);
   });

@@ -4,41 +4,41 @@
  */
 
 import {RoutingEngine} from './routing-engine.js';
-import {CombinationExpansionService} from '../phases/combination-expansion.service.js';
-import {ConeComputationService} from '../phases/cone-computation.service.js';
-import {ClassificationService} from '../phases/classification.service.js';
-import {TopologyChangeAnalysisService} from '../phases/topology-change-analysis.service.js';
-import {IslandTransitionService} from '../phases/island-transition.service.js';
-import {DfsRoutingService} from '../phases/dfs-routing.service.js';
-import {KvResolutionService} from '../phases/kv-resolution.service.js';
-import {OrphanValidationService} from '../phases/orphan-validation.service.js';
-import {PreValidationService} from '../phases/pre-validation.service.js';
-import {ResponseBuilder} from '../phases/response-builder.js';
-import {RoutingChangeStager} from '../phases/routing-change-stager.js';
-import {SeedDetectionService} from '../phases/seed-detection.service.js';
-import {DeletionReconstructionService} from '../services/deletion-reconstruction.service.js';
-import {ManualUsecaseDependencyValidator} from '../services/manual-usecase-dependency-validator.js';
-import {ManualMdfPrecedenceService} from '../services/manual-mdf-precedence.service.js';
-import {MdfSubstitutionAnalyzer} from '../services/mdf-substitution-analyzer.js';
+import {CombinationExpansionPhase} from '../phases/combination-expansion/combination-expansion.phase.js';
+import {ConeComputationPhase} from '../phases/cone-computation.phase.js';
+import {ClassificationPhase} from '../phases/classification/classification.phase.js';
+import {TopologyChangeAnalysisPhase} from '../phases/topology-change-analysis/topology-change-analysis.phase.js';
+import {IslandTransitionPhase} from '../phases/island-transition/island-transition.phase.js';
+import {DfsRoutingPhase} from '../phases/dfs-routing/dfs-routing.phase.js';
+import {KvResolutionPhase} from '../phases/kv-resolution.phase.js';
+import {OrphanValidationPhase} from '../phases/orphan-validation.phase.js';
+import {PreValidationPhase} from '../phases/pre-validation/pre-validation.phase.js';
+import {ResponseBuilderPhase} from '../phases/response-builder.phase.js';
+import {RoutingChangeStagingPhase} from '../phases/routing-change-staging/routing-change-staging.phase.js';
+import {SeedDetectionPhase} from '../phases/seed-detection.phase.js';
+import {DeletionReconstructionService} from '../phases/topology-change-analysis/deletion-reconstruction.service.js';
+import {ManualUsecaseDependencyValidator} from '../phases/pre-validation/manual-usecase-dependency-validator.js';
+import {ManualMdfPrecedenceService} from '../phases/topology-change-analysis/manual-mdf-precedence.service.js';
+import {MdfSubstitutionAnalyzer} from '../phases/topology-change-analysis/mdf-substitution-analyzer.js';
 
 export function createRoutingEngine(): RoutingEngine {
   const manualDependencyValidator = new ManualUsecaseDependencyValidator();
   return new RoutingEngine(
-    new PreValidationService(manualDependencyValidator),
-    new TopologyChangeAnalysisService(
+    new PreValidationPhase(manualDependencyValidator),
+    new TopologyChangeAnalysisPhase(
       new DeletionReconstructionService(),
       new ManualMdfPrecedenceService(),
       new MdfSubstitutionAnalyzer(),
     ),
-    new IslandTransitionService(),
-    new KvResolutionService(),
-    new SeedDetectionService(),
-    new ConeComputationService(),
-    new DfsRoutingService(),
-    new CombinationExpansionService(),
-    new ClassificationService(),
-    new OrphanValidationService(),
-    new RoutingChangeStager(),
-    new ResponseBuilder(),
+    new IslandTransitionPhase(),
+    new KvResolutionPhase(),
+    new SeedDetectionPhase(),
+    new ConeComputationPhase(),
+    new DfsRoutingPhase(),
+    new CombinationExpansionPhase(),
+    new ClassificationPhase(),
+    new OrphanValidationPhase(),
+    new RoutingChangeStagingPhase(),
+    new ResponseBuilderPhase(),
   );
 }

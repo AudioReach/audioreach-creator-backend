@@ -24,6 +24,11 @@ export interface AutoRoutingPreparationInput {
   readonly selection: RoutingSelection;
 }
 
+/**
+ * Prepares the immutable input consumed by the automatic routing pipeline.
+ *
+ * Used by `CreateUsecasesHandler` and `ResolveSameGkvCollisionHandler`.
+ */
 export class AutoRoutingPreparationService {
   constructor(
     private readonly subsystemLinkResolutionService: SubsystemLinkResolutionService = new SubsystemLinkResolutionService(),

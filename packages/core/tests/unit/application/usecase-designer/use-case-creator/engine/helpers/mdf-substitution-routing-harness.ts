@@ -22,18 +22,18 @@ import type {
   UsecaseTopologyDecision,
 } from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {RoutingEngine} from '../../../../../../../src/application/usecase-designer/use-case-creator/engine/routing-engine.js';
-import {PreValidationService} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/pre-validation.service.js';
-import {TopologyChangeAnalysisService} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/topology-change-analysis.service.js';
-import {IslandTransitionService} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/island-transition.service.js';
-import {KvResolutionService} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/kv-resolution.service.js';
-import {SeedDetectionService} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/seed-detection.service.js';
-import {ConeComputationService} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/cone-computation.service.js';
-import {DfsRoutingService} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/dfs-routing.service.js';
-import {CombinationExpansionService} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/combination-expansion.service.js';
-import {ClassificationService} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/classification.service.js';
-import {OrphanValidationService} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/orphan-validation.service.js';
-import {RoutingChangeStager} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/routing-change-stager.js';
-import {ResponseBuilder} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/response-builder.js';
+import {PreValidationPhase} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/pre-validation/pre-validation.phase.js';
+import {TopologyChangeAnalysisPhase} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/topology-change-analysis/topology-change-analysis.phase.js';
+import {IslandTransitionPhase} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/island-transition/island-transition.phase.js';
+import {KvResolutionPhase} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/kv-resolution.phase.js';
+import {SeedDetectionPhase} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/seed-detection.phase.js';
+import {ConeComputationPhase} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/cone-computation.phase.js';
+import {DfsRoutingPhase} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/dfs-routing/dfs-routing.phase.js';
+import {CombinationExpansionPhase} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/combination-expansion/combination-expansion.phase.js';
+import {ClassificationPhase} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/classification/classification.phase.js';
+import {OrphanValidationPhase} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/orphan-validation.phase.js';
+import {RoutingChangeStagingPhase} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/routing-change-staging/routing-change-staging.phase.js';
+import {ResponseBuilderPhase} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/response-builder.phase.js';
 import {RoutingIssueFactory} from '../../../../../../../src/application/usecase-designer/use-case-creator/issues/routing-issue-factory.js';
 import {Subgraph} from '../../../../../../../src/domain/entities/usecase-data/subgraph/subgraph.js';
 import {DataLink} from '../../../../../../../src/domain/entities/usecase-data/links/data-link.js';
@@ -541,15 +541,15 @@ export function createMdfSubstitutionRoutingHarness(
       return result;
     },
   });
-  const topologyChangeAnalysis = new TopologyChangeAnalysisService();
-  const classification = new ClassificationService();
+  const topologyChangeAnalysis = new TopologyChangeAnalysisPhase();
+  const classification = new ClassificationPhase();
   const classificationPhase = scenario.failClassification
     ? {
         run: async () =>
           Result.fail(RoutingIssueFactory.stagingPairEndpointMissing(0, 0)),
       }
     : classification;
-  const combinationExpansion = new CombinationExpansionService();
+  const combinationExpansion = new CombinationExpansionPhase();
   const tracedCombinationExpansion = {
     run: async (context: RoutingContext) => {
       const result = await combinationExpansion.run(context);
@@ -562,7 +562,7 @@ export function createMdfSubstitutionRoutingHarness(
     },
   };
   const engine = new RoutingEngine(
-    trace('PRE_VALIDATION', new PreValidationService()),
+    trace('PRE_VALIDATION', new PreValidationPhase()),
     trace('TOPOLOGY_CHANGE_ANALYSIS', topologyChangeAnalysis, context => {
       topologyDecisionKinds.push(
         ...(context.topologyChangeAnalysis?.decisions.map(
@@ -574,11 +574,11 @@ export function createMdfSubstitutionRoutingHarness(
           classificationTopologies.push(topologyOf(projectedUsecase(decision)));
       }
     }),
-    trace('ISLAND_TRANSITION', new IslandTransitionService()),
-    trace('KV_RESOLUTION', new KvResolutionService()),
-    trace('SEED_DETECTION', new SeedDetectionService()),
-    trace('CONE_COMPUTATION', new ConeComputationService()),
-    trace('DFS_ROUTING', new DfsRoutingService()),
+    trace('ISLAND_TRANSITION', new IslandTransitionPhase()),
+    trace('KV_RESOLUTION', new KvResolutionPhase()),
+    trace('SEED_DETECTION', new SeedDetectionPhase()),
+    trace('CONE_COMPUTATION', new ConeComputationPhase()),
+    trace('DFS_ROUTING', new DfsRoutingPhase()),
     trace('COMBINATION_EXPANSION', tracedCombinationExpansion),
     trace('CLASSIFICATION', classificationPhase, context => {
       collisionIds.push(
@@ -589,9 +589,9 @@ export function createMdfSubstitutionRoutingHarness(
           topologyOf(candidateUsecase(classified.candidate)),
         );
     }),
-    trace('ORPHAN_VALIDATION', new OrphanValidationService()),
-    trace('ROUTING_CHANGE_STAGER', new RoutingChangeStager()),
-    trace('RESPONSE_BUILDER', new ResponseBuilder()),
+    trace('ORPHAN_VALIDATION', new OrphanValidationPhase()),
+    trace('ROUTING_CHANGE_STAGING', new RoutingChangeStagingPhase()),
+    trace('RESPONSE_BUILDER', new ResponseBuilderPhase()),
   ) as RoutingEngine;
 
   function projectedUsecase(

@@ -18,9 +18,9 @@ import {
   type RoutingGraphSnapshot,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
 import {RoutingContext} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
-import {ConeComputationService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/cone-computation.service.js';
-import {KvResolutionService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/kv-resolution.service.js';
-import {SeedDetectionService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/seed-detection.service.js';
+import {ConeComputationPhase} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/cone-computation.phase.js';
+import {KvResolutionPhase} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/kv-resolution.phase.js';
+import {SeedDetectionPhase} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/seed-detection.phase.js';
 
 const FILE_ID = 1;
 
@@ -173,14 +173,14 @@ async function runPhaseChain(
   context: RoutingContext,
   repository: SubgraphRepository,
 ) {
-  const phase4 = await new KvResolutionService().run(context, repository);
+  const phase4 = await new KvResolutionPhase().run(context, repository);
   if (phase4.kind === RESULT_KIND.Fail)
     return {phase4, phase5: null, phase6: null};
 
-  const phase5 = await new SeedDetectionService().run(context);
+  const phase5 = await new SeedDetectionPhase().run(context);
   if (phase5.kind === RESULT_KIND.Fail) return {phase4, phase5, phase6: null};
 
-  const phase6 = await new ConeComputationService().run(context);
+  const phase6 = await new ConeComputationPhase().run(context);
   return {phase4, phase5, phase6};
 }
 

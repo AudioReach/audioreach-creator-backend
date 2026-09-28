@@ -49,7 +49,12 @@ function isRoutable(
   return isInScope(link, effectiveIds) && !excludedLinkIds.has(link.systemId);
 }
 
-/** Builds the single prepared graph view shared by routing consumers. */
+/**
+ * Builds the single prepared graph view shared by routing consumers.
+ *
+ * Used by `AutoRoutingPreparationService`, `CreateUsecasesHandler`, and
+ * `CreateManualUsecasesHandler`.
+ */
 export class RoutingGraphSnapshotBuilder {
   constructor(
     private readonly mdfClassification: MdfClassificationService = new MdfClassificationService(),

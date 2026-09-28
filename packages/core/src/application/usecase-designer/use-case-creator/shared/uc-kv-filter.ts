@@ -3,6 +3,12 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+/**
+ * Applies a UseCase KV filter to SGKV entries without mutating the source data.
+ *
+ * No current production caller was found; the capability is retained for the
+ * Phase 2/Phase 4 filtering contract and covered by `uc-kv-filter.spec.ts`.
+ */
 import type {
   SgkvEntry,
   SubgraphRepository,

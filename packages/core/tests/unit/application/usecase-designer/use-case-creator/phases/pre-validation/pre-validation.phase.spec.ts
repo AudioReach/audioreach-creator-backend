@@ -1,0 +1,196 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+import type {DataLink} from '../../../../../../../src/domain/entities/usecase-data/links/data-link.js';
+import type {ControlLink} from '../../../../../../../src/domain/entities/usecase-data/links/control-link.js';
+import {RESULT_KIND} from '../../../../../../../src/application/shared/result/result.js';
+import {RoutingContext} from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
+import {
+  createAutoRoutingInput,
+  emptyGraphEdits,
+} from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
+import {PreValidationPhase} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/pre-validation/pre-validation.phase.js';
+
+function link(
+  systemId: number,
+  sourceSubgraphSystemId: number,
+  destSubgraphSystemId: number,
+): DataLink {
+  return {systemId, sourceSubgraphSystemId, destSubgraphSystemId} as DataLink;
+}
+
+function createFixture(options?: {
+  readonly activeIds?: readonly number[];
+  readonly existingIds?: readonly number[];
+  readonly dataLinks?: readonly DataLink[];
+  readonly controlLinks?: readonly ControlLink[];
+  readonly requestedSgkvsBySubgraph?: Readonly<
+    Record<number, readonly (readonly number[])[]>
+  >;
+  readonly mdfSubgraphIds?: readonly number[];
+}) {
+  const activeIds = options?.activeIds ?? [10, 20];
+  const existingIds = options?.existingIds ?? activeIds;
+  const dataLinks = [...(options?.dataLinks ?? [])];
+  const controlLinks = [...(options?.controlLinks ?? [])];
+  const input = createAutoRoutingInput({
+    fileSystemId: 7,
+    selection: {
+      selectedUsecaseSystemIds: [],
+      activeSubgraphs: activeIds.map(systemId => ({systemId, sgkvs: []})),
+      excludedSubgraphSystemIds: [],
+      excludedDataLinkSystemIds: [],
+      excludedControlLinkSystemIds: [],
+    },
+    selectedUsecases: [],
+    graphSnapshot: {
+      subgraphs: existingIds.map(systemId => ({
+        subgraph: {systemId} as never,
+        requestedSgkvs: options?.requestedSgkvsBySubgraph?.[systemId] ?? [],
+        isMdf: options?.mdfSubgraphIds?.includes(systemId) ?? false,
+      })),
+      routableDataLinks: dataLinks,
+      routableControlLinks: controlLinks,
+      overlayDataLinks: dataLinks,
+      overlayControlLinks: controlLinks,
+      committedUsecases: [],
+      sessionEdits: emptyGraphEdits(),
+    },
+    activeManualUsecaseEdits: [],
+  });
+  return {
+    context: new RoutingContext(input),
+  };
+}
+
+describe('PreValidationPhase', () => {
+  const service = new PreValidationPhase();
+
+  it('validates snapshot links without graph repository reads', async () => {
+    const fixture = createFixture({dataLinks: [link(100, 10, 20)]});
+
+    const result = await service.run(fixture.context);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(fixture.context.warnings).toEqual([]);
+  });
+
+  it('rejects every MDF subgraph with non-empty requested KV values', async () => {
+    const fixture = createFixture({
+      activeIds: [10, 20, 30],
+      existingIds: [10, 20, 30],
+      mdfSubgraphIds: [20, 30],
+      requestedSgkvsBySubgraph: {
+        10: [[501]],
+        20: [[601]],
+        30: [[], [701, 702]],
+      },
+    });
+
+    const result = await service.run(fixture.context);
+
+    expect(result.kind).toBe(RESULT_KIND.Fail);
+    if (result.kind === RESULT_KIND.Fail) {
+      expect(result.issues.map(issue => issue.code)).toEqual([
+        'ARC-ROUTING-MDF-01',
+        'ARC-ROUTING-MDF-01',
+      ]);
+      expect(
+        result.issues.map(issue => issue.impactedEntity?.systemId),
+      ).toEqual([20, 30]);
+    }
+    expect(fixture.context.warnings).toEqual([]);
+  });
+
+  it.each([[[]], [[[]]]])(
+    'accepts MDF selections without values: %p',
+    async requestedSgkvs => {
+      const fixture = createFixture({
+        mdfSubgraphIds: [20],
+        existingIds: [10, 20],
+        requestedSgkvsBySubgraph: {20: requestedSgkvs},
+      });
+
+      const result = await service.run(fixture.context);
+
+      expect(result.kind).toBe(RESULT_KIND.Ok);
+    },
+  );
+
+  it.each([
+    ['source', link(100, 10, 20), [20]],
+    ['destination', link(101, 10, 20), [10]],
+  ] as const)(
+    'rejects a snapshot link with a missing %s endpoint',
+    async (_label, dataLink, existingIds) => {
+      const fixture = createFixture({dataLinks: [dataLink], existingIds});
+
+      const result = await service.run(fixture.context);
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          kind: RESULT_KIND.Fail,
+          issues: [
+            expect.objectContaining({
+              code: 'ARC-ROUTING-PREVAL-DATALINK-INTEGRITY',
+              impactedEntity: expect.objectContaining({
+                systemId: dataLink.systemId,
+              }),
+            }),
+          ],
+        }),
+      );
+      expect(fixture.context.warnings).toEqual([]);
+    },
+  );
+
+  it('reports every invalid routable data link before returning', async () => {
+    const fixture = createFixture({
+      activeIds: [10, 20, 30],
+      dataLinks: [link(100, 10, 20), link(101, 20, 30)],
+      existingIds: [10],
+    });
+
+    const result = await service.run(fixture.context);
+
+    expect(result.kind).toBe(RESULT_KIND.Fail);
+    if (result.kind === RESULT_KIND.Fail)
+      expect(
+        result.issues.map(issue => issue.impactedEntity?.systemId),
+      ).toEqual([100, 101]);
+    expect(fixture.context.warnings).toEqual([]);
+  });
+
+  it('warns once per isolated subgraph and ignores control-only adjacency', async () => {
+    const fixture = createFixture({
+      activeIds: [10, 20, 30],
+      dataLinks: [link(100, 10, 20)],
+      controlLinks: [
+        {systemId: 200, sourceSubgraphSystemId: 30, destSubgraphSystemId: 10},
+      ] as ControlLink[],
+    });
+
+    const result = await service.run(fixture.context);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(fixture.context.warnings).toEqual([
+      expect.objectContaining({
+        code: 'ARC-ROUTING-ISLAND-DETECTED',
+        impactedEntity: expect.objectContaining({systemId: 30}),
+      }),
+    ]);
+  });
+
+  it('treats an excluded data link as absent adjacency because the snapshot omits it', async () => {
+    const fixture = createFixture({dataLinks: []});
+
+    const result = await service.run(fixture.context);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(
+      fixture.context.warnings.map(issue => issue.impactedEntity?.systemId),
+    ).toEqual([10, 20]);
+  });
+});

@@ -18,7 +18,7 @@ import {
 import type {RoutingOutcome} from '../contracts/routing-outcome.js';
 import {createRoutingEngine} from '../engine/create-routing-engine.js';
 import type {RoutingEngine} from '../engine/routing-engine.js';
-import {ManualPairDiscoveryService} from '../services/manual-pair-discovery.service.js';
+import {ManualPairDiscoveryService} from './manual-pair-discovery.service.js';
 import {readRoutingGraphEdits} from '../shared/read-routing-graph-edits.js';
 import {validateRoutingAdditionClosure} from '../shared/validate-routing-addition-closure.js';
 import {RoutingGraphSnapshotBuilder} from '../services/routing-graph-snapshot-builder.js';

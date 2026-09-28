@@ -3,6 +3,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+/**
+ * Validates that added graph entities are closed under the requested routing scope.
+ *
+ * Used by `AutoRoutingPreparationService` and `CreateManualUsecasesHandler`.
+ */
 import type {Issue} from '../../../../shared/issues/issue.js';
 import {
   RoutingIssueFactory,
