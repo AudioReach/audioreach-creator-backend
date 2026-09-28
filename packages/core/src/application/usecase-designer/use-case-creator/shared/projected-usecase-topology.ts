@@ -3,6 +3,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+/**
+ * Builds the effective UseCase topology after finalized routing changes.
+ *
+ * Used by `ClassificationPhase` and `OrphanValidationPhase`.
+ */
 import {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
 import {USECASE_TYPE} from '../../../../domain/entities/usecase-data/usecase/usecase-type.js';
 import type {SubgraphPair} from '../../../ports/persistence/repositories/shared/links-for-pair.js';

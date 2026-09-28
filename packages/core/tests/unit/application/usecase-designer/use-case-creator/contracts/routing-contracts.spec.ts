@@ -34,7 +34,7 @@ import {
   type Seeds,
   type SgkvInstance,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
-import {ResponseBuilder} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/response-builder.js';
+import {ResponseBuilderPhase} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/response-builder.phase.js';
 import {GetUsecaseChangeDetailsQuery} from '../../../../../../src/application/usecase-designer/usecase/get-change-details/get-usecase-change-details.query.js';
 
 function createUsecase(systemId: number, subgraphSystemIds: number[]): UseCase {
@@ -365,7 +365,7 @@ describe('routing contracts', () => {
       operation: CHANGE_OPERATION.Create,
       source: SOURCE.AutoRouting,
     });
-    await new ResponseBuilder().run(context, 'group-1');
+    await new ResponseBuilderPhase().run(context, 'group-1');
     expect(context.routingOutcome?.emittedChanges).toEqual([
       {
         systemId: 21,

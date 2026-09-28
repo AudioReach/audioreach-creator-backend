@@ -3,6 +3,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+/**
+ * Reads the graph edits visible in the active session.
+ *
+ * Used by `AutoRoutingPreparationService` and `CreateManualUsecasesHandler`.
+ */
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {GraphEditSummary} from '../contracts/routing-input.js';
 

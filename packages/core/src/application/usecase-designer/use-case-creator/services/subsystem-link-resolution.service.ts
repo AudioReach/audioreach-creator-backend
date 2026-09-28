@@ -7,6 +7,12 @@ import {Result} from '../../../../application/shared/result/result.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {Result as ResultType} from '../../../../application/shared/result/result.js';
 
+/**
+ * Resolves subsystem link chains needed before routing input construction.
+ *
+ * Used by `AutoRoutingPreparationService`, `CreateUsecasesHandler`, and
+ * `CreateManualUsecasesHandler`.
+ */
 export class SubsystemLinkResolutionService {
   // eslint-disable-next-line @typescript-eslint/require-await -- Placeholder service retains its async contract.
   async resolveAllChains(_uow: UnitOfWork): Promise<ResultType<void>> {

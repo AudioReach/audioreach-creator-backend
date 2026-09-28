@@ -15,14 +15,14 @@ import {
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
 import type {RoutingContext} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
 import {RoutingEngine} from '../../../../../../src/application/usecase-designer/use-case-creator/engine/routing-engine.js';
-import {ClassificationService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/classification.service.js';
-import {DfsRoutingService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/dfs-routing.service.js';
-import {CombinationExpansionService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/combination-expansion.service.js';
+import {ClassificationPhase} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/classification/classification.phase.js';
+import {DfsRoutingPhase} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/dfs-routing/dfs-routing.phase.js';
+import {CombinationExpansionPhase} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/combination-expansion/combination-expansion.phase.js';
 import {
   USECASE_TOPOLOGY_DECISION_KIND,
   type RoutingCombination,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
-import {SameGkvCollisionService} from '../../../../../../src/application/usecase-designer/use-case-creator/services/same-gkv-collision.service.js';
+import {SameGkvCollisionService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/classification/same-gkv-collision.service.js';
 import {DATA_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
 import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
 
@@ -161,7 +161,7 @@ describe('RoutingEngine', () => {
       };
       return Result.ok();
     });
-    const dfs = new DfsRoutingService();
+    const dfs = new DfsRoutingPhase();
     phases[6] = {
       run: jest.fn(async (context: RoutingContext) => {
         order.push('phase-7');
@@ -169,7 +169,7 @@ describe('RoutingEngine', () => {
         return dfs.run(context);
       }),
     } as never;
-    const combinations = new CombinationExpansionService();
+    const combinations = new CombinationExpansionPhase();
     phases[7] = {
       run: jest.fn(async (context: RoutingContext) => {
         order.push('phase-8');
@@ -493,7 +493,7 @@ describe('RoutingEngine', () => {
     phases[8] = {
       run: jest.fn(async (context: RoutingContext) => {
         order.push('phase-9');
-        return new ClassificationService().run(context);
+        return new ClassificationPhase().run(context);
       }),
     } as never;
     const engine = engineFrom(phases);

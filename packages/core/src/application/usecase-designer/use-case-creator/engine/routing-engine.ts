@@ -14,18 +14,18 @@ import type {RoutingInput} from '../contracts/routing-input.js';
 import type {SameGkvCollision} from '../contracts/same-gkv-collision.js';
 import {createEmptyRoutingOutcome} from '../contracts/routing-outcome.js';
 import type {RoutingOutcome} from '../contracts/routing-outcome.js';
-import type {PreValidationService} from '../phases/pre-validation.service.js';
-import type {TopologyChangeAnalysisService} from '../phases/topology-change-analysis.service.js';
-import type {IslandTransitionService} from '../phases/island-transition.service.js';
-import type {KvResolutionService} from '../phases/kv-resolution.service.js';
-import type {SeedDetectionService} from '../phases/seed-detection.service.js';
-import type {ConeComputationService} from '../phases/cone-computation.service.js';
-import type {DfsRoutingService} from '../phases/dfs-routing.service.js';
-import type {CombinationExpansionService} from '../phases/combination-expansion.service.js';
-import type {ClassificationService} from '../phases/classification.service.js';
-import type {OrphanValidationService} from '../phases/orphan-validation.service.js';
-import type {RoutingChangeStager} from '../phases/routing-change-stager.js';
-import type {ResponseBuilder} from '../phases/response-builder.js';
+import type {PreValidationPhase} from '../phases/pre-validation/pre-validation.phase.js';
+import type {TopologyChangeAnalysisPhase} from '../phases/topology-change-analysis/topology-change-analysis.phase.js';
+import type {IslandTransitionPhase} from '../phases/island-transition/island-transition.phase.js';
+import type {KvResolutionPhase} from '../phases/kv-resolution.phase.js';
+import type {SeedDetectionPhase} from '../phases/seed-detection.phase.js';
+import type {ConeComputationPhase} from '../phases/cone-computation.phase.js';
+import type {DfsRoutingPhase} from '../phases/dfs-routing/dfs-routing.phase.js';
+import type {CombinationExpansionPhase} from '../phases/combination-expansion/combination-expansion.phase.js';
+import type {ClassificationPhase} from '../phases/classification/classification.phase.js';
+import type {OrphanValidationPhase} from '../phases/orphan-validation.phase.js';
+import type {RoutingChangeStagingPhase} from '../phases/routing-change-staging/routing-change-staging.phase.js';
+import type {ResponseBuilderPhase} from '../phases/response-builder.phase.js';
 import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
 
 /**
@@ -37,18 +37,18 @@ import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
  */
 export class RoutingEngine {
   constructor(
-    private readonly preValidation: PreValidationService,
-    private readonly topologyChangeAnalysis: TopologyChangeAnalysisService,
-    private readonly islandTransition: IslandTransitionService,
-    private readonly kvResolution: KvResolutionService,
-    private readonly seedDetection: SeedDetectionService,
-    private readonly coneComputation: ConeComputationService,
-    private readonly dfsRouting: DfsRoutingService,
-    private readonly combinationExpansion: CombinationExpansionService,
-    private readonly classification: ClassificationService,
-    private readonly orphanValidation: OrphanValidationService,
-    private readonly routingChangeStager: RoutingChangeStager,
-    private readonly responseBuilder: ResponseBuilder,
+    private readonly preValidation: PreValidationPhase,
+    private readonly topologyChangeAnalysis: TopologyChangeAnalysisPhase,
+    private readonly islandTransition: IslandTransitionPhase,
+    private readonly kvResolution: KvResolutionPhase,
+    private readonly seedDetection: SeedDetectionPhase,
+    private readonly coneComputation: ConeComputationPhase,
+    private readonly dfsRouting: DfsRoutingPhase,
+    private readonly combinationExpansion: CombinationExpansionPhase,
+    private readonly classification: ClassificationPhase,
+    private readonly orphanValidation: OrphanValidationPhase,
+    private readonly routingChangeStaging: RoutingChangeStagingPhase,
+    private readonly responseBuilder: ResponseBuilderPhase,
   ) {}
 
   async run(
@@ -69,7 +69,7 @@ export class RoutingEngine {
       () => this.combinationExpansion.run(context),
       () => this.classification.run(context),
       () => this.orphanValidation.run(context, uow.getSubsystemRepository()),
-      () => this.routingChangeStager.run(context, uow, idGeneration),
+      () => this.routingChangeStaging.run(context, uow, idGeneration),
       () => this.responseBuilder.run(context, uow.getWriteContext().groupId),
     ];
     for (const runPhase of phases) {

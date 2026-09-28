@@ -17,9 +17,9 @@ import {
   USECASE_TOPOLOGY_DECISION_KIND,
   type KvResolutions,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
-import {ConeComputationService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/cone-computation.service.js';
-import {DfsRoutingService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/dfs-routing.service.js';
-import {CombinationExpansionService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/combination-expansion.service.js';
+import {ConeComputationPhase} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/cone-computation.phase.js';
+import {DfsRoutingPhase} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/dfs-routing/dfs-routing.phase.js';
+import {CombinationExpansionPhase} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/combination-expansion/combination-expansion.phase.js';
 import {DATA_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
 import type {DataLink} from '../../../../../../src/domain/entities/usecase-data/links/data-link.js';
 
@@ -121,9 +121,9 @@ describe('Phase 6 through Phase 8 routing chain', () => {
         },
       ],
     };
-    const coneResult = await new ConeComputationService().run(context);
-    const dfsResult = await new DfsRoutingService().run(context);
-    const combinationResult = await new CombinationExpansionService().run(
+    const coneResult = await new ConeComputationPhase().run(context);
+    const dfsResult = await new DfsRoutingPhase().run(context);
+    const combinationResult = await new CombinationExpansionPhase().run(
       context,
     );
 
@@ -172,9 +172,9 @@ describe('Phase 6 through Phase 8 routing chain', () => {
       ],
     };
 
-    await new ConeComputationService().run(context);
-    await new DfsRoutingService().run(context);
-    await new CombinationExpansionService().run(context);
+    await new ConeComputationPhase().run(context);
+    await new DfsRoutingPhase().run(context);
+    await new CombinationExpansionPhase().run(context);
 
     expect(
       context.routingCandidates.combinations.map(

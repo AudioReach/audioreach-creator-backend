@@ -14,6 +14,11 @@ import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
  * Identifies MDF subgraphs from their effective modules and module definitions.
  * A qualifying subgraph has exactly IPC TX and IPC RX.
  */
+/**
+ * Identifies MDF subgraphs from their effective module definitions.
+ *
+ * Used by `RoutingGraphSnapshotBuilder`.
+ */
 export class MdfClassificationService {
   async classify(
     subgraphs: readonly Subgraph[],

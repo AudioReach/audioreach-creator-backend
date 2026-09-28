@@ -3,6 +3,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+/**
+ * Provides canonical UseCase and candidate topology comparison rules.
+ *
+ * Used by `ClassificationPhase` and `SameGkvCollisionService`.
+ */
 import type {
   UseCase,
   SubgraphPair,

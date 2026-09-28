@@ -3,6 +3,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+/**
+ * Canonicalizes routing SGKV additions and validates them against GKV values.
+ *
+ * Used by `RoutingChangeStagingPhase` and `SameGkvCollisionResolutionStager`.
+ */
 import type {UsecaseSgkvAssignment} from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
 import {invariant} from '../../../../shared/assertions/index.js';
 import type {RoutingCombination} from '../contracts/routing-state.js';

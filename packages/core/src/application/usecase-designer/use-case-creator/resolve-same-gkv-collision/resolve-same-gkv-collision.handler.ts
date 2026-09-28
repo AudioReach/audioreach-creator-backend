@@ -12,7 +12,7 @@ import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {createRoutingEngine} from '../engine/create-routing-engine.js';
 import type {RoutingEngine} from '../engine/routing-engine.js';
 import {AutoRoutingPreparationService} from '../services/auto-routing-preparation.service.js';
-import {SameGkvCollisionResolutionStager} from '../services/same-gkv-collision-resolution-stager.js';
+import {SameGkvCollisionResolutionStager} from './same-gkv-collision-resolution-stager.js';
 import type {UsecaseChangeDescriptor} from '../contracts/routing-state.js';
 import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
 import {ResolveSameGkvCollisionCommand} from './resolve-same-gkv-collision.command.js';
