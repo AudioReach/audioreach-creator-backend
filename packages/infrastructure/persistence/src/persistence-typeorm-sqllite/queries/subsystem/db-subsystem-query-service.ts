@@ -33,7 +33,10 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
     private readonly linkFetcher: LinkOverlayFetcher,
   ) {}
 
-  async findAll(fileSystemId: number): Promise<Result<SubsystemReadModel[]>> {
+  async findAll(
+    fileSystemId: number,
+    systemIds?: number[],
+  ): Promise<Result<SubsystemReadModel[]>> {
     try {
       const sessionId = await resolveActiveSessionId(
         this.dataSource,
@@ -44,8 +47,13 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
         sessionId,
       );
 
+      const selectedSubsystems =
+        systemIds === undefined
+          ? subsystems
+          : subsystems.filter(s => systemIds.includes(s.systemId));
+
       return Result.ok(
-        subsystems.map(s => ({
+        selectedSubsystems.map(s => ({
           systemId: s.systemId,
           subsystemNaturalId: s.subsystemId,
           name: s.name,

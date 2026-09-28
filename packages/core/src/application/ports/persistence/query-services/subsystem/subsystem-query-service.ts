@@ -13,9 +13,13 @@ export interface SubsystemQueryService {
    * Returns all subsystems for the given file.
    * Each subsystem includes parentId (from its Node row) for in-memory tree building,
    * and filteredKeys for GET /usecases/filtered-by-subsystem.
-   * Overlay applied.
+   * Overlay applied. When systemIds is supplied, only those subsystem system
+   * IDs are returned.
    */
-  findAll(fileSystemId: number): Promise<Result<SubsystemReadModel[]>>;
+  findAll(
+    fileSystemId: number,
+    systemIds?: number[],
+  ): Promise<Result<SubsystemReadModel[]>>;
 
   /**
    * Returns virtual control-link segments (subsystem_control_links) for the given usecases.

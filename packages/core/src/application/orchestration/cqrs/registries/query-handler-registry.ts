@@ -72,6 +72,8 @@ import {GetContainerPropertyQuery} from '../../../usecase-designer/container/get
 import {GetContainerPropertyHandler} from '../../../usecase-designer/container/get-property/get-container-property.handler.js';
 import {GetAllSubgraphsQuery} from '../../../usecase-designer/subgraph/get-all/get-all-subgraphs.query.js';
 import {GetAllSubgraphsHandler} from '../../../usecase-designer/subgraph/get-all/get-all-subgraphs.handler.js';
+import {GetAllSubsystemsQuery} from '../../../usecase-designer/subsystem/get-all/get-all-subsystems.query.js';
+import {GetAllSubsystemsHandler} from '../../../usecase-designer/subsystem/get-all/get-all-subsystems.handler.js';
 import {GetSubgraphPropertiesQuery} from '../../../usecase-designer/subgraph/get-properties/get-subgraph-properties.query.js';
 import {GetSubgraphPropertiesHandler} from '../../../usecase-designer/subgraph/get-properties/get-subgraph-properties.handler.js';
 import {GetVcpmCkvQuery} from '../../../usecase-designer/subgraph/get-vcpm-ckv/get-vcpm-ckv.query.js';
@@ -292,6 +294,11 @@ export class QueryHandlerRegistry {
     this.queryHandlerFactories.set(GetAllSubgraphsQuery, {
       create: (deps: QueryHandlerDependencies) =>
         new GetAllSubgraphsHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetAllSubsystemsQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetAllSubsystemsHandler(deps.queryServices),
     });
 
     this.queryHandlerFactories.set(GetSubgraphPropertiesQuery, {

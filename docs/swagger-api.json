@@ -6890,6 +6890,68 @@
       }
     },
     "/arc-api/v1/projects/{projectId}/subsystems": {
+      "get": {
+        "description": "Returns all subsystems when systemId is omitted, or only the requested subsystems when systemId is provided.",
+        "operationId": "SubsystemController_getAllSubsystems",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "systemId",
+            "required": false,
+            "in": "query",
+            "description": "Optional comma-separated subsystem system IDs",
+            "schema": {
+              "example": "301,302",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All subsystems found successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/SubsystemResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found"
+          },
+          "422": {
+            "description": "Failed to get subsystem(s)"
+          }
+        },
+        "summary": "Get subsystems, optionally filtered by system IDs",
+        "tags": [
+          "subsystems"
+        ]
+      },
       "post": {
         "description": "Creates a new empty subsystem with the given name.\n\n**Optional parameters:**\n- `parentSystemId`: System ID of an existing subsystem to nest this one under. If omitted, the subsystem is created at the root level of the use case.",
         "operationId": "SubsystemController_createSubsystem",
@@ -7580,10 +7642,9 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/data-links": {
-      "post": {
-        "description": "Creates a data link between two modules. Stores all segments (mod→SS, SS→SS, SS→mod) in the DB. Returns a flat ComponentsResponseDto with the created link.",
-        "operationId": "DataLinkController_createDataLink",
+    "/arc-api/v1/projects/{projectId}/containers/{containerSystemId}/heap-id": {
+      "put": {
+        "operationId": "ContainerController_setContainerHeapId",
         "parameters": [
           {
             "name": "containerSystemId",
@@ -7607,18 +7668,18 @@
         ],
         "requestBody": {
           "required": true,
-          "description": "Data link creation parameters",
+          "description": "Request body parameter type: SetContainerHeapIdRequestDto",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateDataLinkRequest"
+                "$ref": "#/components/schemas/SetContainerHeapIdRequestDto"
               }
             }
           }
         },
         "responses": {
-          "201": {
-            "description": "Data link created successfully",
+          "200": {
+            "description": "Container and module heap IDs updated",
             "content": {
               "application/json": {
                 "schema": {
@@ -7629,7 +7690,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/ComponentsResponseDto"
+                          "$ref": "#/components/schemas/SetContainerHeapIdResponseDto"
                         }
                       }
                     }
@@ -7639,22 +7700,27 @@
             }
           },
           "400": {
-            "description": "Invalid request data"
+            "description": "Unsupported heap ID"
+          },
+          "403": {
+            "description": "No active session"
           },
           "404": {
-            "description": "Project not found, or source or destination module not found"
+            "description": "Container or heap property definition not found"
           },
           "500": {
-            "description": "Failed to create data link"
+            "description": "Failed to update heap IDs"
           }
         },
-        "summary": "Create a new data link (flat view)",
+        "summary": "Set a container heap ID",
         "tags": [
           "containers"
         ]
-      },
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/data-links": {
       "get": {
-        "description": "Returns data links between peer subgraphs. With `subgraphSystemId`, returns links going out of the requested subgraph to a different peer subgraph; links within the same subgraph are excluded. `moduleSystemId` and `portSystemId` must be supplied together and may be combined with the subgraph filter. Each link includes its associated usecases.",
+        "description": "Returns data links between peer subgraphs. With `subgraphSystemId`, returns links going into or out of the requested subgraph to a different peer subgraph; links within the same subgraph are excluded. `moduleSystemId` and `portSystemId` must be supplied together and may be combined with the subgraph filter. Each link includes its associated usecases.",
         "operationId": "DataLinkController_getDataLinks",
         "parameters": [
           {
@@ -7671,7 +7737,7 @@
             "name": "subgraphSystemId",
             "required": false,
             "in": "query",
-            "description": "Source subgraph system ID. Returns only links leaving this subgraph to a different subgraph.",
+            "description": "Subgraph system ID. Returns links going into or out of this subgraph to a different peer subgraph.",
             "schema": {
               "type": "string"
             }
@@ -7731,6 +7797,69 @@
           }
         },
         "summary": "GET /arc-api/v1/projects/{projectId}/data-links - Get data links by subgraph or module-port filters",
+        "tags": [
+          "data-links"
+        ]
+      },
+      "post": {
+        "description": "Creates a data link between two modules. Stores all segments (mod→SS, SS→SS, SS→mod) in the DB. Returns a flat ComponentsResponseDto with the created link.",
+        "operationId": "DataLinkController_createDataLink",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Data link creation parameters",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDataLinkRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Data link created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ComponentsResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request data"
+          },
+          "404": {
+            "description": "Project not found, or source or destination module not found"
+          },
+          "500": {
+            "description": "Failed to create data link"
+          }
+        },
+        "summary": "Create a new data link",
         "tags": [
           "data-links"
         ]
@@ -7862,6 +7991,88 @@
       }
     },
     "/arc-api/v1/projects/{projectId}/control-links": {
+      "get": {
+        "description": "Returns control links between peer subgraphs. With `subgraphSystemId`, returns links going into or out of the requested subgraph to a different peer subgraph; links within the same subgraph are excluded. `moduleSystemId` and `portSystemId` must be supplied together and may be combined with the subgraph filter. Each link includes its associated usecases.",
+        "operationId": "ControlLinkController_getControlLinks",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "subgraphSystemId",
+            "required": false,
+            "in": "query",
+            "description": "Subgraph system ID. Returns links connecting this subgraph to a different peer subgraph.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "moduleSystemId",
+            "required": false,
+            "in": "query",
+            "description": "Module system ID. Must be supplied together with portSystemId.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "portSystemId",
+            "required": false,
+            "in": "query",
+            "description": "Port system ID. Must be supplied together with moduleSystemId.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Control links retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ControlLinkWithUsecasesResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid filter combination or identifier"
+          },
+          "404": {
+            "description": "Project not found"
+          },
+          "422": {
+            "description": "Failed to retrieve link(s)"
+          }
+        },
+        "summary": "GET /arc-api/v1/projects/{projectId}/control-links - Get control links by subgraph or module-port filters",
+        "tags": [
+          "control-links"
+        ]
+      },
       "post": {
         "description": "Creates a control link between two modules. Stores all segments in DB. Returns flat ComponentsResponseDto with the created link.",
         "operationId": "ControlLinkController_createControlLink",
@@ -8226,90 +8437,6 @@
         "summary": "Get log entries for a project",
         "tags": [
           "Logging"
-        ]
-      }
-    },
-    "/arc-api/v1/projects/{projectId}/control-link": {
-      "get": {
-        "description": "Returns control links between peer subgraphs. With `subgraphSystemId`, returns links going into or out of the requested subgraph to a different peer subgraph; links within the same subgraph are excluded. `moduleSystemId` and `portSystemId` must be supplied together and may be combined with the subgraph filter. Each link includes its associated usecases.",
-        "operationId": "ControlLinkController_getControlLinks",
-        "parameters": [
-          {
-            "name": "projectId",
-            "required": true,
-            "in": "path",
-            "description": "The unique identifier of the project",
-            "schema": {
-              "example": "12345",
-              "type": "string"
-            }
-          },
-          {
-            "name": "subgraphSystemId",
-            "required": false,
-            "in": "query",
-            "description": "Subgraph system ID. Returns links connecting this subgraph to a different peer subgraph.",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "moduleSystemId",
-            "required": false,
-            "in": "query",
-            "description": "Module system ID. Must be supplied together with portSystemId.",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "portSystemId",
-            "required": false,
-            "in": "query",
-            "description": "Port system ID. Must be supplied together with moduleSystemId.",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Control links retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/ControlLinkWithUsecasesResponseDto"
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid filter combination or identifier"
-          },
-          "404": {
-            "description": "Project not found"
-          },
-          "422": {
-            "description": "Failed to retrieve link(s)"
-          }
-        },
-        "summary": "GET /arc-api/v1/projects/{projectId}/control-link - Get control links by subgraph or module-port filters",
-        "tags": [
-          "control-links"
         ]
       }
     }
@@ -12927,300 +13054,6 @@
           "filteredKeys"
         ]
       },
-      "DataLinkWithUsecasesResponseDto": {
-        "type": "object",
-        "properties": {
-          "link": {
-            "type": "object",
-            "properties": {
-              "systemId": {
-                "type": "string",
-                "description": "Data link system ID"
-              },
-              "sourceSystemId": {
-                "type": "string",
-                "description": "Source component system ID"
-              },
-              "sourcePortSystemId": {
-                "type": "string",
-                "description": "Source port system ID"
-              },
-              "destinationSystemId": {
-                "type": "string",
-                "description": "Destination component system ID"
-              },
-              "destinationPortSystemId": {
-                "type": "string",
-                "description": "Destination port system ID"
-              },
-              "linkType": {
-                "type": "string",
-                "description": "Topology classification of the link"
-              }
-            },
-            "required": [
-              "systemId",
-              "sourceSystemId",
-              "sourcePortSystemId",
-              "destinationSystemId",
-              "destinationPortSystemId",
-              "linkType"
-            ],
-            "description": "The data link"
-          },
-          "usecases": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "systemId": {
-                  "type": "string",
-                  "description": "System identifier of the usecase"
-                },
-                "usecaseType": {
-                  "type": "string",
-                  "description": "Type of the usecase"
-                },
-                "keyValuePairs": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "key": {
-                        "type": "object",
-                        "properties": {
-                          "naturalId": {
-                            "type": "integer",
-                            "minimum": -9007199254740991,
-                            "maximum": 9007199254740991,
-                            "description": "Key id"
-                          },
-                          "name": {
-                            "type": "string",
-                            "description": "Key name"
-                          },
-                          "systemId": {
-                            "type": "string",
-                            "description": "Key system identifier"
-                          }
-                        },
-                        "required": [
-                          "naturalId",
-                          "name",
-                          "systemId"
-                        ],
-                        "description": "Key information"
-                      },
-                      "value": {
-                        "type": "object",
-                        "properties": {
-                          "naturalId": {
-                            "type": "integer",
-                            "minimum": -9007199254740991,
-                            "maximum": 9007199254740991,
-                            "description": "Value id"
-                          },
-                          "name": {
-                            "type": "string",
-                            "description": "Value name"
-                          },
-                          "systemId": {
-                            "type": "string",
-                            "description": "Value system identifier"
-                          }
-                        },
-                        "required": [
-                          "naturalId",
-                          "name",
-                          "systemId"
-                        ],
-                        "description": "Value information"
-                      }
-                    },
-                    "required": [
-                      "key",
-                      "value"
-                    ]
-                  },
-                  "description": "Collection of key-value pairs"
-                },
-                "usecaseAliasId": {
-                  "description": "Optional alias identifier for the usecase",
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991
-                },
-                "usecaseAliasName": {
-                  "description": "Alias name for the usecase",
-                  "type": "string"
-                },
-                "usecaseCategory": {
-                  "description": "Category of the usecase",
-                  "type": "string"
-                }
-              },
-              "required": [
-                "systemId",
-                "usecaseType",
-                "keyValuePairs"
-              ]
-            },
-            "description": "Usecases that this data link is part of"
-          }
-        },
-        "required": [
-          "link",
-          "usecases"
-        ],
-        "description": "Data link with usecases"
-      },
-      "ControlLinkWithUsecasesResponseDto": {
-        "type": "object",
-        "properties": {
-          "link": {
-            "type": "object",
-            "properties": {
-              "systemId": {
-                "type": "string",
-                "description": "Control link system ID"
-              },
-              "sourceSystemId": {
-                "type": "string",
-                "description": "Source (peer A) component system ID"
-              },
-              "sourcePortSystemId": {
-                "type": "string",
-                "description": "Source (peer A) port system ID"
-              },
-              "destinationSystemId": {
-                "type": "string",
-                "description": "Destination (peer B) component system ID"
-              },
-              "destinationPortSystemId": {
-                "type": "string",
-                "description": "Destination (peer B) port system ID"
-              },
-              "linkType": {
-                "type": "string",
-                "description": "Topology classification of the link"
-              }
-            },
-            "required": [
-              "systemId",
-              "sourceSystemId",
-              "sourcePortSystemId",
-              "destinationSystemId",
-              "destinationPortSystemId",
-              "linkType"
-            ],
-            "description": "The control link"
-          },
-          "usecases": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "systemId": {
-                  "type": "string",
-                  "description": "System identifier of the usecase"
-                },
-                "usecaseType": {
-                  "type": "string",
-                  "description": "Type of the usecase"
-                },
-                "keyValuePairs": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "key": {
-                        "type": "object",
-                        "properties": {
-                          "naturalId": {
-                            "type": "integer",
-                            "minimum": -9007199254740991,
-                            "maximum": 9007199254740991,
-                            "description": "Key id"
-                          },
-                          "name": {
-                            "type": "string",
-                            "description": "Key name"
-                          },
-                          "systemId": {
-                            "type": "string",
-                            "description": "Key system identifier"
-                          }
-                        },
-                        "required": [
-                          "naturalId",
-                          "name",
-                          "systemId"
-                        ],
-                        "description": "Key information"
-                      },
-                      "value": {
-                        "type": "object",
-                        "properties": {
-                          "naturalId": {
-                            "type": "integer",
-                            "minimum": -9007199254740991,
-                            "maximum": 9007199254740991,
-                            "description": "Value id"
-                          },
-                          "name": {
-                            "type": "string",
-                            "description": "Value name"
-                          },
-                          "systemId": {
-                            "type": "string",
-                            "description": "Value system identifier"
-                          }
-                        },
-                        "required": [
-                          "naturalId",
-                          "name",
-                          "systemId"
-                        ],
-                        "description": "Value information"
-                      }
-                    },
-                    "required": [
-                      "key",
-                      "value"
-                    ]
-                  },
-                  "description": "Collection of key-value pairs"
-                },
-                "usecaseAliasId": {
-                  "description": "Optional alias identifier for the usecase",
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991
-                },
-                "usecaseAliasName": {
-                  "description": "Alias name for the usecase",
-                  "type": "string"
-                },
-                "usecaseCategory": {
-                  "description": "Category of the usecase",
-                  "type": "string"
-                }
-              },
-              "required": [
-                "systemId",
-                "usecaseType",
-                "keyValuePairs"
-              ]
-            },
-            "description": "Usecases that this control link is part of"
-          }
-        },
-        "required": [
-          "link",
-          "usecases"
-        ],
-        "description": "Control link with usecases"
-      },
       "SystemIdsRequestDto": {
         "type": "object",
         "properties": {
@@ -17605,6 +17438,7 @@
           "relatedEndPointLinks",
           "systemId",
           "naturalId"
+          "naturalId"
         ]
       },
       "ContainerPropertiesResponseDto": {
@@ -17676,6 +17510,153 @@
           "heapId",
           "updatedModuleHeapIds"
         ]
+      },
+      "DataLinkWithUsecasesResponseDto": {
+        "type": "object",
+        "properties": {
+          "link": {
+            "type": "object",
+            "properties": {
+              "systemId": {
+                "type": "string",
+                "description": "Data link system ID"
+              },
+              "sourceSystemId": {
+                "type": "string",
+                "description": "Source component system ID"
+              },
+              "sourcePortSystemId": {
+                "type": "string",
+                "description": "Source port system ID"
+              },
+              "destinationSystemId": {
+                "type": "string",
+                "description": "Destination component system ID"
+              },
+              "destinationPortSystemId": {
+                "type": "string",
+                "description": "Destination port system ID"
+              },
+              "linkType": {
+                "type": "string",
+                "description": "Topology classification of the link"
+              }
+            },
+            "required": [
+              "systemId",
+              "sourceSystemId",
+              "sourcePortSystemId",
+              "destinationSystemId",
+              "destinationPortSystemId",
+              "linkType"
+            ],
+            "description": "The data link"
+          },
+          "usecases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "systemId": {
+                  "type": "string",
+                  "description": "System identifier of the usecase"
+                },
+                "usecaseType": {
+                  "type": "string",
+                  "description": "Type of the usecase"
+                },
+                "keyValuePairs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "object",
+                        "properties": {
+                          "naturalId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Key id"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Key name"
+                          },
+                          "systemId": {
+                            "type": "string",
+                            "description": "Key system identifier"
+                          }
+                        },
+                        "required": [
+                          "naturalId",
+                          "name",
+                          "systemId"
+                        ],
+                        "description": "Key information"
+                      },
+                      "value": {
+                        "type": "object",
+                        "properties": {
+                          "naturalId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Value id"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Value name"
+                          },
+                          "systemId": {
+                            "type": "string",
+                            "description": "Value system identifier"
+                          }
+                        },
+                        "required": [
+                          "naturalId",
+                          "name",
+                          "systemId"
+                        ],
+                        "description": "Value information"
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "value"
+                    ]
+                  },
+                  "description": "Collection of key-value pairs"
+                },
+                "usecaseAliasId": {
+                  "description": "Optional alias identifier for the usecase",
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "usecaseAliasName": {
+                  "description": "Alias name for the usecase",
+                  "type": "string"
+                },
+                "usecaseCategory": {
+                  "description": "Category of the usecase",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "systemId",
+                "usecaseType",
+                "keyValuePairs"
+              ]
+            },
+            "description": "Usecases that this data link is part of"
+          }
+        },
+        "required": [
+          "link",
+          "usecases"
+        ],
+        "description": "Data link with usecases"
       },
       "CreateDataLinkRequest": {
         "type": "object",
@@ -17794,6 +17775,153 @@
           "destinationPortSystemId",
           "linkType"
         ]
+      },
+      "ControlLinkWithUsecasesResponseDto": {
+        "type": "object",
+        "properties": {
+          "link": {
+            "type": "object",
+            "properties": {
+              "systemId": {
+                "type": "string",
+                "description": "Control link system ID"
+              },
+              "sourceSystemId": {
+                "type": "string",
+                "description": "Source (peer A) component system ID"
+              },
+              "sourcePortSystemId": {
+                "type": "string",
+                "description": "Source (peer A) port system ID"
+              },
+              "destinationSystemId": {
+                "type": "string",
+                "description": "Destination (peer B) component system ID"
+              },
+              "destinationPortSystemId": {
+                "type": "string",
+                "description": "Destination (peer B) port system ID"
+              },
+              "linkType": {
+                "type": "string",
+                "description": "Topology classification of the link"
+              }
+            },
+            "required": [
+              "systemId",
+              "sourceSystemId",
+              "sourcePortSystemId",
+              "destinationSystemId",
+              "destinationPortSystemId",
+              "linkType"
+            ],
+            "description": "The control link"
+          },
+          "usecases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "systemId": {
+                  "type": "string",
+                  "description": "System identifier of the usecase"
+                },
+                "usecaseType": {
+                  "type": "string",
+                  "description": "Type of the usecase"
+                },
+                "keyValuePairs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "object",
+                        "properties": {
+                          "naturalId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Key id"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Key name"
+                          },
+                          "systemId": {
+                            "type": "string",
+                            "description": "Key system identifier"
+                          }
+                        },
+                        "required": [
+                          "naturalId",
+                          "name",
+                          "systemId"
+                        ],
+                        "description": "Key information"
+                      },
+                      "value": {
+                        "type": "object",
+                        "properties": {
+                          "naturalId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Value id"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Value name"
+                          },
+                          "systemId": {
+                            "type": "string",
+                            "description": "Value system identifier"
+                          }
+                        },
+                        "required": [
+                          "naturalId",
+                          "name",
+                          "systemId"
+                        ],
+                        "description": "Value information"
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "value"
+                    ]
+                  },
+                  "description": "Collection of key-value pairs"
+                },
+                "usecaseAliasId": {
+                  "description": "Optional alias identifier for the usecase",
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "usecaseAliasName": {
+                  "description": "Alias name for the usecase",
+                  "type": "string"
+                },
+                "usecaseCategory": {
+                  "description": "Category of the usecase",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "systemId",
+                "usecaseType",
+                "keyValuePairs"
+              ]
+            },
+            "description": "Usecases that this control link is part of"
+          }
+        },
+        "required": [
+          "link",
+          "usecases"
+        ],
+        "description": "Control link with usecases"
       },
       "CreateControlLinkRequest": {
         "type": "object",
