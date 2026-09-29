@@ -100,6 +100,40 @@ export class PortOverlayFetcher {
       .map(r => ({...r.effective, fileSystemId}));
   }
 
+  async fetchDataPortBySystemId(
+    portSystemId: number,
+    fileSystemId: number,
+    sessionId: number | null,
+  ): Promise<OverlaidDataPort | null> {
+    const baseRows = (await this.manager
+      .getRepository(ENTITY_NAMES.DataPort)
+      .createQueryBuilder('dp')
+      .innerJoin(ENTITY_NAMES.Node, 'n', 'n.system_id = dp.node_system_id')
+      .where('dp.systemId = :portSystemId', {portSystemId})
+      .andWhere('n.fileSystemId = :fileSystemId', {fileSystemId})
+      .getMany()) as DataPortBase[];
+    const base = baseRows.map(row => ({
+      ...row,
+      isStatic: Boolean(row.isStatic),
+      fileSystemId,
+    }));
+
+    if (sessionId === null) return base[0] ?? null;
+
+    const actions = await this.editActionsSvc.getByTable(
+      sessionId,
+      ENTITY_NAMES.DataPort,
+    );
+    const effective = this.overlay
+      .applyToCollection(base, actions, {
+        matchesEffective: row =>
+          row.systemId === portSystemId && row.fileSystemId === fileSystemId,
+      })
+      .map(row => ({...row.effective, fileSystemId}));
+
+    return effective[0] ?? null;
+  }
+
   async fetchControlPortsWithIntents(
     nodeSystemId: number,
     fileSystemId: number,

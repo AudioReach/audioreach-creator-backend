@@ -12,7 +12,7 @@ import type {NodeRow} from './node.schema.js';
 export interface DataPortBase {
   systemId: number;
   naturalId: number;
-  name?: string;
+  name: string | null;
   portIoType: PortIoType;
   isStatic: boolean;
   nodeSystemId: number;

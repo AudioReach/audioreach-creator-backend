@@ -145,13 +145,16 @@ export class SubsystemBuilder {
 
     for (const entry of sorted) {
       const nodeSystemId = await this.idGenerator.getNextId(fileSystemId);
-      const parentId = this.resolveParentId(entry.id, childToParent);
+      const parentSystemId = this.resolveParentSystemId(
+        entry.id,
+        childToParent,
+      );
       const subsystemSystemId = asSystemId(nodeSystemId);
 
       const subsystem = new Subsystem({
         systemId: nodeSystemId,
         fileSystemId,
-        parentSystemId: parentId,
+        parentSystemId,
         name: entry.name,
         naturalId: entry.id,
         filteredKeySystemIds: this.resolveFilteredKeys(entry),
@@ -624,7 +627,7 @@ export class SubsystemBuilder {
       return new Subsystem({
         systemId: s.systemId,
         fileSystemId: s.fileSystemId,
-        parentSystemId: s.parentSystemId,
+        parentSystemId: s.parentSystemId ?? null,
         name: s.name,
         naturalId: s.naturalId,
         filteredKeySystemIds: s.filteredKeySystemIds,
@@ -650,16 +653,16 @@ export class SubsystemBuilder {
     return childToParent;
   }
 
-  private resolveParentId(
+  private resolveParentSystemId(
     entryId: number,
     childToParent: Map<number, number>,
-  ): number | undefined {
+  ): number | null {
     const parentNaturalId = childToParent.get(entryId);
-    if (parentNaturalId === undefined) return undefined;
-    const parentId = this.foreignKeyMapper.getSubsystemSystemId(
+    if (parentNaturalId === undefined) return null;
+    const parentSystemId = this.foreignKeyMapper.getSubsystemSystemId(
       asNaturalId(parentNaturalId),
     );
-    if (parentId === undefined) {
+    if (parentSystemId === undefined) {
       this.logger?.logWarn({
         msg: 'subsystem_parent_not_found',
         description: `Parent subsystem ${parentNaturalId.toString(16)} not found in FK mapper for child ${entryId.toString(16)}`,
@@ -667,7 +670,7 @@ export class SubsystemBuilder {
         tag: 'subsystem-building',
       });
     }
-    return parentId;
+    return parentSystemId ?? null;
   }
 
   private resolveFilteredKeys(entry: UiSubsystem): number[] {

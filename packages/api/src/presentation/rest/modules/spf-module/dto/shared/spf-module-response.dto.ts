@@ -6,7 +6,7 @@
 import {createZodDto} from 'nestjs-zod';
 import {
   SpfModuleDtoSchema,
-  DataPortDtoSchema,
+  ModuleDataPortDtoSchema,
   ControlPortDtoSchema,
   type PropertyDto as CorePropertyDto,
 } from '@arc/core';
@@ -14,7 +14,9 @@ import {ApiProperty} from '@nestjs/swagger';
 import {EndPointLink} from '../../../../common/utils/utilities.js';
 import {PropertyResponseDto} from '../../../../common/dto/property-response.dto.js';
 
-export class DataPortResponseDto extends createZodDto(DataPortDtoSchema) {}
+export class DataPortResponseDto extends createZodDto(
+  ModuleDataPortDtoSchema,
+) {}
 
 export class ControlPortResponseDto extends createZodDto(
   ControlPortDtoSchema,

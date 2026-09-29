@@ -6,9 +6,22 @@
 import {z} from 'zod';
 import {
   KeyInfoDtoSchema,
-  DataPortDtoSchema,
   ControlPortDtoSchema,
 } from '../../spf-module/query/spf-module-dto.js';
+
+export const SubsystemDataPortDtoSchema = z.object({
+  systemId: z.string().describe('Port system ID'),
+  naturalId: z.number().int().describe('Port definition natural ID'),
+  name: z.string().nullable().describe('Port name'),
+  portIoType: z.enum(['InputOutput', 'OutputInput']).describe('Port IO type'),
+  portType: z.enum(['Static', 'Dynamic']).describe('Port type'),
+  totalLinksAtPort: z
+    .number()
+    .int()
+    .describe('Number of active data links at this port'),
+});
+
+export type SubsystemDataPortDto = z.infer<typeof SubsystemDataPortDtoSchema>;
 
 export const SubsystemDtoSchema = z.object({
   systemId: z.string().describe('System ID'),
@@ -18,7 +31,7 @@ export const SubsystemDtoSchema = z.object({
     .string()
     .optional()
     .describe('System ID of the parent subsystem, if nested'),
-  dataPorts: z.array(DataPortDtoSchema).describe('Data ports'),
+  dataPorts: z.array(SubsystemDataPortDtoSchema).describe('Data ports'),
   controlPorts: z.array(ControlPortDtoSchema).describe('Control ports'),
   filteredKeys: z
     .array(KeyInfoDtoSchema)

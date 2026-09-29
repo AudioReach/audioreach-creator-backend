@@ -4,12 +4,14 @@
  */
 
 import type {KeyDefinitionSummaryReadModel} from '../key-value/key-value-definition-read-model.js';
+import type {ControlPortReadModel} from '../spf-module/ports/control-port-read-model.js';
+import type {DataPortReadModel} from '../spf-module/ports/data-port-read-model.js';
 
 /**
  * Read model for a subsystem node.
  *
  * parentSystemId — from nodes.parent_id — identifies the immediate parent subsystem.
- *   undefined means this is a root subsystem (no parent).
+ *   null means this is a root subsystem (no parent).
  *   Used by buildSubsystemTree() in @arc/core to construct the recursive hierarchy.
  *
  * filteredKeys — the key definitions this subsystem declares as its filter set,
@@ -17,15 +19,12 @@ import type {KeyDefinitionSummaryReadModel} from '../key-value/key-value-definit
  */
 export interface SubsystemReadModel {
   readonly systemId: number;
-  /** Natural subsystem identifier used by subsystem filter expressions. */
-  readonly subsystemNaturalId?: number;
+  readonly naturalId: number;
   readonly name: string;
-  readonly parentSystemId?: number;
+  readonly parentSystemId: number | null;
+  readonly moduleSystemIds: number[];
+  readonly subsystemSystemIds: number[];
   readonly filteredKeys: KeyDefinitionSummaryReadModel[];
-  /**
-   * System IDs of key definitions associated through the subsystem's
-   * filtered-key relation. This derived field is matched against usecase GKV
-   * key system IDs; it is not a column on the Subsystem entity.
-   */
-  readonly filteredKeySystemIds?: readonly number[];
+  readonly dataPorts: DataPortReadModel[];
+  readonly controlPorts: ControlPortReadModel[];
 }

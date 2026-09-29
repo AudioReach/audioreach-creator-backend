@@ -24,6 +24,7 @@ import {
   ControlLinkResponseDto,
   ControlLinkPropertiesResponseDto,
 } from './dto/control-link-response.dto.js';
+import {DeleteControlLinkResponseDto} from './dto/delete-control-link-response.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
@@ -245,25 +246,27 @@ export class ControlLinkController extends BaseController {
   }
 
   /**
-   * Delete a control link.
-   * Returns the deleted link snapshot so the caller can undo the operation.
+   * Delete any control-link ID. The ID may identify a canonical module-to-module
+   * ControlLink or a SubsystemControlLink segment; the service resolves it automatically.
+   * Returns deleted entities and affected subsystems with cleared port intents.
    */
   @Delete(':controlLinkSystemId')
   @ApiParam({
     name: 'controlLinkSystemId',
     required: true,
     type: String,
-    description: 'System id of the control link to delete',
+    description:
+      'Any control-link system ID: either a canonical module-to-module ControlLink or a SubsystemControlLink segment. The service detects the ID type automatically.',
   })
   @ApiDocumentationWithExample({
     summary: 'Delete a control link',
     description:
-      'Deletes a control link by systemId. Returns the deleted link snapshot for undo support.',
+      'Accepts any control-link system ID: a canonical module-to-module ControlLink or a SubsystemControlLink segment. Returns deleted entities and affected subsystems with cleared port intents.',
     responses: [
       {
         status: HttpStatus.OK,
         description: 'Control link deleted successfully',
-        dto: ControlLinkResponseDto,
+        dto: DeleteControlLinkResponseDto,
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -278,7 +281,7 @@ export class ControlLinkController extends BaseController {
   async deleteControlLink(
     @Param('projectId') projectId: string,
     @Param('controlLinkSystemId') controlLinkSystemId: string,
-  ): Promise<ApiResult<ControlLinkResponseDto>> {
+  ): Promise<ApiResult<DeleteControlLinkResponseDto>> {
     console.log(
       'Deleting control link:',
       controlLinkSystemId,
@@ -291,7 +294,7 @@ export class ControlLinkController extends BaseController {
     );
 
     const deleted =
-      await this.commandBus.execute<ControlLinkResponseDto>(command);
+      await this.commandBus.execute<DeleteControlLinkResponseDto>(command);
     return toApiResult(Result.ok(deleted));
   }
 }

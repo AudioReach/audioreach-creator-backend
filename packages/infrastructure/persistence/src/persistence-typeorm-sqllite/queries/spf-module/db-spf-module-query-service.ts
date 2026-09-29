@@ -43,7 +43,7 @@ import {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
 
 interface ModuleRootData {
   systemId: number;
-  parentSystemId?: number;
+  parentSystemId: number | null;
   naturalId: number;
   alias: string;
   definitionSystemId: number;
@@ -564,7 +564,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
       return Result.ok(
         overlaidModules.map(m => ({
           systemId: m.systemId,
-          parentSystemId: m.parentSystemId ?? undefined,
+          parentSystemId: m.parentSystemId,
           naturalId: m.naturalId,
           alias: m.alias ?? '',
           definitionSystemId: m.definitionSystemId,

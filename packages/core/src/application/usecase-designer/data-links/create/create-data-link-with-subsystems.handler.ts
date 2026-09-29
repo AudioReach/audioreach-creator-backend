@@ -178,8 +178,10 @@ export class CreateDataLinkWithSubsystemsHandler implements CommandHandler<
       fileSystemId,
     );
 
-    const nodeParentMap =
-      await subsystemRepo.getAllNodesWithParents(fileSystemId);
+    const nodes = await subsystemRepo.getAllNodesWithParents(fileSystemId);
+    const nodeParentMap = new Map(
+      nodes.map(node => [node.systemId, node.parentSystemId]),
+    );
     const segments = SubsystemBoundaryPathService.compute({
       sourceNodeSystemId: srcNodeId,
       destinationNodeSystemId: dstNodeId,
