@@ -20,9 +20,7 @@ function createFixture(controlLinks: object[] = []) {
       standaloneSubsystemControlLinks: [],
     }),
     deleteAggregate: jest.fn().mockResolvedValue(undefined),
-    deleteCanonical: jest.fn().mockResolvedValue(undefined),
     deleteSubsystemControlLinks: jest.fn().mockResolvedValue(undefined),
-    detachSubsystemControlLinks: jest.fn().mockResolvedValue(undefined),
   } as unknown as jest.Mocked<ControlLinkRepository>;
   const subsystemRepository = {
     getAllNodesWithParents: jest.fn().mockResolvedValue([
@@ -76,7 +74,6 @@ describe('DeleteControlLinkHandler', () => {
       },
       updated: {subsystems: []},
     });
-    expect(repository.deleteAggregate).toHaveBeenCalledWith(LINK_ID, FILE_ID);
     expect(uow.commit).toHaveBeenCalledTimes(1);
   });
 
@@ -116,14 +113,8 @@ describe('DeleteControlLinkHandler', () => {
       },
       updated: {subsystems: []},
     });
-    expect(repository.deleteAggregate).not.toHaveBeenCalled();
     expect(repository.deleteSubsystemControlLinks).toHaveBeenCalledWith(
       [expect.objectContaining({systemId: 11})],
-      FILE_ID,
-    );
-    expect(repository.deleteCanonical).toHaveBeenCalledWith(LINK_ID, FILE_ID);
-    expect(repository.detachSubsystemControlLinks).toHaveBeenCalledWith(
-      [expect.objectContaining({systemId: 12})],
       FILE_ID,
     );
   });

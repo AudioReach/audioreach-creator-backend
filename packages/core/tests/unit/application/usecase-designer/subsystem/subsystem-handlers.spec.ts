@@ -83,6 +83,8 @@ function makeDataLinkRepository(
       dataLinks: [],
       standaloneSubsystemDataLinks: [],
     }),
+    createDataLink: jest.fn(),
+    deleteAggregate: jest.fn(),
     createSubsystemDataLinks: jest.fn(),
     deleteSubsystemDataLinks: jest.fn(),
     ...overrides,
@@ -98,6 +100,8 @@ function makeControlLinkRepository(
       controlLinks: [],
       standaloneSubsystemControlLinks: [],
     }),
+    createAggregate: jest.fn(),
+    deleteAggregate: jest.fn(),
     createSubsystemControlLinks: jest.fn(),
     deleteSubsystemControlLinks: jest.fn(),
     ...overrides,
@@ -647,7 +651,10 @@ describe('MoveSubsystemComponentsHandler', () => {
       ]),
       FILE_ID,
     );
-    expect(result.addedDataLinks).toEqual([dataLink]);
+    expect(result.addedDataLinks).toEqual([
+      expect.objectContaining({systemId: 900}),
+    ]);
+    expect(result.removedDataLinks).toEqual([dataLink.systemId]);
   });
 
   it('does not rebuild paths when moved modules have no links', async () => {
@@ -831,6 +838,8 @@ describe('MoveSubsystemComponentsHandler', () => {
       expect.arrayContaining([
         expect.objectContaining({systemId: 902}),
         expect.objectContaining({systemId: 903}),
+        expect.objectContaining({systemId: 901}),
+        expect.objectContaining({systemId: 904}),
       ]),
       FILE_ID,
     );
@@ -848,7 +857,10 @@ describe('MoveSubsystemComponentsHandler', () => {
       ]),
       FILE_ID,
     );
-    expect(result.addedDataLinks).toEqual([movedConnection]);
+    expect(result.addedDataLinks).toEqual([
+      expect.objectContaining({systemId: 900}),
+    ]);
+    expect(result.removedDataLinks).toEqual([movedConnection.systemId]);
   });
 
   it('rejects moving a subsystem with a partial module-to-module connection', async () => {

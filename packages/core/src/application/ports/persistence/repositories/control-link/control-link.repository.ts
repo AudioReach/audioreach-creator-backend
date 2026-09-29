@@ -8,7 +8,7 @@ import type {SubsystemControlLink} from '../../../../../domain/entities/usecase-
 import type {EditOptions} from '../../edit-options.js';
 import type {SessionChanged} from '../shared/session-changed.js';
 
-export interface ControlLinkGraph {
+export interface ControlLinkTopology {
   controlLinks: ControlLink[];
   standaloneSubsystemControlLinks: SubsystemControlLink[];
 }
@@ -24,7 +24,7 @@ export interface ControlLinkRepository {
     fileSystemId: number,
   ): Promise<SubsystemControlLink[]>;
 
-  findAllLinks(fileSystemId: number): Promise<ControlLinkGraph>;
+  findAllLinks(fileSystemId: number): Promise<ControlLinkTopology>;
 
   /**
    * Deletes the canonical link and every currently resolved subsystem segment
@@ -36,12 +36,8 @@ export interface ControlLinkRepository {
     options?: EditOptions,
   ): Promise<void>;
 
-  /**
-   * Deletes only the canonical ControlLink row. Resolved subsystem segments
-   * remain available for callers that need to detach them as unresolved.
-   */
-  deleteCanonical(
-    controlLinkSystemId: number,
+  createAggregate(
+    controlLink: ControlLink,
     fileSystemId: number,
     options?: EditOptions,
   ): Promise<void>;
@@ -95,20 +91,11 @@ export interface ControlLinkRepository {
   ): Promise<void>;
 
   /**
-   * Removes exactly the specified subsystem segments. This does not alter a
-   * canonical ControlLink or sibling segments; use deleteAggregate for that.
+   * Deletes the specified effective subsystem segments. When a deleted segment
+   * belongs to an existing canonical ControlLink, the canonical link is deleted
+   * and surviving segments are detached from it.
    */
   deleteSubsystemControlLinks(
-    subsystemControlLinks: readonly SubsystemControlLink[],
-    fileSystemId: number,
-    options?: EditOptions,
-  ): Promise<void>;
-
-  /**
-   * Detaches resolved subsystem segments from their canonical ControlLink.
-   * The segments remain as unresolved edit-session rows.
-   */
-  detachSubsystemControlLinks(
     subsystemControlLinks: readonly SubsystemControlLink[],
     fileSystemId: number,
     options?: EditOptions,

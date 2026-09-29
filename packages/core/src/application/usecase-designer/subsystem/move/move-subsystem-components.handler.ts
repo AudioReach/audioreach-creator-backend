@@ -21,7 +21,7 @@ import {
   rebuildMoveSubsystemImpact,
   type MoveComponent,
   type MoveSubsystemImpact,
-} from './move-subsystem-impact.js';
+} from './subsystem-move-route-rebuilder.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 
 export type MoveSubsystemComponentsResult = {

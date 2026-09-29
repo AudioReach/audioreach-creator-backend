@@ -10,7 +10,7 @@ import type {EditOptions} from '../../edit-options.js';
 import type {LinksForPair, SubgraphPair} from '../shared/links-for-pair.js';
 import type {SessionChanged} from '../shared/session-changed.js';
 
-export interface DataLinkGraph {
+export interface DataLinkTopology {
   dataLinks: DataLink[];
   standaloneSubsystemDataLinks: SubsystemDataLink[];
 }
@@ -35,23 +35,13 @@ export interface DataLinkRepository {
     fileSystemId: number,
   ): Promise<SubsystemDataLink[]>;
 
-  findAllLinks(fileSystemId: number): Promise<DataLinkGraph>;
+  findAllLinks(fileSystemId: number): Promise<DataLinkTopology>;
 
   /**
    * Deletes the canonical link and every currently resolved subsystem segment
    * associated with it. Unresolved segments are intentionally not included.
    */
   deleteAggregate(
-    dataLinkSystemId: number,
-    fileSystemId: number,
-    options?: EditOptions,
-  ): Promise<void>;
-
-  /**
-   * Deletes only the canonical DataLink row. Resolved subsystem segments
-   * remain available for callers that need to detach them as unresolved.
-   */
-  deleteCanonical(
     dataLinkSystemId: number,
     fileSystemId: number,
     options?: EditOptions,
@@ -106,20 +96,11 @@ export interface DataLinkRepository {
   ): Promise<void>;
 
   /**
-   * Deletes exactly the specified subsystem segments. This does not alter a
-   * canonical DataLink or sibling segments; use deleteAggregate for that.
+   * Deletes the specified effective subsystem segments. When a deleted segment
+   * belongs to an existing canonical DataLink, the canonical link is deleted
+   * and surviving segments are detached from it.
    */
   deleteSubsystemDataLinks(
-    subsystemDataLinks: readonly SubsystemDataLink[],
-    fileSystemId: number,
-    options?: EditOptions,
-  ): Promise<void>;
-
-  /**
-   * Detaches resolved subsystem segments from their canonical DataLink. The
-   * segments remain as unresolved edit-session rows.
-   */
-  detachSubsystemDataLinks(
     subsystemDataLinks: readonly SubsystemDataLink[],
     fileSystemId: number,
     options?: EditOptions,

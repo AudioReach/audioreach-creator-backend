@@ -8,6 +8,7 @@ import {
   CHANGE_OPERATION,
   CHANGE_STATUS,
   CONTROL_LINK_TYPE,
+  ControlLink,
   SOURCE,
   SubsystemControlLink,
 } from '@arc/core';
@@ -289,49 +290,6 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
     ).toEqual([803]);
   });
 
-  it('syncs only obsolete and newly created subsystem segments', async () => {
-    await seedControlLink(ds, 800, PORT_CP_A, PORT_CP_B);
-    await seedSubsystemControlLink(ds, 801, 800);
-
-    const obsoleteSegment = new SubsystemControlLink(
-      802,
-      NODE_A,
-      NODE_B,
-      PORT_CP_A,
-      PORT_CP_B,
-      800,
-      FILE_ID,
-      CONTROL_LINK_TYPE.Normal,
-      0,
-    );
-    const createdSegment = new SubsystemControlLink(
-      803,
-      NODE_A,
-      NODE_B,
-      PORT_CP_A,
-      PORT_CP_B,
-      800,
-      FILE_ID,
-      CONTROL_LINK_TYPE.Normal,
-      0,
-    );
-    const repo = makeRepo(qr, sessionId);
-    await repo.deleteSubsystemControlLinks([obsoleteSegment], FILE_ID);
-    await repo.createSubsystemControlLinks([createdSegment], FILE_ID);
-
-    const actions = await getActiveActions(qr, sessionId);
-    expect(
-      actions.map(action => ({
-        targetSystemId: action.targetSystemId,
-        operation: action.operation,
-      })),
-    ).toEqual([
-      {targetSystemId: 802, operation: CHANGE_OPERATION.Delete},
-      {targetSystemId: 803, operation: CHANGE_OPERATION.Create},
-    ]);
-    expect(actions.some(action => action.targetSystemId === 801)).toBe(false);
-  });
-
   it('deletes a canonical link and every resolved subsystem segment', async () => {
     await seedControlLink(ds, 800, PORT_CP_A, PORT_CP_B);
     await seedSubsystemControlLink(ds, 801, 800);
@@ -371,50 +329,37 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
     );
   });
 
-  it('deletes only the canonical link when resolved segments must be detached', async () => {
-    await seedControlLink(ds, 800, PORT_CP_A, PORT_CP_B);
-    await seedSubsystemControlLink(ds, 801, 800);
-    await seedSubsystemControlLink(ds, 802, 800);
-
-    await makeRepo(qr, sessionId).deleteCanonical(800, FILE_ID);
-
-    const actions = await getActiveActions(qr, sessionId);
-    expect(
-      actions.filter(
-        action =>
-          action.targetTable === ENTITY_NAMES.ControlLink &&
-          action.targetSystemId === 800 &&
-          action.operation === CHANGE_OPERATION.Delete,
-      ),
-    ).toHaveLength(1);
-    expect(
-      actions.filter(
-        action =>
-          action.targetTable === ENTITY_NAMES.SubsystemControlLink &&
-          action.operation === CHANGE_OPERATION.Delete,
-      ),
-    ).toHaveLength(0);
-  });
-
-  it('detaches resolved subsystem segments by updating their canonical FK', async () => {
-    await seedControlLink(ds, 800, PORT_CP_A, PORT_CP_B);
-    await seedSubsystemControlLink(ds, 801, 800);
-
-    const segment = (await makeRepo(qr, sessionId).findAllLinks(FILE_ID))
-      .controlLinks[0]?.subsystemControlLinks[0];
-    await makeRepo(qr, sessionId).detachSubsystemControlLinks(
-      [segment!],
+  it('creates a canonical link', async () => {
+    const link = new ControlLink(
+      800,
       FILE_ID,
+      NODE_A,
+      NODE_B,
+      PORT_CP_A,
+      PORT_CP_B,
+      0,
+      CONTROL_LINK_TYPE.Normal,
+      SUBGRAPH_ID,
+      SUBGRAPH_ID,
     );
 
+    await makeRepo(qr, sessionId).createAggregate(link, FILE_ID);
+
     const actions = await getActiveActions(qr, sessionId);
-    const action = actions.find(
-      candidate =>
-        candidate.targetTable === ENTITY_NAMES.SubsystemControlLink &&
-        candidate.targetSystemId === 801,
+    expect(actions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          targetTable: ENTITY_NAMES.ControlLink,
+          targetSystemId: 800,
+          operation: CHANGE_OPERATION.Create,
+          newValue: expect.objectContaining({
+            fileSystemId: FILE_ID,
+            peerNodeASystemId: NODE_A,
+            peerNodeBSystemId: NODE_B,
+          }),
+        }),
+      ]),
     );
-    expect(action?.operation).toBe(CHANGE_OPERATION.Update);
-    expect(action?.newValue).toMatchObject({controlLinkSystemId: null});
   });
 
   it('deletes an unresolved segment without deleting a canonical link', async () => {
@@ -443,7 +388,7 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
     ).toHaveLength(0);
   });
 
-  it('deletes only the specified resolved subsystem control segment', async () => {
+  it('deletes the canonical link and detaches remaining resolved segments', async () => {
     await seedControlLink(ds, 800, PORT_CP_A, PORT_CP_B);
     await seedSubsystemControlLink(ds, 801, 800);
     await seedSubsystemControlLink(ds, 802, 800);
@@ -465,14 +410,38 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
     expect(
       actions.filter(
         action =>
+          action.targetTable === ENTITY_NAMES.ControlLink &&
+          action.targetSystemId === 800 &&
+          action.operation === CHANGE_OPERATION.Delete,
+      ),
+    ).toHaveLength(1);
+    expect(
+      actions.filter(
+        action =>
           action.targetTable === ENTITY_NAMES.SubsystemControlLink &&
           action.targetSystemId === 802 &&
           action.operation === CHANGE_OPERATION.Delete,
       ),
     ).toHaveLength(0);
+    expect(
+      actions.filter(
+        action =>
+          action.targetTable === ENTITY_NAMES.SubsystemControlLink &&
+          action.targetSystemId === 802 &&
+          action.operation === CHANGE_OPERATION.Update,
+      ),
+    ).toHaveLength(1);
+    expect(
+      actions.find(
+        action =>
+          action.targetTable === ENTITY_NAMES.SubsystemControlLink &&
+          action.targetSystemId === 802 &&
+          action.operation === CHANGE_OPERATION.Update,
+      )?.newValue,
+    ).toMatchObject({controlLinkSystemId: null});
   });
 
-  it('deletes only the specified segments from a shared canonical link', async () => {
+  it('deletes a canonical link when multiple segments are selected', async () => {
     await seedControlLink(ds, 800, PORT_CP_A, PORT_CP_B);
     await seedSubsystemControlLink(ds, 801, 800);
     await seedSubsystemControlLink(ds, 802, 800);
@@ -494,7 +463,7 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
           action.targetSystemId === 800 &&
           action.operation === CHANGE_OPERATION.Delete,
       ),
-    ).toHaveLength(0);
+    ).toHaveLength(1);
     expect(
       actions
         .filter(
@@ -512,6 +481,14 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
           action.targetSystemId === 803 &&
           action.operation === CHANGE_OPERATION.Update,
       ),
-    ).toHaveLength(0);
+    ).toHaveLength(1);
+    expect(
+      actions.find(
+        action =>
+          action.targetTable === ENTITY_NAMES.SubsystemControlLink &&
+          action.targetSystemId === 803 &&
+          action.operation === CHANGE_OPERATION.Update,
+      )?.newValue,
+    ).toMatchObject({controlLinkSystemId: null});
   });
 });

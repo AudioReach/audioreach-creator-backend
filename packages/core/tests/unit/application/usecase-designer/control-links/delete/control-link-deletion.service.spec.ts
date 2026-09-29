@@ -50,9 +50,7 @@ function createFixture(options?: {
       standaloneSubsystemControlLinks: options?.routeSegments ?? [],
     }),
     deleteAggregate: jest.fn().mockResolvedValue(undefined),
-    deleteCanonical: jest.fn().mockResolvedValue(undefined),
     deleteSubsystemControlLinks: jest.fn().mockResolvedValue(undefined),
-    detachSubsystemControlLinks: jest.fn().mockResolvedValue(undefined),
   };
   const subsystemRepository = {
     clearControlPortIntents: jest.fn().mockResolvedValue(undefined),
@@ -106,10 +104,6 @@ describe('ControlLinkDeletionService', () => {
         ],
       },
     });
-    expect(controlLinkRepository.deleteAggregate).toHaveBeenCalledWith(
-      10,
-      FILE_ID,
-    );
     expect(subsystemRepository.clearControlPortIntents).toHaveBeenCalledWith(
       [
         {subsystemSystemId: SUBSYSTEM_A, controlPortSystemId: 1011},
@@ -142,13 +136,6 @@ describe('ControlLinkDeletionService', () => {
     expect(
       controlLinkRepository.deleteSubsystemControlLinks,
     ).toHaveBeenCalledWith([resolvedSegments[0]], FILE_ID);
-    expect(controlLinkRepository.deleteCanonical).toHaveBeenCalledWith(
-      10,
-      FILE_ID,
-    );
-    expect(
-      controlLinkRepository.detachSubsystemControlLinks,
-    ).toHaveBeenCalledWith([resolvedSegments[1]], FILE_ID);
     expect(subsystemRepository.clearControlPortIntents).toHaveBeenCalledWith(
       [],
       FILE_ID,
@@ -182,7 +169,6 @@ describe('ControlLinkDeletionService', () => {
     expect(
       controlLinkRepository.deleteSubsystemControlLinks,
     ).toHaveBeenCalledWith([unresolved], FILE_ID);
-    expect(controlLinkRepository.deleteCanonical).not.toHaveBeenCalled();
     expect(subsystemRepository.clearControlPortIntents).toHaveBeenCalledWith(
       [{subsystemSystemId: SUBSYSTEM_A, controlPortSystemId: 2011}],
       FILE_ID,
@@ -205,10 +191,6 @@ describe('ControlLinkDeletionService', () => {
       LINK_DELETION_MODE.Full,
     );
 
-    expect(controlLinkRepository.deleteAggregate).toHaveBeenCalledWith(
-      10,
-      FILE_ID,
-    );
     expect(result.controlLinks).toEqual([
       {
         systemId: '10',
@@ -235,17 +217,9 @@ describe('ControlLinkDeletionService', () => {
       LINK_DELETION_MODE.SegmentOnly,
     );
 
-    expect(controlLinkRepository.deleteAggregate).not.toHaveBeenCalled();
-    expect(controlLinkRepository.deleteCanonical).toHaveBeenCalledWith(
-      10,
-      FILE_ID,
-    );
     expect(
       controlLinkRepository.deleteSubsystemControlLinks,
     ).toHaveBeenCalledWith([resolvedSegments[0]], FILE_ID);
-    expect(
-      controlLinkRepository.detachSubsystemControlLinks,
-    ).toHaveBeenCalledWith([resolvedSegments[1]], FILE_ID);
     expect(subsystemRepository.clearControlPortIntents).toHaveBeenCalledWith(
       [],
       FILE_ID,
@@ -268,16 +242,9 @@ describe('ControlLinkDeletionService', () => {
       LINK_DELETION_MODE.SegmentOnly,
     );
 
-    expect(controlLinkRepository.deleteCanonical).toHaveBeenCalledWith(
-      10,
-      FILE_ID,
-    );
     expect(
       controlLinkRepository.deleteSubsystemControlLinks,
     ).toHaveBeenCalledWith([resolvedSegment], FILE_ID);
-    expect(
-      controlLinkRepository.detachSubsystemControlLinks,
-    ).toHaveBeenCalledWith([], FILE_ID);
   });
 
   it('deletes only the module-incident segment of a complete unresolved chain in segmentOnly mode', async () => {

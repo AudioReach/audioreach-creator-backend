@@ -20,9 +20,7 @@ function createFixture(dataLinks: object[] = []) {
       standaloneSubsystemDataLinks: [],
     }),
     deleteAggregate: jest.fn().mockResolvedValue(undefined),
-    deleteCanonical: jest.fn().mockResolvedValue(undefined),
     deleteSubsystemDataLinks: jest.fn().mockResolvedValue(undefined),
-    detachSubsystemDataLinks: jest.fn().mockResolvedValue(undefined),
   } as unknown as jest.Mocked<DataLinkRepository>;
   const uow = {
     startTransaction: jest.fn().mockResolvedValue(undefined),
@@ -115,11 +113,6 @@ describe('DeleteDataLinkHandler', () => {
     expect(repository.deleteAggregate).not.toHaveBeenCalled();
     expect(repository.deleteSubsystemDataLinks).toHaveBeenCalledWith(
       [expect.objectContaining({systemId: 11})],
-      FILE_ID,
-    );
-    expect(repository.deleteCanonical).toHaveBeenCalledWith(LINK_ID, FILE_ID);
-    expect(repository.detachSubsystemDataLinks).toHaveBeenCalledWith(
-      [expect.objectContaining({systemId: 12})],
       FILE_ID,
     );
   });

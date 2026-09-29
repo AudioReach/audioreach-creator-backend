@@ -10,7 +10,7 @@ import {ControlChainResolutionService} from '../../../../domain/services/subsyst
 import type {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
 import type {SubsystemControlLink} from '../../../../domain/entities/usecase-data/links/subsystem-control-link.js';
 import type {NodeType} from '../../../../domain/entities/usecase-data/node/node.js';
-import type {DeleteControlLinkResult} from '../dto/delete-control-link-result.schema.js';
+import type {DeleteControlLinkResult} from '../dto/delete-control-link.dto.js';
 import {LINK_DELETION_MODE} from '../../spf-module/delete/link-deletion-mode.js';
 import type {LinkDeletionMode} from '../../spf-module/delete/link-deletion-mode.js';
 import {
@@ -251,16 +251,6 @@ export class ControlLinkDeletionService {
     }
 
     await repository.deleteSubsystemControlLinks(deletedSegments, fileSystemId);
-    await repository.deleteCanonical(link.systemId, fileSystemId);
-    await repository.detachSubsystemControlLinks(
-      link.subsystemControlLinks.filter(
-        segment =>
-          !deletedSegments.some(
-            deleted => deleted.systemId === segment.systemId,
-          ),
-      ),
-      fileSystemId,
-    );
   }
 
   private allSegments(graph: {

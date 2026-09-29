@@ -49,9 +49,7 @@ function createFixture(options?: {
       standaloneSubsystemDataLinks: options?.routeSegments ?? [],
     }),
     deleteAggregate: jest.fn().mockResolvedValue(undefined),
-    deleteCanonical: jest.fn().mockResolvedValue(undefined),
     deleteSubsystemDataLinks: jest.fn().mockResolvedValue(undefined),
-    detachSubsystemDataLinks: jest.fn().mockResolvedValue(undefined),
   };
   const uow = {
     getDataLinkRepository: () => dataLinkRepository,
@@ -111,14 +109,6 @@ describe('DataLinkDeletionService', () => {
       [resolvedSegments[0]],
       FILE_ID,
     );
-    expect(dataLinkRepository.deleteCanonical).toHaveBeenCalledWith(
-      10,
-      FILE_ID,
-    );
-    expect(dataLinkRepository.detachSubsystemDataLinks).toHaveBeenCalledWith(
-      [resolvedSegments[1]],
-      FILE_ID,
-    );
   });
 
   it('deletes an unresolved segment by system ID without a canonical delete', async () => {
@@ -139,7 +129,6 @@ describe('DataLinkDeletionService', () => {
       [unresolved],
       FILE_ID,
     );
-    expect(dataLinkRepository.deleteCanonical).not.toHaveBeenCalled();
   });
 
   it('deletes a resolved route as an aggregate in full mode', async () => {
@@ -189,16 +178,8 @@ describe('DataLinkDeletionService', () => {
     );
 
     expect(dataLinkRepository.deleteAggregate).not.toHaveBeenCalled();
-    expect(dataLinkRepository.deleteCanonical).toHaveBeenCalledWith(
-      10,
-      FILE_ID,
-    );
     expect(dataLinkRepository.deleteSubsystemDataLinks).toHaveBeenCalledWith(
       [resolvedSegments[0]],
-      FILE_ID,
-    );
-    expect(dataLinkRepository.detachSubsystemDataLinks).toHaveBeenCalledWith(
-      [resolvedSegments[1]],
       FILE_ID,
     );
     expect(result.dataLinks).toEqual([
@@ -218,16 +199,8 @@ describe('DataLinkDeletionService', () => {
       LINK_DELETION_MODE.SegmentOnly,
     );
 
-    expect(dataLinkRepository.deleteCanonical).toHaveBeenCalledWith(
-      10,
-      FILE_ID,
-    );
     expect(dataLinkRepository.deleteSubsystemDataLinks).toHaveBeenCalledWith(
       [resolvedSegment],
-      FILE_ID,
-    );
-    expect(dataLinkRepository.detachSubsystemDataLinks).toHaveBeenCalledWith(
-      [],
       FILE_ID,
     );
   });

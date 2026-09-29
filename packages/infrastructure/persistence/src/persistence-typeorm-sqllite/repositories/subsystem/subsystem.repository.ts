@@ -36,8 +36,6 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
   private readonly intents: IntentFetcher;
   private readonly ports: PortOverlayFetcher;
   private readonly subsystems: SubsystemOverlayFetcher;
-  private readonly moduleFetcher: SpfModuleOverlayFetcher;
-  private readonly nodeFetcher: NodeOverlayFetcher;
   private readonly editActionsQs: EditActionsQueryService;
   private readonly modules: SpfModuleOverlayFetcher;
   private readonly nodes: NodeOverlayFetcher;
@@ -59,8 +57,6 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
       this.editActions,
       this.intents,
     );
-    this.moduleFetcher = new SpfModuleOverlayFetcher(this.manager, editActions);
-    this.nodeFetcher = new NodeOverlayFetcher(this.manager, editActions);
     this.subsystems = new SubsystemOverlayFetcher(manager, this.editActions);
     this.modules = new SpfModuleOverlayFetcher(manager, this.editActions);
     this.nodes = new NodeOverlayFetcher(manager, this.editActions);
@@ -199,10 +195,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
 
   async hasSubsystems(fileSystemId: number): Promise<boolean> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
-    const subsystems = await this.subsystemFetcher.fetchAll(
-      fileSystemId,
-      sessionId,
-    );
+    const subsystems = await this.subsystems.fetchAll(fileSystemId, sessionId);
     return subsystems.length > 0;
   }
 
@@ -211,50 +204,10 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
   ): Promise<readonly number[]> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
     const [subsystems, modules] = await Promise.all([
-      this.subsystemFetcher.fetchAll(fileSystemId, sessionId),
-      this.moduleFetcher.fetchMany(fileSystemId, sessionId),
+      this.subsystems.fetchAll(fileSystemId, sessionId),
+      this.modules.fetchMany(fileSystemId, sessionId),
     ]);
-    const moduleNodes = await this.nodeFetcher.fetchMany(
-      modules.map(module => module.systemId),
-      fileSystemId,
-      sessionId,
-    );
-    const moduleNodeById = new Map(
-      moduleNodes.map(node => [node.systemId, node]),
-    );
-    const subsystemById = new Map(
-      subsystems.map(subsystem => [subsystem.systemId, subsystem]),
-    );
-    const subsystemHasModule = new Set<number>();
-
-    for (const module of modules) {
-      let parentSystemId = moduleNodeById.get(module.systemId)?.parentSystemId;
-      const visited = new Set<number>();
-      while (parentSystemId != null) {
-        if (visited.has(parentSystemId)) break;
-        visited.add(parentSystemId);
-        const subsystem = subsystemById.get(parentSystemId);
-        if (subsystem === undefined) break;
-        subsystemHasModule.add(parentSystemId);
-        parentSystemId = subsystem.parentSystemId;
-      }
-    }
-
-    return subsystems
-      .map(subsystem => subsystem.systemId)
-      .filter(systemId => !subsystemHasModule.has(systemId))
-      .sort((left, right) => left - right);
-  }
-
-  async findOrphanSubsystemSystemIds(
-    fileSystemId: number,
-  ): Promise<readonly number[]> {
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-    const [subsystems, modules] = await Promise.all([
-      this.subsystemFetcher.fetchAll(fileSystemId, sessionId),
-      this.moduleFetcher.fetchMany(fileSystemId, sessionId),
-    ]);
-    const moduleNodes = await this.nodeFetcher.fetchMany(
+    const moduleNodes = await this.nodes.fetchMany(
       modules.map(module => module.systemId),
       fileSystemId,
       sessionId,

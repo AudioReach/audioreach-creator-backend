@@ -11,7 +11,7 @@ import type {
   LinksForPair,
   SessionChanged,
   EditOptions,
-  DataLinkGraph,
+  DataLinkTopology,
   BoundaryPortPayload,
 } from '@arc/core';
 import {
@@ -160,7 +160,7 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
       .map(row => baseToSubsystemDataLink(row));
   }
 
-  async findAllLinks(fileSystemId: number): Promise<DataLinkGraph> {
+  async findAllLinks(fileSystemId: number): Promise<DataLinkTopology> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
     const [rows, dataLinkRows] = await Promise.all([
       this.linkFetcher.loadSubsystemDataLinkRows(fileSystemId, sessionId),
@@ -198,8 +198,18 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
       sessionId,
       {dataLinkSystemId},
     );
-    await this.deleteCanonical(dataLinkSystemId, fileSystemId, options);
     const {session, groupId} = this.uow.getWriteContext();
+    await this.getWriter().writeDelete(
+      {
+        targetTable: ENTITY_NAMES.DataLink,
+        targetSystemId: dataLinkSystemId,
+        aggregateId: dataLinkSystemId,
+        ...options,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
     for (const segment of resolvedSegments) {
       await this.getWriter().writeDelete(
         {
@@ -213,25 +223,6 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
         this.manager,
       );
     }
-  }
-
-  async deleteCanonical(
-    dataLinkSystemId: number,
-    _fileSystemId: number,
-    options?: EditOptions,
-  ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
-    await this.getWriter().writeDelete(
-      {
-        targetTable: ENTITY_NAMES.DataLink,
-        targetSystemId: dataLinkSystemId,
-        aggregateId: dataLinkSystemId,
-        ...options,
-      },
-      session.sessionId,
-      groupId,
-      this.manager,
-    );
   }
 
   async getLinksByPortSystemIds(
@@ -349,11 +340,24 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
 
   async deleteSubsystemDataLinks(
     subsystemDataLinks: readonly SubsystemDataLink[],
-    _fileSystemId: number,
+    fileSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
+    if (subsystemDataLinks.length === 0) return;
+
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const requestedIds = [
+      ...new Set(subsystemDataLinks.map(segment => segment.systemId)),
+    ];
+    const effectiveSegments = await this.linkFetcher.loadSubsystemDataLinkRows(
+      fileSystemId,
+      sessionId,
+      {systemId: requestedIds},
+    );
+    if (effectiveSegments.length === 0) return;
+
     const {session, groupId} = this.uow.getWriteContext();
-    for (const segment of subsystemDataLinks) {
+    for (const segment of effectiveSegments) {
       await this.writer.writeDelete(
         {
           targetTable: ENTITY_NAMES.SubsystemDataLink,
@@ -366,11 +370,40 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
         this.manager,
       );
     }
+
+    const canonicalIds = [
+      ...new Set(
+        effectiveSegments
+          .map(segment => segment.dataLinkSystemId)
+          .filter((systemId): systemId is number => systemId !== null),
+      ),
+    ];
+    if (canonicalIds.length === 0) return;
+
+    const canonicalLinks = await this.linkFetcher.loadDataLinkRows(
+      fileSystemId,
+      sessionId,
+      {systemId: canonicalIds},
+    );
+    for (const canonical of canonicalLinks) {
+      const remainingSegments =
+        await this.linkFetcher.loadSubsystemDataLinkRows(
+          fileSystemId,
+          sessionId,
+          {dataLinkSystemId: canonical.systemId},
+        );
+      if (remainingSegments.length > 0) {
+        await this.detachRemainingSubsystemDataLinks(
+          remainingSegments.map(segment => baseToSubsystemDataLink(segment)),
+          options,
+        );
+      }
+      await this.deleteAggregate(canonical.systemId, fileSystemId, options);
+    }
   }
 
-  async detachSubsystemDataLinks(
+  private async detachRemainingSubsystemDataLinks(
     subsystemDataLinks: readonly SubsystemDataLink[],
-    _fileSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
     const {session, groupId} = this.uow.getWriteContext();

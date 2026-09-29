@@ -18,7 +18,7 @@ import {SubsystemDataLink} from '../../../../../../src/domain/entities/usecase-d
 import {
   ensureNoMovedPartialConnections,
   rebuildMoveSubsystemImpact,
-} from '../../../../../../src/application/usecase-designer/subsystem/move/move-subsystem-impact.js';
+} from '../../../../../../src/application/usecase-designer/subsystem/move/subsystem-move-route-rebuilder.js';
 
 describe('rebuildMoveSubsystemImpact', () => {
   it('blocks partial but allows complete unresolved module-to-module chains', () => {
@@ -75,6 +75,8 @@ describe('rebuildMoveSubsystemImpact', () => {
     });
     const addedPorts: unknown[] = [];
     const replacedSegments: unknown[] = [];
+    const createDataLink = jest.fn();
+    const deleteAggregate = jest.fn();
     const subsystem = new Subsystem({
       systemId: 10,
       fileSystemId: 7,
@@ -115,6 +117,8 @@ describe('rebuildMoveSubsystemImpact', () => {
               replacedSegments.push(createdSegments);
             }),
           deleteSubsystemDataLinks: jest.fn(),
+          createDataLink,
+          deleteAggregate,
         } as never,
         controlLinkRepository: {
           findAllLinks: jest.fn().mockResolvedValue({
@@ -127,8 +131,10 @@ describe('rebuildMoveSubsystemImpact', () => {
         idGeneration: {
           getNextId: jest
             .fn()
+            .mockResolvedValueOnce(900)
             .mockResolvedValueOnce(1000)
-            .mockResolvedValueOnce(1001),
+            .mockResolvedValueOnce(1001)
+            .mockResolvedValueOnce(1002),
         } as never,
       },
       {
@@ -141,8 +147,10 @@ describe('rebuildMoveSubsystemImpact', () => {
       },
     );
 
-    expect(result.addedDataLinks).toEqual([link]);
-    expect(result.removedDataLinks).toEqual([]);
+    expect(result.addedDataLinks).toEqual([
+      expect.objectContaining({systemId: 900}),
+    ]);
+    expect(result.removedDataLinks).toEqual([50]);
     expect(result.subsystemPortChanges[0]?.systemId).toBe(10);
     expect(result.subsystemPortChanges[0]?.addedDataPorts).toHaveLength(1);
     expect(addedPorts).toHaveLength(1);
@@ -151,7 +159,13 @@ describe('rebuildMoveSubsystemImpact', () => {
       (replacedSegments[0] as Array<{sourceNodeSystemId: number}>)[0],
     ).toMatchObject({
       sourceNodeSystemId: 1,
+      dataLinkSystemId: 900,
     });
+    expect(deleteAggregate).toHaveBeenCalledWith(50, 7);
+    expect(createDataLink).toHaveBeenCalledWith(
+      expect.objectContaining({systemId: 900}),
+      [],
+    );
   });
 
   it('assigns the control-port base ID to a new boundary port', async () => {
@@ -168,6 +182,9 @@ describe('rebuildMoveSubsystemImpact', () => {
       22,
     );
     const addedPorts: ControlPort[] = [];
+    const createAggregate = jest.fn();
+    const deleteAggregate = jest.fn();
+    const createSubsystemControlLinks = jest.fn();
     const subsystem = new Subsystem({
       systemId: 10,
       fileSystemId: 7,
@@ -211,10 +228,19 @@ describe('rebuildMoveSubsystemImpact', () => {
             controlLinks: [link],
             standaloneSubsystemControlLinks: [],
           }),
-          createSubsystemControlLinks: jest.fn(),
+          createAggregate,
+          deleteAggregate,
+          createSubsystemControlLinks,
           deleteSubsystemControlLinks: jest.fn(),
         } as never,
-        idGeneration: {getNextId: jest.fn().mockResolvedValue(1000)} as never,
+        idGeneration: {
+          getNextId: jest
+            .fn()
+            .mockResolvedValueOnce(900)
+            .mockResolvedValueOnce(1000)
+            .mockResolvedValueOnce(1001)
+            .mockResolvedValueOnce(1002),
+        } as never,
       },
       {
         parentBefore: new Map([
@@ -228,6 +254,17 @@ describe('rebuildMoveSubsystemImpact', () => {
 
     expect(addedPorts).toHaveLength(1);
     expect(addedPorts[0]?.naturalId).toBe(0x80_00_00_00);
+    expect(deleteAggregate).toHaveBeenCalledWith(60, 7);
+    expect(createAggregate).toHaveBeenCalledWith(
+      expect.objectContaining({systemId: 900}),
+      7,
+    );
+    expect(createSubsystemControlLinks).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({controlLinkSystemId: 900}),
+      ]),
+      7,
+    );
   });
 
   it('rebuilds affected unresolved data and control chains without touching unrelated chains', async () => {

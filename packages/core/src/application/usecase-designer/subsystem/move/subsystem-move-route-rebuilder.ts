@@ -17,8 +17,8 @@ import {
 } from '../../../../domain/services/port-id-calculator/port-id-calculator.js';
 import {SubsystemDataLink} from '../../../../domain/entities/usecase-data/links/subsystem-data-link.js';
 import {SubsystemControlLink} from '../../../../domain/entities/usecase-data/links/subsystem-control-link.js';
-import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
-import type {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
+import {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
+import {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 import type {DataLinkRepository} from '../../../ports/persistence/repositories/data-link/data-link.repository.js';
 import type {ControlLinkRepository} from '../../../ports/persistence/repositories/control-link/control-link.repository.js';
@@ -98,13 +98,15 @@ type ControlChain = {
 };
 
 type DataRouteChange = {
-  link: DataLink;
+  oldLink: DataLink;
+  newLink: DataLink;
   oldSegments: SubsystemDataLink[];
   newSegments: SubsystemDataLink[];
 };
 
 type ControlRouteChange = {
-  link: ControlLink;
+  oldLink: ControlLink;
+  newLink: ControlLink;
   oldSegments: SubsystemControlLink[];
   newSegments: SubsystemControlLink[];
 };
@@ -1011,7 +1013,17 @@ export async function rebuildMoveSubsystemImpact(
       parentAfter,
     );
     if (routeSignature(oldRoute) === routeSignature(newRoute)) continue;
-    const syncPlan = planDataSegmentSync(link.subsystemDataLinks, newRoute);
+    const newDataLink = new DataLink({
+      systemId: await dependencies.idGeneration.getNextId(fileSystemId),
+      sourceNodeSystemId: link.sourceNodeSystemId,
+      destinationNodeSystemId: link.destinationNodeSystemId,
+      sourcePortSystemId: link.sourcePortSystemId,
+      destinationPortSystemId: link.destinationPortSystemId,
+      linkType: link.linkType,
+      sourceSubgraphSystemId: link.sourceSubgraphSystemId,
+      destSubgraphSystemId: link.destSubgraphSystemId,
+      fileSystemId,
+    });
     const portsByNode = await prepareDataPorts(
       fileSystemId,
       newRoute,
@@ -1026,20 +1038,23 @@ export async function rebuildMoveSubsystemImpact(
       portsByNode,
       link.sourcePortSystemId,
       link.destinationPortSystemId,
-      link.systemId,
+      newDataLink.systemId,
       link.linkType,
-      syncPlan.retainedHopKeys,
+      new Set(),
       dependencies,
     );
-    const obsoleteSegments = link.subsystemDataLinks.filter(segment =>
-      syncPlan.obsoleteSegmentSystemIds.includes(segment.systemId),
-    );
-    if (obsoleteSegments.length > 0) {
+    if (link.subsystemDataLinks.length > 0) {
       await dependencies.dataLinkRepository.deleteSubsystemDataLinks(
-        obsoleteSegments,
+        link.subsystemDataLinks,
+        fileSystemId,
+      );
+    } else {
+      await dependencies.dataLinkRepository.deleteAggregate(
+        link.systemId,
         fileSystemId,
       );
     }
+    await dependencies.dataLinkRepository.createDataLink(newDataLink, []);
     if (createdSegments.length > 0) {
       await dependencies.dataLinkRepository.createSubsystemDataLinks(
         createdSegments,
@@ -1047,9 +1062,10 @@ export async function rebuildMoveSubsystemImpact(
       );
     }
     dataRoutes.push({
-      link,
-      oldSegments: obsoleteSegments,
-      newSegments: [...syncPlan.retainedSegments, ...createdSegments],
+      oldLink: link,
+      newLink: newDataLink,
+      oldSegments: link.subsystemDataLinks,
+      newSegments: createdSegments,
     });
   }
   for (const link of controlLinks) {
@@ -1064,9 +1080,17 @@ export async function rebuildMoveSubsystemImpact(
       parentAfter,
     );
     if (routeSignature(oldRoute) === routeSignature(newRoute)) continue;
-    const syncPlan = planControlSegmentSync(
-      link.subsystemControlLinks,
-      newRoute,
+    const newControlLink = new ControlLink(
+      await dependencies.idGeneration.getNextId(fileSystemId),
+      fileSystemId,
+      link.peerNodeASystemId,
+      link.peerNodeBSystemId,
+      link.nodeAPortSystemId,
+      link.nodeBPortSystemId,
+      link.heapId,
+      link.linkType,
+      link.sourceSubgraphSystemId,
+      link.destSubgraphSystemId,
     );
     const portsByNode = await prepareControlPorts(
       fileSystemId,
@@ -1082,20 +1106,26 @@ export async function rebuildMoveSubsystemImpact(
       portsByNode,
       link.nodeAPortSystemId,
       link.nodeBPortSystemId,
-      link.systemId,
+      newControlLink.systemId,
       link.linkType,
-      syncPlan.retainedHopKeys,
+      new Set(),
       dependencies,
     );
-    const obsoleteSegments = link.subsystemControlLinks.filter(segment =>
-      syncPlan.obsoleteSegmentSystemIds.includes(segment.systemId),
-    );
-    if (obsoleteSegments.length > 0) {
+    if (link.subsystemControlLinks.length > 0) {
       await dependencies.controlLinkRepository.deleteSubsystemControlLinks(
-        obsoleteSegments,
+        link.subsystemControlLinks,
+        fileSystemId,
+      );
+    } else {
+      await dependencies.controlLinkRepository.deleteAggregate(
+        link.systemId,
         fileSystemId,
       );
     }
+    await dependencies.controlLinkRepository.createAggregate(
+      newControlLink,
+      fileSystemId,
+    );
     if (createdSegments.length > 0) {
       await dependencies.controlLinkRepository.createSubsystemControlLinks(
         createdSegments,
@@ -1103,9 +1133,10 @@ export async function rebuildMoveSubsystemImpact(
       );
     }
     controlRoutes.push({
-      link,
-      oldSegments: obsoleteSegments,
-      newSegments: [...syncPlan.retainedSegments, ...createdSegments],
+      oldLink: link,
+      newLink: newControlLink,
+      oldSegments: link.subsystemControlLinks,
+      newSegments: createdSegments,
     });
   }
   const usedDataPorts = new Set<number>();
@@ -1114,7 +1145,7 @@ export async function rebuildMoveSubsystemImpact(
       usedDataPorts.add(id);
   }
   for (const link of dataLinks) {
-    if (dataRoutes.some(route => route.link.systemId === link.systemId))
+    if (dataRoutes.some(route => route.oldLink.systemId === link.systemId))
       continue;
     for (const id of collectDataPortIds(link.subsystemDataLinks, subsystemIds))
       usedDataPorts.add(id);
@@ -1125,7 +1156,7 @@ export async function rebuildMoveSubsystemImpact(
       usedControlPorts.add(id);
   }
   for (const link of controlLinks) {
-    if (controlRoutes.some(route => route.link.systemId === link.systemId))
+    if (controlRoutes.some(route => route.oldLink.systemId === link.systemId))
       continue;
     for (const id of collectControlPortIds(
       link.subsystemControlLinks,
@@ -1188,10 +1219,10 @@ export async function rebuildMoveSubsystemImpact(
   }
 
   return {
-    addedDataLinks: dataRoutes.map(route => route.link),
-    removedDataLinks: [],
-    addedControlLinks: controlRoutes.map(route => route.link),
-    removedControlLinks: [],
+    addedDataLinks: dataRoutes.map(route => route.newLink),
+    removedDataLinks: dataRoutes.map(route => route.oldLink.systemId),
+    addedControlLinks: controlRoutes.map(route => route.newLink),
+    removedControlLinks: controlRoutes.map(route => route.oldLink.systemId),
     subsystemPortChanges: [...changes.values()].filter(
       change =>
         change.addedDataPorts.length > 0 ||

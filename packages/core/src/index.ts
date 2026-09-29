@@ -73,12 +73,12 @@ export type {
 } from './application/ports/persistence/repositories/module/module-definition.repository.js';
 export type {
   DataLinkRepository,
-  DataLinkGraph,
+  DataLinkTopology,
   BoundaryPortPayload,
 } from './application/ports/persistence/repositories/data-link/data-link.repository.js';
 export type {
   ControlLinkRepository,
-  ControlLinkGraph,
+  ControlLinkTopology,
 } from './application/ports/persistence/repositories/control-link/control-link.repository.js';
 export type {SubgraphRepository} from './application/ports/persistence/repositories/subgraph/subgraph.repository.js';
 export type {
@@ -105,10 +105,10 @@ export {
 export type {LinkDeletionMode} from './application/usecase-designer/spf-module/delete/link-deletion-mode.js';
 export {DeleteSpfModuleResultSchema} from './application/usecase-designer/spf-module/dto/delete-spf-module-result.schema.js';
 export type {DeleteSpfModuleResult} from './application/usecase-designer/spf-module/dto/delete-spf-module-result.schema.js';
-export {DeleteDataLinkResultSchema} from './application/usecase-designer/data-links/dto/delete-data-link-result.schema.js';
-export type {DeleteDataLinkResult} from './application/usecase-designer/data-links/dto/delete-data-link-result.schema.js';
-export {DeleteControlLinkResultSchema} from './application/usecase-designer/control-links/dto/delete-control-link-result.schema.js';
-export type {DeleteControlLinkResult} from './application/usecase-designer/control-links/dto/delete-control-link-result.schema.js';
+export {DeleteDataLinkResultSchema} from './application/usecase-designer/data-links/dto/delete-data-link.dto.js';
+export type {DeleteDataLinkResult} from './application/usecase-designer/data-links/dto/delete-data-link.dto.js';
+export {DeleteControlLinkResultSchema} from './application/usecase-designer/control-links/dto/delete-control-link.dto.js';
+export type {DeleteControlLinkResult} from './application/usecase-designer/control-links/dto/delete-control-link.dto.js';
 
 // Application services
 export * from './application/ports/persistence/query-services/query-services.js';

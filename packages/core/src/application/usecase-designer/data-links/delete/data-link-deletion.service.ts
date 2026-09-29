@@ -7,7 +7,7 @@ import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {DataLinkRepository} from '../../../ports/persistence/repositories/data-link/data-link.repository.js';
 import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
 import type {SubsystemDataLink} from '../../../../domain/entities/usecase-data/links/subsystem-data-link.js';
-import type {DeleteDataLinkResult} from '../dto/delete-data-link-result.schema.js';
+import type {DeleteDataLinkResult} from '../dto/delete-data-link.dto.js';
 import {ChainResolutionService} from '../../../../domain/services/subsystem-data-links/datalink-chain-resolution.service.js';
 import {planUnresolvedDeletion} from '../../shared/unresolved-deletion-plan.js';
 import {LINK_DELETION_MODE} from '../../spf-module/delete/link-deletion-mode.js';
@@ -195,16 +195,6 @@ export class DataLinkDeletionService {
     }
 
     await repository.deleteSubsystemDataLinks(deletedSegments, fileSystemId);
-    await repository.deleteCanonical(link.systemId, fileSystemId);
-    await repository.detachSubsystemDataLinks(
-      link.subsystemDataLinks.filter(
-        segment =>
-          !deletedSegments.some(
-            deleted => deleted.systemId === segment.systemId,
-          ),
-      ),
-      fileSystemId,
-    );
   }
 
   private toDeleteResult(
