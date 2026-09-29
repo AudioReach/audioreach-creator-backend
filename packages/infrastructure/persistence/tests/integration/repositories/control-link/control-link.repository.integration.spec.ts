@@ -286,7 +286,7 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
     expect(result.controlLinks[0]?.subsystemControlLinks).toHaveLength(1);
     expect(result.controlLinks[0]?.subsystemControlLinks[0].systemId).toBe(801);
     expect(
-      result.standaloneSubsystemControlLinks.map(link => link.systemId),
+      result.unresolvedSubsystemControlLinks.map(link => link.systemId),
     ).toEqual([803]);
   });
 
@@ -367,7 +367,7 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
 
     const repo = makeRepo(qr, sessionId);
     const segment = (await repo.findAllLinks(FILE_ID))
-      .standaloneSubsystemControlLinks[0];
+      .unresolvedSubsystemControlLinks[0];
     await repo.deleteSubsystemControlLinks([segment], FILE_ID);
 
     const actions = await getActiveActions(qr, sessionId);

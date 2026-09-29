@@ -86,7 +86,6 @@ export type {
   SubsystemKey,
   SubsystemRepository,
   SubsystemNodeTopology,
-  SubsystemSummary,
 } from './application/ports/persistence/repositories/subsystem/subsystem.repository.js';
 // Module write path — commands (LLD2)
 export {PatchSpfModuleCommand} from './application/usecase-designer/spf-module/patch/patch-spf-module.command.js';

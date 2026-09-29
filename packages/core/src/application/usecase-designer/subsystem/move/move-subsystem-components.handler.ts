@@ -219,8 +219,8 @@ export class MoveSubsystemComponentsHandler implements CommandHandler<
       ensureNoMovedPartialConnections(
         movedNodeIds,
         topology,
-        dataRouteContext.standaloneSubsystemDataLinks,
-        controlRouteContext.standaloneSubsystemControlLinks,
+        dataRouteContext.unresolvedSubsystemDataLinks,
+        controlRouteContext.unresolvedSubsystemControlLinks,
       );
 
       const updatedModules: MoveSubsystemComponentsResult['updatedModules'] =

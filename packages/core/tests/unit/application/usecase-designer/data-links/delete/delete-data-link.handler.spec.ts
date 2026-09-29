@@ -17,7 +17,7 @@ function createFixture(dataLinks: object[] = []) {
   const repository = {
     findAllLinks: jest.fn().mockResolvedValue({
       dataLinks,
-      standaloneSubsystemDataLinks: [],
+      unresolvedSubsystemDataLinks: [],
     }),
     deleteAggregate: jest.fn().mockResolvedValue(undefined),
     deleteSubsystemDataLinks: jest.fn().mockResolvedValue(undefined),

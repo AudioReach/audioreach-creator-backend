@@ -550,7 +550,7 @@ async function rebuildUnresolvedDataChains(
   changes: Map<number, SubsystemPortChange>,
   dependencies: MoveImpactDependencies,
 ): Promise<UnresolvedDataRebuild> {
-  const unresolved = routeContext.standaloneSubsystemDataLinks;
+  const unresolved = routeContext.unresolvedSubsystemDataLinks;
   const byId = new Map(unresolved.map(segment => [segment.systemId, segment]));
   const resolution = ChainResolutionService.resolve({
     unresolvedSubsystemLinks: unresolved,
@@ -790,7 +790,7 @@ async function rebuildUnresolvedControlChains(
   changes: Map<number, SubsystemPortChange>,
   dependencies: MoveImpactDependencies,
 ): Promise<UnresolvedControlRebuild> {
-  const unresolved = routeContext.standaloneSubsystemControlLinks;
+  const unresolved = routeContext.unresolvedSubsystemControlLinks;
   const byId = new Map(unresolved.map(segment => [segment.systemId, segment]));
   const resolution = ControlChainResolutionService.resolve({
     unresolvedSubsystemlinks: unresolved,

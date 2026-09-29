@@ -17,7 +17,19 @@ export interface SubsystemInit {
   controlPorts: ControlPort[];
 }
 
-export class Subsystem extends Node {
+export interface SubsystemBase {
+  readonly systemId: number;
+  readonly naturalId: number;
+  readonly name: string;
+  readonly parentSystemId: number | null;
+}
+
+export interface SubsystemHierarchy extends SubsystemBase {
+  readonly moduleSystemIds: readonly number[];
+  readonly subsystemSystemIds: readonly number[];
+}
+
+export class Subsystem extends Node implements SubsystemBase {
   readonly name: string;
   readonly naturalId: number;
   readonly filteredKeySystemIds: number[];

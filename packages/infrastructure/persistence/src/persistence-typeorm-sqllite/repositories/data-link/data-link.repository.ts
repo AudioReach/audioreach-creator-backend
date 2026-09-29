@@ -167,11 +167,11 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
       this.linkFetcher.loadDataLinkRows(fileSystemId, sessionId),
     ]);
     const segmentsByLinkId = new Map<number, SubsystemDataLink[]>();
-    const standaloneSubsystemDataLinks: SubsystemDataLink[] = [];
+    const unresolvedSubsystemDataLinks: SubsystemDataLink[] = [];
     for (const row of rows) {
       const segment = baseToSubsystemDataLink(row);
       if (segment.dataLinkSystemId === null) {
-        standaloneSubsystemDataLinks.push(segment);
+        unresolvedSubsystemDataLinks.push(segment);
         continue;
       }
       const segments = segmentsByLinkId.get(segment.dataLinkSystemId) ?? [];
@@ -183,7 +183,7 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
       dataLinks: dataLinkRows.map(row =>
         baseToDataLink(row, segmentsByLinkId.get(row.systemId) ?? []),
       ),
-      standaloneSubsystemDataLinks,
+      unresolvedSubsystemDataLinks,
     };
   }
 
@@ -192,13 +192,13 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     fileSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const {session, groupId} = this.uow.getWriteContext();
+    const sessionId = session.sessionId;
     const resolvedSegments = await this.linkFetcher.loadSubsystemDataLinkRows(
       fileSystemId,
       sessionId,
       {dataLinkSystemId},
     );
-    const {session, groupId} = this.uow.getWriteContext();
     await this.getWriter().writeDelete(
       {
         targetTable: ENTITY_NAMES.DataLink,
@@ -206,7 +206,7 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
         aggregateId: dataLinkSystemId,
         ...options,
       },
-      session.sessionId,
+      sessionId,
       groupId,
       this.manager,
     );
@@ -218,7 +218,7 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
           aggregateId: dataLinkSystemId,
           ...options,
         },
-        session.sessionId,
+        sessionId,
         groupId,
         this.manager,
       );

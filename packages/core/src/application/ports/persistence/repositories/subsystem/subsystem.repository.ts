@@ -14,17 +14,11 @@ export interface SubsystemControlPortRef {
 import type {EditOptions} from '../../edit-options.js';
 import type {ControlPort} from '../../../../../domain/entities/usecase-data/node/entities/control-port.js';
 import type {DataPort} from '../../../../../domain/entities/usecase-data/node/entities/data-port.js';
-import type {Subsystem} from '../../../../../domain/entities/usecase-data/subsystem/subsystem.js';
+import type {
+  Subsystem,
+  SubsystemHierarchy,
+} from '../../../../../domain/entities/usecase-data/subsystem/subsystem.js';
 import type {NodeType} from '../../../../../domain/entities/usecase-data/node/node.js';
-
-export interface SubsystemSummary {
-  readonly systemId: number;
-  readonly naturalId: number;
-  readonly name: string;
-  readonly parentSystemId: number | null;
-  readonly moduleSystemIds: readonly number[];
-  readonly subsystemSystemIds: readonly number[];
-}
 
 export interface SubsystemKey {
   readonly systemId: number;
@@ -39,7 +33,7 @@ export type SubsystemNodeTopology = {
 };
 
 export interface SubsystemRepository {
-  getSubsystems(fileSystemId: number): Promise<SubsystemSummary[]>;
+  getSubsystems(fileSystemId: number): Promise<SubsystemHierarchy[]>;
   getSubsystem(
     systemId: number,
     fileSystemId: number,

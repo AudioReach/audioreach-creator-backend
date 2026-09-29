@@ -17,7 +17,7 @@ function createFixture(controlLinks: object[] = []) {
   const repository = {
     findAllLinks: jest.fn().mockResolvedValue({
       controlLinks,
-      standaloneSubsystemControlLinks: [],
+      unresolvedSubsystemControlLinks: [],
     }),
     deleteAggregate: jest.fn().mockResolvedValue(undefined),
     deleteSubsystemControlLinks: jest.fn().mockResolvedValue(undefined),

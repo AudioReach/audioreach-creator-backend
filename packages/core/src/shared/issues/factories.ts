@@ -219,22 +219,6 @@ export const IssueFactory = {
     };
   },
 
-  componentInWrongFile(
-    entityType: IssueEntityType,
-    componentSystemId: number,
-    fileSystemId: number,
-  ): Issue {
-    return {
-      code: ISSUE_CODE.ENTITY_WRONG_FILE,
-      message: `Component ${componentSystemId} does not belong to file ${fileSystemId}.`,
-      severity: IssueSeverity.Error,
-      impactedEntity: {
-        entityType,
-        systemId: componentSystemId,
-      },
-    };
-  },
-
   portCountExceedsDefinition(
     portDirection: string,
     requested: number,

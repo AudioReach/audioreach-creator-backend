@@ -37,7 +37,7 @@ export class ControlLinkDeletionService {
 
   /**
    * Deletes a canonical ControlLink or a subsystem segment identified by system
-   * ID. Removing a resolved segment breaks its parent route, while a standalone
+   * ID. Removing a resolved segment breaks its parent route, while an unresolved
    * segment has no canonical parent to remove.
    */
   async deleteBySystemId(
@@ -90,7 +90,7 @@ export class ControlLinkDeletionService {
       return this.toDeleteResult([link], [segment], clearedPorts);
     }
 
-    const unresolved = graph.standaloneSubsystemControlLinks.find(
+    const unresolved = graph.unresolvedSubsystemControlLinks.find(
       segment => segment.systemId === systemId,
     );
     if (!unresolved) return null;
@@ -124,16 +124,16 @@ export class ControlLinkDeletionService {
     const nodeTypeBySystemId = new Map(
       topology.map(node => [node.systemId, node.type]),
     );
-    const standaloneSegmentsById = new Map(
+    const unresolvedSegmentsById = new Map(
       [
-        ...linkGraph.standaloneSubsystemControlLinks,
+        ...linkGraph.unresolvedSubsystemControlLinks,
         ...reachableUnresolved,
       ].map(segment => [segment.systemId, segment]),
     );
     const unresolvedPlan = planUnresolvedDeletion({
       moduleSystemId,
       reachableSegments: reachableUnresolved,
-      routeSegments: linkGraph.standaloneSubsystemControlLinks,
+      routeSegments: linkGraph.unresolvedSubsystemControlLinks,
       getSystemId: segment => segment.systemId,
       isUnresolved: segment => segment.controlLinkSystemId === null,
       getNodeSystemIds: segment => [
@@ -208,7 +208,7 @@ export class ControlLinkDeletionService {
     }
     await repository.deleteSubsystemControlLinks(
       unresolvedIds
-        .map(systemId => standaloneSegmentsById.get(systemId))
+        .map(systemId => unresolvedSegmentsById.get(systemId))
         .filter(
           (segment): segment is SubsystemControlLink => segment !== undefined,
         ),
@@ -255,10 +255,10 @@ export class ControlLinkDeletionService {
 
   private allSegments(graph: {
     controlLinks: ControlLink[];
-    standaloneSubsystemControlLinks: SubsystemControlLink[];
+    unresolvedSubsystemControlLinks: SubsystemControlLink[];
   }): SubsystemControlLink[] {
     return [
-      ...graph.standaloneSubsystemControlLinks,
+      ...graph.unresolvedSubsystemControlLinks,
       ...graph.controlLinks.flatMap(link => link.subsystemControlLinks),
     ];
   }

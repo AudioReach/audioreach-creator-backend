@@ -14,10 +14,9 @@ import {
   type SubsystemKey,
   type SubsystemNodeTopology,
   type SubsystemRepository,
-  type SubsystemSummary,
+  type SubsystemHierarchy,
   type UnitOfWork,
 } from '@arc/core';
-import {CHANGE_OPERATION} from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
@@ -32,14 +31,12 @@ import {ValueDefinitionFetcher} from '../../fetchers/definitions/key-value/value
 export class TypeOrmSubsystemRepository implements SubsystemRepository {
   private readonly writer: PendingChangeWriter;
   private readonly uow: UnitOfWork;
-  private readonly editActions: EditActionsQueryService;
-  private readonly intents: IntentFetcher;
-  private readonly ports: PortOverlayFetcher;
-  private readonly subsystems: SubsystemOverlayFetcher;
-  private readonly editActionsQs: EditActionsQueryService;
-  private readonly modules: SpfModuleOverlayFetcher;
-  private readonly nodes: NodeOverlayFetcher;
-  private readonly keyDefinitions: KeyValueDefinitionFetcher;
+  private readonly intentFetcher: IntentFetcher;
+  private readonly portFetcher: PortOverlayFetcher;
+  private readonly subsystemFetcher: SubsystemOverlayFetcher;
+  private readonly moduleFetcher: SpfModuleOverlayFetcher;
+  private readonly nodeFetcher: NodeOverlayFetcher;
+  private readonly keyDefinitionFetcher: KeyValueDefinitionFetcher;
 
   constructor(
     writer: PendingChangeWriter,
@@ -49,31 +46,39 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     this.writer = writer;
     this.manager = manager;
     this.uow = uow;
-    this.editActions = new EditActionsQueryService(this.manager);
-    this.editActionsQs = this.editActions;
-    this.intents = new IntentFetcher(this.manager, this.editActions);
-    this.ports = new PortOverlayFetcher(
+    const editActionsQueryService = new EditActionsQueryService(this.manager);
+    this.intentFetcher = new IntentFetcher(
       this.manager,
-      this.editActions,
-      this.intents,
+      editActionsQueryService,
     );
-    this.subsystems = new SubsystemOverlayFetcher(manager, this.editActions);
-    this.modules = new SpfModuleOverlayFetcher(manager, this.editActions);
-    this.nodes = new NodeOverlayFetcher(manager, this.editActions);
-    this.keyDefinitions = new KeyValueDefinitionFetcher(
+    this.portFetcher = new PortOverlayFetcher(
+      this.manager,
+      editActionsQueryService,
+      this.intentFetcher,
+    );
+    this.subsystemFetcher = new SubsystemOverlayFetcher(
       manager,
-      this.editActions,
-      new ValueDefinitionFetcher(manager, this.editActions),
+      editActionsQueryService,
+    );
+    this.moduleFetcher = new SpfModuleOverlayFetcher(
+      manager,
+      editActionsQueryService,
+    );
+    this.nodeFetcher = new NodeOverlayFetcher(manager, editActionsQueryService);
+    this.keyDefinitionFetcher = new KeyValueDefinitionFetcher(
+      manager,
+      editActionsQueryService,
+      new ValueDefinitionFetcher(manager, editActionsQueryService),
     );
   }
 
   private readonly manager: EntityManager;
 
-  async getSubsystems(fileSystemId: number): Promise<SubsystemSummary[]> {
+  async getSubsystems(fileSystemId: number): Promise<SubsystemHierarchy[]> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
-    const rows = await this.subsystems.fetchAll(fileSystemId, sessionId);
-    const modules = await this.modules.fetchMany(fileSystemId, sessionId);
-    const nodeRows = await this.nodes.fetchMany(
+    const rows = await this.subsystemFetcher.fetchAll(fileSystemId, sessionId);
+    const modules = await this.moduleFetcher.fetchMany(fileSystemId, sessionId);
+    const nodeRows = await this.nodeFetcher.fetchMany(
       modules.map(module => module.systemId),
       fileSystemId,
       sessionId,
@@ -110,7 +115,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     fileSystemId: number,
   ): Promise<SubsystemNodeTopology[]> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
-    const rows = await this.nodes.fetchAll(fileSystemId, sessionId);
+    const rows = await this.nodeFetcher.fetchAll(fileSystemId, sessionId);
     return rows.map(row => ({
       systemId: row.systemId,
       parentSystemId: row.parentSystemId ?? null,
@@ -123,12 +128,12 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     fileSystemId: number,
   ): Promise<Subsystem | null> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
-    const rows = await this.subsystems.fetchAll(fileSystemId, sessionId);
+    const rows = await this.subsystemFetcher.fetchAll(fileSystemId, sessionId);
     const row = rows.find(subsystem => subsystem.systemId === systemId);
     if (!row) return null;
     const [dataPorts, controlPorts] = await Promise.all([
-      this.ports.fetchDataPorts(systemId, fileSystemId, sessionId),
-      this.ports.fetchControlPortsWithIntents(
+      this.portFetcher.fetchDataPorts(systemId, fileSystemId, sessionId),
+      this.portFetcher.fetchControlPortsWithIntents(
         systemId,
         fileSystemId,
         sessionId,
@@ -172,7 +177,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
   ): Promise<SubsystemKey[]> {
     if (keySystemIds.length === 0) return [];
     const sessionId = this.uow.getWriteContext().session.sessionId;
-    const keys = await this.keyDefinitions.fetchMany(
+    const keys = await this.keyDefinitionFetcher.fetchMany(
       [...keySystemIds],
       fileSystemId,
       sessionId,
@@ -189,13 +194,16 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     fileSystemId: number,
   ): Promise<boolean> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
-    const rows = await this.subsystems.fetchAll(fileSystemId, sessionId);
+    const rows = await this.subsystemFetcher.fetchAll(fileSystemId, sessionId);
     return rows.some(row => row.systemId === systemId);
   }
 
   async hasSubsystems(fileSystemId: number): Promise<boolean> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
-    const subsystems = await this.subsystems.fetchAll(fileSystemId, sessionId);
+    const subsystems = await this.subsystemFetcher.fetchAll(
+      fileSystemId,
+      sessionId,
+    );
     return subsystems.length > 0;
   }
 
@@ -204,10 +212,10 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
   ): Promise<readonly number[]> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
     const [subsystems, modules] = await Promise.all([
-      this.subsystems.fetchAll(fileSystemId, sessionId),
-      this.modules.fetchMany(fileSystemId, sessionId),
+      this.subsystemFetcher.fetchAll(fileSystemId, sessionId),
+      this.moduleFetcher.fetchMany(fileSystemId, sessionId),
     ]);
-    const moduleNodes = await this.nodes.fetchMany(
+    const moduleNodes = await this.nodeFetcher.fetchMany(
       modules.map(module => module.systemId),
       fileSystemId,
       sessionId,
@@ -254,7 +262,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     ];
     const fetchedRows = await Promise.all(
       subsystemSystemIds.map(subsystemSystemId =>
-        this.ports.fetchControlPortsWithIntents(
+        this.portFetcher.fetchControlPortsWithIntents(
           subsystemSystemId,
           fileSystemId,
           session.sessionId,
@@ -287,36 +295,12 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     fileSystemId: number,
   ): Promise<PortIoType | null> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
-
-    // Check session overlay first — a staged CREATE wins over the base table
-    const actions = await this.editActionsQs.getByTable(
+    const port = await this.portFetcher.fetchDataPortBySystemId(
+      portSystemId,
+      fileSystemId,
       sessionId,
-      ENTITY_NAMES.DataPort,
     );
-    for (const action of actions) {
-      if (
-        action.operation === CHANGE_OPERATION.Create &&
-        action.targetSystemId === portSystemId
-      ) {
-        const p = action.newValue as Record<string, unknown>;
-        if (Number(p['fileSystemId']) === fileSystemId) {
-          return (p['portIoType'] as PortIoType) ?? null;
-        }
-      }
-    }
-
-    // Fall through to base table
-    const row = await this.manager
-      .createQueryBuilder()
-      .select(['dp.portIoType'])
-      .from(ENTITY_NAMES.DataPort, 'dp')
-      .where('dp.systemId = :systemId AND dp.fileSystemId = :fileSystemId', {
-        systemId: portSystemId,
-        fileSystemId,
-      })
-      .getRawOne<{dp_port_io_type: string}>();
-
-    return (row?.dp_port_io_type as PortIoType) ?? null;
+    return port?.portIoType ?? null;
   }
 
   async isPortOccupiedAsSource(
@@ -421,8 +405,8 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     const sessionId = session.sessionId;
     const fileSystemId = session.fileSystemId;
     const [dataPorts, controlPorts] = await Promise.all([
-      this.ports.fetchDataPorts(systemId, fileSystemId, sessionId),
-      this.ports.fetchControlPortsWithIntents(
+      this.portFetcher.fetchDataPorts(systemId, fileSystemId, sessionId),
+      this.portFetcher.fetchControlPortsWithIntents(
         systemId,
         fileSystemId,
         sessionId,

@@ -3,10 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {
-  SubsystemKey,
-  SubsystemSummary,
-} from '../../ports/persistence/repositories/subsystem/subsystem.repository.js';
+import type {SubsystemKey} from '../../ports/persistence/repositories/subsystem/subsystem.repository.js';
+import type {SubsystemHierarchy} from '../../../domain/entities/usecase-data/subsystem/subsystem.js';
 
 export interface SubsystemPatchReadModel {
   readonly systemId: number;
@@ -37,16 +35,16 @@ export interface SubsystemPatchReadModel {
 }
 
 export function findSubsystem(
-  subsystems: SubsystemSummary[],
+  subsystems: SubsystemHierarchy[],
   systemId: number,
-): SubsystemSummary | null {
+): SubsystemHierarchy | null {
   return subsystems.find(subsystem => subsystem.systemId === systemId) ?? null;
 }
 
 export function isDescendant(
   candidateSystemId: number,
   ancestorSystemId: number,
-  subsystems: SubsystemSummary[],
+  subsystems: SubsystemHierarchy[],
 ): boolean {
   let current = findSubsystem(subsystems, candidateSystemId);
   const visited = new Set<number>();
@@ -72,10 +70,10 @@ export function defaultSubsystemName(naturalId: number): string {
 }
 
 export function findSubsystemNameConflict(
-  subsystems: readonly SubsystemSummary[],
+  subsystems: readonly SubsystemHierarchy[],
   name: string,
   excludedSystemId?: number,
-): SubsystemSummary | undefined {
+): SubsystemHierarchy | undefined {
   const normalizedName = name.toLocaleLowerCase();
   return subsystems.find(
     subsystem =>

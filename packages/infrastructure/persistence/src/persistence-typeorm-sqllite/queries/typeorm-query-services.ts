@@ -62,6 +62,8 @@ import {SpfModuleOverlayFetcher} from '../fetchers/spf-module-overlay-fetcher.js
 import {SpfModuleParameterDefinitionFetcher} from '../fetchers/definitions/spf-module-definitions/spf-module-parameter-definition-fetcher.js';
 import {SubsystemOverlayFetcher} from '../fetchers/subsystem-overlay-fetcher.js';
 import {NodeOverlayFetcher} from '../fetchers/node-overlay-fetcher.js';
+import {KeyValueDefinitionFetcher} from '../fetchers/definitions/key-value/key-value-definition-fetcher.js';
+import {ValueDefinitionFetcher} from '../fetchers/definitions/key-value/value-definition-fetcher.js';
 
 class DbModuleQueryService implements ModuleQueryService {}
 
@@ -132,6 +134,11 @@ export class DbQueryServices implements QueryServices {
     const subsystemOverlayFetcher = new SubsystemOverlayFetcher(
       dataSource.manager,
       editActionsQueryService,
+    );
+    const keyValueDefinitionFetcher = new KeyValueDefinitionFetcher(
+      dataSource.manager,
+      editActionsQueryService,
+      new ValueDefinitionFetcher(dataSource.manager, editActionsQueryService),
     );
     const nodeOverlayFetcher = new NodeOverlayFetcher(
       dataSource.manager,
@@ -282,6 +289,7 @@ export class DbQueryServices implements QueryServices {
       usecaseOverlayFetcher,
       linkOverlayFetcher,
       portOverlayFetcher,
+      keyValueDefinitionFetcher,
     );
 
     this.logQueryService = logQueryService;

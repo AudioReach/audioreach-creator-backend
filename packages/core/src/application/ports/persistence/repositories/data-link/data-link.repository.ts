@@ -12,7 +12,7 @@ import type {SessionChanged} from '../shared/session-changed.js';
 
 export interface DataLinkTopology {
   dataLinks: DataLink[];
-  standaloneSubsystemDataLinks: SubsystemDataLink[];
+  unresolvedSubsystemDataLinks: SubsystemDataLink[];
 }
 
 export interface BoundaryPortPayload {

@@ -159,11 +159,11 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
       this.linkFetcher.loadControlLinkRows(fileSystemId, sessionId),
     ]);
     const segmentsByLinkId = new Map<number, SubsystemControlLink[]>();
-    const standaloneSubsystemControlLinks: SubsystemControlLink[] = [];
+    const unresolvedSubsystemControlLinks: SubsystemControlLink[] = [];
     for (const row of rows) {
       const segment = baseToSubsystemControlLink(row);
       if (segment.controlLinkSystemId === null) {
-        standaloneSubsystemControlLinks.push(segment);
+        unresolvedSubsystemControlLinks.push(segment);
         continue;
       }
       const segments = segmentsByLinkId.get(segment.controlLinkSystemId) ?? [];
@@ -175,7 +175,7 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
       controlLinks: controlLinkRows.map(row =>
         baseToControlLink(row, segmentsByLinkId.get(row.systemId) ?? []),
       ),
-      standaloneSubsystemControlLinks,
+      unresolvedSubsystemControlLinks,
     };
   }
 
@@ -184,14 +184,14 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
     fileSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const {session, groupId} = this.uow.getWriteContext();
+    const sessionId = session.sessionId;
     const resolvedSegments =
       await this.linkFetcher.loadSubsystemControlLinkRows(
         fileSystemId,
         sessionId,
         {controlLinkSystemId},
       );
-    const {groupId} = this.uow.getWriteContext();
     await this.getWriter().writeDelete(
       {
         targetTable: ENTITY_NAMES.ControlLink,
@@ -212,7 +212,7 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
           ...options,
         },
         sessionId,
-        this.uow.getWriteContext().groupId,
+        groupId,
         this.manager,
       );
     }
@@ -342,7 +342,6 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
             nodeBPortSystemId: segment.nodeBPortSystemId,
             controlLinkSystemId: segment.controlLinkSystemId,
             fileSystemId,
-            version: segment.version,
           },
           ...options,
         },
@@ -411,7 +410,6 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
       if (remainingSegments.length > 0) {
         await this.detachRemainingSubsystemControlLinks(
           remainingSegments.map(segment => baseToSubsystemControlLink(segment)),
-          fileSystemId,
           options,
         );
       }
@@ -421,7 +419,6 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
 
   private async detachRemainingSubsystemControlLinks(
     subsystemControlLinks: readonly SubsystemControlLink[],
-    _fileSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
     const {session, groupId} = this.uow.getWriteContext();

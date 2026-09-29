@@ -39,6 +39,9 @@ const FILE_ID = 100;
 const ROOT_SUBSYSTEM_ID = 10;
 const CHILD_SUBSYSTEM_ID = 11;
 const MODULE_ID = 20;
+const SUBGRAPH_ID = 30;
+const CONTAINER_ID = 31;
+const MODULE_DEFINITION_ID = 32;
 const EXISTING_DATA_PORT_ID = 1000;
 const EXISTING_CONTROL_PORT_ID = 1001;
 
@@ -74,6 +77,31 @@ async function seedSession(ds: DataSource): Promise<number> {
 
 async function seedSubsystemGraph(ds: DataSource) {
   await ds.query(
+    `INSERT INTO processor_definitions
+      (system_id, processor_definition_id, name, file_system_id)
+     VALUES (1, 1, 'Processor', ?)`,
+    [FILE_ID],
+  );
+  await ds.query(
+    `INSERT INTO subgraphs
+      (system_id, name, subgraph_id, is_imported, file_system_id)
+     VALUES (?, 'Subgraph', 1, 0, ?)`,
+    [SUBGRAPH_ID, FILE_ID],
+  );
+  await ds.query(
+    `INSERT INTO containers
+      (system_id, container_id, container_type_system_id, file_system_id)
+     VALUES (?, 1, 5, ?)`,
+    [CONTAINER_ID, FILE_ID],
+  );
+  await ds.query(
+    `INSERT INTO spf_module_definitions
+      (system_id, module_definition_id, name, stack_size, file_system_id,
+       is_loaded_at_bootup, processor_system_id)
+     VALUES (?, 1, 'Definition', 0, ?, 0, 1)`,
+    [MODULE_DEFINITION_ID, FILE_ID],
+  );
+  await ds.query(
     `INSERT INTO nodes (system_id, type, parent_id, file_system_id) VALUES (?, 'subsystem', NULL, ?)`,
     [ROOT_SUBSYSTEM_ID, FILE_ID],
   );
@@ -84,6 +112,13 @@ async function seedSubsystemGraph(ds: DataSource) {
   await ds.query(
     `INSERT INTO nodes (system_id, type, parent_id, file_system_id) VALUES (?, 'module', ?, ?)`,
     [MODULE_ID, CHILD_SUBSYSTEM_ID, FILE_ID],
+  );
+  await ds.query(
+    `INSERT INTO spf_modules
+      (system_id, instance_id, alias, definition_system_id, container_system_id,
+       subgraph_system_id, file_system_id)
+     VALUES (?, 1, 'Module', ?, ?, ?, ?)`,
+    [MODULE_ID, MODULE_DEFINITION_ID, CONTAINER_ID, SUBGRAPH_ID, FILE_ID],
   );
   await ds.query(
     `INSERT INTO subsystems (system_id, name, subsystem_id) VALUES (?, 'Root', 1)`,
@@ -237,6 +272,9 @@ describe('TypeOrmSubsystemRepository (integration)', () => {
     expect(subsystem?.dataPorts[0].systemId).toBe(EXISTING_DATA_PORT_ID);
     expect(subsystem?.controlPorts).toHaveLength(1);
     expect(subsystem?.controlPorts[0].systemId).toBe(EXISTING_CONTROL_PORT_ID);
+    expect(await repo.getPortIoType(EXISTING_DATA_PORT_ID, FILE_ID)).toBe(
+      PORT_IO_TYPE.InputOutput,
+    );
 
     await repo.addDataPort(
       new DataPort({
@@ -252,6 +290,9 @@ describe('TypeOrmSubsystemRepository (integration)', () => {
     const updated = await repo.getSubsystem(ROOT_SUBSYSTEM_ID, FILE_ID);
     expect(updated?.dataPorts.map(port => port.systemId)).toEqual(
       expect.arrayContaining([EXISTING_DATA_PORT_ID, 1002]),
+    );
+    expect(await repo.getPortIoType(1002, FILE_ID)).toBe(
+      PORT_IO_TYPE.OutputInput,
     );
   });
 

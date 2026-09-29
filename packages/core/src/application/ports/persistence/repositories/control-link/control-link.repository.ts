@@ -10,7 +10,7 @@ import type {SessionChanged} from '../shared/session-changed.js';
 
 export interface ControlLinkTopology {
   controlLinks: ControlLink[];
-  standaloneSubsystemControlLinks: SubsystemControlLink[];
+  unresolvedSubsystemControlLinks: SubsystemControlLink[];
 }
 
 export interface ControlLinkRepository {

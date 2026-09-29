@@ -21,6 +21,7 @@ import type {DataLinkBase} from '../../entity-schema/usecase-data/Links/data-lin
 import type {UsecaseOverlayFetcher} from '../../fetchers/usecase-overlay-fetcher.js';
 import type {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
 import {NODE_TYPE} from '../../entity-schema/usecase-data/node/node.schema.js';
+import type {KeyValueDefinitionFetcher} from '../../fetchers/definitions/key-value/key-value-definition-fetcher.js';
 
 /**
  * Database implementation of SubsystemQueryService.
@@ -39,6 +40,7 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
     private readonly usecaseFetcher: UsecaseOverlayFetcher,
     private readonly linkFetcher: LinkOverlayFetcher,
     portFetcher: PortOverlayFetcher,
+    private readonly keyValueDefinitionFetcher: KeyValueDefinitionFetcher,
   ) {
     this.subsystemFetcher = subsystemFetcher;
     this.portFetcher = portFetcher;
@@ -72,6 +74,20 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
         }
         childIdsByParent.set(parentSystemId, childIds);
       }
+
+      const filteredKeySystemIds = [
+        ...new Set(
+          subsystems.flatMap(subsystem => subsystem.filteredKeySystemIds),
+        ),
+      ];
+      const filteredKeys = await this.keyValueDefinitionFetcher.fetchMany(
+        filteredKeySystemIds,
+        fileSystemId,
+        sessionId,
+      );
+      const filteredKeyBySystemId = new Map(
+        filteredKeys.map(key => [key.systemId, key]),
+      );
 
       const subsystemData = await Promise.all(
         subsystems.map(async s => {
@@ -151,7 +167,10 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
           parentSystemId: s.parentSystemId,
           moduleSystemIds,
           subsystemSystemIds,
-          filteredKeys: [], // TODO: load from SubsystemFilteredKey when filtered-by-subsystem is implemented
+          filteredKeys: s.filteredKeySystemIds.flatMap(systemId => {
+            const key = filteredKeyBySystemId.get(systemId);
+            return key === undefined ? [] : [key];
+          }),
           dataPorts: dataPorts.map(port => ({
             systemId: port.systemId,
             naturalId: port.naturalId,

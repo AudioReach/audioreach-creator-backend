@@ -47,7 +47,7 @@ function createFixture(options?: {
       .mockResolvedValue(options?.reachableUnresolved ?? []),
     findAllLinks: jest.fn().mockResolvedValue({
       controlLinks: options?.controlLinks ?? [],
-      standaloneSubsystemControlLinks: options?.routeSegments ?? [],
+      unresolvedSubsystemControlLinks: options?.routeSegments ?? [],
     }),
     deleteAggregate: jest.fn().mockResolvedValue(undefined),
     deleteSubsystemControlLinks: jest.fn().mockResolvedValue(undefined),

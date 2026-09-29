@@ -7,7 +7,7 @@ import {describe, expect, it} from '@jest/globals';
 import {PORT_IO_TYPE} from '../../../../../../src/domain/entities/common/enums/port-io-type.js';
 import {
   mapDataPort,
-  DataPortDtoSchema,
+  ModuleDataPortDtoSchema,
 } from '../../../../../../src/application/usecase-designer/spf-module/query/spf-module-dto.js';
 import type {DataPortReadModel} from '../../../../../../src/application/ports/persistence/query-services/spf-module/ports/data-port-read-model.js';
 
@@ -29,7 +29,7 @@ describe('mapDataPort', () => {
     ).toBe('Output');
   });
 
-  it('produces output that passes DataPortDtoSchema validation', () => {
+  it('produces output that passes ModuleDataPortDtoSchema validation', () => {
     const dto = mapDataPort({
       systemId: 101,
       naturalId: 1,
@@ -39,6 +39,6 @@ describe('mapDataPort', () => {
       totalLinksAtPort: 0,
     });
 
-    expect(DataPortDtoSchema.safeParse(dto).success).toBe(true);
+    expect(ModuleDataPortDtoSchema.safeParse(dto).success).toBe(true);
   });
 });

@@ -20,6 +20,8 @@ import {UsecaseOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite
 import {LinkOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/link-overlay-fetcher.js';
 import {PortOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/port-overlay-fetcher.js';
 import {IntentFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/intent-fetcher.js';
+import {KeyValueDefinitionFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/definitions/key-value/key-value-definition-fetcher.js';
+import {ValueDefinitionFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/definitions/key-value/value-definition-fetcher.js';
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 import {
@@ -196,6 +198,11 @@ describe('DbSubsystemQueryService segment queries (integration)', () => {
         editActions,
         new IntentFetcher(ds.manager, editActions),
       ),
+      new KeyValueDefinitionFetcher(
+        ds.manager,
+        editActions,
+        new ValueDefinitionFetcher(ds.manager, editActions),
+      ),
     );
   });
 
@@ -214,6 +221,45 @@ describe('DbSubsystemQueryService segment queries (integration)', () => {
     expect(dataResult.kind).toBe(RESULT_KIND.Ok);
     expect(dataResult.data).toEqual([
       expect.objectContaining({systemId: DATA_SEGMENT_ID}),
+    ]);
+  });
+
+  it('returns the effective filtered keys for each subsystem', async () => {
+    await ds.query(
+      `INSERT INTO nodes (system_id, type, parent_id, file_system_id)
+       VALUES (800, 'subsystem', NULL, ?)`,
+      [FILE_ID],
+    );
+    await ds.query(
+      `INSERT INTO subsystems (system_id, name, subsystem_id)
+       VALUES (800, 'Subsystem', 8)`,
+    );
+    await ds.query(
+      `INSERT INTO arc_keys (system_id, file_system_id, key_id, name)
+       VALUES (801, ?, 81, 'Filtered key')`,
+      [FILE_ID],
+    );
+    await ds.query(
+      `INSERT INTO subsystem_filtered_keys_key_definition
+        (subsystems_system_id, key_definition_system_id)
+       VALUES (800, 801)`,
+    );
+
+    const result = await service.findAll(FILE_ID);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    if (result.kind === RESULT_KIND.Fail) return;
+    expect(result.data).toEqual([
+      expect.objectContaining({
+        systemId: 800,
+        filteredKeys: [
+          expect.objectContaining({
+            systemId: 801,
+            naturalId: 81,
+            name: 'Filtered key',
+          }),
+        ],
+      }),
     ]);
   });
 });

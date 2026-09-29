@@ -296,7 +296,7 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
       result.dataLinks[0]?.subsystemDataLinks.map(link => link.systemId),
     ).toEqual([701]);
     expect(
-      result.standaloneSubsystemDataLinks.map(link => link.systemId),
+      result.unresolvedSubsystemDataLinks.map(link => link.systemId),
     ).toEqual([703]);
   });
 
@@ -344,7 +344,7 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
 
     const repo = makeRepo(qr, sessionId);
     const segment = (await repo.findAllLinks(FILE_ID))
-      .standaloneSubsystemDataLinks[0];
+      .unresolvedSubsystemDataLinks[0];
     await repo.deleteSubsystemDataLinks([segment], FILE_ID);
 
     const actions = await getActiveActions(qr, sessionId);

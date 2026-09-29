@@ -66,7 +66,7 @@ export class DataLinkDeletionService {
       return this.toDeleteResult([link], [segment]);
     }
 
-    const unresolved = graph.standaloneSubsystemDataLinks.find(
+    const unresolved = graph.unresolvedSubsystemDataLinks.find(
       segment => segment.systemId === systemId,
     );
     if (!unresolved) return null;
@@ -95,15 +95,15 @@ export class DataLinkDeletionService {
     const nodeTypeBySystemId = new Map(
       topology.map(node => [node.systemId, node.type]),
     );
-    const standaloneSegmentsById = new Map(
-      [...linkGraph.standaloneSubsystemDataLinks, ...reachableUnresolved].map(
+    const unresolvedSegmentsById = new Map(
+      [...linkGraph.unresolvedSubsystemDataLinks, ...reachableUnresolved].map(
         segment => [segment.systemId, segment],
       ),
     );
     const unresolvedPlan = planUnresolvedDeletion({
       moduleSystemId,
       reachableSegments: reachableUnresolved,
-      routeSegments: linkGraph.standaloneSubsystemDataLinks,
+      routeSegments: linkGraph.unresolvedSubsystemDataLinks,
       getSystemId: segment => segment.systemId,
       isUnresolved: segment => segment.dataLinkSystemId === null,
       getNodeSystemIds: segment => [
@@ -158,7 +158,7 @@ export class DataLinkDeletionService {
         : unresolvedPlan.segmentOnlyIds;
     await repository.deleteSubsystemDataLinks(
       unresolvedIds
-        .map(systemId => standaloneSegmentsById.get(systemId))
+        .map(systemId => unresolvedSegmentsById.get(systemId))
         .filter(
           (segment): segment is SubsystemDataLink => segment !== undefined,
         ),
