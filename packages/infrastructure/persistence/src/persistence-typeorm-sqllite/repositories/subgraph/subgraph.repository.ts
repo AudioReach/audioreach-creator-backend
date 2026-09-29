@@ -6,7 +6,6 @@
 import type {EntityManager} from 'typeorm';
 import type {
   SubgraphRepository,
-  SubgraphWithProperties,
   IdGenerationPort,
   UnitOfWork,
   EditOptions,
@@ -14,7 +13,11 @@ import type {
   SgkvEntry,
   KvPair,
 } from '@arc/core';
-import {Subgraph, SubgraphPropertyDefinition} from '@arc/core';
+import {
+  Subgraph,
+  SubgraphPropertyData,
+  SubgraphPropertyDefinition,
+} from '@arc/core';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {SubgraphOverlayFetcher} from '../../fetchers/subgraph-overlay-fetcher.js';
@@ -322,31 +325,10 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     }
   }
 
-  async getAggregate(
-    subgraphSystemId: number,
-    fileSystemId: number,
-  ): Promise<SubgraphWithProperties | null> {
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-    const overlaid = await this.subgraphFetcher.fetchOne(
-      subgraphSystemId,
-      fileSystemId,
-      sessionId,
-    );
-    if (!overlaid) return null;
-    return {
-      subgraph: this.hydrate(overlaid),
-      properties: overlaid.properties.map(p => ({
-        systemId: p.systemId,
-        propertySystemId: p.propertySystemId,
-        payload: p.payload,
-      })),
-    };
-  }
-
   async getAggregates(
     subgraphSystemIds: number[],
     fileSystemId: number,
-  ): Promise<Map<number, SubgraphWithProperties>> {
+  ): Promise<Map<number, Subgraph>> {
     if (subgraphSystemIds.length === 0) return new Map();
     const sessionId = this.uow.getWriteContext().session.sessionId;
 
@@ -365,16 +347,12 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
       propertiesBySubgraph.set(property.subgraphSystemId, properties);
     }
 
-    const result = new Map<number, SubgraphWithProperties>();
+    const result = new Map<number, Subgraph>();
     for (const row of rows) {
-      result.set(row.systemId, {
-        subgraph: this.hydrate(row),
-        properties: (propertiesBySubgraph.get(row.systemId) ?? []).map(p => ({
-          systemId: p.systemId,
-          propertySystemId: p.propertySystemId,
-          payload: p.payload,
-        })),
-      });
+      result.set(
+        row.systemId,
+        this.hydrate(row, propertiesBySubgraph.get(row.systemId) ?? []),
+      );
     }
     return result;
   }
@@ -506,7 +484,7 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     );
   }
 
-  async removeAllVcpmCfgData(subgraphSystemId: number): Promise<void> {
+  async removeAllVcpmData(subgraphSystemId: number): Promise<void> {
     const {session, groupId} = this.uow.getWriteContext();
     const data = await this.vcpmDataFetcher.fetchForSubgraph(
       subgraphSystemId,
@@ -536,13 +514,24 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     }
   }
 
-  private hydrate(base: SubgraphBase): Subgraph {
+  private hydrate(
+    base: SubgraphBase,
+    properties: readonly SubgraphPropertyDataBase[] = [],
+  ): Subgraph {
     return new Subgraph({
       systemId: base.systemId,
       naturalId: base.naturalId,
       name: base.name,
       isImported: Boolean(base.isImported),
       fileSystemId: base.fileSystemId,
+      properties: properties.map(
+        property =>
+          new SubgraphPropertyData(
+            property.systemId,
+            property.propertySystemId,
+            property.payload,
+          ),
+      ),
     });
   }
 }

@@ -206,27 +206,26 @@ describe('TypeOrmSubgraphRepository — addProperty', () => {
   });
 });
 
-describe('TypeOrmSubgraphRepository — getAggregate', () => {
+describe('TypeOrmSubgraphRepository — getAggregates', () => {
   it('returns subgraph with property rows from base data', async () => {
     const ds = getTestDataSource();
     await seedBase(ds);
     const sessionId = await seedSession(ds);
     const repo = makeRepo(ds, sessionId);
 
-    const result = await repo.getAggregate(SG_ID, FILE_ID);
-    expect(result).not.toBeNull();
-    expect(result!.subgraph.systemId).toBe(SG_ID);
-    expect(result!.properties).toHaveLength(1);
+    const result = await repo.getAggregates([SG_ID], FILE_ID);
+    expect(result.get(SG_ID)?.systemId).toBe(SG_ID);
+    expect(result.get(SG_ID)?.properties).toHaveLength(1);
   });
 
-  it('returns null when subgraph does not exist', async () => {
+  it('omits a subgraph that does not exist', async () => {
     const ds = getTestDataSource();
     await seedBase(ds);
     const sessionId = await seedSession(ds);
     const repo = makeRepo(ds, sessionId);
 
-    const result = await repo.getAggregate(9999, FILE_ID);
-    expect(result).toBeNull();
+    const result = await repo.getAggregates([9999], FILE_ID);
+    expect(result).toEqual(new Map());
   });
 });
 
@@ -255,7 +254,10 @@ describe('TypeOrmSubgraphRepository — getAggregates', () => {
       expect.objectContaining({systemId: PROP_DATA_SYS_ID}),
     ]);
     expect(result.get(51)?.properties).toEqual([
-      expect.objectContaining({systemId: 302, propertySystemId: 102}),
+      expect.objectContaining({
+        systemId: 302,
+        propertyDefinitionSystemId: 102,
+      }),
     ]);
   });
 });

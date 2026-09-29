@@ -15,12 +15,9 @@ import {ENTITY_NAMES} from '../../../entity-schema/entity-table-names.js';
  * nullable because the parameter definition is loaded with a LEFT JOIN.
  */
 type VcpmDefinitionRawRow = {
-  moduleSystemId: number;
-  moduleDefinitionId: number;
+  moduleDefinitionSystemId: number;
   paramSystemId: number | null;
-  paramId: number | null;
   elementsStructure: string | null;
-  isReadOnly: number | null;
 };
 
 export class VcpmModuleDefinitionFetcher {
@@ -31,12 +28,9 @@ export class VcpmModuleDefinitionFetcher {
   ): Promise<VcpmModuleDefinitionWithParamsReadModel[]> {
     const rows = await this.manager
       .createQueryBuilder()
-      .select('vmd.systemId', 'moduleSystemId')
-      .addSelect('vmd.naturalId', 'moduleDefinitionId')
+      .select('vmd.systemId', 'moduleDefinitionSystemId')
       .addSelect('vmpd.systemId', 'paramSystemId')
-      .addSelect('vmpd.naturalId', 'paramId')
       .addSelect('vmpd.elementsStructure', 'elementsStructure')
-      .addSelect('vmpd.isReadOnly', 'isReadOnly')
       .from(ENTITY_NAMES.VcpmModuleDefinition, 'vmd')
       .leftJoin(
         ENTITY_NAMES.VcpmModuleParameterDefinition,
@@ -52,20 +46,17 @@ export class VcpmModuleDefinitionFetcher {
     >();
 
     for (const row of rows) {
-      if (!definitions.has(row.moduleSystemId)) {
-        definitions.set(row.moduleSystemId, {
-          systemId: row.moduleSystemId,
-          moduleDefinitionId: row.moduleDefinitionId,
+      if (!definitions.has(row.moduleDefinitionSystemId)) {
+        definitions.set(row.moduleDefinitionSystemId, {
+          moduleDefinitionSystemId: row.moduleDefinitionSystemId,
           parameters: [],
         });
       }
 
       if (row.paramSystemId !== null) {
-        definitions.get(row.moduleSystemId)!.parameters.push({
+        definitions.get(row.moduleDefinitionSystemId)!.parameters.push({
           systemId: row.paramSystemId,
-          paramId: row.paramId ?? 0,
           elementsStructure: row.elementsStructure ?? '',
-          isReadOnly: Boolean(row.isReadOnly),
         });
       }
     }

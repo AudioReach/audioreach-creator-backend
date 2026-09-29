@@ -97,9 +97,10 @@ export class ModuleDeletionService {
       );
     }
 
-    const subgraphRepo = await this.uow
+    const subgraphs = await this.uow
       .getSubgraphRepository()
-      .getAggregate(module.subgraphSystemId, fileSystemId);
+      .getAggregates([module.subgraphSystemId], fileSystemId);
+    const subgraphRepo = subgraphs.get(module.subgraphSystemId);
     if (!subgraphRepo) {
       throw new ResourceNotFoundException(
         `Subgraph ${module.subgraphSystemId} was not found.`,
@@ -111,7 +112,7 @@ export class ModuleDeletionService {
         ],
       );
     }
-    if (subgraphRepo.subgraph.isImported) {
+    if (subgraphRepo.isImported) {
       throw new DomainRuleViolationException([
         IssueFactory.moduleInImportedSubgraph(moduleSystemId),
       ]);

@@ -48,8 +48,8 @@ function makeSubgraph(systemId: number, vsidValue?: number) {
         ? [
             {
               systemId: 200 + systemId,
-              propertySystemId: VSID_DEF_SYS_ID,
-              payload: uint32Payload(vsidValue),
+              propertyDefinitionSystemId: VSID_DEF_SYS_ID,
+              getPayloadCopy: () => uint32Payload(vsidValue),
             },
           ]
         : [],
@@ -69,11 +69,6 @@ function makeUow(opts: {subgraph?: any; linkedIds?: number[]} = {}) {
       .fn()
       .mockReturnValue({session: SESSION, groupId: GROUP_ID}),
     getSubgraphRepository: jest.fn().mockReturnValue({
-      getAggregate: jest
-        .fn()
-        .mockImplementation((id: number) =>
-          Promise.resolve(id === 10 ? subgraph : null),
-        ),
       getAggregates: jest.fn().mockImplementation((ids: number[]) => {
         const map = new Map<number, any>();
         for (const id of ids) {

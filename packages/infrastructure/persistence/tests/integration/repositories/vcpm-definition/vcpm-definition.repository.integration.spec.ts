@@ -122,14 +122,11 @@ describe('TypeOrmVcpmDefinitionRepository', () => {
       repository.getAllVcpmModuleDefinitions(FILE_ID),
     ).resolves.toEqual([
       {
-        systemId: 401,
-        moduleDefinitionId: 9001,
+        moduleDefinitionSystemId: 401,
         parameters: [
           {
             systemId: 402,
-            paramId: 7,
             elementsStructure: '[]',
-            isReadOnly: false,
           },
         ],
       },
@@ -174,20 +171,16 @@ describe('TypeOrmVcpmDefinitionRepository', () => {
     expect(result).toEqual(
       expect.arrayContaining([
         {
-          systemId: 401,
-          moduleDefinitionId: 9001,
+          moduleDefinitionSystemId: 401,
           parameters: [
             {
               systemId: 402,
-              paramId: 7,
               elementsStructure: '',
-              isReadOnly: false,
             },
           ],
         },
         {
-          systemId: 403,
-          moduleDefinitionId: 9002,
+          moduleDefinitionSystemId: 403,
           parameters: [],
         },
       ]),

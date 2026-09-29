@@ -93,7 +93,7 @@ export class RoutingGraphSnapshotBuilder {
         readMode: READ_MODE.Committed,
       }),
     ]);
-    const subgraphs = [...subgraphData.values()].map(data => data.subgraph);
+    const subgraphs = [...subgraphData.values()];
 
     const subgraphsById = new Map(
       subgraphs.map(subgraph => [subgraph.systemId, subgraph]),

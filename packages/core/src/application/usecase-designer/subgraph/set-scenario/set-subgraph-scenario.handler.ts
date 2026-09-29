@@ -25,10 +25,8 @@ import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {SetSubgraphScenarioCommand} from './set-subgraph-scenario.command.js';
 import type {ScenarioChangeDto} from '../dto/subgraph-write-result-types.js';
 import type {SubgraphPropertyDefinition} from '../../../../domain/entities/definitions/subgraph/subgraph-property-definitions.js';
-import type {
-  SubgraphRepository,
-  SubgraphWithProperties,
-} from '../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
+import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/subgraph.js';
+import type {SubgraphRepository} from '../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
 import type {
   ModuleRepository,
   SpfModuleBase,
@@ -55,10 +53,11 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
     const {fileSystemId} = session;
     const subgraphRepository = this.uow.getSubgraphRepository();
 
-    const subgraph = await subgraphRepository.getAggregate(
-      command.subgraphSystemId,
+    const subgraphs = await subgraphRepository.getAggregates(
+      [command.subgraphSystemId],
       fileSystemId,
     );
+    const subgraph = subgraphs.get(command.subgraphSystemId);
     if (!subgraph) {
       throw new ResourceNotFoundException(
         `Subgraph ${command.subgraphSystemId} not found`,
@@ -170,7 +169,7 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
 
   private resolveScenarioContext(
     command: SetSubgraphScenarioCommand,
-    subgraph: SubgraphWithProperties,
+    subgraph: Subgraph,
     definitions: SubgraphPropertyDefinition[],
   ) {
     const scenarioDef = definitions.find(
@@ -183,10 +182,11 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
     }
 
     const scenarioProp = subgraph.properties.find(
-      p => p.propertySystemId === scenarioDef.systemId,
+      p => p.propertyDefinitionSystemId === scenarioDef.systemId,
     );
-    const currentScenario = scenarioProp?.payload
-      ? new BinaryDataReader(scenarioProp.payload).readUInt32()
+    const scenarioPayload = scenarioProp?.getPayloadCopy();
+    const currentScenario = scenarioPayload
+      ? new BinaryDataReader(scenarioPayload).readUInt32()
       : undefined;
 
     const requestedScenario = Number(command.elements[0]?.value);
@@ -201,7 +201,7 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
   private async audioToVoiceCascade(
     subgraphSystemId: number,
     fileSystemId: number,
-    subgraph: SubgraphWithProperties,
+    subgraph: Subgraph,
     allDefs: SubgraphPropertyDefinition[],
     optimalVsid: number | undefined,
     modules: SpfModuleBase[],
@@ -214,7 +214,7 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
       d => d.naturalId === SUB_GRAPH_PROP_CLOCK_SCALE_FACTOR,
     );
     const existingPropIds = new Set(
-      subgraph.properties.map(p => p.propertySystemId),
+      subgraph.properties.map(p => p.propertyDefinitionSystemId),
     );
 
     for (const def of voiceDefs) {
@@ -234,7 +234,7 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
 
     if (clockScaleDef) {
       const clockProp = subgraph.properties.find(
-        p => p.propertySystemId === clockScaleDef.systemId,
+        p => p.propertyDefinitionSystemId === clockScaleDef.systemId,
       );
       if (clockProp) {
         await subgraphRepository.removeProperty(
@@ -270,7 +270,7 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
     const vcpmDefs =
       await vcpmDefinitionRepository.getAllVcpmModuleDefinitions(fileSystemId);
     const defaults = vcpmDefs.map(definition => ({
-      definitionSystemId: definition.systemId,
+      definitionSystemId: definition.moduleDefinitionSystemId,
       parameters: definition.parameters.map(parameter => {
         const serialized = serializeDefaultParameterData(parameter);
         if (!serialized.ok) {
@@ -282,7 +282,7 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
         };
       }),
     }));
-    await vcpmDefinitionRepository.addVcpmCfgDefaultData(
+    await vcpmDefinitionRepository.addVcpmDefaultData(
       subgraphSystemId,
       defaults,
     );
@@ -291,7 +291,7 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
   private async voiceToAudioCascade(
     subgraphSystemId: number,
     fileSystemId: number,
-    subgraph: SubgraphWithProperties,
+    subgraph: Subgraph,
     allDefs: SubgraphPropertyDefinition[],
     modules: SpfModuleBase[],
     log: MutationLog,
@@ -303,7 +303,7 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
     const voiceDefs = allDefs.filter(d => d.isVoice);
     for (const def of voiceDefs) {
       const voiceProp = subgraph.properties.find(
-        p => p.propertySystemId === def.systemId,
+        p => p.propertyDefinitionSystemId === def.systemId,
       );
       if (!voiceProp) continue;
       await subgraphRepository.removeProperty(
@@ -334,7 +334,7 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
       });
     }
 
-    await subgraphRepository.removeAllVcpmCfgData(subgraphSystemId);
+    await subgraphRepository.removeAllVcpmData(subgraphSystemId);
   }
 
   private serializeDefaultPropertyData(
@@ -442,19 +442,21 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
     for (const [, sg] of subgraphMap) {
       if (scenarioDefSystemId !== undefined) {
         const scenarioProp = sg.properties.find(
-          p => p.propertySystemId === scenarioDefSystemId,
+          p => p.propertyDefinitionSystemId === scenarioDefSystemId,
         );
-        const scenarioVal = scenarioProp?.payload
-          ? new BinaryDataReader(scenarioProp.payload).readUInt32()
+        const scenarioPayload = scenarioProp?.getPayloadCopy();
+        const scenarioVal = scenarioPayload
+          ? new BinaryDataReader(scenarioPayload).readUInt32()
           : undefined;
         if (scenarioVal !== SUB_GRAPH_PROP_ID_SCENARIO_VALUE_VOICE_CALL)
           continue;
       }
       const vsidProp = sg.properties.find(
-        p => p.propertySystemId === vsidDefSystemId,
+        p => p.propertyDefinitionSystemId === vsidDefSystemId,
       );
-      if (vsidProp?.payload) {
-        foundVsids.add(new BinaryDataReader(vsidProp.payload).readUInt32());
+      const vsidPayload = vsidProp?.getPayloadCopy();
+      if (vsidPayload) {
+        foundVsids.add(new BinaryDataReader(vsidPayload).readUInt32());
       }
     }
     return foundVsids;

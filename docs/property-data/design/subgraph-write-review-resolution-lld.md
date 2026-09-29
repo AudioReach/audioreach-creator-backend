@@ -131,8 +131,7 @@ The subgraph repository port adds:
 **Current:** The effective property information needed by command handlers is currently read through `QueryServices`:
 
 - `QueryServices.subgraphQueryService.findPropertyPayloads()` reads effective property payloads.
-- `QueryServices.subgraphPropertyDefQueryService.getSubgraphPropertyWithElements()` reads one effective property definition.
-- `QueryServices.subgraphPropertyDefQueryService.getSubgraphPropertiesWithElements()` reads effective property definitions with element metadata.
+- `QueryServices.subgraphPropertyDefQueryService.getSubgraphPropertiesWithElements()` reads effective property definitions with element metadata; callers select the required definition by system ID.
 
 The write operations themselves are not part of `QueryServices`, because `QueryServices` is read-only. In the rebased `SubgraphRepository` port, `rename()`, `setPropertyData()`, and same-usecase relationship traversal are not currently declared.
 
@@ -382,7 +381,7 @@ It must not query only base tables because the property row may have been create
 - default-payload serialization;
 - delete and delta writes.
 
-The current scenario handler requests VCPM definitions through `QueryServices.vcpmDefinitionQueryService` and then calls `addVcpmCfgDefaultData()` on `SubgraphRepository`. However, the rebased `SubgraphRepository` port and `TypeOrmSubgraphRepository` adapter do not currently declare or implement `addVcpmCfgDefaultData()`. The VCPM default-data persistence path therefore still needs to be introduced in the target design.
+The current scenario handler requests VCPM definitions through `QueryServices.vcpmDefinitionQueryService` and then calls `addVcpmDefaultData()` on `SubgraphRepository`. However, the rebased `SubgraphRepository` port and `TypeOrmSubgraphRepository` adapter do not currently declare or implement `addVcpmDefaultData()`. The VCPM default-data persistence path therefore still needs to be introduced in the target design.
 
 ### 6.2 Core reset plan
 
@@ -415,7 +414,7 @@ Persistence does not classify CKVs or call `serializeDefaultParameterData()`.
 
 Core builds VCPM default entries with serialized payloads:
 
-**Current:** The scenario handler gets VCPM definitions from `QueryServices.vcpmDefinitionQueryService` and passes them to `SubgraphRepository.addVcpmCfgDefaultData()`. In the rebased repository code, that subgraph-repository method is not yet part of the port or adapter, so there is no completed current persistence implementation for this path.
+**Current:** The scenario handler gets VCPM definitions from `QueryServices.vcpmDefinitionQueryService` and passes them to `SubgraphRepository.addVcpmDefaultData()`. In the rebased repository code, that subgraph-repository method is not yet part of the port or adapter, so there is no completed current persistence implementation for this path.
 
 **After change:** Core supplies serialized payloads in the default-data plan, and a UoW-bound persistence repository only stages the hierarchy rows:
 

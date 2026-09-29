@@ -36,7 +36,7 @@ Requirements source: [../set-subgraph-property-requirements.md](../set-subgraph-
 **Context:** This design calls `serializeDefaultParameterData` in four places:
 - `addProperty` (§4.1) — seeds a new `SubgraphPropertyData` blob with default values
 - `wipeCalData` (§4.4) — restores zero-CKV payload rows to factory defaults
-- `addVcpmCfgDefaultData` (§4.6) — seeds new `VcpmParameterPayload` blobs
+- `addVcpmDefaultData` (§4.6) — seeds new `VcpmParameterPayload` blobs
 - Voice → Audio step c — seeds the clock scale factor property blob
 
 That function does not yet exist in the codebase. The unmerged commit `a54340d` on `feature/use-case-designer` implements it. **This PR must port those changes before any of the above infra methods can be implemented.**
@@ -169,7 +169,7 @@ Core (Application)
           a. wipeCalData for each module in subgraph
           b. removeProperty for each IsVoice=true property
           c. addProperty for SUB_GRAPH_PROP_CLOCK_SCALE_FACTOR with serializeDefaultParameterData(clockScaleDef)
-          d. SubgraphRepository.removeAllVcpmCfgData (deletes VcpmInstance + VcpmCkv + VcpmParameterPayload)
+          d. SubgraphRepository.removeAllVcpmData (deletes VcpmInstance + VcpmCkv + VcpmParameterPayload)
           e. setPropertyData for scenario property (final step)
         uow.commit()
       catch:
@@ -362,9 +362,15 @@ export class UpdateSubgraphScenarioHandler implements CommandHandler<
       .getModulesBySubgraphId(command.subgraphSystemId, fileSystemId);
 
     // ── Serialize scenario payload (before transaction) ───────────────────────
-    const scenarioDefWithElements = await this.queryServices.subgraphPropertyDefQueryService
-      .getSubgraphPropertyWithElements(scenarioDef.systemId, fileSystemId);
-    if (scenarioDefWithElements.kind === RESULT_KIND.Fail) {
+    const definitionsWithElements = await this.queryServices.subgraphPropertyDefQueryService
+      .getSubgraphPropertiesWithElements(fileSystemId);
+    if (definitionsWithElements.kind === RESULT_KIND.Fail) {
+      throw new ResourceNotFoundException('Scenario property definition (with elements) not found');
+    }
+    const scenarioDefWithElements = definitionsWithElements.data.find(
+      definition => definition.systemId === scenarioDef.systemId,
+    );
+    if (!scenarioDefWithElements) {
       throw new ResourceNotFoundException('Scenario property definition (with elements) not found');
     }
     const serializedScenario = serializeParameterData(
@@ -431,7 +437,7 @@ export class UpdateSubgraphScenarioHandler implements CommandHandler<
         const vcpmDefs = await this.queryServices.vcpmDefinitionQueryService
           .getAllVcpmModuleDefinitions(fileSystemId);
         await this.uow.getSubgraphRepository()
-          .addVcpmCfgDefaultData(command.subgraphSystemId, vcpmDefs);
+          .addVcpmDefaultData(command.subgraphSystemId, vcpmDefs);
 
       } else if (isVoiceToAudio) {
         // a. Wipe all module CKV/TKV cal data
@@ -464,7 +470,7 @@ export class UpdateSubgraphScenarioHandler implements CommandHandler<
 
         // d. Remove all VCPM cfg data (VcpmInstance + children)
         await this.uow.getSubgraphRepository()
-          .removeAllVcpmCfgData(command.subgraphSystemId);
+          .removeAllVcpmData(command.subgraphSystemId);
       }
 
       // Final step (both directions): write scenario property
@@ -580,12 +586,12 @@ export interface SubgraphRepository {
   // Stages DELETE for all VcpmInstance rows (and their VcpmCkv + VcpmParameterPayload +
   // VcpmCkvValues children) for the given subgraph. aggregateId = subgraphSystemId.
   // Used by Voice → Audio cascade step d.
-  removeAllVcpmCfgData(subgraphSystemId: number): Promise<void>;
+  removeAllVcpmData(subgraphSystemId: number): Promise<void>;
 
   // Stages CREATE for VcpmInstance + zero-CKV VcpmParameterPayload rows for each
   // VCPM module definition. Default payload derived from each parameter's elementsStructure
   // via serializeDefaultParameterData(param). Used by Audio → Voice cascade step e.
-  addVcpmCfgDefaultData(
+  addVcpmDefaultData(
     subgraphSystemId: number,
     vcpmDefs: VcpmModuleDefinitionWithParamsReadModel[],
   ): Promise<void>;
@@ -830,10 +836,10 @@ this.tkvOverlayFetcher = new TkvOverlayFetcher(manager, editActionsQs);
 
 ---
 
-### 4.5 TypeOrmSubgraphRepository — removeAllVcpmCfgData
+### 4.5 TypeOrmSubgraphRepository — removeAllVcpmData
 
 ```typescript
-async removeAllVcpmCfgData(subgraphSystemId: number): Promise<void> {
+async removeAllVcpmData(subgraphSystemId: number): Promise<void> {
   const {session, groupId} = this.uow.getWriteContext();
 
   // Load all VcpmInstance rows for this subgraph
@@ -866,10 +872,10 @@ async removeAllVcpmCfgData(subgraphSystemId: number): Promise<void> {
 }
 ```
 
-### 4.6 TypeOrmSubgraphRepository — addVcpmCfgDefaultData
+### 4.6 TypeOrmSubgraphRepository — addVcpmDefaultData
 
 ```typescript
-async addVcpmCfgDefaultData(
+async addVcpmDefaultData(
   subgraphSystemId: number,
   vcpmDefs: VcpmModuleDefinitionWithParamsReadModel[],
 ): Promise<void> {
@@ -981,7 +987,7 @@ async addVcpmCfgDefaultData(
 | # | Question |
 |---|---|
 | OQ-1 | ~~VCPM cfg definition source~~ — **Resolved:** All rows in `vcpm_module_definitions` for a given `fileSystemId` are VCPM cfg definitions — no filtering needed. Add a new `VcpmDefinitionQueryService` port with one method: `getAllVcpmModuleDefinitions(fileSystemId): Promise<VcpmModuleDefinitionWithParamsReadModel[]>`. The result includes parameter definitions. Read model: `{ systemId, moduleDefinitionId, parameters: { systemId, paramId, elementsStructure }[] }`. Infra: simple SQL join of `vcpm_module_definitions` + `vcpm_module_parameter_definitions` filtered by `fileSystemId`. Audio→Voice step e uses this to create one `VcpmInstance` row per definition and one zero-CKV `VcpmParameterPayload` per parameter with default payload derived from `elementsStructure`. |
-| OQ-2 | ~~Remove all VCPM cfg data~~ — **Resolved:** VCPM data is owned by the subgraph aggregate (`aggregateId = subgraphSystemId`). Add `removeAllVcpmCfgData(subgraphSystemId: number): Promise<void>` to `SubgraphRepository`. Infra: query all `VcpmInstance` WHERE `subgraphSystemId = X`; for each instance → for each `VcpmCkv` → stage DELETE on `VcpmParameterPayload` rows, `VcpmCkvValues` rows, the `VcpmCkv` row; then stage DELETE on the `VcpmInstance` row. Distinct from the existing `delete-vcpm-ckv` handler which deletes a single CKV entry. |
+| OQ-2 | ~~Remove all VCPM data~~ — **Resolved:** VCPM data is owned by the subgraph aggregate (`aggregateId = subgraphSystemId`). Add `removeAllVcpmData(subgraphSystemId: number): Promise<void>` to `SubgraphRepository`. Infra: query all `VcpmInstance` WHERE `subgraphSystemId = X`; for each instance → for each `VcpmCkv` → stage DELETE on `VcpmParameterPayload` rows, `VcpmCkvValues` rows, the `VcpmCkv` row; then stage DELETE on the `VcpmInstance` row. Distinct from the existing `delete-vcpm-ckv` handler which deletes a single CKV entry. |
 | OQ-3 | ~~`SUB_GRAPH_PROP_CLOCK_SCALE_FACTOR` property ID~~ — **Resolved:** `SUB_GRAPH_PROP_CLOCK_SCALE_FACTOR = 0x08001374`. |
 | OQ-4 | ~~VSID payload construction inside cascade~~ — **Resolved:** Use `BinaryDataWriter` directly. `const writer = new BinaryDataWriter(); writer.writeUInt32(optimalVsid); writer.align(8); const payload = writer.toUint8Array();`. No need to go through `serializeParameterData` since the value is a computed `number`, not user-supplied `elements`. |
 | OQ-5 | ~~Default payload for `addProperty`~~ — **Resolved:** Use `serializeDefaultParameterData(definition)` from `packages/core/src/application/usecase-designer/shared/serialize-elements.ts` (added in PR a54340d). It builds default `ElementData[]` from each `ConfigElement.defaultValue ?? '0'` then calls `serializeParameterData` internally. The `definition` is a `ParameterDefinitionBase` object (already available at all call sites). No new file required. |

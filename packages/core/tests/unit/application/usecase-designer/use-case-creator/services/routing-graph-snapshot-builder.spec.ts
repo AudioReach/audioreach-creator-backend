@@ -65,18 +65,7 @@ function createUow(options: {
       new Map(
         options.subgraphs.map(value => {
           const systemId = (value as {systemId: number}).systemId;
-          return [
-            systemId,
-            {
-              systemId,
-              naturalId: 0,
-              name: '',
-              isImported: false,
-              fileSystemId: 7,
-              subgraph: value,
-              properties: [],
-            },
-          ];
+          return [systemId, value];
         }),
       ),
   );

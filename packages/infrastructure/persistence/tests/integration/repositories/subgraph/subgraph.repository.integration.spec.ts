@@ -418,19 +418,19 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
     });
   });
 
-  // ── getAggregate(s) ─────────────────────────────────────────────────────────
+  // ── getAggregates ───────────────────────────────────────────────────────────
 
-  describe('getAggregate(s)', () => {
-    it('returns [] for empty input', async () => {
+  describe('getAggregates', () => {
+    it('returns an empty map for empty input', async () => {
       expect(await makeRepo(qr.manager).getAggregates([], FILE_ID)).toEqual(
         new Map(),
       );
     });
 
     it('returns hydrated Subgraph objects for matching systemIds', async () => {
-      const result = await makeRepo(qr.manager).getAggregate(SG_A, FILE_ID);
-      expect(result?.subgraph.systemId).toBe(SG_A);
-      expect(result?.subgraph.name).toBe('sg-a');
+      const result = await makeRepo(qr.manager).getAggregates([SG_A], FILE_ID);
+      expect(result.get(SG_A)?.systemId).toBe(SG_A);
+      expect(result.get(SG_A)?.name).toBe('sg-a');
     });
 
     it('silently omits missing IDs', async () => {
@@ -458,12 +458,12 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
       );
       await qr.commitTransaction();
 
-      await expect(repo.getAggregate(9001, FILE_ID)).resolves.toEqual(
-        expect.objectContaining({
-          subgraph: expect.objectContaining({systemId: 9001}),
-        }),
+      await expect(repo.getAggregates([9001], FILE_ID)).resolves.toEqual(
+        new Map([[9001, expect.objectContaining({systemId: 9001})]]),
       );
-      await expect(repo.getAggregate(9002, FILE_ID)).resolves.toBeNull();
+      await expect(repo.getAggregates([9002], FILE_ID)).resolves.toEqual(
+        new Map(),
+      );
     });
   });
 

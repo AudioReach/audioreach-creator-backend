@@ -34,7 +34,7 @@ export class TypeOrmVcpmDefinitionRepository implements VcpmDefinitionRepository
     return this.definitionFetcher.fetchMany(fileSystemId);
   }
 
-  async addVcpmCfgDefaultData(
+  async addVcpmDefaultData(
     subgraphSystemId: number,
     defaults: readonly VcpmDefaultData[],
   ): Promise<void> {

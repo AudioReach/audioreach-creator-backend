@@ -17,10 +17,8 @@ import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {SetSubgraphVsidCommand} from './set-subgraph-vsid.command.js';
 import type {VsidUpdateDto} from '../dto/subgraph-write-result-types.js';
-import type {
-  SubgraphRepository,
-  SubgraphWithProperties,
-} from '../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
+import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/subgraph.js';
+import type {SubgraphRepository} from '../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
 
 export class SetSubgraphVsidHandler implements CommandHandler<
   SetSubgraphVsidCommand,
@@ -33,10 +31,11 @@ export class SetSubgraphVsidHandler implements CommandHandler<
     const {fileSystemId} = session;
     const subgraphRepository = this.uow.getSubgraphRepository();
 
-    const subgraph = await subgraphRepository.getAggregate(
-      command.subgraphSystemId,
+    const subgraphs = await subgraphRepository.getAggregates(
+      [command.subgraphSystemId],
       fileSystemId,
     );
+    const subgraph = subgraphs.get(command.subgraphSystemId);
     if (!subgraph) {
       throw new ResourceNotFoundException(
         `Subgraph ${command.subgraphSystemId} not found`,
@@ -57,10 +56,11 @@ export class SetSubgraphVsidHandler implements CommandHandler<
     );
 
     const vsidProp = subgraph.properties.find(
-      p => p.propertySystemId === vsidDef.systemId,
+      p => p.propertyDefinitionSystemId === vsidDef.systemId,
     );
-    const currentVsid = vsidProp?.payload
-      ? new BinaryDataReader(vsidProp.payload).readUInt32()
+    const vsidPayload = vsidProp?.getPayloadCopy();
+    const currentVsid = vsidPayload
+      ? new BinaryDataReader(vsidPayload).readUInt32()
       : undefined;
 
     const requestedVsid = Number(command.elements[0]?.value);
@@ -117,7 +117,7 @@ export class SetSubgraphVsidHandler implements CommandHandler<
     vsidDefSystemId: number,
     scenarioDefSystemId: number | undefined,
     requestedVsid: number,
-    startSubgraph: SubgraphWithProperties,
+    startSubgraph: Subgraph,
     subgraphRepository: SubgraphRepository,
   ): Promise<Set<number>> {
     // Pass 1: BFS to collect all reachable IDs
@@ -131,7 +131,7 @@ export class SetSubgraphVsidHandler implements CommandHandler<
     const subgraphMap =
       linkedIds.length > 0
         ? await subgraphRepository.getAggregates(linkedIds, fileSystemId)
-        : new Map<number, SubgraphWithProperties>();
+        : new Map<number, Subgraph>();
 
     // Seed the map with the already-fetched start subgraph
     subgraphMap.set(startId, startSubgraph);
@@ -155,26 +155,28 @@ export class SetSubgraphVsidHandler implements CommandHandler<
   }
 
   private shouldUpdateVsid(
-    sg: SubgraphWithProperties,
+    sg: Subgraph,
     vsidDefSystemId: number,
     scenarioDefSystemId: number | undefined,
     requestedVsid: number,
   ): boolean {
     if (scenarioDefSystemId !== undefined) {
       const scenarioProp = sg.properties.find(
-        p => p.propertySystemId === scenarioDefSystemId,
+        p => p.propertyDefinitionSystemId === scenarioDefSystemId,
       );
-      const scenarioVal = scenarioProp?.payload
-        ? new BinaryDataReader(scenarioProp.payload).readUInt32()
+      const scenarioPayload = scenarioProp?.getPayloadCopy();
+      const scenarioVal = scenarioPayload
+        ? new BinaryDataReader(scenarioPayload).readUInt32()
         : undefined;
       if (scenarioVal !== SUB_GRAPH_PROP_ID_SCENARIO_VALUE_VOICE_CALL)
         return false;
     }
     const vsidProp = sg.properties.find(
-      p => p.propertySystemId === vsidDefSystemId,
+      p => p.propertyDefinitionSystemId === vsidDefSystemId,
     );
-    const linkedVsid = vsidProp?.payload
-      ? new BinaryDataReader(vsidProp.payload).readUInt32()
+    const linkedVsidPayload = vsidProp?.getPayloadCopy();
+    const linkedVsid = linkedVsidPayload
+      ? new BinaryDataReader(linkedVsidPayload).readUInt32()
       : undefined;
     return linkedVsid !== requestedVsid;
   }

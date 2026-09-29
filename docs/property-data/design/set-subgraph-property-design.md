@@ -169,7 +169,7 @@ flowchart TD
     D -->|Not allowed| C
     D -->|OK| E[subgraphExists → 404]
     E -->|Not found| F([HTTP 404])
-    E -->|Found| G[getSubgraphPropertyWithElements → 404 if not found]
+    E -->|Found| G[getSubgraphPropertiesWithElements + filter → 404 if not found]
     G -->|Not found| F
     G -->|Found| H{Reserved property?}
     H -->|scenario or VSID| I([HTTP 400 — use dedicated endpoint])
@@ -222,7 +222,7 @@ packages/core/src/application/
 ├── ports/persistence/repositories/subgraph/
 │   └── subgraph.repository.ts                                    (modified — add rename, setPropertyData, getAggregate, findSubgraphIdsSharingUsecases)
 ├── ports/persistence/query-services/subgraph-property-definition/
-│   └── subgraph-property-def-query-service.ts                    (modified — add getSubgraphPropertyWithElements)
+│   └── subgraph-property-def-query-service.ts                    (modified — use getSubgraphPropertiesWithElements)
 ├── orchestration/cqrs/registries/
 │   ├── command-handler-registry.ts                               (modified — inject queryServices into UpdateSubgraphPropertyHandler and UpdateSubgraphVsidHandler)
 │   └── query-handler-registry.ts                                 (modified — register GetSubgraphPropertyHandler)
@@ -250,7 +250,7 @@ packages/infrastructure/persistence/src/persistence-typeorm-sqllite/
 ├── repositories/subgraph/
 │   └── subgraph.repository.ts                                    (modified — implement rename, setPropertyData, getAggregate, findSubgraphIdsSharingUsecases)
 └── queries/subgraph-property-definition/
-    └── db-subgraph-property-def-query-service.ts                 (modified — implement getSubgraphPropertyWithElements)
+    └── db-subgraph-property-def-query-service.ts                 (modified — use getSubgraphPropertiesWithElements)
 ```
 
 No schema changes — no migration needed.
@@ -287,8 +287,8 @@ Core (Application)
   UpdateSubgraphPropertyHandler:
     fileSystemId = uow.getWriteContext().session.fileSystemId
     1. subgraphExists(subgraphSystemId, fileSystemId) → 404 if false
-    2. queryServices.subgraphPropertyDefQueryService.getSubgraphPropertyWithElements(
-         propertySystemId, fileSystemId) → 404 if fail
+    2. queryServices.subgraphPropertyDefQueryService.getSubgraphPropertiesWithElements(
+         fileSystemId), then select propertySystemId → 404 if absent
     3. Reserved guard: if propertyId === SCENARIO_ID or VSID_ID → throw InvalidOperationException → 400
     4. serializeParameterData(propDef, command.elements) → 400 if fail
     5. uow.getSubgraphRepository().setPropertyData(subgraphSystemId, propertySystemId, payload)
@@ -514,14 +514,21 @@ export class UpdateSubgraphPropertyHandler implements CommandHandler<
     }
 
     // Step 2: property definition existence (with elementsStructure for serialization)
-    const defResult = await this.queryServices.subgraphPropertyDefQueryService
-      .getSubgraphPropertyWithElements(command.propertySystemId, fileSystemId);
-    if (defResult.kind === RESULT_KIND.Fail) {
+    const definitionsResult = await this.queryServices.subgraphPropertyDefQueryService
+      .getSubgraphPropertiesWithElements(fileSystemId);
+    if (definitionsResult.kind === RESULT_KIND.Fail) {
       throw new ResourceNotFoundException(
         `Property definition ${command.propertySystemId} not found`,
       );
     }
-    const propDef = defResult.data;
+    const propDef = definitionsResult.data.find(
+      definition => definition.systemId === command.propertySystemId,
+    );
+    if (!propDef) {
+      throw new ResourceNotFoundException(
+        `Property definition ${command.propertySystemId} not found`,
+      );
+    }
 
     // Step 3: reserved property guard (enforced here, not in controller)
     if (
@@ -649,12 +656,18 @@ export class UpdateSubgraphVsidHandler implements CommandHandler<
     }
 
     // Step 6: serialize new VSID payload
-    const vsidDefWithElements = await this.queryServices.subgraphPropertyDefQueryService
-      .getSubgraphPropertyWithElements(vsidDef.systemId, fileSystemId);
-    if (vsidDefWithElements.kind === RESULT_KIND.Fail) {
+    const definitionsWithElements = await this.queryServices.subgraphPropertyDefQueryService
+      .getSubgraphPropertiesWithElements(fileSystemId);
+    if (definitionsWithElements.kind === RESULT_KIND.Fail) {
       throw new ResourceNotFoundException('VSID property definition (with elements) not found');
     }
-    const serialized = serializeParameterData(vsidDefWithElements.data, command.elements);
+    const vsidDefWithElements = definitionsWithElements.data.find(
+      definition => definition.systemId === vsidDef.systemId,
+    );
+    if (!vsidDefWithElements) {
+      throw new ResourceNotFoundException('VSID property definition (with elements) not found');
+    }
+    const serialized = serializeParameterData(vsidDefWithElements, command.elements);
     if (!serialized.ok) {
       throw new BadRequestException(serialized.error);
     }
@@ -804,7 +817,7 @@ export interface SubgraphRepository {
 
 ---
 
-### 3.8 SubgraphPropertyDefQueryService Port Extension
+### 3.8 SubgraphPropertyDefQueryService Elements Query
 
 **File:** `packages/core/src/application/ports/persistence/query-services/subgraph-property-definition/subgraph-property-def-query-service.ts` (modified)
 
@@ -814,12 +827,9 @@ Add one method — mirrors the existing `getContainerPropertyDefinitionWithEleme
 export interface SubgraphPropertyDefQueryService {
   // ... existing methods ...
 
-  // Returns a single subgraph property definition including elementsStructure.
-  // Result.fail with ERROR_CODES.ENTITY_NOT_FOUND if not found.
-  getSubgraphPropertyWithElements(
-    propertySystemId: number,
+  getSubgraphPropertiesWithElements(
     fileSystemId: number,
-  ): Promise<Result<SubgraphPropertyDefinitionWithElementsReadModel>>;
+  ): Promise<Result<SubgraphPropertyDefinitionWithElementsReadModel[]>>;
 }
 ```
 
@@ -833,25 +843,17 @@ No new types needed.
 Delegates to the existing `fetcher.fetchAll`, filters in memory — same pattern as the existing `getSubgraphPropertyDefinition` method in the same class:
 
 ```typescript
-async getSubgraphPropertyWithElements(
-  propertySystemId: number,
+async getSubgraphPropertiesWithElements(
   fileSystemId: number,
-): Promise<Result<SubgraphPropertyDefinitionWithElementsReadModel>> {
+): Promise<Result<SubgraphPropertyDefinitionWithElementsReadModel[]>> {
   try {
     const session = await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
     const rows = await this.fetcher.fetchAll(fileSystemId, session?.sessionId ?? null);
-    const match = rows.find(r => r.systemId === propertySystemId);
-    return match
-      ? Result.ok(this.toDetailWithElementsReadModel(match))
-      : Result.fail({
-          code: ERROR_CODES.ENTITY_NOT_FOUND,
-          message: `SubgraphPropertyDefinition not found for systemId=${propertySystemId}`,
-          severity: IssueSeverity.Error,
-        });
+    return Result.ok(rows.map(r => this.toDetailWithElementsReadModel(r)));
   } catch (error) {
     return Result.fail({
       code: ERROR_CODES.INTERNAL_ERROR,
-      message: error instanceof Error ? error.message : 'Failed to load subgraph property definition',
+      message: error instanceof Error ? error.message : 'Failed to load subgraph property definitions with elements',
       severity: IssueSeverity.Error,
     });
   }
@@ -922,21 +924,27 @@ export class GetSubgraphPropertyHandler implements QueryHandler<
     }
 
     // Step 3: load definition with elementsStructure for parsing
-    const defResult = await this.queryServices.subgraphPropertyDefQueryService
-      .getSubgraphPropertyWithElements(query.propertySystemId, fileSystemId);
-    if (defResult.kind === RESULT_KIND.Fail) {
+    const definitionsResult = await this.queryServices.subgraphPropertyDefQueryService
+      .getSubgraphPropertiesWithElements(fileSystemId);
+    if (definitionsResult.kind === RESULT_KIND.Fail) {
+      throw new ResourceNotFoundException(`Property definition ${query.propertySystemId} not found`);
+    }
+    const def = definitionsResult.data.find(
+      definition => definition.systemId === query.propertySystemId,
+    );
+    if (!def) {
       throw new ResourceNotFoundException(`Property definition ${query.propertySystemId} not found`);
     }
 
     // Step 4: parse elements from binary payload
     const elements = payload.payload !== null
-      ? parseParameterData(payload.payload, defResult.data.elementsStructure)
+      ? parseParameterData(payload.payload, def.elementsStructure)
       : [];
 
     return Result.ok({
       systemId: payload.systemId,
-      propertyId: defResult.data.propertyId,
-      propertyName: defResult.data.name,
+      propertyId: def.propertyId,
+      propertyName: def.name,
       elements,
     });
   }
@@ -1208,9 +1216,9 @@ async findSubgraphIdsSharingUsecases(
 
 | Scenario | Expected outcome |
 |---|---|
-| `getSubgraphPropertyWithElements` — found | returns `SubgraphPropertyDefinitionWithElementsReadModel` with `elementsStructure` populated |
-| `getSubgraphPropertyWithElements` — not found | returns `Result.fail` with `ENTITY_NOT_FOUND` |
-| `getSubgraphPropertyWithElements` — session overlay creates definition | returns created row |
+| `getSubgraphPropertiesWithElements` — found | returns effective definitions with `elementsStructure` populated |
+| `getSubgraphPropertiesWithElements` — no definitions | returns an empty array |
+| `getSubgraphPropertiesWithElements` — session overlay creates definition | returns the created row in the collection |
 
 ### End-to-End Tests
 
@@ -1240,5 +1248,5 @@ async findSubgraphIdsSharingUsecases(
 | OQ-1 | ~~Exact natural-key `propertyId` values~~ — **Resolved:** `SUB_GRAPH_PROP_ID_SCENARIO_ID = 0x08001010`, `SUB_GRAPH_PROP_ID_VSID = 0x080010CC`. |
 | OQ-2 | ~~BFS algorithm~~ — **Resolved:** BFS uses `use_case_subgraphs` + `usecase_gkv_values`. For each subgraph in queue: find usecases containing it, skip zero-GKV usecases, find all other subgraphs in those usecases, filter to Voice only, skip if VSID already matches. Encapsulated in `findSubgraphIdsSharingUsecases`. |
 | OQ-3 | ~~`getSgkvs` port extension~~ — **Resolved:** Not needed. BFS uses `findSubgraphIdsSharingUsecases` on `SubgraphRepository` instead. |
-| OQ-4 | ~~`elementsStructure` for VSID serialization~~ — **Resolved:** Add `getSubgraphPropertyWithElements(propertySystemId, fileSystemId)` to `SubgraphPropertyDefQueryService` port (Section 3.8). Infra delegates to existing `fetcher.fetchAll` + filter in memory. |
+| OQ-4 | ~~`elementsStructure` for VSID serialization~~ — **Resolved:** Use `getSubgraphPropertiesWithElements(fileSystemId)` and select the VSID definition by system ID. |
 | OQ-5 | ~~Voice scenario value~~ — **Resolved:** `SUB_GRAPH_PROP_ID_SCENARIO_VALUE_VOICE_CALL = 0x00000003`. Also defined: `AUDIO_PLAYBACK = 0x00000001`, `AUDIO_RECORDING = 0x00000002`. |

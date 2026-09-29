@@ -9,17 +9,6 @@ import type {SubgraphPropertyDefinition} from '../../../../../domain/entities/de
 import type {KvPair} from '../shared/kv-pair.js';
 import type {SessionChanged} from '../shared/session-changed.js';
 
-export interface SubgraphWithProperties {
-  /** Hydrated domain entity for domain-oriented consumers. */
-  subgraph: Subgraph;
-  /** Effective persistence rows for the subgraph properties. */
-  properties: Array<{
-    systemId: number;
-    propertySystemId: number;
-    payload: Uint8Array | null;
-  }>;
-}
-
 /** A subgraph key/value instance with its resolved key and value definitions. */
 export interface SgkvEntry {
   sgSystemId: number;
@@ -64,22 +53,16 @@ export interface SubgraphRepository {
     fileSystemId: number,
   ): Promise<SubgraphPropertyDefinition[]>;
 
-  /** Returns subgraph with overlay-aware property rows. null if not found. */
-  getAggregate(
-    subgraphSystemId: number,
-    fileSystemId: number,
-  ): Promise<SubgraphWithProperties | null>;
-
   /**
-   * Batch variant of getAggregate.
-   * Returns a map of subgraphSystemId → SubgraphWithProperties.
+   * Returns subgraphs with overlay-aware property rows.
+   * Returns a map of subgraphSystemId → hydrated Subgraph.
    * Missing subgraphs are absent from the map (not null entries).
    * Uses 2 queries total regardless of how many IDs are passed.
    */
   getAggregates(
     subgraphSystemIds: number[],
     fileSystemId: number,
-  ): Promise<Map<number, SubgraphWithProperties>>;
+  ): Promise<Map<number, Subgraph>>;
 
   /** Returns linked subgraphs reachable through shared use cases. */
   findSubgraphIdsSharingUsecases(
@@ -113,7 +96,7 @@ export interface SubgraphRepository {
   ): Promise<void>;
 
   /** Stages deletion of all VCPM configuration data for a subgraph. */
-  removeAllVcpmCfgData(subgraphSystemId: number): Promise<void>;
+  removeAllVcpmData(subgraphSystemId: number): Promise<void>;
 
   /**
    * Resolves requested Value Definitions to their owning Keys in the

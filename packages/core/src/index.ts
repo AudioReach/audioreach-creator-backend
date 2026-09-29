@@ -68,19 +68,16 @@ export type {
 export type {ContainerRepository} from './application/ports/persistence/repositories/container/container.repository.js';
 export type {
   ModuleDefinitionRepository,
-  ParameterDefinitionBase,
   ModuleParameterDefinition,
 } from './application/ports/persistence/repositories/module/module-definition.repository.js';
+export type {ParameterDefinitionBase} from './application/ports/persistence/repositories/shared/parameter-definition-base.js';
 export type {
   DataLinkRepository,
   SubsystemDataRouteContext,
   BoundaryPortPayload,
 } from './application/ports/persistence/repositories/data-link/data-link.repository.js';
 export type {ControlLinkRepository} from './application/ports/persistence/repositories/control-link/control-link.repository.js';
-export type {
-  SubgraphRepository,
-  SubgraphWithProperties,
-} from './application/ports/persistence/repositories/subgraph/subgraph.repository.js';
+export type {SubgraphRepository} from './application/ports/persistence/repositories/subgraph/subgraph.repository.js';
 export type {
   VcpmDefinitionRepository,
   VcpmDefaultData,
@@ -621,6 +618,7 @@ export * from './domain/entities/usecase-data/node/entities/control-port.js';
 export * from './domain/entities/usecase-data/container/container.js';
 export * from './domain/entities/usecase-data/container/value-objects/container-property.js';
 export * from './domain/entities/usecase-data/subgraph/subgraph.js';
+export * from './domain/entities/usecase-data/subgraph/value-objects/subgraph-property.js';
 export * from './domain/entities/usecase-data/subgraph/entities/sgkv.js';
 export * from './domain/entities/usecase-data/project/project.js';
 export * from './domain/entities/usecase-data/project/arc-db-file.js';

@@ -14,7 +14,7 @@ import type {
   DefinitionElement,
 } from './element-definition.js';
 import type {Logger} from '../../../shared/types/logger.interface.js';
-import type {ParameterDefinitionBase} from '../../ports/persistence/repositories/module/module-definition.repository.js';
+import type {ParameterDefinitionBase} from '../../ports/persistence/repositories/shared/parameter-definition-base.js';
 import type {
   ElementData,
   ConfigElementData,

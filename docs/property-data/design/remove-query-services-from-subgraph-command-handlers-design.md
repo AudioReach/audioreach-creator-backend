@@ -32,7 +32,6 @@ Extend `SubgraphRepository` with these read methods:
 
 - `getAllSubgraphPropertyDefinitionsSummary(fileSystemId, propertyNaturalId?)`
 - `getSubgraphPropertiesWithElements(fileSystemId)`
-- `getSubgraphPropertyWithElements(propertySystemId, fileSystemId)`
 - `getAllVcpmModuleDefinitions(fileSystemId)`
 
 The property methods reuse the existing core read-model and `Result` types. The VCPM method returns `VcpmModuleDefinitionWithParamsReadModel[]`.

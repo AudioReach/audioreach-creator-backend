@@ -47,8 +47,8 @@ function makeSubgraph(scenarioValue: number) {
     properties: [
       {
         systemId: 200,
-        propertySystemId: SCENARIO_DEF_SYS_ID,
-        payload: uint32Payload(scenarioValue),
+        propertyDefinitionSystemId: SCENARIO_DEF_SYS_ID,
+        getPayloadCopy: () => uint32Payload(scenarioValue),
       },
     ],
   };
@@ -60,22 +60,25 @@ function makeUow(subgraph: any) {
   const commit = jest.fn().mockResolvedValue(undefined);
   const rollback = jest.fn().mockResolvedValue(undefined);
   const isInTransaction = jest.fn().mockReturnValue(false);
+  const aggregates = subgraph
+    ? new Map([[subgraph.systemId, subgraph]])
+    : new Map();
 
   return {
     getWriteContext: jest
       .fn()
       .mockReturnValue({session: SESSION, groupId: GROUP_ID}),
     getSubgraphRepository: jest.fn().mockReturnValue({
-      getAggregate: jest.fn().mockResolvedValue(subgraph),
+      getAggregates: jest.fn().mockResolvedValue(aggregates),
       setPropertyData,
       addProperty: jest.fn().mockResolvedValue(999),
       removeProperty: jest.fn().mockResolvedValue(undefined),
-      removeAllVcpmCfgData: jest.fn().mockResolvedValue(undefined),
+      removeAllVcpmData: jest.fn().mockResolvedValue(undefined),
       getPropertyDefinitions: jest.fn().mockResolvedValue([makeScenarioDef()]),
     }),
     getVcpmDefinitionRepository: jest.fn().mockReturnValue({
       getAllVcpmModuleDefinitions: jest.fn().mockResolvedValue([]),
-      addVcpmCfgDefaultData: jest.fn().mockResolvedValue(undefined),
+      addVcpmDefaultData: jest.fn().mockResolvedValue(undefined),
     }),
     getModuleRepository: jest.fn().mockReturnValue({
       getModulesBySubgraphId: jest.fn().mockResolvedValue([]),

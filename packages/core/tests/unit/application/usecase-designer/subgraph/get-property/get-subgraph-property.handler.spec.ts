@@ -47,13 +47,13 @@ function makeServices(
   overrides: {
     fileId?: number;
     payloadsResult?: any;
-    defResult?: any;
+    definitionsResult?: any;
   } = {},
 ): QueryServices {
   const {
     fileId = FILE_ID,
     payloadsResult = Result.ok([mockPayload]),
-    defResult = Result.ok(mockDef),
+    definitionsResult = Result.ok([mockDef]),
   } = overrides;
 
   return {
@@ -64,7 +64,9 @@ function makeServices(
       findPropertyPayloads: jest.fn().mockResolvedValue(payloadsResult),
     },
     subgraphPropertyDefQueryService: {
-      getSubgraphPropertyWithElements: jest.fn().mockResolvedValue(defResult),
+      getSubgraphPropertiesWithElements: jest
+        .fn()
+        .mockResolvedValue(definitionsResult),
     },
   } as unknown as QueryServices;
 }
@@ -95,12 +97,20 @@ describe('GetSubgraphPropertyHandler', () => {
 
   it('throws ResourceNotFoundException when property definition not found', async () => {
     const svc = makeServices({
-      defResult: Result.fail({
+      definitionsResult: Result.fail({
         code: 'ENTITY_NOT_FOUND',
         message: 'not found',
         severity: 'Error',
       }),
     });
+    const handler = new GetSubgraphPropertyHandler(svc);
+    await expect(handler.handle(query)).rejects.toBeInstanceOf(
+      ResourceNotFoundException,
+    );
+  });
+
+  it('throws ResourceNotFoundException when property definition is absent', async () => {
+    const svc = makeServices({definitionsResult: Result.ok([])});
     const handler = new GetSubgraphPropertyHandler(svc);
     await expect(handler.handle(query)).rejects.toBeInstanceOf(
       ResourceNotFoundException,
