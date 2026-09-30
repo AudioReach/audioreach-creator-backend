@@ -3,13 +3,17 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {
-  ISessionRepository,
-  ProjectSession,
-  SessionMode,
-  Source,
+import {
+  CHANGE_OPERATION,
+  CHANGE_STATUS,
+  SOURCE,
+  type ISessionRepository,
+  type ProjectSession,
+  type SessionMode,
+  type Source,
 } from '@arc/core';
 import type {EntityManager} from 'typeorm';
+import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {
   SESSION_STATUS,
   ProjectSessionSchema,
@@ -17,8 +21,7 @@ import {
 import {SessionCommitSchema} from '../../entity-schema/edit-session/session-commit.schema.js';
 import {ArcDbFileSchema} from '../../entity-schema/project-data/arc-db-file.schema.js';
 import {EditActionSchema} from '../../entity-schema/edit-session/edit-action.schema.js';
-import {CHANGE_OPERATION, CHANGE_STATUS, SOURCE} from '@arc/core';
-import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
+import type {ApplyActionSlot} from '../../services/apply-changes/apply-changes.types.js';
 
 /**
  * TypeORM adapter for ISessionRepository (spec §7b.3).
@@ -184,6 +187,74 @@ export class TypeOrmSessionRepository implements ISessionRepository {
       .where('sc.sessionId = :sessionId', {sessionId})
       .getRawOne<{count: string}>();
     return Number(result?.count ?? 0);
+  }
+
+  async recordCommit(input: {
+    sessionId: number;
+    changeCount: number;
+  }): Promise<number> {
+    const result = await this.manager
+      .createQueryBuilder()
+      .insert()
+      .into(SessionCommitSchema)
+      .values({
+        ...input,
+        // The apply contract has no user-supplied commit message, but the
+        // current persistence schema keeps this legacy column non-null.
+        commitMessage: '',
+      })
+      .execute();
+    return result.identifiers[0].commitId as number;
+  }
+
+  async deleteAppliedActionHistory(
+    sessionId: number,
+    slots: readonly ApplyActionSlot[],
+  ): Promise<number> {
+    let deletedCount = 0;
+    for (const [index, slot] of slots.entries()) {
+      const query = this.manager
+        .createQueryBuilder()
+        .delete()
+        .from(EditActionSchema)
+        .where('sessionId = :sessionId', {sessionId})
+        .andWhere('targetTable = :targetTable', {
+          targetTable: slot.targetTable,
+        })
+        .andWhere('targetSystemId = :targetSystemId', {
+          targetSystemId: slot.targetSystemId,
+        });
+
+      if (slot.fieldPath === null) {
+        query.andWhere('fieldPath IS NULL');
+      } else {
+        query.andWhere(`fieldPath = :fieldPath${index}`, {
+          [`fieldPath${index}`]: slot.fieldPath,
+        });
+      }
+
+      // Apply owns the selected current STAGED slots. Older history for those
+      // slots is removed with them, but a contradictory current UNSTAGED row
+      // must remain available to the edit-session read path.
+      query.andWhere(
+        '(validUntil IS NOT NULL OR (validUntil IS NULL AND changeStatus = :stagedStatus))',
+        {stagedStatus: CHANGE_STATUS.Staged},
+      );
+
+      const result = await query.execute();
+      deletedCount += result.affected ?? 0;
+    }
+    return deletedCount;
+  }
+
+  async deleteAllEditActions(sessionId: number): Promise<number> {
+    const result = await this.manager
+      .createQueryBuilder()
+      .delete()
+      .from(EditActionSchema)
+      .where('sessionId = :sessionId', {sessionId})
+      .execute();
+    return result.affected ?? 0;
   }
 
   async deleteSession(sessionId: number): Promise<void> {

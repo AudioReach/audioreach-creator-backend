@@ -9,6 +9,7 @@ import type {EntityName} from '../entity-schema/entity-table-names.js';
 import {SessionEntityVersionSchema} from '../entity-schema/edit-session/session-entity-version.schema.js';
 import {EditActionSchema} from '../entity-schema/edit-session/edit-action.schema.js';
 import type {QueryRunner} from 'typeorm';
+import {isCompositeApplyTarget} from './apply-changes/apply-target-registry.js';
 
 /**
  * Plain-object shape for a single row to insert into `edit_actions`.
@@ -82,7 +83,9 @@ export class PendingChangeCache {
 
     // ── Step 1: baseVersion capture for UPDATE / DELETE rows ──────────────────
     const captureTargets = this.rows.filter(
-      r => r.operation !== CHANGE_OPERATION.Create,
+      r =>
+        r.operation !== CHANGE_OPERATION.Create &&
+        !isCompositeApplyTarget(r.targetTable),
     );
 
     if (captureTargets.length > 0) {

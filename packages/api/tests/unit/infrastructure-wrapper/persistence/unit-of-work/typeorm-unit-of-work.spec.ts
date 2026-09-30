@@ -7,6 +7,10 @@ import {jest} from '@jest/globals';
 import {TypeOrmUnitOfWork} from '../../../../../src/infrastructure-wrapper/persistence/unit-of-work/typeorm-unit-of-work.js';
 import type {WriteContext} from '@arc/core';
 import {SESSION_MODE} from '@arc/core';
+import {
+  TypeOrmApplyChangesService,
+  TypeOrmDiscardChangesService,
+} from '@arc/persistence';
 import type {QueryRunner, DataSource} from 'typeorm';
 
 function makeQueryRunner(): QueryRunner {
@@ -61,7 +65,12 @@ describe('TypeOrmUnitOfWork — WriteContext + applyCachedActions', () => {
       qr,
       {reserveBlock: jest.fn()} as never,
       cacheStub as never,
+      {} as never,
     );
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   describe('setWriteContext / getWriteContext', () => {
@@ -87,6 +96,40 @@ describe('TypeOrmUnitOfWork — WriteContext + applyCachedActions', () => {
       await expect(uow.applyCachedActions()).rejects.toThrow(
         'non-empty after flush',
       );
+    });
+  });
+
+  describe('apply and discard instructions', () => {
+    it('delegates applyChanges to the transaction-bound apply service', async () => {
+      const summary = {
+        commitId: 7,
+        appliedEntityCount: 3,
+        appliedAggregateCount: 2,
+      };
+      const apply = jest
+        .fn<() => Promise<typeof summary>>()
+        .mockResolvedValue(summary);
+      jest
+        .spyOn(TypeOrmApplyChangesService.prototype, 'apply')
+        .mockImplementation(apply);
+      uow.setWriteContext(sampleContext);
+
+      await expect(uow.applyChanges()).resolves.toEqual(summary);
+      expect(apply).toHaveBeenCalledTimes(1);
+    });
+
+    it('delegates discardChanges to the transaction-bound discard service', async () => {
+      const summary = {discardedEditActionCount: 4};
+      const discard = jest
+        .fn<() => Promise<typeof summary>>()
+        .mockResolvedValue(summary);
+      jest
+        .spyOn(TypeOrmDiscardChangesService.prototype, 'discard')
+        .mockImplementation(discard);
+      uow.setWriteContext(sampleContext);
+
+      await expect(uow.discardChanges()).resolves.toEqual(summary);
+      expect(discard).toHaveBeenCalledTimes(1);
     });
   });
 });
