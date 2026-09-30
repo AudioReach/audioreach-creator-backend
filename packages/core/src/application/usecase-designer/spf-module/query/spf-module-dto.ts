@@ -109,7 +109,9 @@ export const DataPortDtoSchema = z.object({
   systemId: z.string().describe('Port system ID'),
   naturalId: z.number().int().describe('Port definition natural ID'),
   name: z.string().describe('Port name'),
-  portIoType: z.enum(['Input', 'Output']).describe('Port IO type'),
+  portIoType: z
+    .enum(['Input', 'Output', 'InputOutput', 'OutputInput'])
+    .describe('Port IO type'),
   portType: z.enum(['Static', 'Dynamic']).describe('Port type'),
   totalLinksAtPort: z
     .number()
@@ -179,11 +181,21 @@ export type DataPortDto = z.infer<typeof DataPortDtoSchema>;
 export type ControlPortDto = z.infer<typeof ControlPortDtoSchema>;
 
 export function mapDataPort(p: DataPortReadModel): DataPortDto {
+  const portIoTypeByDomainValue: Record<
+    DataPortReadModel['portIoType'],
+    DataPortDto['portIoType']
+  > = {
+    [PORT_IO_TYPE.Input]: 'Input',
+    [PORT_IO_TYPE.Output]: 'Output',
+    [PORT_IO_TYPE.InputOutput]: 'InputOutput',
+    [PORT_IO_TYPE.OutputInput]: 'OutputInput',
+  };
+
   return {
     systemId: String(p.systemId),
     naturalId: p.naturalId,
     name: p.name ?? '',
-    portIoType: p.portIoType === PORT_IO_TYPE.Input ? 'Input' : 'Output',
+    portIoType: portIoTypeByDomainValue[p.portIoType],
     portType: p.isStatic ? 'Static' : 'Dynamic',
     totalLinksAtPort: p.totalLinksAtPort,
   };

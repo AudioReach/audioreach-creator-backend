@@ -28,11 +28,12 @@ export class IntentFetcher {
 
   /**
    * Returns overlaid intents for the given control port IDs.
-   * A single getByAggregateId call scopes to the parent Node aggregate.
+   * Single-node reads scope by aggregate; multi-node reads load the Intent
+   * table overlay once and filter it to the requested Node aggregates.
    */
   async fetchMany(
     controlPortSystemIds: number[],
-    nodeSystemId: number,
+    nodeSystemIds: number | readonly number[],
     sessionId: number | null,
   ): Promise<IntentBase[]> {
     if (controlPortSystemIds.length === 0) return [];
@@ -47,12 +48,15 @@ export class IntentFetcher {
 
     if (sessionId === null) return baseRows;
 
-    const allActions = await this.editActionsSvc.getByAggregateId(
-      sessionId,
-      nodeSystemId,
-    );
+    const isBatch = typeof nodeSystemIds !== 'number';
+    const aggregateIds = new Set(isBatch ? nodeSystemIds : [nodeSystemIds]);
+    const allActions = isBatch
+      ? await this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.Intent)
+      : await this.editActionsSvc.getByAggregateId(sessionId, nodeSystemIds);
     const intentActions = allActions.filter(
-      a => a.targetTable === ENTITY_NAMES.Intent,
+      action =>
+        action.targetTable === ENTITY_NAMES.Intent &&
+        aggregateIds.has(action.aggregateId),
     );
     if (intentActions.length === 0) return baseRows;
 

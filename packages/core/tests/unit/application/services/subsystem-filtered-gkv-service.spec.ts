@@ -55,6 +55,8 @@ function makeData(options: {
     subsystems: options.subsystems.map(value => ({
       ...value,
       subsystemNaturalId: value.subsystemNaturalId ?? value.systemId,
+      dataPorts: [],
+      controlPorts: [],
       filteredKeys: [],
     })),
     subgraphNaturalIdsBySystemId: new Map(

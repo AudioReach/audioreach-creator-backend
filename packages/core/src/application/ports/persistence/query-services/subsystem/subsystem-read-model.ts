@@ -4,6 +4,8 @@
  */
 
 import type {KeyDefinitionSummaryReadModel} from '../key-value/key-value-definition-read-model.js';
+import type {DataPortReadModel} from '../spf-module/ports/data-port-read-model.js';
+import type {ControlPortReadModel} from '../spf-module/ports/control-port-read-model.js';
 
 /**
  * Read model for a subsystem node.
@@ -21,6 +23,8 @@ export interface SubsystemReadModel {
   readonly subsystemNaturalId?: number;
   readonly name: string;
   readonly parentSystemId?: number;
+  readonly dataPorts: DataPortReadModel[];
+  readonly controlPorts: ControlPortReadModel[];
   readonly filteredKeys: KeyDefinitionSummaryReadModel[];
   /**
    * System IDs of key definitions associated through the subsystem's

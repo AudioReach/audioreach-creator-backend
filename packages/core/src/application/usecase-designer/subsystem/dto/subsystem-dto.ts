@@ -8,6 +8,8 @@ import {
   KeyInfoDtoSchema,
   DataPortDtoSchema,
   ControlPortDtoSchema,
+  mapDataPort,
+  mapControlPort,
 } from '../../spf-module/query/spf-module-dto.js';
 import type {SubsystemReadModel} from '../../../ports/persistence/query-services/subsystem/subsystem-read-model.js';
 
@@ -29,14 +31,18 @@ export const SubsystemDtoSchema = z.object({
 export type SubsystemDto = z.infer<typeof SubsystemDtoSchema>;
 
 export function mapSubsystem(s: SubsystemReadModel): SubsystemDto {
+  if (s.subsystemNaturalId === undefined) {
+    throw new Error(`Subsystem ${s.systemId} is missing its natural ID`);
+  }
+
   return {
     systemId: String(s.systemId),
-    naturalId: s.subsystemNaturalId ?? s.systemId,
+    naturalId: s.subsystemNaturalId,
     name: s.name,
     parentSystemId:
       s.parentSystemId === undefined ? undefined : String(s.parentSystemId),
-    dataPorts: [],
-    controlPorts: [],
+    dataPorts: s.dataPorts.map(port => mapDataPort(port)),
+    controlPorts: s.controlPorts.map(port => mapControlPort(port)),
     filteredKeys: s.filteredKeys.map(key => ({
       naturalId: key.naturalId,
       name: key.name,

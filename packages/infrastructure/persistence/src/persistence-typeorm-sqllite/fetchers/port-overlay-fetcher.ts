@@ -64,10 +64,26 @@ export class PortOverlayFetcher {
     sessionId: number | null,
     filters?: DataPortFilters,
   ): Promise<OverlaidDataPort[]> {
+    return this.fetchDataPortsForNodes(
+      [nodeSystemId],
+      fileSystemId,
+      sessionId,
+      filters,
+    );
+  }
+
+  async fetchDataPortsForNodes(
+    nodeSystemIds: readonly number[],
+    fileSystemId: number,
+    sessionId: number | null,
+    filters?: DataPortFilters,
+  ): Promise<OverlaidDataPort[]> {
+    if (nodeSystemIds.length === 0) return [];
+
     const qb = this.manager
       .getRepository(ENTITY_NAMES.DataPort)
       .createQueryBuilder('dp')
-      .where('dp.nodeSystemId = :nodeSystemId', {nodeSystemId});
+      .where('dp.nodeSystemId IN (:...nodeSystemIds)', {nodeSystemIds});
     const baseRows = (await qb.getMany()) as DataPortBase[];
 
     const base: OverlaidDataPort[] = baseRows.map(r => ({
@@ -78,19 +94,28 @@ export class PortOverlayFetcher {
 
     if (sessionId === null) return this.filterPorts(base, filters);
 
-    const allActions = await this.editActionsSvc.getByAggregateId(
-      sessionId,
-      nodeSystemId,
-    );
+    const nodeSystemIdSet = new Set(nodeSystemIds);
+    const allActions =
+      nodeSystemIds.length === 1
+        ? await this.editActionsSvc.getByAggregateId(
+            sessionId,
+            nodeSystemIds[0],
+          )
+        : await this.editActionsSvc.getByTable(
+            sessionId,
+            ENTITY_NAMES.DataPort,
+          );
     const dpActions = allActions.filter(
-      a => a.targetTable === ENTITY_NAMES.DataPort,
+      action =>
+        action.targetTable === ENTITY_NAMES.DataPort &&
+        nodeSystemIdSet.has(action.aggregateId),
     );
     if (dpActions.length === 0) return this.filterPorts(base, filters);
 
     return this.overlay
       .applyToCollection(base, dpActions, {
         matchesEffective: row =>
-          row.nodeSystemId === nodeSystemId &&
+          nodeSystemIdSet.has(row.nodeSystemId) &&
           (filters === undefined ||
             matchesEntityFilters(
               row as unknown as Record<string, unknown>,
@@ -106,10 +131,26 @@ export class PortOverlayFetcher {
     sessionId: number | null,
     filters?: ControlPortFilters,
   ): Promise<OverlaidControlPort[]> {
+    return this.fetchControlPortsWithIntentsForNodes(
+      [nodeSystemId],
+      fileSystemId,
+      sessionId,
+      filters,
+    );
+  }
+
+  async fetchControlPortsWithIntentsForNodes(
+    nodeSystemIds: readonly number[],
+    fileSystemId: number,
+    sessionId: number | null,
+    filters?: ControlPortFilters,
+  ): Promise<OverlaidControlPort[]> {
+    if (nodeSystemIds.length === 0) return [];
+
     const qb = this.manager
       .getRepository(ENTITY_NAMES.ControlPort)
       .createQueryBuilder('cp')
-      .where('cp.nodeSystemId = :nodeSystemId', {nodeSystemId});
+      .where('cp.nodeSystemId IN (:...nodeSystemIds)', {nodeSystemIds});
     const basePortRows = (await qb.getMany()) as ControlPortBase[];
 
     const basePorts: OverlaidControlPort[] = basePortRows.map(r => ({
@@ -124,7 +165,7 @@ export class PortOverlayFetcher {
       const cpIds = filteredBasePorts.map(p => p.systemId);
       const intents = await this.intentFetcher.fetchMany(
         cpIds,
-        nodeSystemId,
+        nodeSystemIds,
         null,
       );
       return filteredBasePorts.map(cp => ({
@@ -133,12 +174,21 @@ export class PortOverlayFetcher {
       }));
     }
 
-    const allActions = await this.editActionsSvc.getByAggregateId(
-      sessionId,
-      nodeSystemId,
-    );
+    const nodeSystemIdSet = new Set(nodeSystemIds);
+    const allActions =
+      nodeSystemIds.length === 1
+        ? await this.editActionsSvc.getByAggregateId(
+            sessionId,
+            nodeSystemIds[0],
+          )
+        : await this.editActionsSvc.getByTable(
+            sessionId,
+            ENTITY_NAMES.ControlPort,
+          );
     const cpActions = allActions.filter(
-      a => a.targetTable === ENTITY_NAMES.ControlPort,
+      action =>
+        action.targetTable === ENTITY_NAMES.ControlPort &&
+        nodeSystemIdSet.has(action.aggregateId),
     );
 
     const overlaidPorts =
@@ -146,7 +196,7 @@ export class PortOverlayFetcher {
         ? this.overlay
             .applyToCollection(basePorts, cpActions, {
               matchesEffective: row =>
-                row.nodeSystemId === nodeSystemId &&
+                nodeSystemIdSet.has(row.nodeSystemId) &&
                 (filters === undefined ||
                   matchesEntityFilters(
                     row as unknown as Record<string, unknown>,
@@ -159,7 +209,7 @@ export class PortOverlayFetcher {
     const cpIds = overlaidPorts.map(p => p.systemId);
     const intents = await this.intentFetcher.fetchMany(
       cpIds,
-      nodeSystemId,
+      nodeSystemIds,
       sessionId,
     );
 

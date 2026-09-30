@@ -11,6 +11,7 @@ import type {ControlLinkReadModel} from '../../../../../../src/application/ports
 import type {SubsystemReadModel} from '../../../../../../src/application/ports/persistence/query-services/subsystem/subsystem-read-model.js';
 import type {SubsystemDataLinkReadModel} from '../../../../../../src/application/ports/persistence/query-services/usecase/query-models/subsystem-data-link-read-model.js';
 import {DATA_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
+import {PORT_IO_TYPE} from '../../../../../../src/domain/entities/common/enums/port-io-type.js';
 
 // =============================================================================
 // Node / Subsystem IDs
@@ -115,8 +116,31 @@ function makeSlsSegment(
 function makeSub(id: number, parentId?: number): SubsystemReadModel {
   return {
     systemId: id,
+    subsystemNaturalId: id + 1000,
     name: `SS_${id}`,
     parentSystemId: parentId,
+    dataPorts: [
+      {
+        systemId: id + 2000,
+        naturalId: 1,
+        name: 'boundary-data',
+        portIoType: PORT_IO_TYPE.InputOutput,
+        isStatic: false,
+        totalLinksAtPort: 1,
+      },
+    ],
+    controlPorts: [
+      {
+        systemId: id + 3000,
+        naturalId: 2,
+        name: 'boundary-control',
+        isStatic: false,
+        allocatedIntents: [
+          {systemId: id + 4000, naturalId: 3, name: 'Intent_3'},
+        ],
+        totalLinksAtPort: 1,
+      },
+    ],
     filteredKeys: [],
   };
 }
@@ -297,6 +321,16 @@ describe('buildSubsystemTree', () => {
     it('creates exactly one subsystem node (SS) at the root', () => {
       expect(result.subsystems).toHaveLength(1);
       expect(result.subsystems[0].systemId).toBe(SS);
+    });
+
+    it('preserves subsystem natural ID and owned ports on the tree node', () => {
+      const subsystem = result.subsystems[0];
+
+      expect(subsystem.naturalId).toBe(SS + 1000);
+      expect(subsystem.dataPorts).toEqual(INITIAL_SUBSYSTEMS[0].dataPorts);
+      expect(subsystem.controlPorts).toEqual(
+        INITIAL_SUBSYSTEMS[0].controlPorts,
+      );
     });
 
     it('places m3 and m4 inside SS children (parentId = SS)', () => {

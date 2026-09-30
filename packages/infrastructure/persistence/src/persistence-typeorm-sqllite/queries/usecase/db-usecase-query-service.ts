@@ -412,6 +412,8 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
         subsystemNaturalId: subsystem.subsystemId,
         name: subsystem.name,
         parentSystemId: subsystem.parentSystemId,
+        dataPorts: [],
+        controlPorts: [],
         filteredKeys: [],
         filteredKeySystemIds: subsystem.filteredKeySystemIds,
       }),

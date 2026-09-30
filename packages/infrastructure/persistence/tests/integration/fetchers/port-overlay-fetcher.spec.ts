@@ -35,6 +35,7 @@ import {
 
 const FILE_ID = 100;
 const MODULE_ID = 50;
+const SECOND_MODULE_ID = 51;
 
 async function seedProjectAndFile(ds: DataSource) {
   await getTestRepository(ProjectSchema).save({
@@ -54,10 +55,10 @@ async function seedProjectAndFile(ds: DataSource) {
   });
 }
 
-async function seedNode(ds: DataSource) {
+async function seedNode(ds: DataSource, nodeSystemId = MODULE_ID) {
   await ds.query(
     `INSERT INTO nodes (system_id, type, parent_id, file_system_id) VALUES (?, 'module', NULL, ?)`,
-    [MODULE_ID, FILE_ID],
+    [nodeSystemId, FILE_ID],
   );
 }
 
@@ -75,11 +76,21 @@ async function seedSession(ds: DataSource): Promise<number> {
 
 async function seedDataPort(
   ds: DataSource,
-  opts: {portIoType: string; isStatic?: boolean; name?: string},
+  opts: {
+    portIoType: string;
+    isStatic?: boolean;
+    name?: string;
+    nodeSystemId?: number;
+  },
 ): Promise<number> {
   const rows: any[] = await ds.query(
     `INSERT INTO data_ports (data_port_id, port_io_type, is_static, name, node_system_id) VALUES (1, ?, ?, ?, ?) RETURNING system_id`,
-    [opts.portIoType, opts.isStatic ? 1 : 0, opts.name ?? null, MODULE_ID],
+    [
+      opts.portIoType,
+      opts.isStatic ? 1 : 0,
+      opts.name ?? null,
+      opts.nodeSystemId ?? MODULE_ID,
+    ],
   );
   if (rows.length > 0 && rows[0].system_id !== undefined)
     return rows[0].system_id as number;
@@ -258,6 +269,41 @@ describe('PortOverlayFetcher (integration)', () => {
         sessionId,
       );
       expect(result.find(p => p.systemId === portId)?.name).toBe('new');
+    });
+
+    it('batch-loads base and staged data ports for multiple nodes', async () => {
+      await seedNode(ds, SECOND_MODULE_ID);
+      const basePortId = await seedDataPort(ds, {
+        portIoType: 'INPUT',
+        nodeSystemId: MODULE_ID,
+      });
+      const sessionId = await seedSession(ds);
+      const stagedPortId = 999;
+      await seedEditAction(ds, {
+        sessionId,
+        aggregateId: SECOND_MODULE_ID,
+        targetSystemId: stagedPortId,
+        targetTable: ENTITY_NAMES.DataPort,
+        operation: CHANGE_OPERATION.Create,
+        newValue: JSON.stringify({
+          naturalId: 2,
+          portIoType: 'OUTPUT',
+          isStatic: false,
+          name: 'staged-second-node',
+          nodeSystemId: SECOND_MODULE_ID,
+          fileSystemId: FILE_ID,
+        }),
+      });
+
+      const result = await fetcher.fetchDataPortsForNodes(
+        [MODULE_ID, SECOND_MODULE_ID],
+        FILE_ID,
+        sessionId,
+      );
+
+      expect(result.map(port => port.systemId).sort((a, b) => a - b)).toEqual(
+        [basePortId, stagedPortId].sort((a, b) => a - b),
+      );
     });
   });
 

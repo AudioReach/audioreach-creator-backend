@@ -19,6 +19,7 @@ import {
   RESULT_KIND,
 } from '../../../../../../src/application/shared/result/result.js';
 import {DATA_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
+import {PORT_IO_TYPE} from '../../../../../../src/domain/entities/common/enums/port-io-type.js';
 
 // =============================================================================
 // Fixed IDs — mirrors the build-subsystem-tree.spec.ts topology.
@@ -119,8 +120,31 @@ function makeSlsSegment(
 function makeSub(id: number, parentId?: number): SubsystemReadModel {
   return {
     systemId: id,
+    subsystemNaturalId: id + 1000,
     name: `SS_${id}`,
     parentSystemId: parentId,
+    dataPorts: [
+      {
+        systemId: id + 2000,
+        naturalId: 1,
+        name: 'boundary-data',
+        portIoType: PORT_IO_TYPE.InputOutput,
+        isStatic: false,
+        totalLinksAtPort: 1,
+      },
+    ],
+    controlPorts: [
+      {
+        systemId: id + 3000,
+        naturalId: 2,
+        name: 'boundary-control',
+        isStatic: false,
+        allocatedIntents: [
+          {systemId: id + 4000, naturalId: 3, name: 'Intent_3'},
+        ],
+        totalLinksAtPort: 1,
+      },
+    ],
     filteredKeys: [],
   };
 }
@@ -387,6 +411,31 @@ describe('GetComponentsWithSubsystemsHandler', () => {
 
     it('returns Result.ok', () => {
       expect(result.kind).toBe(RESULT_KIND.Ok);
+    });
+
+    it('returns the subsystem natural ID and owned ports', () => {
+      if (result.kind !== RESULT_KIND.Ok) return;
+      const subsystem = result.data.subsystems.find(
+        item => Number(item.systemId) === SS,
+      );
+
+      expect(subsystem).toMatchObject({
+        naturalId: SS + 1000,
+        dataPorts: [
+          expect.objectContaining({
+            systemId: String(SS + 2000),
+            portIoType: 'InputOutput',
+            totalLinksAtPort: 1,
+          }),
+        ],
+        controlPorts: [
+          expect.objectContaining({
+            systemId: String(SS + 3000),
+            totalLinksAtPort: 1,
+            intents: [{naturalId: 3, name: 'Intent_3'}],
+          }),
+        ],
+      });
     });
 
     it('places the non-boundary raw link L1_RAW (m1→m2) at root dataLinks', () => {

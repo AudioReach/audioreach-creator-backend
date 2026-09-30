@@ -83,7 +83,10 @@ const FilteredKeyDtoSchema = z.object({
 // Forward-declared type for mutual recursion in the subsystem tree
 export type SubsystemComponentsDto = {
   systemId: string;
+  naturalId: number;
   name: string;
+  dataPorts: z.infer<typeof SpfModuleDtoSchema>['dataPorts'];
+  controlPorts: z.infer<typeof SpfModuleDtoSchema>['controlPorts'];
   filteredKeys: z.infer<typeof FilteredKeyDtoSchema>[];
   children: ComponentCollectionWithSubsystemsDto;
 };
@@ -96,7 +99,14 @@ export const SubsystemComponentsDtoSchema: z.ZodType<SubsystemComponentsDto> =
   z.lazy(() =>
     z.object({
       systemId: z.string().describe('Subsystem system ID'),
+      naturalId: z.number().int().describe('Subsystem natural ID'),
       name: z.string().describe('Subsystem name'),
+      dataPorts: SpfModuleDtoSchema.shape.dataPorts.describe(
+        'Subsystem data ports',
+      ),
+      controlPorts: SpfModuleDtoSchema.shape.controlPorts.describe(
+        'Subsystem control ports',
+      ),
       filteredKeys: z
         .array(FilteredKeyDtoSchema)
         .describe('Keys filtered by this subsystem'),
@@ -175,7 +185,10 @@ export function mapComponentCollection(
 function mapSubsystemNode(sub: SubsystemNodeReadModel): SubsystemComponentsDto {
   return {
     systemId: String(sub.systemId),
+    naturalId: sub.naturalId,
     name: sub.name,
+    dataPorts: sub.dataPorts.map(port => mapDataPort(port)),
+    controlPorts: sub.controlPorts.map(port => mapControlPort(port)),
     filteredKeys: sub.filteredKeys.map(k => ({
       systemId: String(k.systemId),
       naturalId: k.naturalId,

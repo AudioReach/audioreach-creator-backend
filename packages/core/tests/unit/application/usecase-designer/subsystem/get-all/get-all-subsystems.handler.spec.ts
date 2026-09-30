@@ -11,6 +11,7 @@ import {
   Result,
   RESULT_KIND,
 } from '../../../../../../src/application/shared/result/result.js';
+import {PORT_IO_TYPE} from '../../../../../../src/domain/entities/common/enums/port-io-type.js';
 
 const FILE_SYSTEM_ID = 42;
 
@@ -20,6 +21,26 @@ const readModels = [
     subsystemNaturalId: 100,
     name: 'Subsystem_100',
     parentSystemId: 20,
+    dataPorts: [
+      {
+        systemId: 40,
+        naturalId: 400,
+        name: 'Data_400',
+        portIoType: PORT_IO_TYPE.OutputInput,
+        isStatic: false,
+        totalLinksAtPort: 1,
+      },
+    ],
+    controlPorts: [
+      {
+        systemId: 50,
+        naturalId: 500,
+        name: 'Control_500',
+        isStatic: false,
+        allocatedIntents: [{systemId: 60, naturalId: 600, name: 'Intent_600'}],
+        totalLinksAtPort: 2,
+      },
+    ],
     filteredKeys: [{systemId: 30, naturalId: 300, name: 'Key_300'}],
   },
 ];
@@ -62,8 +83,27 @@ describe('GetAllSubsystemsHandler', () => {
         naturalId: 100,
         name: 'Subsystem_100',
         parentSystemId: '20',
-        dataPorts: [],
-        controlPorts: [],
+        dataPorts: [
+          {
+            systemId: '40',
+            naturalId: 400,
+            name: 'Data_400',
+            portIoType: 'OutputInput',
+            portType: 'Dynamic',
+            totalLinksAtPort: 1,
+          },
+        ],
+        controlPorts: [
+          {
+            systemId: '50',
+            naturalId: 500,
+            name: 'Control_500',
+            portType: 'Dynamic',
+            controlPortName: 'Control_500',
+            totalLinksAtPort: 2,
+            intents: [{naturalId: 600, name: 'Intent_600'}],
+          },
+        ],
         filteredKeys: [{systemId: '30', naturalId: 300, name: 'Key_300'}],
       },
     ]);
