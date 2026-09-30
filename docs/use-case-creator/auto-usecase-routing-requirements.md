@@ -637,10 +637,12 @@ post-transition UC type.
 
 #### FR-DUP-04: Same-GKV collision resolution — user choice
 
-Whenever the routing pipeline detects two candidates with the same GKV that do NOT
-match FR-DUP-03(a) or (b1), the system shall NOT auto-merge or auto-error. Instead,
-the collision is surfaced as a blocking issue with FixOptions letting the user choose
-which candidate becomes the UC of record.
+The routing pipeline shall bucket every newly generated candidate and projected
+existing UC by canonical GKV. For each GKV, the system shall make one atomic decision
+across every distinct topology in that bucket, regardless of whether there are two,
+three, four, or more alternatives. If the final topology is not unambiguous under
+FR-DUP-03(a) or (b1), the bucket is surfaced as one blocking issue with FixOptions
+letting the user choose the single UC of record.
 
 **Scope — all UC types.**
 This rule applies to candidates whose `type` is `LINKED`, `ISLAND`, or `EC`.
@@ -651,14 +653,16 @@ user-choice issues just like non-EC collisions. FR-EC-07 Rule A (Bridge suppress
 against legacy EC UCs) and LLD5 §7.1 remain in force for EC-specific dedup that
 precedes FR-DUP-04 evaluation.
 
-**Collision classification and options offered:**
+**Collision-group options offered:**
 
-| Candidate pair | Overlap | Options offered |
-|---|---|---|
-| Two new paths in the same routing pass | share ≥ 1 SG | `Path A` / `Path B` / `Merge` |
-| Two new paths in the same routing pass | no shared SG | `Path A` / `Path B` (no `Merge`) |
-| New path vs existing DB UC, not (a)/(b1) | share ≥ 1 SG | `Keep existing` / `Replace with new` / `Merge` |
-| New path vs existing DB UC | no shared SG | `Keep existing` / `Create new UC` (no `Merge`) |
+- One `SELECT_CANDIDATE` option for every distinct newly generated topology.
+- `KEEP_EXISTING` when the group includes a projected existing UC.
+- `MERGE_ALL` for every group. It unions the SG and real directed-pair sets of all
+  alternatives; overlap is not required and no artificial pair is added between
+  disjoint paths.
+
+Candidate discovery order does not affect the group or alternative identities.
+Exact duplicate candidate topologies are collapsed before options are generated.
 
 The UC type distinction (`LINKED`, `ISLAND`, or `EC`) is **irrelevant** to
 the collision rule — a candidate of any type and an existing UC of any type with the
@@ -669,14 +673,14 @@ conversion) runs independently at Phase 3 and is NOT tied to collision handling.
 
 - Code: `ARC-ROUTING-SAME-GKV-CHOICE-REQUIRED`
 - Severity: `ERROR` (blocking)
-- `impactedEntity`: one entry per involved UC/path candidate (full details in
-  the fix option payload)
-- `fixOptions`: 2 or 3 `FixOption` entries per the table above. Each `FixOption`
-  carries `commandType = 'ResolveSameGkvCollisionCommand'` with payload
-  `{mode: 'PATH_A' | 'PATH_B' | 'MERGE' | 'KEEP_EXISTING' | 'REPLACE_WITH_NEW',
-  collisionId: string}`. `collisionId` is a server-computed stable identifier
-  for the specific collision (derived from GKV + involved candidate SG sets); it
-  enables the apply-fix call to re-locate the exact collision.
+- `impactedEntity`: one entry for the GKV collision group (full alternative details
+  are carried in each fix-option payload).
+- `fixOptions`: one entry per selectable new candidate, optional `KEEP_EXISTING`, and
+  one `MERGE_ALL`. Each entry carries
+  `commandType = 'ResolveSameGkvCollisionCommand'` and a payload containing
+  `{mode, collisionId, alternativeId?}` plus the replay input and complete alternative
+  topology. `alternativeId` is mandatory only for `SELECT_CANDIDATE`. Both IDs are
+  server-computed and stable for the canonical group topology.
 
 **Apply-fix behavior:**
 
@@ -686,21 +690,16 @@ conversion) runs independently at Phase 3 and is NOT tied to collision handling.
    was issued), apply-fix returns issue code `ARC-ROUTING-SAME-GKV-CHOICE-STALE`. The
    user must re-invoke `create-usecases` to obtain fresh FixOptions. No edit-action is
    written.
-3. If still valid, the server materializes the choice as staged edit-actions with
-   `source = MANUAL`:
-   - **`PATH_A` / `PATH_B`** (two new paths): one `CREATE` edit-action on `UseCase`.
-     Pair set is derived from the algorithm's DFS path directly, NOT re-derived via
-     FR-UC-01 step-4 DB link discovery.
-   - **`MERGE`** (two new paths, overlapping): one `CREATE` edit-action on `UseCase`
-     with the union of both paths' SG sets and pair sets.
+3. If still valid, the server materializes the complete-group choice as staged
+   edit-actions with `source = MANUAL`:
+   - **`SELECT_CANDIDATE`**: create exactly the selected candidate. If an existing UC
+     participates, delete it and recreate the selected topology so only one UC remains
+     for the GKV. The pair set comes directly from the selected routing candidate.
    - **`KEEP_EXISTING`**: no edit-action (discard the new candidate). Any SGs unique
-     to the discarded candidate become orphans — see below.
-   - **`REPLACE_WITH_NEW`**: one `DELETE` edit-action on the existing UC's
-     `system_id` plus one `CREATE` edit-action for the new UC (pair set from the DFS
-     path).
-   - **`MERGE`** (new path vs existing DB UC): one `UPDATE` edit-action on the
-     existing UC's `system_id`. Payload lists the new SGs added and new pairs added
-     by the merge.
+     to discarded candidates become orphans — see below.
+   - **`MERGE_ALL`**: union every alternative's SG set and real directed-pair set into
+     one UC. Create a new UC when no existing alternative participates; otherwise
+     structurally update the existing UC and preserve its identity.
 4. All `CREATE` and `UPDATE` edit-actions carry a `referencedComponents` payload
    (`sgSystemIds`, `dataLinkSystemIds`, `controlLinkSystemIds`) listing the components
    introduced by that edit-action. FR-COMMIT-01(d) validates them at commit time.
@@ -711,15 +710,17 @@ FR-LIFE-04 wipes `source=AUTO_ROUTING` edit-actions on every `create-usecases`
 invocation but preserves `source=MANUAL`. On subsequent runs the same collision will
 typically re-appear from the deterministic algorithm. Before emitting a blocking
 `ARC-ROUTING-SAME-GKV-CHOICE-REQUIRED` issue, the routing pipeline shall inspect
-existing `source=MANUAL` edit-actions and check whether one resolves the current
-collision:
+existing `source=MANUAL` edit-actions for the GKV:
 
-- Match criterion: **GKV + SG set + pair set** must be identical to one of the
-  offered options (Path A, Path B, Merge result, or Replace-with-new resulting UC).
-- If a matching `source=MANUAL` edit-action exists, the routing pipeline silently
-  applies that resolution — no issue is emitted.
-- If no matching `source=MANUAL` edit-action exists, the blocking issue is emitted
-  with fresh FixOptions.
+- Any single structurally valid effective MANUAL UC with the same GKV is authoritative
+  for the entire automatic group, even when its topology is not identical to a generated
+  candidate or the `MERGE_ALL` result. The automatic bucket is suppressed and no issue
+  is emitted.
+- More than one distinct effective MANUAL UC for the same GKV violates the uniqueness
+  invariant. Routing fails with
+  `ARC-ROUTING-MULTIPLE-MANUAL-GKV-OVERRIDES`; it does not choose one by ordering.
+- If no MANUAL authority exists, the blocking collision issue is emitted with fresh
+  FixOptions.
 
 Because FR-LIFE-04 wipes all prior `AUTO_ROUTING` output at the start of every call,
 the only edit-actions surviving across `create-usecases` invocations are
@@ -748,7 +749,7 @@ graph after routing).
 **Orphan consequences:**
 
 Any SG that becomes uniquely owned by a discarded candidate (per `KEEP_EXISTING` or
-`PATH_A`-vs-`PATH_B` choice) is surfaced by FR-VAL-01 at routing time (warning +
+`SELECT_CANDIDATE`) is surfaced by FR-VAL-01 at routing time (warning +
 delete-orphans autofix) and becomes a hard block at commit time via FR-COMMIT-01(c).
 This is the same deferred-feedback behavior common to all orphan detection in this
 feature.
@@ -756,6 +757,10 @@ feature.
 **Supersedes:** FR-DUP-01, FR-DUP-02, FR-DUP-TYPE-01 in full. FR-DUP-03 retains only
 branches (a) and (b1); its historical non-(b1) overlap-merge and (c) disjoint-error
 branches are replaced by this rule.
+
+**Historical note:** PR 6 originally implemented a binary two-operand collision
+contract. This group-wide rule supersedes that implementation and permits any number
+of alternatives for one GKV.
 
 ---
 
@@ -1134,13 +1139,11 @@ Phase 9 Classification evaluates FR-DUP-03(a)/(b1) and FR-DUP-04, any `ISLAND` �
 
 ## 4. Invariants
 
-**I1 — GKV uniqueness:** No two UCs in the same file may have identical GKVs, regardless
-of `type`. Same-GKV collisions between candidates (whether two new paths in the same
-routing pass, or a new path vs an existing DB UC) are resolved via FR-DUP-03(a)
-exact-match no-op, FR-DUP-03(b1) identity-preserving interior extension silent
-auto-update, or FR-DUP-04 user-choice. In manual mode the collision rule is
-suppressed — manual creation emits one UC at a time and hits FR-DUP-03(a) exact-match
-no-op if the same GKV already exists. **EC UCs (`type=EC`) are subject to the same
+**I1 — GKV uniqueness:** Exactly one effective UC may exist for a GKV in a file,
+regardless of `type`. The complete GKV bucket is resolved via FR-DUP-03(a) exact-match
+no-op, FR-DUP-03(b1) unambiguous identity-preserving interior extension, FR-DUP-04
+group-wide user choice, or one structurally valid MANUAL authority. Multiple effective
+MANUAL UCs for the same GKV are an integrity error. **EC UCs (`type=EC`) are subject to the same
 uniqueness rule** as `LINKED`/`ISLAND` UCs — a coincidental same-GKV collision
 between an EC UC and a `LINKED`/`ISLAND` UC (or between two EC Bridges from
 different EC connections) surfaces via FR-DUP-04. Bridge UC identity keys off `gkv`

@@ -3,20 +3,23 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {SOURCE, CHANGE_OPERATION} from '../../../shared/change-vocabulary.js';
+import {CHANGE_OPERATION, SOURCE} from '../../../shared/change-vocabulary.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {
   ReferencedComponents,
   UsecaseChangeRef,
 } from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
+import type {KvPair} from '../../../ports/persistence/repositories/shared/kv-pair.js';
 import {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
 import type {AutoRoutingInput} from '../contracts/routing-input.js';
 import {
-  COLLISION_OPERAND_KIND,
+  COLLISION_ALTERNATIVE_KIND,
   COLLISION_RESOLUTION_MODE,
-  type CollisionResolutionMode,
-  type SameGkvCollision,
+  type CollisionResolutionSelection,
+  type ExistingCollisionAlternative,
+  type NewCollisionAlternative,
+  type SameGkvCollisionGroup,
 } from '../contracts/same-gkv-collision.js';
 import type {
   RoutingCombination,
@@ -32,6 +35,8 @@ interface Pair {
   readonly sourceSubgraphSystemId: number;
   readonly destSubgraphSystemId: number;
 }
+
+type AssignmentsBySubgraph = Map<number, Map<number, KvPair>>;
 
 function candidatePairs(candidate: RoutingCombination): Pair[] {
   return candidate.path.subgraphSystemIds.slice(1).map((dest, index) => ({
@@ -51,88 +56,139 @@ function unorderedKey(pair: Pair): string {
 }
 
 function uniquePairs(pairs: readonly Pair[]): Pair[] {
-  const seen = new Set<string>();
-  const result: Pair[] = [];
-  for (const pair of pairs) {
-    const key = directedKey(pair);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(pair);
-  }
-  return result.sort(
+  const byKey = new Map<string, Pair>();
+  for (const pair of pairs) byKey.set(directedKey(pair), pair);
+  return [...byKey.values()].sort(
     (left, right) =>
       left.sourceSubgraphSystemId - right.sourceSubgraphSystemId ||
       left.destSubgraphSystemId - right.destSubgraphSystemId,
   );
 }
 
-function candidateOperand(
-  collision: SameGkvCollision,
-  mode: CollisionResolutionMode,
-): RoutingCombination {
-  if (mode === COLLISION_RESOLUTION_MODE.PathB) {
-    const operand = collision.operands[1];
-    if (operand.kind === COLLISION_OPERAND_KIND.New) return operand.candidate;
-  }
-  const operand = collision.operands[0];
-  if (operand.kind === COLLISION_OPERAND_KIND.New) return operand.candidate;
-  throw new Error(`Collision ${collision.collisionId} has no new candidate`);
-}
-
-function existingOperand(
-  collision: SameGkvCollision,
-): Extract<
-  (typeof collision.operands)[number],
-  {readonly kind: typeof COLLISION_OPERAND_KIND.Existing}
-> | null {
-  const operand = collision.operands.find(
-    current => current.kind === COLLISION_OPERAND_KIND.Existing,
+function newAlternatives(
+  group: SameGkvCollisionGroup,
+): NewCollisionAlternative[] {
+  return group.alternatives.filter(
+    (alternative): alternative is NewCollisionAlternative =>
+      alternative.kind === COLLISION_ALTERNATIVE_KIND.New,
   );
-  return operand?.kind === COLLISION_OPERAND_KIND.Existing ? operand : null;
 }
 
-function newCandidates(collision: SameGkvCollision): RoutingCombination[] {
-  return collision.operands
-    .filter(
-      (
-        operand,
-      ): operand is Extract<
-        (typeof collision.operands)[number],
-        {readonly kind: typeof COLLISION_OPERAND_KIND.New}
-      > => operand.kind === COLLISION_OPERAND_KIND.New,
-    )
-    .map(operand => operand.candidate);
+function existingAlternative(
+  group: SameGkvCollisionGroup,
+): ExistingCollisionAlternative | null {
+  return (
+    group.alternatives.find(
+      (alternative): alternative is ExistingCollisionAlternative =>
+        alternative.kind === COLLISION_ALTERNATIVE_KIND.Existing,
+    ) ?? null
+  );
 }
 
-function mergedCombination(collision: SameGkvCollision): RoutingCombination {
-  const candidates = newCandidates(collision);
-  const first = candidates[0];
-  if (!first)
-    throw new Error(`Collision ${collision.collisionId} has no candidate`);
-  const ids = [
-    ...new Set(
-      candidates.flatMap(candidate => candidate.path.subgraphSystemIds),
-    ),
-  ].sort((left, right) => left - right);
-  const sgkvAssignment = new Map(first.sgkvAssignment);
-  for (const candidate of candidates.slice(1)) {
-    for (const subgraphSystemId of candidate.path.subgraphSystemIds) {
-      if (sgkvAssignment.has(subgraphSystemId)) continue;
-      sgkvAssignment.set(
-        subgraphSystemId,
-        candidate.sgkvAssignment.get(subgraphSystemId) ?? {keyValues: []},
-      );
+function selectedCandidate(
+  group: SameGkvCollisionGroup,
+  alternativeId: string,
+): RoutingCombination {
+  const alternative = newAlternatives(group).find(
+    candidate => candidate.alternativeId === alternativeId,
+  );
+  if (!alternative)
+    throw new Error(
+      `Collision ${group.collisionId} has no candidate ${alternativeId}`,
+    );
+  return alternative.candidate;
+}
+
+function addCandidateToMerge(
+  alternative: NewCollisionAlternative,
+  group: SameGkvCollisionGroup,
+  subgraphSystemIds: Set<number>,
+  assignmentBySubgraph: AssignmentsBySubgraph,
+  pairs: Pair[],
+): void {
+  assertSgkvAssignmentsMatchGkv(alternative.candidate, group.gkvValueSystemIds);
+  pairs.push(...candidatePairs(alternative.candidate));
+  for (const systemId of alternative.candidate.path.subgraphSystemIds) {
+    subgraphSystemIds.add(systemId);
+    const byKey =
+      assignmentBySubgraph.get(systemId) ?? new Map<number, KvPair>();
+    assignmentBySubgraph.set(systemId, byKey);
+    for (const pair of alternative.candidate.sgkvAssignment.get(systemId)
+      ?.keyValues ?? []) {
+      const existing = byKey.get(pair.keyDefSystemId);
+      if (existing && existing.valueDefSystemId !== pair.valueDefSystemId) {
+        throw new Error(
+          `Conflicting SGKV assignments for subgraph ${systemId} and key ${pair.keyDefSystemId}`,
+        );
+      }
+      byKey.set(pair.keyDefSystemId, pair);
     }
   }
-  return {
+}
+
+function addExistingTopology(
+  existing: ExistingCollisionAlternative | null,
+  subgraphSystemIds: Set<number>,
+  pairs: Pair[],
+): void {
+  if (existing === null) return;
+  for (const systemId of existing.usecase.subgraphSystemIds)
+    subgraphSystemIds.add(systemId);
+  pairs.push(...existing.usecase.subgraphPairs);
+}
+
+function mergeAllCandidates(group: SameGkvCollisionGroup): {
+  readonly candidate: RoutingCombination;
+  readonly pairs: readonly Pair[];
+} {
+  const alternatives = newAlternatives(group);
+  const first = alternatives[0]?.candidate;
+  if (!first)
+    throw new Error(`Collision ${group.collisionId} has no new candidate`);
+
+  const subgraphSystemIds = new Set<number>();
+  const assignmentBySubgraph: AssignmentsBySubgraph = new Map();
+  const pairs: Pair[] = [];
+  for (const alternative of alternatives) {
+    addCandidateToMerge(
+      alternative,
+      group,
+      subgraphSystemIds,
+      assignmentBySubgraph,
+      pairs,
+    );
+  }
+
+  addExistingTopology(existingAlternative(group), subgraphSystemIds, pairs);
+
+  const candidate: RoutingCombination = {
     path: {
-      subgraphSystemIds: ids,
+      subgraphSystemIds: [...subgraphSystemIds].sort(
+        (left, right) => left - right,
+      ),
       termination: first.path.termination,
       ecBoundaryLinkId: first.path.ecBoundaryLinkId,
     },
-    sgkvAssignment,
+    sgkvAssignment: new Map(
+      [...subgraphSystemIds]
+        .sort((left, right) => left - right)
+        .map(systemId => [
+          systemId,
+          {
+            keyValues: [
+              ...(assignmentBySubgraph.get(systemId)?.values() ?? []),
+            ].sort(
+              (left, right) =>
+                left.keyDefSystemId - right.keyDefSystemId ||
+                left.valueDefSystemId - right.valueDefSystemId,
+            ),
+          },
+        ]),
+    ),
     gkv: first.gkv,
   };
+  assertSgkvAssignmentsMatchGkv(candidate, group.gkvValueSystemIds);
+  return {candidate, pairs: uniquePairs(pairs)};
 }
 
 function asUseCase(
@@ -140,7 +196,7 @@ function asUseCase(
   fileSystemId: number,
   systemId: number,
   input: AutoRoutingInput,
-  pairs = candidatePairs(candidate),
+  pairs: readonly Pair[],
 ): UseCase {
   return new UseCase({
     systemId,
@@ -149,7 +205,7 @@ function asUseCase(
       valueSystemIds: candidate.gkv.map(pair => pair.valueDefSystemId),
     },
     subgraphSystemIds: [...candidate.path.subgraphSystemIds],
-    subgraphPairs: pairs,
+    subgraphPairs: [...pairs],
     type: computeUsecaseType(pairs, input.graphSnapshot.routableDataLinks),
   });
 }
@@ -162,7 +218,9 @@ function componentReferences(
   const directedPairs = new Set(pairs.map(pair => directedKey(pair)));
   const unorderedPairs = new Set(pairs.map(pair => unorderedKey(pair)));
   return {
-    sgSystemIds: [...new Set(subgraphSystemIds)].sort((a, b) => a - b),
+    sgSystemIds: [...new Set(subgraphSystemIds)].sort(
+      (left, right) => left - right,
+    ),
     dataLinkSystemIds: input.graphSnapshot.overlayDataLinks
       .filter(link =>
         directedPairs.has(
@@ -170,7 +228,7 @@ function componentReferences(
         ),
       )
       .map(link => link.systemId)
-      .sort((a, b) => a - b),
+      .sort((left, right) => left - right),
     controlLinkSystemIds: input.graphSnapshot.overlayControlLinks
       .filter(link =>
         unorderedPairs.has(
@@ -181,7 +239,7 @@ function componentReferences(
         ),
       )
       .map(link => link.systemId)
-      .sort((a, b) => a - b),
+      .sort((left, right) => left - right),
   };
 }
 
@@ -202,78 +260,60 @@ function descriptor(
       };
 }
 
-/**
- * Persists the user-selected resolution for a same-GKV collision.
- *
- * Used by `ResolveSameGkvCollisionHandler`.
- */
 export class SameGkvCollisionResolutionStager {
   async stage(
-    collision: SameGkvCollision,
-    mode: CollisionResolutionMode,
+    group: SameGkvCollisionGroup,
+    selection: CollisionResolutionSelection,
     input: AutoRoutingInput,
     uow: UnitOfWork,
     idGeneration: IdGenerationPort,
   ): Promise<UsecaseChangeDescriptor[]> {
-    if (mode === COLLISION_RESOLUTION_MODE.KeepExisting) return [];
-    const fileSystemId = input.fileSystemId;
+    if (selection.mode === COLLISION_RESOLUTION_MODE.KeepExisting) return [];
+
+    const existing = existingAlternative(group)?.usecase ?? null;
     const repository = uow.getUsecaseRepository();
     const options = {source: SOURCE.Manual} as const;
-    const existing = existingOperand(collision)?.usecase ?? null;
-    const isExistingCollision = existing !== null;
-    const selectedCandidate =
-      mode === COLLISION_RESOLUTION_MODE.Merge && !isExistingCollision
-        ? mergedCombination(collision)
-        : candidateOperand(collision, mode);
-    const contributingCandidates =
-      mode === COLLISION_RESOLUTION_MODE.Merge && !isExistingCollision
-        ? newCandidates(collision)
-        : [selectedCandidate];
-    for (const candidate of contributingCandidates) {
-      assertSgkvAssignmentsMatchGkv(candidate, collision.gkvValueSystemIds);
+    let candidate: RoutingCombination;
+    let selectedPairs: readonly Pair[];
+    if (selection.mode === COLLISION_RESOLUTION_MODE.SelectCandidate) {
+      candidate = selectedCandidate(group, selection.alternativeId);
+      assertSgkvAssignmentsMatchGkv(candidate, group.gkvValueSystemIds);
+      selectedPairs = candidatePairs(candidate);
+    } else {
+      const merged = mergeAllCandidates(group);
+      candidate = merged.candidate;
+      selectedPairs = merged.pairs;
     }
-    const sgkvAdditions = collectUsecaseSgkvAdditions(contributingCandidates);
-    const selectedPairs =
-      mode === COLLISION_RESOLUTION_MODE.Merge && !isExistingCollision
-        ? uniquePairs(
-            collision.operands
-              .filter(
-                (
-                  operand,
-                ): operand is Extract<
-                  (typeof collision.operands)[number],
-                  {readonly kind: typeof COLLISION_OPERAND_KIND.New}
-                > => operand.kind === COLLISION_OPERAND_KIND.New,
-              )
-              .flatMap(operand => candidatePairs(operand.candidate)),
-          )
-        : candidatePairs(selectedCandidate);
+
+    const sgkvAdditions = collectUsecaseSgkvAdditions([candidate]);
     const references = componentReferences(
       input,
-      selectedCandidate.path.subgraphSystemIds,
+      candidate.path.subgraphSystemIds,
       selectedPairs,
     );
 
-    if (isExistingCollision && mode === COLLISION_RESOLUTION_MODE.Merge) {
+    if (
+      existing !== null &&
+      selection.mode === COLLISION_RESOLUTION_MODE.MergeAll
+    ) {
       const existingSgIds = new Set(existing.subgraphSystemIds);
       const existingPairKeys = new Set(
         existing.subgraphPairs.map(pair => directedKey(pair)),
       );
-      const delta = {
-        addedSgSystemIds: selectedCandidate.path.subgraphSystemIds.filter(
-          systemId => !existingSgIds.has(systemId),
-        ),
-        addedPairs: selectedPairs.filter(
-          pair => !existingPairKeys.has(directedKey(pair)),
-        ),
-        newType: computeUsecaseType(
-          uniquePairs([...existing.subgraphPairs, ...selectedPairs]),
-          input.graphSnapshot.routableDataLinks,
-        ),
-      };
       const ref = await repository.applyStructuralChange(
         existing.systemId,
-        delta,
+        {
+          addedSgSystemIds: candidate.path.subgraphSystemIds.filter(
+            systemId => !existingSgIds.has(systemId),
+          ),
+          addedPairs: selectedPairs.filter(
+            pair => !existingPairKeys.has(directedKey(pair)),
+          ),
+          newType: computeUsecaseType(
+            selectedPairs,
+            input.graphSnapshot.routableDataLinks,
+          ),
+        },
         options,
         references,
         sgkvAdditions,
@@ -284,23 +324,14 @@ export class SameGkvCollisionResolutionStager {
     }
 
     const changes: UsecaseChangeDescriptor[] = [];
-    if (
-      isExistingCollision &&
-      mode === COLLISION_RESOLUTION_MODE.ReplaceWithNew
-    ) {
+    if (existing !== null) {
       const deleted = await repository.delete(existing.systemId, options);
       const deleteDescriptor = descriptor(deleted, CHANGE_OPERATION.Delete);
       if (deleteDescriptor) changes.push(deleteDescriptor);
     }
-    const systemId = await idGeneration.getNextId(fileSystemId);
+    const systemId = await idGeneration.getNextId(input.fileSystemId);
     const created = await repository.create(
-      asUseCase(
-        selectedCandidate,
-        fileSystemId,
-        systemId,
-        input,
-        selectedPairs,
-      ),
+      asUseCase(candidate, input.fileSystemId, systemId, input, selectedPairs),
       options,
       references,
       sgkvAdditions,

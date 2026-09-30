@@ -8,9 +8,9 @@ import {
   SESSION_MODE,
   SOURCE,
 } from '../../../../application/shared/change-vocabulary.js';
-import {parseRemoveStaleManualUsecaseEditPayload} from '../contracts/fix-command-input.js';
+import {parseDeleteStaleManualUsecaseEditPayload} from '../contracts/fix-command-input.js';
 
-export class RemoveStaleManualUsecaseEditCommand extends BaseCommand {
+export class DeleteStaleManualUsecaseEditCommand extends BaseCommand {
   static override readonly requiresSession = true;
   static override readonly allowedModes = [
     SESSION_MODE.Designer,
@@ -25,8 +25,8 @@ export class RemoveStaleManualUsecaseEditCommand extends BaseCommand {
 
   static fromPayload(
     payload: Record<string, unknown>,
-  ): RemoveStaleManualUsecaseEditCommand {
-    const parsed = parseRemoveStaleManualUsecaseEditPayload(payload);
-    return new RemoveStaleManualUsecaseEditCommand(parsed.changeIds);
+  ): DeleteStaleManualUsecaseEditCommand {
+    const parsed = parseDeleteStaleManualUsecaseEditPayload(payload);
+    return new DeleteStaleManualUsecaseEditCommand(parsed.changeIds);
   }
 }

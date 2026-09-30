@@ -9,10 +9,10 @@ import {ISSUE_CODE} from '../../../../shared/issues/operational-codes.js';
 import {IssueSeverity} from '../../../../shared/issues/severity.js';
 import type {DataLinkLossPair} from '../contracts/routing-state.js';
 import {
-  COLLISION_OPERAND_KIND,
+  COLLISION_ALTERNATIVE_KIND,
   COLLISION_RESOLUTION_MODE,
-  type CollisionResolutionMode,
-  type SameGkvCollision,
+  type CollisionResolutionSelection,
+  type SameGkvCollisionGroup,
 } from '../contracts/same-gkv-collision.js';
 import type {RoutingSelection} from '../contracts/routing-input.js';
 import type {ActiveManualUsecaseEdit} from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
@@ -61,7 +61,8 @@ function sortedIds(ids: Iterable<number>): number[] {
 }
 
 interface CollisionTopologyDetails {
-  readonly kind: SameGkvCollision['operands'][number]['kind'];
+  readonly alternativeId: string;
+  readonly kind: SameGkvCollisionGroup['alternatives'][number]['kind'];
   readonly usecaseSystemId?: number;
   readonly subgraphSystemIds: readonly number[];
   readonly subgraphPairs: readonly {
@@ -70,27 +71,28 @@ interface CollisionTopologyDetails {
   }[];
 }
 
-function collisionOperandDetails(
-  operand: SameGkvCollision['operands'][number],
+function collisionAlternativeDetails(
+  alternative: SameGkvCollisionGroup['alternatives'][number],
 ): CollisionTopologyDetails {
   const subgraphSystemIds =
-    operand.kind === COLLISION_OPERAND_KIND.New
-      ? operand.candidate.path.subgraphSystemIds
-      : operand.usecase.subgraphSystemIds;
+    alternative.kind === COLLISION_ALTERNATIVE_KIND.New
+      ? alternative.candidate.path.subgraphSystemIds
+      : alternative.usecase.subgraphSystemIds;
   const subgraphPairs =
-    operand.kind === COLLISION_OPERAND_KIND.New
-      ? operand.candidate.path.subgraphSystemIds
+    alternative.kind === COLLISION_ALTERNATIVE_KIND.New
+      ? alternative.candidate.path.subgraphSystemIds
           .slice(1)
           .map((dest, index) => ({
             sourceSubgraphSystemId:
-              operand.candidate.path.subgraphSystemIds[index],
+              alternative.candidate.path.subgraphSystemIds[index],
             destSubgraphSystemId: dest,
           }))
-      : operand.usecase.subgraphPairs;
+      : alternative.usecase.subgraphPairs;
   return {
-    kind: operand.kind,
-    ...(operand.kind === COLLISION_OPERAND_KIND.Existing
-      ? {usecaseSystemId: operand.usecase.systemId}
+    alternativeId: alternative.alternativeId,
+    kind: alternative.kind,
+    ...(alternative.kind === COLLISION_ALTERNATIVE_KIND.Existing
+      ? {usecaseSystemId: alternative.usecase.systemId}
       : {}),
     subgraphSystemIds: sortedIds(new Set(subgraphSystemIds)),
     subgraphPairs: [...subgraphPairs].sort(
@@ -115,13 +117,14 @@ function mergeCollisionTopology(
     );
   }
   const existingUsecaseSystemId = operands.find(
-    operand => operand.kind === COLLISION_OPERAND_KIND.Existing,
+    operand => operand.kind === COLLISION_ALTERNATIVE_KIND.Existing,
   )?.usecaseSystemId;
   return {
+    alternativeId: 'MERGE_ALL',
     kind:
       existingUsecaseSystemId === undefined
-        ? COLLISION_OPERAND_KIND.New
-        : COLLISION_OPERAND_KIND.Existing,
+        ? COLLISION_ALTERNATIVE_KIND.New
+        : COLLISION_ALTERNATIVE_KIND.Existing,
     ...(existingUsecaseSystemId === undefined
       ? {}
       : {usecaseSystemId: existingUsecaseSystemId}),
@@ -137,56 +140,98 @@ function mergeCollisionTopology(
 }
 
 function selectedCollisionTopology(
-  collision: SameGkvCollision,
-  mode: CollisionResolutionMode,
+  collision: SameGkvCollisionGroup,
+  selection: CollisionResolutionSelection,
 ): CollisionTopologyDetails {
-  const operands: readonly [
-    CollisionTopologyDetails,
-    CollisionTopologyDetails,
-  ] = [
-    collisionOperandDetails(collision.operands[0]),
-    collisionOperandDetails(collision.operands[1]),
-  ];
-  if (mode === COLLISION_RESOLUTION_MODE.PathB) return operands[1];
-  if (mode === COLLISION_RESOLUTION_MODE.Merge)
-    return mergeCollisionTopology(operands);
-  if (mode === COLLISION_RESOLUTION_MODE.KeepExisting) {
-    return (
-      operands.find(
-        operand => operand.kind === COLLISION_OPERAND_KIND.Existing,
-      ) ?? operands[0]
-    );
+  const alternatives = collision.alternatives.map(alternative =>
+    collisionAlternativeDetails(alternative),
+  );
+  switch (selection.mode) {
+    case COLLISION_RESOLUTION_MODE.MergeAll:
+      return mergeCollisionTopology(alternatives);
+    case COLLISION_RESOLUTION_MODE.KeepExisting:
+      return alternatives.find(
+        alternative => alternative.kind === COLLISION_ALTERNATIVE_KIND.Existing,
+      )!;
+    case COLLISION_RESOLUTION_MODE.SelectCandidate:
+      return alternatives.find(
+        alternative => alternative.alternativeId === selection.alternativeId,
+      )!;
   }
-  return operands[0];
 }
 
 function describeCollisionResolution(
-  collision: SameGkvCollision,
-  mode: CollisionResolutionMode,
+  collision: SameGkvCollisionGroup,
+  selection: CollisionResolutionSelection,
 ): string {
-  const topology = selectedCollisionTopology(collision, mode);
+  const topology = selectedCollisionTopology(collision, selection);
   const pairs = topology.subgraphPairs
     .map(pair => `${pair.sourceSubgraphSystemId}->${pair.destSubgraphSystemId}`)
     .join(', ');
   const topologyDescription =
     `SGs [${topology.subgraphSystemIds.join(', ')}]` + ` with pairs [${pairs}]`;
-  const existingUsecaseSystemId = collision.operands.find(
-    operand => operand.kind === COLLISION_OPERAND_KIND.Existing,
+  const existingUsecaseSystemId = collision.alternatives.find(
+    alternative => alternative.kind === COLLISION_ALTERNATIVE_KIND.Existing,
   )?.usecase.systemId;
-  switch (mode) {
+  switch (selection.mode) {
     case COLLISION_RESOLUTION_MODE.KeepExisting:
       return `Keep existing UseCase ${topology.usecaseSystemId ?? 'unknown'}: ${topologyDescription}.`;
-    case COLLISION_RESOLUTION_MODE.ReplaceWithNew:
-      return `Replace existing UseCase ${existingUsecaseSystemId ?? 'unknown'} with the new topology: ${topologyDescription}.`;
-    case COLLISION_RESOLUTION_MODE.Merge:
+    case COLLISION_RESOLUTION_MODE.MergeAll:
       return existingUsecaseSystemId === undefined
-        ? `Create the merged topology: ${topologyDescription}.`
-        : `Update existing UseCase ${existingUsecaseSystemId} with the merged topology: ${topologyDescription}.`;
-    case COLLISION_RESOLUTION_MODE.PathA:
-      return `Create Path A: ${topologyDescription}.`;
-    case COLLISION_RESOLUTION_MODE.PathB:
-      return `Create Path B: ${topologyDescription}.`;
+        ? `Create one UC by merging all alternatives: ${topologyDescription}.`
+        : `Update existing UseCase ${existingUsecaseSystemId} by merging all alternatives: ${topologyDescription}.`;
+    case COLLISION_RESOLUTION_MODE.SelectCandidate: {
+      const candidateIndex =
+        collision.alternatives
+          .filter(
+            alternative => alternative.kind === COLLISION_ALTERNATIVE_KIND.New,
+          )
+          .findIndex(
+            alternative =>
+              alternative.alternativeId === selection.alternativeId,
+          ) + 1;
+      return existingUsecaseSystemId === undefined
+        ? `Select candidate ${candidateIndex}: ${topologyDescription}.`
+        : `Replace existing UseCase ${existingUsecaseSystemId} with candidate ${candidateIndex}: ${topologyDescription}.`;
+    }
   }
+}
+
+function collisionResolutionSelections(
+  collision: SameGkvCollisionGroup,
+): CollisionResolutionSelection[] {
+  const selections: CollisionResolutionSelection[] = collision.alternatives
+    .filter(alternative => alternative.kind === COLLISION_ALTERNATIVE_KIND.New)
+    .map(alternative => ({
+      mode: COLLISION_RESOLUTION_MODE.SelectCandidate,
+      collisionId: collision.collisionId,
+      alternativeId: alternative.alternativeId,
+    }));
+  if (
+    collision.alternatives.some(
+      alternative => alternative.kind === COLLISION_ALTERNATIVE_KIND.Existing,
+    )
+  ) {
+    selections.push({
+      mode: COLLISION_RESOLUTION_MODE.KeepExisting,
+      collisionId: collision.collisionId,
+    });
+  }
+  selections.push({
+    mode: COLLISION_RESOLUTION_MODE.MergeAll,
+    collisionId: collision.collisionId,
+  });
+  return selections;
+}
+
+function collisionResolutionOptionId(
+  collisionId: string,
+  selection: CollisionResolutionSelection,
+): string {
+  if (selection.mode === COLLISION_RESOLUTION_MODE.SelectCandidate) {
+    return `${collisionId}-${selection.mode}-${selection.alternativeId}`;
+  }
+  return `${collisionId}-${selection.mode}`;
 }
 
 function describeConflict(
@@ -543,9 +588,9 @@ export const RoutingIssueFactory = {
       severity: IssueSeverity.Error,
       fixOptions: [
         {
-          systemId: `remove-stale-manual-usecase-edit-${edit.changeId}`,
+          systemId: `delete-stale-manual-usecase-edit-${edit.changeId}`,
           description: 'Remove the stale MANUAL UseCase edit-action row.',
-          commandType: 'RemoveStaleManualUsecaseEditCommand',
+          commandType: 'DeleteStaleManualUsecaseEditCommand',
           commandPayload: {changeIds: [edit.changeId]},
           requiredClientInputs: [],
         },
@@ -561,43 +606,62 @@ export const RoutingIssueFactory = {
   },
 
   sameGkvChoiceRequired(
-    collision: SameGkvCollision,
+    collision: SameGkvCollisionGroup,
     selection: RoutingSelection,
   ): Issue {
-    const impactedUsecases = collision.operands
+    const impactedUsecases = collision.alternatives
       .filter(
         (
-          operand,
-        ): operand is Extract<
-          SameGkvCollision['operands'][number],
+          alternative,
+        ): alternative is Extract<
+          SameGkvCollisionGroup['alternatives'][number],
           {readonly kind: 'EXISTING'}
-        > => operand.kind === 'EXISTING',
+        > => alternative.kind === 'EXISTING',
       )
-      .map(operand => operand.usecase.systemId)
+      .map(alternative => alternative.usecase.systemId)
       .sort((left, right) => left - right);
-    const collisionOperands = collision.operands.map(operand =>
-      collisionOperandDetails(operand),
+    const collisionAlternatives = collision.alternatives.map(alternative =>
+      collisionAlternativeDetails(alternative),
     );
     const issue: Issue = {
       code: ISSUE_CODE.ROUTING_SAME_GKV_CHOICE_REQUIRED,
       message: `Same-GKV collision ${collision.collisionId} requires a routing choice.`,
       severity: IssueSeverity.Error,
-      fixOptions: collision.options.map(mode => ({
-        systemId: `${collision.collisionId}-${mode}`,
-        description: describeCollisionResolution(collision, mode),
+      fixOptions: collisionResolutionSelections(collision).map(resolution => ({
+        systemId: collisionResolutionOptionId(
+          collision.collisionId,
+          resolution,
+        ),
+        description: describeCollisionResolution(collision, resolution),
         commandType: 'ResolveSameGkvCollisionCommand',
         commandPayload: {
-          mode,
-          collisionId: collision.collisionId,
+          ...resolution,
           replayInput: selection,
-          collisionOperands,
-          selectedTopology: selectedCollisionTopology(collision, mode),
+          collisionAlternatives,
+          selectedTopology: selectedCollisionTopology(collision, resolution),
         },
         requiredClientInputs: [],
       })),
     };
     if (impactedUsecases.length > 0) issue.impactedUsecases = impactedUsecases;
     return issue;
+  },
+
+  multipleManualGkvOverrides(edits: readonly ActiveManualUsecaseEdit[]): Issue {
+    const changeIds = edits
+      .map(edit => edit.changeId)
+      .sort((left, right) => left - right);
+    const impactedUsecases = edits
+      .flatMap(edit => (edit.usecase === null ? [] : [edit.usecase.systemId]))
+      .sort((left, right) => left - right);
+    return {
+      code: ISSUE_CODE.ROUTING_MULTIPLE_MANUAL_GKV_OVERRIDES,
+      message:
+        'Multiple active MANUAL UseCase overrides exist for one GKV ' +
+        `(changeIds: [${changeIds.join(', ')}]).`,
+      severity: IssueSeverity.Error,
+      impactedUsecases,
+    };
   },
 
   sameGkvChoiceStale(collisionId: string): Issue {

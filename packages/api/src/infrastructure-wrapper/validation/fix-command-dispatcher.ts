@@ -5,7 +5,7 @@
 
 import {Injectable} from '@nestjs/common';
 import {
-  RemoveStaleManualUsecaseEditCommand,
+  DeleteStaleManualUsecaseEditCommand,
   ResolveSameGkvCollisionCommand,
   type BaseCommand,
 } from '@arc/core';
@@ -45,8 +45,8 @@ export class FixCommandDispatcher {
    * Each fixable command must provide a static fromPayload() method.
    */
   private registerAll(): void {
-    this.registry.set('RemoveStaleManualUsecaseEditCommand', payload =>
-      RemoveStaleManualUsecaseEditCommand.fromPayload(payload),
+    this.registry.set('DeleteStaleManualUsecaseEditCommand', payload =>
+      DeleteStaleManualUsecaseEditCommand.fromPayload(payload),
     );
     this.registry.set('ResolveSameGkvCollisionCommand', payload =>
       ResolveSameGkvCollisionCommand.fromPayload(payload),

@@ -4,12 +4,8 @@
  */
 
 import {Result} from '../../../../../application/shared/result/result.js';
-import type {Issue} from '../../../../../shared/issues/issue.js';
-import type {UseCase} from '../../../../../domain/entities/usecase-data/usecase/usecase.js';
 import {ROUTING_MODE} from '../../contracts/routing-input.js';
-import type {AutoRoutingInput} from '../../contracts/routing-input.js';
 import type {RoutingContext} from '../../contracts/routing-context.js';
-import {COLLISION_OPERAND_KIND} from '../../contracts/same-gkv-collision.js';
 import {
   ROUTING_CLASSIFICATION_KIND,
   type ClassifiedUsecase,
@@ -17,7 +13,10 @@ import {
   USECASE_TOPOLOGY_DECISION_KIND,
   type DeleteOrReconstructDecision,
 } from '../../contracts/routing-state.js';
-import {SameGkvCollisionService} from './same-gkv-collision.service.js';
+import {
+  SameGkvCollisionService,
+  type SameGkvBucket,
+} from './same-gkv-collision.service.js';
 import {RoutingIssueFactory} from '../../issues/routing-issue-factory.js';
 import {
   addedInteriorSubgraphIds,
@@ -25,10 +24,6 @@ import {
 } from '../../shared/usecase-topology.js';
 import {projectCommittedUcsWithMdfSubstitutions} from '../../shared/projected-usecase-topology.js';
 
-/**
- * Classifies routed candidates as existing topology matches, extensions, or
- * new UseCases, after rejecting unresolved same-GKV alternatives.
- */
 export class ClassificationPhase {
   constructor(
     private readonly sameGkvCollisionService: SameGkvCollisionService = new SameGkvCollisionService(),
@@ -40,182 +35,161 @@ export class ClassificationPhase {
       ...context.routingCandidates.ecBridgeCandidates,
     ];
     const analysis = context.topologyChangeAnalysis;
-    if (analysis === null) {
+    if (analysis === null)
       throw new Error('Topology change analysis must run before this phase');
-    }
+
     const projectedUsecases = projectCommittedUcsWithMdfSubstitutions(context);
     const deleteOrReconstructDecisions = analysis.decisions.filter(
       (decision): decision is DeleteOrReconstructDecision =>
         decision.kind === USECASE_TOPOLOGY_DECISION_KIND.DeleteOrReconstruct,
     );
-    const manuallyResolvedCandidates = new Set<RoutingCombination>();
-    if (context.input.mode === ROUTING_MODE.Auto) {
-      // A collision must be resolved before deciding whether its candidates
-      // create, update, or reuse a UseCase.
-      const collisionIssues = this.findUnresolvedCollisionIssues(
-        candidates,
-        context,
-        projectedUsecases,
-        manuallyResolvedCandidates,
-      );
-      if (collisionIssues.length > 0) {
-        return Promise.resolve(Result.fail(...collisionIssues));
-      }
-    }
 
-    const classifications: ClassifiedUsecase[] = [];
-    for (const candidate of candidates) {
-      // An active manual edit already materializes this collision resolution.
-      if (manuallyResolvedCandidates.has(candidate)) continue;
-      const exactUsecase = projectedUsecases.find(existingUsecase =>
-        exactTopologyEquals(candidate, existingUsecase),
-      );
-      if (exactUsecase) {
-        // The stager skips exact matches, so this candidate produces no write.
-        classifications.push({
-          kind: ROUTING_CLASSIFICATION_KIND.ExactMatch,
-          candidate,
-          existingUsecase: exactUsecase,
-        });
-        continue;
-      }
-
-      const interiorExtension = projectedUsecases
-        .map(existingUsecase => ({
-          existingUsecase,
-          addedSubgraphSystemIds: addedInteriorSubgraphIds(
+    if (context.input.mode !== ROUTING_MODE.Auto) {
+      context.classifiedUcs.push(
+        ...candidates.map(candidate =>
+          this.classifySingleCandidate(
             candidate,
-            existingUsecase,
+            projectedUsecases,
+            deleteOrReconstructDecisions,
           ),
-        }))
-        .find(({addedSubgraphSystemIds}) => addedSubgraphSystemIds.length > 0);
-      if (interiorExtension) {
-        // Extend the matching UseCase instead of creating a duplicate topology.
-        classifications.push({
-          kind: ROUTING_CLASSIFICATION_KIND.InteriorExtension,
-          candidate,
-          existingUsecase: interiorExtension.existingUsecase,
-          cancelPendingDelete: Boolean(
-            deleteOrReconstructDecisions.some(
-              decision =>
-                decision.usecase.systemId ===
-                interiorExtension.existingUsecase.systemId,
-            ),
+        ),
+      );
+      return Promise.resolve(Result.ok());
+    }
+
+    const buckets = this.sameGkvCollisionService.buildBuckets(
+      candidates,
+      projectedUsecases,
+      context.input.activeManualUsecaseEdits,
+    );
+    const classifications: ClassifiedUsecase[] = [];
+    const groups = [] as ReturnType<SameGkvCollisionService['createGroup']>[];
+    const issues = [] as ReturnType<
+      typeof RoutingIssueFactory.sameGkvChoiceRequired
+    >[];
+
+    for (const bucket of buckets) {
+      if (bucket.manualOverrides.length > 1) {
+        issues.push(
+          RoutingIssueFactory.multipleManualGkvOverrides(
+            bucket.manualOverrides,
           ),
-        });
+        );
         continue;
       }
+      if (bucket.manualOverrides.length === 1) continue;
+      if (bucket.candidates.length === 0) continue;
 
-      // No committed topology can absorb this candidate.
-      classifications.push({
-        kind: ROUTING_CLASSIFICATION_KIND.Create,
-        candidate,
-      });
+      const bucketResult = this.classifyBucket(
+        bucket,
+        deleteOrReconstructDecisions,
+      );
+      // Property presence narrows the result from the collision branch to the
+      // branch containing a classified UseCase.
+      if ('classification' in bucketResult) {
+        classifications.push(bucketResult.classification);
+        continue;
+      }
+      const group = this.sameGkvCollisionService.createGroup(bucket);
+      groups.push(group);
+      issues.push(
+        RoutingIssueFactory.sameGkvChoiceRequired(
+          group,
+          context.input.selection,
+        ),
+      );
     }
+
+    context.sameGkvCollisionGroups.push(...groups);
+    if (issues.length > 0) return Promise.resolve(Result.fail(...issues));
     context.classifiedUcs.push(...classifications);
     return Promise.resolve(Result.ok());
   }
 
-  private findUnresolvedCollisionIssues(
-    candidates: readonly RoutingContext['routingCandidates']['combinations'][number][],
-    context: RoutingContext,
-    projectedUsecases: readonly UseCase[],
-    manuallyResolvedCandidates: Set<RoutingCombination>,
-  ): Issue[] {
-    if (context.input.mode !== ROUTING_MODE.Auto) return [];
-    const input: AutoRoutingInput = context.input;
-    // Exact matches and interior extensions are handled by normal classification,
-    // not presented as same-GKV alternatives.
-    const candidateCollisionOperands = candidates.filter(
-      candidate =>
-        !projectedUsecases.some(
-          existingUsecase =>
-            exactTopologyEquals(candidate, existingUsecase) ||
-            addedInteriorSubgraphIds(candidate, existingUsecase).length > 0,
-        ),
-    );
-    return candidateCollisionOperands.flatMap((left, leftIndex) => [
-      ...this.findCandidateCollisions(
-        left,
-        candidateCollisionOperands.slice(leftIndex + 1),
-        context,
-        input,
-        manuallyResolvedCandidates,
-      ),
-      ...this.findExistingCollisions(
-        left,
-        context,
-        input,
-        projectedUsecases,
-        manuallyResolvedCandidates,
-      ),
-    ]);
-  }
-
-  private findCandidateCollisions(
-    left: RoutingContext['routingCandidates']['combinations'][number],
-    rightCandidates: readonly RoutingContext['routingCandidates']['combinations'][number][],
-    context: RoutingContext,
-    input: AutoRoutingInput,
-    manuallyResolvedCandidates: Set<RoutingCombination>,
-  ): Issue[] {
-    return rightCandidates.flatMap(right => {
-      const collision = this.sameGkvCollisionService.detect(left, right);
-      return this.collisionIssue(
-        collision,
-        context,
-        input,
-        manuallyResolvedCandidates,
-      );
-    });
-  }
-
-  private findExistingCollisions(
-    candidate: RoutingContext['routingCandidates']['combinations'][number],
-    context: RoutingContext,
-    input: AutoRoutingInput,
-    projectedUsecases: readonly UseCase[],
-    manuallyResolvedCandidates: Set<RoutingCombination>,
-  ): Issue[] {
-    return projectedUsecases.flatMap(existing => {
-      const collision = this.sameGkvCollisionService.detect(
-        candidate,
-        existing,
-      );
-      return this.collisionIssue(
-        collision,
-        context,
-        input,
-        manuallyResolvedCandidates,
-      );
-    });
-  }
-
-  private collisionIssue(
-    collision: ReturnType<SameGkvCollisionService['detect']>,
-    context: RoutingContext,
-    input: AutoRoutingInput,
-    manuallyResolvedCandidates: Set<RoutingCombination>,
-  ): Issue[] {
-    if (collision === null) return [];
-    context.sameGkvCollisions.push(collision);
-    if (
-      this.sameGkvCollisionService.isResolutionRecognized(
-        collision,
-        input.activeManualUsecaseEdits,
-      )
-    ) {
-      // A manual edit already materializes an allowed resolution; do not stage
-      // the colliding automatic candidates a second time.
-      for (const operand of collision.operands) {
-        if (operand.kind === COLLISION_OPERAND_KIND.New) {
-          manuallyResolvedCandidates.add(operand.candidate);
-        }
-      }
-      return [];
+  private classifyBucket(
+    bucket: SameGkvBucket,
+    deleteOrReconstructDecisions: readonly DeleteOrReconstructDecision[],
+  ): {readonly classification: ClassifiedUsecase} | {readonly collision: true} {
+    const existingUsecase = bucket.existingUsecase;
+    if (existingUsecase === null) {
+      return bucket.candidates.length === 1
+        ? {
+            classification: {
+              kind: ROUTING_CLASSIFICATION_KIND.Create,
+              candidate: bucket.candidates[0],
+            },
+          }
+        : {collision: true};
     }
-    return [
-      RoutingIssueFactory.sameGkvChoiceRequired(collision, input.selection),
-    ];
+
+    const exactCandidate = bucket.candidates.find(candidate =>
+      exactTopologyEquals(candidate, existingUsecase),
+    );
+    const nonExactCandidates = bucket.candidates.filter(
+      candidate => !exactTopologyEquals(candidate, existingUsecase),
+    );
+    if (nonExactCandidates.length === 0) {
+      if (exactCandidate === undefined) {
+        throw new Error('A classified GKV bucket must contain a candidate');
+      }
+      return {
+        classification: {
+          kind: ROUTING_CLASSIFICATION_KIND.ExactMatch,
+          candidate: exactCandidate,
+          existingUsecase,
+        },
+      };
+    }
+
+    if (nonExactCandidates.length === 1) {
+      const candidate = nonExactCandidates[0];
+      if (addedInteriorSubgraphIds(candidate, existingUsecase).length > 0) {
+        return {
+          classification: {
+            kind: ROUTING_CLASSIFICATION_KIND.InteriorExtension,
+            candidate,
+            existingUsecase,
+            cancelPendingDelete: deleteOrReconstructDecisions.some(
+              decision =>
+                decision.usecase.systemId === existingUsecase.systemId,
+            ),
+          },
+        };
+      }
+    }
+    return {collision: true};
+  }
+
+  private classifySingleCandidate(
+    candidate: RoutingCombination,
+    projectedUsecases: readonly SameGkvBucket['existingUsecase'][],
+    deleteOrReconstructDecisions: readonly DeleteOrReconstructDecision[],
+  ): ClassifiedUsecase {
+    const usecases = projectedUsecases.filter(usecase => usecase !== null);
+    const exactUsecase = usecases.find(existingUsecase =>
+      exactTopologyEquals(candidate, existingUsecase),
+    );
+    if (exactUsecase) {
+      return {
+        kind: ROUTING_CLASSIFICATION_KIND.ExactMatch,
+        candidate,
+        existingUsecase: exactUsecase,
+      };
+    }
+    const interiorExtension = usecases.find(
+      existingUsecase =>
+        addedInteriorSubgraphIds(candidate, existingUsecase).length > 0,
+    );
+    if (interiorExtension) {
+      return {
+        kind: ROUTING_CLASSIFICATION_KIND.InteriorExtension,
+        candidate,
+        existingUsecase: interiorExtension,
+        cancelPendingDelete: deleteOrReconstructDecisions.some(
+          decision => decision.usecase.systemId === interiorExtension.systemId,
+        ),
+      };
+    }
+    return {kind: ROUTING_CLASSIFICATION_KIND.Create, candidate};
   }
 }

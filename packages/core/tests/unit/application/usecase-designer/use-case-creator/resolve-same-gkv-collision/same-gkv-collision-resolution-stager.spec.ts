@@ -7,12 +7,11 @@ import {describe, expect, it, jest} from '@jest/globals';
 import {SOURCE} from '../../../../../../src/application/shared/change-vocabulary.js';
 import type {AutoRoutingInput} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
 import type {RoutingCombination} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
-import {
-  COLLISION_RESOLUTION_MODE,
-  type SameGkvCollision,
-} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/same-gkv-collision.js';
+import type {SameGkvCollisionGroup} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/same-gkv-collision.js';
+import {SameGkvCollisionService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/classification/same-gkv-collision.service.js';
 import {SameGkvCollisionResolutionStager} from '../../../../../../src/application/usecase-designer/use-case-creator/resolve-same-gkv-collision/same-gkv-collision-resolution-stager.js';
 import {DATA_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
+import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
 import {USECASE_TYPE} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase-type.js';
 
 function candidate(
@@ -42,6 +41,19 @@ function candidate(
   };
 }
 
+function existing(path: number[]): UseCase {
+  return new UseCase({
+    systemId: 55,
+    fileSystemId: 1,
+    keyVector: {valueSystemIds: [100]},
+    subgraphSystemIds: path,
+    subgraphPairs: path.slice(1).map((destSubgraphSystemId, index) => ({
+      sourceSubgraphSystemId: path[index],
+      destSubgraphSystemId,
+    })),
+  });
+}
+
 function input(routableDataLinks: readonly unknown[] = []): AutoRoutingInput {
   return {
     fileSystemId: 1,
@@ -53,66 +65,50 @@ function input(routableDataLinks: readonly unknown[] = []): AutoRoutingInput {
   } as AutoRoutingInput;
 }
 
-function collision(
-  left: RoutingCombination,
-  right: RoutingCombination,
-): SameGkvCollision {
-  return {
-    collisionId: '11111111-1111-4111-8111-111111111111',
+function collisionGroup(
+  candidates: readonly RoutingCombination[],
+  existingUsecase: UseCase | null = null,
+): SameGkvCollisionGroup {
+  return new SameGkvCollisionService().createGroup({
     gkvValueSystemIds: [100],
-    operands: [
-      {kind: 'NEW', candidate: left},
-      {kind: 'NEW', candidate: right},
-    ],
-    options: [COLLISION_RESOLUTION_MODE.PathA],
+    candidates,
+    existingUsecase,
+    manualOverrides: [],
+  });
+}
+
+function select(
+  group: SameGkvCollisionGroup,
+  candidateToSelect: RoutingCombination,
+) {
+  const alternative = group.alternatives.find(
+    item => item.kind === 'NEW' && item.candidate === candidateToSelect,
+  );
+  if (!alternative) throw new Error('Candidate alternative not found');
+  return {
+    mode: 'SELECT_CANDIDATE' as const,
+    collisionId: group.collisionId,
+    alternativeId: alternative.alternativeId,
   };
 }
 
 describe('SameGkvCollisionResolutionStager', () => {
-  it('classifies a staged collision create from its resulting pair set', async () => {
+  it('creates only the candidate selected by alternative ID', async () => {
     const create = jest.fn(async () => ({systemId: 900, changeId: 901}));
-    const uow = {getUsecaseRepository: () => ({create})};
-    const idGeneration = {getNextId: jest.fn(async () => 900)};
-    const stager = new SameGkvCollisionResolutionStager();
+    const first = candidate([10, 20]);
+    const selected = candidate([30, 40]);
+    const third = candidate([50, 60]);
+    const group = collisionGroup([first, selected, third]);
 
-    await stager.stage(
-      collision(candidate([10, 20]), candidate([30, 40])),
-      COLLISION_RESOLUTION_MODE.PathA,
-      input([
-        {
-          sourceSubgraphSystemId: 10,
-          destSubgraphSystemId: 20,
-          linkType: DATA_LINK_TYPE.Ec,
-        },
-      ]),
-      uow as never,
-      idGeneration as never,
-    );
-
-    expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({type: USECASE_TYPE.Ec}),
-      {source: SOURCE.Manual},
-      expect.any(Object),
-      [
-        {subgraphSystemId: 10, valueDefinitionSystemIds: [100]},
-        {subgraphSystemId: 20, valueDefinitionSystemIds: []},
-      ],
-    );
-  });
-
-  it('stores the selected path B SGKV additions on a collision create', async () => {
-    const create = jest.fn(async () => ({systemId: 900, changeId: 901}));
-    const uow = {getUsecaseRepository: () => ({create})};
-    const stager = new SameGkvCollisionResolutionStager();
-
-    await stager.stage(
-      collision(candidate([10, 20]), candidate([30, 40])),
-      COLLISION_RESOLUTION_MODE.PathB,
+    await new SameGkvCollisionResolutionStager().stage(
+      group,
+      select(group, selected),
       input(),
-      uow as never,
+      {getUsecaseRepository: () => ({create})} as never,
       {getNextId: jest.fn(async () => 900)} as never,
     );
 
+    expect(create).toHaveBeenCalledTimes(1);
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({subgraphSystemIds: [30, 40]}),
       {source: SOURCE.Manual},
@@ -124,50 +120,51 @@ describe('SameGkvCollisionResolutionStager', () => {
     );
   });
 
-  it('deduplicates identical SGKV additions when merging new candidates', async () => {
+  it('MERGE_ALL unions four disjoint alternatives without artificial pairs', async () => {
     const create = jest.fn(async () => ({systemId: 900, changeId: 901}));
-    const uow = {getUsecaseRepository: () => ({create})};
-    const mergedCollision = collision(
-      candidate([10, 20], new Map([[20, [100]]])),
-      candidate([20, 30], new Map([[20, [100]]])),
-    );
+    const group = collisionGroup([
+      candidate([10, 20]),
+      candidate([30, 40]),
+      candidate([50, 60]),
+      candidate([70, 80]),
+    ]);
 
     await new SameGkvCollisionResolutionStager().stage(
-      mergedCollision,
-      COLLISION_RESOLUTION_MODE.Merge,
+      group,
+      {mode: 'MERGE_ALL', collisionId: group.collisionId},
       input(),
-      uow as never,
+      {getUsecaseRepository: () => ({create})} as never,
       {getNextId: jest.fn(async () => 900)} as never,
     );
 
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
-        keyVector: {valueSystemIds: [100]},
-        subgraphSystemIds: [10, 20, 30],
+        subgraphSystemIds: [10, 20, 30, 40, 50, 60, 70, 80],
+        subgraphPairs: [
+          {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+          {sourceSubgraphSystemId: 30, destSubgraphSystemId: 40},
+          {sourceSubgraphSystemId: 50, destSubgraphSystemId: 60},
+          {sourceSubgraphSystemId: 70, destSubgraphSystemId: 80},
+        ],
       }),
       {source: SOURCE.Manual},
       expect.any(Object),
-      [
-        {subgraphSystemId: 10, valueDefinitionSystemIds: []},
-        {subgraphSystemId: 20, valueDefinitionSystemIds: [100]},
-        {subgraphSystemId: 30, valueDefinitionSystemIds: []},
-      ],
+      expect.any(Array),
     );
   });
 
-  it('preserves distinct SGKV additions for the same merged subgraph', async () => {
+  it('unions SGKV values into one addition per merged subgraph', async () => {
     const create = jest.fn(async () => ({systemId: 900, changeId: 901}));
-    const uow = {getUsecaseRepository: () => ({create})};
-    const mergedCollision = collision(
+    const group = collisionGroup([
       candidate([10, 20]),
       candidate([20, 30], new Map([[20, [100]]])),
-    );
+    ]);
 
     await new SameGkvCollisionResolutionStager().stage(
-      mergedCollision,
-      COLLISION_RESOLUTION_MODE.Merge,
+      group,
+      {mode: 'MERGE_ALL', collisionId: group.collisionId},
       input(),
-      uow as never,
+      {getUsecaseRepository: () => ({create})} as never,
       {getNextId: jest.fn(async () => 900)} as never,
     );
 
@@ -177,41 +174,23 @@ describe('SameGkvCollisionResolutionStager', () => {
       expect.any(Object),
       [
         {subgraphSystemId: 10, valueDefinitionSystemIds: [100]},
-        {subgraphSystemId: 20, valueDefinitionSystemIds: []},
         {subgraphSystemId: 20, valueDefinitionSystemIds: [100]},
         {subgraphSystemId: 30, valueDefinitionSystemIds: []},
       ],
     );
   });
 
-  it('recomputes an existing UseCase type when a collision merge adds an EC pair', async () => {
+  it('updates existing identity and recomputes type for MERGE_ALL', async () => {
     const applyStructuralChange = jest.fn(async () => ({
       systemId: 55,
       changeId: 56,
     }));
-    const uow = {getUsecaseRepository: () => ({applyStructuralChange})};
-    const idGeneration = {getNextId: jest.fn()};
-    const stager = new SameGkvCollisionResolutionStager();
-    const existing = {
-      systemId: 55,
-      fileSystemId: 1,
-      keyVector: {valueSystemIds: [100]},
-      subgraphSystemIds: [20, 30],
-      subgraphPairs: [{sourceSubgraphSystemId: 20, destSubgraphSystemId: 30}],
-    };
-    const mergeCollision: SameGkvCollision = {
-      collisionId: '11111111-1111-4111-8111-111111111111',
-      gkvValueSystemIds: [100],
-      operands: [
-        {kind: 'NEW', candidate: candidate([10, 20])},
-        {kind: 'EXISTING', usecase: existing as never},
-      ],
-      options: [COLLISION_RESOLUTION_MODE.Merge],
-    };
+    const committed = existing([20, 30]);
+    const group = collisionGroup([candidate([10, 20])], committed);
 
-    await stager.stage(
-      mergeCollision,
-      COLLISION_RESOLUTION_MODE.Merge,
+    await new SameGkvCollisionResolutionStager().stage(
+      group,
+      {mode: 'MERGE_ALL', collisionId: group.collisionId},
       input([
         {
           sourceSubgraphSystemId: 10,
@@ -224,45 +203,35 @@ describe('SameGkvCollisionResolutionStager', () => {
           linkType: DATA_LINK_TYPE.Normal,
         },
       ]),
-      uow as never,
-      idGeneration as never,
+      {getUsecaseRepository: () => ({applyStructuralChange})} as never,
+      {getNextId: jest.fn()} as never,
     );
 
     expect(applyStructuralChange).toHaveBeenCalledWith(
       55,
-      expect.objectContaining({newType: USECASE_TYPE.Ec}),
+      expect.objectContaining({
+        addedSgSystemIds: [10],
+        newType: USECASE_TYPE.Ec,
+      }),
       {source: SOURCE.Manual},
       expect.any(Object),
       [
         {subgraphSystemId: 10, valueDefinitionSystemIds: [100]},
         {subgraphSystemId: 20, valueDefinitionSystemIds: []},
+        {subgraphSystemId: 30, valueDefinitionSystemIds: []},
       ],
     );
   });
 
-  it('stores new candidate SGKV additions when replacing an existing UseCase', async () => {
+  it('deletes an existing UC before creating the selected candidate', async () => {
     const deleteUsecase = jest.fn(async () => ({systemId: 55, changeId: 56}));
     const create = jest.fn(async () => ({systemId: 900, changeId: 901}));
-    const existing = {
-      systemId: 55,
-      fileSystemId: 1,
-      keyVector: {valueSystemIds: [100]},
-      subgraphSystemIds: [20, 30],
-      subgraphPairs: [{sourceSubgraphSystemId: 20, destSubgraphSystemId: 30}],
-    };
-    const replaceCollision: SameGkvCollision = {
-      collisionId: '11111111-1111-4111-8111-111111111111',
-      gkvValueSystemIds: [100],
-      operands: [
-        {kind: 'NEW', candidate: candidate([10, 20])},
-        {kind: 'EXISTING', usecase: existing as never},
-      ],
-      options: [COLLISION_RESOLUTION_MODE.ReplaceWithNew],
-    };
+    const selected = candidate([10, 20]);
+    const group = collisionGroup([selected], existing([30, 40]));
 
     await new SameGkvCollisionResolutionStager().stage(
-      replaceCollision,
-      COLLISION_RESOLUTION_MODE.ReplaceWithNew,
+      group,
+      select(group, selected),
       input(),
       {
         getUsecaseRepository: () => ({delete: deleteUsecase, create}),
@@ -271,38 +240,17 @@ describe('SameGkvCollisionResolutionStager', () => {
     );
 
     expect(deleteUsecase).toHaveBeenCalledWith(55, {source: SOURCE.Manual});
-    expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({systemId: 900}),
-      {source: SOURCE.Manual},
-      expect.any(Object),
-      [
-        {subgraphSystemId: 10, valueDefinitionSystemIds: [100]},
-        {subgraphSystemId: 20, valueDefinitionSystemIds: []},
-      ],
-    );
+    expect(create).toHaveBeenCalledTimes(1);
   });
 
-  it('does not write SGKV additions when keeping an existing UseCase', async () => {
+  it('KEEP_EXISTING writes nothing', async () => {
     const getUsecaseRepository = jest.fn();
+    const group = collisionGroup([candidate([10, 20])], existing([30, 40]));
 
     await expect(
       new SameGkvCollisionResolutionStager().stage(
-        {
-          collisionId: '11111111-1111-4111-8111-111111111111',
-          gkvValueSystemIds: [100],
-          operands: [
-            {kind: 'NEW', candidate: candidate([10, 20])},
-            {
-              kind: 'EXISTING',
-              usecase: {
-                systemId: 55,
-                keyVector: {valueSystemIds: [100]},
-              } as never,
-            },
-          ],
-          options: [COLLISION_RESOLUTION_MODE.KeepExisting],
-        },
-        COLLISION_RESOLUTION_MODE.KeepExisting,
+        group,
+        {mode: 'KEEP_EXISTING', collisionId: group.collisionId},
         input(),
         {getUsecaseRepository} as never,
         {getNextId: jest.fn()} as never,
@@ -311,13 +259,14 @@ describe('SameGkvCollisionResolutionStager', () => {
     expect(getUsecaseRepository).not.toHaveBeenCalled();
   });
 
-  it('rejects a candidate whose SGKV additions do not aggregate to its GKV', async () => {
+  it('rejects a selected candidate whose SGKV additions do not match its GKV', async () => {
     const invalid = candidate([10], new Map([[10, [200]]]));
+    const group = collisionGroup([invalid, candidate([20])]);
 
     await expect(
       new SameGkvCollisionResolutionStager().stage(
-        collision(invalid, candidate([20])),
-        COLLISION_RESOLUTION_MODE.PathA,
+        group,
+        select(group, invalid),
         input(),
         {getUsecaseRepository: jest.fn()} as never,
         {getNextId: jest.fn()} as never,

@@ -7,16 +7,16 @@ import {Result} from '../../../shared/result/result.js';
 import type {Result as ResultType} from '../../../shared/result/result.js';
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
-import {RemoveStaleManualUsecaseEditCommand} from './remove-stale-manual-usecase-edit.command.js';
+import {DeleteStaleManualUsecaseEditCommand} from './delete-stale-manual-usecase-edit.command.js';
 
-export class RemoveStaleManualUsecaseEditHandler implements CommandHandler<
-  RemoveStaleManualUsecaseEditCommand,
+export class DeleteStaleManualUsecaseEditHandler implements CommandHandler<
+  DeleteStaleManualUsecaseEditCommand,
   ResultType<void>
 > {
   constructor(private readonly uow: UnitOfWork) {}
 
   async handle(
-    command: RemoveStaleManualUsecaseEditCommand,
+    command: DeleteStaleManualUsecaseEditCommand,
   ): Promise<ResultType<void>> {
     await this.uow.startTransaction();
     try {

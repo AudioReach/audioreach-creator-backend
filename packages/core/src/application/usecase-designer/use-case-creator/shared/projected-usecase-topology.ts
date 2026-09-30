@@ -12,14 +12,15 @@ import {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.
 import {USECASE_TYPE} from '../../../../domain/entities/usecase-data/usecase/usecase-type.js';
 import type {SubgraphPair} from '../../../ports/persistence/repositories/shared/links-for-pair.js';
 import type {RoutingContext} from '../contracts/routing-context.js';
-import type {
-  ClassifiedUsecase,
-  InteriorExtensionClassification,
-  RoutingCombination,
-  UsecaseStructuralChange,
-  UsecaseTopologyDecision,
+import {
+  ROUTING_CLASSIFICATION_KIND,
+  USECASE_TOPOLOGY_DECISION_KIND as TOPOLOGY_DECISION_KIND,
+  type ClassifiedUsecase,
+  type InteriorExtensionClassification,
+  type RoutingCombination,
+  type UsecaseStructuralChange,
+  type UsecaseTopologyDecision,
 } from '../contracts/routing-state.js';
-import {USECASE_TOPOLOGY_DECISION_KIND as TOPOLOGY_DECISION_KIND} from '../contracts/routing-state.js';
 
 /**
  * Session-wide read model composed from committed UCs and finalized routing changes.
@@ -188,8 +189,8 @@ function applyClassifiedUsecase(
   classification: ClassifiedUsecase,
   fileSystemId: number,
 ): void {
-  if (classification.kind === 'EXACT_MATCH') return;
-  if (classification.kind === 'INTERIOR_EXTENSION') {
+  if (classification.kind === ROUTING_CLASSIFICATION_KIND.ExactMatch) return;
+  if (classification.kind === ROUTING_CLASSIFICATION_KIND.InteriorExtension) {
     applyInteriorExtension(projected, classification);
     return;
   }

@@ -4,7 +4,10 @@
  */
 
 import {z} from 'zod';
-import {COLLISION_RESOLUTION_MODE} from './same-gkv-collision.js';
+import {
+  COLLISION_RESOLUTION_MODE,
+  type CollisionResolutionSelection,
+} from './same-gkv-collision.js';
 import type {RoutingSelection} from './routing-input.js';
 
 const replayInputSchema = z.object({
@@ -20,19 +23,28 @@ const replayInputSchema = z.object({
   excludedControlLinkSystemIds: z.array(z.number().int()),
 });
 
-const resolveSameGkvCollisionPayloadSchema = z.object({
-  mode: z.enum([
-    COLLISION_RESOLUTION_MODE.PathA,
-    COLLISION_RESOLUTION_MODE.PathB,
-    COLLISION_RESOLUTION_MODE.Merge,
-    COLLISION_RESOLUTION_MODE.KeepExisting,
-    COLLISION_RESOLUTION_MODE.ReplaceWithNew,
-  ]),
-  collisionId: z.uuid(),
-  replayInput: replayInputSchema,
-});
+const collisionSelectionSchema = z.discriminatedUnion('mode', [
+  z.object({
+    mode: z.literal(COLLISION_RESOLUTION_MODE.SelectCandidate),
+    collisionId: z.uuid(),
+    alternativeId: z.uuid(),
+  }),
+  z.object({
+    mode: z.literal(COLLISION_RESOLUTION_MODE.KeepExisting),
+    collisionId: z.uuid(),
+  }),
+  z.object({
+    mode: z.literal(COLLISION_RESOLUTION_MODE.MergeAll),
+    collisionId: z.uuid(),
+  }),
+]);
 
-const removeStaleManualUsecaseEditPayloadSchema = z.object({
+const resolveSameGkvCollisionPayloadSchema = z.intersection(
+  collisionSelectionSchema,
+  z.object({replayInput: replayInputSchema}),
+);
+
+const deleteStaleManualUsecaseEditPayloadSchema = z.object({
   changeIds: z
     .array(z.number().int().positive())
     .min(1)
@@ -42,15 +54,23 @@ const removeStaleManualUsecaseEditPayloadSchema = z.object({
 export function parseResolveSameGkvCollisionPayload(
   payload: Record<string, unknown>,
 ): {
-  readonly mode: (typeof COLLISION_RESOLUTION_MODE)[keyof typeof COLLISION_RESOLUTION_MODE];
-  readonly collisionId: string;
+  readonly selection: CollisionResolutionSelection;
   readonly replayInput: RoutingSelection;
 } {
-  return resolveSameGkvCollisionPayloadSchema.parse(payload);
+  const parsed = resolveSameGkvCollisionPayloadSchema.parse(payload);
+  const selection: CollisionResolutionSelection =
+    parsed.mode === COLLISION_RESOLUTION_MODE.SelectCandidate
+      ? {
+          mode: parsed.mode,
+          collisionId: parsed.collisionId,
+          alternativeId: parsed.alternativeId,
+        }
+      : {mode: parsed.mode, collisionId: parsed.collisionId};
+  return {selection, replayInput: parsed.replayInput};
 }
 
-export function parseRemoveStaleManualUsecaseEditPayload(
+export function parseDeleteStaleManualUsecaseEditPayload(
   payload: Record<string, unknown>,
 ): {readonly changeIds: readonly number[]} {
-  return removeStaleManualUsecaseEditPayloadSchema.parse(payload);
+  return deleteStaleManualUsecaseEditPayloadSchema.parse(payload);
 }

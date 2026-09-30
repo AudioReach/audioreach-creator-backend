@@ -559,7 +559,7 @@ new handler + engine + adapters.
 
 | # | Invariant | Enforced by |
 |---|---|---|
-| **I1** | GKV uniqueness — no two UCs in a file share the same GKV, regardless of `type`. Same-GKV collisions resolve via FR-DUP-03(a) exact-match no-op, FR-DUP-03(b1) identity-preserving interior extension silent auto-update, or FR-DUP-04 user-choice. In manual mode the collision rule is suppressed — manual creation emits one UC at a time and hits FR-DUP-03(a) exact-match no-op if the same GKV already exists. EC UCs (`type=EC`) are subject to this rule; a coincidental same-GKV collision between an EC UC and a `LINKED`/`ISLAND` UC (or between two EC Bridges from different EC connections) surfaces via FR-DUP-04. | Phase 9 (Classification) |
+| **I1** | GKV uniqueness — exactly one effective UC may exist for a GKV in a file, regardless of `type`. Phase 9 makes one atomic decision for the complete GKV bucket: FR-DUP-03(a) exact-match no-op, FR-DUP-03(b1) unambiguous identity-preserving interior extension, one FR-DUP-04 collision group, or one structurally valid MANUAL authority. Multiple effective MANUAL UCs for one GKV are an integrity error. EC UCs (`type=EC`) are subject to the same rule. | Phase 9 (Classification) |
 | **I2** | Subgraph-pair completeness — every pair `(A, B)` in a UC's `use_case_subgraph_pairs` must have both `A` and `B` in the UC's `use_case_subgraphs`. | Phase 9 (Classification) — pair emission always adds both endpoints |
 | **I3** | GKV derivation — a UC's stored GKV equals the union of KVs from the SGKV combination active at creation or last re-routing. Historical record. | Phase 9 (Classification) — GKV computed from `combinations` snapshot, not re-derived on read |
 | **I4** | No structural deletion for KV changes — a KV-only change never deletes or modifies a UC record. | Phase 2 (TopologyChangeAnalysisService) — deletion triggers only on link/SG removal |
@@ -646,10 +646,10 @@ and cannot produce their error codes. Manual Phase 2 still produces
 `ARC-ROUTING-DEL-02` and deletion-side scope errors, and may publish a direct MDF update;
 it skips ordinary automatic reconstruction/degradation. Phase 8 runs in manual mode, so
 `ARC-ROUTING-DFS-08` remains possible when no valid KV combination exists.
-`ARC-ROUTING-SAME-GKV-CHOICE-REQUIRED` (FR-DUP-04 same-GKV collision) can occur in
-manual mode only via Phase 9's idempotency-only path when the newly created manual UC
-collides with an existing DB UC by GKV without exact match — but in practice manual UC
-creation is a single-UC event so this is rare. The stale MANUAL edit-action check
+In manual mode, one structurally valid effective MANUAL UC is authoritative for its
+GKV and suppresses the automatic collision group. More than one distinct effective
+MANUAL UC for the GKV fails with
+`ARC-ROUTING-MULTIPLE-MANUAL-GKV-OVERRIDES`. The stale MANUAL edit-action check
 (`ARC-ROUTING-MANUAL-UC-BROKEN-DEPS`) runs in Phase 1 in both modes before
 topology-change analysis.
 
@@ -668,13 +668,17 @@ Warnings never fail the pipeline — they're appended to `context.warnings` and 
 
 Blocking (surface in `errors[]`, HTTP 422):
 
-- `ARC-ROUTING-SAME-GKV-CHOICE-REQUIRED` — same-GKV collision requires user choice
-  (FR-DUP-04). Detected at Phase 9 when two candidates share a GKV and do not match
-  FR-DUP-03(a) exact-match or FR-DUP-03(b1) identity-preserving interior extension.
+- `ARC-ROUTING-SAME-GKV-CHOICE-REQUIRED` — one complete same-GKV group requires user
+  choice (FR-DUP-04). Detected at Phase 9 when two or more distinct alternatives share
+  a GKV and no single exact/interior result or MANUAL authority resolves the bucket.
   Payload: `fixOptions` array with `ResolveSameGkvCollisionCommand` entries carrying
-  `{mode, collisionId}`. Applies to all UC types (`LINKED`, `ISLAND`, `EC`)
+  `SELECT_CANDIDATE` plus `alternativeId`, optional `KEEP_EXISTING`, or `MERGE_ALL`.
+  Applies to all UC types (`LINKED`, `ISLAND`, `EC`)
   — no type-based exemption; EC-vs-`LINKED` coincidental collisions and EC-vs-EC
   (different connections) surface through the same rule.
+- `ARC-ROUTING-MULTIPLE-MANUAL-GKV-OVERRIDES` — more than one distinct effective
+  `source=MANUAL` UC claims the same GKV. This violates I1 and blocks routing without
+  offering a collision choice.
 - `ARC-ROUTING-SAME-GKV-CHOICE-STALE` — user's chosen fix option is no longer
   algorithm-generateable against the current graph state. Returned by the apply-fix
   handler for `ResolveSameGkvCollisionCommand` when the chosen path can no longer be

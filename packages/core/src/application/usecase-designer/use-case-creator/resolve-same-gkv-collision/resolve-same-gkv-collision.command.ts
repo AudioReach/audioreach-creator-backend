@@ -8,7 +8,7 @@ import {
   SESSION_MODE,
   SOURCE,
 } from '../../../../application/shared/change-vocabulary.js';
-import type {CollisionResolutionMode} from '../contracts/same-gkv-collision.js';
+import type {CollisionResolutionSelection} from '../contracts/same-gkv-collision.js';
 import {parseResolveSameGkvCollisionPayload} from '../contracts/fix-command-input.js';
 import type {RoutingSelection} from '../contracts/routing-input.js';
 
@@ -22,8 +22,7 @@ export class ResolveSameGkvCollisionCommand extends BaseCommand {
   readonly source = SOURCE.Manual;
 
   constructor(
-    public readonly mode: CollisionResolutionMode,
-    public readonly collisionId: string,
+    public readonly selection: CollisionResolutionSelection,
     public readonly replayInput: RoutingSelection,
   ) {
     super();
@@ -34,8 +33,7 @@ export class ResolveSameGkvCollisionCommand extends BaseCommand {
   ): ResolveSameGkvCollisionCommand {
     const parsed = parseResolveSameGkvCollisionPayload(payload);
     return new ResolveSameGkvCollisionCommand(
-      parsed.mode,
-      parsed.collisionId,
+      parsed.selection,
       parsed.replayInput,
     );
   }
