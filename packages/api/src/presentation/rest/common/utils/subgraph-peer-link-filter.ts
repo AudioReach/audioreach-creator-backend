@@ -4,12 +4,56 @@
  */
 
 import {BadRequestException} from '@nestjs/common';
-import type {SubgraphPeerLinkFilter} from '@arc/core';
+import type {
+  ModulePortLinkFilter,
+  SubgraphLinkFilter,
+  SubgraphPeerLinkFilter,
+} from '@arc/core';
 
 interface SubgraphPeerLinkFilterValues {
   subgraphSystemId?: string;
+  subgraphPeerSystemId?: string;
   moduleSystemId?: string;
   portSystemId?: string;
+}
+
+export function parseModulePortLinkFilter(
+  values: Pick<
+    SubgraphPeerLinkFilterValues,
+    'moduleSystemId' | 'portSystemId' | 'subgraphSystemId'
+  >,
+): ModulePortLinkFilter {
+  if (values.subgraphSystemId !== undefined) {
+    throw new BadRequestException(
+      'subgraphSystemId is not supported for this endpoint',
+    );
+  }
+
+  return {
+    moduleSystemId: parseRequiredSystemId(
+      values.moduleSystemId,
+      'moduleSystemId',
+    ),
+    portSystemId: parseRequiredSystemId(values.portSystemId, 'portSystemId'),
+  };
+}
+
+export function parseSubgraphLinkFilter(
+  values: Pick<
+    SubgraphPeerLinkFilterValues,
+    'subgraphSystemId' | 'subgraphPeerSystemId'
+  >,
+): SubgraphLinkFilter {
+  return {
+    subgraphSystemId: parseRequiredSystemId(
+      values.subgraphSystemId,
+      'subgraphSystemId',
+    ),
+    subgraphPeerSystemId: parseSystemId(
+      values.subgraphPeerSystemId,
+      'subgraphPeerSystemId',
+    ),
+  };
 }
 
 export function parseSubgraphPeerLinkFilter(
@@ -39,6 +83,17 @@ export function parseSubgraphPeerLinkFilter(
   }
 
   return {subgraphSystemId, moduleSystemId, portSystemId};
+}
+
+function parseRequiredSystemId(
+  value: string | undefined,
+  name: string,
+): number {
+  const parsed = parseSystemId(value, name);
+  if (parsed === undefined) {
+    throw new BadRequestException(`${name} is required`);
+  }
+  return parsed;
 }
 
 function parseSystemId(

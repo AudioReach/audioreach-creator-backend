@@ -5,7 +5,11 @@
 
 import type {Result} from '../../../../shared/result/result.js';
 import type {DataLinkReadModel} from './data-link-read-model.js';
-import type {SubgraphPeerLinkFilter} from '../shared/subgraph-peer-link-filter.js';
+import type {
+  ModulePortLinkFilter,
+  SubgraphLinkFilter,
+  SubgraphPeerLinkFilter,
+} from '../shared/subgraph-peer-link-filter.js';
 import type {DataLinkWithUsecaseIdsReadModel} from './data-link-with-usecase-ids-read-model.js';
 
 export interface DataLinkQueryService {
@@ -33,6 +37,21 @@ export interface DataLinkQueryService {
    * Returns subgraph-peer links with the effective usecase IDs associated
    * with each source/destination subgraph pair.
    */
+  findByModulePort(
+    filter: ModulePortLinkFilter,
+    fileSystemId: number,
+  ): Promise<Result<DataLinkWithUsecaseIdsReadModel[]>>;
+
+  /**
+   * Returns subgraph-peer links with optional peer narrowing and the effective
+   * usecase IDs associated with each source/destination subgraph pair.
+   */
+  findBySubgraph(
+    filter: SubgraphLinkFilter,
+    fileSystemId: number,
+  ): Promise<Result<DataLinkWithUsecaseIdsReadModel[]>>;
+
+  /** Compatibility method used by the existing shared implementation. */
   findSubgraphPeerLinks(
     filter: SubgraphPeerLinkFilter,
     fileSystemId: number,

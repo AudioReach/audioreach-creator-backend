@@ -511,12 +511,19 @@ export * from './application/usecase-designer/data-links/delete/delete-data-link
 export * from './application/usecase-designer/data-links/delete/delete-data-link.handler.js';
 export * from './application/usecase-designer/data-links/get-subgraph-peer/get-subgraph-peer-data-links.query.js';
 export * from './application/usecase-designer/data-links/get-subgraph-peer/get-subgraph-peer-data-links.handler.js';
+export * from './application/usecase-designer/data-links/get-by-module-port/get-data-links-by-module-port.query.js';
+export * from './application/usecase-designer/data-links/get-by-module-port/get-data-links-by-module-port.handler.js';
 export * from './application/usecase-designer/control-links/create/create-control-link.command.js';
 export * from './application/usecase-designer/control-links/create/create-control-link.handler.js';
 export * from './application/usecase-designer/control-links/delete/delete-control-link.command.js';
 export * from './application/usecase-designer/control-links/delete/delete-control-link.handler.js';
 export * from './application/usecase-designer/control-links/get-subgraph-peer/get-subgraph-peer-control-links.query.js';
 export * from './application/usecase-designer/control-links/get-subgraph-peer/get-subgraph-peer-control-links.handler.js';
+export * from './application/usecase-designer/control-links/get-by-module-port/get-control-links-by-module-port.query.js';
+export * from './application/usecase-designer/control-links/get-by-module-port/get-control-links-by-module-port.handler.js';
+export * from './application/usecase-designer/subgraph-links/dto/subgraph-links-dto.js';
+export * from './application/usecase-designer/subgraph-links/get/get-subgraph-links.query.js';
+export * from './application/usecase-designer/subgraph-links/get/get-subgraph-links.handler.js';
 export {ControlLinkPropertiesDtoSchema} from './application/usecase-designer/control-links/dto/control-link-properties-dto.js';
 export type {ControlLinkPropertiesDto} from './application/usecase-designer/control-links/dto/control-link-properties-dto.js';
 // Generic Worker Abstractions

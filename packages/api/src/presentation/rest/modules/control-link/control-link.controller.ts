@@ -31,7 +31,7 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {toApiResult} from '../../common/result/to-api-result.js';
 import {ClientId} from '../../../../decorators/client-id.decorator.js';
-import {parseSubgraphPeerLinkFilter} from '../../common/utils/subgraph-peer-link-filter.js';
+import {parseModulePortLinkFilter} from '../../common/utils/subgraph-peer-link-filter.js';
 import {ComponentsResponseDto} from '../../common/dto/component-collection-response.dto.js';
 import {ComponentsWithSubsystemsResponseDto} from '../../common/dto/component-collection-with-subsystems.dto.js';
 import {ControlLinkWithUsecasesResponseDto} from '../usecase/dto/control-link-with-usecases.dto.js';
@@ -41,7 +41,7 @@ import {
   CreateControlLinkCommand,
   DeleteControlLinkCommand,
   Result,
-  GetSubgraphPeerControlLinksQuery,
+  GetControlLinksByModulePortQuery,
   type ControlLinkWithUsecasesDto,
 } from '@arc/core';
 
@@ -69,31 +69,22 @@ export class ControlLinkController extends BaseController {
 
   @Get()
   @ApiQuery({
-    name: 'subgraphSystemId',
-    required: false,
-    type: String,
-    description:
-      'Subgraph system ID. Returns links connecting this subgraph to a different peer subgraph.',
-  })
-  @ApiQuery({
     name: 'moduleSystemId',
-    required: false,
+    required: true,
     type: String,
-    description:
-      'Module system ID. Must be supplied together with portSystemId.',
+    description: 'Module system ID for the selected endpoint.',
   })
   @ApiQuery({
     name: 'portSystemId',
-    required: false,
+    required: true,
     type: String,
-    description:
-      'Port system ID. Must be supplied together with moduleSystemId.',
+    description: 'Port system ID for the selected endpoint.',
   })
   @ApiDocumentationWithExample({
     summary:
-      'GET /arc-api/v1/projects/{projectId}/control-links - Get control links by subgraph or module-port filters',
+      'GET /arc-api/v1/projects/{projectId}/control-links - Get control links by module and port',
     description:
-      'Returns control links between peer subgraphs. With `subgraphSystemId`, returns links going into or out of the requested subgraph to a different peer subgraph; links within the same subgraph are excluded. `moduleSystemId` and `portSystemId` must be supplied together and may be combined with the subgraph filter. Each link includes its associated usecases.',
+      'Returns all control links connected to the requested module and port, including matches on either stored peer endpoint. Each link includes its associated usecases. subgraphSystemId is not supported on this endpoint; use /subgraph-links for subgraph lookup.',
     responses: [
       {
         status: HttpStatus.OK,
@@ -114,9 +105,12 @@ export class ControlLinkController extends BaseController {
   async getControlLinks(
     @Param('projectId') projectId: string,
     @ClientId() clientId: string,
-    @Query('subgraphSystemId') subgraphSystemId?: string,
-    @Query('moduleSystemId') moduleSystemId?: string,
-    @Query('portSystemId') portSystemId?: string,
+    @Query()
+    query: {
+      subgraphSystemId?: string;
+      moduleSystemId?: string;
+      portSystemId?: string;
+    },
   ): Promise<ApiResult<ControlLinkWithUsecasesResponseDto[]>> {
     const projectIdValue = projectId.trim();
     const parsedProjectId = Number(projectIdValue);
@@ -128,14 +122,10 @@ export class ControlLinkController extends BaseController {
       throw new BadRequestException(`Invalid project ID: ${projectId}`);
     }
 
-    const filter = parseSubgraphPeerLinkFilter({
-      subgraphSystemId,
-      moduleSystemId,
-      portSystemId,
-    });
+    const filter = parseModulePortLinkFilter(query);
     const result = await this.queryBus.execute<
       Result<ControlLinkWithUsecasesDto[]>
-    >(new GetSubgraphPeerControlLinksQuery(parsedProjectId, clientId, filter));
+    >(new GetControlLinksByModulePortQuery(parsedProjectId, clientId, filter));
     return toApiResult(result);
   }
 

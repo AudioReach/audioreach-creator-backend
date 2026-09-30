@@ -4,47 +4,63 @@
  */
 
 import {BadRequestException} from '@nestjs/common';
-import {describe, expect, it} from '@jest/globals';
-import {parseSubgraphPeerLinkFilter} from '../../../../../../src/presentation/rest/common/utils/subgraph-peer-link-filter.js';
+import {
+  parseModulePortLinkFilter,
+  parseSubgraphLinkFilter,
+} from '../../../../../../src/presentation/rest/common/utils/subgraph-peer-link-filter.js';
 
-describe('parseSubgraphPeerLinkFilter', () => {
-  it('accepts a subgraph filter', () => {
-    expect(parseSubgraphPeerLinkFilter({subgraphSystemId: '10'})).toEqual({
-      subgraphSystemId: 10,
-      moduleSystemId: undefined,
-      portSystemId: undefined,
+describe('link query filter parsing', () => {
+  describe('parseModulePortLinkFilter', () => {
+    it('requires moduleSystemId', () => {
+      expect(() => parseModulePortLinkFilter({portSystemId: '20'})).toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('requires portSystemId', () => {
+      expect(() => parseModulePortLinkFilter({moduleSystemId: '10'})).toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('rejects subgraphSystemId', () => {
+      expect(() =>
+        parseModulePortLinkFilter({
+          moduleSystemId: '10',
+          portSystemId: '20',
+          subgraphSystemId: '30',
+        }),
+      ).toThrow(BadRequestException);
+    });
+
+    it('parses required module and port system IDs', () => {
+      expect(
+        parseModulePortLinkFilter({
+          moduleSystemId: '10',
+          portSystemId: '20',
+        }),
+      ).toEqual({moduleSystemId: 10, portSystemId: 20});
     });
   });
 
-  it('accepts a module-port filter', () => {
-    expect(
-      parseSubgraphPeerLinkFilter({moduleSystemId: '20', portSystemId: '30'}),
-    ).toEqual({
-      subgraphSystemId: undefined,
-      moduleSystemId: 20,
-      portSystemId: 30,
+  describe('parseSubgraphLinkFilter', () => {
+    it('requires subgraphSystemId', () => {
+      expect(() => parseSubgraphLinkFilter({})).toThrow(BadRequestException);
     });
-  });
 
-  it('accepts combined filters', () => {
-    expect(
-      parseSubgraphPeerLinkFilter({
-        subgraphSystemId: '10',
-        moduleSystemId: '20',
-        portSystemId: '30',
-      }),
-    ).toEqual({subgraphSystemId: 10, moduleSystemId: 20, portSystemId: 30});
-  });
+    it('parses subgraphSystemId without a peer', () => {
+      expect(parseSubgraphLinkFilter({subgraphSystemId: '30'})).toEqual({
+        subgraphSystemId: 30,
+      });
+    });
 
-  it.each([
-    {},
-    {moduleSystemId: '20'},
-    {portSystemId: '30'},
-    {subgraphSystemId: ''},
-    {moduleSystemId: 'abc', portSystemId: '30'},
-  ])('rejects invalid filter values: %j', values => {
-    expect(() => parseSubgraphPeerLinkFilter(values)).toThrow(
-      BadRequestException,
-    );
+    it('parses optional subgraphPeerSystemId', () => {
+      expect(
+        parseSubgraphLinkFilter({
+          subgraphSystemId: '30',
+          subgraphPeerSystemId: '40',
+        }),
+      ).toEqual({subgraphSystemId: 30, subgraphPeerSystemId: 40});
+    });
   });
 });

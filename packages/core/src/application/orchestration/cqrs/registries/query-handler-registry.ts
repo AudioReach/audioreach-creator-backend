@@ -88,6 +88,12 @@ import {GetSubgraphPeerDataLinksQuery} from '../../../usecase-designer/data-link
 import {GetSubgraphPeerDataLinksHandler} from '../../../usecase-designer/data-links/get-subgraph-peer/get-subgraph-peer-data-links.handler.js';
 import {GetSubgraphPeerControlLinksQuery} from '../../../usecase-designer/control-links/get-subgraph-peer/get-subgraph-peer-control-links.query.js';
 import {GetSubgraphPeerControlLinksHandler} from '../../../usecase-designer/control-links/get-subgraph-peer/get-subgraph-peer-control-links.handler.js';
+import {GetDataLinksByModulePortQuery} from '../../../usecase-designer/data-links/get-by-module-port/get-data-links-by-module-port.query.js';
+import {GetDataLinksByModulePortHandler} from '../../../usecase-designer/data-links/get-by-module-port/get-data-links-by-module-port.handler.js';
+import {GetControlLinksByModulePortQuery} from '../../../usecase-designer/control-links/get-by-module-port/get-control-links-by-module-port.query.js';
+import {GetControlLinksByModulePortHandler} from '../../../usecase-designer/control-links/get-by-module-port/get-control-links-by-module-port.handler.js';
+import {GetSubgraphLinksQuery} from '../../../usecase-designer/subgraph-links/get/get-subgraph-links.query.js';
+import {GetSubgraphLinksHandler} from '../../../usecase-designer/subgraph-links/get/get-subgraph-links.handler.js';
 
 export interface QueryHandlerDependencies {
   queryServices: QueryServices;
@@ -334,6 +340,21 @@ export class QueryHandlerRegistry {
     this.queryHandlerFactories.set(GetSubgraphPeerControlLinksQuery, {
       create: (deps: QueryHandlerDependencies) =>
         new GetSubgraphPeerControlLinksHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetDataLinksByModulePortQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetDataLinksByModulePortHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetControlLinksByModulePortQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetControlLinksByModulePortHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetSubgraphLinksQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetSubgraphLinksHandler(deps.queryServices),
     });
   }
 }
