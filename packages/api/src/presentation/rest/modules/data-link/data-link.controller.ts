@@ -25,7 +25,7 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {toApiResult} from '../../common/result/to-api-result.js';
 import {ClientId} from '../../../../decorators/client-id.decorator.js';
-import {parseSubgraphPeerLinkFilter} from '../../common/utils/subgraph-peer-link-filter.js';
+import {parseModulePortLinkFilter} from '../../common/utils/subgraph-peer-link-filter.js';
 import {CreateDataLinkRequest} from './dto/request/create-data-link-request.dto.js';
 import {DataLinkWithUsecasesResponseDto} from '../usecase/dto/data-link-with-usecases.dto.js';
 import {CreateDataLinkWithSubsystemsRequest} from './dto/request/create-data-link-with-subsystems-request.dto.js';
@@ -38,7 +38,7 @@ import {
   CreateDataLinkWithSubsystemsCommand,
   DeleteDataLinkCommand,
   Result,
-  GetSubgraphPeerDataLinksQuery,
+  GetDataLinksByModulePortQuery,
   type DataLinkWithUsecasesDto,
   type ComponentCollectionWithSubsystemsDto as ComponentCollectionWithSubsystemsDtoType,
 } from '@arc/core';
@@ -67,31 +67,22 @@ export class DataLinkController extends BaseController {
 
   @Get()
   @ApiQuery({
-    name: 'subgraphSystemId',
-    required: false,
-    type: String,
-    description:
-      'Subgraph system ID. Returns links going into or out of this subgraph to a different peer subgraph.',
-  })
-  @ApiQuery({
     name: 'moduleSystemId',
-    required: false,
+    required: true,
     type: String,
-    description:
-      'Module system ID. Must be supplied together with portSystemId.',
+    description: 'Module system ID for the selected endpoint.',
   })
   @ApiQuery({
     name: 'portSystemId',
-    required: false,
+    required: true,
     type: String,
-    description:
-      'Port system ID. Must be supplied together with moduleSystemId.',
+    description: 'Port system ID for the selected endpoint.',
   })
   @ApiDocumentationWithExample({
     summary:
-      'GET /arc-api/v1/projects/{projectId}/data-links - Get data links by subgraph or module-port filters',
+      'GET /arc-api/v1/projects/{projectId}/data-links - Get data links by module and port',
     description:
-      'Returns data links between peer subgraphs. With `subgraphSystemId`, returns links going into or out of the requested subgraph to a different peer subgraph; links within the same subgraph are excluded. `moduleSystemId` and `portSystemId` must be supplied together and may be combined with the subgraph filter. Each link includes its associated usecases.',
+      'Returns all data links connected to the requested module and port, including source-side and destination-side matches. Each link includes its associated usecases. subgraphSystemId is not supported on this endpoint; use /subgraph-links for subgraph lookup.',
     responses: [
       {
         status: HttpStatus.OK,
@@ -112,9 +103,12 @@ export class DataLinkController extends BaseController {
   async getDataLinks(
     @Param('projectId') projectId: string,
     @ClientId() clientId: string,
-    @Query('subgraphSystemId') subgraphSystemId?: string,
-    @Query('moduleSystemId') moduleSystemId?: string,
-    @Query('portSystemId') portSystemId?: string,
+    @Query()
+    query: {
+      subgraphSystemId?: string;
+      moduleSystemId?: string;
+      portSystemId?: string;
+    },
   ): Promise<ApiResult<DataLinkWithUsecasesResponseDto[]>> {
     const projectIdValue = projectId.trim();
     const parsedProjectId = Number(projectIdValue);
@@ -126,14 +120,10 @@ export class DataLinkController extends BaseController {
       throw new BadRequestException(`Invalid project ID: ${projectId}`);
     }
 
-    const filter = parseSubgraphPeerLinkFilter({
-      subgraphSystemId,
-      moduleSystemId,
-      portSystemId,
-    });
+    const filter = parseModulePortLinkFilter(query);
     const result = await this.queryBus.execute<
       Result<DataLinkWithUsecasesDto[]>
-    >(new GetSubgraphPeerDataLinksQuery(parsedProjectId, clientId, filter));
+    >(new GetDataLinksByModulePortQuery(parsedProjectId, clientId, filter));
     return toApiResult(result);
   }
 

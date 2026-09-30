@@ -160,6 +160,73 @@ describe('project link query services', () => {
     });
   });
 
+  it('returns data links by module-port when the endpoint is the source or destination', async () => {
+    const links = [
+      dataLink(1, 10, 20, 101, 201, 102, 202),
+      dataLink(2, 20, 10, 103, 203, 101, 201),
+      dataLink(3, 30, 40, 101, 201, 104, 204),
+      dataLink(4, 50, 60, 105, 205, 106, 206),
+    ];
+    const linkFetcher = {
+      loadDataLinkRows: jest.fn().mockResolvedValue(links),
+    };
+    const usecaseFetcher = {
+      getUsecases: jest.fn().mockResolvedValue([]),
+    };
+    const service = new DbDataLinkQueryService(
+      createDataSource(),
+      usecaseFetcher as unknown as UsecaseOverlayFetcher,
+      linkFetcher as unknown as LinkOverlayFetcher,
+    );
+
+    const result = await service.findByModulePort(
+      {moduleSystemId: 101, portSystemId: 201},
+      FILE_ID,
+    );
+
+    expect(result.data.map(link => link.link.systemId)).toEqual([1, 2, 3]);
+    expect(linkFetcher.loadDataLinkRows).toHaveBeenCalledWith(FILE_ID, null, {
+      $or: [
+        {sourceNodeSystemId: 101, sourcePortSystemId: 201},
+        {destinationNodeSystemId: 101, destinationPortSystemId: 201},
+      ],
+    });
+  });
+
+  it('returns data links between a selected subgraph and optional peer in either direction', async () => {
+    const links = [
+      dataLink(1, 10, 20, 101, 201, 102, 202),
+      dataLink(2, 20, 10, 103, 203, 104, 204),
+      dataLink(3, 10, 30, 105, 205, 106, 206),
+      dataLink(4, 10, 10, 107, 207, 108, 208),
+    ];
+    const linkFetcher = {
+      loadDataLinkRows: jest.fn().mockResolvedValue(links),
+    };
+    const usecaseFetcher = {
+      getUsecases: jest
+        .fn()
+        .mockResolvedValue([usecase(1001, 10, 20), usecase(1002, 20, 10)]),
+    };
+    const service = new DbDataLinkQueryService(
+      createDataSource(),
+      usecaseFetcher as unknown as UsecaseOverlayFetcher,
+      linkFetcher as unknown as LinkOverlayFetcher,
+    );
+
+    const result = await service.findBySubgraph(
+      {subgraphSystemId: 10, subgraphPeerSystemId: 20},
+      FILE_ID,
+    );
+
+    expect(result.data.map(link => link.link.systemId)).toEqual([1, 2]);
+    expect(result.data[0].usecaseSystemIds).toEqual([1001]);
+    expect(result.data[1].usecaseSystemIds).toEqual([1002]);
+    expect(linkFetcher.loadDataLinkRows).toHaveBeenCalledWith(FILE_ID, null, {
+      $or: [{sourceSubgraphSystemId: 10}, {destSubgraphSystemId: 10}],
+    });
+  });
+
   it('returns control links in either peer direction and excludes internal links', async () => {
     const links = [
       controlLink(11, 10, 20, 101, 201, 102, 202),
@@ -214,6 +281,79 @@ describe('project link query services', () => {
     expect(result.data.map(link => link.link.systemId)).toEqual([11, 12]);
     expect(result.data.every(link => link.usecaseSystemIds.length === 0)).toBe(
       true,
+    );
+  });
+
+  it('returns control links by module-port when either stored peer endpoint matches', async () => {
+    const links = [
+      controlLink(11, 10, 20, 101, 201, 102, 202),
+      controlLink(12, 20, 30, 103, 203, 101, 201),
+      controlLink(13, 30, 40, 101, 201, 104, 204),
+      controlLink(14, 50, 60, 105, 205, 106, 206),
+    ];
+    const linkFetcher = {
+      loadControlLinkRows: jest.fn().mockResolvedValue(links),
+    };
+    const usecaseFetcher = {
+      getUsecases: jest.fn().mockResolvedValue([]),
+    };
+    const service = new DbControlLinkQueryService(
+      createDataSource(),
+      usecaseFetcher as unknown as UsecaseOverlayFetcher,
+      linkFetcher as unknown as LinkOverlayFetcher,
+    );
+
+    const result = await service.findByModulePort(
+      {moduleSystemId: 101, portSystemId: 201},
+      FILE_ID,
+    );
+
+    expect(result.data.map(link => link.link.systemId)).toEqual([11, 12, 13]);
+    expect(linkFetcher.loadControlLinkRows).toHaveBeenCalledWith(
+      FILE_ID,
+      null,
+      {
+        $or: [
+          {peerNodeASystemId: 101, nodeAPortSystemId: 201},
+          {peerNodeBSystemId: 101, nodeBPortSystemId: 201},
+        ],
+      },
+    );
+  });
+
+  it('returns control links between a selected subgraph and optional peer in either direction', async () => {
+    const links = [
+      controlLink(11, 10, 20, 101, 201, 102, 202),
+      controlLink(12, 20, 10, 103, 203, 104, 204),
+      controlLink(13, 10, 30, 105, 205, 106, 206),
+      controlLink(14, 10, 10, 107, 207, 108, 208),
+    ];
+    const linkFetcher = {
+      loadControlLinkRows: jest.fn().mockResolvedValue(links),
+    };
+    const usecaseFetcher = {
+      getUsecases: jest.fn().mockResolvedValue([usecase(2001, 10, 20)]),
+    };
+    const service = new DbControlLinkQueryService(
+      createDataSource(),
+      usecaseFetcher as unknown as UsecaseOverlayFetcher,
+      linkFetcher as unknown as LinkOverlayFetcher,
+    );
+
+    const result = await service.findBySubgraph(
+      {subgraphSystemId: 10, subgraphPeerSystemId: 20},
+      FILE_ID,
+    );
+
+    expect(result.data.map(link => link.link.systemId)).toEqual([11, 12]);
+    expect(result.data[0].usecaseSystemIds).toEqual([2001]);
+    expect(result.data[1].usecaseSystemIds).toEqual([2001]);
+    expect(linkFetcher.loadControlLinkRows).toHaveBeenCalledWith(
+      FILE_ID,
+      null,
+      {
+        $or: [{sourceSubgraphSystemId: 10}, {destSubgraphSystemId: 10}],
+      },
     );
   });
 });

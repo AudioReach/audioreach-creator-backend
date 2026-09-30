@@ -16,6 +16,7 @@ import {SubsystemModule} from './presentation/rest/modules/subsystem/subsystem.m
 import {ContainerModule} from './presentation/rest/modules/container/container.module.js';
 import {DataLinkModule} from './presentation/rest/modules/data-link/data-link.module.js';
 import {ControlLinkModule} from './presentation/rest/modules/control-link/control-link.module.js';
+import {SubgraphLinkModule} from './presentation/rest/modules/subgraph-link/subgraph-link.module.js';
 import {ProjectModule} from './presentation/rest/modules/project/project.module.js';
 import {ArcCqrsModule} from './infrastructure-wrapper/arc-cqrs.module.js';
 import {KeyDefinitionModule} from './presentation/rest/modules/definition/key-definition/key-definition.module.js';
@@ -46,6 +47,7 @@ import {LogModule} from './presentation/rest/modules/logging/logging.module.js';
     ContainerModule,
     DataLinkModule,
     ControlLinkModule,
+    SubgraphLinkModule,
     LogModule,
   ],
 

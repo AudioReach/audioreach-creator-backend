@@ -9,6 +9,8 @@ import type {
   Result,
   ControlLinkReadModel,
   ControlLinkWithUsecaseIdsReadModel,
+  ModulePortLinkFilter,
+  SubgraphLinkFilter,
   SubgraphPeerLinkFilter,
 } from '@arc/core';
 import {Result as R, IssueFactory} from '@arc/core';
@@ -141,6 +143,32 @@ export class DbControlLinkQueryService implements ControlLinkQueryService {
     }
   }
 
+  async findByModulePort(
+    filter: ModulePortLinkFilter,
+    fileSystemId: number,
+  ): Promise<Result<ControlLinkWithUsecaseIdsReadModel[]>> {
+    return this.findSubgraphPeerLinks(
+      {
+        moduleSystemId: filter.moduleSystemId,
+        portSystemId: filter.portSystemId,
+      },
+      fileSystemId,
+    );
+  }
+
+  async findBySubgraph(
+    filter: SubgraphLinkFilter,
+    fileSystemId: number,
+  ): Promise<Result<ControlLinkWithUsecaseIdsReadModel[]>> {
+    return this.findSubgraphPeerLinks(
+      {
+        subgraphSystemId: filter.subgraphSystemId,
+        subgraphPeerSystemId: filter.subgraphPeerSystemId,
+      },
+      fileSystemId,
+    );
+  }
+
   private buildCandidateFilters(
     filter: SubgraphPeerLinkFilter,
   ): ControlLinkFilters | undefined {
@@ -186,13 +214,33 @@ export class DbControlLinkQueryService implements ControlLinkQueryService {
             link.nodeBPortSystemId === filter.portSystemId)
         : !hasModulePortFilter;
 
-    const matchesSubgraph =
-      filter.subgraphSystemId === undefined ||
-      ((link.sourceSubgraphSystemId === filter.subgraphSystemId ||
-        link.destSubgraphSystemId === filter.subgraphSystemId) &&
-        link.sourceSubgraphSystemId !== link.destSubgraphSystemId);
+    const matchesSubgraph = this.matchesSubgraphFilter(link, filter);
 
     return matchesSubgraph && matchesModulePort;
+  }
+
+  private matchesSubgraphFilter(
+    link: ControlLinkBase,
+    filter: SubgraphPeerLinkFilter,
+  ): boolean {
+    if (filter.subgraphSystemId === undefined) return true;
+    if (link.sourceSubgraphSystemId === link.destSubgraphSystemId) return false;
+
+    const selectedSubgraph = filter.subgraphSystemId;
+    const peerSubgraph = filter.subgraphPeerSystemId;
+    const matchesSelected =
+      link.sourceSubgraphSystemId === selectedSubgraph ||
+      link.destSubgraphSystemId === selectedSubgraph;
+    if (!matchesSelected) return false;
+
+    if (peerSubgraph === undefined) return true;
+
+    return (
+      (link.sourceSubgraphSystemId === selectedSubgraph &&
+        link.destSubgraphSystemId === peerSubgraph) ||
+      (link.sourceSubgraphSystemId === peerSubgraph &&
+        link.destSubgraphSystemId === selectedSubgraph)
+    );
   }
 
   async findBySubgraphId(
