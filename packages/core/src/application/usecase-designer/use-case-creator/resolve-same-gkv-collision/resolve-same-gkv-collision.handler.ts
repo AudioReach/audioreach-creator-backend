@@ -13,6 +13,31 @@ import {createRoutingEngine} from '../engine/create-routing-engine.js';
 import type {RoutingEngine} from '../engine/routing-engine.js';
 import {AutoRoutingPreparationService} from '../services/auto-routing-preparation.service.js';
 import {SameGkvCollisionResolutionStager} from './same-gkv-collision-resolution-stager.js';
+import {
+  COLLISION_ALTERNATIVE_KIND,
+  COLLISION_RESOLUTION_MODE,
+  type CollisionResolutionSelection,
+  type SameGkvCollisionGroup,
+} from '../contracts/same-gkv-collision.js';
+
+function selectionExists(
+  group: SameGkvCollisionGroup,
+  selection: CollisionResolutionSelection,
+): boolean {
+  if (selection.mode === COLLISION_RESOLUTION_MODE.SelectCandidate) {
+    return group.alternatives.some(
+      alternative =>
+        alternative.kind === COLLISION_ALTERNATIVE_KIND.New &&
+        alternative.alternativeId === selection.alternativeId,
+    );
+  }
+  if (selection.mode === COLLISION_RESOLUTION_MODE.KeepExisting) {
+    return group.alternatives.some(
+      alternative => alternative.kind === COLLISION_ALTERNATIVE_KIND.Existing,
+    );
+  }
+  return group.alternatives.length >= 2;
+}
 import type {UsecaseChangeDescriptor} from '../contracts/routing-state.js';
 import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
 import {ResolveSameGkvCollisionCommand} from './resolve-same-gkv-collision.command.js';
@@ -45,17 +70,17 @@ export class ResolveSameGkvCollisionHandler implements CommandHandler<
       const replay = await this.engine.resolveCollision(
         input,
         this.uow,
-        command.collisionId,
+        command.selection.collisionId,
       );
       if (replay.kind === RESULT_KIND.Fail)
         throw new DomainRuleViolationException(replay.issues);
-      if (!replay.data.options.includes(command.mode))
+      if (!selectionExists(replay.data, command.selection))
         throw new DomainRuleViolationException([
-          RoutingIssueFactory.sameGkvChoiceStale(command.collisionId),
+          RoutingIssueFactory.sameGkvChoiceStale(command.selection.collisionId),
         ]);
       const changes = await this.stager.stage(
         replay.data,
-        command.mode,
+        command.selection,
         input,
         this.uow,
         this.idGeneration,

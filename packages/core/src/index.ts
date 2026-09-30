@@ -707,5 +707,5 @@ export * from './application/usecase-designer/use-case-creator/contracts/routing
 export type {UsecaseChangeDescriptor} from './application/usecase-designer/use-case-creator/contracts/routing-state.js';
 export * from './application/usecase-designer/use-case-creator/create-usecases/create-usecases.command.js';
 export * from './application/usecase-designer/use-case-creator/create-manual-usecases/create-manual-usecases.command.js';
-export * from './application/usecase-designer/use-case-creator/remove-stale-manual-usecase-edit/remove-stale-manual-usecase-edit.command.js';
+export * from './application/usecase-designer/use-case-creator/delete-stale-manual-usecase-edit/delete-stale-manual-usecase-edit.command.js';
 export * from './application/usecase-designer/use-case-creator/resolve-same-gkv-collision/resolve-same-gkv-collision.command.js';

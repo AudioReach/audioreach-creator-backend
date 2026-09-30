@@ -17,10 +17,11 @@ import type {UsecaseType} from '../../../../../domain/entities/usecase-data/usec
 import type {IdGenerationPort} from '../../../../ports/id-generation/id-generation.port.js';
 import type {UsecaseSgkvAssignment} from '../../../../ports/persistence/repositories/usecase/usecase.repository.js';
 import type {RoutingGraphSnapshot} from '../../contracts/routing-input.js';
-import type {
-  ClassifiedUsecase,
-  RoutingCombination,
-  UsecaseChangeDescriptor,
+import {
+  ROUTING_CLASSIFICATION_KIND,
+  type ClassifiedUsecase,
+  type RoutingCombination,
+  type UsecaseChangeDescriptor,
 } from '../../contracts/routing-state.js';
 import {RoutingIssueFactory} from '../../issues/routing-issue-factory.js';
 import {collectUsecaseSgkvAdditions} from '../../shared/routing-sgkv-assignments.js';
@@ -53,8 +54,11 @@ export class ClassifiedCandidateStager {
     const {classifications, staging, fileSystemId, snapshot, idGenerator} =
       input;
     for (const classification of classifications) {
-      if (classification.kind === 'EXACT_MATCH') continue;
-      if (classification.kind === 'INTERIOR_EXTENSION') {
+      if (classification.kind === ROUTING_CLASSIFICATION_KIND.ExactMatch)
+        continue;
+      if (
+        classification.kind === ROUTING_CLASSIFICATION_KIND.InteriorExtension
+      ) {
         const currentIds = new Set(
           classification.existingUsecase.subgraphSystemIds,
         );

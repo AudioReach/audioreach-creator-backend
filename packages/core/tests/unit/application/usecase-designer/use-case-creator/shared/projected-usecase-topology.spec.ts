@@ -10,7 +10,11 @@ import {
   projectUsecaseStructure,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/shared/projected-usecase-topology.js';
 import {ROUTING_MODE} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
-import {USECASE_TOPOLOGY_DECISION_KIND} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
+import {
+  USECASE_TOPOLOGY_DECISION_KIND,
+  type RoutingCombination,
+} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
+import {ClassificationPhase} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/classification/classification.phase.js';
 
 function input(
   committedUsecases: readonly UseCase[],
@@ -54,7 +58,76 @@ function input(
   } as never;
 }
 
+function candidate(path: number[]): RoutingCombination {
+  return {
+    path: {
+      subgraphSystemIds: path,
+      termination: 'NATURAL_LEAF',
+      ecBoundaryLinkId: null,
+    },
+    sgkvAssignment: new Map(path.map(systemId => [systemId, {keyValues: []}])),
+    gkv: [{keyDefSystemId: 1, valueDefSystemId: 100}],
+  };
+}
+
 describe('buildProjectedUsecaseTopology', () => {
+  it('projects only an arbitrary MANUAL authority for a GKV with three automatic candidates', async () => {
+    const committed = new UseCase({
+      systemId: 99,
+      fileSystemId: 1,
+      keyVector: {valueSystemIds: [100]},
+      subgraphSystemIds: [9],
+      subgraphPairs: [],
+    });
+    const manual = new UseCase({
+      systemId: 99,
+      fileSystemId: 1,
+      keyVector: {valueSystemIds: [100]},
+      subgraphSystemIds: [1, 3, 5],
+      subgraphPairs: [
+        {sourceSubgraphSystemId: 1, destSubgraphSystemId: 3},
+        {sourceSubgraphSystemId: 3, destSubgraphSystemId: 5},
+      ],
+    });
+    const context = new RoutingContext(
+      input(
+        [committed],
+        [
+          {
+            changeId: 700,
+            usecase: manual,
+            operation: 'UPDATE',
+            referencedComponents: {
+              sgSystemIds: [1, 3, 5],
+              dataLinkSystemIds: [],
+              controlLinkSystemIds: [],
+            },
+          },
+        ],
+      ),
+    );
+    context.routingCandidates.combinations.push(
+      candidate([1, 2]),
+      candidate([3, 4]),
+      candidate([5, 6]),
+    );
+    context.topologyChangeAnalysis = {
+      affectedUsecaseSystemIds: new Set(),
+      decisions: [],
+    };
+
+    const classification = await new ClassificationPhase().run(context);
+    const projected = buildProjectedUsecaseTopology(context);
+
+    expect(classification.kind).toBe('OK');
+    expect(context.classifiedUcs).toEqual([]);
+    expect(context.sameGkvCollisionGroups).toEqual([]);
+    expect(projected.usecases).toHaveLength(1);
+    expect(projected.usecases[0]).toEqual(manual);
+    expect(projected.subgraphSystemIds).toEqual(new Set([1, 3, 5]));
+    expect(projected.directedPairKeys).toEqual(new Set(['1>3', '3>5']));
+  });
+
   it.each([ROUTING_MODE.Auto, ROUTING_MODE.Manual])(
     'replaces a committed UC with the effective manual overlay in %s mode without mutating either entity',
     mode => {

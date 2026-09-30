@@ -108,7 +108,7 @@ function context(
 }
 
 describe('ClassificationPhase', () => {
-  it('classifies exact matches, interior extensions, and creates in publication order', async () => {
+  it('collapses an exact duplicate into the one unambiguous interior extension', async () => {
     const existing = usecase(1, [10, 30], [[10, 30]], [100, 200]);
     const routingContext = context([existing]);
     routingContext.routingCandidates.combinations.push(
@@ -123,11 +123,10 @@ describe('ClassificationPhase', () => {
     expect(
       routingContext.classifiedUcs.map(classification => classification.kind),
     ).toEqual([
-      ROUTING_CLASSIFICATION_KIND.Create,
-      ROUTING_CLASSIFICATION_KIND.ExactMatch,
       ROUTING_CLASSIFICATION_KIND.InteriorExtension,
+      ROUTING_CLASSIFICATION_KIND.Create,
     ]);
-    expect(routingContext.classifiedUcs[1]).toEqual(
+    expect(routingContext.classifiedUcs[0]).toEqual(
       expect.objectContaining({existingUsecase: existing}),
     );
   });
@@ -230,16 +229,17 @@ describe('ClassificationPhase', () => {
           expect.objectContaining({
             commandType: 'ResolveSameGkvCollisionCommand',
             commandPayload: expect.objectContaining({
-              mode: 'PATH_A',
+              mode: 'SELECT_CANDIDATE',
+              alternativeId: expect.any(String),
               replayInput: expect.any(Object),
-              collisionOperands: [
+              collisionAlternatives: [
                 expect.objectContaining({
                   kind: 'NEW',
-                  subgraphSystemIds: [1, 2],
+                  alternativeId: expect.any(String),
                 }),
                 expect.objectContaining({
                   kind: 'NEW',
-                  subgraphSystemIds: [3, 4],
+                  alternativeId: expect.any(String),
                 }),
               ],
               selectedTopology: expect.objectContaining({
@@ -252,6 +252,43 @@ describe('ClassificationPhase', () => {
       }),
     ]);
     expect(routingContext.classifiedUcs).toEqual([]);
+  });
+
+  it('emits one issue for four distinct candidates with one GKV', async () => {
+    const routingContext = context();
+    routingContext.routingCandidates.combinations.push(
+      combination([1, 2], [100]),
+      combination([3, 4], [100]),
+      combination([5, 6], [100]),
+      combination([7, 8], [100]),
+    );
+
+    const result = await new ClassificationPhase().run(routingContext);
+
+    expect(result.kind).toBe('FAIL');
+    expect(result.issues).toHaveLength(1);
+    expect(routingContext.sameGkvCollisionGroups).toHaveLength(1);
+    expect(routingContext.sameGkvCollisionGroups[0]?.alternatives).toHaveLength(
+      4,
+    );
+    expect(routingContext.classifiedUcs).toEqual([]);
+  });
+
+  it('emits one issue per GKV instead of one issue per candidate pair', async () => {
+    const routingContext = context();
+    routingContext.routingCandidates.combinations.push(
+      combination([1, 2], [100]),
+      combination([3, 4], [100]),
+      combination([5, 6], [200]),
+      combination([7, 8], [200]),
+      combination([9, 10], [200]),
+    );
+
+    const result = await new ClassificationPhase().run(routingContext);
+
+    expect(result.kind).toBe('FAIL');
+    expect(result.issues).toHaveLength(2);
+    expect(routingContext.sameGkvCollisionGroups).toHaveLength(2);
   });
 
   it('recognizes an active MANUAL materialization and suppresses automatic classification', async () => {
@@ -280,6 +317,96 @@ describe('ClassificationPhase', () => {
 
     expect(result.kind).toBe('OK');
     expect(routingContext.classifiedUcs).toEqual([]);
+  });
+
+  it('accepts an arbitrary MANUAL topology for the GKV as authoritative', async () => {
+    const manualUsecase = usecase(
+      99,
+      [1, 3, 5],
+      [
+        [1, 3],
+        [3, 5],
+      ],
+      [100],
+    );
+    const routingContext = context(
+      [],
+      [
+        {
+          changeId: 99,
+          operation: 'UPDATE',
+          usecase: manualUsecase,
+          referencedComponents: {
+            sgSystemIds: [1, 3, 5],
+            dataLinkSystemIds: [],
+            controlLinkSystemIds: [],
+          },
+        } as ActiveManualUsecaseEdit,
+      ],
+    );
+    routingContext.routingCandidates.combinations.push(
+      combination([1, 2], [100]),
+      combination([3, 4], [100]),
+      combination([5, 6], [100]),
+    );
+
+    const result = await new ClassificationPhase().run(routingContext);
+
+    expect(result.kind).toBe('OK');
+    expect(routingContext.sameGkvCollisionGroups).toEqual([]);
+    expect(routingContext.classifiedUcs).toEqual([]);
+  });
+
+  it('rejects multiple MANUAL overrides for the same GKV', async () => {
+    const routingContext = context([], [
+      {
+        changeId: 91,
+        operation: 'UPDATE',
+        usecase: usecase(91, [1, 2], [[1, 2]], [100]),
+        referencedComponents: {
+          sgSystemIds: [1, 2],
+          dataLinkSystemIds: [],
+          controlLinkSystemIds: [],
+        },
+      },
+      {
+        changeId: 92,
+        operation: 'UPDATE',
+        usecase: usecase(92, [3, 4], [[3, 4]], [100]),
+        referencedComponents: {
+          sgSystemIds: [3, 4],
+          dataLinkSystemIds: [],
+          controlLinkSystemIds: [],
+        },
+      },
+    ] as ActiveManualUsecaseEdit[]);
+
+    const result = await new ClassificationPhase().run(routingContext);
+
+    expect(result.kind).toBe('FAIL');
+    expect(result.issues).toEqual([
+      expect.objectContaining({
+        code: 'ARC-ROUTING-MULTIPLE-MANUAL-GKV-OVERRIDES',
+        impactedUsecases: [91, 92],
+      }),
+    ]);
+  });
+
+  it('turns distinct interior extensions into one collision group', async () => {
+    const committed = usecase(1, [10, 30], [[10, 30]], [100]);
+    const routingContext = context([committed]);
+    routingContext.routingCandidates.combinations.push(
+      combination([10, 20, 30], [100], {20: []}),
+      combination([10, 25, 30], [100], {25: []}),
+    );
+
+    const result = await new ClassificationPhase().run(routingContext);
+
+    expect(result.kind).toBe('FAIL');
+    expect(result.issues).toHaveLength(1);
+    expect(routingContext.sameGkvCollisionGroups[0]?.alternatives).toHaveLength(
+      3,
+    );
   });
 
   it('classifies dormant EC bridge candidates for Phase 11 staging', async () => {

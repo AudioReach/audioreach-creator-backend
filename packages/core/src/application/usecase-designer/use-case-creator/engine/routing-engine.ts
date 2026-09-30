@@ -11,7 +11,7 @@ import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 import {RoutingContext} from '../contracts/routing-context.js';
 import type {RoutingInput} from '../contracts/routing-input.js';
-import type {SameGkvCollision} from '../contracts/same-gkv-collision.js';
+import type {SameGkvCollisionGroup} from '../contracts/same-gkv-collision.js';
 import {createEmptyRoutingOutcome} from '../contracts/routing-outcome.js';
 import type {RoutingOutcome} from '../contracts/routing-outcome.js';
 import type {PreValidationPhase} from '../phases/pre-validation/pre-validation.phase.js';
@@ -90,7 +90,7 @@ export class RoutingEngine {
     input: RoutingInput,
     uow: UnitOfWork,
     collisionId: string,
-  ): Promise<Result<SameGkvCollision>> {
+  ): Promise<Result<SameGkvCollisionGroup>> {
     const context = new RoutingContext(input);
     const prerequisitePhases: readonly (() => Promise<Result<void>>)[] = [
       () => this.preValidation.run(context),
@@ -110,7 +110,7 @@ export class RoutingEngine {
     }
 
     const classificationResult = await this.classification.run(context);
-    const collision = context.sameGkvCollisions.find(
+    const collision = context.sameGkvCollisionGroups.find(
       current => current.collisionId === collisionId,
     );
     if (collision !== undefined) return Result.ok(collision);

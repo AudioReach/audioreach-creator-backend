@@ -16,7 +16,7 @@ import type {
   RoutingInput,
   RoutingSubgraph,
 } from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
-import type {SameGkvCollision} from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/same-gkv-collision.js';
+import type {SameGkvCollisionGroup} from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/same-gkv-collision.js';
 import type {
   RoutingCombination,
   UsecaseTopologyDecision,
@@ -334,7 +334,7 @@ export interface MdfSubstitutionRoutingHarness {
     readonly inputAfterRun: string;
   };
   run(): Promise<ReturnType<typeof Result.ok>>;
-  resolveCollision(collisionId: string): Promise<Result<SameGkvCollision>>;
+  resolveCollision(collisionId: string): Promise<Result<SameGkvCollisionGroup>>;
   clearRecordedWrites(): void;
 }
 
@@ -582,7 +582,9 @@ export function createMdfSubstitutionRoutingHarness(
     trace('COMBINATION_EXPANSION', tracedCombinationExpansion),
     trace('CLASSIFICATION', classificationPhase, context => {
       collisionIds.push(
-        ...context.sameGkvCollisions.map(collision => collision.collisionId),
+        ...context.sameGkvCollisionGroups.map(
+          collision => collision.collisionId,
+        ),
       );
       for (const classified of context.classifiedUcs)
         classificationTopologies.push(

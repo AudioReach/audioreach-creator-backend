@@ -5,17 +5,13 @@
 
 import {describe, expect, it} from '@jest/globals';
 import type {KvPair} from '../../../../../../../src/application/ports/persistence/repositories/shared/kv-pair.js';
-import type {UseCase} from '../../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
-import type {RoutingCombination} from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
-import {COLLISION_RESOLUTION_MODE} from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/same-gkv-collision.js';
-import {SameGkvCollisionService} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/classification/same-gkv-collision.service.js';
+import type {ActiveManualUsecaseEdit} from '../../../../../../../src/application/ports/persistence/repositories/usecase/usecase.repository.js';
 import {CHANGE_OPERATION} from '../../../../../../../src/application/shared/change-vocabulary.js';
+import type {RoutingCombination} from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
+import {SameGkvCollisionService} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/classification/same-gkv-collision.service.js';
+import {UseCase} from '../../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
 
-function candidate(
-  path: number[],
-  values = [100],
-  emptyAssignmentSystemIds: readonly number[] = [],
-): RoutingCombination {
+function candidate(path: number[], values = [100]): RoutingCombination {
   const gkv: KvPair[] = values.map(valueSystemId => ({
     keyDefSystemId: valueSystemId + 1000,
     valueDefSystemId: valueSystemId,
@@ -27,137 +23,134 @@ function candidate(
       ecBoundaryLinkId: null,
     },
     sgkvAssignment: new Map(
-      path.map(systemId => [
+      path.map((systemId, index) => [
         systemId,
-        {
-          keyValues: emptyAssignmentSystemIds.includes(systemId) ? [] : gkv,
-        },
+        {keyValues: index === 0 ? gkv : []},
       ]),
     ),
     gkv,
   };
 }
 
-function existing(path: number[], values = [100]): UseCase {
-  return {
-    systemId: 55,
+function existing(path: number[], values = [100], systemId = 55): UseCase {
+  return new UseCase({
+    systemId,
+    fileSystemId: 1,
     subgraphSystemIds: path,
-    subgraphPairs: path.slice(1).map((systemId, index) => ({
+    subgraphPairs: path.slice(1).map((destSubgraphSystemId, index) => ({
       sourceSubgraphSystemId: path[index],
-      destSubgraphSystemId: systemId,
+      destSubgraphSystemId,
     })),
     keyVector: {valueSystemIds: values},
-  } as UseCase;
+  });
+}
+
+function manualEdit(
+  usecase: UseCase,
+  changeId: number,
+): ActiveManualUsecaseEdit {
+  return {
+    changeId,
+    operation: CHANGE_OPERATION.Update,
+    usecase,
+    referencedComponents: {
+      sgSystemIds: usecase.subgraphSystemIds,
+      dataLinkSystemIds: [],
+      controlLinkSystemIds: [],
+    },
+  };
 }
 
 describe('SameGkvCollisionService', () => {
   const service = new SameGkvCollisionService();
 
-  it('T1-031 offers all choices for overlapping new candidates', () => {
-    const collision = service.detect(candidate([1, 2]), candidate([2, 3]));
-
-    expect(collision?.options).toEqual([
-      COLLISION_RESOLUTION_MODE.PathA,
-      COLLISION_RESOLUTION_MODE.PathB,
-      COLLISION_RESOLUTION_MODE.Merge,
-    ]);
-  });
-
-  it('T1-012 offers only path choices for disjoint new candidates', () => {
-    const collision = service.detect(candidate([1, 2]), candidate([3, 4]));
-
-    expect(collision?.options).toEqual([
-      COLLISION_RESOLUTION_MODE.PathA,
-      COLLISION_RESOLUTION_MODE.PathB,
-    ]);
-  });
-
-  it('T1-032 offers merge choices for an overlapping existing collision', () => {
-    const collision = service.detect(candidate([1, 2]), existing([2, 3]));
-
-    expect(collision?.options).toEqual([
-      COLLISION_RESOLUTION_MODE.KeepExisting,
-      COLLISION_RESOLUTION_MODE.ReplaceWithNew,
-      COLLISION_RESOLUTION_MODE.Merge,
-    ]);
-  });
-
-  it('T1-030 offers keep-existing and replace-with-new for a disjoint existing collision', () => {
-    const collision = service.detect(candidate([1, 2]), existing([3, 4]));
-
-    expect(collision?.options).toEqual([
-      COLLISION_RESOLUTION_MODE.KeepExisting,
-      COLLISION_RESOLUTION_MODE.ReplaceWithNew,
-    ]);
-  });
-
-  it('uses a stable UUID v5 and stable Path A/Path B operands independent of discovery order', () => {
-    const first = service.detect(candidate([1, 2]), candidate([3, 4]));
-    const second = service.detect(candidate([3, 4]), candidate([1, 2]));
-
-    expect(first?.collisionId).toEqual(second?.collisionId);
-    expect(first?.collisionId).toEqual(
-      expect.stringMatching(/^[0-9a-f-]{36}$/),
+  it('builds one group for four candidates sharing one GKV', () => {
+    const groups = service.buildGroups(
+      [
+        candidate([1, 2]),
+        candidate([3, 4]),
+        candidate([5, 6]),
+        candidate([7, 8]),
+      ],
+      [],
+      [],
     );
-    expect(
-      first?.operands.map(operand =>
-        operand.kind === 'NEW' ? operand.candidate.path.subgraphSystemIds : [],
-      ),
-    ).toEqual(
-      second?.operands.map(operand =>
-        operand.kind === 'NEW' ? operand.candidate.path.subgraphSystemIds : [],
-      ),
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.alternatives).toHaveLength(4);
+  });
+
+  it('deduplicates identical candidate topologies', () => {
+    const groups = service.buildGroups(
+      [candidate([1, 2]), candidate([1, 2]), candidate([3, 4])],
+      [],
+      [],
     );
-    expect(first?.operands[0]).toEqual(
-      expect.objectContaining({
-        kind: 'NEW',
-        candidate: expect.objectContaining({
-          path: expect.objectContaining({subgraphSystemIds: [1, 2]}),
-        }),
-      }),
+
+    expect(groups[0]?.alternatives).toHaveLength(2);
+  });
+
+  it('keeps group and alternative IDs stable when discovery order changes', () => {
+    const forward = service.buildGroups(
+      [candidate([1, 2]), candidate([3, 4]), candidate([5, 6])],
+      [],
+      [],
+    )[0];
+    const reverse = service.buildGroups(
+      [candidate([5, 6]), candidate([3, 4]), candidate([1, 2])],
+      [],
+      [],
+    )[0];
+
+    expect(forward?.collisionId).toBe(reverse?.collisionId);
+    expect(forward?.alternatives.map(item => item.alternativeId)).toEqual(
+      reverse?.alternatives.map(item => item.alternativeId),
     );
   });
 
-  it('does not report exact or identity-preserving interior matches as collisions', () => {
-    expect(service.detect(candidate([1, 3]), existing([1, 3]))).toBeNull();
-    expect(
-      service.detect(candidate([1, 2, 3], [100], [2]), existing([1, 3])),
-    ).toBeNull();
+  it('builds one group per canonical GKV', () => {
+    const groups = service.buildGroups(
+      [
+        candidate([1, 2], [100]),
+        candidate([3, 4], [100]),
+        candidate([5, 6], [200]),
+        candidate([7, 8], [200]),
+      ],
+      [],
+      [],
+    );
+
+    expect(groups).toHaveLength(2);
+    expect(groups.map(group => group.gkvValueSystemIds)).toEqual([
+      [100],
+      [200],
+    ]);
   });
 
-  it('recognizes a surviving MANUAL materialization by GKV, SG set, and pair set', () => {
-    const collision = service.detect(candidate([1, 2]), candidate([2, 3]))!;
-    const mergedUsecase = existing([1, 2, 3]);
-    const edit = {
-      changeId: 7,
-      operation: CHANGE_OPERATION.Create,
-      usecase: mergedUsecase,
-      referencedComponents: {
-        sgSystemIds: [1, 2, 3],
-        dataLinkSystemIds: [],
-        controlLinkSystemIds: [],
-      },
-    };
+  it('attaches one existing UC and collapses an identical candidate topology', () => {
+    const committed = existing([1, 2]);
+    const groups = service.buildGroups(
+      [candidate([1, 2]), candidate([3, 4])],
+      [committed],
+      [],
+    );
 
-    expect(service.isResolutionRecognized(collision, [edit])).toBe(true);
-  });
-
-  it('does not treat KEEP_EXISTING as a persisted resolution marker', () => {
-    const collision = service.detect(candidate([1, 2]), existing([3, 4]))!;
-
-    expect(
-      service.isResolutionRecognized(collision, [
-        {
-          changeId: 8,
-          operation: CHANGE_OPERATION.Update,
-          usecase: existing([3, 4]),
-          referencedComponents: {
-            sgSystemIds: [3, 4],
-            dataLinkSystemIds: [],
-            controlLinkSystemIds: [],
-          },
-        },
+    expect(groups[0]?.alternatives).toHaveLength(2);
+    expect(groups[0]?.alternatives).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({kind: 'EXISTING', usecase: committed}),
+        expect.objectContaining({kind: 'NEW'}),
       ]),
-    ).toBe(false);
+    );
+  });
+
+  it('retains multiple MANUAL overrides without automatic candidates', () => {
+    const first = manualEdit(existing([1, 2], [100], 61), 11);
+    const second = manualEdit(existing([3, 4], [100], 62), 12);
+
+    const buckets = service.buildBuckets([], [], [first, second]);
+
+    expect(buckets).toHaveLength(1);
+    expect(buckets[0]?.manualOverrides).toEqual([first, second]);
   });
 });

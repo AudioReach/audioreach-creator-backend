@@ -555,7 +555,7 @@ Expected production changes:
 - `services/mdf-substitution-analyzer.ts`: strict MDF matcher.
 - `services/deletion-reconstruction.service.ts`: extracted ordinary reconstruction.
 - `phases/pre-validation.service.ts`: MDF non-empty-value invariant.
-- `services/manual-usecase-dependency-validator.ts`: invoked from Phase 1 in automatic
+- `phases/pre-validation/manual-usecase-dependency-validator.ts`: invoked from Phase 1 in automatic
   mode so stale manual edits fail before topology decisions.
 - `phases/seed-detection.service.ts`: no MDF `KV_CHANGED` seeds.
 - `phases/classification.service.ts`: compare against MDF-projected committed UCs.

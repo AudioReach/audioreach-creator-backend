@@ -117,8 +117,8 @@ import {CreateUsecasesCommand} from '../../../usecase-designer/use-case-creator/
 import {CreateUsecasesHandler} from '../../../usecase-designer/use-case-creator/create-usecases/create-usecases.handler.js';
 import {CreateManualUsecasesCommand} from '../../../usecase-designer/use-case-creator/create-manual-usecases/create-manual-usecases.command.js';
 import {CreateManualUsecasesHandler} from '../../../usecase-designer/use-case-creator/create-manual-usecases/create-manual-usecases.handler.js';
-import {RemoveStaleManualUsecaseEditCommand} from '../../../usecase-designer/use-case-creator/remove-stale-manual-usecase-edit/remove-stale-manual-usecase-edit.command.js';
-import {RemoveStaleManualUsecaseEditHandler} from '../../../usecase-designer/use-case-creator/remove-stale-manual-usecase-edit/remove-stale-manual-usecase-edit.handler.js';
+import {DeleteStaleManualUsecaseEditCommand} from '../../../usecase-designer/use-case-creator/delete-stale-manual-usecase-edit/delete-stale-manual-usecase-edit.command.js';
+import {DeleteStaleManualUsecaseEditHandler} from '../../../usecase-designer/use-case-creator/delete-stale-manual-usecase-edit/delete-stale-manual-usecase-edit.handler.js';
 import {ResolveSameGkvCollisionCommand} from '../../../usecase-designer/use-case-creator/resolve-same-gkv-collision/resolve-same-gkv-collision.command.js';
 import {ResolveSameGkvCollisionHandler} from '../../../usecase-designer/use-case-creator/resolve-same-gkv-collision/resolve-same-gkv-collision.handler.js';
 
@@ -305,8 +305,8 @@ export class CommandHandlerRegistry {
         new CreateManualUsecasesHandler(deps.uow, deps.idGeneration),
     });
 
-    this.commandHandlerFactories.set(RemoveStaleManualUsecaseEditCommand, {
-      create: deps => new RemoveStaleManualUsecaseEditHandler(deps.uow),
+    this.commandHandlerFactories.set(DeleteStaleManualUsecaseEditCommand, {
+      create: deps => new DeleteStaleManualUsecaseEditHandler(deps.uow),
     });
 
     this.commandHandlerFactories.set(ResolveSameGkvCollisionCommand, {

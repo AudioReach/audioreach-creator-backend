@@ -294,7 +294,7 @@ describe('RoutingEngine', () => {
     );
     const collision = {collisionId: 'target-collision'} as never;
     phases[8] = phase('phase-9', order, context => {
-      context.sameGkvCollisions.push(collision);
+      context.sameGkvCollisionGroups.push(collision);
       return Result.fail(RoutingIssueFactory.dataLinkIntegrity(100, 10, 20));
     });
     const engine = engineFrom(phases);
@@ -344,7 +344,9 @@ describe('RoutingEngine', () => {
       phase(`phase-${index + 1}`, order),
     );
     phases[8] = phase('phase-9', order, context => {
-      context.sameGkvCollisions.push({collisionId: 'other-collision'} as never);
+      context.sameGkvCollisionGroups.push({
+        collisionId: 'other-collision',
+      } as never);
       return Result.fail(RoutingIssueFactory.dataLinkIntegrity(100, 10, 20));
     });
     const engine = engineFrom(phases);
@@ -437,21 +439,23 @@ describe('RoutingEngine', () => {
       ]),
       gkv: [{keyDefSystemId: 1100, valueDefSystemId: 100}],
     };
-    const expectedCollision = new SameGkvCollisionService().detect(
-      collisionCandidate,
-      new UseCase({
-        systemId: 101,
-        fileSystemId: 7,
-        keyVector: {valueSystemIds: [100]},
-        subgraphSystemIds: [10, 15, 20],
-        subgraphPairs: [
-          {sourceSubgraphSystemId: 10, destSubgraphSystemId: 15},
-          {sourceSubgraphSystemId: 15, destSubgraphSystemId: 20},
-        ],
-        type: 'LINKED',
-      }),
-    );
-    expect(expectedCollision).not.toBeNull();
+    const projectedExisting = new UseCase({
+      systemId: 101,
+      fileSystemId: 7,
+      keyVector: {valueSystemIds: [100]},
+      subgraphSystemIds: [10, 15, 20],
+      subgraphPairs: [
+        {sourceSubgraphSystemId: 10, destSubgraphSystemId: 15},
+        {sourceSubgraphSystemId: 15, destSubgraphSystemId: 20},
+      ],
+      type: 'LINKED',
+    });
+    const expectedCollision = new SameGkvCollisionService().createGroup({
+      gkvValueSystemIds: [100],
+      candidates: [collisionCandidate],
+      existingUsecase: projectedExisting,
+      manualOverrides: [],
+    });
     const phases = Array.from({length: 12}, (_, index) =>
       phase(`phase-${index + 1}`, order),
     );
@@ -501,15 +505,15 @@ describe('RoutingEngine', () => {
     const result = await engine.resolveCollision(
       replayInput,
       unitOfWork(),
-      expectedCollision!.collisionId,
+      expectedCollision.collisionId,
     );
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind === RESULT_KIND.Ok) {
-      const existingOperand = result.data.operands.find(
-        operand => operand.kind === 'EXISTING',
+      const existingAlternative = result.data.alternatives.find(
+        alternative => alternative.kind === 'EXISTING',
       );
-      expect(existingOperand).toEqual(
+      expect(existingAlternative).toEqual(
         expect.objectContaining({
           usecase: expect.objectContaining({
             subgraphSystemIds: [10, 15, 20],
