@@ -12,16 +12,16 @@ import {BinaryPayloadValue} from './binary-payload-value.js';
 export class ModuleParameterData extends BinaryPayloadValue {
   constructor(
     readonly paramDefintionSystemId: SystemId,
-    payload: Uint8Array | null,
+    payload: Uint8Array,
   ) {
     super(payload);
   }
 
-  getPayloadCopy(): Uint8Array | null {
-    return super.getPayloadCopy();
+  getPayloadCopy(): Uint8Array {
+    return super.getPayloadCopy()!;
   }
 
-  setPayloadCopy(src: Uint8Array | null) {
+  setPayloadCopy(src: Uint8Array) {
     this.setPayloadCopyInternal(src);
   }
 }

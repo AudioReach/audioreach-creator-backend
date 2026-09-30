@@ -3,32 +3,22 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {ParameterDefinitionBase} from '../shared/parameter-definition-base.js';
+import type {ParamDefinition} from '../../../../../domain/entities/definitions/common/entities/param-definition.js';
+import type {VcpmModuleDefinition} from '../../../../../domain/entities/definitions/vcpm-module/vcpm-module-definition.js';
+
+type VcpmParameterDefault = Pick<
+  ParamDefinition,
+  'systemId' | 'elementsStructure'
+>;
 
 export interface VcpmModuleDefinitionWithParamsReadModel {
-  moduleDefinitionSystemId: number;
-  parameters: ParameterDefinitionBase[];
+  moduleDefinitionSystemId: VcpmModuleDefinition['systemId'];
+  parameters: VcpmParameterDefault[];
 }
 
-export interface VcpmDefaultData {
-  definitionSystemId: number;
-  parameters: Array<{
-    parameterSystemId: number;
-    payload: Uint8Array;
-  }>;
-}
-
-/**
- * VCPM definition reads and configuration writes used by write handlers.
- * Payload bytes in addVcpmDefaultData are final bytes produced by core.
- */
+/** Read-only VCPM module-definition projection used by write handlers. */
 export interface VcpmDefinitionRepository {
   getAllVcpmModuleDefinitions(
     fileSystemId: number,
   ): Promise<VcpmModuleDefinitionWithParamsReadModel[]>;
-
-  addVcpmDefaultData(
-    subgraphSystemId: number,
-    defaults: readonly VcpmDefaultData[],
-  ): Promise<void>;
 }

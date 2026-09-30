@@ -5,6 +5,7 @@
 
 import type {EditOptions} from '../../edit-options.js';
 import type {Subgraph} from '../../../../../domain/entities/usecase-data/subgraph/subgraph.js';
+import type {VcpmInstance} from '../../../../../domain/entities/usecase-data/subgraph/entities/vcpm-module-instance.js';
 import type {SubgraphPropertyDefinition} from '../../../../../domain/entities/definitions/subgraph/subgraph-property-definitions.js';
 import type {KvPair} from '../shared/kv-pair.js';
 import type {SessionChanged} from '../shared/session-changed.js';
@@ -64,11 +65,6 @@ export interface SubgraphRepository {
     fileSystemId: number,
   ): Promise<Map<number, Subgraph>>;
 
-  /** Returns linked subgraphs reachable through shared use cases. */
-  findSubgraphIdsSharingUsecases(
-    subgraphSystemIds: number[],
-  ): Promise<number[]>;
-
   /** Stages a new SubgraphPropertyData row with a prepared payload. */
   addProperty(
     subgraphSystemId: number,
@@ -97,6 +93,15 @@ export interface SubgraphRepository {
 
   /** Stages deletion of all VCPM configuration data for a subgraph. */
   removeAllVcpmData(subgraphSystemId: number): Promise<void>;
+
+  /**
+   * Stages a VCPM instance with its single default CKV and parameter payloads.
+   * The map resolves each parameter system ID to its payload row system ID.
+   */
+  addVcpmModule(
+    instance: VcpmInstance,
+    payloadSystemIdsByParameterSystemId: ReadonlyMap<number, number>,
+  ): Promise<void>;
 
   /**
    * Resolves requested Value Definitions to their owning Keys in the

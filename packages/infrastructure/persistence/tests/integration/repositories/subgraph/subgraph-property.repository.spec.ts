@@ -261,15 +261,3 @@ describe('TypeOrmSubgraphRepository — getAggregates', () => {
     ]);
   });
 });
-
-describe('TypeOrmSubgraphRepository — findSubgraphIdsSharingUsecases', () => {
-  it('returns empty array when subgraph has no usecases', async () => {
-    const ds = getTestDataSource();
-    await seedBase(ds);
-    const sessionId = await seedSession(ds);
-    const repo = makeRepo(ds, sessionId);
-
-    const result = await repo.findSubgraphIdsSharingUsecases([SG_ID]);
-    expect(result).toEqual([]);
-  });
-});

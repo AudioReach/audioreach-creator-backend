@@ -76,9 +76,17 @@ function makeUow(opts: {subgraph?: any; linkedIds?: number[]} = {}) {
         }
         return Promise.resolve(map);
       }),
-      findSubgraphIdsSharingUsecases: jest.fn().mockResolvedValue(linkedIds),
       setPropertyData,
       getPropertyDefinitions: jest.fn().mockResolvedValue([makeVsidDef()]),
+    }),
+    getUsecaseRepository: jest.fn().mockReturnValue({
+      findBySubgraph: jest
+        .fn()
+        .mockResolvedValue(
+          linkedIds.length > 0
+            ? [{keyVector: {valueSystemIds: [1]}, subgraphSystemIds: linkedIds}]
+            : [],
+        ),
     }),
     startTransaction,
     commit,

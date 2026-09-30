@@ -210,12 +210,7 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
   }
 
   getVcpmDefinitionRepository(): VcpmDefinitionRepository {
-    return new TypeOrmVcpmDefinitionRepository(
-      this.getPendingChangeWriter(),
-      this.queryRunner.manager,
-      this,
-      this.idGeneration,
-    );
+    return new TypeOrmVcpmDefinitionRepository(this.queryRunner.manager);
   }
 
   // ── Existing repositories ─────────────────────────────────────────────────

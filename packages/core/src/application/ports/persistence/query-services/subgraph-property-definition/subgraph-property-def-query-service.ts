@@ -7,7 +7,7 @@ import type {
   SubgraphPropertyDefinitionSummaryReadModel,
   SubgraphPropertyDefinitionReadModel,
 } from './subgraph-property-definition-read-model.js';
-import type {SgPropertyDefWithElementsReadModel} from './subgraph-property-definition-with-elements-read-model.js';
+import type {SubgraphPropertyDefWithElementsReadModel} from './subgraph-property-definition-with-elements-read-model.js';
 import type {Result} from '../../../../shared/result/result.js';
 
 export interface SubgraphPropertyDefQueryService {
@@ -37,5 +37,5 @@ export interface SubgraphPropertyDefQueryService {
    */
   getSubgraphPropertiesWithElements(
     fileSystemId: number,
-  ): Promise<Result<SgPropertyDefWithElementsReadModel[]>>;
+  ): Promise<Result<SubgraphPropertyDefWithElementsReadModel[]>>;
 }

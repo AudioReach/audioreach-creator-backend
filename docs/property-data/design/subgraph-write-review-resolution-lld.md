@@ -381,7 +381,10 @@ It must not query only base tables because the property row may have been create
 - default-payload serialization;
 - delete and delta writes.
 
-The current scenario handler requests VCPM definitions through `QueryServices.vcpmDefinitionQueryService` and then calls `addVcpmDefaultData()` on `SubgraphRepository`. However, the rebased `SubgraphRepository` port and `TypeOrmSubgraphRepository` adapter do not currently declare or implement `addVcpmDefaultData()`. The VCPM default-data persistence path therefore still needs to be introduced in the target design.
+The scenario handler requests VCPM definitions through the VCPM definition read
+repository and creates `VcpmInstanceWriteData` entries for the Subgraph
+aggregate. `SubgraphRepository.addVcpmModule()` stages the VCPM hierarchy;
+the handler allocates all new system IDs and serializes the default payloads.
 
 ### 6.2 Core reset plan
 
@@ -414,14 +417,20 @@ Persistence does not classify CKVs or call `serializeDefaultParameterData()`.
 
 Core builds VCPM default entries with serialized payloads:
 
-**Current:** The scenario handler gets VCPM definitions from `QueryServices.vcpmDefinitionQueryService` and passes them to `SubgraphRepository.addVcpmDefaultData()`. In the rebased repository code, that subgraph-repository method is not yet part of the port or adapter, so there is no completed current persistence implementation for this path.
+**Current:** The scenario handler gets VCPM definitions from the VCPM
+definition read repository, serializes their parameter defaults, allocates the
+instance/CKV/payload IDs, and passes one `VcpmInstanceWriteData` entry at a time
+to `SubgraphRepository.addVcpmModule()`.
 
 **After change:** Core supplies serialized payloads in the default-data plan, and a UoW-bound persistence repository only stages the hierarchy rows:
 
 ```ts
-interface VcpmDefaultData {
-  definitionSystemId: number;
-  parameters: Array<{
+interface VcpmInstanceWriteData {
+  instanceSystemId: number;
+  moduleDefinitionSystemId: number;
+  ckvSystemId: number;
+  parameterPayloads: Array<{
+    payloadSystemId: number;
     parameterSystemId: number;
     payload: Uint8Array;
   }>;

@@ -36,7 +36,7 @@ Requirements source: [../set-subgraph-property-requirements.md](../set-subgraph-
 **Context:** This design calls `serializeDefaultParameterData` in four places:
 - `addProperty` (§4.1) — seeds a new `SubgraphPropertyData` blob with default values
 - `wipeCalData` (§4.4) — restores zero-CKV payload rows to factory defaults
-- `addVcpmDefaultData` (§4.6) — seeds new `VcpmParameterPayload` blobs
+- `addVcpmModule` (§4.6) — stages a VCPM instance hierarchy with serialized defaults
 - Voice → Audio step c — seeds the clock scale factor property blob
 
 That function does not yet exist in the codebase. The unmerged commit `a54340d` on `feature/use-case-designer` implements it. **This PR must port those changes before any of the above infra methods can be implemented.**
@@ -433,11 +433,19 @@ export class UpdateSubgraphScenarioHandler implements CommandHandler<
           })));
         }
 
-        // e. Add default VCPM cfg data for this subgraph
+        // e. Add VCPM instances and their default parameter payloads
         const vcpmDefs = await this.queryServices.vcpmDefinitionQueryService
           .getAllVcpmModuleDefinitions(fileSystemId);
-        await this.uow.getSubgraphRepository()
-          .addVcpmDefaultData(command.subgraphSystemId, vcpmDefs);
+        for (const vcpmDef of vcpmDefs) {
+          const instance = this.buildVcpmInstanceWriteData(
+            vcpmDef,
+            fileSystemId,
+          );
+          await this.uow.getSubgraphRepository().addVcpmModule(
+            command.subgraphSystemId,
+            instance,
+          );
+        }
 
       } else if (isVoiceToAudio) {
         // a. Wipe all module CKV/TKV cal data
@@ -588,12 +596,11 @@ export interface SubgraphRepository {
   // Used by Voice → Audio cascade step d.
   removeAllVcpmData(subgraphSystemId: number): Promise<void>;
 
-  // Stages CREATE for VcpmInstance + zero-CKV VcpmParameterPayload rows for each
-  // VCPM module definition. Default payload derived from each parameter's elementsStructure
-  // via serializeDefaultParameterData(param). Used by Audio → Voice cascade step e.
-  addVcpmDefaultData(
+  // Stages CREATE for one VcpmInstance, its zero-CKV row, and its parameter
+  // payload rows. IDs and serialized defaults are prepared by the handler.
+  addVcpmModule(
     subgraphSystemId: number,
-    vcpmDefs: VcpmModuleDefinitionWithParamsReadModel[],
+    instance: VcpmInstanceWriteData,
   ): Promise<void>;
 }
 ```
@@ -872,54 +879,59 @@ async removeAllVcpmData(subgraphSystemId: number): Promise<void> {
 }
 ```
 
-### 4.6 TypeOrmSubgraphRepository — addVcpmDefaultData
+### 4.6 TypeOrmSubgraphRepository — addVcpmModule
 
 ```typescript
-async addVcpmDefaultData(
+async addVcpmModule(
   subgraphSystemId: number,
-  vcpmDefs: VcpmModuleDefinitionWithParamsReadModel[],
+  instance: VcpmInstanceWriteData,
 ): Promise<void> {
   const {session, groupId} = this.uow.getWriteContext();
 
-  for (const def of vcpmDefs) {
-    // Create VcpmInstance row linking this subgraph to the VCPM module definition
-    const instanceSystemId = await this.idGeneration.generateId(ENTITY_NAMES.VcpmInstance);
+  // IDs and payload bytes were prepared by the application handler.
+  await this.writer.writeCreate(
+    {
+      targetTable: ENTITY_NAMES.VcpmInstance,
+      targetSystemId: instance.instanceSystemId,
+      aggregateId: subgraphSystemId,
+      payload: {
+        subgraphSystemId,
+        vcpmDefinitionId: instance.moduleDefinitionSystemId,
+      },
+    },
+    session.sessionId,
+    groupId,
+    this.manager,
+  );
+
+  await this.writer.writeCreate(
+    {
+      targetTable: ENTITY_NAMES.VcpmCkv,
+      targetSystemId: instance.ckvSystemId,
+      aggregateId: subgraphSystemId,
+      payload: {vcpmInstanceSystemId: instance.instanceSystemId},
+    },
+    session.sessionId,
+    groupId,
+    this.manager,
+  );
+
+  for (const parameter of instance.parameterPayloads) {
     await this.writer.writeCreate(
       {
-        targetTable: ENTITY_NAMES.VcpmInstance,
-        targetSystemId: instanceSystemId,
+        targetTable: ENTITY_NAMES.VcpmParameterPayload,
+        targetSystemId: parameter.payloadSystemId,
         aggregateId: subgraphSystemId,
-        payload: {subgraphSystemId, vcpmDefinitionId: def.systemId},
-      },
-      session.sessionId, groupId, this.manager,
-    );
-
-    // Create zero-CKV VcpmCkv row (no VcpmCkvValues — zero-CKV has empty key set)
-    const ckvSystemId = await this.idGeneration.generateId(ENTITY_NAMES.VcpmCkv);
-    await this.writer.writeCreate(
-      {
-        targetTable: ENTITY_NAMES.VcpmCkv,
-        targetSystemId: ckvSystemId,
-        aggregateId: subgraphSystemId,
-        payload: {vcpmInstanceSystemId: instanceSystemId},
-      },
-      session.sessionId, groupId, this.manager,
-    );
-
-    // Create VcpmParameterPayload for each parameter using default values
-    for (const param of def.parameters) {
-      const defaultPayload = serializeDefaultParameterData(param);
-      const payloadSystemId = await this.idGeneration.generateId(ENTITY_NAMES.VcpmParameterPayload);
-      await this.writer.writeCreate(
-        {
-          targetTable: ENTITY_NAMES.VcpmParameterPayload,
-          targetSystemId: payloadSystemId,
-          aggregateId: subgraphSystemId,
-          payload: {vcpmCkvSystemId: ckvSystemId, vcpmParameterSystemId: param.systemId, payload: defaultPayload},
+        payload: {
+          vcpmCkvSystemId: instance.ckvSystemId,
+          vcpmParameterSystemId: parameter.parameterSystemId,
+          payload: parameter.payload,
         },
-        session.sessionId, groupId, this.manager,
-      );
-    }
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
   }
 }
 ```

@@ -21,9 +21,6 @@ import {
 } from '../../helpers/test-database-setup.js';
 import {TypeOrmVcpmDefinitionRepository} from '../../../../src/persistence-typeorm-sqllite/repositories/vcpm-definition/vcpm-definition.repository.js';
 import {VcpmModuleDefinitionFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/definitions/vcpm/vcpm-module-definition-fetcher.js';
-import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
-import {PendingChangeCache} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
-import {PendingChangeWriter} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 import {
@@ -66,28 +63,8 @@ async function seedBase(ds: DataSource): Promise<number> {
   return session.sessionId;
 }
 
-function makeRepository(
-  ds: DataSource,
-  sessionId: number,
-): TypeOrmVcpmDefinitionRepository {
-  const editActionsQs = new EditActionsQueryService(ds);
-  const writer = new PendingChangeWriter(
-    editActionsQs,
-    new PendingChangeCache(),
-  );
-  const uow = {
-    getWriteContext: () => ({
-      session: {sessionId, fileSystemId: FILE_ID},
-      groupId: 'g1',
-    }),
-  } as any;
-  const idGeneration = {getNextId: async () => 1} as any;
-  return new TypeOrmVcpmDefinitionRepository(
-    writer,
-    ds.manager,
-    uow,
-    idGeneration,
-  );
+function makeRepository(ds: DataSource): TypeOrmVcpmDefinitionRepository {
+  return new TypeOrmVcpmDefinitionRepository(ds.manager);
 }
 
 function makeFetcher(ds: DataSource): VcpmModuleDefinitionFetcher {
@@ -97,7 +74,7 @@ function makeFetcher(ds: DataSource): VcpmModuleDefinitionFetcher {
 describe('TypeOrmVcpmDefinitionRepository', () => {
   it('groups VCPM module definitions with their parameters', async () => {
     const ds = getTestDataSource();
-    const sessionId = await seedBase(ds);
+    await seedBase(ds);
     await getTestRepository(VcpmModuleDefinitionSchema).save({
       systemId: 401,
       naturalId: 9001,
@@ -116,7 +93,7 @@ describe('TypeOrmVcpmDefinitionRepository', () => {
       vcpmModuleDefinitionSystemId: 401,
     });
 
-    const repository = makeRepository(ds, sessionId);
+    const repository = makeRepository(ds);
 
     await expect(
       repository.getAllVcpmModuleDefinitions(FILE_ID),

@@ -32,7 +32,15 @@ import {
   beforeEach,
   afterEach,
 } from '@jest/globals';
-import {SOURCE, Subgraph, SubgraphPropertyDefinition} from '@arc/core';
+import {
+  SOURCE,
+  KvData,
+  ModuleParameterData,
+  VcpmInstance,
+  Subgraph,
+  SubgraphPropertyDefinition,
+  asSystemId,
+} from '@arc/core';
 
 const FILE_ID = 100;
 const OTHER_FILE_ID = 200;
@@ -561,6 +569,49 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
           {targetSystemId: SG_A, targetTable: ENTITY_NAMES.Subgraph},
         ]),
       );
+    });
+  });
+
+  describe('addVcpmModule', () => {
+    it('stages the supplied VCPM hierarchy IDs without generating new IDs', async () => {
+      const sessionId = await seedSession(ds);
+      const repo = makeRepo(qr.manager, sessionId);
+      const ckv = new KvData({
+        systemId: 9002,
+        valueDefinitionSystemIds: [],
+        uiPersistence: null,
+      });
+      ckv.addParameterPayload(
+        new ModuleParameterData(asSystemId(801), new Uint8Array([1, 2, 3, 4])),
+      );
+
+      const instance = new VcpmInstance({
+        systemId: 9001,
+        subgraphSystemId: SG_A,
+        vcpmModuleDefinitionSystemId: 800,
+      });
+      instance.addCkv(ckv);
+
+      await repo.addVcpmModule(instance, new Map([[801, 9003]]));
+
+      const actions = await ds.query<
+        Array<{targetSystemId: number; targetTable: string}>
+      >(
+        `SELECT target_system_id AS targetSystemId, target_table AS targetTable
+         FROM edit_actions
+         WHERE session_id = ?
+         ORDER BY target_system_id`,
+        [sessionId],
+      );
+
+      expect(actions).toEqual([
+        {targetSystemId: 9001, targetTable: ENTITY_NAMES.VcpmInstance},
+        {targetSystemId: 9002, targetTable: ENTITY_NAMES.VcpmCkv},
+        {
+          targetSystemId: 9003,
+          targetTable: ENTITY_NAMES.VcpmParameterPayload,
+        },
+      ]);
     });
   });
 });

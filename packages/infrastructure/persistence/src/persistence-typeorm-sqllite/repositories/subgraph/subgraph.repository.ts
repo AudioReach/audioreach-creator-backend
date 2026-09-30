@@ -12,6 +12,7 @@ import type {
   SessionChanged,
   SgkvEntry,
   KvPair,
+  VcpmInstance,
 } from '@arc/core';
 import {
   Subgraph,
@@ -357,48 +358,6 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     return result;
   }
 
-  async findSubgraphIdsSharingUsecases(
-    subgraphSystemIds: number[],
-  ): Promise<number[]> {
-    if (subgraphSystemIds.length === 0) return [];
-
-    const usecaseRows = await this.manager
-      .getRepository(ENTITY_NAMES.UseCaseSubgraph)
-      .createQueryBuilder('ucs')
-      .select('DISTINCT ucs.usecaseSystemId', 'usecaseSystemId')
-      .where('ucs.subgraphSystemId IN (:...subgraphSystemIds)', {
-        subgraphSystemIds,
-      })
-      .getRawMany<{usecaseSystemId: number}>();
-    if (usecaseRows.length === 0) return [];
-
-    const usecaseSystemIds = usecaseRows.map(row => row.usecaseSystemId);
-    const gkvRows = await this.manager
-      .getRepository(ENTITY_NAMES.UsecaseGkvValues)
-      .createQueryBuilder('ugkv')
-      .select('DISTINCT ugkv.usecaseSystemId', 'usecaseSystemId')
-      .where('ugkv.usecaseSystemId IN (:...usecaseSystemIds)', {
-        usecaseSystemIds,
-      })
-      .getRawMany<{usecaseSystemId: number}>();
-    if (gkvRows.length === 0) return [];
-
-    const linkedUsecaseSystemIds = gkvRows.map(row => row.usecaseSystemId);
-    const linkedRows = await this.manager
-      .getRepository(ENTITY_NAMES.UseCaseSubgraph)
-      .createQueryBuilder('ucs')
-      .select('DISTINCT ucs.subgraphSystemId', 'subgraphSystemId')
-      .where('ucs.usecaseSystemId IN (:...linkedUsecaseSystemIds)', {
-        linkedUsecaseSystemIds,
-      })
-      .getRawMany<{subgraphSystemId: number}>();
-
-    const inputIds = new Set(subgraphSystemIds);
-    return linkedRows
-      .map(row => row.subgraphSystemId)
-      .filter(systemId => !inputIds.has(systemId));
-  }
-
   async addProperty(
     subgraphSystemId: number,
     propertySystemId: number,
@@ -482,6 +441,72 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
       groupId,
       this.manager,
     );
+  }
+
+  async addVcpmModule(
+    instance: VcpmInstance,
+    payloadSystemIdsByParameterSystemId: ReadonlyMap<number, number>,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    if (instance.ckvs.length !== 1) {
+      throw new Error(
+        `Expected exactly one CKV for VCPM instance ${instance.systemId}`,
+      );
+    }
+    const [ckv] = instance.ckvs;
+
+    await this.writer.writeCreate(
+      {
+        targetTable: ENTITY_NAMES.VcpmInstance,
+        targetSystemId: instance.systemId,
+        aggregateId: instance.subgraphSystemId,
+        payload: {
+          subgraphSystemId: instance.subgraphSystemId,
+          vcpmDefinitionId: instance.vcpmModuleDefinitionSystemId,
+        },
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+
+    await this.writer.writeCreate(
+      {
+        targetTable: ENTITY_NAMES.VcpmCkv,
+        targetSystemId: ckv.systemId,
+        aggregateId: instance.subgraphSystemId,
+        payload: {vcpmInstanceSystemId: instance.systemId},
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+
+    for (const parameter of ckv.parameterPayloads) {
+      const payloadSystemId = payloadSystemIdsByParameterSystemId.get(
+        parameter.paramDefintionSystemId,
+      );
+      if (payloadSystemId === undefined) {
+        throw new Error(
+          `Missing VCPM payload system ID for parameter ${parameter.paramDefintionSystemId}`,
+        );
+      }
+      await this.writer.writeCreate(
+        {
+          targetTable: ENTITY_NAMES.VcpmParameterPayload,
+          targetSystemId: payloadSystemId,
+          aggregateId: instance.subgraphSystemId,
+          payload: {
+            vcpmCkvSystemId: ckv.systemId,
+            vcpmParameterSystemId: parameter.paramDefintionSystemId,
+            payload: parameter.getPayloadCopy(),
+          },
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
   }
 
   async removeAllVcpmData(subgraphSystemId: number): Promise<void> {

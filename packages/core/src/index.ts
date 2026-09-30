@@ -78,9 +78,9 @@ export type {
 } from './application/ports/persistence/repositories/data-link/data-link.repository.js';
 export type {ControlLinkRepository} from './application/ports/persistence/repositories/control-link/control-link.repository.js';
 export type {SubgraphRepository} from './application/ports/persistence/repositories/subgraph/subgraph.repository.js';
+export {VcpmInstance} from './domain/entities/usecase-data/subgraph/entities/vcpm-module-instance.js';
 export type {
   VcpmDefinitionRepository,
-  VcpmDefaultData,
   VcpmModuleDefinitionWithParamsReadModel,
 } from './application/ports/persistence/repositories/vcpm-definition/vcpm-definition.repository.js';
 export type {

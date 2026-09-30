@@ -22,11 +22,18 @@ import {
 } from '../../../../domain/entities/definitions/subgraph/subgraph-ids.js';
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
+import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 import type {SetSubgraphScenarioCommand} from './set-subgraph-scenario.command.js';
 import type {ScenarioChangeDto} from '../dto/subgraph-write-result-types.js';
 import type {SubgraphPropertyDefinition} from '../../../../domain/entities/definitions/subgraph/subgraph-property-definitions.js';
 import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/subgraph.js';
+import {VcpmInstance} from '../../../../domain/entities/usecase-data/subgraph/entities/vcpm-module-instance.js';
+import {KvData} from '../../../../domain/entities/common/entities/kv-data.js';
+import {ModuleParameterData} from '../../../../domain/entities/common/value-objects/module-parameter-data.js';
+import {asSystemId} from '../../../../shared/types/branded-ids.js';
 import type {SubgraphRepository} from '../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
+import type {UsecaseRepository} from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
+import {findReachableSubgraphIds} from '../shared/find-reachable-subgraph-ids.js';
 import type {
   ModuleRepository,
   SpfModuleBase,
@@ -44,7 +51,10 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
   SetSubgraphScenarioCommand,
   ScenarioChangeDto
 > {
-  constructor(private readonly uow: UnitOfWork) {}
+  constructor(
+    private readonly uow: UnitOfWork,
+    private readonly idGeneration: IdGenerationPort,
+  ) {}
 
   async handle(
     command: SetSubgraphScenarioCommand,
@@ -52,6 +62,7 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
     const {session, groupId} = this.uow.getWriteContext();
     const {fileSystemId} = session;
     const subgraphRepository = this.uow.getSubgraphRepository();
+    const usecaseRepository = this.uow.getUsecaseRepository();
 
     const subgraphs = await subgraphRepository.getAggregates(
       [command.subgraphSystemId],
@@ -105,6 +116,7 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
         fileSystemId,
         allDefs,
         subgraphRepository,
+        usecaseRepository,
       );
     }
 
@@ -266,12 +278,24 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
 
     await this.wipeModuleCalData(modules, fileSystemId, moduleRepository, log);
 
+    await this.addVcpmModules(
+      subgraphSystemId,
+      fileSystemId,
+      subgraphRepository,
+    );
+  }
+
+  private async addVcpmModules(
+    subgraphSystemId: number,
+    fileSystemId: number,
+    subgraphRepository: SubgraphRepository,
+  ): Promise<void> {
     const vcpmDefinitionRepository = this.uow.getVcpmDefinitionRepository();
     const vcpmDefs =
       await vcpmDefinitionRepository.getAllVcpmModuleDefinitions(fileSystemId);
-    const defaults = vcpmDefs.map(definition => ({
-      definitionSystemId: definition.moduleDefinitionSystemId,
-      parameters: definition.parameters.map(parameter => {
+
+    for (const definition of vcpmDefs) {
+      const serializedParameters = definition.parameters.map(parameter => {
         const serialized = serializeDefaultParameterData(parameter);
         if (!serialized.ok) {
           throw new InvalidOperationException(serialized.error);
@@ -280,12 +304,42 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
           parameterSystemId: parameter.systemId,
           payload: serialized.value,
         };
-      }),
-    }));
-    await vcpmDefinitionRepository.addVcpmDefaultData(
-      subgraphSystemId,
-      defaults,
-    );
+      });
+
+      const instanceSystemId = await this.idGeneration.getNextId(fileSystemId);
+      const ckvSystemId = await this.idGeneration.getNextId(fileSystemId);
+      const ckv = new KvData({
+        systemId: ckvSystemId,
+        valueDefinitionSystemIds: [],
+        uiPersistence: null,
+      });
+      const payloadSystemIdsByParameterSystemId = new Map<number, number>();
+      for (const parameter of serializedParameters) {
+        const payloadSystemId = await this.idGeneration.getNextId(fileSystemId);
+        ckv.addParameterPayload(
+          new ModuleParameterData(
+            asSystemId(parameter.parameterSystemId),
+            parameter.payload,
+          ),
+        );
+        payloadSystemIdsByParameterSystemId.set(
+          parameter.parameterSystemId,
+          payloadSystemId,
+        );
+      }
+
+      const instance = new VcpmInstance({
+        systemId: instanceSystemId,
+        subgraphSystemId,
+        vcpmModuleDefinitionSystemId: definition.moduleDefinitionSystemId,
+      });
+      instance.addCkv(ckv);
+
+      await subgraphRepository.addVcpmModule(
+        instance,
+        payloadSystemIdsByParameterSystemId,
+      );
+    }
   }
 
   private async voiceToAudioCascade(
@@ -366,6 +420,7 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
     fileSystemId: number,
     allDefs: SubgraphPropertyDefinition[],
     subgraphRepository: SubgraphRepository,
+    usecaseRepository: UsecaseRepository,
   ): Promise<number> {
     const vsidDef = allDefs.find(d => d.naturalId === SUB_GRAPH_PROP_ID_VSID);
     if (!vsidDef)
@@ -380,6 +435,7 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
       vsidDef.systemId,
       scenarioDefSystemId,
       subgraphRepository,
+      usecaseRepository,
     );
 
     if (foundVsids.size === 0) {
@@ -421,11 +477,13 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
     vsidDefSystemId: number,
     scenarioDefSystemId: number | undefined,
     subgraphRepository: SubgraphRepository,
+    usecaseRepository: UsecaseRepository,
   ): Promise<Set<number>> {
-    // Pass 1: BFS using only findSubgraphIdsSharingUsecases
-    const reachableIds = await this.bfsReachableIds(
+    // Pass 1: BFS through usecase aggregates
+    const reachableIds = await findReachableSubgraphIds(
       startSubgraphId,
-      subgraphRepository,
+      fileSystemId,
+      usecaseRepository,
     );
     reachableIds.delete(startSubgraphId); // exclude self — we only want linked Voice subgraphs
 
@@ -460,26 +518,5 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
       }
     }
     return foundVsids;
-  }
-
-  /**
-   * Expand the graph one level at a time. `visited` prevents revisiting a
-   * subgraph when usecases create cycles and guarantees termination.
-   * Repository traversal keeps the handler independent of link tables.
-   */
-  private async bfsReachableIds(
-    startId: number,
-    subgraphRepository: SubgraphRepository,
-  ): Promise<Set<number>> {
-    const visited = new Set<number>([startId]);
-    let frontier = [startId];
-
-    while (frontier.length > 0) {
-      const linked =
-        await subgraphRepository.findSubgraphIdsSharingUsecases(frontier);
-      frontier = linked.filter(id => !visited.has(id));
-      for (const id of frontier) visited.add(id);
-    }
-    return visited;
   }
 }

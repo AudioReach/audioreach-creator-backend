@@ -19,6 +19,8 @@ import type {SetSubgraphVsidCommand} from './set-subgraph-vsid.command.js';
 import type {VsidUpdateDto} from '../dto/subgraph-write-result-types.js';
 import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/subgraph.js';
 import type {SubgraphRepository} from '../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
+import type {UsecaseRepository} from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
+import {findReachableSubgraphIds} from '../shared/find-reachable-subgraph-ids.js';
 
 export class SetSubgraphVsidHandler implements CommandHandler<
   SetSubgraphVsidCommand,
@@ -30,6 +32,7 @@ export class SetSubgraphVsidHandler implements CommandHandler<
     const {session, groupId} = this.uow.getWriteContext();
     const {fileSystemId} = session;
     const subgraphRepository = this.uow.getSubgraphRepository();
+    const usecaseRepository = this.uow.getUsecaseRepository();
 
     const subgraphs = await subgraphRepository.getAggregates(
       [command.subgraphSystemId],
@@ -87,8 +90,8 @@ export class SetSubgraphVsidHandler implements CommandHandler<
       vsidDef.systemId,
       scenarioDef?.systemId,
       requestedVsid,
-      subgraph,
       subgraphRepository,
+      usecaseRepository,
     );
 
     await this.uow.startTransaction();
@@ -117,13 +120,14 @@ export class SetSubgraphVsidHandler implements CommandHandler<
     vsidDefSystemId: number,
     scenarioDefSystemId: number | undefined,
     requestedVsid: number,
-    startSubgraph: Subgraph,
     subgraphRepository: SubgraphRepository,
+    usecaseRepository: UsecaseRepository,
   ): Promise<Set<number>> {
     // Pass 1: BFS to collect all reachable IDs
-    const reachableIds = await this.bfsReachableIds(
+    const reachableIds = await findReachableSubgraphIds(
       startId,
-      subgraphRepository,
+      fileSystemId,
+      usecaseRepository,
     );
 
     // Pass 2: batch-fetch properties for linked subgraphs only (startId already fetched)
@@ -132,9 +136,6 @@ export class SetSubgraphVsidHandler implements CommandHandler<
       linkedIds.length > 0
         ? await subgraphRepository.getAggregates(linkedIds, fileSystemId)
         : new Map<number, Subgraph>();
-
-    // Seed the map with the already-fetched start subgraph
-    subgraphMap.set(startId, startSubgraph);
 
     // Pass 3: filter — determine which IDs need a VSID write
     const toWrite = new Set<number>([startId]);
@@ -179,21 +180,5 @@ export class SetSubgraphVsidHandler implements CommandHandler<
       ? new BinaryDataReader(linkedVsidPayload).readUInt32()
       : undefined;
     return linkedVsid !== requestedVsid;
-  }
-
-  private async bfsReachableIds(
-    startId: number,
-    subgraphRepository: SubgraphRepository,
-  ): Promise<Set<number>> {
-    const visited = new Set<number>([startId]);
-    let frontier = [startId];
-
-    while (frontier.length > 0) {
-      const linked =
-        await subgraphRepository.findSubgraphIdsSharingUsecases(frontier);
-      frontier = linked.filter(id => !visited.has(id));
-      for (const id of frontier) visited.add(id);
-    }
-    return visited;
   }
 }

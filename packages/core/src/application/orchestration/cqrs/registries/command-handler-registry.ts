@@ -239,7 +239,8 @@ export class CommandHandlerRegistry {
     });
 
     this.commandHandlerFactories.set(SetSubgraphScenarioCommand, {
-      create: deps => new SetSubgraphScenarioHandler(deps.uow),
+      create: deps =>
+        new SetSubgraphScenarioHandler(deps.uow, deps.idGeneration),
     });
 
     this.commandHandlerFactories.set(SetSubgraphVsidCommand, {
