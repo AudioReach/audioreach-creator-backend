@@ -12,7 +12,7 @@ import {
 import type {DataPortReadModel} from '../../../../../../src/application/ports/persistence/query-services/spf-module/ports/data-port-read-model.js';
 
 describe('mapDataPort', () => {
-  it('maps enum INPUT and OUTPUT port directions to API labels', () => {
+  it('maps every domain port direction to its API label', () => {
     const basePort: Omit<DataPortReadModel, 'portIoType'> = {
       systemId: 101,
       naturalId: 1,
@@ -27,6 +27,14 @@ describe('mapDataPort', () => {
     expect(
       mapDataPort({...basePort, portIoType: PORT_IO_TYPE.Output}).portIoType,
     ).toBe('Output');
+    expect(
+      mapDataPort({...basePort, portIoType: PORT_IO_TYPE.InputOutput})
+        .portIoType,
+    ).toBe('InputOutput');
+    expect(
+      mapDataPort({...basePort, portIoType: PORT_IO_TYPE.OutputInput})
+        .portIoType,
+    ).toBe('OutputInput');
   });
 
   it('produces output that passes DataPortDtoSchema validation', () => {

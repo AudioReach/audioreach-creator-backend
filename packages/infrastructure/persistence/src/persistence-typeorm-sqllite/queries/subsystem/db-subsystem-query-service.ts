@@ -14,6 +14,12 @@ import {Result, IssueFactory} from '@arc/core';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
 import {UseCaseQueryMappers} from '../usecase/usecase-query-mappers.js';
 import {SubsystemOverlayFetcher} from '../../fetchers/subsystem-overlay-fetcher.js';
+import {NodeOverlayFetcher} from '../../fetchers/node-overlay-fetcher.js';
+import {
+  PortOverlayFetcher,
+  type OverlaidControlPort,
+  type OverlaidDataPort,
+} from '../../fetchers/port-overlay-fetcher.js';
 import type {ControlLinkBase} from '../../entity-schema/usecase-data/Links/control-link.js';
 import type {DataLinkBase} from '../../entity-schema/usecase-data/Links/data-link.js';
 import type {UsecaseOverlayFetcher} from '../../fetchers/usecase-overlay-fetcher.js';
@@ -29,6 +35,8 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly subsystemFetcher: SubsystemOverlayFetcher,
+    private readonly nodeFetcher: NodeOverlayFetcher,
+    private readonly portFetcher: PortOverlayFetcher,
     private readonly usecaseFetcher: UsecaseOverlayFetcher,
     private readonly linkFetcher: LinkOverlayFetcher,
   ) {}
@@ -52,15 +60,108 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
           ? subsystems
           : subsystems.filter(s => systemIds.includes(s.systemId));
 
+      const missingNaturalId = selectedSubsystems.find(
+        subsystem => subsystem.subsystemId == null,
+      );
+      if (missingNaturalId) {
+        return Result.fail(
+          IssueFactory.dbError(
+            `Subsystem ${missingNaturalId.systemId} is missing its natural ID`,
+          ),
+        );
+      }
+
+      const subsystemSystemIds = selectedSubsystems.map(s => s.systemId);
+      if (subsystemSystemIds.length === 0) return Result.ok([]);
+
+      const [nodes, dataPorts, controlPorts, dataSegments, controlSegments] =
+        await Promise.all([
+          this.nodeFetcher.fetchMany(
+            subsystemSystemIds,
+            fileSystemId,
+            sessionId,
+          ),
+          this.portFetcher.fetchDataPortsForNodes(
+            subsystemSystemIds,
+            fileSystemId,
+            sessionId,
+          ),
+          this.portFetcher.fetchControlPortsWithIntentsForNodes(
+            subsystemSystemIds,
+            fileSystemId,
+            sessionId,
+          ),
+          this.linkFetcher.loadSubsystemDataLinkRows(fileSystemId, sessionId),
+          this.linkFetcher.loadSubsystemControlLinkRows(
+            fileSystemId,
+            sessionId,
+          ),
+        ]);
+
+      const nodeBySystemId = new Map(nodes.map(node => [node.systemId, node]));
+      const dataPortsByNode = this.groupPortsByNode(dataPorts);
+      const controlPortsByNode = this.groupPortsByNode(controlPorts);
+      const dataLinkCounts = this.countPortReferences(
+        dataSegments.map(segment => [
+          segment.sourcePortSystemId,
+          segment.destinationPortSystemId,
+        ]),
+      );
+      const controlLinkCounts = this.countPortReferences(
+        controlSegments.map(segment => [
+          segment.nodeAPortSystemId,
+          segment.nodeBPortSystemId,
+        ]),
+      );
+
       return Result.ok(
-        selectedSubsystems.map(s => ({
-          systemId: s.systemId,
-          subsystemNaturalId: s.subsystemId,
-          name: s.name,
-          parentSystemId: s.parentSystemId,
-          filteredKeys: [],
-          filteredKeySystemIds: s.filteredKeySystemIds,
-        })),
+        selectedSubsystems.map(subsystem => {
+          const naturalId = subsystem.subsystemId;
+          if (naturalId == null) {
+            throw new Error(
+              `Subsystem ${subsystem.systemId} is missing its natural ID`,
+            );
+          }
+          const node = nodeBySystemId.get(subsystem.systemId);
+          if (!node) {
+            throw new Error(
+              `Node ${subsystem.systemId} is missing for subsystem`,
+            );
+          }
+
+          return {
+            systemId: subsystem.systemId,
+            subsystemNaturalId: naturalId,
+            name: subsystem.name,
+            parentSystemId: node.parentSystemId,
+            dataPorts: (dataPortsByNode.get(subsystem.systemId) ?? []).map(
+              port => ({
+                systemId: port.systemId,
+                naturalId: port.naturalId,
+                name: port.name ?? '',
+                portIoType: port.portIoType,
+                isStatic: port.isStatic,
+                totalLinksAtPort: dataLinkCounts.get(port.systemId) ?? 0,
+              }),
+            ),
+            controlPorts: (
+              controlPortsByNode.get(subsystem.systemId) ?? []
+            ).map(port => ({
+              systemId: port.systemId,
+              naturalId: port.naturalId,
+              name: port.name ?? '',
+              isStatic: port.isStatic,
+              allocatedIntents: port.intents.map(intent => ({
+                systemId: intent.systemId,
+                naturalId: intent.naturalId,
+                name: `Intent_${intent.naturalId}`,
+              })),
+              totalLinksAtPort: controlLinkCounts.get(port.systemId) ?? 0,
+            })),
+            filteredKeys: [],
+            filteredKeySystemIds: subsystem.filteredKeySystemIds,
+          };
+        }),
       );
     } catch (error) {
       return Result.fail(
@@ -69,6 +170,28 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
         ),
       );
     }
+  }
+
+  private groupPortsByNode<
+    TPort extends OverlaidDataPort | OverlaidControlPort,
+  >(ports: TPort[]): Map<number, TPort[]> {
+    const portsByNode = new Map<number, TPort[]>();
+    for (const port of ports) {
+      const nodePorts = portsByNode.get(port.nodeSystemId) ?? [];
+      nodePorts.push(port);
+      portsByNode.set(port.nodeSystemId, nodePorts);
+    }
+    return portsByNode;
+  }
+
+  private countPortReferences(portPairs: number[][]): Map<number, number> {
+    const counts = new Map<number, number>();
+    for (const pair of portPairs) {
+      for (const portSystemId of new Set(pair)) {
+        counts.set(portSystemId, (counts.get(portSystemId) ?? 0) + 1);
+      }
+    }
+    return counts;
   }
 
   /**

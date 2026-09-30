@@ -12,6 +12,14 @@ import {setupE2ETest, teardownE2ETest} from '../helpers/e2e-test-setup.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+function collectSubsystems(collection: any): any[] {
+  const subsystems = collection?.subsystems ?? [];
+  return subsystems.flatMap((subsystem: any) => [
+    subsystem,
+    ...collectSubsystems(subsystem.children),
+  ]);
+}
+
 describe('Usecase & Subgraph Component Query E2E', () => {
   let app: INestApplication;
   let httpServer: any;
@@ -263,7 +271,7 @@ describe('Usecase & Subgraph Component Query E2E', () => {
       expect(Array.isArray(data.subsystems)).toBe(true);
     });
 
-    it('subsystems have children with same shape (recursive)', async () => {
+    it('subsystems expose natural IDs, owned ports, and recursive children', async () => {
       if (!projectId || !usecaseIds.length) return;
 
       const resp = await request(httpServer)
@@ -276,15 +284,45 @@ describe('Usecase & Subgraph Component Query E2E', () => {
 
       if (resp.status !== 200) return;
 
-      for (const sub of resp.body.data.subsystems ?? []) {
+      for (const sub of collectSubsystems(resp.body.data)) {
         expect(sub.systemId).toBeDefined();
+        expect(typeof sub.naturalId).toBe('number');
         expect(sub.name).toBeDefined();
+        expect(Array.isArray(sub.dataPorts)).toBe(true);
+        expect(Array.isArray(sub.controlPorts)).toBe(true);
         expect(sub.children).toBeDefined();
         expect(Array.isArray(sub.children.spfModules)).toBe(true);
         expect(Array.isArray(sub.children.subsystems)).toBe(true);
         // Virtual link arrays must always be present at every subsystem level (QWS-06, QWS-07)
         expect(Array.isArray(sub.children.dataLinks)).toBe(true);
         expect(Array.isArray(sub.children.controlLinks)).toBe(true);
+
+        for (const port of sub.dataPorts) {
+          expect(port).toEqual(
+            expect.objectContaining({
+              systemId: expect.any(String),
+              naturalId: expect.any(Number),
+              name: expect.any(String),
+              portIoType: expect.stringMatching(
+                /^(Input|Output|InputOutput|OutputInput)$/,
+              ),
+              portType: expect.stringMatching(/^(Static|Dynamic)$/),
+              totalLinksAtPort: expect.any(Number),
+            }),
+          );
+        }
+        for (const port of sub.controlPorts) {
+          expect(port).toEqual(
+            expect.objectContaining({
+              systemId: expect.any(String),
+              naturalId: expect.any(Number),
+              name: expect.any(String),
+              portType: expect.stringMatching(/^(Static|Dynamic)$/),
+              totalLinksAtPort: expect.any(Number),
+              intents: expect.any(Array),
+            }),
+          );
+        }
       }
     });
 

@@ -6,6 +6,8 @@
 import type {ComponentsReadModel} from '../../../ports/persistence/query-services/usecase/query-models/components-read-model.js';
 import type {KeyDefinitionSummaryReadModel} from '../../../ports/persistence/query-services/key-value/key-value-definition-read-model.js';
 import type {SubsystemDataLinkReadModel} from '../../../ports/persistence/query-services/usecase/query-models/subsystem-data-link-read-model.js';
+import type {DataPortReadModel} from '../../../ports/persistence/query-services/spf-module/ports/data-port-read-model.js';
+import type {ControlPortReadModel} from '../../../ports/persistence/query-services/spf-module/ports/control-port-read-model.js';
 
 /**
  * One node in the subsystem tree.
@@ -14,7 +16,10 @@ import type {SubsystemDataLinkReadModel} from '../../../ports/persistence/query-
  */
 export interface SubsystemNodeReadModel {
   readonly systemId: number;
+  readonly naturalId: number;
   readonly name: string;
+  readonly dataPorts: DataPortReadModel[];
+  readonly controlPorts: ControlPortReadModel[];
   readonly filteredKeys: KeyDefinitionSummaryReadModel[];
   readonly children: ComponentsWithSubsystemsReadModel;
 }

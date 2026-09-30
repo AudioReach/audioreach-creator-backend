@@ -102,12 +102,18 @@ export function buildSubsystemTree(
       if (visited.has(id)) return []; // skip cycles
       const sub = subsystemById.get(id);
       if (!sub) return []; // skip orphaned IDs
+      if (sub.subsystemNaturalId === undefined) {
+        throw new Error(`Subsystem ${sub.systemId} is missing its natural ID`);
+      }
       const nextVisited = new Set(visited);
       nextVisited.add(id);
       return [
         {
           systemId: sub.systemId,
+          naturalId: sub.subsystemNaturalId,
           name: sub.name,
+          dataPorts: sub.dataPorts,
+          controlPorts: sub.controlPorts,
           filteredKeys: sub.filteredKeys,
           children: buildLevel(sub.systemId, nextVisited), // recurse
         },

@@ -63,6 +63,9 @@ import {VcpmCkvFetcher} from '../fetchers/vcpm-ckv-fetcher.js';
 import {VcpmParameterPayloadFetcher} from '../fetchers/vcpm-parameter-payload-fetcher.js';
 import {VcpmModuleParameterDefinitionFetcher} from '../fetchers/definitions/vcpm-module-definitions/vcpm-module-parameter-definition-fetcher.js';
 import {SubsystemOverlayFetcher} from '../fetchers/subsystem-overlay-fetcher.js';
+import {NodeOverlayFetcher} from '../fetchers/node-overlay-fetcher.js';
+import {PortOverlayFetcher} from '../fetchers/port-overlay-fetcher.js';
+import {IntentFetcher} from '../fetchers/intent-fetcher.js';
 
 class DbModuleQueryService implements ModuleQueryService {}
 
@@ -133,6 +136,15 @@ export class DbQueryServices implements QueryServices {
     const subsystemOverlayFetcher = new SubsystemOverlayFetcher(
       dataSource.manager,
       editActionsQueryService,
+    );
+    const nodeOverlayFetcher = new NodeOverlayFetcher(
+      dataSource.manager,
+      editActionsQueryService,
+    );
+    const portOverlayFetcher = new PortOverlayFetcher(
+      dataSource.manager,
+      editActionsQueryService,
+      new IntentFetcher(dataSource.manager, editActionsQueryService),
     );
     const ckvPayloadFetcher = new CkvParameterPayloadFetcher(
       dataSource.manager,
@@ -285,6 +297,8 @@ export class DbQueryServices implements QueryServices {
     this.subsystemQueryService = new DbSubsystemQueryService(
       dataSource,
       subsystemOverlayFetcher,
+      nodeOverlayFetcher,
+      portOverlayFetcher,
       usecaseOverlayFetcher,
       linkOverlayFetcher,
     );
