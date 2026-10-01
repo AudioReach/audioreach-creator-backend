@@ -32,10 +32,12 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {toApiResult} from '../../common/result/to-api-result.js';
 import {ClientId} from '../../../../decorators/client-id.decorator.js';
+import {ArcSession} from '../../../../guards/arc-session.decorator.js';
 import {parseModulePortLinkFilter} from '../../common/utils/subgraph-peer-link-filter.js';
 import {ComponentsResponseDto} from '../../common/dto/component-collection-response.dto.js';
 import {ComponentsWithSubsystemsResponseDto} from '../../common/dto/component-collection-with-subsystems.dto.js';
 import {ControlLinkWithUsecasesResponseDto} from '../usecase/dto/control-link-with-usecases.dto.js';
+import {SessionGuard} from '../../../../guards/session-guard.js';
 import {
   CommandBus,
   QueryBus,
@@ -44,6 +46,7 @@ import {
   Result,
   GetControlLinksByModulePortQuery,
   type ControlLinkWithUsecasesDto,
+  type ActiveSession,
 } from '@arc/core';
 
 /**
@@ -135,6 +138,7 @@ export class ControlLinkController extends BaseController {
    * Stores all segments in DB; returns ComponentsResponseDto.
    */
   @Post()
+  @UseGuards(SessionGuard)
   @ApiDocumentationWithExample({
     summary: 'Create a new control link (flat view)',
     description:
@@ -162,6 +166,7 @@ export class ControlLinkController extends BaseController {
   async createControlLink(
     @Param('projectId') projectId: string,
     @Body() createDto: CreateControlLinkRequest,
+    @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<ComponentsResponseDto>> {
     console.log(
       'Creating control link for project:',
@@ -179,8 +184,10 @@ export class ControlLinkController extends BaseController {
       0,
     );
 
-    const components =
-      await this.commandBus.execute<ComponentsResponseDto>(command);
+    const components = await this.commandBus.execute<ComponentsResponseDto>(
+      command,
+      session,
+    );
     return toApiResult(Result.ok(components));
   }
 
@@ -189,6 +196,7 @@ export class ControlLinkController extends BaseController {
    * Performs the SAME DB write as POST /control-links.
    */
   @Post('with-subsystems')
+  @UseGuards(SessionGuard)
   @ApiDocumentationWithExample({
     summary: 'Create a new control link (full view with subsystem hierarchy)',
     description:
@@ -216,6 +224,7 @@ export class ControlLinkController extends BaseController {
   async createControlLinkWithSubsystems(
     @Param('projectId') projectId: string,
     @Body() createDto: CreateControlLinkRequest,
+    @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<ComponentsWithSubsystemsResponseDto>> {
     console.log(
       'Creating control link (with-subsystems) for project:',
@@ -231,8 +240,10 @@ export class ControlLinkController extends BaseController {
       0,
     );
 
-    const components =
-      await this.commandBus.execute<ComponentsResponseDto>(command);
+    const components = await this.commandBus.execute<ComponentsResponseDto>(
+      command,
+      session,
+    );
     return toApiResult(Result.ok({...components, subsystems: []}));
   }
 
@@ -240,6 +251,7 @@ export class ControlLinkController extends BaseController {
    * Update a control link's properties.
    */
   @Patch('/:controlLinkSystemId/properties')
+  @UseGuards(SessionGuard)
   @ApiDocumentationWithExample({
     summary: 'Update control link properties',
     requestDto: ControlLinkPropertiesResponseDto,
@@ -324,6 +336,7 @@ export class ControlLinkController extends BaseController {
    * Returns deleted entities and affected subsystems with cleared port intents.
    */
   @Delete(':controlLinkSystemId')
+  @UseGuards(SessionGuard)
   @ApiParam({
     name: 'controlLinkSystemId',
     required: true,
@@ -354,6 +367,7 @@ export class ControlLinkController extends BaseController {
   async deleteControlLink(
     @Param('projectId') projectId: string,
     @Param('controlLinkSystemId') controlLinkSystemId: string,
+    @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<DeleteControlLinkResponseDto>> {
     console.log(
       'Deleting control link:',
@@ -366,8 +380,10 @@ export class ControlLinkController extends BaseController {
       Number.parseInt(controlLinkSystemId, 10),
     );
 
-    const deleted =
-      await this.commandBus.execute<DeleteControlLinkResponseDto>(command);
+    const deleted = await this.commandBus.execute<DeleteControlLinkResponseDto>(
+      command,
+      session,
+    );
     return toApiResult(Result.ok(deleted));
   }
 }
