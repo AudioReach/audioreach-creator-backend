@@ -11,30 +11,19 @@ import {
   RESULT_KIND,
 } from '../../../../../../src/application/shared/result/result.js';
 import type {QueryServices} from '../../../../../../src/application/ports/persistence/query-services/query-services.js';
-import type {UsecaseFilteredGkvData} from '../../../../../../src/application/services/subsystem-filtered-gkv-service.js';
 import {SubsystemFilteredGkvService} from '../../../../../../src/application/services/subsystem-filtered-gkv-service.js';
-
-const emptyData: UsecaseFilteredGkvData = {
-  usecases: [],
-  subgraphSystemIdsByUsecase: new Map(),
-  subgraphNaturalIdsBySystemId: new Map(),
-  subsystems: [],
-  modules: [],
-};
+import type {UseCaseQueryService} from '../../../../../../src/application/ports/persistence/query-services/usecase/usecase-query-service.js';
 
 describe('GetSubsystemFilteredUsecasesHandler', () => {
-  function buildServices(dataResult = Result.ok(emptyData)) {
+  function buildServices() {
     return {
       projectQueryService: {
         getFileIdByProjectId: jest.fn().mockResolvedValue(42),
       },
-      useCaseQueryService: {
-        getUsecaseFilteredGkvData: jest.fn().mockResolvedValue(dataResult),
-      },
     } as unknown as jest.Mocked<QueryServices>;
   }
 
-  it('loads the project data and forwards the filter to core', async () => {
+  it('loads the project data and delegates to the domain service', async () => {
     const services = buildServices();
     const filter = {
       type: 'condition' as const,
@@ -42,7 +31,7 @@ describe('GetSubsystemFilteredUsecasesHandler', () => {
       value: 0x10,
     };
     const coreService = {
-      buildFilteredGkv: jest.fn().mockReturnValue(Result.ok([])),
+      resolveFilteredGroups: jest.fn().mockResolvedValue(Result.ok([])),
     } as unknown as SubsystemFilteredGkvService;
 
     const result = await new GetSubsystemFilteredUsecasesHandler(
@@ -54,26 +43,24 @@ describe('GetSubsystemFilteredUsecasesHandler', () => {
     expect(
       services.projectQueryService.getFileIdByProjectId,
     ).toHaveBeenCalledWith(7);
-    expect(
-      services.useCaseQueryService.getUsecaseFilteredGkvData,
-    ).toHaveBeenCalledWith(42);
-    expect(coreService.buildFilteredGkv).toHaveBeenCalledWith(
-      emptyData,
-      filter,
-    );
+    expect(coreService.resolveFilteredGroups).toHaveBeenCalledWith(42, filter);
   });
 
-  it('propagates persistence failures without transforming them', async () => {
-    const services = buildServices(
-      Result.fail({
-        code: 'DB_QUERY_FAILED',
-        message: 'failed',
-        severity: 'Error',
-      } as never),
-    );
+  it('propagates failures from the domain service', async () => {
+    const services = buildServices();
+    const coreService = {
+      resolveFilteredGroups: jest.fn().mockResolvedValue(
+        Result.fail({
+          code: 'DB_QUERY_FAILED',
+          message: 'failed',
+          severity: 'Error',
+        } as never),
+      ),
+    } as unknown as SubsystemFilteredGkvService;
+
     const result = await new GetSubsystemFilteredUsecasesHandler(
       services,
-      new SubsystemFilteredGkvService(),
+      coreService,
     ).handle(new GetSubsystemFilteredUsecasesQuery(7, 'client'));
 
     expect(result).toEqual(expect.objectContaining({kind: RESULT_KIND.Fail}));

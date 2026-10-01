@@ -45,10 +45,11 @@ export type OverlaidUseCasePair = {
 
 /**
  * Assembled UseCase after session overlay.
- * `gkvEntries` and `categoryNames` are empty arrays when the fetcher is
- * constructed without the optional `gkvFetcher` / `categoryFetcher`.
- * `subgraphSystemIds` and `subgraphPairs` carry junction data with overlay
- * applied and are always populated.
+ * `gkvEntries`, `categoryNames`, `subgraphSystemIds`, and `subgraphPairs`
+ * carry junction data with overlay applied and are always populated.
+ * Methods that populate `gkvEntries` / `categoryNames` require the
+ * corresponding fetchers to be provided at construction time and throw if they
+ * are absent.
  */
 export interface OverlaidUseCase extends Omit<UseCaseBase, 'type'> {
   type: UsecaseType | null;
@@ -67,6 +68,22 @@ export class UsecaseOverlayFetcher {
     private readonly categoryFetcher?: UseCaseCategoryFetcher,
     private readonly gkvFetcher?: UsecaseGkvValuesFetcher,
   ) {}
+
+  private get requiredGkvFetcher(): UsecaseGkvValuesFetcher {
+    if (!this.gkvFetcher)
+      throw new Error(
+        'UsecaseOverlayFetcher: gkvFetcher is required for this operation',
+      );
+    return this.gkvFetcher;
+  }
+
+  private get requiredCategoryFetcher(): UseCaseCategoryFetcher {
+    if (!this.categoryFetcher)
+      throw new Error(
+        'UsecaseOverlayFetcher: categoryFetcher is required for this operation',
+      );
+    return this.categoryFetcher;
+  }
 
   // ── Core entry point ─────────────────────────────────────────────────────────
 
@@ -140,12 +157,8 @@ export class UsecaseOverlayFetcher {
     const baseRow = usecases[0];
 
     const [gkvRows, catRows, sgIdMap, pairMap] = await Promise.all([
-      this.gkvFetcher
-        ? this.gkvFetcher.fetchMany([usecaseSystemId], sessionId)
-        : Promise.resolve([] as UsecaseGkvValuesBase[]),
-      this.categoryFetcher
-        ? this.categoryFetcher.fetchMany([usecaseSystemId], sessionId)
-        : Promise.resolve([] as Array<{usecaseSystemId: number; name: string}>),
+      this.requiredGkvFetcher.fetchMany([usecaseSystemId], sessionId),
+      this.requiredCategoryFetcher.fetchMany([usecaseSystemId], sessionId),
       this.getSubgraphIdMap([usecaseSystemId], sessionId),
       this.getSubgraphPairMap([usecaseSystemId], sessionId),
     ]);
@@ -185,12 +198,8 @@ export class UsecaseOverlayFetcher {
     const ucIds = usecases.map(r => r.systemId);
 
     const [gkvRows, catRows, sgIdMap, pairMap] = await Promise.all([
-      this.gkvFetcher
-        ? this.gkvFetcher.fetchMany(ucIds, sessionId)
-        : Promise.resolve([] as UsecaseGkvValuesBase[]),
-      this.categoryFetcher
-        ? this.categoryFetcher.fetchMany(ucIds, sessionId)
-        : Promise.resolve([] as Array<{usecaseSystemId: number; name: string}>),
+      this.requiredGkvFetcher.fetchMany(ucIds, sessionId),
+      this.requiredCategoryFetcher.fetchMany(ucIds, sessionId),
       this.getSubgraphIdMap(ucIds, sessionId),
       this.getSubgraphPairMap(ucIds, sessionId),
     ]);
@@ -205,6 +214,57 @@ export class UsecaseOverlayFetcher {
         catMap.get(uc.systemId) ?? [],
         sgIdMap.get(uc.systemId) ?? [],
         pairMap.get(uc.systemId) ?? [],
+      ),
+    );
+  }
+
+  /**
+   * Loads only the usecase topology needed by subsystem-filtered queries.
+   * GKV entries, categories, and subgraph pairs are deliberately excluded.
+   */
+  async getUsecaseSubgraphMap(
+    fileSystemId: number,
+    sessionId: number | null,
+  ): Promise<Map<number, number[]>> {
+    const usecases = await this.fetchMany(fileSystemId, sessionId);
+    const ids = usecases.map(usecase => usecase.systemId);
+    return this.getSubgraphIdMap(ids, sessionId);
+  }
+
+  /**
+   * Loads the response fields required by subsystem-filtered GKV grouping.
+   * Unlike getUsecases(), this does not load subgraph pairs.
+   */
+  async getUsecasesForFilteredGkv(
+    fileSystemId: number,
+    sessionId: number | null,
+    restrictToIds?: number[],
+  ): Promise<OverlaidUseCase[]> {
+    if (restrictToIds?.length === 0) return [];
+
+    const usecases = await this.fetchMany(
+      fileSystemId,
+      sessionId,
+      restrictToIds === undefined ? undefined : {systemId: restrictToIds},
+    );
+    if (usecases.length === 0) return [];
+
+    const ids = usecases.map(usecase => usecase.systemId);
+    const [gkvRows, catRows, sgIdMap] = await Promise.all([
+      this.requiredGkvFetcher.fetchMany(ids, sessionId),
+      this.requiredCategoryFetcher.fetchMany(ids, sessionId),
+      this.getSubgraphIdMap(ids, sessionId),
+    ]);
+    const gkvMap = this.groupGkvByUsecase(gkvRows);
+    const categoryMap = this.groupCategoriesByUsecase(catRows);
+
+    return usecases.map(uc =>
+      this.assembleUsecase(
+        uc,
+        gkvMap.get(uc.systemId) ?? [],
+        categoryMap.get(uc.systemId) ?? [],
+        sgIdMap.get(uc.systemId) ?? [],
+        [],
       ),
     );
   }
@@ -229,18 +289,14 @@ export class UsecaseOverlayFetcher {
 
     const ucIds = usecases.map(usecase => usecase.systemId);
     const [gkvRows, catRows, sgIdMap, pairMap] = await Promise.all([
-      this.gkvFetcher
-        ? this.gkvFetcher.fetchManyWithActions(
-            ucIds,
-            actionsFor(ENTITY_NAMES.UsecaseGkvValues),
-          )
-        : Promise.resolve([] as UsecaseGkvValuesBase[]),
-      this.categoryFetcher
-        ? this.categoryFetcher.fetchManyWithActions(
-            ucIds,
-            actionsFor(ENTITY_NAMES.UseCaseCategory),
-          )
-        : Promise.resolve([] as Array<{usecaseSystemId: number; name: string}>),
+      this.requiredGkvFetcher.fetchManyWithActions(
+        ucIds,
+        actionsFor(ENTITY_NAMES.UsecaseGkvValues),
+      ),
+      this.requiredCategoryFetcher.fetchManyWithActions(
+        ucIds,
+        actionsFor(ENTITY_NAMES.UseCaseCategory),
+      ),
       this.getSubgraphIdMap(
         ucIds,
         null,
@@ -292,8 +348,7 @@ export class UsecaseOverlayFetcher {
     usecaseSystemIds: number[],
     sessionId: number | null,
   ): Promise<Array<{usecaseSystemId: number; name: string}>> {
-    if (!this.categoryFetcher) return [];
-    return this.categoryFetcher.fetchMany(usecaseSystemIds, sessionId);
+    return this.requiredCategoryFetcher.fetchMany(usecaseSystemIds, sessionId);
   }
 
   /** Returns distinct subgraph IDs associated with the given usecases. */

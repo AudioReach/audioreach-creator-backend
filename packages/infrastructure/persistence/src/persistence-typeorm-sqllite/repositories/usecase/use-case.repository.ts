@@ -23,6 +23,7 @@ import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {UsecaseOverlayFetcher} from '../../fetchers/usecase-overlay-fetcher.js';
 import type {OverlaidUseCase} from '../../fetchers/usecase-overlay-fetcher.js';
 import {UsecaseGkvValuesFetcher} from '../../fetchers/usecase-gkv-values-fetcher.js';
+import {UseCaseCategoryFetcher} from '../../fetchers/usecase-category-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
 import type {UseCaseSubgraphBase} from '../../entity-schema/usecase-data/use-case-subgraph.schema.js';
 import type {UseCaseSubgraphPairBase} from '../../entity-schema/usecase-data/use-case-subgraph-pair.schema.js';
@@ -40,7 +41,7 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     this.ucFetcher = new UsecaseOverlayFetcher(
       manager,
       editActionsQueryService,
-      undefined,
+      new UseCaseCategoryFetcher(manager, editActionsQueryService),
       new UsecaseGkvValuesFetcher(manager, editActionsQueryService),
     );
   }
