@@ -5,10 +5,15 @@
 
 import type {FilterExpression} from '../../shared/filter/filter-expression.js';
 import {IssueFactory} from '../../shared/issues/factories.js';
-import {Result, type Result as ArcResult} from '../shared/result/result.js';
-import type {SubsystemReadModel} from '../ports/persistence/query-services/subsystem/subsystem-read-model.js';
+import {
+  RESULT_KIND,
+  Result,
+  type Result as ArcResult,
+} from '../shared/result/result.js';
+import type {KeyDefinitionSummaryReadModel} from '../ports/persistence/query-services/key-value/key-value-definition-read-model.js';
 import type {KeyValuePairReadModel} from '../ports/persistence/query-services/usecase/query-models/key-vector-read-model.js';
 import type {UseCaseReadModel} from '../ports/persistence/query-services/usecase/query-models/usecase-read-model.js';
+import type {UseCaseQueryService} from '../ports/persistence/query-services/usecase/usecase-query-service.js';
 
 /** Minimal module topology required by the subsystem-filtered algorithm. */
 export interface SubsystemFilteredModule {
@@ -16,7 +21,25 @@ export interface SubsystemFilteredModule {
   readonly parentSystemId?: number;
   readonly moduleNaturalId: number;
   readonly subgraphSystemId: number;
-  readonly containerSystemId: number;
+  readonly containerNaturalId: number;
+}
+
+/** Minimal subsystem topology required by the subsystem-filtered algorithm. */
+export interface SubsystemFilterEntry {
+  readonly systemId: number;
+  readonly naturalId: number;
+  readonly name: string;
+  readonly parentSystemId: number | null;
+  readonly filteredKeys: KeyDefinitionSummaryReadModel[];
+}
+
+/** Minimal topology required to select usecases before loading their GKVs. */
+export interface UsecaseFilteredTopologyData {
+  readonly usecaseSystemIds: readonly number[];
+  readonly subgraphSystemIdsByUsecase: ReadonlyMap<number, readonly number[]>;
+  readonly subgraphNaturalIdsBySystemId: ReadonlyMap<number, number>;
+  readonly subsystems: readonly SubsystemFilterEntry[];
+  readonly modules: readonly SubsystemFilteredModule[];
 }
 
 export interface UsecaseFilteredGkvData {
@@ -24,7 +47,7 @@ export interface UsecaseFilteredGkvData {
   readonly subgraphSystemIdsByUsecase: ReadonlyMap<number, readonly number[]>;
   /** Maps subgraph system IDs to their natural subgraph IDs. */
   readonly subgraphNaturalIdsBySystemId: ReadonlyMap<number, number>;
-  readonly subsystems: readonly SubsystemReadModel[];
+  readonly subsystems: readonly SubsystemFilterEntry[];
   readonly modules: readonly SubsystemFilteredModule[];
 }
 
@@ -45,7 +68,7 @@ export interface SubsystemReferenceReadModel {
 export interface SubsystemFilteredGkvGroup {
   readonly keyValuePairs: KeyValuePairReadModel[];
   readonly subsystems: SubsystemReferenceReadModel[];
-  readonly usecaseSystemIds: number[];
+  readonly usecases: UseCaseReadModel[];
 }
 
 type UsecaseTopology = {
@@ -65,6 +88,82 @@ type TopologyIndexes = {
 
 /** Applies subsystem-filtered GKV business rules to effective read-side data. */
 export class SubsystemFilteredGkvService {
+  constructor(private readonly useCaseQueryService: UseCaseQueryService) {}
+
+  async resolveFilteredGroups(
+    fileId: number,
+    filter?: FilterExpression,
+  ): Promise<ArcResult<SubsystemFilteredGkvGroup[]>> {
+    const topologyResult =
+      await this.useCaseQueryService.getUsecaseFilteredTopologyData(fileId);
+    if (topologyResult.kind === RESULT_KIND.Fail) return topologyResult;
+
+    const matchingIdsResult = this.findMatchingUsecaseIds(
+      topologyResult.data,
+      filter,
+    );
+    if (matchingIdsResult.kind === RESULT_KIND.Fail) return matchingIdsResult;
+
+    const usecasesResult = await this.useCaseQueryService.getUsecasesWithGkv(
+      fileId,
+      matchingIdsResult.data,
+    );
+    if (usecasesResult.kind === RESULT_KIND.Fail) return usecasesResult;
+
+    const topology = topologyResult.data;
+    const gkvData: UsecaseFilteredGkvData = {
+      usecases: usecasesResult.data,
+      subgraphSystemIdsByUsecase: new Map(
+        matchingIdsResult.data.map(id => [
+          id,
+          topology.subgraphSystemIdsByUsecase.get(id) ?? [],
+        ]),
+      ),
+      subgraphNaturalIdsBySystemId: topology.subgraphNaturalIdsBySystemId,
+      subsystems: topology.subsystems,
+      modules: topology.modules,
+    };
+
+    const groupsResult = this.buildFilteredGkv(gkvData, filter);
+    if (groupsResult.kind === RESULT_KIND.Fail) return groupsResult;
+
+    return usecasesResult.kind === RESULT_KIND.Partial
+      ? Result.partial(groupsResult.data, usecasesResult.issues)
+      : groupsResult;
+  }
+
+  findMatchingUsecaseIds(
+    data: UsecaseFilteredTopologyData,
+    filter?: FilterExpression,
+  ): ArcResult<number[]> {
+    const topologyByUsecase = this.buildTopologyForIds(
+      data.usecaseSystemIds,
+      data,
+    );
+    const knownSubsystemIds = new Set(
+      data.subsystems.map(subsystem => subsystem.naturalId),
+    );
+    const invalidSubsystemId = filter
+      ? findInvalidSubsystemId(filter, knownSubsystemIds)
+      : null;
+    if (invalidSubsystemId !== null) {
+      return Result.fail(
+        IssueFactory.parseError(
+          'INVALID_FILTER_VALUE',
+          `Filter references unknown subsystemId: ${invalidSubsystemId}`,
+        ),
+      );
+    }
+
+    return Result.ok(
+      data.usecaseSystemIds.filter(usecaseSystemId => {
+        const topology =
+          topologyByUsecase.get(usecaseSystemId) ?? emptyTopology();
+        return !filter || evaluateFilter(filter, topology);
+      }),
+    );
+  }
+
   buildFilteredGkv(
     data: UsecaseFilteredGkvData,
     filter?: FilterExpression,
@@ -105,12 +204,12 @@ export class SubsystemFilteredGkvService {
       );
       const group = groups.get(groupKey);
       if (group) {
-        group.usecaseSystemIds.push(usecase.systemId);
+        group.usecases.push(usecase);
       } else {
         groups.set(groupKey, {
           keyValuePairs: filtered.keyValuePairs,
           subsystems: filtered.subsystems,
-          usecaseSystemIds: [usecase.systemId],
+          usecases: [usecase],
         });
       }
     }
@@ -120,11 +219,21 @@ export class SubsystemFilteredGkvService {
   private buildTopology(
     data: UsecaseFilteredGkvData,
   ): Map<number, UsecaseTopology> {
+    return this.buildTopologyForIds(
+      data.usecases.map(usecase => usecase.systemId),
+      data,
+    );
+  }
+
+  private buildTopologyForIds(
+    usecaseSystemIds: readonly number[],
+    data: UsecaseFilteredTopologyData | UsecaseFilteredGkvData,
+  ): Map<number, UsecaseTopology> {
     const indexes = createTopologyIndexes(data);
     return new Map(
-      data.usecases.map(usecase => [
-        usecase.systemId,
-        buildUsecaseTopology(usecase, data, indexes),
+      usecaseSystemIds.map(usecaseSystemId => [
+        usecaseSystemId,
+        buildUsecaseTopology(usecaseSystemId, data, indexes),
       ]),
     );
   }
@@ -132,7 +241,7 @@ export class SubsystemFilteredGkvService {
   private computeFilteredGkv(
     usecase: UseCaseReadModel,
     topology: UsecaseTopology,
-    subsystemBySystemId: Map<number, SubsystemReadModel>,
+    subsystemBySystemId: Map<number, SubsystemFilterEntry>,
   ): Pick<SubsystemFilteredGkvGroup, 'keyValuePairs' | 'subsystems'> {
     const topLevelBySubsystem = getTopLevelSubsystems(
       topology.ancestors,
@@ -178,7 +287,9 @@ export class SubsystemFilteredGkvService {
   }
 }
 
-function createTopologyIndexes(data: UsecaseFilteredGkvData): TopologyIndexes {
+function createTopologyIndexes(
+  data: UsecaseFilteredTopologyData | UsecaseFilteredGkvData,
+): TopologyIndexes {
   const modulesBySubgraph = new Map<number, SubsystemFilteredModule[]>();
   for (const module of data.modules) {
     const bucket = modulesBySubgraph.get(module.subgraphSystemId) ?? [];
@@ -207,12 +318,12 @@ function createTopologyIndexes(data: UsecaseFilteredGkvData): TopologyIndexes {
 }
 
 function buildUsecaseTopology(
-  usecase: UseCaseReadModel,
-  data: UsecaseFilteredGkvData,
+  usecaseSystemId: number,
+  data: UsecaseFilteredTopologyData | UsecaseFilteredGkvData,
   indexes: TopologyIndexes,
 ): UsecaseTopology {
   const subgraphSystemIds = new Set(
-    data.subgraphSystemIdsByUsecase.get(usecase.systemId) ?? [],
+    data.subgraphSystemIdsByUsecase.get(usecaseSystemId) ?? [],
   );
   const subgraphNaturalIds = new Set(
     [...subgraphSystemIds].flatMap(systemId => {
@@ -327,7 +438,7 @@ function evaluateFilter(
       return topology.modules.some(module => module.moduleNaturalId === value);
     case 'containerNaturalId':
       return topology.modules.some(
-        module => module.containerSystemId === value,
+        module => module.containerNaturalId === value,
       );
     default:
       return false;
@@ -342,7 +453,7 @@ function numericValue(value: number | string | boolean): number | null {
 
 function getTopLevelSubsystems(
   ancestors: Set<number>,
-  subsystemBySystemId: Map<number, SubsystemReadModel>,
+  subsystemBySystemId: Map<number, SubsystemFilterEntry>,
 ): Map<number, number> {
   const result = new Map<number, number>();
   for (const subsystemSystemId of ancestors) {

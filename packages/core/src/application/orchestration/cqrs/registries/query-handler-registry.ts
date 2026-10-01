@@ -209,7 +209,9 @@ export class QueryHandlerRegistry {
       create: (deps: QueryHandlerDependencies) =>
         new GetSubsystemFilteredUsecasesHandler(
           deps.queryServices,
-          new SubsystemFilteredGkvService(),
+          new SubsystemFilteredGkvService(
+            deps.queryServices.useCaseQueryService,
+          ),
         ),
     });
 

@@ -3,12 +3,18 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {Result} from '../../../../src/application/shared/result/result.js';
+import {jest} from '@jest/globals';
+import {
+  Result,
+  RESULT_KIND,
+} from '../../../../src/application/shared/result/result.js';
 import type {UseCaseReadModel} from '../../../../src/application/ports/persistence/query-services/usecase/query-models/usecase-read-model.js';
 import {
   SubsystemFilteredGkvService,
   type UsecaseFilteredGkvData,
+  type UsecaseFilteredTopologyData,
 } from '../../../../src/application/services/subsystem-filtered-gkv-service.js';
+import type {UseCaseQueryService} from '../../../../src/application/ports/persistence/query-services/usecase/usecase-query-service.js';
 
 const key = (systemId: number, valueSystemId: number) => ({
   key: {systemId, keyId: systemId, name: `Key ${systemId}`},
@@ -44,7 +50,7 @@ function makeData(options: {
     parentSystemId?: number;
     subgraphSystemId: number;
     moduleNaturalId: number;
-    containerSystemId: number;
+    containerNaturalId: number;
   }>;
 }): UsecaseFilteredGkvData {
   return {
@@ -57,15 +63,11 @@ function makeData(options: {
       naturalId: value.naturalId ?? value.systemId,
       name: value.name,
       parentSystemId: value.parentSystemId ?? null,
-      moduleSystemIds: [],
-      subsystemSystemIds: [],
       filteredKeys: value.filteredKeySystemIds.map(systemId => ({
         systemId,
         naturalId: systemId,
         name: `Key ${systemId}`,
       })),
-      dataPorts: [],
-      controlPorts: [],
     })),
     subgraphNaturalIdsBySystemId: new Map(
       options.usecases.flatMap(value =>
@@ -77,7 +79,7 @@ function makeData(options: {
 }
 
 describe('SubsystemFilteredGkvService', () => {
-  const service = new SubsystemFilteredGkvService();
+  const service = new SubsystemFilteredGkvService({} as UseCaseQueryService);
 
   it('keeps raw GKV when a usecase has no subsystem topology', () => {
     const rawGkv = [key(10, 11)];
@@ -89,7 +91,7 @@ describe('SubsystemFilteredGkvService', () => {
           systemId: 100,
           subgraphSystemId: 50,
           moduleNaturalId: 7,
-          containerSystemId: 8,
+          containerNaturalId: 8,
         },
       ],
     });
@@ -99,7 +101,7 @@ describe('SubsystemFilteredGkvService', () => {
         {
           keyValuePairs: rawGkv,
           subsystems: [],
-          usecaseSystemIds: [1],
+          usecases: [usecase(1, rawGkv)],
         },
       ]),
     );
@@ -124,14 +126,14 @@ describe('SubsystemFilteredGkvService', () => {
           parentSystemId: 10,
           subgraphSystemId: 50,
           moduleNaturalId: 7,
-          containerSystemId: 8,
+          containerNaturalId: 8,
         },
         {
           systemId: 200,
           parentSystemId: 30,
           subgraphSystemId: 60,
           moduleNaturalId: 9,
-          containerSystemId: 8,
+          containerNaturalId: 8,
         },
       ],
     });
@@ -170,7 +172,7 @@ describe('SubsystemFilteredGkvService', () => {
           parentSystemId: 20,
           subgraphSystemId: 50,
           moduleNaturalId: 7,
-          containerSystemId: 8,
+          containerNaturalId: 8,
         },
       ],
     });
@@ -198,13 +200,13 @@ describe('SubsystemFilteredGkvService', () => {
           parentSystemId: 10,
           subgraphSystemId: 50,
           moduleNaturalId: 7,
-          containerSystemId: 8,
+          containerNaturalId: 8,
         },
         {
           systemId: 200,
           subgraphSystemId: 60,
           moduleNaturalId: 9,
-          containerSystemId: 8,
+          containerNaturalId: 8,
         },
       ],
     });
@@ -222,7 +224,45 @@ describe('SubsystemFilteredGkvService', () => {
     expect(result.kind).toBe('OK');
     if (result.kind !== 'OK') return;
     expect(result.data).toHaveLength(1);
-    expect(result.data[0].usecaseSystemIds).toEqual([1]);
+    expect(result.data[0].usecases.map(u => u.systemId)).toEqual([1]);
+  });
+
+  it('matches container filters using the container natural ID', () => {
+    const data = makeData({
+      usecases: [
+        {systemId: 1, subgraphSystemIds: [50], gkv: []},
+        {systemId: 2, subgraphSystemIds: [60], gkv: []},
+      ],
+      subsystems: [],
+      modules: [
+        {
+          systemId: 100,
+          subgraphSystemId: 50,
+          moduleNaturalId: 7,
+          containerNaturalId: 800,
+        },
+        {
+          systemId: 200,
+          subgraphSystemId: 60,
+          moduleNaturalId: 9,
+          containerNaturalId: 900,
+        },
+      ],
+    });
+
+    const result = service.findMatchingUsecaseIds(
+      {
+        ...data,
+        usecaseSystemIds: data.usecases.map(usecase => usecase.systemId),
+      },
+      {
+        type: 'condition',
+        field: 'containerNaturalId',
+        value: 800,
+      },
+    );
+
+    expect(result).toEqual(Result.ok([1]));
   });
 
   it('keeps usecases with differently ordered GKVs in separate groups', () => {
@@ -242,9 +282,99 @@ describe('SubsystemFilteredGkvService', () => {
     expect(result.kind).toBe('OK');
     if (result.kind !== 'OK') return;
     expect(result.data).toHaveLength(2);
-    expect(result.data.map(group => group.usecaseSystemIds)).toEqual([
-      [1],
-      [2],
+    expect(
+      result.data.map(group => group.usecases.map(u => u.systemId)),
+    ).toEqual([[1], [2]]);
+  });
+});
+
+describe('SubsystemFilteredGkvService.resolveFilteredGroups', () => {
+  const emptyTopology: UsecaseFilteredTopologyData = {
+    usecaseSystemIds: [1, 2],
+    subgraphSystemIdsByUsecase: new Map([
+      [1, [50]],
+      [2, [60]],
+    ]),
+    subgraphNaturalIdsBySystemId: new Map([
+      [50, 5],
+      [60, 6],
+    ]),
+    subsystems: [],
+    modules: [],
+  };
+
+  function buildQueryService(
+    topology = emptyTopology,
+    usecases: UseCaseReadModel[] = [],
+  ): jest.Mocked<UseCaseQueryService> {
+    return {
+      getUsecaseFilteredTopologyData: jest
+        .fn()
+        .mockResolvedValue(Result.ok(topology)),
+      getUsecasesWithGkv: jest.fn().mockResolvedValue(Result.ok(usecases)),
+    } as unknown as jest.Mocked<UseCaseQueryService>;
+  }
+
+  it('returns empty groups when no usecases match the filter', async () => {
+    const querySvc = buildQueryService({
+      ...emptyTopology,
+      usecaseSystemIds: [],
+    });
+    const service = new SubsystemFilteredGkvService(querySvc);
+
+    const result = await service.resolveFilteredGroups(42);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    if (result.kind !== RESULT_KIND.Ok) return;
+    expect(result.data).toHaveLength(0);
+    expect(querySvc.getUsecaseFilteredTopologyData).toHaveBeenCalledWith(42);
+    expect(querySvc.getUsecasesWithGkv).toHaveBeenCalledWith(42, []);
+  });
+
+  it('forwards a topology failure without calling getUsecasesWithGkv', async () => {
+    const querySvc = {
+      getUsecaseFilteredTopologyData: jest.fn().mockResolvedValue(
+        Result.fail({
+          code: 'DB_QUERY_FAILED',
+          message: 'err',
+          severity: 'Error',
+        } as never),
+      ),
+      getUsecasesWithGkv: jest.fn(),
+    } as unknown as jest.Mocked<UseCaseQueryService>;
+    const service = new SubsystemFilteredGkvService(querySvc);
+
+    const result = await service.resolveFilteredGroups(42);
+
+    expect(result.kind).toBe(RESULT_KIND.Fail);
+    expect(querySvc.getUsecasesWithGkv).not.toHaveBeenCalled();
+  });
+
+  it('rejects an unknown subsystem ID in the filter', async () => {
+    const querySvc = buildQueryService();
+    const service = new SubsystemFilteredGkvService(querySvc);
+
+    const result = await service.resolveFilteredGroups(42, {
+      type: 'condition',
+      field: 'subsystemId',
+      value: 999,
+    });
+
+    expect(result.kind).toBe(RESULT_KIND.Fail);
+  });
+
+  it('groups usecases with identical GKV under one entry', async () => {
+    const querySvc = buildQueryService(emptyTopology, [
+      usecase(1, [key(10, 11)]),
+      usecase(2, [key(10, 11)]),
     ]);
+    const service = new SubsystemFilteredGkvService(querySvc);
+
+    const result = await service.resolveFilteredGroups(42);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    if (result.kind !== RESULT_KIND.Ok) return;
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].usecases.map(u => u.systemId)).toEqual([1, 2]);
   });
 });
