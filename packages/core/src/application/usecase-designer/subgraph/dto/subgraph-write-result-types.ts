@@ -18,6 +18,7 @@ const CkvRefDtoSchema = z.object({
 });
 
 export const ScenarioChangeDtoSchema = z.object({
+  groupId: z.string(),
   propertiesAdded: z.array(PropertyChangeDtoSchema),
   propertiesRemoved: z.array(PropertyChangeDtoSchema),
   moduleCkvsAdded: z.array(CkvRefDtoSchema),
@@ -25,6 +26,7 @@ export const ScenarioChangeDtoSchema = z.object({
 });
 
 export const VsidUpdateDtoSchema = z.object({
+  groupId: z.string(),
   affectedSubgraphSystemIds: z.array(z.string()),
 });
 

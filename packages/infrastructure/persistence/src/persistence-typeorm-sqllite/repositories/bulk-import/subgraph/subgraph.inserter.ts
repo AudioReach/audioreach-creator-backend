@@ -381,7 +381,7 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
         systemId,
         vcpmParameterSystemId: entry.param.paramDefintionSystemId,
         vcpmCkvSystemId: entry.ckv.systemId,
-        payload: entry.param.getPayloadCopy()!,
+        payload: entry.param.getPayloadCopy(),
       });
       contextBySystemId.set(systemId, {
         ckv: entry.ckv,

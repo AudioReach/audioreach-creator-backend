@@ -4,11 +4,7 @@
  */
 
 import type {SpfModuleDefinition} from '../../../../../domain/entities/definitions/spf-module/spf-module-definition.js';
-
-export interface ParameterDefinitionBase {
-  systemId: number;
-  elementsStructure: string; // JSON — parsed by serializeParameterData
-}
+import type {ParameterDefinitionBase} from '../shared/parameter-definition-base.js';
 
 export interface ModuleParameterDefinition extends ParameterDefinitionBase {
   isReadOnly: boolean;

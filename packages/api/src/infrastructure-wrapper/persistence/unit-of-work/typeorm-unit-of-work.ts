@@ -19,6 +19,7 @@ import type {
   ControlLinkRepository,
   SubgraphRepository,
   SubsystemRepository,
+  VcpmDefinitionRepository,
   UsecaseRepository,
   Logger,
 } from '@arc/core';
@@ -36,6 +37,7 @@ import {
   TypeOrmControlLinkRepository,
   TypeOrmSubgraphRepository,
   TypeOrmSubsystemRepository,
+  TypeOrmVcpmDefinitionRepository,
   TypeOrmUsecaseRepository,
   PendingChangeWriter,
   EditActionsQueryService,
@@ -186,6 +188,7 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
       this.getPendingChangeWriter(),
       this.queryRunner.manager,
       this,
+      this.idGeneration,
     );
   }
 
@@ -204,6 +207,10 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
       this,
       this.idGeneration,
     );
+  }
+
+  getVcpmDefinitionRepository(): VcpmDefinitionRepository {
+    return new TypeOrmVcpmDefinitionRepository(this.queryRunner.manager);
   }
 
   // ── Existing repositories ─────────────────────────────────────────────────

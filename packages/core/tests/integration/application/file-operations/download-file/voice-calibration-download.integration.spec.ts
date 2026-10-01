@@ -9,7 +9,7 @@ import type {DownloadEntities} from '../../../../../src/application/ports/persis
 import {
   SUB_GRAPH_PROP_ID_SCENARIO_ID,
   SUB_GRAPH_PROP_ID_SCENARIO_VALUE_VOICE_CALL,
-} from '../../../../../src/application/file-operations/shared/constants/spf-ids.js';
+} from '../../../../../src/domain/entities/definitions/subgraph/subgraph-ids.js';
 
 /**
  * Build a 4-byte little-endian payload for the scenario ID property.

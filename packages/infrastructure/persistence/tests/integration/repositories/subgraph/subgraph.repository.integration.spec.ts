@@ -4,7 +4,6 @@
  */
 
 import type {DataSource, QueryRunner} from 'typeorm';
-import {SOURCE, Subgraph} from '@arc/core';
 import {
   setupIntegrationTest,
   teardownIntegrationTest,
@@ -33,7 +32,15 @@ import {
   beforeEach,
   afterEach,
 } from '@jest/globals';
-import {SubgraphPropertyDefinition} from '@arc/core';
+import {
+  SOURCE,
+  KvData,
+  ModuleParameterData,
+  VcpmInstance,
+  Subgraph,
+  SubgraphPropertyDefinition,
+  asSystemId,
+} from '@arc/core';
 
 const FILE_ID = 100;
 const OTHER_FILE_ID = 200;
@@ -150,7 +157,10 @@ function makeRepo(
       groupId: 'test-group',
     }),
   } as any;
-  return new TypeOrmSubgraphRepository(writer, manager, uow);
+  const idGeneration = {
+    getNextId: async () => 10_000,
+  } as any;
+  return new TypeOrmSubgraphRepository(writer, manager, uow, idGeneration);
 }
 
 describe('TypeOrmSubgraphRepository (integration)', () => {
@@ -416,26 +426,27 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
     });
   });
 
-  // ── findByIds ────────────────────────────────────────────────────────────────
+  // ── getAggregates ───────────────────────────────────────────────────────────
 
-  describe('findByIds', () => {
-    it('returns [] for empty input', async () => {
-      expect(await makeRepo(qr.manager).findByIds(FILE_ID, [])).toEqual([]);
+  describe('getAggregates', () => {
+    it('returns an empty map for empty input', async () => {
+      expect(await makeRepo(qr.manager).getAggregates([], FILE_ID)).toEqual(
+        new Map(),
+      );
     });
 
     it('returns hydrated Subgraph objects for matching systemIds', async () => {
-      const result = await makeRepo(qr.manager).findByIds(FILE_ID, [SG_A]);
-      expect(result).toHaveLength(1);
-      expect(result[0].systemId).toBe(SG_A);
-      expect(result[0].name).toBe('sg-a');
+      const result = await makeRepo(qr.manager).getAggregates([SG_A], FILE_ID);
+      expect(result.get(SG_A)?.systemId).toBe(SG_A);
+      expect(result.get(SG_A)?.name).toBe('sg-a');
     });
 
     it('silently omits missing IDs', async () => {
-      const result = await makeRepo(qr.manager).findByIds(FILE_ID, [
-        SG_A,
-        9999,
-      ]);
-      expect(result.map(s => s.systemId)).toEqual([SG_A]);
+      const result = await makeRepo(qr.manager).getAggregates(
+        [SG_A, 9999],
+        FILE_ID,
+      );
+      expect([...result.keys()]).toEqual([SG_A]);
     });
 
     it('includes only the requested session-created subgraph', async () => {
@@ -455,10 +466,12 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
       );
       await qr.commitTransaction();
 
-      await expect(repo.findByIds(FILE_ID, [9001])).resolves.toEqual([
-        expect.objectContaining({systemId: 9001}),
-      ]);
-      await expect(repo.findByIds(FILE_ID, [9002])).resolves.toEqual([]);
+      await expect(repo.getAggregates([9001], FILE_ID)).resolves.toEqual(
+        new Map([[9001, expect.objectContaining({systemId: 9001})]]),
+      );
+      await expect(repo.getAggregates([9002], FILE_ID)).resolves.toEqual(
+        new Map(),
+      );
     });
   });
 
@@ -556,6 +569,49 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
           {targetSystemId: SG_A, targetTable: ENTITY_NAMES.Subgraph},
         ]),
       );
+    });
+  });
+
+  describe('addVcpmModule', () => {
+    it('stages the supplied VCPM hierarchy IDs without generating new IDs', async () => {
+      const sessionId = await seedSession(ds);
+      const repo = makeRepo(qr.manager, sessionId);
+      const ckv = new KvData({
+        systemId: 9002,
+        valueDefinitionSystemIds: [],
+        uiPersistence: null,
+      });
+      ckv.addParameterPayload(
+        new ModuleParameterData(asSystemId(801), new Uint8Array([1, 2, 3, 4])),
+      );
+
+      const instance = new VcpmInstance({
+        systemId: 9001,
+        subgraphSystemId: SG_A,
+        vcpmModuleDefinitionSystemId: 800,
+      });
+      instance.addCkv(ckv);
+
+      await repo.addVcpmModule(instance, new Map([[801, 9003]]));
+
+      const actions = await ds.query<
+        Array<{targetSystemId: number; targetTable: string}>
+      >(
+        `SELECT target_system_id AS targetSystemId, target_table AS targetTable
+         FROM edit_actions
+         WHERE session_id = ?
+         ORDER BY target_system_id`,
+        [sessionId],
+      );
+
+      expect(actions).toEqual([
+        {targetSystemId: 9001, targetTable: ENTITY_NAMES.VcpmInstance},
+        {targetSystemId: 9002, targetTable: ENTITY_NAMES.VcpmCkv},
+        {
+          targetSystemId: 9003,
+          targetTable: ENTITY_NAMES.VcpmParameterPayload,
+        },
+      ]);
     });
   });
 });

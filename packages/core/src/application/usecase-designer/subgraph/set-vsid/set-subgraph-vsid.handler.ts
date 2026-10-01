@@ -1,0 +1,184 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
+import {InvalidInputException} from '../../../../shared/exceptions/invalid-input.exception.js';
+import {serializeParameterData} from '../../shared/serialize-elements.js';
+import type {ElementData} from '../../../../domain/entities/definitions/common/types/element-data.js';
+import {BinaryDataReader} from '../../shared/utils/binary-data-reader.js';
+import {
+  SUB_GRAPH_PROP_ID_VSID,
+  SUB_GRAPH_PROP_ID_SCENARIO_ID,
+  SUB_GRAPH_PROP_ID_SCENARIO_VALUE_VOICE_CALL,
+} from '../../../../domain/entities/definitions/subgraph/subgraph-ids.js';
+import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
+import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
+import type {SetSubgraphVsidCommand} from './set-subgraph-vsid.command.js';
+import type {VsidUpdateDto} from '../dto/subgraph-write-result-types.js';
+import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/subgraph.js';
+import type {SubgraphRepository} from '../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
+import type {UsecaseRepository} from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
+import {findReachableSubgraphIds} from '../shared/find-reachable-subgraph-ids.js';
+
+export class SetSubgraphVsidHandler implements CommandHandler<
+  SetSubgraphVsidCommand,
+  VsidUpdateDto
+> {
+  constructor(private readonly uow: UnitOfWork) {}
+
+  async handle(command: SetSubgraphVsidCommand): Promise<VsidUpdateDto> {
+    const {session, groupId} = this.uow.getWriteContext();
+    const {fileSystemId} = session;
+    const subgraphRepository = this.uow.getSubgraphRepository();
+    const usecaseRepository = this.uow.getUsecaseRepository();
+
+    const subgraphs = await subgraphRepository.getAggregates(
+      [command.subgraphSystemId],
+      fileSystemId,
+    );
+    const subgraph = subgraphs.get(command.subgraphSystemId);
+    if (!subgraph) {
+      throw new ResourceNotFoundException(
+        `Subgraph ${command.subgraphSystemId} not found`,
+      );
+    }
+
+    const definitions =
+      await subgraphRepository.getPropertyDefinitions(fileSystemId);
+    const vsidDef = definitions.find(
+      definition => definition.naturalId === SUB_GRAPH_PROP_ID_VSID,
+    );
+    if (!vsidDef) {
+      throw new ResourceNotFoundException('VSID property definition not found');
+    }
+
+    const scenarioDef = definitions.find(
+      definition => definition.naturalId === SUB_GRAPH_PROP_ID_SCENARIO_ID,
+    );
+
+    const vsidProp = subgraph.properties.find(
+      p => p.propertyDefinitionSystemId === vsidDef.systemId,
+    );
+    const vsidPayload = vsidProp?.getPayloadCopy();
+    const currentVsid = vsidPayload
+      ? new BinaryDataReader(vsidPayload).readUInt32()
+      : undefined;
+
+    const requestedVsid = Number(command.elements[0]?.value);
+
+    if (currentVsid === requestedVsid) {
+      return {groupId, affectedSubgraphSystemIds: []};
+    }
+
+    const serialized = serializeParameterData(
+      {
+        systemId: vsidDef.systemId,
+        elementsStructure: vsidDef.elementsStructure,
+      },
+      command.elements as unknown as ElementData[],
+    );
+    if (!serialized.ok) {
+      throw new InvalidInputException(serialized.error);
+    }
+
+    // BFS across usecases
+    const toWrite = await this.collectSubgraphsToUpdate(
+      command.subgraphSystemId,
+      fileSystemId,
+      vsidDef.systemId,
+      scenarioDef?.systemId,
+      requestedVsid,
+      subgraphRepository,
+      usecaseRepository,
+    );
+
+    await this.uow.startTransaction();
+    try {
+      await Promise.all(
+        [...toWrite].map(sgId =>
+          subgraphRepository.setPropertyData(
+            sgId,
+            vsidDef.systemId,
+            serialized.value,
+          ),
+        ),
+      );
+      await this.uow.commit();
+    } catch (error) {
+      if (this.uow.isInTransaction()) await this.uow.rollback();
+      throw error;
+    }
+
+    return {groupId, affectedSubgraphSystemIds: [...toWrite].map(String)};
+  }
+
+  private async collectSubgraphsToUpdate(
+    startId: number,
+    fileSystemId: number,
+    vsidDefSystemId: number,
+    scenarioDefSystemId: number | undefined,
+    requestedVsid: number,
+    subgraphRepository: SubgraphRepository,
+    usecaseRepository: UsecaseRepository,
+  ): Promise<Set<number>> {
+    // Pass 1: BFS to collect all reachable IDs
+    const reachableIds = await findReachableSubgraphIds(
+      startId,
+      fileSystemId,
+      usecaseRepository,
+    );
+
+    // Pass 2: batch-fetch properties for linked subgraphs only (startId already fetched)
+    const linkedIds = [...reachableIds].filter(id => id !== startId);
+    const subgraphMap =
+      linkedIds.length > 0
+        ? await subgraphRepository.getAggregates(linkedIds, fileSystemId)
+        : new Map<number, Subgraph>();
+
+    // Pass 3: filter — determine which IDs need a VSID write
+    const toWrite = new Set<number>([startId]);
+    for (const [id, sg] of subgraphMap) {
+      if (id === startId) continue;
+      if (
+        this.canUpdateVsid(
+          sg,
+          vsidDefSystemId,
+          scenarioDefSystemId,
+          requestedVsid,
+        )
+      ) {
+        toWrite.add(id);
+      }
+    }
+    return toWrite;
+  }
+
+  private canUpdateVsid(
+    sg: Subgraph,
+    vsidDefSystemId: number,
+    scenarioDefSystemId: number | undefined,
+    requestedVsid: number,
+  ): boolean {
+    if (scenarioDefSystemId !== undefined) {
+      const scenarioProp = sg.properties.find(
+        p => p.propertyDefinitionSystemId === scenarioDefSystemId,
+      );
+      const scenarioPayload = scenarioProp?.getPayloadCopy();
+      const scenarioVal = scenarioPayload
+        ? new BinaryDataReader(scenarioPayload).readUInt32()
+        : undefined;
+      if (scenarioVal !== SUB_GRAPH_PROP_ID_SCENARIO_VALUE_VOICE_CALL)
+        return false;
+    }
+    const vsidProp = sg.properties.find(
+      p => p.propertyDefinitionSystemId === vsidDefSystemId,
+    );
+    const linkedVsidPayload = vsidProp?.getPayloadCopy();
+    const linkedVsid = linkedVsidPayload
+      ? new BinaryDataReader(linkedVsidPayload).readUInt32()
+      : undefined;
+    return linkedVsid !== requestedVsid;
+  }
+}

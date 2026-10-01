@@ -99,6 +99,16 @@ export interface UsecaseRepository {
   ): Promise<UseCase[]>;
 
   /**
+   * Returns UCs on `fileSystemId` that contain the specified subgraph.
+   * `readMode` defaults to `READ_MODE.Overlay`.
+   */
+  findBySubgraph(
+    fileSystemId: number,
+    subgraphSystemId: number,
+    options?: ReadOptions,
+  ): Promise<UseCase[]>;
+
+  /**
    * Returns all UCs on `fileSystemId`. `readMode` defaults to
    * `READ_MODE.Overlay`. Committed mode returns pre-session state; callers
    * can filter the returned collection in memory.

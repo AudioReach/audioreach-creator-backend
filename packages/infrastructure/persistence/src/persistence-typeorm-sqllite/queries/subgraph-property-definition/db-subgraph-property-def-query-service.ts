@@ -8,7 +8,7 @@ import {
   type SubgraphPropertyDefQueryService,
   type SubgraphPropertyDefinitionSummaryReadModel,
   type SubgraphPropertyDefinitionReadModel,
-  type SubgraphPropertyDefinitionWithElementsReadModel,
+  type SubgraphPropertyDefWithElementsReadModel,
   type ISessionRepository,
   Result,
   ERROR_CODES,
@@ -119,9 +119,9 @@ export class DbSubgraphPropertyDefQueryService implements SubgraphPropertyDefQue
     }
   }
 
-  async getAllDetailedSubgraphPropertyDefinitionsWithElements(
+  async getSubgraphPropertiesWithElements(
     fileSystemId: number,
-  ): Promise<Result<SubgraphPropertyDefinitionWithElementsReadModel[]>> {
+  ): Promise<Result<SubgraphPropertyDefWithElementsReadModel[]>> {
     try {
       const session =
         await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
@@ -168,7 +168,7 @@ export class DbSubgraphPropertyDefQueryService implements SubgraphPropertyDefQue
 
   private toDetailWithElementsReadModel(
     row: SubgraphPropertyBase,
-  ): SubgraphPropertyDefinitionWithElementsReadModel {
+  ): SubgraphPropertyDefWithElementsReadModel {
     return {
       systemId: row.systemId,
       naturalId: row.naturalId,

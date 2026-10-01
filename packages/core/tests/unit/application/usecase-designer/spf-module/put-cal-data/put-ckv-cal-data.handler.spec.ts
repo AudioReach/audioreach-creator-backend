@@ -11,6 +11,7 @@ import type {
 } from '@arc/core';
 import {
   ResourceNotFoundException,
+  InvalidInputException,
   InvalidOperationException,
 } from '../../../../../../src/shared/exceptions/index.js';
 import {PutCkvCalDataHandler} from '../../../../../../src/application/usecase-designer/spf-module/put-cal-data/put-ckv-cal-data.handler.js';
@@ -166,12 +167,12 @@ describe('PutCkvCalDataHandler', () => {
     );
   });
 
-  it('throws InvalidOperationException on serialization failure (value out of range)', async () => {
+  it('throws InvalidInputException on serialization failure (value out of range)', async () => {
     const uow = makeUow(makeModuleRepo(), makeDefRepo());
     const handler = new PutCkvCalDataHandler(uow);
     // Int16 max is 32767 — 99999 should fail
     await expect(handler.handle(makeCommand('100', '99999'))).rejects.toThrow(
-      InvalidOperationException,
+      InvalidInputException,
     );
   });
 

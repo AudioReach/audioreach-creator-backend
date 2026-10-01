@@ -49,7 +49,7 @@ export class GetSubgraphPropertiesHandler implements QueryHandler<
     const payloads = payloadsResult.data;
 
     const definitionsResult =
-      await this.queryServices.subgraphPropertyDefQueryService.getAllDetailedSubgraphPropertyDefinitionsWithElements(
+      await this.queryServices.subgraphPropertyDefQueryService.getSubgraphPropertiesWithElements(
         fileSystemId,
       );
 

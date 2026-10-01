@@ -19,7 +19,7 @@ import {
   ISSUE_ENTITY_TYPE,
 } from '../../../../../shared/issues/index.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
-import {CONTAINER_PROP_ID_PROC_DOMAIN} from '../../../shared/constants/spf-ids.js';
+import {CONTAINER_PROP_ID_PROC_DOMAIN} from '../../../../../domain/entities/definitions/spf-ids.js';
 
 /**
  * Result of container building including processor ID mapping

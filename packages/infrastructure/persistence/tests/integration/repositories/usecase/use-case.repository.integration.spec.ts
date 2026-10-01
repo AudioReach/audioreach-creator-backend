@@ -321,6 +321,30 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
     });
   });
 
+  // ── findBySubgraph ──────────────────────────────────────────────────────────
+
+  describe('findBySubgraph', () => {
+    it('returns usecases containing the specified subgraph', async () => {
+      await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
+      await seedUseCase(ds, 1001, 2, 'uc-b', USECASE_TYPE.Island);
+      await linkSg(ds, 1000, SG_ID_1);
+      await linkSg(ds, 1001, SG_ID_2);
+      const repo = makeRepo(qr.manager, sessionId);
+
+      const result = await repo.findBySubgraph(FILE_ID, SG_ID_1);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].systemId).toBe(1000);
+      expect(result[0].subgraphSystemIds).toEqual([SG_ID_1]);
+    });
+
+    it('returns [] when the subgraph has no usecases', async () => {
+      const repo = makeRepo(qr.manager, sessionId);
+
+      await expect(repo.findBySubgraph(FILE_ID, SG_ID_1)).resolves.toEqual([]);
+    });
+  });
+
   // ── findAll ──────────────────────────────────────────────────────────────────
 
   describe('findAll', () => {

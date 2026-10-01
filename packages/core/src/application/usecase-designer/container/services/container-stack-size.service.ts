@@ -3,12 +3,12 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {CONTAINER_PROP_ID_STACK_SIZE} from '../../../file-operations/shared/constants/spf-ids.js';
+import {CONTAINER_PROP_ID_STACK_SIZE} from '../../../../domain/entities/definitions/spf-ids.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {
   decodeStackSize,
   encodeStackSize,
-} from '../../../../domain/services/container-property/container-stack-size-codec.js';
+} from '../../shared/utils/container-stack-size-codec.js';
 
 export class ContainerStackSizeService {
   constructor(private readonly uow: UnitOfWork) {}
