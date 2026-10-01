@@ -151,14 +151,7 @@ export async function validateLinkType(
     srcUsecaseId !== null &&
     dstUsecaseId !== null &&
     srcUsecaseId === dstUsecaseId;
-  if (linkType === DATA_LINK_TYPE.Normal && !sameUsecase) {
-    throw new DomainRuleViolationException([
-      IssueFactory.linkClassificationInvalid(
-        'NORMAL_DIFFERENT_USECASE',
-        'NORMAL data links require the same usecase.',
-      ),
-    ]);
-  }
+
   if (linkType === DATA_LINK_TYPE.InterUsecase && sameUsecase) {
     throw new DomainRuleViolationException([
       IssueFactory.linkClassificationInvalid(
