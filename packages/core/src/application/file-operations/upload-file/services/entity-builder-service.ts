@@ -11,6 +11,7 @@ import {VcpmModuleDefinition} from '../../../../domain/entities/definitions/vcpm
 import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
 import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/subgraph.js';
 import type {Container} from '../../../../domain/entities/usecase-data/container/container.js';
+import type {Subsystem} from '../../../../domain/entities/usecase-data/subsystem/subsystem.js';
 import type {SpfModule} from '../../../../domain/entities/usecase-data/module/spf-module.js';
 import type {DriverModule} from '../../../../domain/entities/driver-module-data/driver-module.js';
 import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
@@ -278,14 +279,34 @@ export class EntityBuilderService {
   async buildSubsystems(
     uiSubsystems: UiSubsystem[],
     fileSystemId: number,
+  ): Promise<Subsystem[]> {
+    return this.subsystemBuilder.buildSubsystems(uiSubsystems, fileSystemId);
+  }
+
+  async completeSubsystems(
+    uiSubsystems: UiSubsystem[],
+    subsystems: Subsystem[],
     dataLinks: DataLink[],
     controlLinks: ControlLink[],
+    fileSystemId: number,
   ): Promise<SubsystemBuildResult> {
-    return this.subsystemBuilder.build(
+    return this.subsystemBuilder.completeBuild(
       uiSubsystems,
-      fileSystemId,
+      subsystems,
       dataLinks,
       controlLinks,
+      fileSystemId,
+    );
+  }
+
+  assignSpfModuleParents(
+    modules: SpfModule[],
+    preparedSubsystems: Subsystem[],
+  ): void {
+    if (preparedSubsystems.length === 0) return;
+    this.spfModuleBuilder.assignParentIds(
+      modules,
+      this.subsystemBuilder.getSubgraphToSubsystemMap(),
     );
   }
 

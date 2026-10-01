@@ -2104,7 +2104,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         systemId: uc.systemId,
         keyIds,
         valueIds,
-        aliasNaturalId: uc.aliasId,
+        aliasNaturalId: uc.aliasId ?? undefined,
         aliasName: uc.alias ?? '',
         type: uc.type,
         orderedKeys: uc.orderedKeys ?? undefined,
@@ -2190,6 +2190,10 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       subsystem?: {['subsystemId']?: number};
     };
 
+    const subgraphNaturalIdBySystemId = new Map(
+      sgRows.map(row => [row.systemId, row.naturalId]),
+    );
+
     let childNodeRows: ChildNodeRow[] = [];
     if (subsystemNodeIds.length > 0) {
       childNodeRows = (await this.dataSource
@@ -2219,18 +2223,28 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       const nodeId = ss.node?.systemId;
       const nodeChildren =
         nodeId !== undefined ? (childrenByParentId.get(nodeId) ?? []) : [];
-      const children = nodeChildren
+      const childSubgraphs = new Set<number>();
+      const children: UiSubsystemDownloadModel['children'] = nodeChildren
         .filter(c => c.type === 'module' || c.type === 'subsystem')
-        .map(c => ({
-          naturalId:
-            c.type === 'module'
-              ? (c.spfModule?.naturalId ?? 0)
-              : (c.subsystem?.['subsystemId'] ?? 0),
-          type:
-            c.type === 'module'
-              ? ('Subgraph' as const)
-              : ('Subsystem' as const),
-        }));
+        .flatMap<{naturalId: number; type: 'Subgraph' | 'Subsystem'}>(c => {
+          if (c.type === 'subsystem') {
+            const naturalId = c.subsystem?.['subsystemId'];
+            return naturalId === undefined
+              ? []
+              : [{naturalId, type: 'Subsystem' as const}];
+          }
+          const module = c.spfModule as
+            | {naturalId?: number; subgraphSystemId?: number}
+            | undefined;
+          const naturalId =
+            module?.subgraphSystemId === undefined
+              ? undefined
+              : subgraphNaturalIdBySystemId.get(module.subgraphSystemId);
+          if (naturalId === undefined || childSubgraphs.has(naturalId))
+            return [];
+          childSubgraphs.add(naturalId);
+          return [{naturalId, type: 'Subgraph' as const}];
+        });
       return {
         systemId: ss.systemId,
         subsystemNaturalId: ss.subsystemId ?? 0,

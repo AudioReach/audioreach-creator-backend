@@ -191,16 +191,14 @@ export class UsecaseBuilder {
     entry: UsecaseEntry,
     index: number,
   ): KeyVectorInput {
-    if (
-      !entry.keyValuePairList?.keyValueList ||
-      entry.keyValuePairList.keyValueList.length === 0
-    ) {
-      throw new Error(`No key-value pairs found in usecase entry ${index}`);
+    const keyValueList = entry.keyValuePairList?.keyValueList;
+    if (!keyValueList) {
+      throw new Error(`No key-value pair list found in usecase entry ${index}`);
     }
 
     const valueSystemIds: number[] = [];
 
-    for (const keyValue of entry.keyValuePairList.keyValueList) {
+    for (const keyValue of keyValueList) {
       try {
         const valueSystemId = this.foreignKeyMapper?.getValueSystemId(
           asNaturalId(keyValue.keyId),
@@ -227,9 +225,10 @@ export class UsecaseBuilder {
       }
     }
 
-    if (valueSystemIds.length === 0) {
+    // An empty GKV is valid; only reject entries whose non-empty GKV failed to map.
+    if (keyValueList.length > 0 && valueSystemIds.length === 0) {
       throw new Error(
-        `No valid value systemIds found for usecase entry ${index}. All ${entry.keyValuePairList.keyValueList.length} key-value pairs failed to map.`,
+        `No valid value systemIds found for usecase entry ${index}. All ${keyValueList.length} key-value pairs failed to map.`,
       );
     }
 

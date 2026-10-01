@@ -107,7 +107,11 @@ export class TypeOrmContainerRepository implements ContainerRepository {
     for (const prop of overlaid.properties) {
       container.properties.set(
         prop.propertySystemId,
-        new ContainerPropertyValue(prop.propertySystemId, prop.payload),
+        new ContainerPropertyValue(
+          prop.propertySystemId,
+          prop.payload,
+          prop.systemId,
+        ),
       );
     }
     return container;
@@ -140,7 +144,7 @@ export class TypeOrmContainerRepository implements ContainerRepository {
       await this.writer.writeCreate(
         {
           targetTable: ENTITY_NAMES.ContainerPropertyData,
-          targetSystemId: propDefSystemId,
+          targetSystemId: propVal.systemId,
           aggregateId: container.systemId,
           payload: {
             containerSystemId: container.systemId,

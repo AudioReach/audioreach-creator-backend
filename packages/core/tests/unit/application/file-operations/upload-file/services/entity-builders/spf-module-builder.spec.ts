@@ -25,6 +25,7 @@ import {
 } from '../../../../../../helpers/index.js';
 import {MODULE_PORT_STRATEGIES} from '../../../../../../../src/application/file-operations/shared/awsp-serializers/v1/configuration/index.js';
 import {PORT_IO_TYPE} from '../../../../../../../src/domain/entities/common/enums/port-io-type.js';
+import {asSystemId} from '../../../../../../../src/shared/types/branded-ids.js';
 
 describe('SpfModuleBuilder', () => {
   let builder: SpfModuleBuilder;
@@ -107,6 +108,26 @@ describe('SpfModuleBuilder', () => {
       mockForeignKeyMapper,
       mockLogger,
     );
+  });
+
+  it('assigns module parent IDs from subgraph ownership mappings', () => {
+    const module = new SpfModule({
+      systemId: 600,
+      naturalId: 20,
+      definitionSystemId: 1,
+      containerSystemId: 2,
+      subgraphSystemId: 500,
+      fileSystemId: TEST_FILE_SYSTEM_ID,
+      dataPorts: [],
+      controlPorts: [],
+    });
+
+    builder.assignParentIds(
+      [module],
+      new Map([[asSystemId(500), asSystemId(700)]]),
+    );
+
+    expect(module.parentSystemId).toBe(700);
   });
 
   describe('buildSpfModules', () => {

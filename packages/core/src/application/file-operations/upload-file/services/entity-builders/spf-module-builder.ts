@@ -135,6 +135,17 @@ export class SpfModuleBuilder {
     return result;
   }
 
+  assignParentIds(
+    spfModules: SpfModule[],
+    subgraphToSubsystemMap: ReadonlyMap<SystemId, SystemId>,
+  ): void {
+    for (const module of spfModules) {
+      module.setParentSystemId(
+        subgraphToSubsystemMap.get(asSystemId(module.subgraphSystemId)),
+      );
+    }
+  }
+
   /**
    * Assign system IDs to SPF modules and their ports.
    * Also stores foreign key mappings immediately after ID generation.
