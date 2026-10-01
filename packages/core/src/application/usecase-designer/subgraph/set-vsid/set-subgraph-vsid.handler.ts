@@ -142,7 +142,7 @@ export class SetSubgraphVsidHandler implements CommandHandler<
     for (const [id, sg] of subgraphMap) {
       if (id === startId) continue;
       if (
-        this.shouldUpdateVsid(
+        this.canUpdateVsid(
           sg,
           vsidDefSystemId,
           scenarioDefSystemId,
@@ -155,7 +155,7 @@ export class SetSubgraphVsidHandler implements CommandHandler<
     return toWrite;
   }
 
-  private shouldUpdateVsid(
+  private canUpdateVsid(
     sg: Subgraph,
     vsidDefSystemId: number,
     scenarioDefSystemId: number | undefined,

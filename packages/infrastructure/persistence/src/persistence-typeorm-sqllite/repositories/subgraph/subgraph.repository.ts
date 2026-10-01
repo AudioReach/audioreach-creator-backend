@@ -88,6 +88,20 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     );
   }
 
+  async nameExists(
+    name: string,
+    fileSystemId: number,
+    excludedSystemId: number,
+  ): Promise<boolean> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const subgraphs = await this.subgraphFetcher.fetchMany(
+      fileSystemId,
+      sessionId,
+      {name},
+    );
+    return subgraphs.some(subgraph => subgraph.systemId !== excludedSystemId);
+  }
+
   async deleteSubgraph(
     subgraphSystemId: number,
     _fileSystemId: number,

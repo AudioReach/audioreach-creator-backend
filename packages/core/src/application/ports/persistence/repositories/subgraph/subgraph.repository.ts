@@ -20,6 +20,12 @@ export interface SgkvEntry {
 export interface SubgraphRepository {
   subgraphExists(systemId: number, fileSystemId: number): Promise<boolean>;
 
+  nameExists(
+    name: string,
+    fileSystemId: number,
+    excludedSystemId: number,
+  ): Promise<boolean>;
+
   deleteSubgraph(
     subgraphSystemId: number,
     fileSystemId: number,
