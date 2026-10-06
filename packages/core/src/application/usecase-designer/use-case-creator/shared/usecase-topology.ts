@@ -14,9 +14,10 @@ import type {
 } from '../../../../domain/entities/usecase-data/usecase/usecase.js';
 import type {KvPair} from '../../../ports/persistence/repositories/shared/kv-pair.js';
 import type {
-  RoutingCombination,
   SgkvInstance,
+  UsecaseCandidate,
 } from '../contracts/routing-state.js';
+import {USECASE_CANDIDATE_KIND} from '../contracts/routing-state.js';
 
 /**
  * Shared topology rules for comparing a routed candidate with a persisted
@@ -46,10 +47,22 @@ export function gkvValueIdKey(gkv: readonly KvPair[]): string {
   return canonicalNumericSetKey(gkv.map(pair => pair.valueDefSystemId));
 }
 
-export function candidateDirectedAdjacentPairs(
-  candidate: RoutingCombination,
+export function candidateSubgraphSystemIds(
+  candidate: UsecaseCandidate,
+): readonly number[] {
+  return candidate.kind === USECASE_CANDIDATE_KIND.Manual
+    ? candidate.memberSubgraphSystemIds
+    : candidate.path.subgraphSystemIds;
+}
+
+export function candidateDirectedPairs(
+  candidate: UsecaseCandidate,
 ): readonly SubgraphPair[] {
-  // Candidates store a path of vertices; persisted UseCases store its edges.
+  if (candidate.kind === USECASE_CANDIDATE_KIND.Manual) {
+    return candidate.topology.pairs.map(item => item.pair);
+  }
+
+  // Routed candidates store a path of vertices; persisted UseCases store its edges.
   const pairs: SubgraphPair[] = [];
   for (
     let index = 1;
@@ -112,15 +125,15 @@ function sameDirectedPairs(
 }
 
 export function exactTopologyEquals(
-  candidate: RoutingCombination,
+  candidate: UsecaseCandidate,
   existingUsecase: UseCase,
 ): boolean {
   // Exact reuse requires the same GKV, subgraph set, and directed edges.
   return (
-    canonicalNumericSetKey(candidate.path.subgraphSystemIds) ===
+    canonicalNumericSetKey(candidateSubgraphSystemIds(candidate)) ===
       canonicalNumericSetKey(existingUsecase.subgraphSystemIds) &&
     sameDirectedPairs(
-      candidateDirectedAdjacentPairs(candidate),
+      candidateDirectedPairs(candidate),
       existingUsecase.subgraphPairs,
     ) &&
     gkvValueIdKey(candidate.gkv) ===
@@ -129,7 +142,7 @@ export function exactTopologyEquals(
 }
 
 export function addedInteriorSubgraphIds(
-  candidate: RoutingCombination,
+  candidate: UsecaseCandidate,
   existingUsecase: UseCase,
 ): readonly number[] {
   /**
@@ -144,7 +157,7 @@ export function addedInteriorSubgraphIds(
     return [];
   }
 
-  const candidatePairs = candidateDirectedAdjacentPairs(candidate);
+  const candidatePairs = candidateDirectedPairs(candidate);
   const candidateEnds = deriveStartEndSets(candidatePairs);
   const existingEnds = deriveStartEndSets(existingUsecase.subgraphPairs);
   if (
@@ -155,7 +168,7 @@ export function addedInteriorSubgraphIds(
   }
 
   const existingIds = new Set(existingUsecase.subgraphSystemIds);
-  const candidateIds = new Set(candidate.path.subgraphSystemIds);
+  const candidateIds = new Set(candidateSubgraphSystemIds(candidate));
   if (
     candidateIds.size <= existingIds.size ||
     [...existingIds].some(id => !candidateIds.has(id))

@@ -15,6 +15,7 @@ import {
 import {RoutingContext} from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
 import {
   PATH_TERMINATION,
+  USECASE_CANDIDATE_KIND,
   type DfsPath,
   type KvResolutions,
   type SgkvInstance,
@@ -117,9 +118,10 @@ describe('CombinationExpansionPhase', () => {
     const result = await service.run(context);
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
-    expect(context.routingCandidates.combinations).toHaveLength(2);
-    expect(context.routingCandidates.combinations).toEqual([
+    expect(context.usecaseCandidates.automaticCandidates).toHaveLength(2);
+    expect(context.usecaseCandidates.automaticCandidates).toEqual([
       {
+        kind: USECASE_CANDIDATE_KIND.Auto,
         path: makePath([1, 2]),
         sgkvAssignment: new Map([
           [1, makeSgkv({keyDefSystemId: 10, valueDefSystemId: 100})],
@@ -131,6 +133,7 @@ describe('CombinationExpansionPhase', () => {
         ],
       },
       {
+        kind: USECASE_CANDIDATE_KIND.Auto,
         path: makePath([1, 2]),
         sgkvAssignment: new Map([
           [1, makeSgkv({keyDefSystemId: 10, valueDefSystemId: 101})],
@@ -161,7 +164,7 @@ describe('CombinationExpansionPhase', () => {
     expect(result.issues[0]?.code).toBe('ARC-ROUTING-DFS-08');
     expect(result.issues[0]?.message).toContain('keyDefinitionSystemIds: [10]');
     expect(result.issues[0]?.message).toContain('key 10: subgraphs [1, 2]');
-    expect(context.routingCandidates.combinations).toEqual([]);
+    expect(context.usecaseCandidates.automaticCandidates).toEqual([]);
   });
 
   it('T2-010, T2-011, and T2-012 retain only compatible branches', async () => {
@@ -182,8 +185,8 @@ describe('CombinationExpansionPhase', () => {
 
     await service.run(context);
 
-    expect(context.routingCandidates.combinations).toHaveLength(1);
-    expect(context.routingCandidates.combinations[0]?.gkv).toEqual([
+    expect(context.usecaseCandidates.automaticCandidates).toHaveLength(1);
+    expect(context.usecaseCandidates.automaticCandidates[0]?.gkv).toEqual([
       {keyDefSystemId: 10, valueDefSystemId: 100},
     ]);
   });
@@ -216,7 +219,7 @@ describe('CombinationExpansionPhase', () => {
 
     await service.run(context);
 
-    expect(context.routingCandidates.combinations[0]?.gkv).toEqual([
+    expect(context.usecaseCandidates.automaticCandidates[0]?.gkv).toEqual([
       {keyDefSystemId: 10, valueDefSystemId: 100},
       {keyDefSystemId: 20, valueDefSystemId: 200},
     ]);
@@ -236,7 +239,7 @@ describe('CombinationExpansionPhase', () => {
       ]),
     );
     await service.run(emptyContext);
-    expect(emptyContext.routingCandidates.combinations).toEqual([]);
+    expect(emptyContext.usecaseCandidates.automaticCandidates).toEqual([]);
 
     const mixedContext = makeContext(
       ROUTING_MODE.Auto,
@@ -251,7 +254,7 @@ describe('CombinationExpansionPhase', () => {
       ]),
     );
     await service.run(mixedContext);
-    expect(mixedContext.routingCandidates.combinations).toHaveLength(1);
+    expect(mixedContext.usecaseCandidates.automaticCandidates).toHaveLength(1);
   });
 
   it('T-P7P8-a expands a cycle-terminated path and retains its metadata', async () => {
@@ -271,7 +274,10 @@ describe('CombinationExpansionPhase', () => {
 
     await service.run(context);
 
-    const candidate = context.routingCandidates.combinations[0]!;
+    const candidate = context.usecaseCandidates.automaticCandidates[0]!;
+    expect(candidate.kind).toBe(USECASE_CANDIDATE_KIND.Auto);
+    if (candidate.kind !== USECASE_CANDIDATE_KIND.Auto)
+      throw new Error('Expected an automatic candidate');
     expect(candidate.path).toBe(path);
     expect([...candidate.sgkvAssignment.keys()]).toEqual([1, 2]);
   });
@@ -286,15 +292,46 @@ describe('CombinationExpansionPhase', () => {
     const result = await service.run(context);
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
-    expect(context.routingCandidates.combinations).toEqual([
+    expect(context.usecaseCandidates.manualCandidates).toEqual([
       {
-        path: makePath([7]),
+        kind: USECASE_CANDIDATE_KIND.Manual,
+        memberSubgraphSystemIds: [7],
+        topology: {pairs: []},
         sgkvAssignment: new Map([
           [7, makeSgkv({keyDefSystemId: 10, valueDefSystemId: 100})],
         ]),
         gkv: [{keyDefSystemId: 10, valueDefSystemId: 100}],
       },
     ]);
+  });
+
+  it('shares the immutable manual topology across every expanded GKV candidate', async () => {
+    const context = makeContext(ROUTING_MODE.Manual, [7]);
+    setKvResolutions(
+      context,
+      new Map([
+        [
+          7,
+          [
+            makeSgkv({keyDefSystemId: 10, valueDefSystemId: 100}),
+            makeSgkv({keyDefSystemId: 10, valueDefSystemId: 101}),
+          ],
+        ],
+      ]),
+    );
+
+    await service.run(context);
+
+    if (context.input.mode !== ROUTING_MODE.Manual)
+      throw new Error('Expected manual routing input');
+    expect(context.usecaseCandidates.manualCandidates).toHaveLength(2);
+    for (const candidate of context.usecaseCandidates.manualCandidates) {
+      expect(candidate.kind).toBe(USECASE_CANDIDATE_KIND.Manual);
+      if (candidate.kind !== USECASE_CANDIDATE_KIND.Manual)
+        throw new Error('Expected manual UseCase candidate');
+      expect(candidate.memberSubgraphSystemIds).toEqual([7]);
+      expect(candidate.topology).toBe(context.input.manualTopology);
+    }
   });
 
   it('returns the established phase-order invariant when Phase 4 output is absent', async () => {
@@ -326,6 +363,6 @@ describe('CombinationExpansionPhase', () => {
     expect(result.kind).toBe(RESULT_KIND.Fail);
     expect(result.issues).toHaveLength(1);
     expect(result.issues[0]?.message).toContain('key 30: subgraphs [3, 4]');
-    expect(context.routingCandidates.combinations).toEqual([]);
+    expect(context.usecaseCandidates.automaticCandidates).toEqual([]);
   });
 });

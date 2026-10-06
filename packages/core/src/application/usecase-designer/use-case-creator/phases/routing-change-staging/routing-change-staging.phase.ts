@@ -12,6 +12,7 @@ import {SOURCE} from '../../../../shared/change-vocabulary.js';
 import type {IdGenerationPort} from '../../../../ports/id-generation/id-generation.port.js';
 import type {UnitOfWork} from '../../../../ports/persistence/unit-of-work.js';
 import type {RoutingContext} from '../../contracts/routing-context.js';
+import {ROUTING_MODE} from '../../contracts/routing-input.js';
 import type {UsecaseChangeDescriptor} from '../../contracts/routing-state.js';
 import {ClassifiedCandidateStager} from './classified-candidate-stager.js';
 import {
@@ -43,7 +44,12 @@ export class RoutingChangeStagingPhase {
 
     const staging: StagingState = {
       repository: uow.getUsecaseRepository(),
-      options: {source: SOURCE.AutoRouting},
+      options: {
+        source:
+          context.input.mode === ROUTING_MODE.Manual
+            ? SOURCE.Manual
+            : SOURCE.AutoRouting,
+      },
       descriptors: new Map<number, UsecaseChangeDescriptor>(),
     };
     const topologyResult = await this.topologyChangeStager.stage({
@@ -56,8 +62,7 @@ export class RoutingChangeStagingPhase {
     const candidateResult = await this.classifiedCandidateStager.stage({
       classifications: context.classifiedUcs,
       staging,
-      fileSystemId: context.input.fileSystemId,
-      snapshot: context.input.graphSnapshot,
+      input: context.input,
       idGenerator,
     });
     if (candidateResult.kind === RESULT_KIND.Fail) return candidateResult;

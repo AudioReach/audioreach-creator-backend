@@ -8,8 +8,70 @@ import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
 import {buildProjectedUsecaseTopology} from '../shared/projected-usecase-topology.js';
 import type {RoutingContext} from '../contracts/routing-context.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
-import {ORPHAN_KIND, type OrphanCandidate} from '../contracts/routing-state.js';
+import {
+  ORPHAN_KIND,
+  USECASE_CANDIDATE_KIND,
+  type ManualUsecaseCandidate,
+  type OrphanCandidate,
+} from '../contracts/routing-state.js';
 import type {SubsystemRepository} from '../../../ports/persistence/repositories/subsystem/subsystem.repository.js';
+
+interface LocalOrphan {
+  readonly candidate: OrphanCandidate;
+  readonly issues: readonly Issue[];
+  readonly order: number;
+}
+
+function manualIsolatedSubgraphSystemIds(
+  context: RoutingContext,
+): ReadonlySet<number> {
+  const manualCandidates = context.classifiedUcs
+    .map(classification => classification.candidate)
+    .filter(
+      (candidate): candidate is ManualUsecaseCandidate =>
+        candidate.kind === USECASE_CANDIDATE_KIND.Manual,
+    );
+  const pairEndpoints = new Set<number>();
+  const memberSubgraphSystemIds = new Set<number>();
+  for (const candidate of manualCandidates) {
+    for (const systemId of candidate.memberSubgraphSystemIds)
+      memberSubgraphSystemIds.add(systemId);
+    for (const item of candidate.topology.pairs) {
+      pairEndpoints.add(item.pair.sourceSubgraphSystemId);
+      pairEndpoints.add(item.pair.destSubgraphSystemId);
+    }
+  }
+  return new Set(
+    [...memberSubgraphSystemIds].filter(
+      systemId => !pairEndpoints.has(systemId),
+    ),
+  );
+}
+
+function subgraphOrphans(
+  context: RoutingContext,
+  topology: ReturnType<typeof buildProjectedUsecaseTopology>,
+): readonly LocalOrphan[] {
+  const isolatedSystemIds = manualIsolatedSubgraphSystemIds(context);
+  const local: LocalOrphan[] = [];
+  for (const item of context.input.graphSnapshot.subgraphs) {
+    const systemId = item.subgraph.systemId;
+    if (
+      !isolatedSystemIds.has(systemId) &&
+      topology.subgraphSystemIds.has(systemId)
+    )
+      continue;
+    const issues: Issue[] = [RoutingIssueFactory.orphanSubgraph(systemId)];
+    if (item.subgraph.sgkvs.length > 0)
+      issues.push(RoutingIssueFactory.orphanSubgraphHasKvs(systemId));
+    local.push({
+      candidate: {kind: ORPHAN_KIND.Subgraph, systemId},
+      issues,
+      order: 0,
+    });
+  }
+  return local;
+}
 
 export class OrphanValidationPhase {
   async run(
@@ -21,24 +83,7 @@ export class OrphanValidationPhase {
       await subsystemRepository.findOrphanSubsystemSystemIds(
         context.input.fileSystemId,
       );
-    const local: Array<{
-      readonly candidate: OrphanCandidate;
-      readonly issues: readonly Issue[];
-      readonly order: number;
-    }> = [];
-
-    for (const item of context.input.graphSnapshot.subgraphs) {
-      const systemId = item.subgraph.systemId;
-      if (topology.subgraphSystemIds.has(systemId)) continue;
-      const issues: Issue[] = [RoutingIssueFactory.orphanSubgraph(systemId)];
-      if (item.subgraph.sgkvs.length > 0)
-        issues.push(RoutingIssueFactory.orphanSubgraphHasKvs(systemId));
-      local.push({
-        candidate: {kind: ORPHAN_KIND.Subgraph, systemId},
-        issues,
-        order: 0,
-      });
-    }
+    const local: LocalOrphan[] = [...subgraphOrphans(context, topology)];
 
     for (const systemId of orphanSubsystemSystemIds) {
       local.push({

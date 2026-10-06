@@ -12,6 +12,11 @@ import {
 import {DATA_LINK_TYPE} from '../../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
 import {ClassifiedCandidateStager} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/routing-change-staging/classified-candidate-stager.js';
 import type {StagingState} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/routing-change-staging/topology-change-stager.js';
+import {
+  createAutoRoutingInput,
+  emptyGraphEdits,
+} from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
+import {USECASE_CANDIDATE_KIND} from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 
 describe('ClassifiedCandidateStager', () => {
   it('creates candidates with canonical SGKV assignments and descriptors', async () => {
@@ -22,6 +27,7 @@ describe('ClassifiedCandidateStager', () => {
       descriptors: new Map(),
     };
     const candidate = {
+      kind: USECASE_CANDIDATE_KIND.Auto,
       path: {
         subgraphSystemIds: [10, 20],
         termination: 'NATURAL_LEAF',
@@ -37,30 +43,34 @@ describe('ClassifiedCandidateStager', () => {
     const result = await new ClassifiedCandidateStager().stage({
       classifications: [{kind: 'CREATE', candidate} as never],
       staging,
-      fileSystemId: 1,
-      snapshot: {
-        subgraphs: [],
-        routableDataLinks: [
-          {
-            systemId: 5,
-            sourceSubgraphSystemId: 10,
-            destSubgraphSystemId: 20,
-            linkType: DATA_LINK_TYPE.Ec,
-          },
-        ],
-        routableControlLinks: [],
-        overlayDataLinks: [],
-        overlayControlLinks: [],
-        committedUsecases: [],
-        sessionEdits: {
-          addedSgs: [],
-          deletedSgs: [],
-          addedDataLinks: [],
-          deletedDataLinks: [],
-          addedControlLinks: [],
-          deletedControlLinks: [],
+      input: createAutoRoutingInput({
+        fileSystemId: 1,
+        selection: {
+          selectedUsecaseSystemIds: [],
+          activeSubgraphs: [],
+          excludedSubgraphSystemIds: [],
+          excludedDataLinkSystemIds: [],
+          excludedControlLinkSystemIds: [],
         },
-      },
+        selectedUsecases: [],
+        activeManualUsecaseEdits: [],
+        graphSnapshot: {
+          subgraphs: [],
+          routableDataLinks: [
+            {
+              systemId: 5,
+              sourceSubgraphSystemId: 10,
+              destSubgraphSystemId: 20,
+              linkType: DATA_LINK_TYPE.Ec,
+            },
+          ],
+          routableControlLinks: [],
+          overlayDataLinks: [],
+          overlayControlLinks: [],
+          committedUsecases: [],
+          sessionEdits: emptyGraphEdits(),
+        },
+      }),
       idGenerator: {getNextId: jest.fn().mockResolvedValue(701)},
     });
 

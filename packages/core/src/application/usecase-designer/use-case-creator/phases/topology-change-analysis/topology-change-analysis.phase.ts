@@ -51,6 +51,14 @@ export class TopologyChangeAnalysisPhase {
     context: RoutingContext,
     subgraphRepository: SubgraphRepository,
   ): Promise<ResultType<void>> {
+    if (context.input.mode === ROUTING_MODE.Manual) {
+      context.topologyChangeAnalysis = {
+        affectedUsecaseSystemIds: new Set<number>(),
+        decisions: [],
+      };
+      return Result.ok();
+    }
+
     // Phase 2 reads no graph topology or UC catalog after snapshot construction. Legacy
     // EC Rule B makes one bounded SGKV baseline lookup through the supplied repository.
     const {inventory, analysis} = analyzeTopologyChanges(

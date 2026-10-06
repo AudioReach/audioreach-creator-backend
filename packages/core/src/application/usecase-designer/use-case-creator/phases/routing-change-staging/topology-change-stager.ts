@@ -11,6 +11,7 @@ import type {Result as ResultType} from '../../../../../application/shared/resul
 import {
   SOURCE,
   CHANGE_OPERATION,
+  type Source,
 } from '../../../../shared/change-vocabulary.js';
 import {UseCase} from '../../../../../domain/entities/usecase-data/usecase/usecase.js';
 import {
@@ -36,7 +37,7 @@ import {USECASE_TOPOLOGY_DECISION_KIND as TOPOLOGY_DECISION_KIND} from '../../co
 
 export interface StagingState {
   readonly repository: UsecaseRepository;
-  readonly options: {readonly source: typeof SOURCE.AutoRouting};
+  readonly options: {readonly source: Source};
   readonly descriptors: Map<number, UsecaseChangeDescriptor>;
 }
 

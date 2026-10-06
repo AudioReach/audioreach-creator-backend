@@ -5,7 +5,10 @@
 
 import {describe, expect, it} from '@jest/globals';
 import {RESULT_KIND} from '../../../../../../src/application/shared/result/result.js';
-import type {RoutingCombination} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
+import {
+  USECASE_CANDIDATE_KIND,
+  type AutoUsecaseCandidate,
+} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {
   createMdfSubstitutionRoutingHarness,
   multiHopScenario,
@@ -14,8 +17,9 @@ import {
 
 function candidateWithCollision(
   members: readonly number[],
-): RoutingCombination {
+): AutoUsecaseCandidate {
   return {
+    kind: USECASE_CANDIDATE_KIND.Auto,
     path: {
       subgraphSystemIds: [...members],
       termination: 'NATURAL_LEAF',

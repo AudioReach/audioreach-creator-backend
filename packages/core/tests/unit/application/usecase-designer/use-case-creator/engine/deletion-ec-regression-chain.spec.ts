@@ -6,7 +6,10 @@
 import {describe, expect, it} from '@jest/globals';
 import {RESULT_KIND} from '../../../../../../src/application/shared/result/result.js';
 import {DATA_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
-import type {RoutingCombination} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
+import {
+  USECASE_CANDIDATE_KIND,
+  type AutoUsecaseCandidate,
+} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {
   committedUsecase,
   createMdfSubstitutionRoutingHarness,
@@ -19,8 +22,9 @@ import {
 function candidate(
   members: readonly number[],
   valueSystemId: number,
-): RoutingCombination {
+): AutoUsecaseCandidate {
   return {
+    kind: USECASE_CANDIDATE_KIND.Auto,
     path: {
       subgraphSystemIds: [...members],
       termination: 'NATURAL_LEAF',

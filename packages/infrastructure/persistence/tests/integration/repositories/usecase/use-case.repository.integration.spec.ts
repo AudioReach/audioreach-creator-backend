@@ -7,6 +7,7 @@ import type {DataSource, QueryRunner} from 'typeorm';
 import {
   USECASE_TYPE,
   SOURCE,
+  CHANGE_STATUS,
   CHANGE_OPERATION,
   READ_MODE,
   type IdGenerationPort,
@@ -511,6 +512,110 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       expect(relationshipIds).not.toContain(SG_ID_2);
       const rootRow = rows.find((row: any) => row.target_table === 'UseCase');
       expect(result).toEqual({systemId: 1000, changeId: rootRow.change_id});
+    });
+
+    it('persists a MANUAL/STAGED usecase group with references and content-only SGKV assignments', async () => {
+      const repo = makeRepo(qr.manager, sessionId);
+      const usecase = new UseCase({
+        systemId: 1000,
+        fileSystemId: FILE_ID,
+        aliasId: 1,
+        alias: 'manual-usecase',
+        type: USECASE_TYPE.Island,
+        keyVector: {valueSystemIds: [7001, 7002]},
+        subgraphSystemIds: [SG_ID_1, SG_ID_2],
+        subgraphPairs: [
+          {sourceSubgraphSystemId: SG_ID_2, destSubgraphSystemId: SG_ID_1},
+        ],
+      });
+      const referencedComponents = {
+        sgSystemIds: [SG_ID_1, SG_ID_2],
+        dataLinkSystemIds: [600],
+        controlLinkSystemIds: [601],
+      };
+      const sgkvAssignments = [
+        {subgraphSystemId: SG_ID_1, valueDefinitionSystemIds: [7001]},
+        {subgraphSystemId: SG_ID_2, valueDefinitionSystemIds: [7002]},
+      ];
+
+      await qr.startTransaction();
+      await repo.create(
+        usecase,
+        {source: SOURCE.Manual},
+        referencedComponents,
+        sgkvAssignments,
+      );
+      await qr.commitTransaction();
+
+      const actions = await new EditActionsQueryService(ds.manager).query({
+        sessionId,
+        aggregateId: usecase.systemId,
+        source: SOURCE.Manual,
+        changeStatus: CHANGE_STATUS.Staged,
+      });
+      expect(actions).toHaveLength(6);
+      expect(new Set(actions.map(action => action.groupId))).toEqual(
+        new Set(['test-group']),
+      );
+      expect(
+        actions.every(
+          action =>
+            action.operation === CHANGE_OPERATION.Create &&
+            action.source === SOURCE.Manual &&
+            action.changeStatus === CHANGE_STATUS.Staged,
+        ),
+      ).toBe(true);
+
+      const rootAction = actions.find(
+        action => action.targetTable === ENTITY_NAMES.UseCase,
+      );
+      expect(rootAction?.newValue).toEqual(
+        expect.objectContaining({
+          referencedComponents,
+          sgkvAssignments,
+        }),
+      );
+      expect(
+        actions
+          .filter(action => action.targetTable === ENTITY_NAMES.UseCaseSubgraph)
+          .map(action => action.newValue),
+      ).toEqual(
+        expect.arrayContaining([
+          {usecaseSystemId: 1000, subgraphSystemId: SG_ID_1},
+          {usecaseSystemId: 1000, subgraphSystemId: SG_ID_2},
+        ]),
+      );
+      expect(
+        actions.find(
+          action => action.targetTable === ENTITY_NAMES.UseCaseSubgraphPair,
+        )?.newValue,
+      ).toEqual({
+        usecaseSystemId: 1000,
+        sourceSubgraphSystemId: SG_ID_2,
+        destSubgraphSystemId: SG_ID_1,
+      });
+
+      const [hydrated] = await repo.findBySystemIds(FILE_ID, [1000]);
+      expect(hydrated).toEqual(
+        expect.objectContaining({
+          systemId: 1000,
+          subgraphSystemIds: [SG_ID_1, SG_ID_2],
+          subgraphPairs: [
+            {
+              sourceSubgraphSystemId: SG_ID_2,
+              destSubgraphSystemId: SG_ID_1,
+            },
+          ],
+          keyVector: {valueSystemIds: [7001, 7002]},
+        }),
+      );
+      await expect(repo.findWithActiveManualEdits(FILE_ID)).resolves.toEqual([
+        expect.objectContaining({
+          operation: CHANGE_OPERATION.Create,
+          referencedComponents,
+          usecase: expect.objectContaining({systemId: 1000}),
+        }),
+      ]);
     });
 
     it('creates distinct edit targets when usecases share an SG and pair', async () => {

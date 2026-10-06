@@ -6,6 +6,7 @@
 import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
 import {Subgraph} from '../../../../../../src/domain/entities/usecase-data/subgraph/subgraph.js';
 import type {ControlLink} from '../../../../../../src/domain/entities/usecase-data/links/control-link.js';
+import {DataLink} from '../../../../../../src/domain/entities/usecase-data/links/data-link.js';
 import {RoutingIssueFactory} from '../../../../../../src/application/usecase-designer/use-case-creator/issues/routing-issue-factory.js';
 import {ISSUE_ENTITY_TYPE} from '../../../../../../src/shared/issues/impacted-entity.js';
 import {IssueSeverity} from '../../../../../../src/shared/issues/severity.js';
@@ -17,6 +18,7 @@ import {RoutingContext} from '../../../../../../src/application/usecase-designer
 import {
   createAutoRoutingInput,
   createControlLinkManualTopologyPair,
+  createDataLinkManualTopologyPair,
   createManualRoutingInput,
   deriveRoutingScope,
   emptyGraphEdits,
@@ -53,6 +55,24 @@ function createSubgraph(systemId: number): Subgraph {
     subgraphId: systemId + 100,
     name: `sg-${systemId}`,
     isImported: false,
+    fileSystemId: 1,
+  });
+}
+
+function createDataLink(
+  systemId: number,
+  sourceSubgraphSystemId: number,
+  destSubgraphSystemId: number,
+): DataLink {
+  return new DataLink({
+    systemId,
+    sourceNodeSystemId: systemId * 10 + 1,
+    destinationNodeSystemId: systemId * 10 + 2,
+    sourcePortSystemId: systemId * 10 + 3,
+    destinationPortSystemId: systemId * 10 + 4,
+    linkType: 'NORMAL' as never,
+    sourceSubgraphSystemId,
+    destSubgraphSystemId,
     fileSystemId: 1,
   });
 }
@@ -391,5 +411,82 @@ describe('routing contracts', () => {
           duplicate,
         ]),
     ).toThrow('Duplicate emitted usecase systemId: 21');
+  });
+
+  it('rejects empty or mixed-direction data-link support', () => {
+    expect(() =>
+      createDataLinkManualTopologyPair(
+        {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+        [],
+      ),
+    ).toThrow('Manual data topology support must be non-empty');
+    expect(() =>
+      createDataLinkManualTopologyPair(
+        {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+        [createDataLink(1, 10, 20), createDataLink(2, 20, 10)],
+      ),
+    ).toThrow('Manual data topology support must be non-empty');
+  });
+
+  it('rejects empty, noncanonical, or endpoint-mismatched control support', () => {
+    expect(() =>
+      createControlLinkManualTopologyPair(
+        {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+        [],
+      ),
+    ).toThrow('Manual control topology support must be non-empty');
+    expect(() =>
+      createControlLinkManualTopologyPair(
+        {sourceSubgraphSystemId: 20, destSubgraphSystemId: 10},
+        [
+          {
+            systemId: 1,
+            sourceSubgraphSystemId: 20,
+            destSubgraphSystemId: 10,
+          } as ControlLink,
+        ],
+      ),
+    ).toThrow('canonically ordered');
+    expect(() =>
+      createControlLinkManualTopologyPair(
+        {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+        [
+          {
+            systemId: 1,
+            sourceSubgraphSystemId: 30,
+            destSubgraphSystemId: 40,
+          } as ControlLink,
+        ],
+      ),
+    ).toThrow('peer-matched');
+  });
+
+  it('keeps factory results isolated from caller-owned support arrays', () => {
+    const dataLinks = [createDataLink(1, 10, 20)];
+    const controlLinks = [
+      {
+        systemId: 2,
+        sourceSubgraphSystemId: 10,
+        destSubgraphSystemId: 20,
+      } as ControlLink,
+    ];
+    const dataPair = createDataLinkManualTopologyPair(
+      {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+      dataLinks,
+    );
+    const controlPair = createControlLinkManualTopologyPair(
+      {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+      controlLinks,
+    );
+
+    dataLinks.push(createDataLink(3, 10, 20));
+    controlLinks.push({
+      systemId: 4,
+      sourceSubgraphSystemId: 20,
+      destSubgraphSystemId: 10,
+    } as ControlLink);
+
+    expect(dataPair.dataLinks.map(link => link.systemId)).toEqual([1]);
+    expect(controlPair.controlLinks.map(link => link.systemId)).toEqual([2]);
   });
 });

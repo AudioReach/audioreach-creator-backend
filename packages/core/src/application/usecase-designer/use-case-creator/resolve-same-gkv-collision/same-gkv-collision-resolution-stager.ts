@@ -22,9 +22,10 @@ import {
   type SameGkvCollisionGroup,
 } from '../contracts/same-gkv-collision.js';
 import type {
-  RoutingCombination,
+  RoutedUsecaseCandidate,
   UsecaseChangeDescriptor,
 } from '../contracts/routing-state.js';
+import {USECASE_CANDIDATE_KIND} from '../contracts/routing-state.js';
 import {
   assertSgkvAssignmentsMatchGkv,
   collectUsecaseSgkvAdditions,
@@ -38,7 +39,7 @@ interface Pair {
 
 type AssignmentsBySubgraph = Map<number, Map<number, KvPair>>;
 
-function candidatePairs(candidate: RoutingCombination): Pair[] {
+function candidatePairs(candidate: RoutedUsecaseCandidate): Pair[] {
   return candidate.path.subgraphSystemIds.slice(1).map((dest, index) => ({
     sourceSubgraphSystemId: candidate.path.subgraphSystemIds[index],
     destSubgraphSystemId: dest,
@@ -88,7 +89,7 @@ function existingAlternative(
 function selectedCandidate(
   group: SameGkvCollisionGroup,
   alternativeId: string,
-): RoutingCombination {
+): RoutedUsecaseCandidate {
   const alternative = newAlternatives(group).find(
     candidate => candidate.alternativeId === alternativeId,
   );
@@ -138,7 +139,7 @@ function addExistingTopology(
 }
 
 function mergeAllCandidates(group: SameGkvCollisionGroup): {
-  readonly candidate: RoutingCombination;
+  readonly candidate: RoutedUsecaseCandidate;
   readonly pairs: readonly Pair[];
 } {
   const alternatives = newAlternatives(group);
@@ -161,38 +162,49 @@ function mergeAllCandidates(group: SameGkvCollisionGroup): {
 
   addExistingTopology(existingAlternative(group), subgraphSystemIds, pairs);
 
-  const candidate: RoutingCombination = {
-    path: {
-      subgraphSystemIds: [...subgraphSystemIds].sort(
-        (left, right) => left - right,
-      ),
-      termination: first.path.termination,
-      ecBoundaryLinkId: first.path.ecBoundaryLinkId,
-    },
-    sgkvAssignment: new Map(
-      [...subgraphSystemIds]
-        .sort((left, right) => left - right)
-        .map(systemId => [
-          systemId,
-          {
-            keyValues: [
-              ...(assignmentBySubgraph.get(systemId)?.values() ?? []),
-            ].sort(
-              (left, right) =>
-                left.keyDefSystemId - right.keyDefSystemId ||
-                left.valueDefSystemId - right.valueDefSystemId,
-            ),
-          },
-        ]),
+  const path = {
+    subgraphSystemIds: [...subgraphSystemIds].sort(
+      (left, right) => left - right,
     ),
-    gkv: first.gkv,
+    termination: first.path.termination,
+    ecBoundaryLinkId: first.path.ecBoundaryLinkId,
   };
+  const sgkvAssignment = new Map(
+    [...subgraphSystemIds]
+      .sort((left, right) => left - right)
+      .map(systemId => [
+        systemId,
+        {
+          keyValues: [
+            ...(assignmentBySubgraph.get(systemId)?.values() ?? []),
+          ].sort(
+            (left, right) =>
+              left.keyDefSystemId - right.keyDefSystemId ||
+              left.valueDefSystemId - right.valueDefSystemId,
+          ),
+        },
+      ]),
+  );
+  const candidate: RoutedUsecaseCandidate =
+    first.kind === USECASE_CANDIDATE_KIND.Auto
+      ? {
+          kind: USECASE_CANDIDATE_KIND.Auto,
+          path,
+          sgkvAssignment,
+          gkv: first.gkv,
+        }
+      : {
+          kind: USECASE_CANDIDATE_KIND.EcBridge,
+          path,
+          sgkvAssignment,
+          gkv: first.gkv,
+        };
   assertSgkvAssignmentsMatchGkv(candidate, group.gkvValueSystemIds);
   return {candidate, pairs: uniquePairs(pairs)};
 }
 
 function asUseCase(
-  candidate: RoutingCombination,
+  candidate: RoutedUsecaseCandidate,
   fileSystemId: number,
   systemId: number,
   input: AutoRoutingInput,
@@ -273,7 +285,7 @@ export class SameGkvCollisionResolutionStager {
     const existing = existingAlternative(group)?.usecase ?? null;
     const repository = uow.getUsecaseRepository();
     const options = {source: SOURCE.Manual} as const;
-    let candidate: RoutingCombination;
+    let candidate: RoutedUsecaseCandidate;
     let selectedPairs: readonly Pair[];
     if (selection.mode === COLLISION_RESOLUTION_MODE.SelectCandidate) {
       candidate = selectedCandidate(group, selection.alternativeId);

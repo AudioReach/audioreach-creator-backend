@@ -324,7 +324,7 @@ describe('TopologyChangeAnalysisPhase', () => {
   });
 
   it.each(['AUTO', 'MANUAL'] as const)(
-    'retains a pure MDF decision without selection in %s mode',
+    'retains automatic MDF analysis but publishes no manual analysis in %s mode',
     async mode => {
       const currentUsecase = usecase(
         105,
@@ -343,15 +343,22 @@ describe('TopologyChangeAnalysisPhase', () => {
       const result = await runAnalysis(service, fixture);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
-      expect(
-        fixture.context.topologyChangeAnalysis?.affectedUsecaseSystemIds,
-      ).toEqual(new Set());
-      expect(fixture.context.topologyChangeAnalysis?.decisions).toEqual([
-        expect.objectContaining({
-          kind: USECASE_TOPOLOGY_DECISION_KIND.MdfSubstitution,
-          usecase: currentUsecase,
-        }),
-      ]);
+      if (mode === 'MANUAL') {
+        expect(fixture.context.topologyChangeAnalysis).toEqual({
+          affectedUsecaseSystemIds: new Set<number>(),
+          decisions: [],
+        });
+      } else {
+        expect(
+          fixture.context.topologyChangeAnalysis?.affectedUsecaseSystemIds,
+        ).toEqual(new Set());
+        expect(fixture.context.topologyChangeAnalysis?.decisions).toEqual([
+          expect.objectContaining({
+            kind: USECASE_TOPOLOGY_DECISION_KIND.MdfSubstitution,
+            usecase: currentUsecase,
+          }),
+        ]);
+      }
       expect(fixture.context.warnings).toEqual([]);
     },
   );
@@ -1028,7 +1035,7 @@ describe('TopologyChangeAnalysisPhase', () => {
     );
   });
 
-  it('retains ordinary decisions in manual mode without automatic reconstruction output', async () => {
+  it('publishes no topology decisions in manual mode', async () => {
     const currentUsecase = usecase(
       1,
       [1, 2, 3],
@@ -1049,20 +1056,53 @@ describe('TopologyChangeAnalysisPhase', () => {
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     expect(fixture.context.topologyChangeAnalysis).toEqual({
-      affectedUsecaseSystemIds: new Set([1]),
-      decisions: [
-        expect.objectContaining({
-          kind: USECASE_TOPOLOGY_DECISION_KIND.DeleteOrReconstruct,
-          usecase: currentUsecase,
-          deletedComponent: {
-            type: DELETED_COMPONENT_TYPE.DataLink,
-            systemId: 101,
-          },
-          reconstructionPaths: [],
-        }),
-      ],
+      affectedUsecaseSystemIds: new Set<number>(),
+      decisions: [],
     });
     expect(fixture.context.warnings).toEqual([]);
+  });
+
+  it('publishes an empty analysis for manual deletion-impact input', async () => {
+    const currentUsecase = usecase(
+      2,
+      [10, 20],
+      [{sourceSubgraphSystemId: 10, destSubgraphSystemId: 20}],
+    );
+    const fixture = createFixture({
+      mode: 'MANUAL',
+      usecases: [currentUsecase],
+      selectedUsecases: [],
+      deletedDataLinks: [dataLink(103, 10, 20)],
+    });
+
+    const result = await runAnalysis(service, fixture);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(fixture.context.topologyChangeAnalysis).toEqual({
+      affectedUsecaseSystemIds: new Set<number>(),
+      decisions: [],
+    });
+  });
+
+  it('keeps the automatic deletion gate for the same input', async () => {
+    const currentUsecase = usecase(
+      2,
+      [10, 20],
+      [{sourceSubgraphSystemId: 10, destSubgraphSystemId: 20}],
+    );
+    const fixture = createFixture({
+      usecases: [currentUsecase],
+      selectedUsecases: [],
+      deletedDataLinks: [dataLink(103, 10, 20)],
+    });
+
+    const result = await runAnalysis(service, fixture);
+
+    expect(result.kind).toBe(RESULT_KIND.Fail);
+    expect(result.kind === RESULT_KIND.Fail && result.issues[0]).toEqual(
+      expect.objectContaining({code: 'ARC-ROUTING-DEL-02'}),
+    );
+    expect(fixture.context.topologyChangeAnalysis).toBeNull();
   });
 
   it('preserves a multi-path usecase when only an isolated SG is deleted', async () => {

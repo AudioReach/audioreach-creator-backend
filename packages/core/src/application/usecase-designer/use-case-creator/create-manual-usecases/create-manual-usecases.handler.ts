@@ -112,6 +112,7 @@ export class CreateManualUsecasesHandler implements CommandHandler<
         selectedUsecases,
         subgraphs: snapshot.data.subgraphs,
         dataLinks: snapshot.data.routableDataLinks,
+        overlayDataLinks: snapshot.data.overlayDataLinks,
         controlLinks: snapshot.data.routableControlLinks,
       });
       if (topology.kind === RESULT_KIND.Fail)

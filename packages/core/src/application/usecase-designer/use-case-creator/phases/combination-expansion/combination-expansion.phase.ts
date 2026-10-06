@@ -8,30 +8,40 @@ import {
   type Result as ResultType,
 } from '../../../../../application/shared/result/result.js';
 import type {RoutingContext} from '../../contracts/routing-context.js';
-import {ROUTING_MODE} from '../../contracts/routing-input.js';
+import {
+  ROUTING_MODE,
+  type ManualTopology,
+} from '../../contracts/routing-input.js';
 import type {
+  AutoUsecaseCandidate,
   DfsPath,
-  RoutingCombination,
+  ManualUsecaseCandidate,
 } from '../../contracts/routing-state.js';
-import {PATH_TERMINATION} from '../../contracts/routing-state.js';
+import {USECASE_CANDIDATE_KIND} from '../../contracts/routing-state.js';
 import {
   RoutingIssueFactory,
-  type RoutingCombinationConflictDetails,
+  type UsecaseCandidateConflictDetails,
 } from '../../issues/routing-issue-factory.js';
-import {aggregateGkv, expandPath} from './path-combination-expander.js';
+import {
+  aggregateGkv,
+  expandPath,
+  expandSubgraphCombinations,
+} from './path-combination-expander.js';
 
-function syntheticManualPath(context: RoutingContext): DfsPath {
-  return {
-    subgraphSystemIds: context.input.graphSnapshot.subgraphs.map(
-      routingSubgraph => routingSubgraph.subgraph.systemId,
-    ),
-    termination: PATH_TERMINATION.NaturalLeaf,
-    ecBoundaryLinkId: null,
-  };
-}
+type ExpansionInput =
+  | {
+      readonly kind: typeof ROUTING_MODE.Auto;
+      readonly memberSubgraphSystemIds: readonly number[];
+      readonly path: DfsPath;
+    }
+  | {
+      readonly kind: typeof ROUTING_MODE.Manual;
+      readonly memberSubgraphSystemIds: readonly number[];
+      readonly topology: ManualTopology;
+    };
 
 export class CombinationExpansionPhase {
-  // eslint-disable-next-line @typescript-eslint/require-await -- Phase execution remains promise-based for ordered orchestration.
+  // eslint-disable-next-line sonarjs/cognitive-complexity, @typescript-eslint/require-await -- This method intentionally keeps mode-specific expansion, conflict aggregation, and atomic candidate publication together while preserving the promise-based phase contract.
   async run(context: RoutingContext): Promise<ResultType<void>> {
     if (!context.kvResolutions) {
       throw new Error(
@@ -39,26 +49,43 @@ export class CombinationExpansionPhase {
       );
     }
 
-    // Manual routing supplies the SG set directly; automatic routing consumes DFS paths.
-    const routingPaths =
-      context.input.mode === ROUTING_MODE.Manual
-        ? [syntheticManualPath(context)]
-        : [...context.dfsPaths];
     // Keep candidates local so a conflict on one path cannot publish partial results.
-    const validCombinations: RoutingCombination[] = [];
-    const conflictingPathDetails: RoutingCombinationConflictDetails[] = [];
+    const automaticCandidates: AutoUsecaseCandidate[] = [];
+    const manualCandidates: ManualUsecaseCandidate[] = [];
+    const conflictingPathDetails: UsecaseCandidateConflictDetails[] = [];
 
-    for (const routingPath of routingPaths) {
-      const pathExpansion = expandPath(
-        routingPath,
-        context.kvResolutions.perSg,
-      );
+    const expansionInputs: readonly ExpansionInput[] =
+      context.input.mode === ROUTING_MODE.Auto
+        ? context.dfsPaths.map(path => ({
+            kind: ROUTING_MODE.Auto,
+            memberSubgraphSystemIds: path.subgraphSystemIds,
+            path,
+          }))
+        : [
+            {
+              kind: ROUTING_MODE.Manual,
+              memberSubgraphSystemIds:
+                context.input.graphSnapshot.subgraphs.map(
+                  routingSubgraph => routingSubgraph.subgraph.systemId,
+                ),
+              topology: context.input.manualTopology,
+            },
+          ];
+
+    for (const expansionInput of expansionInputs) {
+      const pathExpansion =
+        expansionInput.kind === ROUTING_MODE.Auto
+          ? expandPath(expansionInput.path, context.kvResolutions.perSg)
+          : expandSubgraphCombinations(
+              expansionInput.memberSubgraphSystemIds,
+              context.kvResolutions.perSg,
+            );
       if (
         pathExpansion.validAssignments.length === 0 &&
         pathExpansion.conflicts.length > 0
       ) {
         conflictingPathDetails.push({
-          pathSubgraphSystemIds: routingPath.subgraphSystemIds,
+          pathSubgraphSystemIds: expansionInput.memberSubgraphSystemIds,
           conflicts: pathExpansion.conflicts,
         });
         continue;
@@ -66,11 +93,22 @@ export class CombinationExpansionPhase {
       for (const sgkvAssignment of pathExpansion.validAssignments) {
         const gkv = aggregateGkv(sgkvAssignment);
         if (gkv.length === 0) continue;
-        validCombinations.push({
-          path: routingPath,
-          sgkvAssignment,
-          gkv,
-        });
+        if (expansionInput.kind === ROUTING_MODE.Manual) {
+          manualCandidates.push({
+            kind: USECASE_CANDIDATE_KIND.Manual,
+            memberSubgraphSystemIds: expansionInput.memberSubgraphSystemIds,
+            topology: expansionInput.topology,
+            sgkvAssignment,
+            gkv,
+          });
+        } else {
+          automaticCandidates.push({
+            kind: USECASE_CANDIDATE_KIND.Auto,
+            path: expansionInput.path,
+            sgkvAssignment,
+            gkv,
+          });
+        }
       }
     }
 
@@ -81,7 +119,8 @@ export class CombinationExpansionPhase {
         ),
       );
     }
-    context.routingCandidates.combinations.push(...validCombinations);
+    context.usecaseCandidates.automaticCandidates.push(...automaticCandidates);
+    context.usecaseCandidates.manualCandidates.push(...manualCandidates);
     return Result.ok();
   }
 }
