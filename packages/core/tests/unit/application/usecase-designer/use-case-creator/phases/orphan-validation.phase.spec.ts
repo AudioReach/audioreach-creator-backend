@@ -8,11 +8,17 @@ import {RESULT_KIND} from '../../../../../../src/application/shared/result/resul
 import {RoutingContext} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
 import {OrphanValidationPhase} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/orphan-validation.phase.js';
 import {ROUTING_MODE} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
-import type {RoutingCombination} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
+import {
+  USECASE_CANDIDATE_KIND,
+  type AutoUsecaseCandidate,
+  type KvResolutions,
+  type ManualUsecaseCandidate,
+} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {ClassificationPhase} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/classification/classification.phase.js';
 
-function candidate(path: number[]): RoutingCombination {
+function candidate(path: number[]): AutoUsecaseCandidate {
   return {
+    kind: USECASE_CANDIDATE_KIND.Auto,
     path: {
       subgraphSystemIds: path,
       termination: 'NATURAL_LEAF',
@@ -23,9 +29,35 @@ function candidate(path: number[]): RoutingCombination {
   };
 }
 
-function makeContext(): RoutingContext {
-  return new RoutingContext({
-    mode: ROUTING_MODE.Auto,
+function manualCandidate(
+  members: number[],
+  pairs: Array<[number, number]>,
+): ManualUsecaseCandidate {
+  return {
+    kind: USECASE_CANDIDATE_KIND.Manual,
+    memberSubgraphSystemIds: members,
+    topology: {
+      pairs: pairs.map(
+        ([sourceSubgraphSystemId, destSubgraphSystemId], index) => ({
+          pair: {sourceSubgraphSystemId, destSubgraphSystemId},
+          dataLinks: [{systemId: 1000 + index} as never],
+          controlLinks: [],
+        }),
+      ),
+    },
+    sgkvAssignment: new Map(
+      members.map(systemId => [systemId, {keyValues: []}]),
+    ),
+    gkv: [{keyDefSystemId: 1, valueDefSystemId: 100}],
+  };
+}
+
+function makeContext(
+  mode: ROUTING_MODE = ROUTING_MODE.Auto,
+  manualPairs: Array<[number, number]> = [],
+): RoutingContext {
+  const context = new RoutingContext({
+    mode,
     fileSystemId: 1,
     selectedUsecases: [],
     requestPolicy: {
@@ -77,7 +109,41 @@ function makeContext(): RoutingContext {
       excludedControlLinkSystemIds: [],
     },
     activeManualUsecaseEdits: [],
+    ...(mode === ROUTING_MODE.Manual
+      ? {
+          manualTopology: {
+            pairs: manualPairs.map(
+              ([sourceSubgraphSystemId, destSubgraphSystemId], index) => ({
+                pair: {sourceSubgraphSystemId, destSubgraphSystemId},
+                dataLinks: [
+                  {
+                    systemId: 1000 + index,
+                    sourceSubgraphSystemId,
+                    destSubgraphSystemId,
+                  },
+                ],
+                controlLinks: [],
+              }),
+            ),
+          },
+        }
+      : {}),
   } as never);
+  context.kvResolutions = {
+    perSg: new Map([
+      [10, [{keyValues: []}]],
+      [20, [{keyValues: [{keyDefSystemId: 1, valueDefSystemId: 1}]}]],
+    ]),
+    ucFilteredBaseline: new Map(),
+  };
+  return context;
+}
+
+function setEffectiveKvs(
+  context: RoutingContext,
+  perSg: KvResolutions['perSg'],
+): void {
+  context.kvResolutions = {perSg, ucFilteredBaseline: new Map()};
 }
 
 describe('OrphanValidationPhase', () => {
@@ -131,7 +197,7 @@ describe('OrphanValidationPhase', () => {
         },
       },
     ];
-    context.routingCandidates.combinations.push(
+    context.usecaseCandidates.automaticCandidates.push(
       candidate([1, 2]),
       candidate([3, 4]),
       candidate([5, 6]),
@@ -288,5 +354,97 @@ describe('OrphanValidationPhase', () => {
         {kind: 'DATA_LINK', systemId: 998},
       ]),
     );
+  });
+
+  it('uses Phase 4 effective KVs rather than persisted subgraph SGKVs for hints', async () => {
+    const context = makeContext();
+    setEffectiveKvs(
+      context,
+      new Map([
+        [10, [{keyValues: []}]],
+        [20, [{keyValues: []}]],
+      ]),
+    );
+
+    await new OrphanValidationPhase().run(context, {
+      findOrphanSubsystemSystemIds: async () => [],
+    } as never);
+
+    expect(context.warnings.map(issue => issue.code)).not.toContain(
+      'ARC-ROUTING-ORPHAN-SG-HAS-KVS',
+    );
+  });
+
+  it('requires Phase 4 KV resolutions', async () => {
+    const context = makeContext();
+    context.kvResolutions = null;
+
+    await expect(
+      new OrphanValidationPhase().run(context, {
+        findOrphanSubsystemSystemIds: async () => [],
+      } as never),
+    ).rejects.toThrow('OrphanValidationPhase requires Phase 4 kvResolutions');
+  });
+
+  it('warns isolated manual members without removing them or inventing pairs', async () => {
+    const context = makeContext(ROUTING_MODE.Manual, [[10, 20]]);
+    const snapshot = context.input.graphSnapshot as unknown as Record<
+      string,
+      unknown
+    >;
+    snapshot.subgraphs = [10, 20, 30].map(systemId => ({
+      subgraph: {systemId, sgkvs: systemId === 30 ? [{}] : []},
+      requestedSgkvs: [],
+      isMdf: false,
+    }));
+    snapshot.committedUsecases = [];
+    snapshot.overlayDataLinks = [
+      {systemId: 201, sourceSubgraphSystemId: 20, destSubgraphSystemId: 10},
+      {systemId: 202, sourceSubgraphSystemId: 30, destSubgraphSystemId: 10},
+      {systemId: 203, sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+    ];
+    snapshot.overlayControlLinks = [
+      {systemId: 301, sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+      {systemId: 302, sourceSubgraphSystemId: 30, destSubgraphSystemId: 10},
+    ];
+    setEffectiveKvs(
+      context,
+      new Map([
+        [10, [{keyValues: []}]],
+        [20, [{keyValues: []}]],
+        [30, [{keyValues: [{keyDefSystemId: 1, valueDefSystemId: 1}]}]],
+      ]),
+    );
+    context.usecaseCandidates.manualCandidates.push(
+      manualCandidate([30, 10, 20], [[20, 10]]),
+    );
+    context.topologyChangeAnalysis = {
+      affectedUsecaseSystemIds: new Set(),
+      decisions: [],
+    };
+
+    const classification = await new ClassificationPhase().run(context);
+    const result = await new OrphanValidationPhase().run(context, {
+      findOrphanSubsystemSystemIds: async () => [],
+    } as never);
+
+    expect(classification.kind).toBe(RESULT_KIND.Ok);
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(context.orphanCandidates).toEqual([
+      {kind: 'SUBGRAPH', systemId: 30},
+      {kind: 'DATA_LINK', systemId: 202},
+      {kind: 'DATA_LINK', systemId: 203},
+      {kind: 'CONTROL_LINK', systemId: 302},
+    ]);
+    expect(context.warnings.map(issue => issue.code)).toEqual([
+      'ARC-ROUTING-ORPHAN-SUBGRAPH',
+      'ARC-ROUTING-ORPHAN-SG-HAS-KVS',
+      'ARC-ROUTING-ORPHAN-DATA-LINK',
+      'ARC-ROUTING-ORPHAN-DATA-LINK',
+      'ARC-ROUTING-ORPHAN-CONTROL-LINK',
+    ]);
+    expect(
+      context.warnings.map(issue => issue.impactedEntity?.systemId),
+    ).toEqual([30, 30, 202, 203, 302]);
   });
 });

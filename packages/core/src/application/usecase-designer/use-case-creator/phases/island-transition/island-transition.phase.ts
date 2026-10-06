@@ -4,13 +4,17 @@
  */
 
 import {Result} from '../../../../../application/shared/result/result.js';
-import type {UseCase} from '../../../../../domain/entities/usecase-data/usecase/usecase.js';
+import {USECASE_TYPE} from '../../../../../domain/entities/usecase-data/usecase/usecase-type.js';
+import type {
+  SubgraphPair,
+  UseCase,
+} from '../../../../../domain/entities/usecase-data/usecase/usecase.js';
 import type {RoutingContext} from '../../contracts/routing-context.js';
 import {ROUTING_MODE} from '../../contracts/routing-input.js';
 import type {
   DirectionCorrection,
   IslandTransition,
-  TransitionToIslandDecision,
+  UsecaseTopologyDecision,
 } from '../../contracts/routing-state.js';
 import {USECASE_TOPOLOGY_DECISION_KIND as TOPOLOGY_DECISION_KIND} from '../../contracts/routing-state.js';
 import {
@@ -19,17 +23,13 @@ import {
   findMdfBridgePath,
   hasControlLinkBetween,
   hasDirectedDataLink,
+  sortedBySystemId,
   type EffectiveGraph,
 } from './effective-graph.js';
 
-interface DirectedPair {
-  readonly sourceSubgraphSystemId: number;
-  readonly destSubgraphSystemId: number;
-}
-
 function compareDirectedPairs(
-  leftPair: DirectedPair,
-  rightPair: DirectedPair,
+  leftPair: SubgraphPair,
+  rightPair: SubgraphPair,
 ): number {
   return (
     leftPair.sourceSubgraphSystemId - rightPair.sourceSubgraphSystemId ||
@@ -53,14 +53,6 @@ function compareDirectionCorrections(
   );
 }
 
-function sortedBySystemId<T extends {readonly systemId: number}>(
-  items: readonly T[],
-): T[] {
-  return [...items].sort(
-    (leftItem, rightItem) => leftItem.systemId - rightItem.systemId,
-  );
-}
-
 function isUsecaseWithinEffectiveScope(
   usecase: Pick<UseCase, 'subgraphSystemIds' | 'subgraphPairs'>,
   scopeSubgraphSystemIds: ReadonlySet<number>,
@@ -80,10 +72,10 @@ function buildCorrectedPairs(
   effectiveGraph: EffectiveGraph,
 ): {
   readonly corrections: readonly DirectionCorrection[];
-  readonly pairs: readonly DirectedPair[];
+  readonly pairs: readonly SubgraphPair[];
 } {
   const corrections: DirectionCorrection[] = [];
-  const pairs: DirectedPair[] = [];
+  const pairs: SubgraphPair[] = [];
 
   for (const storedPair of usecase.subgraphPairs) {
     const hasForwardDataLink = hasDirectedDataLink(
@@ -138,7 +130,7 @@ function evaluateIslandUsecase(
     effectiveGraph,
   );
   const addedSubgraphSystemIds = new Set<number>();
-  const addedPairByKey = new Map<string, DirectedPair>();
+  const addedPairByKey = new Map<string, SubgraphPair>();
 
   for (const correctedPair of correctedPairs) {
     if (
@@ -181,42 +173,71 @@ function evaluateIslandUsecase(
   };
 }
 
+function collectIslandTransitionCandidates(
+  usecases: readonly UseCase[],
+  decisions: readonly UsecaseTopologyDecision[],
+): readonly UseCase[] {
+  const deletedUsecaseSystemIds = new Set(
+    decisions
+      .filter(
+        decision =>
+          decision.kind === TOPOLOGY_DECISION_KIND.DeleteOrReconstruct,
+      )
+      .map(decision => decision.usecase.systemId),
+  );
+  const candidatesBySystemId = new Map(
+    usecases
+      .filter(
+        usecase =>
+          usecase.type === USECASE_TYPE.Island &&
+          !deletedUsecaseSystemIds.has(usecase.systemId),
+      )
+      .map(usecase => [usecase.systemId, usecase]),
+  );
+
+  for (const decision of decisions) {
+    if (
+      decision.kind === TOPOLOGY_DECISION_KIND.TransitionToIsland &&
+      !deletedUsecaseSystemIds.has(decision.usecase.systemId)
+    ) {
+      candidatesBySystemId.set(decision.usecase.systemId, decision.usecase);
+    }
+  }
+
+  return [...candidatesBySystemId.values()];
+}
+
 /**
- * Re-evaluates finalized island decisions against the effective graph.
+ * Re-evaluates existing islands and finalized Phase 2 island candidates against the effective graph.
  *
  * When a valid data-link path or MDF bridge is available, this phase prepares direction
  * corrections and added topology for a later LINKED transition. It does not change the
  * Phase 2 deletion-impact classification.
  */
 export class IslandTransitionPhase {
-  run(context: RoutingContext): Promise<ReturnType<typeof Result.ok<void>>> {
+  run(context: RoutingContext): Result<void> {
     const topologyChangeAnalysis = context.topologyChangeAnalysis;
     if (
       topologyChangeAnalysis === null ||
       context.input.mode === ROUTING_MODE.Manual
     ) {
-      return Promise.resolve(Result.ok());
+      return Result.ok();
     }
 
     const effectiveGraph = buildEffectiveGraph(context.input.graphSnapshot);
-    const islandDecisions = topologyChangeAnalysis.decisions.filter(
-      (decision): decision is TransitionToIslandDecision =>
-        decision.kind === TOPOLOGY_DECISION_KIND.TransitionToIsland,
-    );
     const eligibleIslandUsecases = sortedBySystemId(
-      islandDecisions
-        .map(decision => decision.usecase)
-        .filter(
-          usecase =>
-            usecase.type === 'ISLAND' &&
-            isUsecaseWithinEffectiveScope(
-              usecase,
-              effectiveGraph.scopeSubgraphSystemIds,
-            ),
+      collectIslandTransitionCandidates(
+        context.input.graphSnapshot.committedUsecases,
+        topologyChangeAnalysis.decisions,
+      ).filter(usecase =>
+        isUsecaseWithinEffectiveScope(
+          usecase,
+          effectiveGraph.scopeSubgraphSystemIds,
         ),
+      ),
     );
     if (eligibleIslandUsecases.length === 0) {
-      return Promise.resolve(Result.ok());
+      return Result.ok();
     }
 
     const completeTransitions: IslandTransition[] = [];
@@ -239,6 +260,6 @@ export class IslandTransitionPhase {
         leftTransition.usecase.systemId - rightTransition.usecase.systemId,
     );
 
-    return Promise.resolve(Result.ok());
+    return Result.ok();
   }
 }

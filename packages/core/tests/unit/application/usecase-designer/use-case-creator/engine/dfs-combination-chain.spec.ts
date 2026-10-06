@@ -135,9 +135,11 @@ describe('Phase 6 through Phase 8 routing chain', () => {
       [1, 2],
       [4, 5],
     ]);
-    expect(context.routingCandidates.combinations).toHaveLength(2);
+    expect(context.usecaseCandidates.automaticCandidates).toHaveLength(2);
     expect(
-      context.routingCandidates.combinations.map(candidate => candidate.gkv),
+      context.usecaseCandidates.automaticCandidates.map(
+        candidate => candidate.gkv,
+      ),
     ).toEqual([
       [
         {keyDefSystemId: 10, valueDefSystemId: 100},
@@ -177,7 +179,7 @@ describe('Phase 6 through Phase 8 routing chain', () => {
     await new CombinationExpansionPhase().run(context);
 
     expect(
-      context.routingCandidates.combinations.map(
+      context.usecaseCandidates.automaticCandidates.map(
         candidate => candidate.path.subgraphSystemIds,
       ),
     ).toEqual([

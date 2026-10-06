@@ -11,11 +11,16 @@ import type {
   ManualTopology,
   RoutingSubgraph,
 } from '../contracts/routing-input.js';
+import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
+import {DirectedCycleDetector} from '../shared/directed-cycle-detector.js';
+import {ManualCandidateRelationshipBuilder} from './manual-candidate-relationship-builder.js';
+import {ManualLinkSupportResolver} from './manual-link-support-resolver.js';
 
 export interface ManualTopologyDiscoveryInput {
   readonly selectedUsecases: readonly UseCase[];
   readonly subgraphs: readonly RoutingSubgraph[];
   readonly dataLinks: readonly DataLink[];
+  readonly overlayDataLinks: readonly DataLink[];
   readonly controlLinks: readonly ControlLink[];
 }
 
@@ -25,7 +30,29 @@ export interface ManualTopologyDiscoveryInput {
  * Used by `CreateManualUsecasesHandler`.
  */
 export class ManualPairDiscoveryService {
-  discover(_input: ManualTopologyDiscoveryInput): Result<ManualTopology> {
-    return Result.ok({pairs: []});
+  constructor(
+    private readonly candidateRelationshipBuilder = new ManualCandidateRelationshipBuilder(),
+    private readonly linkSupportResolver = new ManualLinkSupportResolver(),
+    private readonly cycleDetector = new DirectedCycleDetector(),
+  ) {}
+
+  discover(input: ManualTopologyDiscoveryInput): Result<ManualTopology> {
+    const candidates = this.candidateRelationshipBuilder.build({
+      selectedUsecases: input.selectedUsecases,
+      subgraphSystemIds: input.subgraphs.map(
+        routingSubgraph => routingSubgraph.subgraph.systemId,
+      ),
+    });
+    const pairs = this.linkSupportResolver.resolve({
+      candidates,
+      dataLinks: input.dataLinks,
+      overlayDataLinks: input.overlayDataLinks,
+      controlLinks: input.controlLinks,
+    });
+    const cycle = this.cycleDetector.findCycle(pairs);
+    if (cycle !== null) {
+      return Result.fail(RoutingIssueFactory.manualCycleDetected(cycle));
+    }
+    return Result.ok({pairs});
   }
 }

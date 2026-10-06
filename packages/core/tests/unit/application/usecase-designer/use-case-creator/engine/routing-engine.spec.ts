@@ -20,7 +20,8 @@ import {DfsRoutingPhase} from '../../../../../../src/application/usecase-designe
 import {CombinationExpansionPhase} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/combination-expansion/combination-expansion.phase.js';
 import {
   USECASE_TOPOLOGY_DECISION_KIND,
-  type RoutingCombination,
+  USECASE_CANDIDATE_KIND,
+  type AutoUsecaseCandidate,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {SameGkvCollisionService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/classification/same-gkv-collision.service.js';
 import {DATA_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
@@ -58,7 +59,7 @@ function phase(
   ) => ReturnType<typeof Result.fail> | ReturnType<typeof Result.ok<void>>,
 ) {
   return {
-    run: jest.fn(async (context: RoutingContext) => {
+    run: jest.fn((context: RoutingContext) => {
       order.push(name);
       return action?.(context) ?? Result.ok();
     }),
@@ -199,7 +200,7 @@ describe('RoutingEngine', () => {
     expect(phases[8]!.run).not.toHaveBeenCalled();
     expect(phases[9]!.run).not.toHaveBeenCalled();
     expect(phases[11]!.run).not.toHaveBeenCalled();
-    expect(executedContext?.routingCandidates.combinations).toEqual([]);
+    expect(executedContext?.usecaseCandidates.automaticCandidates).toEqual([]);
   });
 
   it('stops after a blocking Phase 1 result', async () => {
@@ -427,7 +428,8 @@ describe('RoutingEngine', () => {
       activeManualUsecaseEdits: [],
     });
     const order: string[] = [];
-    const collisionCandidate: RoutingCombination = {
+    const collisionCandidate: AutoUsecaseCandidate = {
+      kind: USECASE_CANDIDATE_KIND.Auto,
       path: {
         subgraphSystemIds: [30, 40],
         termination: 'NATURAL_LEAF',
@@ -491,7 +493,7 @@ describe('RoutingEngine', () => {
       return Result.ok();
     });
     phases[7] = phase('phase-8', order, context => {
-      context.routingCandidates.combinations.push(collisionCandidate);
+      context.usecaseCandidates.automaticCandidates.push(collisionCandidate);
       return Result.ok();
     });
     phases[8] = {

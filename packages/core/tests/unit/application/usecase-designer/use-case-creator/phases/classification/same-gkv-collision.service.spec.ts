@@ -7,16 +7,20 @@ import {describe, expect, it} from '@jest/globals';
 import type {KvPair} from '../../../../../../../src/application/ports/persistence/repositories/shared/kv-pair.js';
 import type {ActiveManualUsecaseEdit} from '../../../../../../../src/application/ports/persistence/repositories/usecase/usecase.repository.js';
 import {CHANGE_OPERATION} from '../../../../../../../src/application/shared/change-vocabulary.js';
-import type {RoutingCombination} from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
+import {
+  USECASE_CANDIDATE_KIND,
+  type AutoUsecaseCandidate,
+} from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {SameGkvCollisionService} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/classification/same-gkv-collision.service.js';
 import {UseCase} from '../../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
 
-function candidate(path: number[], values = [100]): RoutingCombination {
+function candidate(path: number[], values = [100]): AutoUsecaseCandidate {
   const gkv: KvPair[] = values.map(valueSystemId => ({
     keyDefSystemId: valueSystemId + 1000,
     valueDefSystemId: valueSystemId,
   }));
   return {
+    kind: USECASE_CANDIDATE_KIND.Auto,
     path: {
       subgraphSystemIds: path,
       termination: 'NATURAL_LEAF',

@@ -59,7 +59,7 @@ export default {
       extensionsToTreatAsEsm: ['.ts'],
       roots: ['<rootDir>'],
       testMatch: ['**/tests/e2e/**/*.e2e-spec.ts'],
-      testTimeout: 120000,
+      setupFilesAfterEnv: ['<rootDir>/tests/e2e/helpers/jest-e2e-setup.ts'],
       transform: {
         '^.+\\.(t|j)s$': [
           'ts-jest',

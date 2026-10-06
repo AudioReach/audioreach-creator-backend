@@ -248,7 +248,9 @@ overlay snapshot. Discovery performs no repository reads.
 ### 8.1 Combination expansion
 
 Manual Phase 8 uses the ordered snapshot `subgraphs` and their requested SGKVs for GKV Cartesian expansion
-and applies the same `ManualTopology` to every generated candidate.
+and applies the same `ManualTopology` to every generated `ManualUsecaseCandidate`. Each
+candidate owns its effective member SG IDs and normalized topology; later phases do not
+reconstruct either value from selected usecases or automatic paths.
 
 ### 8.2 Isolated SGs
 
@@ -273,7 +275,7 @@ The explicit precedence is therefore `EC` > `ISLAND` > `LINKED`.
 
 ### 8.4 Referenced components
 
-Phase 11 derives referenced link IDs by flattening the pair link arrays:
+Phase 11 derives referenced link IDs from the candidate-owned pair link arrays:
 
 - `pair.dataLinks` populate `dataLinkSystemIds`;
 - `pair.controlLinks` populate `controlLinkSystemIds`.
@@ -282,8 +284,9 @@ The effective active SG IDs populate `sgSystemIds`. All lists are deduplicated b
 being stored in `referencedComponents`.
 
 Discovery itself is source-neutral and emits no edit actions. The manual command's
-Phase 11 stager assigns `source = MANUAL` to every emitted usecase and relationship edit
-action through the handler/UoW write context.
+Phase 11 stager assigns `source = MANUAL` and stages every emitted usecase and
+relationship action through the handler/UoW write context. The rich manual endpoint then
+returns the resulting `changes`, `issues`, and `groupId`.
 
 ## 9. Existing Usecases and Deletion Reconciliation
 
@@ -292,6 +295,13 @@ Manual creation uses selected usecases only for:
 - selected SG and relationship eligibility;
 - KV filtering; and
 - duplicate/idempotency checks.
+
+For idempotency, Phase 9 derives one comparison catalog from committed usecases overlaid
+by active MANUAL `CREATE` and `UPDATE` actions with a materialized usecase. The catalog
+is keyed by `systemId`: an update replaces its committed entry and a create adds an entry.
+It does not load or carry a separate full effective-usecase catalog. An identical manual
+candidate is classified as an exact match, so repeated identical requests before commit
+emit no additional change.
 
 It does not update selected usecases merely because their stored pair direction differs
 from current data links. The new usecase follows current topology; existing usecases

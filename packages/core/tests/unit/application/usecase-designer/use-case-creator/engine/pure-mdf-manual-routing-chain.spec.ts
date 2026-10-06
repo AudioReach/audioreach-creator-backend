@@ -111,14 +111,19 @@ describe('pure MDF manual precedence routing chain', () => {
       const result = await harness.run();
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
-      expect(harness.writes.descriptors).toEqual([
-        {usecaseSystemId: 701, kind: 'UPDATE'},
-      ]);
-      expect(harness.writes.descriptors).not.toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({usecaseSystemId: 700}),
-        ]),
-      );
+      if (mode === 'MANUAL') {
+        expect(harness.writes.descriptors).toEqual([]);
+        expect(harness.writes.deltas).toEqual([]);
+      } else {
+        expect(harness.writes.descriptors).toEqual([
+          {usecaseSystemId: 701, kind: 'UPDATE'},
+        ]);
+        expect(harness.writes.descriptors).not.toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({usecaseSystemId: 700}),
+          ]),
+        );
+      }
     },
   );
 
@@ -164,13 +169,17 @@ describe('pure MDF manual precedence routing chain', () => {
 
       const result = await harness.run();
 
-      expect(result.kind).toBe(RESULT_KIND.Fail);
-      if (result.kind === RESULT_KIND.Fail)
-        expect(result.issues).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({code: 'ARC-ROUTING-DEL-02'}),
-          ]),
-        );
+      if (mode === 'MANUAL') {
+        expect(result.kind).toBe(RESULT_KIND.Ok);
+      } else {
+        expect(result.kind).toBe(RESULT_KIND.Fail);
+        if (result.kind === RESULT_KIND.Fail)
+          expect(result.issues).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({code: 'ARC-ROUTING-DEL-02'}),
+            ]),
+          );
+      }
       expect(harness.writes.deltas).toEqual([]);
     },
   );

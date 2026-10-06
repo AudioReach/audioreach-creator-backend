@@ -6,6 +6,7 @@
 import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
 import {Subgraph} from '../../../../../../src/domain/entities/usecase-data/subgraph/subgraph.js';
 import type {ControlLink} from '../../../../../../src/domain/entities/usecase-data/links/control-link.js';
+import {DataLink} from '../../../../../../src/domain/entities/usecase-data/links/data-link.js';
 import {RoutingIssueFactory} from '../../../../../../src/application/usecase-designer/use-case-creator/issues/routing-issue-factory.js';
 import {ISSUE_ENTITY_TYPE} from '../../../../../../src/shared/issues/impacted-entity.js';
 import {IssueSeverity} from '../../../../../../src/shared/issues/severity.js';
@@ -13,10 +14,10 @@ import {
   SOURCE,
   CHANGE_OPERATION,
 } from '../../../../../../src/application/shared/change-vocabulary.js';
-import {RoutingContext} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
 import {
   createAutoRoutingInput,
   createControlLinkManualTopologyPair,
+  createDataLinkManualTopologyPair,
   createManualRoutingInput,
   deriveRoutingScope,
   emptyGraphEdits,
@@ -27,14 +28,6 @@ import type {
   RoutingSelection,
 } from '../../../../../../src/application/use-case-designer/use-case-creator/contracts/routing-input.js';
 import type {ActiveManualUsecaseEdit} from '../../../../../../src/application/ports/persistence/repositories/usecase/usecase.repository.js';
-import {
-  SEED_REASON,
-  type Cones,
-  type KvResolutions,
-  type Seeds,
-  type SgkvInstance,
-} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
-import {ResponseBuilderPhase} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/response-builder.phase.js';
 import {GetUsecaseChangeDetailsQuery} from '../../../../../../src/application/usecase-designer/usecase/get-change-details/get-usecase-change-details.query.js';
 
 function createUsecase(systemId: number, subgraphSystemIds: number[]): UseCase {
@@ -53,6 +46,24 @@ function createSubgraph(systemId: number): Subgraph {
     subgraphId: systemId + 100,
     name: `sg-${systemId}`,
     isImported: false,
+    fileSystemId: 1,
+  });
+}
+
+function createDataLink(
+  systemId: number,
+  sourceSubgraphSystemId: number,
+  destSubgraphSystemId: number,
+): DataLink {
+  return new DataLink({
+    systemId,
+    sourceNodeSystemId: systemId * 10 + 1,
+    destinationNodeSystemId: systemId * 10 + 2,
+    sourcePortSystemId: systemId * 10 + 3,
+    destinationPortSystemId: systemId * 10 + 4,
+    linkType: 'NORMAL' as never,
+    sourceSubgraphSystemId,
+    destSubgraphSystemId,
     fileSystemId: 1,
   });
 }
@@ -181,24 +192,6 @@ describe('routing contracts', () => {
     expect(input.selection.excludedSubgraphSystemIds).toEqual([]);
   });
 
-  it('keeps automatic inputs free of manual topology and manual inputs require topology', () => {
-    const auto = createAutoRoutingInput({
-      fileSystemId: 1,
-      selection: {
-        selectedUsecaseSystemIds: [],
-        activeSubgraphs: [],
-        excludedSubgraphSystemIds: [],
-        excludedDataLinkSystemIds: [],
-        excludedControlLinkSystemIds: [],
-      },
-      selectedUsecases: [],
-      graphSnapshot: createSnapshot(),
-      activeManualUsecaseEdits: [],
-    });
-    expect(auto).not.toHaveProperty('manualTopology');
-    expect(createInput().manualTopology).toEqual({pairs: []});
-  });
-
   it('copies automatic selection and active-manual-edit containers', () => {
     const base = createInput();
     const selectedUsecaseSystemIds = [100];
@@ -229,36 +222,6 @@ describe('routing contracts', () => {
     expect(input.selection.selectedUsecaseSystemIds).not.toContain(999);
     expect(input.selection.activeSubgraphs[0]?.sgkvs[0]).not.toContain(999);
     expect(input.activeManualUsecaseEdits).toHaveLength(1);
-
-    const manual = createInput();
-    expect(manual.activeManualUsecaseEdits).toEqual([]);
-  });
-
-  it('uses grouped content-only Phase 4-6 outputs', () => {
-    const instance: SgkvInstance = {
-      keyValues: [{keyDefSystemId: 11, valueDefSystemId: 12}],
-    };
-    const kvResolutions: KvResolutions = {
-      perSg: new Map([[31, [instance]]]),
-      ucFilteredBaseline: new Map([[31, [instance]]]),
-    };
-    const seeds: Seeds = {
-      sgSystemIds: new Set([31]),
-      reasons: new Map([[31, SEED_REASON.KvChanged]]),
-    };
-    const cones: Cones = {
-      sgSystemIds: new Set([31]),
-      rootSgs: new Set([31]),
-    };
-    const context = new RoutingContext(createInput());
-
-    expect(instance).not.toHaveProperty('sgkvSystemId');
-    expect(kvResolutions.perSg.get(31)).toEqual([instance]);
-    expect(seeds.reasons.get(31)).toBe('KV_CHANGED');
-    expect(cones.rootSgs).toEqual(new Set([31]));
-    expect(context.kvResolutions).toBeNull();
-    expect(context.seeds).toBeNull();
-    expect(context.cones).toBeNull();
   });
 
   it('derives selected and effective scope with request ordering preserved', () => {
@@ -309,7 +272,7 @@ describe('routing contracts', () => {
     expect(scope.effectiveActiveSubgraphs).toEqual([{systemId: 10, sgkvs: []}]);
   });
 
-  it('preserves session edits in the snapshot and keeps selection separate', () => {
+  it('preserves session edits in the snapshot', () => {
     const deletedSubgraph = createSubgraph(20);
     const sessionEdits = {
       ...emptyGraphEdits(),
@@ -332,49 +295,13 @@ describe('routing contracts', () => {
       manualTopology: {pairs: []},
     });
     sessionEdits.deletedSgs.push(createSubgraph(30));
-    const context = new RoutingContext(input);
     expect(input.graphSnapshot.sessionEdits.deletedSgs).toEqual([
       deletedSubgraph,
     ]);
-    expect(context.input.selection.excludedSubgraphSystemIds).toEqual([20]);
     expect(Object.isFrozen(input.graphSnapshot.sessionEdits)).toBe(true);
     expect(Object.isFrozen(input.graphSnapshot.sessionEdits.deletedSgs)).toBe(
       true,
     );
-    expect(context).not.toHaveProperty('allUcs');
-    expect(context).not.toHaveProperty('effectiveExcludedSubgraphSystemIds');
-  });
-
-  it('preserves borrowed topology link identity and emits descriptors unchanged', async () => {
-    const link = {
-      systemId: 1,
-      sourceSubgraphSystemId: 20,
-      destSubgraphSystemId: 10,
-    } as ControlLink;
-    const pair = createControlLinkManualTopologyPair(
-      {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
-      [link],
-    );
-    expect(pair.controlLinks[0]).toBe(link);
-    expect(pair.dataLinks).toEqual([]);
-    expect(Object.isFrozen(pair)).toBe(true);
-    const context = new RoutingContext(createInput());
-    context.emittedUcChanges.push({
-      systemId: 21,
-      changeId: 7,
-      operation: CHANGE_OPERATION.Create,
-      source: SOURCE.AutoRouting,
-    });
-    await new ResponseBuilderPhase().run(context, 'group-1');
-    expect(context.routingOutcome?.emittedChanges).toEqual([
-      {
-        systemId: 21,
-        changeId: 7,
-        operation: CHANGE_OPERATION.Create,
-        source: SOURCE.AutoRouting,
-      },
-    ]);
-    expect(context.routingOutcome?.groupId).toBe('group-1');
   });
 
   it('rejects duplicate emitted UseCase IDs in change-details queries', () => {
@@ -391,5 +318,82 @@ describe('routing contracts', () => {
           duplicate,
         ]),
     ).toThrow('Duplicate emitted usecase systemId: 21');
+  });
+
+  it('rejects empty or mixed-direction data-link support', () => {
+    expect(() =>
+      createDataLinkManualTopologyPair(
+        {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+        [],
+      ),
+    ).toThrow('Manual data topology support must be non-empty');
+    expect(() =>
+      createDataLinkManualTopologyPair(
+        {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+        [createDataLink(1, 10, 20), createDataLink(2, 20, 10)],
+      ),
+    ).toThrow('Manual data topology support must be non-empty');
+  });
+
+  it('rejects empty, noncanonical, or endpoint-mismatched control support', () => {
+    expect(() =>
+      createControlLinkManualTopologyPair(
+        {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+        [],
+      ),
+    ).toThrow('Manual control topology support must be non-empty');
+    expect(() =>
+      createControlLinkManualTopologyPair(
+        {sourceSubgraphSystemId: 20, destSubgraphSystemId: 10},
+        [
+          {
+            systemId: 1,
+            sourceSubgraphSystemId: 20,
+            destSubgraphSystemId: 10,
+          } as ControlLink,
+        ],
+      ),
+    ).toThrow('canonically ordered');
+    expect(() =>
+      createControlLinkManualTopologyPair(
+        {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+        [
+          {
+            systemId: 1,
+            sourceSubgraphSystemId: 30,
+            destSubgraphSystemId: 40,
+          } as ControlLink,
+        ],
+      ),
+    ).toThrow('peer-matched');
+  });
+
+  it('keeps factory results isolated from caller-owned support arrays', () => {
+    const dataLinks = [createDataLink(1, 10, 20)];
+    const controlLinks = [
+      {
+        systemId: 2,
+        sourceSubgraphSystemId: 10,
+        destSubgraphSystemId: 20,
+      } as ControlLink,
+    ];
+    const dataPair = createDataLinkManualTopologyPair(
+      {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+      dataLinks,
+    );
+    const controlPair = createControlLinkManualTopologyPair(
+      {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+      controlLinks,
+    );
+
+    dataLinks.push(createDataLink(3, 10, 20));
+    controlLinks.push({
+      systemId: 4,
+      sourceSubgraphSystemId: 20,
+      destSubgraphSystemId: 10,
+    } as ControlLink);
+
+    expect(dataPair.dataLinks.map(link => link.systemId)).toEqual([1]);
+    expect(controlPair.controlLinks.map(link => link.systemId)).toEqual([2]);
   });
 });

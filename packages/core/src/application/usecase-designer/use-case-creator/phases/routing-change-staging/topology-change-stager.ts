@@ -7,10 +7,9 @@ import {
   RESULT_KIND,
   Result,
 } from '../../../../../application/shared/result/result.js';
-import type {Result as ResultType} from '../../../../../application/shared/result/result.js';
 import {
-  SOURCE,
   CHANGE_OPERATION,
+  type Source,
 } from '../../../../shared/change-vocabulary.js';
 import {UseCase} from '../../../../../domain/entities/usecase-data/usecase/usecase.js';
 import {
@@ -36,7 +35,7 @@ import {USECASE_TOPOLOGY_DECISION_KIND as TOPOLOGY_DECISION_KIND} from '../../co
 
 export interface StagingState {
   readonly repository: UsecaseRepository;
-  readonly options: {readonly source: typeof SOURCE.AutoRouting};
+  readonly options: {readonly source: Source};
   readonly descriptors: Map<number, UsecaseChangeDescriptor>;
 }
 
@@ -71,7 +70,7 @@ export interface TopologyChangeStagerInput {
 
 /** Applies finalized structural decisions in the existing persistence order. */
 export class TopologyChangeStager {
-  async stage(input: TopologyChangeStagerInput): Promise<ResultType<void>> {
+  async stage(input: TopologyChangeStagerInput): Promise<Result<void>> {
     const {analysis, islandTransitions, staging} = input;
     const deleteOrReconstructDecisions = analysis.decisions.filter(
       (decision): decision is DeleteOrReconstructDecision =>
@@ -195,14 +194,14 @@ export class TopologyChangeStager {
       systemId: ucChangeRef.systemId,
       changeId: ucChangeRef.changeId,
       operation,
-      source: SOURCE.AutoRouting,
+      source: staging.options.source,
     });
   }
 
   private validatePairs(
     subgraphSystemIds: readonly number[],
     pairs: readonly SubgraphPair[],
-  ): ResultType<void> {
+  ): Result<void> {
     const ids = new Set(subgraphSystemIds);
     for (const pair of pairs) {
       if (
@@ -226,7 +225,7 @@ export class TopologyChangeStager {
     delta: StructuralChangeDelta,
     operation: UsecaseChangeDescriptor['operation'] = CHANGE_OPERATION.Update,
     assignments?: readonly UsecaseSgkvAssignment[],
-  ): Promise<ResultType<void>> {
+  ): Promise<Result<void>> {
     const result = this.validatePairs(
       [
         ...usecase.subgraphSystemIds.filter(

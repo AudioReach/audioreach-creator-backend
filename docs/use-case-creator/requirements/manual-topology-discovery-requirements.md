@@ -154,13 +154,28 @@ shall filter discovered links or pairs against selected usecases.
 Selected usecases remain inputs to selected-relationship eligibility, KV filtering, and
 duplicate checks only.
 
-### MR-MANUAL-11: No deletion expansion during manual creation
+### MR-MANUAL-11: Idempotent manual creation before commit
+
+Repeated identical `create-manual-usecases` requests before commit shall be idempotent.
+Phase 9 shall compare each manual candidate against one deterministic comparison catalog:
+committed usecases overlaid by active MANUAL `CREATE` and `UPDATE` edit actions with a
+non-null materialized usecase. An active manual update replaces its committed usecase by
+`systemId`; an active manual create adds its usecase to the catalog.
+
+The handler shall not load or carry a second full effective-usecase catalog for manual
+idempotency. An exact topology/GKV match produces no new manual usecase action.
+
+### MR-MANUAL-12: No deletion expansion during manual creation
 
 `create-manual-usecases` shall not perform file-wide affected-usecase discovery,
 FR-DEL-02 selection gating, automatic deletion reconstruction, type degradation, or
 mutation of existing usecases.
 
 Deletion expansion and reconciliation belong only to `create-usecases`.
+
+Manual Phase 2 is a complete no-op. Phases 3, 5, 6, and 7 are also complete no-ops;
+manual Phase 8 expands the supplied effective scope and one discovered topology into
+manual candidates rather than using automatic paths or deletion decisions.
 
 If the user attempts to commit structural edits while existing usecases remain stale or
 invalid, commit-time re-validation shall reject the commit according to
@@ -170,7 +185,16 @@ the deleted component.
 
 Request-only routing exclusions shall not affect commit-time structural validation.
 
-## 4. Candidate Relationship Matrix
+### MR-MANUAL-13: Candidate-owned manual output
+
+Each manual Phase 8 candidate shall own its effective members and discovered topology.
+Classification, orphan validation, and staging shall consume that candidate-owned data
+without reconstructing topology from selected usecases or automatic paths.
+
+Manual creation shall stage its new usecases and relationships as MANUAL changes and
+return the established rich response containing `changes`, `issues`, and `groupId`.
+
+## 5. Candidate Relationship Matrix
 
 | Endpoint A | Endpoint B | Candidate condition |
 |---|---|---|
@@ -183,7 +207,7 @@ Request-only routing exclusions shall not affect commit-time structural validati
 Candidate status authorizes link discovery; it does not guarantee pair materialization.
 A pair is emitted only under MR-MANUAL-05 or MR-MANUAL-07.
 
-## 5. Required Documentation Corrections
+## 6. Required Documentation Corrections
 
 The following existing statements conflict with these requirements and must be updated
 during design/implementation planning:
@@ -196,7 +220,7 @@ during design/implementation planning:
    be removed; filtering belongs to topology discovery.
 5. Data-link exclusion must suppress control fallback for the same relationship.
 
-## 6. Acceptance Scenarios
+## 7. Acceptance Scenarios
 
 1. Two selected SGs without a pair in any selected UC do not form a candidate, even if
    an unselected UC contains that relationship.

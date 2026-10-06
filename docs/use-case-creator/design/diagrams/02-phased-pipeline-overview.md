@@ -111,13 +111,13 @@ flowchart LR
     subgraph MANUAL["Manual mode (create-manual-usecases)"]
         direction TB
         M1["1 · PreValidationService"]:::runs
-        M2["2 · TopologyChangeAnalysisService\n(gates + pure MDF updates; no ordinary reconstruction)"]:::different
+        M2["2 · TopologyChangeAnalysisService\n(skipped — no deletion analysis or MDF updates)"]:::skipped
         M3["3 · IslandTransitionService\n(skipped — no ISLAND transition scan)"]:::skipped
         M4["4 · KvResolutionService\n(resolves provided GKVs)"]:::different
         M5["5 · SeedDetectionService\n(skipped — SGs provided)"]:::skipped
         M6["6 · ConeComputationService\n(skipped)"]:::skipped
         M7["7 · DfsRoutingService\n(skipped — pairs via DB query per FR-UC-01)"]:::skipped
-        M8["8 · CombinationExpansionSvc\n(expands ordered effective-scope path)"]:::different
+        M8["8 · CombinationExpansionSvc\n(expands effective scope + discovered manual topology)"]:::different
         M9["9 · ClassificationService\n(partial — idempotency check only)"]:::different
         M10["10 · OrphanValidationService"]:::runs
         M11["11 · RoutingChangeStager"]:::runs
@@ -139,9 +139,9 @@ flowchart LR
 
 Before the pipeline starts, each handler loads selected UCs once from the effective
 overlay, validates addition-side graph-edit closure, derives the selected/input/out-of-
-selection/effective scope sets, and enforces FR-API-03 completeness. Phase 2 returns
-FR-DEL-02 first for unselected affected UCs, then validates deletion-side FR-API-07
-closure. The routing pipeline is strictly sequential and is organized
+selection/effective scope sets, and enforces FR-API-03 completeness. In automatic mode,
+Phase 2 returns FR-DEL-02 first for unselected affected UCs, then validates deletion-side
+FR-API-07 closure. The routing pipeline is strictly sequential and is organized
 into three explicit halves. Half A ("Resolve fate of existing UCs") runs first as
 intentional pre-routing checks: PreValidationService guards inputs,
 TopologyChangeAnalysisService finalizes direct pure-MDF updates and discovers every
@@ -157,14 +157,16 @@ validation, staging edit_actions via `IUsecaseRepository`, and response construc
 Each of the 12 phases reads from and writes to a shared `RoutingContext` object, but
 individual service implementations are stateless. The FR-COMMIT-01 safety-net is
 separate from routing and runs when the caller triggers `POST /commit-changes`. In
-Manual mode runs Phase 2 file-wide discovery, FR-DEL-02/deletion-side gates, and direct
-pure-MDF maintenance, but skips ordinary reconstruction, degradation, and preservation;
-phases 3, 5, 6, and 7 are also bypassed. Pair
+Manual Phase 2 is a complete no-op: it performs no file-wide discovery, FR-DEL-02 or
+deletion-side gates, MDF maintenance, reconstruction, degradation, preservation,
+deletion staging, or existing-UC mutation. Phases 3, 5, 6, and 7 are also bypassed. Pair
 discovery examines every relationship involving an out-of-selection SG and only those
 selected-selected relationships represented by a selected UC. Phase 8 still expands the
-ordered routable subgraphs from `graphSnapshot`, and Phase 9 runs
-in partial mode for idempotency. For projects without subsystems, the chain resolver is
-a fast no-op.
+ordered routable subgraphs from `graphSnapshot` with one discovered candidate-owned
+manual topology. Phase 9 compares against committed usecases overlaid by active MANUAL
+CREATE/UPDATE usecases and runs in partial idempotency mode. A manual data-link cycle is
+rejected with `ARC-ROUTING-MANUAL-CYCLE` before staging. For projects without subsystems,
+the chain resolver is a fast no-op.
 
 The CommandBus→QueryBus→rich-response segment is implemented by both create controller
 methods. A successful command is never rerun during response projection; only an explicitly

@@ -80,6 +80,13 @@ collision handling apply.
 
 ## 3. Position in Pipeline
 
+**Mode scope.** This LLD's Phase 2 deletion analysis and Phase 3 transition behavior
+apply to automatic `create-usecases` routing only. In `create-manual-usecases`, Phase 2
+is a complete no-op: it emits no analysis or decisions and performs no file-wide
+discovery, FR-DEL-02/deletion-side gating, MDF update, reconstruction, degradation,
+preservation, deletion staging, or existing-UC mutation. Phase 3 is also a no-op. Manual
+creation relies on its discovered snapshot topology and the commit-time safety net.
+
 **Upstream (input to Phase 2):** `RoutingContext.input` fully built by the handler:
 - `input.requestPolicy` — explicit request intent and exclusions for closure checks
 - `input.selectedUsecases` — effective overlay snapshots for selected-UC gates
@@ -92,9 +99,9 @@ collision handling apply.
 Phase 2 derives local selected IDs and scope membership from these immutable collections;
 they are not stored as separate input/context fields.
 
-In both modes, Phase 1 has already validated `activeManualUsecaseEdits`. Phase 2 uses
-valid manual projections only to prevent a competing MDF update for the same UC; an
-ordinary deletion impact remains subject to FR-DEL-02.
+In both modes, Phase 1 has already validated `activeManualUsecaseEdits`. Automatic Phase
+2 uses valid manual projections only to prevent a competing MDF update for the same UC;
+an ordinary deletion impact remains subject to FR-DEL-02.
 
 **Downstream (output after Phase 3):** `RoutingContext` is populated with grouped
 `topologyChangeAnalysis` and `islandTransitions` descriptors. Reconstruction paths join
@@ -247,12 +254,11 @@ committed pre-session UC set, aggregates all topology effects per UC, publishes 
 finalized decision, fails fast on FR-DEL-02 for ordinary affected UCs, then handles
 topology-aware reconstruction per FR-DEL-06.
 
-Manual mode still performs file-wide impact discovery and both deletion-side gates. It
-does not run ordinary automatic reconstruction, degradation, or preservation. A pure MDF
-substitution remains a system-owned direct structural update in either routing mode
-because it is not deletion reconstruction. Manual pair discovery remains limited to the
-explicitly supplied effective routing scope; commit-time validation protects staged UCs
-from stale references.
+Manual mode does not perform this analysis. It bypasses all Phase 2 behavior, including
+file-wide impact discovery, both deletion-side gates, pure-MDF updates, reconstruction,
+degradation, preservation, and existing-UC mutation. Manual pair discovery is instead
+limited to the explicitly supplied effective routing scope, and commit-time validation
+protects staged UCs from stale references.
 
 ### 5.1 FR-DEL-01: Detect all affected UCs
 
@@ -344,9 +350,9 @@ adjacency. No per-deletion repository reads are introduced.
 - **UC that was already `changeStatus = UNSTAGED` from a prior session:** in the
   overlay; still detected via repo query.
 
-### 5.2 FR-VAL-04 + FR-DEL-02: Affected UC-scope completeness (fail-fast)
+### 5.2 Automatic-only FR-VAL-04 + FR-DEL-02: Affected UC-scope completeness (fail-fast)
 
-**Rule:** If any UC in `affectedUcIds` is absent from the IDs derived from
+**Rule:** During automatic routing, if any UC in `affectedUcIds` is absent from the IDs derived from
 `input.selectedUsecases`, return an error containing the **full affected set**
 and the missing subset. Routing does not proceed. This includes UCs that would be
 deleted, ordinarily reconstructed/preserved, or selected as a `LINKED` to `ISLAND`
@@ -369,7 +375,8 @@ if missingUcs is non-empty:
   }])
 ```
 
-**Blocking. Issue code:** `ARC-ROUTING-DEL-02`. HTTP 422.
+**Blocking. Issue code:** `ARC-ROUTING-DEL-02`. HTTP 422. Manual routing never invokes
+this gate or the following deletion-side closure check.
 
 **Client contract:** the response's `fullAffectedUcSet` lets the client:
 1. Include all affected UCs in `selectedUsecaseSystemIds`.
@@ -410,8 +417,7 @@ if any deletion-side conflict set is non-empty:
 Deleted control-link endpoints are deliberately absent from
 `requiredSurvivingEndpointSgIds`: they do not force automatic routing scope. The control
 link remains visible to the Phase 2 support/impact checks above and to downstream orphan
-validation. In manual mode, it participates in fallback only when its endpoints are
-already in manual effective scope.
+validation.
 
 **Error precedence:** when `missingUcs` is non-empty, return only `ARC-ROUTING-DEL-02`
 for this pass. Deletion-side `ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT` is evaluated after
@@ -918,12 +924,14 @@ multiple alternate routes (e.g., A→X→C and A→Y→C), do we emit all of the
 one? Design assumption: **emit all**. Phase 8 expands each into UC candidates; Phase
 9 dedups. Emitting all gives the user visibility into alternatives.
 
-**D5 — Direction correction on unselected UCs.** FR-STATUS-04 scans committed
+**D5 — Automatic direction correction on unselected UCs.** FR-STATUS-04 scans committed
 `ISLAND` UCs from `input.graphSnapshot.committedUsecases`. The implemented decision is
 to evaluate them even when they are absent from `selectedUsecases`, provided all their SG
 members and pair endpoints are in effective snapshot scope and Phase 2 did not mark them
 for deletion. Direction correction is a lightweight in-scope UC repair rather than new
-routing; restricting it to selected UCs would leave eligible `ISLAND` UCs outdated.
+routing; restricting it to selected UCs would leave eligible `ISLAND` UCs outdated. This
+automatic-only repair is not performed during manual creation because manual Phases 2 and
+3 are no-ops.
 
 ---
 

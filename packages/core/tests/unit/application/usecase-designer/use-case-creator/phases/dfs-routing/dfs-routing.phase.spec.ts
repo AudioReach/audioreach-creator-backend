@@ -155,11 +155,11 @@ describe('DfsRoutingPhase', () => {
     expect(context.dfsPaths).toEqual([]);
   });
 
-  it('rejects automatic execution before Phase 6 has published cones', async () => {
+  it('throws when automatic execution lacks Phase 6 cones', () => {
     const context = makeContext([1, 2], [1], [makeDataLink(1, 1, 2)]);
     context.cones = null;
 
-    await expect(service.run(context)).rejects.toThrow(
+    expect(() => service.run(context)).toThrow(
       'DfsRoutingPhase requires Phase 6 cones in automatic mode',
     );
   });

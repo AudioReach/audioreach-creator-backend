@@ -10,19 +10,20 @@
  */
 import type {UsecaseSgkvAssignment} from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
 import {invariant} from '../../../../shared/assertions/index.js';
-import type {RoutingCombination} from '../contracts/routing-state.js';
+import type {UsecaseCandidate} from '../contracts/routing-state.js';
+import {candidateSubgraphSystemIds} from './usecase-topology.js';
 
 function canonicalValueSystemIds(ids: Iterable<number>): number[] {
   return [...new Set(ids)].sort((left, right) => left - right);
 }
 
 export function collectUsecaseSgkvAdditions(
-  candidates: readonly RoutingCombination[],
+  candidates: readonly UsecaseCandidate[],
 ): UsecaseSgkvAssignment[] {
   const seen = new Set<string>();
   const additions: UsecaseSgkvAssignment[] = [];
   for (const candidate of candidates) {
-    for (const subgraphSystemId of candidate.path.subgraphSystemIds) {
+    for (const subgraphSystemId of candidateSubgraphSystemIds(candidate)) {
       const valueDefinitionSystemIds = canonicalValueSystemIds(
         (candidate.sgkvAssignment.get(subgraphSystemId)?.keyValues ?? []).map(
           keyValue => keyValue.valueDefSystemId,
@@ -38,11 +39,11 @@ export function collectUsecaseSgkvAdditions(
 }
 
 export function assertSgkvAssignmentsMatchGkv(
-  candidate: RoutingCombination,
+  candidate: UsecaseCandidate,
   collisionGkvValueSystemIds: readonly number[],
 ): void {
   const assignmentValueSystemIds = canonicalValueSystemIds(
-    candidate.path.subgraphSystemIds.flatMap(subgraphSystemId =>
+    candidateSubgraphSystemIds(candidate).flatMap(subgraphSystemId =>
       (candidate.sgkvAssignment.get(subgraphSystemId)?.keyValues ?? []).map(
         keyValue => keyValue.valueDefSystemId,
       ),

@@ -15,8 +15,7 @@ import type {
   OrphanCandidate,
   TopologyChangeAnalysis,
   IslandTransition,
-  RoutingCombination,
-  RoutingCandidates,
+  UsecaseCandidates,
   Seeds,
 } from './routing-state.js';
 import type {SameGkvCollisionGroup} from './same-gkv-collision.js';
@@ -43,12 +42,10 @@ export class RoutingContext {
   cones: Cones | null = null;
   /** Phase 7 DFS paths. */
   readonly dfsPaths: DfsPath[] = [];
-  /** Phase 8 UC candidates grouped with EC bridge candidates. */
-  readonly routingCandidates: RoutingCandidates & {
-    readonly combinations: RoutingCombination[];
-    readonly ecBridgeCandidates: RoutingCombination[];
-  } = {
-    combinations: [],
+  /** Phase 8 candidates separated by routing semantics. */
+  readonly usecaseCandidates: UsecaseCandidates = {
+    automaticCandidates: [],
+    manualCandidates: [],
     ecBridgeCandidates: [],
   };
   /** Phase 9 decisions for candidate UCs after GKV/topology matching and lifecycle checks. */

@@ -4,7 +4,7 @@
  */
 
 import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
-import type {RoutingCombination} from './routing-state.js';
+import type {RoutedUsecaseCandidate} from './routing-state.js';
 
 export const COLLISION_RESOLUTION_MODE = {
   SelectCandidate: 'SELECT_CANDIDATE',
@@ -24,7 +24,7 @@ export const COLLISION_ALTERNATIVE_KIND = {
 export interface NewCollisionAlternative {
   readonly alternativeId: string;
   readonly kind: typeof COLLISION_ALTERNATIVE_KIND.New;
-  readonly candidate: RoutingCombination;
+  readonly candidate: RoutedUsecaseCandidate;
 }
 
 /** A committed UseCase whose GKV conflicts with a proposed topology. */

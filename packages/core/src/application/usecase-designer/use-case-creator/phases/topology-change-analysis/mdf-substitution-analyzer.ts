@@ -6,23 +6,12 @@
 import type {DataLink} from '../../../../../domain/entities/usecase-data/links/data-link.js';
 import {DATA_LINK_TYPE} from '../../../../../domain/entities/usecase-data/links/data-link-type.js';
 import type {MdfPairSubstitution} from '../../contracts/routing-state.js';
-import type {
-  DirectedEdge,
-  TopologyImpactInventory,
+import {
+  compareDirectedEdges,
+  unorderedPairKey,
+  type DirectedEdge,
+  type TopologyImpactInventory,
 } from './topology-impact-inventory.js';
-
-function unorderedPairKey(firstId: number, secondId: number): string {
-  const low = Math.min(firstId, secondId);
-  const high = Math.max(firstId, secondId);
-  return `${low}<->${high}`;
-}
-
-function compareEdges(left: DirectedEdge, right: DirectedEdge): number {
-  return (
-    left.destSubgraphSystemId - right.destSubgraphSystemId ||
-    Number(left.isEc) - Number(right.isEc)
-  );
-}
 
 function semanticallyUnambiguousEdges(
   edges: readonly DirectedEdge[],
@@ -42,7 +31,7 @@ function semanticallyUnambiguousEdges(
       destSubgraphSystemId,
       isEc: [...semantics][0],
     }))
-    .sort(compareEdges);
+    .sort(compareDirectedEdges);
 }
 
 function canVisitCandidate(

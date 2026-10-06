@@ -40,6 +40,16 @@ export function sortedIds(ids: readonly number[]): number[] {
   return [...ids].sort((left, right) => left - right);
 }
 
+export function compareDirectedEdges(
+  left: DirectedEdge,
+  right: DirectedEdge,
+): number {
+  return (
+    left.destSubgraphSystemId - right.destSubgraphSystemId ||
+    Number(left.isEc) - Number(right.isEc)
+  );
+}
+
 function indexUsecasesBySubgraph(
   usecases: readonly UseCase[],
 ): ReadonlyMap<number, readonly UseCase[]> {
@@ -102,11 +112,7 @@ function buildDirectedAdjacency(
   return new Map(
     [...adjacencyBySourceSubgraphId.entries()].map(([source, destinations]) => [
       source,
-      [...destinations.values()].sort(
-        (left, right) =>
-          left.destSubgraphSystemId - right.destSubgraphSystemId ||
-          Number(left.isEc) - Number(right.isEc),
-      ),
+      [...destinations.values()].sort(compareDirectedEdges),
     ]),
   );
 }

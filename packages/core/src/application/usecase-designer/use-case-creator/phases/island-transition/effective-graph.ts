@@ -31,7 +31,7 @@ function unorderedPairKey(
     : `${secondSubgraphSystemId}:${firstSubgraphSystemId}`;
 }
 
-function sortedBySystemId<T extends {readonly systemId: number}>(
+export function sortedBySystemId<T extends {readonly systemId: number}>(
   items: readonly T[],
 ): T[] {
   return [...items].sort(

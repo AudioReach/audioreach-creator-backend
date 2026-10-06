@@ -11,6 +11,7 @@ import {
   type UsecaseTopologyDecision,
 } from '../../contracts/routing-state.js';
 import {RoutingIssueFactory} from '../../issues/routing-issue-factory.js';
+import {sortedIds} from './topology-impact-inventory.js';
 
 export interface TopologyGateInput {
   readonly selectedUsecaseSystemIds: ReadonlySet<number>;
@@ -30,10 +31,6 @@ interface DeletionSideConflicts {
   readonly excludedDeletedControlLinkSystemIds?: readonly number[];
   readonly missingSurvivingEndpointSubgraphSystemIds?: readonly number[];
   readonly excludedSurvivingEndpointSubgraphSystemIds?: readonly number[];
-}
-
-function sortedIds(ids: readonly number[]): number[] {
-  return [...ids].sort((left, right) => left - right);
 }
 
 function hasAnyValues(conflicts: DeletionSideConflicts): boolean {

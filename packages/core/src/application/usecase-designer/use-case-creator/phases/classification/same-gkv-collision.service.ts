@@ -11,9 +11,10 @@ import {
   type SameGkvCollisionAlternative,
   type SameGkvCollisionGroup,
 } from '../../contracts/same-gkv-collision.js';
-import type {RoutingCombination} from '../../contracts/routing-state.js';
+import type {RoutedUsecaseCandidate} from '../../contracts/routing-state.js';
 import {
-  candidateDirectedAdjacentPairs,
+  candidateDirectedPairs,
+  candidateSubgraphSystemIds,
   canonicalNumericSetKey,
   directedPairKey,
 } from '../../shared/usecase-topology.js';
@@ -28,7 +29,7 @@ interface CollisionTopology {
 
 export interface SameGkvBucket {
   readonly gkvValueSystemIds: readonly number[];
-  readonly candidates: readonly RoutingCombination[];
+  readonly candidates: readonly RoutedUsecaseCandidate[];
   readonly existingUsecase: UseCase | null;
   readonly manualOverrides: readonly ActiveManualUsecaseEdit[];
 }
@@ -41,10 +42,12 @@ function sortedPairKeys(keys: readonly string[]): string[] {
   return [...new Set(keys)].sort((left, right) => left.localeCompare(right));
 }
 
-function candidateTopology(candidate: RoutingCombination): CollisionTopology {
+function candidateTopology(
+  candidate: RoutedUsecaseCandidate,
+): CollisionTopology {
   return {
-    subgraphSystemIds: candidate.path.subgraphSystemIds,
-    pairKeys: candidateDirectedAdjacentPairs(candidate).map(pair =>
+    subgraphSystemIds: candidateSubgraphSystemIds(candidate),
+    pairKeys: candidateDirectedPairs(candidate).map(pair =>
       directedPairKey(pair.sourceSubgraphSystemId, pair.destSubgraphSystemId),
     ),
   };
@@ -87,7 +90,7 @@ function alternativeId(name: string): string {
 }
 
 function candidateAlternative(
-  candidate: RoutingCombination,
+  candidate: RoutedUsecaseCandidate,
 ): SameGkvCollisionAlternative {
   const topology = candidateTopology(candidate);
   return {
@@ -115,7 +118,7 @@ function existingAlternative(usecase: UseCase): SameGkvCollisionAlternative {
 }
 
 function sameCandidateTopology(
-  candidate: RoutingCombination,
+  candidate: RoutedUsecaseCandidate,
   usecase: UseCase,
 ): boolean {
   return (
@@ -126,7 +129,7 @@ function sameCandidateTopology(
 
 export class SameGkvCollisionService {
   buildBuckets(
-    candidates: readonly RoutingCombination[],
+    candidates: readonly RoutedUsecaseCandidate[],
     projectedUsecases: readonly UseCase[],
     activeManualUsecaseEdits: readonly ActiveManualUsecaseEdit[],
   ): SameGkvBucket[] {
@@ -134,7 +137,7 @@ export class SameGkvCollisionService {
       string,
       {
         gkvValueSystemIds: number[];
-        candidates: Map<string, RoutingCombination>;
+        candidates: Map<string, RoutedUsecaseCandidate>;
         manualOverrides: Map<string, ActiveManualUsecaseEdit>;
       }
     >();
@@ -211,7 +214,7 @@ export class SameGkvCollisionService {
   }
 
   buildGroups(
-    candidates: readonly RoutingCombination[],
+    candidates: readonly RoutedUsecaseCandidate[],
     projectedUsecases: readonly UseCase[],
     activeManualUsecaseEdits: readonly ActiveManualUsecaseEdit[],
   ): SameGkvCollisionGroup[] {

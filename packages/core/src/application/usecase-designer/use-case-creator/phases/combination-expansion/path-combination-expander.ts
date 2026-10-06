@@ -4,11 +4,11 @@
  */
 
 import type {DfsPath, SgkvInstance} from '../../contracts/routing-state.js';
-import type {RoutingCombinationConflict} from '../../issues/routing-issue-factory.js';
+import type {UsecaseCandidateConflict} from '../../issues/routing-issue-factory.js';
 
 export interface PathExpansion {
   readonly validAssignments: readonly ReadonlyMap<number, SgkvInstance>[];
-  readonly conflicts: readonly RoutingCombinationConflict[];
+  readonly conflicts: readonly UsecaseCandidateConflict[];
 }
 
 /** Deduplicates identical Key/Value pairs and returns a stable GKV ordering. */
@@ -38,9 +38,15 @@ export function expandPath(
   path: DfsPath,
   perSg: ReadonlyMap<number, readonly SgkvInstance[]>,
 ): PathExpansion {
-  const pathSubgraphSystemIds = path.subgraphSystemIds;
+  return expandSubgraphCombinations(path.subgraphSystemIds, perSg);
+}
+
+export function expandSubgraphCombinations(
+  subgraphSystemIds: readonly number[],
+  perSg: ReadonlyMap<number, readonly SgkvInstance[]>,
+): PathExpansion {
   const validAssignments: ReadonlyMap<number, SgkvInstance>[] = [];
-  const conflicts: RoutingCombinationConflict[] = [];
+  const conflicts: UsecaseCandidateConflict[] = [];
   const currentAssignment = new Map<number, SgkvInstance>();
   const assignedValueByKeyId = new Map<number, number>();
   const contributorsByKeyAndValue = new Map<number, Map<number, Set<number>>>();
@@ -49,12 +55,12 @@ export function expandPath(
   // so that the state can be removed exactly when backtracking from that option.
   // eslint-disable-next-line sonarjs/cognitive-complexity -- The local DFS state is intentionally explicit for early pruning and exact backtracking.
   const visit = (subgraphIndex: number): void => {
-    if (subgraphIndex === pathSubgraphSystemIds.length) {
+    if (subgraphIndex === subgraphSystemIds.length) {
       validAssignments.push(new Map(currentAssignment));
       return;
     }
 
-    const subgraphSystemId = pathSubgraphSystemIds[subgraphIndex];
+    const subgraphSystemId = subgraphSystemIds[subgraphIndex];
     const sgkvOptions = perSg.get(subgraphSystemId) ?? [{keyValues: []}];
     for (const sgkvOption of sgkvOptions) {
       const optionValueByKeyId = new Map<number, number>();

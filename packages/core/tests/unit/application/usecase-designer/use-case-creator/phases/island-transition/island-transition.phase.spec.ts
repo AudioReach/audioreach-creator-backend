@@ -9,6 +9,7 @@ import {
   createAutoRoutingInput,
   createManualRoutingInput,
   emptyGraphEdits,
+  ROUTING_MODE,
 } from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
 import {RoutingContext} from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
 import {
@@ -18,13 +19,15 @@ import {
 } from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {IslandTransitionPhase} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/island-transition/island-transition.phase.js';
 import {UseCase} from '../../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
+import {
+  USECASE_TYPE,
+  type UsecaseType,
+} from '../../../../../../../src/domain/entities/usecase-data/usecase/usecase-type.js';
 import type {ControlLink} from '../../../../../../../src/domain/entities/usecase-data/links/control-link.js';
 import type {DataLink} from '../../../../../../../src/domain/entities/usecase-data/links/data-link.js';
 
-type UsecaseType = 'EC' | 'ISLAND' | 'LINKED';
-
 interface FixtureOptions {
-  readonly mode?: 'AUTO' | 'MANUAL';
+  readonly mode?: (typeof ROUTING_MODE)[keyof typeof ROUTING_MODE];
   readonly usecases?: readonly UseCase[];
   readonly subgraphIds?: readonly number[];
   readonly mdfSubgraphIds?: readonly number[];
@@ -40,7 +43,7 @@ function usecase(
     sourceSubgraphSystemId: number;
     destSubgraphSystemId: number;
   }[],
-  type: UsecaseType = 'ISLAND',
+  type: UsecaseType = USECASE_TYPE.Island,
 ): UseCase {
   return new UseCase({
     systemId,
@@ -83,11 +86,11 @@ function emptyTopologyChangeAnalysis(
   return {
     affectedUsecaseSystemIds: new Set(
       usecases
-        .filter(currentUsecase => currentUsecase.type === 'ISLAND')
+        .filter(currentUsecase => currentUsecase.type === USECASE_TYPE.Island)
         .map(currentUsecase => currentUsecase.systemId),
     ),
     decisions: usecases
-      .filter(currentUsecase => currentUsecase.type === 'ISLAND')
+      .filter(currentUsecase => currentUsecase.type === USECASE_TYPE.Island)
       .map(currentUsecase => ({
         kind: USECASE_TOPOLOGY_DECISION_KIND.TransitionToIsland,
         usecase: currentUsecase,
@@ -142,7 +145,7 @@ function createFixture(options: FixtureOptions = {}) {
     activeManualUsecaseEdits: [],
   };
   const input =
-    options.mode === 'MANUAL'
+    options.mode === ROUTING_MODE.Manual
       ? createManualRoutingInput({...inputInit, manualTopology: {pairs: []}})
       : createAutoRoutingInput(inputInit);
   const context = new RoutingContext(input);
@@ -209,7 +212,7 @@ describe('IslandTransitionPhase', () => {
           1,
           [1, 2],
           [{sourceSubgraphSystemId: 1, destSubgraphSystemId: 2}],
-          'LINKED',
+          USECASE_TYPE.Linked,
         ),
       ],
       routableDataLinks: [dataLink(101, 1, 2)],
@@ -218,6 +221,75 @@ describe('IslandTransitionPhase', () => {
     await runPhase(fixture);
 
     expect(fixture.context.islandTransitions).toEqual([]);
+  });
+
+  it('evaluates an existing ISLAND usecase without a Phase 2 decision', () => {
+    const currentUsecase = usecase(
+      1,
+      [1, 2],
+      [{sourceSubgraphSystemId: 1, destSubgraphSystemId: 2}],
+    );
+    const fixture = createFixture({
+      usecases: [currentUsecase],
+      routableDataLinks: [dataLink(101, 1, 2)],
+      topologyChangeAnalysis: {
+        affectedUsecaseSystemIds: new Set(),
+        decisions: [],
+      },
+    });
+
+    const result = runPhase(fixture);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(fixture.context.islandTransitions).toEqual([
+      {
+        usecase: currentUsecase,
+        directionCorrections: [],
+        addedSubgraphSystemIds: [],
+        addedPairs: [],
+      },
+    ]);
+  });
+
+  it('evaluates a LINKED usecase scheduled for an island transition by Phase 2', () => {
+    const currentUsecase = usecase(
+      1,
+      [1, 3],
+      [{sourceSubgraphSystemId: 1, destSubgraphSystemId: 3}],
+      USECASE_TYPE.Linked,
+    );
+    const fixture = createFixture({
+      usecases: [currentUsecase],
+      subgraphIds: [1, 2, 3],
+      mdfSubgraphIds: [2],
+      routableDataLinks: [dataLink(101, 1, 2), dataLink(102, 2, 3)],
+      topologyChangeAnalysis: {
+        affectedUsecaseSystemIds: new Set([currentUsecase.systemId]),
+        decisions: [
+          {
+            kind: USECASE_TOPOLOGY_DECISION_KIND.TransitionToIsland,
+            usecase: currentUsecase,
+            dataLinkLossPairs: [],
+            droppedSubgraphSystemIds: [],
+          },
+        ],
+      },
+    });
+
+    const result = runPhase(fixture);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(fixture.context.islandTransitions).toEqual([
+      {
+        usecase: currentUsecase,
+        directionCorrections: [],
+        addedSubgraphSystemIds: [2],
+        addedPairs: [
+          {sourceSubgraphSystemId: 1, destSubgraphSystemId: 2},
+          {sourceSubgraphSystemId: 2, destSubgraphSystemId: 3},
+        ],
+      },
+    ]);
   });
 
   it('promotes a forward-covered pair without a direction correction', async () => {

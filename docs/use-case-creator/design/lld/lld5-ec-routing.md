@@ -443,7 +443,7 @@ regular UCs even if the GKV happens to overlap.
 **Detection during Classification (Phase 9):**
 
 ```
-for each candidate in [context.combinations, context.ecBridgeCandidates]:
+for each candidate in [context.usecaseCandidates.automaticCandidates, context.usecaseCandidates.ecBridgeCandidates]:
   // FR-EC-07 Rule A — Bridge suppression against legacy EC UCs
   if candidate is EcBridgeCandidate:
     B := candidate.leftSgSystemId

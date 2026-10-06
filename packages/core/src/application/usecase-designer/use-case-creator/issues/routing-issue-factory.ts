@@ -16,6 +16,11 @@ import {
 } from '../contracts/same-gkv-collision.js';
 import type {RoutingSelection} from '../contracts/routing-input.js';
 import type {ActiveManualUsecaseEdit} from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
+import type {DirectedCycle} from '../shared/directed-cycle-detector.js';
+import {
+  candidateDirectedPairs,
+  candidateSubgraphSystemIds,
+} from '../shared/usecase-topology.js';
 
 /** Invalid dependencies referenced by an active manual UseCase edit. */
 export interface ManualUsecaseDependencyMissing {
@@ -46,14 +51,14 @@ export interface RoutingEditScopeConflictDetails {
   readonly excludedSurvivingEndpointSubgraphSystemIds?: readonly number[];
 }
 
-export interface RoutingCombinationConflict {
+export interface UsecaseCandidateConflict {
   readonly keyDefSystemId: number;
   readonly conflictingSubgraphSystemIds: readonly [number, number];
 }
 
-export interface RoutingCombinationConflictDetails {
+export interface UsecaseCandidateConflictDetails {
   readonly pathSubgraphSystemIds: readonly number[];
-  readonly conflicts: readonly RoutingCombinationConflict[];
+  readonly conflicts: readonly UsecaseCandidateConflict[];
 }
 
 function sortedIds(ids: Iterable<number>): number[] {
@@ -76,17 +81,11 @@ function collisionAlternativeDetails(
 ): CollisionTopologyDetails {
   const subgraphSystemIds =
     alternative.kind === COLLISION_ALTERNATIVE_KIND.New
-      ? alternative.candidate.path.subgraphSystemIds
+      ? candidateSubgraphSystemIds(alternative.candidate)
       : alternative.usecase.subgraphSystemIds;
   const subgraphPairs =
     alternative.kind === COLLISION_ALTERNATIVE_KIND.New
-      ? alternative.candidate.path.subgraphSystemIds
-          .slice(1)
-          .map((dest, index) => ({
-            sourceSubgraphSystemId:
-              alternative.candidate.path.subgraphSystemIds[index],
-            destSubgraphSystemId: dest,
-          }))
+      ? candidateDirectedPairs(alternative.candidate)
       : alternative.usecase.subgraphPairs;
   return {
     alternativeId: alternative.alternativeId,
@@ -419,7 +418,17 @@ export const RoutingIssueFactory = {
     };
   },
 
-  noValidCombination(details: RoutingCombinationConflictDetails): Issue {
+  manualCycleDetected(cycle: DirectedCycle): Issue {
+    return {
+      code: ISSUE_CODE.ROUTING_MANUAL_CYCLE,
+      message:
+        `Manual topology contains a data-link cycle: ${cycle.subgraphSystemIds.join(' -> ')} ` +
+        `(supporting data links: [${cycle.dataLinkSystemIds.join(', ')}]).`,
+      severity: IssueSeverity.Error,
+    };
+  },
+
+  noValidCombination(details: UsecaseCandidateConflictDetails): Issue {
     const normalized = details.conflicts.map(conflict => {
       const [firstSubgraphSystemId, secondSubgraphSystemId] =
         conflict.conflictingSubgraphSystemIds;
@@ -661,6 +670,22 @@ export const RoutingIssueFactory = {
         `(changeIds: [${changeIds.join(', ')}]).`,
       severity: IssueSeverity.Error,
       impactedUsecases,
+    };
+  },
+
+  manualGkvConflict(
+    gkvValueSystemIds: readonly number[],
+    usecaseSystemIds: readonly number[],
+  ): Issue {
+    const gkvIds = sortedIds(new Set(gkvValueSystemIds));
+    const impactedUsecases = sortedIds(new Set(usecaseSystemIds));
+    return {
+      code: ISSUE_CODE.ROUTING_MANUAL_GKV_CONFLICT,
+      message:
+        'Manual UseCase topology conflicts with another topology for GKV ' +
+        `values [${gkvIds.join(', ')}].`,
+      severity: IssueSeverity.Error,
+      ...(impactedUsecases.length > 0 ? {impactedUsecases} : {}),
     };
   },
 

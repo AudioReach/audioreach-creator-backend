@@ -14,6 +14,7 @@ import {DATA_LINK_TYPE} from '../../../../domain/entities/usecase-data/links/dat
 import type {UsecaseType} from '../../../../domain/entities/usecase-data/usecase/usecase-type.js';
 import {USECASE_TYPE} from '../../../../domain/entities/usecase-data/usecase/usecase-type.js';
 import type {SubgraphPair} from '../../../ports/persistence/repositories/shared/links-for-pair.js';
+import type {ManualTopology} from '../contracts/routing-input.js';
 
 export interface UsecasePairSupport {
   readonly isEc: boolean;
@@ -54,4 +55,24 @@ export function computeUsecaseType(
       )
       .map(link => ({isEc: link.linkType === DATA_LINK_TYPE.Ec})),
   );
+}
+
+export function computeManualUsecaseType(
+  manualTopology: ManualTopology,
+  isolatedSgSystemIds: readonly number[],
+): UsecaseType {
+  if (
+    manualTopology.pairs.some(item =>
+      item.dataLinks.some(link => link.linkType === DATA_LINK_TYPE.Ec),
+    )
+  ) {
+    return USECASE_TYPE.Ec;
+  }
+  if (
+    isolatedSgSystemIds.length > 0 ||
+    manualTopology.pairs.some(item => item.controlLinks.length > 0)
+  ) {
+    return USECASE_TYPE.Island;
+  }
+  return USECASE_TYPE.Linked;
 }

@@ -3,8 +3,10 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {Result} from '../../../../../application/shared/result/result.js';
-import type {Result as ResultType} from '../../../../../application/shared/result/result.js';
+import {
+  RESULT_KIND,
+  Result,
+} from '../../../../../application/shared/result/result.js';
 import {USECASE_TOPOLOGY_DECISION_KIND} from '../../contracts/routing-state.js';
 import type {SubgraphRepository} from '../../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
 import {ROUTING_MODE} from '../../contracts/routing-input.js';
@@ -40,6 +42,13 @@ function appendAutomaticIslandWarnings(
   }
 }
 
+/**
+ * Owns Phase 2 committed-UseCase impact analysis.
+ *
+ * The phase builds one inventory, aggregates deletion and MDF effects per UseCase,
+ * finalizes topology decisions, validates selection gates, and publishes the result.
+ * It does not persist changes; later staging consumes its output.
+ */
 export class TopologyChangeAnalysisPhase {
   constructor(
     private readonly deletionReconstruction = new DeletionReconstructionService(),
@@ -50,7 +59,15 @@ export class TopologyChangeAnalysisPhase {
   async run(
     context: RoutingContext,
     subgraphRepository: SubgraphRepository,
-  ): Promise<ResultType<void>> {
+  ): Promise<Result<void>> {
+    if (context.input.mode === ROUTING_MODE.Manual) {
+      context.topologyChangeAnalysis = {
+        affectedUsecaseSystemIds: new Set<number>(),
+        decisions: [],
+      };
+      return Result.ok();
+    }
+
     // Phase 2 reads no graph topology or UC catalog after snapshot construction. Legacy
     // EC Rule B makes one bounded SGKV baseline lookup through the supplied repository.
     const {inventory, analysis} = analyzeTopologyChanges(
@@ -93,7 +110,7 @@ export class TopologyChangeAnalysisPhase {
       draft,
       subgraphRepository,
     );
-    if (reconstructed.kind === 'FAIL') return reconstructed;
+    if (reconstructed.kind === RESULT_KIND.Fail) return reconstructed;
 
     const finalAnalysis: TopologyChangeAnalysis = {
       affectedUsecaseSystemIds,
@@ -126,7 +143,7 @@ export class TopologyChangeAnalysisPhase {
     inventory: TopologyImpactInventory,
     analysis: TopologyChangeAnalysis,
     subgraphRepository: SubgraphRepository,
-  ): Promise<ResultType<readonly UsecaseTopologyDecision[]>> {
+  ): Promise<Result<readonly UsecaseTopologyDecision[]>> {
     const result = await this.deletionReconstruction.run(
       {
         input: context.input,

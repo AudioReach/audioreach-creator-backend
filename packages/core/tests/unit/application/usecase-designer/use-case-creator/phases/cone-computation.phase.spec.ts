@@ -96,10 +96,10 @@ function setSeeds(
 }
 
 describe('ConeComputationPhase', () => {
-  it('rejects automatic execution without Phase 5 seeds', async () => {
+  it('throws when automatic execution lacks Phase 5 seeds', () => {
     const context = makeContext(ROUTING_MODE.Auto, [10], []);
 
-    await expect(new ConeComputationPhase().run(context)).rejects.toThrow(
+    expect(() => new ConeComputationPhase().run(context)).toThrow(
       'ConeComputationPhase requires Phase 5 seeds in automatic mode',
     );
   });
