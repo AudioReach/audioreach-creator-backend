@@ -135,14 +135,14 @@ function makeControlLink(
 }
 
 describe('SeedDetectionPhase', () => {
-  it('rejects automatic execution without Phase 4 resolutions', async () => {
+  it('throws for automatic execution without Phase 4 resolutions', () => {
     const context = makeContext(
       ROUTING_MODE.Auto,
       [10],
       [makeUsecase(50, [10])],
     );
 
-    await expect(new SeedDetectionPhase().run(context)).rejects.toThrow(
+    expect(() => new SeedDetectionPhase().run(context)).toThrow(
       'SeedDetectionPhase requires Phase 4 kvResolutions in automatic mode',
     );
   });

@@ -5,7 +5,6 @@
 
 import {DATA_LINK_TYPE} from '../../../../domain/entities/usecase-data/links/data-link-type.js';
 import {Result} from '../../../../application/shared/result/result.js';
-import type {Result as ResultType} from '../../../../application/shared/result/result.js';
 import type {RoutingContext} from '../contracts/routing-context.js';
 import {ROUTING_MODE} from '../contracts/routing-input.js';
 import {
@@ -149,8 +148,7 @@ function addOutOfSelectionSeeds(
  * requested topology is explicit.
  */
 export class SeedDetectionPhase {
-  // eslint-disable-next-line @typescript-eslint/require-await -- Phase execution remains promise-based for ordered orchestration.
-  async run(context: RoutingContext): Promise<ResultType<void>> {
+  run(context: RoutingContext): Result<void> {
     if (context.input.mode === ROUTING_MODE.Manual) return Result.ok();
     if (context.kvResolutions === null)
       throw new Error(
@@ -168,17 +166,12 @@ export class SeedDetectionPhase {
     );
     if (context.input.selectedUsecases.length === 0) {
       addNoUsecaseSeeds(accumulator, effectiveScope);
-      context.seeds = {
-        sgSystemIds: accumulator.seeds,
-        reasons: accumulator.reasons,
-      };
-      return Result.ok();
+    } else {
+      addKvChangeSeeds(accumulator, context);
+      addNewSubgraphSeeds(accumulator, context);
+      addLinkSeeds(accumulator, context, effectiveScope);
+      addOutOfSelectionSeeds(accumulator, context, effectiveScope);
     }
-
-    addKvChangeSeeds(accumulator, context);
-    addNewSubgraphSeeds(accumulator, context);
-    addLinkSeeds(accumulator, context, effectiveScope);
-    addOutOfSelectionSeeds(accumulator, context, effectiveScope);
 
     context.seeds = {
       sgSystemIds: accumulator.seeds,

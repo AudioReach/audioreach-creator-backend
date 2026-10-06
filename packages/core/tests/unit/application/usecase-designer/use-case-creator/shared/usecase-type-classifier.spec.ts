@@ -5,9 +5,12 @@
 
 import {describe, expect, it} from '@jest/globals';
 import {
+  computeManualUsecaseType,
   computeUsecaseTypeFromPairSupport,
   type UsecasePairSupportResolver,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/shared/usecase-type-classifier.js';
+import type {ManualTopology} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
+import {DATA_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
 import {USECASE_TYPE} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase-type.js';
 
 const pair = (source: number, dest: number) => ({
@@ -56,5 +59,101 @@ describe('computeUsecaseTypeFromPairSupport', () => {
         }),
       ),
     ).toBe(USECASE_TYPE.Linked);
+  });
+});
+
+describe('computeManualUsecaseType', () => {
+  it('classifies a fully data-supported topology without isolated members as LINKED', () => {
+    const topology: ManualTopology = {
+      pairs: [
+        {
+          pair: pair(10, 20),
+          dataLinks: [
+            {
+              systemId: 1,
+              sourceSubgraphSystemId: 10,
+              destSubgraphSystemId: 20,
+              linkType: DATA_LINK_TYPE.Normal,
+            } as never,
+          ],
+          controlLinks: [],
+        },
+      ],
+    };
+
+    expect(computeManualUsecaseType(topology, [])).toBe(USECASE_TYPE.Linked);
+  });
+
+  it('classifies control support or an isolated member as ISLAND', () => {
+    const controlTopology: ManualTopology = {
+      pairs: [
+        {
+          pair: pair(10, 20),
+          dataLinks: [],
+          controlLinks: [
+            {
+              systemId: 2,
+              sourceSubgraphSystemId: 10,
+              destSubgraphSystemId: 20,
+            } as never,
+          ],
+        },
+      ],
+    };
+    const dataTopology: ManualTopology = {
+      pairs: [
+        {
+          pair: pair(10, 20),
+          dataLinks: [
+            {
+              systemId: 3,
+              sourceSubgraphSystemId: 10,
+              destSubgraphSystemId: 20,
+              linkType: DATA_LINK_TYPE.Normal,
+            } as never,
+          ],
+          controlLinks: [],
+        },
+      ],
+    };
+
+    expect(computeManualUsecaseType(controlTopology, [])).toBe(
+      USECASE_TYPE.Island,
+    );
+    expect(computeManualUsecaseType(dataTopology, [30])).toBe(
+      USECASE_TYPE.Island,
+    );
+  });
+
+  it('gives EC data support precedence over control support and isolated members', () => {
+    const topology: ManualTopology = {
+      pairs: [
+        {
+          pair: pair(10, 20),
+          dataLinks: [
+            {
+              systemId: 4,
+              sourceSubgraphSystemId: 10,
+              destSubgraphSystemId: 20,
+              linkType: DATA_LINK_TYPE.Ec,
+            } as never,
+          ],
+          controlLinks: [],
+        },
+        {
+          pair: pair(20, 30),
+          dataLinks: [],
+          controlLinks: [
+            {
+              systemId: 5,
+              sourceSubgraphSystemId: 20,
+              destSubgraphSystemId: 30,
+            } as never,
+          ],
+        },
+      ],
+    };
+
+    expect(computeManualUsecaseType(topology, [40])).toBe(USECASE_TYPE.Ec);
   });
 });

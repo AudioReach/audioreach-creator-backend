@@ -12,7 +12,9 @@ import {
 import {ROUTING_MODE} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
 import {
   USECASE_TOPOLOGY_DECISION_KIND,
-  type RoutingCombination,
+  USECASE_CANDIDATE_KIND,
+  type AutoUsecaseCandidate,
+  type ManualUsecaseCandidate,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {ClassificationPhase} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/classification/classification.phase.js';
 
@@ -20,8 +22,9 @@ function input(
   committedUsecases: readonly UseCase[],
   activeManualUsecaseEdits: readonly unknown[] = [],
   mode: ROUTING_MODE = ROUTING_MODE.Auto,
+  manualPairs: Array<[number, number]> = [],
 ) {
-  return {
+  const routingInput = {
     mode,
     fileSystemId: 1,
     selectedUsecases: [],
@@ -55,17 +58,61 @@ function input(
       excludedControlLinkSystemIds: [],
     },
     activeManualUsecaseEdits,
-  } as never;
+    ...(mode === ROUTING_MODE.Manual
+      ? {
+          manualTopology: {
+            pairs: manualPairs.map(
+              ([sourceSubgraphSystemId, destSubgraphSystemId], index) => ({
+                pair: {sourceSubgraphSystemId, destSubgraphSystemId},
+                dataLinks: [
+                  {
+                    systemId: 1000 + index,
+                    sourceSubgraphSystemId,
+                    destSubgraphSystemId,
+                  },
+                ],
+                controlLinks: [],
+              }),
+            ),
+          },
+        }
+      : {}),
+  };
+  return routingInput as never;
 }
 
-function candidate(path: number[]): RoutingCombination {
+function candidate(path: number[]): AutoUsecaseCandidate {
   return {
+    kind: USECASE_CANDIDATE_KIND.Auto,
     path: {
       subgraphSystemIds: path,
       termination: 'NATURAL_LEAF',
       ecBoundaryLinkId: null,
     },
     sgkvAssignment: new Map(path.map(systemId => [systemId, {keyValues: []}])),
+    gkv: [{keyDefSystemId: 1, valueDefSystemId: 100}],
+  };
+}
+
+function manualCandidate(
+  members: number[],
+  pairs: Array<[number, number]>,
+): ManualUsecaseCandidate {
+  return {
+    kind: USECASE_CANDIDATE_KIND.Manual,
+    memberSubgraphSystemIds: members,
+    topology: {
+      pairs: pairs.map(
+        ([sourceSubgraphSystemId, destSubgraphSystemId], index) => ({
+          pair: {sourceSubgraphSystemId, destSubgraphSystemId},
+          dataLinks: [{systemId: 1000 + index} as never],
+          controlLinks: [],
+        }),
+      ),
+    },
+    sgkvAssignment: new Map(
+      members.map(systemId => [systemId, {keyValues: []}]),
+    ),
     gkv: [{keyDefSystemId: 1, valueDefSystemId: 100}],
   };
 }
@@ -106,7 +153,7 @@ describe('buildProjectedUsecaseTopology', () => {
         ],
       ),
     );
-    context.routingCandidates.combinations.push(
+    context.usecaseCandidates.automaticCandidates.push(
       candidate([1, 2]),
       candidate([3, 4]),
       candidate([5, 6]),
@@ -126,6 +173,49 @@ describe('buildProjectedUsecaseTopology', () => {
     expect(projected.usecases[0]).toEqual(manual);
     expect(projected.subgraphSystemIds).toEqual(new Set([1, 3, 5]));
     expect(projected.directedPairKeys).toEqual(new Set(['1>3', '3>5']));
+  });
+
+  it('projects manual candidates with all members and only explicit pairs', async () => {
+    const context = new RoutingContext(
+      input([], [], ROUTING_MODE.Manual, [[10, 20]]),
+    );
+    context.topologyChangeAnalysis = {
+      affectedUsecaseSystemIds: new Set(),
+      decisions: [],
+    };
+    context.usecaseCandidates.manualCandidates.push(
+      manualCandidate([30, 10, 20], [[20, 10]]),
+    );
+
+    const classification = await new ClassificationPhase().run(context);
+    const projected = buildProjectedUsecaseTopology(context);
+
+    expect(classification.kind).toBe('OK');
+    expect(projected.usecases[0]?.subgraphSystemIds).toEqual([30, 10, 20]);
+    expect(projected.usecases[0]?.subgraphPairs).toEqual([
+      {sourceSubgraphSystemId: 20, destSubgraphSystemId: 10},
+    ]);
+    expect(projected.directedPairKeys).toEqual(new Set(['20>10']));
+    expect(projected.directedPairKeys).not.toEqual(
+      expect.arrayContaining(['30>10', '10>20']),
+    );
+  });
+
+  it('keeps automatic candidate projection on adjacent DFS pairs', async () => {
+    const context = new RoutingContext(input([]));
+    context.topologyChangeAnalysis = {
+      affectedUsecaseSystemIds: new Set(),
+      decisions: [],
+    };
+    context.usecaseCandidates.automaticCandidates.push(candidate([30, 10, 20]));
+
+    await new ClassificationPhase().run(context);
+    const projected = buildProjectedUsecaseTopology(context);
+
+    expect(projected.usecases[0]?.subgraphPairs).toEqual([
+      {sourceSubgraphSystemId: 30, destSubgraphSystemId: 10},
+      {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+    ]);
   });
 
   it.each([ROUTING_MODE.Auto, ROUTING_MODE.Manual])(

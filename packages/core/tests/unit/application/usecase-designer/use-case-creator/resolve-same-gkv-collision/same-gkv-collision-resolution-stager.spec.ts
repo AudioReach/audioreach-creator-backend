@@ -6,7 +6,10 @@
 import {describe, expect, it, jest} from '@jest/globals';
 import {SOURCE} from '../../../../../../src/application/shared/change-vocabulary.js';
 import type {AutoRoutingInput} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
-import type {RoutingCombination} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
+import {
+  USECASE_CANDIDATE_KIND,
+  type AutoUsecaseCandidate,
+} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import type {SameGkvCollisionGroup} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/same-gkv-collision.js';
 import {SameGkvCollisionService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/classification/same-gkv-collision.service.js';
 import {SameGkvCollisionResolutionStager} from '../../../../../../src/application/usecase-designer/use-case-creator/resolve-same-gkv-collision/same-gkv-collision-resolution-stager.js';
@@ -19,8 +22,9 @@ function candidate(
   assignmentValues: ReadonlyMap<number, readonly number[]> = new Map([
     [path[0], [100]],
   ]),
-): RoutingCombination {
+): AutoUsecaseCandidate {
   return {
+    kind: USECASE_CANDIDATE_KIND.Auto,
     path: {
       subgraphSystemIds: path,
       termination: 'NATURAL_LEAF',
@@ -66,7 +70,7 @@ function input(routableDataLinks: readonly unknown[] = []): AutoRoutingInput {
 }
 
 function collisionGroup(
-  candidates: readonly RoutingCombination[],
+  candidates: readonly AutoUsecaseCandidate[],
   existingUsecase: UseCase | null = null,
 ): SameGkvCollisionGroup {
   return new SameGkvCollisionService().createGroup({
@@ -79,7 +83,7 @@ function collisionGroup(
 
 function select(
   group: SameGkvCollisionGroup,
-  candidateToSelect: RoutingCombination,
+  candidateToSelect: AutoUsecaseCandidate,
 ) {
   const alternative = group.alternatives.find(
     item => item.kind === 'NEW' && item.candidate === candidateToSelect,

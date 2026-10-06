@@ -739,7 +739,7 @@
     },
     "/arc-api/v1/projects/{projectId}/create-manual-usecases": {
       "post": {
-        "description": "Creates usecases from a manually specified subgraph path and SGKV combinations, then unstages them.\n\nUnlike create-usecases, this endpoint does not run routing logic — the caller defines the exact subgraph path via activeSubgraphs.",
+        "description": "Discovers supported topology from the effective manual routing scope and selected relationship/KV eligibility, then creates MANUAL/STAGED usecase changes.\n\nThe server derives the topology from the current session overlay; activeSubgraphs defines the effective scope and SGKV selections rather than an exact caller-specified path.",
         "operationId": "ProjectController_createManualUsecases",
         "parameters": [
           {
@@ -784,8 +784,74 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid manual usecase request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "nullable": true
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "An active DESIGNER or DIFF_MERGE session is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "nullable": true
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "404": {
             "description": "Project does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "nullable": true
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Manual routing validation failed, including a detected data-link cycle",
             "content": {
               "application/json": {
                 "schema": {
@@ -9442,14 +9508,14 @@
         "type": "object",
         "properties": {
           "selectedUsecaseSystemIds": {
-            "description": "System IDs of selected usecases used to authorize topology",
+            "description": "System IDs of usecases whose relationships and key values are eligible for manual topology discovery",
             "type": "array",
             "items": {
               "type": "string"
             }
           },
           "activeSubgraphs": {
-            "description": "Subgraphs defining the manual usecase path with their selected SGKV combinations",
+            "description": "Effective manual routing scope, with each subgraph and its selected SGKV combinations",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/SubgraphKvSelectionDto"

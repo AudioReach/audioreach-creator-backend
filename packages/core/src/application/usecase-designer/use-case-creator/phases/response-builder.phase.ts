@@ -8,15 +8,12 @@ import type {RoutingContext} from '../contracts/routing-context.js';
 import {createEmptyRoutingOutcome} from '../contracts/routing-outcome.js';
 
 export class ResponseBuilderPhase {
-  run(
-    context: RoutingContext,
-    groupId: string,
-  ): Promise<ReturnType<typeof Result.ok<void>>> {
+  run(context: RoutingContext, groupId: string): Result<void> {
     context.routingOutcome = createEmptyRoutingOutcome(
       groupId,
       context.emittedUcChanges,
       context.warnings,
     );
-    return Promise.resolve(Result.ok());
+    return Result.ok();
   }
 }

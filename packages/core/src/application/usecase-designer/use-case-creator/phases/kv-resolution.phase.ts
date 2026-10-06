@@ -4,7 +4,6 @@
  */
 
 import {Result} from '../../../../application/shared/result/result.js';
-import type {Result as ResultType} from '../../../../application/shared/result/result.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
 import type {KvPair} from '../../../ports/persistence/repositories/shared/kv-pair.js';
 import type {
@@ -31,7 +30,7 @@ export class KvResolutionPhase {
   async run(
     context: RoutingContext,
     subgraphRepository: SubgraphRepository,
-  ): Promise<ResultType<void>> {
+  ): Promise<Result<void>> {
     const {fileSystemId, selectedUsecases, graphSnapshot} = context.input;
     const subgraphSystemIds = graphSnapshot.subgraphs.map(
       entry => entry.subgraph.systemId,

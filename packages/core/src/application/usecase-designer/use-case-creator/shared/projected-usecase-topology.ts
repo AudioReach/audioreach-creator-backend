@@ -17,10 +17,14 @@ import {
   USECASE_TOPOLOGY_DECISION_KIND as TOPOLOGY_DECISION_KIND,
   type ClassifiedUsecase,
   type InteriorExtensionClassification,
-  type RoutingCombination,
+  type UsecaseCandidate,
   type UsecaseStructuralChange,
   type UsecaseTopologyDecision,
 } from '../contracts/routing-state.js';
+import {
+  candidateDirectedPairs,
+  candidateSubgraphSystemIds,
+} from './usecase-topology.js';
 
 /**
  * Session-wide read model composed from committed UCs and finalized routing changes.
@@ -120,9 +124,10 @@ export function projectCommittedUcsWithMdfSubstitutions(
 }
 
 function candidateUsecase(
-  candidate: RoutingCombination,
+  candidate: UsecaseCandidate,
   fileSystemId: number,
   systemId: number,
+  subgraphPairs: readonly SubgraphPair[],
 ): UseCase {
   return new UseCase({
     systemId,
@@ -130,16 +135,9 @@ function candidateUsecase(
     keyVector: {
       valueSystemIds: candidate.gkv.map(pair => pair.valueDefSystemId),
     },
-    subgraphSystemIds: [...candidate.path.subgraphSystemIds],
-    subgraphPairs: adjacentPairs(candidate.path.subgraphSystemIds),
+    subgraphSystemIds: [...candidateSubgraphSystemIds(candidate)],
+    subgraphPairs: [...subgraphPairs],
   });
-}
-
-function adjacentPairs(subgraphSystemIds: readonly number[]): SubgraphPair[] {
-  return subgraphSystemIds.slice(1).map((dest, index) => ({
-    sourceSubgraphSystemId: subgraphSystemIds[index],
-    destSubgraphSystemId: dest,
-  }));
 }
 
 function withMergedTopology(
@@ -178,8 +176,8 @@ function applyInteriorExtension(
     current.systemId,
     withMergedTopology(
       current,
-      classification.candidate.path.subgraphSystemIds,
-      adjacentPairs(classification.candidate.path.subgraphSystemIds),
+      candidateSubgraphSystemIds(classification.candidate),
+      candidateDirectedPairs(classification.candidate),
     ),
   );
 }
@@ -188,6 +186,7 @@ function applyClassifiedUsecase(
   projected: Map<number, UseCase>,
   classification: ClassifiedUsecase,
   fileSystemId: number,
+  subgraphPairs: readonly SubgraphPair[],
 ): void {
   if (classification.kind === ROUTING_CLASSIFICATION_KIND.ExactMatch) return;
   if (classification.kind === ROUTING_CLASSIFICATION_KIND.InteriorExtension) {
@@ -199,6 +198,7 @@ function applyClassifiedUsecase(
     classification.candidate,
     fileSystemId,
     -Math.abs(systemId),
+    subgraphPairs,
   );
   projected.set(candidate.systemId, candidate);
 }
@@ -336,6 +336,7 @@ export function buildProjectedUsecaseTopology(
       projected,
       classification,
       context.input.fileSystemId,
+      candidateDirectedPairs(classification.candidate),
     );
 
   const usecases = [...projected.values()].sort(

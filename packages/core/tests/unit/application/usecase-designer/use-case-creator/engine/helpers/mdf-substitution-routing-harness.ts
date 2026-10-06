@@ -18,9 +18,14 @@ import type {
 } from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
 import type {SameGkvCollisionGroup} from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/same-gkv-collision.js';
 import type {
-  RoutingCombination,
+  AutoUsecaseCandidate,
+  UsecaseCandidate,
   UsecaseTopologyDecision,
 } from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
+import {
+  candidateDirectedPairs,
+  candidateSubgraphSystemIds,
+} from '../../../../../../../src/application/usecase-designer/use-case-creator/shared/usecase-topology.js';
 import {RoutingEngine} from '../../../../../../../src/application/usecase-designer/use-case-creator/engine/routing-engine.js';
 import {PreValidationPhase} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/pre-validation/pre-validation.phase.js';
 import {TopologyChangeAnalysisPhase} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/topology-change-analysis/topology-change-analysis.phase.js';
@@ -73,7 +78,7 @@ export interface MdfSubstitutionScenario {
   readonly deletedPairs: readonly RoutingPair[];
   readonly deletedSubgraphSystemIds?: readonly number[];
   readonly activeManualUsecaseEdits?: readonly ActiveManualUsecaseEdit[];
-  readonly dfsCandidates?: readonly RoutingCombination[];
+  readonly dfsCandidates?: readonly AutoUsecaseCandidate[];
   readonly failClassification?: boolean;
   readonly requestedSgkvsBySubgraph?: Readonly<
     Record<number, readonly (readonly number[])[]>
@@ -364,17 +369,6 @@ function inputSnapshot(input: RoutingInput): string {
   });
 }
 
-function adjacentPairs(
-  combination: RoutingCombination,
-): readonly {sourceSubgraphSystemId: number; destSubgraphSystemId: number}[] {
-  return combination.path.subgraphSystemIds
-    .slice(0, -1)
-    .map((sourceSubgraphSystemId, index) => ({
-      sourceSubgraphSystemId,
-      destSubgraphSystemId: combination.path.subgraphSystemIds[index + 1]!,
-    }));
-}
-
 export function createMdfSubstitutionRoutingHarness(
   scenario: MdfSubstitutionScenario,
 ): MdfSubstitutionRoutingHarness {
@@ -554,7 +548,7 @@ export function createMdfSubstitutionRoutingHarness(
     run: async (context: RoutingContext) => {
       const result = await combinationExpansion.run(context);
       if (result.kind === 'OK') {
-        context.routingCandidates.combinations.push(
+        context.usecaseCandidates.automaticCandidates.push(
           ...(scenario.dfsCandidates ?? []),
         );
       }
@@ -615,15 +609,15 @@ export function createMdfSubstitutionRoutingHarness(
     });
   }
 
-  function candidateUsecase(candidate: RoutingCombination): UseCase {
+  function candidateUsecase(candidate: UsecaseCandidate): UseCase {
     return new UseCase({
       systemId: 0,
       fileSystemId: 1,
       keyVector: {
         valueSystemIds: candidate.gkv.map(pair => pair.valueDefSystemId),
       },
-      subgraphSystemIds: [...candidate.path.subgraphSystemIds],
-      subgraphPairs: adjacentPairs(candidate),
+      subgraphSystemIds: [...candidateSubgraphSystemIds(candidate)],
+      subgraphPairs: [...candidateDirectedPairs(candidate)],
       type: 'LINKED' as never,
     });
   }

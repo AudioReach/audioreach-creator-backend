@@ -163,10 +163,10 @@ depends only on graph state ahead of work that depends on user-provided GKVs.
 | # | Phase | Responsibility | LLD |
 |---|---|---|---|
 | 10 | OrphanValidationService | FR-VAL-01/02/03 orphan sweep | LLD3 |
-| 11 | RoutingChangeStager | Emit `edit_actions` via domain-verb edit-repo ports; source=AUTO_ROUTING, UNSTAGED | LLD6 |
+| 11 | RoutingChangeStager | Emit staged `edit_actions` via domain-verb edit-repo ports; source=AUTO_ROUTING for automatic routing and MANUAL for manual routing | LLD6 |
 | 12 | ResponseBuilder | Assemble the framework-free `RoutingOutcome` containing emitted change descriptors, issues, and `groupId` | LLD6 |
 
-**Rationale for the split.** Phases 2 and 3 (Half A) depend only on the prepared
+**Rationale for the split.** In automatic mode, Phases 2 and 3 (Half A) depend only on the prepared
 `graphSnapshot` and request policy — none of them need routing output. Running them first
 has two payoffs:
 - **Fail-fast on FR-DEL-02** — if the caller omitted an affected UC from the selected UC
@@ -187,15 +187,14 @@ halt the pipeline.
 
 **Auto vs Manual mode.** Manual mode runs the same orchestrator with the same phase
 list. Phase 1 validates active manual dependencies before topology decisions in both
-modes. Phase 2 performs file-wide affected-UC discovery and both
-deletion-side gates; it
-also retains direct pure-MDF maintenance decisions, but skips ordinary automatic
-reconstruction, degradation, and preservation. Commit-time validation protects existing
-UCs from unresolved structural damage. Phases 3, 5, 6, and 7 are no-ops. Phase 4 resolves
-the provided GKVs. Phase 8 expands the ordered
-effective-routing-scope synthetic path so every valid SGKV Cartesian combination becomes
-a candidate UC. Phase 9 runs partial (idempotency check only). This avoids two divergent
-code paths while keeping manual topology explicit.
+modes. Manual Phase 2 is a complete no-op: it performs no file-wide affected-UC
+discovery, FR-DEL-02 or deletion-side gates, direct MDF maintenance, reconstruction,
+degradation, preservation, deletion staging, or existing-UC mutation. Commit-time
+validation protects existing UCs from unresolved structural damage. Phases 3, 5, 6, and
+7 are also no-ops. Phase 4 resolves the provided GKVs. Phase 8 expands the ordered
+effective scope and its one `ManualTopology` into candidate-owned manual UCs. Phase 9
+performs partial classification and idempotency only. This avoids two divergent code
+paths while keeping manual topology explicit.
 
 **Commit safety-net is separate.** FR-COMMIT-01 checks (a)/(b1)/(b2)/(c)/(d) —
 direction correction, staged-UC validation, existing-UC invalidation after structural
@@ -250,20 +249,27 @@ snapshot cross the engine boundary. Contents by mode:
 | `requestPolicy` (explicit SG/link exclusions and requested scope intent) | ✓ | ✓ | handler from client payload |
 | `selectedUsecases` (single effective-overlay snapshot) | ✓ | ✓ | handler |
 | `graphSnapshot` (routable scope, complete overlay links, committed UCs, MDF flags, and session edits) | ✓ | ✓ | shared builder after handler validation |
+| `activeManualUsecaseEdits` (non-null active MANUAL CREATE/UPDATE usecases for dependency validation and idempotency overlay) | ✓ | ✓ | handler |
 | `manualTopology` (pairs with pair-local supporting data/control links; isolated SGs derived from scope) | — | ✓ | `ManualPairDiscoveryService` after chain resolution |
 
 `selectedUsecases` and `graphSnapshot` are handler-derived. Downstream phases reuse these
 immutable snapshots; they do not reload selected UCs or graph entities and risk observing
 a different overlay. `graphSnapshot.committedUsecases` is the complete pre-run catalog,
 while `graphSnapshot.subgraphs` and routable links are the final request-scoped views.
+For manual idempotency, Phase 9 overlays non-null active MANUAL `CREATE` and `UPDATE`
+usecases onto that committed catalog by `systemId`; updates replace committed entries and
+creates add entries. No separate full effective-usecase catalog is loaded or carried.
 
 In manual mode, the SGs forming the new UC are the IDs in the routable
 `graphSnapshot.subgraphs` (the effective routing scope). Pair
-derivation happens server-side (FR-UC-01) via data-link query with control-link fallback.
+derivation happens server-side (FR-UC-01) from the immutable snapshot's prepared link
+collections, with no discovery-time repository reads.
 `ManualPairDiscoveryService` examines every unordered relationship involving an
 out-of-selection SG. A selected-selected relationship is eligible only when at least one
 selected UC already contains that relationship. Discovery applies explicit link
 exclusions, data-first direction, per-relationship control fallback, and cycle rejection.
+It creates one manual topology used unchanged by every Phase 8 candidate; classification,
+orphan validation, and staging consume that candidate-owned topology and membership.
 Phase 8 consumes the same ordered effective-scope selection.
 Request order is retained only for deterministic combination expansion and does not
 define topology.
@@ -600,9 +606,12 @@ three mutually exclusive values, **computed from the UC's pair set**:
   EC link inside the path — plus the MDF-substituted exception with two flanking
   EC links surrounding an isMdf SG, per FR-EC-07 Rule C).
 - **`ISLAND`** — pair set contains at least one pair with no data-link support
-  (only a control-link, or created via manual UC with data-link fallback per FR-UC-01).
+  (only a control-link, including a manual topology that used control fallback).
   Overrides `LINKED` when both conditions apply.
 - **`LINKED`** — otherwise (all pairs data-link supported, no EC links).
+
+The precedence is `EC` > `ISLAND` > `LINKED`; a manual candidate derives its type from
+its own discovered pair support and isolated members.
 
 **Terminology:** the canonical `Usecase.type` values are `LINKED`, `ISLAND`, and `EC`.
 Older `Connected`/`Disconnected` labels are not valid use-case type values.
@@ -633,19 +642,20 @@ infrastructure* (rule violation or systems failure?).
 | Session/mode | No active session, wrong mode | 400 / 403 | `success=false, errors=[SessionMissing]` | never opened |
 | Chain resolver failure | Incomplete SLS/CSLS chain | 422 | `success=false, errors=[ChainIncomplete]` | rollback |
 | Pre-validation blocking | FR-API-03, FR-API-07 addition side, FR-PREVAL-01/02, FR-MDF-01, stale MANUAL edit-action | 422 | `success=false, errors=[issue codes]` | rollback |
-| Mid-pipeline blocking | FR-DEL-02, FR-API-07 deletion side, FR-DUP-04 (same-GKV user choice), FR-DFS-08, FR-EC-05 | 422 | `success=false, errors=[issue codes]` | rollback |
-| Warnings (routing time) | Orphans, cycles, islands | 200 | `success=true, data.issues=[WARN…]` | commit |
+| Mid-pipeline blocking | Automatic: FR-DEL-02 and deletion-side FR-API-07; both modes as applicable: FR-DUP-04, FR-DFS-08, FR-EC-05; manual: `ARC-ROUTING-MANUAL-CYCLE` | 422 | `success=false, errors=[issue codes]` | rollback |
+| Warnings (routing time) | Orphans, automatic DFS cycles, islands | 200 | `success=true, data.issues=[WARN…]` | commit |
 | Commit-time orphans | Any orphan detected at commit | 422 | `success=false, errors=[ARC-COMMIT-ORPHAN-*]` | commit rejected |
 
 **Two-tier orphan handling.** At routing time, orphans are warnings — surfaced with
 autofix hints so the user can act. At commit time, orphans are blocking (FR-COMMIT-01(c))
 — persisting them would violate I5 permanently.
 
-**Mode note on mid-pipeline errors.** Phases 3, 5, 6, and 7 are skipped in manual mode
-and cannot produce their error codes. Manual Phase 2 still produces
-`ARC-ROUTING-DEL-02` and deletion-side scope errors, and may publish a direct MDF update;
-it skips ordinary automatic reconstruction/degradation. Phase 8 runs in manual mode, so
-`ARC-ROUTING-DFS-08` remains possible when no valid KV combination exists.
+**Mode note on mid-pipeline errors.** Manual Phases 2, 3, 5, 6, and 7 are complete
+no-ops, so manual routing cannot produce FR-DEL-02, deletion-side FR-API-07, or automatic
+reconstruction/degradation errors. Phase 8 runs in manual mode, so
+`ARC-ROUTING-DFS-08` remains possible when no valid KV combination exists. Manual
+topology discovery rejects a data-link-derived directed cycle before Phase 8 with
+`ARC-ROUTING-MANUAL-CYCLE` and HTTP 422.
 In manual mode, one structurally valid effective MANUAL UC is authoritative for its
 GKV and suppresses the automatic collision group. More than one distinct effective
 MANUAL UC for the GKV fails with
@@ -694,13 +704,15 @@ Blocking (surface in `errors[]`, HTTP 422):
 - `ARC-ROUTING-SGKV-VALUE-NOT-FOUND` — a requested Value Definition is absent
   from the effective definition overlay or belongs to a Key Definition in another file.
 - `ARC-ROUTING-EC-05` — EC violation
+- `ARC-ROUTING-MANUAL-CYCLE` — manual data-link topology contains a directed cycle;
+  emitted before any usecase edit action is staged
 - `ARC-ROUTING-MDF-01` — MDF KV-assigned conflict
 - `ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT` — a current-session added/deleted SG or
   link was explicitly excluded, or an added/deleted data-link lacks a required active,
   non-excluded endpoint SG (FR-API-07)
 - `ARC-ROUTING-PREVAL-*` — pre-validation
-- `ARC-ROUTING-DEL-02` — full affected-UC set is not selected; payload includes the
-  full affected set and missing subset
+- `ARC-ROUTING-DEL-02` — automatic routing's full affected-UC set is not selected;
+  payload includes the full affected set and missing subset
 - `ARC-ROUTING-CHAIN-INCOMPLETE` — SLS/CSLS pre-step
 - `ARC-COMMIT-ORPHAN-*` — commit-time orphan rejection
 - `ARC-COMMIT-MANUAL-UC-BROKEN-DEPS` — commit-time manual UC referential integrity
@@ -722,7 +734,7 @@ Warnings (surface in `data.issues[]`, HTTP 200):
   non-empty effective SGKV instances after auto routing. Suggests the user create a
   stand-alone UC via the manual workflow (FR-UC-01) rather than deleting the SG.
   Non-blocking; user may still accept the orphan or use the standard delete flow.
-- `ARC-ROUTING-CYCLE-DETECTED`
+- `ARC-ROUTING-CYCLE-DETECTED` — automatic DFS only
 - `ARC-ROUTING-ISLAND-DETECTED`
 - `ARC-ROUTING-UC-AUTO-ISLAND` — `LINKED` UC auto-transitioned to `ISLAND`
   because a data-link was deleted while a control-link remained between the same SGs
@@ -741,9 +753,11 @@ or UC systemId) so the client can wire the FR-VAL-01 dialog off code + entity.
 3. **Infra exceptions never leak.** Uncaught `Error` → `ARC-INTERNAL` at framework
    layer. Stack traces log server-side; client sees only opaque code.
 
-**Deliberate choice — cycles and islands are warnings, not blockers.** FR-DFS-04 keeps
-the "warn + emit path as leaf" behavior. Blocking on cycle kills discoverability
-during design.
+**Deliberate choice — automatic DFS cycles and islands are warnings, not blockers.**
+FR-DFS-04 keeps the "warn + emit path as leaf" behavior for automatic routing. Manual
+data-link topology is different: a directed cycle is a blocking
+`ARC-ROUTING-MANUAL-CYCLE` violation because it would be staged as one explicit manual
+usecase topology.
 
 ---
 

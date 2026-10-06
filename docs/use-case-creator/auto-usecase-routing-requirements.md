@@ -101,37 +101,37 @@ When a user provides a set of SGs with their SGKV instances (via the dedicated
 3. Create one UC per valid SGKV combination found across the selected SGs. If no valid
    combination exists (all combinations produce Key conflicts), return an error per
    FR-DFS-08.
-4. Derive the UC's subgraph-pair set by querying the DB for links between every pair of
-   SGs in the effective routing scope (the client does not supply link IDs — see
-   FR-API-04). This includes selected-to-selected, selected-to-out-of-selection, and
-   out-of-selection-to-out-of-selection SG pairs:
-   - **Primary (data-link discovery):** For every pair of SGs in the effective routing scope, query
-     the DB for intra-usecase data-links between them. For each data-link found, create
-     a directed pair `(source_sg, dest_sg)` matching the link's direction. This pair is
-     "data-link covered".
-   - **Control-link fallback:** For any SG in the effective routing scope that has no intra-usecase
-     data-links to any other SG in the set, query the DB for intra-usecase control-links
-      between that SG and any other SG in the scope. For each control-link found, create a
-     directed pair with direction `(smaller_sg_id, larger_sg_id)` — the SG with the
-     smaller system ID is the source. This pair is "control-link only".
-   - **Isolated SG (Q5):** If an SG in the effective routing scope has neither an intra-usecase
-     data-link nor an intra-usecase control-link to any other SG in the set, the SG is
-     included in the UC's SG set with no pairs involving it. The system shall emit a
-      warning identifying such SGs. The UC is still created (as `ISLAND` — see the type
-      paragraph below).
-   - Record unique pairs in `use_case_subgraph_pairs`. Every `intra_usecase` link in DB
-     whose `(source_sg, dest_sg)` matches a declared pair is automatically part of the
-     UC — no per-link explicit assignment is needed.
+4. Derive the UC's subgraph-pair set from the effective session-overlay snapshot; the
+   client does not supply link IDs (see FR-API-04). Candidate relationships are:
+   - selected-to-selected only when their unordered relationship occurs in a selected UC;
+   - every relationship with at least one out-of-selection SG; and
+   - never a relationship containing an excluded or session-deleted SG.
+   For each candidate relationship, materialize every eligible data-link direction as
+   one directed pair. When overlay data links exist but every one was explicitly
+   excluded, emit no pair and suppress control fallback. Only when no overlay data link
+   exists may that relationship fall back to eligible control links, represented with
+   canonical `(smaller_sg_id, larger_sg_id)` direction. An unsupported relationship
+   produces no pair; its effective-scope SGs remain isolated members.
+5. Reject a data-link-derived directed cycle, including opposite-direction two-node
+   cycles, with `ARC-ROUTING-MANUAL-CYCLE` and HTTP 422 before emitting edit actions.
+   Later phases consume the discovered topology unchanged; selected usecases do not
+   filter links or pairs after discovery.
 
 **Manual UC initial type:**
-- The UC is created as **`LINKED`** if every pair in its pair set is data-link covered.
-- The UC is created as **`ISLAND`** if any pair is control-link only, or if any SG
-  was included via the isolated-SG rule (no pairs involving it).
+- The UC is **`EC`** if any pair has EC data-link support.
+- Otherwise it is **`ISLAND`** if any pair is control-link only or any effective SG is
+  isolated.
+- Otherwise it is **`LINKED`**.
 
-Manual mode skips DFS path discovery — the system uses the provided SG set plus DB link
-information (rather than a user-supplied link list) to derive pairs. Everything from
-SG-set-known onward (KV resolution, combination expansion, validation) is identical to
-auto-routing.
+Manual mode skips deletion analysis, island transition, seed detection, cone computation,
+and DFS path discovery. It expands the supplied effective scope and one discovered
+topology into manual candidates, then performs manual idempotency, validation, and
+MANUAL/STAGED emission.
+
+Before commit, repeated identical manual requests are idempotent. Manual classification
+compares candidates against committed usecases overlaid by non-null active MANUAL
+`CREATE` and `UPDATE` actions by `systemId`; updates replace committed entries and creates
+add entries. It does not load or carry a separate full effective-usecase catalog.
 
 #### FR-UC-02: Auto-routing UC creation
 When a user provides an SG→KV map and a set of selected UCs and requests auto-routing,
@@ -155,6 +155,11 @@ active session context. Before routing, the handler shall load these UCs once fr
 effective session overlay and preserve that snapshot as `selectedUsecases`. The shared
 snapshot builder separately loads the complete committed UC catalog once for
 deletion-impact and lifecycle rules. Neither UC view may be reloaded during a run.
+
+For manual idempotency, the committed catalog is overlaid in memory by non-null active
+MANUAL `CREATE` and `UPDATE` usecases keyed by `systemId`; updates replace committed
+entries and creates add entries. The manual flow does not load or carry a separate full
+effective-usecase catalog.
 
 #### FR-API-03: Selected-scope input completeness pre-validation
 Before KV resolution, seed detection, or manual pair discovery, the system shall derive

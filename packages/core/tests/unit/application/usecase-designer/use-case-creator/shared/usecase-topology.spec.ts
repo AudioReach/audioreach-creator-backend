@@ -6,13 +6,15 @@
 import {describe, expect, it} from '@jest/globals';
 import type {KvPair} from '../../../../../../src/application/ports/persistence/repositories/shared/kv-pair.js';
 import type {
-  RoutingCombination,
+  AutoUsecaseCandidate,
+  ManualUsecaseCandidate,
   SgkvInstance,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
+import {USECASE_CANDIDATE_KIND} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import type {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
 import {
   addedInteriorSubgraphIds,
-  candidateDirectedAdjacentPairs,
+  candidateDirectedPairs,
   canonicalNumericSetKey,
   deriveStartEndSets,
   directedPairKey,
@@ -25,7 +27,7 @@ function candidate(
   subgraphSystemIds: number[],
   valueSystemIds: number[],
   assignments: Record<number, KvPair[]> = {},
-): RoutingCombination {
+): AutoUsecaseCandidate {
   const sgkvAssignment = new Map<number, SgkvInstance>(
     subgraphSystemIds.map(systemId => [
       systemId,
@@ -33,12 +35,40 @@ function candidate(
     ]),
   );
   return {
+    kind: USECASE_CANDIDATE_KIND.Auto,
     path: {
       subgraphSystemIds,
       termination: 'NATURAL_LEAF',
       ecBoundaryLinkId: null,
     },
     sgkvAssignment,
+    gkv: valueSystemIds.map(valueSystemId => ({
+      keyDefSystemId: valueSystemId + 1000,
+      valueDefSystemId: valueSystemId,
+    })),
+  };
+}
+
+function manualCandidate(
+  subgraphSystemIds: number[],
+  subgraphPairs: Array<[number, number]>,
+  valueSystemIds: number[],
+): ManualUsecaseCandidate {
+  return {
+    kind: USECASE_CANDIDATE_KIND.Manual,
+    memberSubgraphSystemIds: subgraphSystemIds,
+    topology: {
+      pairs: subgraphPairs.map(
+        ([sourceSubgraphSystemId, destSubgraphSystemId]) => ({
+          pair: {sourceSubgraphSystemId, destSubgraphSystemId},
+          dataLinks: [],
+          controlLinks: [],
+        }),
+      ),
+    },
+    sgkvAssignment: new Map(
+      subgraphSystemIds.map(systemId => [systemId, {keyValues: []}]),
+    ),
     gkv: valueSystemIds.map(valueSystemId => ({
       keyDefSystemId: valueSystemId + 1000,
       valueDefSystemId: valueSystemId,
@@ -77,7 +107,7 @@ describe('usecase topology helpers', () => {
   });
 
   it('derives starts and ends and candidate adjacent directed pairs', () => {
-    const pairs = candidateDirectedAdjacentPairs(candidate([10, 20, 30], []));
+    const pairs = candidateDirectedPairs(candidate([10, 20, 30], []));
 
     expect(pairs).toEqual([
       {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
@@ -94,6 +124,23 @@ describe('usecase topology helpers', () => {
     const existing = existingUsecase([30, 10], [[10, 30]], [100, 200]);
 
     expect(exactTopologyEquals(candidateCombination, existing)).toBe(true);
+  });
+
+  it('compares an explicit directed pair set independently of order and direction', () => {
+    const existing = existingUsecase([20, 10], [[20, 10]], [100]);
+
+    expect(
+      exactTopologyEquals(
+        manualCandidate([10, 20], [[20, 10]], [100]),
+        existing,
+      ),
+    ).toBe(true);
+    expect(
+      exactTopologyEquals(
+        manualCandidate([10, 20], [[10, 20]], [100]),
+        existing,
+      ),
+    ).toBe(false);
   });
 
   it('finds only strict interior additions with empty assignments', () => {

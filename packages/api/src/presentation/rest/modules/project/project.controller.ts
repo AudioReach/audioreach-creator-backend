@@ -1036,16 +1036,15 @@ export class ProjectController {
   }
 
   @Post('/:projectId/create-manual-usecases')
+  @HttpCode(HttpStatus.OK)
   @UseGuards(SessionGuard)
   @ApiParam({name: 'projectId', description: 'Id of project', required: true})
   @ApiBody({type: CreateManualUsecasesRequestDto})
   @ApiOperation({
     summary: 'Create manual usecases',
     description:
-      'Creates usecases from a manually specified subgraph path and SGKV combinations, ' +
-      'then unstages them.\n\n' +
-      'Unlike create-usecases, this endpoint does not run routing logic — ' +
-      'the caller defines the exact subgraph path via activeSubgraphs.',
+      'Discovers supported topology from the effective manual routing scope and selected relationship/KV eligibility, then creates MANUAL/STAGED usecase changes.\n\n' +
+      'The server derives the topology from the current session overlay; activeSubgraphs defines the effective scope and SGKV selections rather than an exact caller-specified path.',
   })
   @ApiExtraModels(
     ApiResult,
@@ -1061,6 +1060,58 @@ export class ProjectController {
         {
           properties: {
             data: {$ref: getSchemaPath(CreateManualUsecasesResponseDto)},
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Invalid manual usecase request',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {
+              type: 'object',
+              nullable: true,
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'An active DESIGNER or DIFF_MERGE session is required',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {
+              type: 'object',
+              nullable: true,
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    description:
+      'Manual routing validation failed, including a detected data-link cycle',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {
+              type: 'object',
+              nullable: true,
+            },
           },
         },
       ],

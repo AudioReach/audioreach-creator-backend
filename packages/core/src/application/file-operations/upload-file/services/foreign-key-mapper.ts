@@ -11,7 +11,6 @@ import type {
   NaturalId,
   SystemId,
 } from '../../../../shared/types/branded-ids.js';
-import {KvHashGenerator} from '../../../../shared/utilities/kv-hash-generator.js';
 
 /**
  * Mapper for managing foreign key mappings returned from bulk insertion operations.
@@ -881,16 +880,6 @@ export class ForeignKeyMapper {
    */
   getTagDefinitionSystemId(tagNaturalId: NaturalId): SystemId | undefined {
     return this.tagDefinitionMappings.get(tagNaturalId);
-  }
-
-  /**
-   * Get hash for a KeyVector (for deduplication checks).
-   *
-   * @param valueSystemIds - Array of value systemIds
-   * @returns SHA-256 hash string
-   */
-  getKeyVectorHash(valueSystemIds: number[]): string {
-    return KvHashGenerator.generateHash(valueSystemIds);
   }
 
   /**

@@ -4,21 +4,23 @@
  */
 
 import {Result} from '../../../../../application/shared/result/result.js';
-import type {Result as ResultType} from '../../../../../application/shared/result/result.js';
 import type {
   SgkvEntry,
   SubgraphRepository,
 } from '../../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
 import type {RoutingInput} from '../../contracts/routing-input.js';
 import {ROUTING_MODE} from '../../contracts/routing-input.js';
-import type {
-  DfsPath,
-  DeleteOrReconstructDecision,
-  UsecaseTopologyDecision,
+import {
+  USECASE_TOPOLOGY_DECISION_KIND,
+  type DfsPath,
+  type DeleteOrReconstructDecision,
+  type UsecaseTopologyDecision,
 } from '../../contracts/routing-state.js';
-import type {
-  DirectedEdge,
-  TopologyImpactInventory,
+import {
+  compareDirectedEdges,
+  unorderedPairKey,
+  type DirectedEdge,
+  type TopologyImpactInventory,
 } from './topology-impact-inventory.js';
 import {DATA_LINK_TYPE} from '../../../../../domain/entities/usecase-data/links/data-link-type.js';
 import type {UseCase} from '../../../../../domain/entities/usecase-data/usecase/usecase.js';
@@ -33,12 +35,6 @@ interface LegacyEcBoundary {
   readonly pairKey: string;
   readonly sourceSubgraphSystemId: number;
   readonly destSubgraphSystemId: number;
-}
-
-function unorderedPairKey(firstId: number, secondId: number): string {
-  const low = Math.min(firstId, secondId);
-  const high = Math.max(firstId, secondId);
-  return `${low}<->${high}`;
 }
 
 function canonicalSgkvValues(valueSystemIds: readonly number[]): string | null {
@@ -209,9 +205,7 @@ function boundedPaths(
     }
     if (path.length >= Math.max(allowed.size, 1)) return;
     const edges = [...(adjacency.get(current) ?? [])].sort(
-      (left, right) =>
-        left.destSubgraphSystemId - right.destSubgraphSystemId ||
-        Number(left.isEc) - Number(right.isEc),
+      compareDirectedEdges,
     );
     for (const edge of edges) {
       const next = edge.destSubgraphSystemId;
@@ -244,14 +238,14 @@ export class DeletionReconstructionService {
   async run(
     request: DeletionReconstructionRequest,
     subgraphRepository: SubgraphRepository,
-  ): Promise<ResultType<readonly UsecaseTopologyDecision[]>> {
+  ): Promise<Result<readonly UsecaseTopologyDecision[]>> {
     if (request.input.mode === ROUTING_MODE.Manual) {
       return Result.ok(request.decisions);
     }
 
     const reconstructionDecisions = request.decisions.filter(
       (decision): decision is DeleteOrReconstructDecision =>
-        decision.kind === 'DELETE_OR_RECONSTRUCT',
+        decision.kind === USECASE_TOPOLOGY_DECISION_KIND.DeleteOrReconstruct,
     );
     const legacyEndpointIds = [
       ...new Set(
@@ -288,7 +282,8 @@ export class DeletionReconstructionService {
     );
 
     const reconstructed = request.decisions.map(decision => {
-      if (decision.kind !== 'DELETE_OR_RECONSTRUCT') return decision;
+      if (decision.kind !== USECASE_TOPOLOGY_DECISION_KIND.DeleteOrReconstruct)
+        return decision;
       const endpoints = storedEndpoints(decision.usecase);
       if (endpoints === null) return decision;
       const blocked = blockedLegacyBoundaries(

@@ -6,7 +6,10 @@
 import {describe, expect, it} from '@jest/globals';
 import type {ActiveManualUsecaseEdit} from '../../../../../../src/application/ports/persistence/repositories/usecase/usecase.repository.js';
 import {CHANGE_OPERATION} from '../../../../../../src/application/shared/change-vocabulary.js';
-import type {RoutingCombination} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
+import {
+  USECASE_CANDIDATE_KIND,
+  type AutoUsecaseCandidate,
+} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {SameGkvCollisionService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/classification/same-gkv-collision.service.js';
 import {RoutingIssueFactory} from '../../../../../../src/application/usecase-designer/use-case-creator/issues/routing-issue-factory.js';
 import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
@@ -19,8 +22,9 @@ const routingSelection = {
   excludedControlLinkSystemIds: [],
 };
 
-function candidate(path: number[]): RoutingCombination {
+function candidate(path: number[]): AutoUsecaseCandidate {
   return {
+    kind: USECASE_CANDIDATE_KIND.Auto,
     path: {
       subgraphSystemIds: path,
       termination: 'NATURAL_LEAF',

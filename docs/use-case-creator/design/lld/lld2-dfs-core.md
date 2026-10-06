@@ -51,7 +51,7 @@ plan).
 
 **Downstream (output after Phase 8):** `RoutingContext` populated with:
 - `context.dfsPaths` — enumerated paths from Phase 7
-- `context.combinations` — valid UC candidates from Phase 8
+- `context.usecaseCandidates.automaticCandidates` — valid automatic UC candidates from Phase 8
 
 Phase 9 (Classification, folded into plan) reads `combinations`.
 
@@ -243,7 +243,7 @@ for each path in context.dfsPaths:
     gkv := aggregateGkv(assignment)              // FR-DFS-07
     if gkv is empty:
       continue                                    // FR-DFS-09 empty-GKV rejection
-    context.combinations.push({
+    context.usecaseCandidates.automaticCandidates.push({
       path,
       sgkvAssignment: assignment,
       gkv,

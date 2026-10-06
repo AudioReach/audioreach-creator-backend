@@ -29,6 +29,14 @@ import type {ResponseBuilderPhase} from '../phases/response-builder.phase.js';
 import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
 
 /**
+ * A phase's outcome, however it got there. Most phases do real I/O and stay `async`;
+ * a few (e.g. `CombinationExpansionPhase`) only touch in-memory `RoutingContext` state
+ * and return synchronously. `await` resolves either shape, so the engine does not need
+ * every phase to pretend to be asynchronous just to fit one closure signature.
+ */
+type PhaseResult = Result<void> | Promise<Result<void>>;
+
+/**
  * Runs the routing phases in dependency order and owns no business state between calls.
  *
  * A normal run executes analysis, candidate generation, validation, staging, and response
@@ -57,7 +65,7 @@ export class RoutingEngine {
     idGeneration: IdGenerationPort,
   ): Promise<Result<RoutingOutcome>> {
     const context = new RoutingContext(input);
-    const phases: readonly (() => Promise<Result<void>>)[] = [
+    const phases: readonly (() => PhaseResult)[] = [
       () => this.preValidation.run(context),
       () =>
         this.topologyChangeAnalysis.run(context, uow.getSubgraphRepository()),
@@ -92,7 +100,7 @@ export class RoutingEngine {
     collisionId: string,
   ): Promise<Result<SameGkvCollisionGroup>> {
     const context = new RoutingContext(input);
-    const prerequisitePhases: readonly (() => Promise<Result<void>>)[] = [
+    const prerequisitePhases: readonly (() => PhaseResult)[] = [
       () => this.preValidation.run(context),
       () =>
         this.topologyChangeAnalysis.run(context, uow.getSubgraphRepository()),
@@ -109,7 +117,7 @@ export class RoutingEngine {
         return Result.fail(...result.issues);
     }
 
-    const classificationResult = await this.classification.run(context);
+    const classificationResult = this.classification.run(context);
     const collision = context.sameGkvCollisionGroups.find(
       current => current.collisionId === collisionId,
     );

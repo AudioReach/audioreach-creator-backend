@@ -63,10 +63,7 @@ export class DfsRoutingPhase {
     private readonly dfsPathTraverser: DfsPathTraverser = new DfsPathTraverser(),
   ) {}
 
-  // eslint-disable-next-line @typescript-eslint/require-await -- Phase execution remains promise-based for ordered orchestration.
-  async run(
-    context: RoutingContext,
-  ): Promise<ReturnType<typeof Result.ok<void>>> {
+  run(context: RoutingContext): Result<void> {
     if (context.input.mode === ROUTING_MODE.Manual) return Result.ok();
     if (!context.cones) {
       throw new Error(

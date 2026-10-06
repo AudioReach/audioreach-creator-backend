@@ -7,33 +7,43 @@ import {
   RESULT_KIND,
   Result,
 } from '../../../../../application/shared/result/result.js';
-import type {Result as ResultType} from '../../../../../application/shared/result/result.js';
-import {
-  SOURCE,
-  CHANGE_OPERATION,
-} from '../../../../shared/change-vocabulary.js';
+import {CHANGE_OPERATION} from '../../../../shared/change-vocabulary.js';
 import {UseCase} from '../../../../../domain/entities/usecase-data/usecase/usecase.js';
 import type {UsecaseType} from '../../../../../domain/entities/usecase-data/usecase/usecase-type.js';
+import {invariant} from '../../../../../shared/assertions/index.js';
 import type {IdGenerationPort} from '../../../../ports/id-generation/id-generation.port.js';
-import type {UsecaseSgkvAssignment} from '../../../../ports/persistence/repositories/usecase/usecase.repository.js';
-import type {RoutingGraphSnapshot} from '../../contracts/routing-input.js';
+import type {
+  ReferencedComponents,
+  UsecaseSgkvAssignment,
+} from '../../../../ports/persistence/repositories/usecase/usecase.repository.js';
+import {
+  ROUTING_MODE,
+  type ManualRoutingInput,
+  type RoutingInput,
+} from '../../contracts/routing-input.js';
 import {
   ROUTING_CLASSIFICATION_KIND,
+  USECASE_CANDIDATE_KIND,
   type ClassifiedUsecase,
-  type RoutingCombination,
   type UsecaseChangeDescriptor,
 } from '../../contracts/routing-state.js';
 import {RoutingIssueFactory} from '../../issues/routing-issue-factory.js';
 import {collectUsecaseSgkvAdditions} from '../../shared/routing-sgkv-assignments.js';
-import {computeUsecaseType} from '../../shared/usecase-type-classifier.js';
+import {
+  computeManualUsecaseType,
+  computeUsecaseType,
+} from '../../shared/usecase-type-classifier.js';
 import type {StagingState} from './topology-change-stager.js';
 import type {SubgraphPair} from '../../../../ports/persistence/repositories/shared/links-for-pair.js';
+import {
+  candidateDirectedPairs,
+  candidateSubgraphSystemIds,
+} from '../../shared/usecase-topology.js';
 
 export interface ClassifiedCandidateStagerInput {
   readonly classifications: readonly ClassifiedUsecase[];
   readonly staging: StagingState;
-  readonly fileSystemId: number;
-  readonly snapshot: RoutingGraphSnapshot;
+  readonly input: RoutingInput;
   readonly idGenerator: IdGenerationPort;
 }
 
@@ -48,11 +58,18 @@ interface StructuralChangeDelta {
 
 /** Applies exact-match, extension, and create classifications in input order. */
 export class ClassifiedCandidateStager {
-  async stage(
-    input: ClassifiedCandidateStagerInput,
-  ): Promise<ResultType<void>> {
-    const {classifications, staging, fileSystemId, snapshot, idGenerator} =
-      input;
+  async stage(input: ClassifiedCandidateStagerInput): Promise<Result<void>> {
+    const {classifications, staging, idGenerator} = input;
+    if (input.input.mode === ROUTING_MODE.Manual) {
+      return this.stageManual(
+        classifications,
+        staging,
+        input.input,
+        idGenerator,
+      );
+    }
+
+    const {fileSystemId, graphSnapshot} = input.input;
     for (const classification of classifications) {
       if (classification.kind === ROUTING_CLASSIFICATION_KIND.ExactMatch)
         continue;
@@ -62,23 +79,28 @@ export class ClassifiedCandidateStager {
         const currentIds = new Set(
           classification.existingUsecase.subgraphSystemIds,
         );
-        const pairs = adjacentPairs(classification.candidate);
+        const pairs = candidateDirectedPairs(classification.candidate);
         const existingPairKeys = new Set(
           classification.existingUsecase.subgraphPairs.map(pair =>
             pairKey(pair),
           ),
         );
+        const candidatePairKeys = new Set(pairs.map(pair => pairKey(pair)));
+        const removedPairs =
+          classification.existingUsecase.subgraphPairs.filter(
+            pair => !candidatePairKeys.has(pairKey(pair)),
+          );
         const result = await this.applyStructuralChange(
           staging,
           classification.existingUsecase,
           {
-            addedSgSystemIds:
-              classification.candidate.path.subgraphSystemIds.filter(
-                systemId => !currentIds.has(systemId),
-              ),
+            addedSgSystemIds: candidateSubgraphSystemIds(
+              classification.candidate,
+            ).filter(systemId => !currentIds.has(systemId)),
             addedPairs: pairs.filter(
               pair => !existingPairKeys.has(pairKey(pair)),
             ),
+            ...(removedPairs.length === 0 ? {} : {removedPairs}),
             cancelPendingDelete: classification.cancelPendingDelete,
           },
           CHANGE_OPERATION.Update,
@@ -90,11 +112,13 @@ export class ClassifiedCandidateStager {
 
       const systemId = await idGenerator.getNextId(fileSystemId);
       const candidate = classification.candidate;
-      const pairs = adjacentPairs(candidate);
-      const pairResult = this.validatePairs(
-        candidate.path.subgraphSystemIds,
-        pairs,
+      invariant(
+        candidate.kind !== USECASE_CANDIDATE_KIND.Manual,
+        'Automatic routing cannot stage a manual UseCase candidate',
       );
+      const memberSubgraphSystemIds = candidateSubgraphSystemIds(candidate);
+      const pairs = candidateDirectedPairs(candidate);
+      const pairResult = this.validatePairs(memberSubgraphSystemIds, pairs);
       if (pairResult.kind === RESULT_KIND.Fail) return pairResult;
       const ref = await staging.repository.create(
         new UseCase({
@@ -103,12 +127,90 @@ export class ClassifiedCandidateStager {
           keyVector: {
             valueSystemIds: candidate.gkv.map(pair => pair.valueDefSystemId),
           },
-          subgraphSystemIds: [...candidate.path.subgraphSystemIds],
-          subgraphPairs: pairs,
-          type: computeUsecaseType(pairs, snapshot.routableDataLinks),
+          subgraphSystemIds: [...memberSubgraphSystemIds],
+          subgraphPairs: [...pairs],
+          type: computeUsecaseType(pairs, graphSnapshot.routableDataLinks),
         }),
         staging.options,
         undefined,
+        collectUsecaseSgkvAdditions([candidate]),
+      );
+      this.recordChange(staging, ref, CHANGE_OPERATION.Create);
+    }
+    return Result.ok();
+  }
+
+  private async stageManual(
+    classifications: readonly ClassifiedUsecase[],
+    staging: StagingState,
+    input: ManualRoutingInput,
+    idGenerator: IdGenerationPort,
+  ): Promise<Result<void>> {
+    invariant(
+      classifications.every(
+        classification =>
+          classification.kind !== ROUTING_CLASSIFICATION_KIND.InteriorExtension,
+      ),
+      'Manual routing cannot stage an interior extension classification',
+    );
+
+    const creates = classifications.filter(
+      classification =>
+        classification.kind === ROUTING_CLASSIFICATION_KIND.Create,
+    );
+    if (creates.length === 0) return Result.ok();
+
+    for (const classification of creates) {
+      const candidate = classification.candidate;
+      invariant(
+        candidate.kind === USECASE_CANDIDATE_KIND.Manual,
+        'Manual routing cannot stage an automatic UseCase candidate',
+      );
+      const memberSgSystemIds = candidate.memberSubgraphSystemIds;
+      const pairs = candidateDirectedPairs(candidate);
+      const pairResult = this.validatePairs(memberSgSystemIds, pairs);
+      if (pairResult.kind === RESULT_KIND.Fail) return pairResult;
+
+      const connectedIds = new Set(
+        pairs.flatMap(pair => [
+          pair.sourceSubgraphSystemId,
+          pair.destSubgraphSystemId,
+        ]),
+      );
+      const isolatedSgSystemIds = memberSgSystemIds.filter(
+        systemId => !connectedIds.has(systemId),
+      );
+      const referencedComponents: ReferencedComponents = {
+        sgSystemIds: sortedUnique(memberSgSystemIds),
+        dataLinkSystemIds: sortedUnique(
+          candidate.topology.pairs.flatMap(item =>
+            item.dataLinks.map(link => link.systemId),
+          ),
+        ),
+        controlLinkSystemIds: sortedUnique(
+          candidate.topology.pairs.flatMap(item =>
+            item.controlLinks.map(link => link.systemId),
+          ),
+        ),
+      };
+      const type = computeManualUsecaseType(
+        candidate.topology,
+        isolatedSgSystemIds,
+      );
+      const systemId = await idGenerator.getNextId(input.fileSystemId);
+      const ref = await staging.repository.create(
+        new UseCase({
+          systemId,
+          fileSystemId: input.fileSystemId,
+          keyVector: {
+            valueSystemIds: candidate.gkv.map(pair => pair.valueDefSystemId),
+          },
+          subgraphSystemIds: [...memberSgSystemIds],
+          subgraphPairs: [...pairs],
+          type,
+        }),
+        staging.options,
+        referencedComponents,
         collectUsecaseSgkvAdditions([candidate]),
       );
       this.recordChange(staging, ref, CHANGE_OPERATION.Create);
@@ -126,14 +228,14 @@ export class ClassifiedCandidateStager {
       systemId: ucChangeRef.systemId,
       changeId: ucChangeRef.changeId,
       operation,
-      source: SOURCE.AutoRouting,
+      source: staging.options.source,
     });
   }
 
   private validatePairs(
     subgraphSystemIds: readonly number[],
     pairs: readonly SubgraphPair[],
-  ): ResultType<void> {
+  ): Result<void> {
     const ids = new Set(subgraphSystemIds);
     for (const pair of pairs) {
       if (
@@ -157,7 +259,7 @@ export class ClassifiedCandidateStager {
     delta: StructuralChangeDelta,
     operation: UsecaseChangeDescriptor['operation'] = CHANGE_OPERATION.Update,
     assignments?: readonly UsecaseSgkvAssignment[],
-  ): Promise<ResultType<void>> {
+  ): Promise<Result<void>> {
     const result = this.validatePairs(
       [
         ...usecase.subgraphSystemIds.filter(
@@ -184,9 +286,6 @@ function pairKey(pair: SubgraphPair): string {
   return `${pair.sourceSubgraphSystemId}>${pair.destSubgraphSystemId}`;
 }
 
-function adjacentPairs(candidate: RoutingCombination): SubgraphPair[] {
-  return candidate.path.subgraphSystemIds.slice(1).map((dest, index) => ({
-    sourceSubgraphSystemId: candidate.path.subgraphSystemIds[index],
-    destSubgraphSystemId: dest,
-  }));
+function sortedUnique(ids: readonly number[]): number[] {
+  return [...new Set(ids)].sort((left, right) => left - right);
 }

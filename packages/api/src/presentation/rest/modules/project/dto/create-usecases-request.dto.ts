@@ -4,8 +4,39 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {IsArray, IsOptional, IsString, ValidateNested} from 'class-validator';
+import {
+  IsArray,
+  IsOptional,
+  IsString,
+  type ValidationOptions,
+  ValidateBy,
+  ValidateNested,
+} from 'class-validator';
 import {Type} from 'class-transformer';
+
+function IsStringMatrix(validationOptions?: ValidationOptions) {
+  return ValidateBy(
+    {
+      name: 'isStringMatrix',
+      validator: {
+        validate(value: unknown): boolean {
+          return (
+            Array.isArray(value) &&
+            value.every(
+              row =>
+                Array.isArray(row) &&
+                row.every(item => typeof item === 'string'),
+            )
+          );
+        },
+        defaultMessage(): string {
+          return 'valueSystemIds must be an array of string arrays';
+        },
+      },
+    },
+    validationOptions,
+  );
+}
 
 export class SubgraphKvSelectionDto {
   @ApiProperty({description: 'System ID of the subgraph', type: String})
@@ -19,6 +50,7 @@ export class SubgraphKvSelectionDto {
     items: {type: 'array', items: {type: 'string'}},
   })
   @IsArray()
+  @IsStringMatrix()
   valueSystemIds!: string[][];
 }
 

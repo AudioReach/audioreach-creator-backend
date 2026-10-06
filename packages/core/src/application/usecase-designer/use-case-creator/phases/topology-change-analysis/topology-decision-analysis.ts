@@ -25,7 +25,6 @@ import {
   buildTopologyImpactInventory,
   directedPairKey,
   sortedBySystemId,
-  sortedIds,
   unorderedPairKey,
   type DirectedEdge,
   type TopologyImpactInventory,
@@ -69,7 +68,6 @@ interface IslandCandidateAccumulator {
 }
 
 function buildTopologyChangeAnalysis(
-  affectedUsecaseSystemIds: ReadonlySet<number>,
   mdfDecisions: readonly MdfSubstitutionDecision[],
   markedForDeletion: readonly DeletionMarkDraft[],
   preservedUsecases: readonly PreservedUsecaseDraft[],
@@ -93,7 +91,7 @@ function buildTopologyChangeAnalysis(
   ];
 
   return {
-    affectedUsecaseSystemIds,
+    affectedUsecaseSystemIds: new Set(),
     decisions: [...decisions].sort(
       (left, right) => left.usecase.systemId - right.usecase.systemId,
     ),
@@ -133,7 +131,6 @@ interface ImpactInventory {
     number,
     ReadonlySet<number>
   >;
-  readonly affectedUsecaseSystemIds: ReadonlySet<number>;
 }
 
 function addIslandCandidate(
@@ -358,14 +355,6 @@ function buildImpactInventory(
     buildUnsupportedControlLinkIndex(topology);
   const deletedSubgraphSystemIdsByUsecaseSystemId =
     buildDeletedSubgraphIndex(topology);
-  const affectedUsecaseSystemIds = new Set(
-    sortedIds([
-      ...new Set([
-        ...ucMarkedForDeletionBySystemId.keys(),
-        ...islandUseCaseCandidatesBySystemId.keys(),
-      ]),
-    ]),
-  );
   return {
     topology,
     deletedSubgraphSystemIds,
@@ -380,7 +369,6 @@ function buildImpactInventory(
     unsupportedDataLinkSystemIdsByUsecaseSystemId,
     unsupportedControlLinkSystemIdsByUsecaseSystemId,
     deletedSubgraphSystemIdsByUsecaseSystemId,
-    affectedUsecaseSystemIds,
   };
 }
 
@@ -463,13 +451,6 @@ function buildDeletedSubgraphIndex(
   return index;
 }
 
-function pairKey(
-  sourceSubgraphSystemId: number,
-  destSubgraphSystemId: number,
-): string {
-  return `${sourceSubgraphSystemId}->${destSubgraphSystemId}`;
-}
-
 function comparePairs(
   left: {
     readonly sourceSubgraphSystemId: number;
@@ -489,7 +470,7 @@ function comparePairs(
 function substitutionSignature(substitution: MdfPairSubstitution): string {
   return `${substitution.replacementSubgraphSystemIds.join(',')}|${substitution.replacementPairs
     .map(pair =>
-      pairKey(pair.sourceSubgraphSystemId, pair.destSubgraphSystemId),
+      directedPairKey(pair.sourceSubgraphSystemId, pair.destSubgraphSystemId),
     )
     .join(',')}`;
 }
@@ -536,7 +517,7 @@ function finalizeMdfDecision(
 ): MdfSubstitutionDecision | null {
   const substitutionsByRemovedPair = new Map<string, MdfPairSubstitution>();
   for (const substitution of substitutions) {
-    const removedPairKey = pairKey(
+    const removedPairKey = directedPairKey(
       substitution.removedPair.sourceSubgraphSystemId,
       substitution.removedPair.destSubgraphSystemId,
     );
@@ -555,7 +536,7 @@ function finalizeMdfDecision(
   );
   const removedPairKeys = new Set(
     orderedSubstitutions.map(substitution =>
-      pairKey(
+      directedPairKey(
         substitution.removedPair.sourceSubgraphSystemId,
         substitution.removedPair.destSubgraphSystemId,
       ),
@@ -563,14 +544,14 @@ function finalizeMdfDecision(
   );
   const committedPairKeys = new Set(
     usecase.subgraphPairs.map(pair =>
-      pairKey(pair.sourceSubgraphSystemId, pair.destSubgraphSystemId),
+      directedPairKey(pair.sourceSubgraphSystemId, pair.destSubgraphSystemId),
     ),
   );
   if (
     orderedSubstitutions.some(
       substitution =>
         !committedPairKeys.has(
-          pairKey(
+          directedPairKey(
             substitution.removedPair.sourceSubgraphSystemId,
             substitution.removedPair.destSubgraphSystemId,
           ),
@@ -598,7 +579,7 @@ function finalizeMdfDecision(
       ) {
         return null;
       }
-      const replacementPairKey = pairKey(
+      const replacementPairKey = directedPairKey(
         replacementPair.sourceSubgraphSystemId,
         replacementPair.destSubgraphSystemId,
       );
@@ -621,7 +602,7 @@ function finalizeMdfDecision(
     (typeof usecase.subgraphPairs)[number]
   >();
   for (const currentPair of usecase.subgraphPairs) {
-    const currentPairKey = pairKey(
+    const currentPairKey = directedPairKey(
       currentPair.sourceSubgraphSystemId,
       currentPair.destSubgraphSystemId,
     );
@@ -648,7 +629,7 @@ function finalizeMdfDecision(
   const replacementPairKeys = new Set(
     orderedSubstitutions.flatMap(substitution =>
       substitution.replacementPairs.map(pair =>
-        pairKey(pair.sourceSubgraphSystemId, pair.destSubgraphSystemId),
+        directedPairKey(pair.sourceSubgraphSystemId, pair.destSubgraphSystemId),
       ),
     ),
   );
@@ -662,7 +643,10 @@ function finalizeMdfDecision(
     if (isEc) logicalEcCrossings += 1;
   }
   for (const pair of resultingPairs) {
-    const key = pairKey(pair.sourceSubgraphSystemId, pair.destSubgraphSystemId);
+    const key = directedPairKey(
+      pair.sourceSubgraphSystemId,
+      pair.destSubgraphSystemId,
+    );
     if (replacementPairKeys.has(key)) continue;
     if (
       directedPairSupport(pair, inventory.topology.routableAdjacency).some(
@@ -744,7 +728,6 @@ function buildMdfDecisions(
     );
     if (decision === null) continue;
     inventory.ucMarkedForDeletionBySystemId.delete(usecaseSystemId);
-    (inventory.affectedUsecaseSystemIds as Set<number>).delete(usecaseSystemId);
     decisions.push(decision);
   }
   return decisions;
@@ -847,7 +830,6 @@ function buildAnalysis(inventory: ImpactInventory): TopologyChangeAnalysis {
     transitionToIslandDecisions.map(decision => decision.usecase.systemId),
   );
   return buildTopologyChangeAnalysis(
-    new Set(),
     mdfDecisions,
     markedForDeletion,
     sortedByUseCaseSystemId(
@@ -866,14 +848,7 @@ function sortedByUseCaseSystemId<T extends {readonly usecase: UseCase}>(
   );
 }
 
-/**
- * Owns Phase 2 committed-UseCase impact analysis.
- *
- * The service builds one inventory, aggregates deletion and MDF effects per UseCase,
- * finalizes one discriminated topology decision, applies manual-edit precedence, validates
- * selection gates, and publishes the complete result. It does not persist changes; the
- * staging phase consumes its output.
- */ function deletedComponentPriority(component: DeletedComponent): number {
+function deletedComponentPriority(component: DeletedComponent): number {
   // Component impact has a stable precedence when several session deletions touch one UC.
   if (component.type === DELETED_COMPONENT_TYPE.Subgraph) return 3;
   if (component.type === DELETED_COMPONENT_TYPE.DataLink) return 2;

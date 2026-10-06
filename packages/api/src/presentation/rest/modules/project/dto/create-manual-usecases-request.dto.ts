@@ -10,7 +10,8 @@ import {SubgraphKvSelectionDto} from './create-usecases-request.dto.js';
 
 export class CreateManualUsecasesRequestDto {
   @ApiProperty({
-    description: 'System IDs of selected usecases used to authorize topology',
+    description:
+      'System IDs of usecases whose relationships and key values are eligible for manual topology discovery',
     type: [String],
   })
   @IsArray()
@@ -19,7 +20,7 @@ export class CreateManualUsecasesRequestDto {
 
   @ApiProperty({
     description:
-      'Subgraphs defining the manual usecase path with their selected SGKV combinations',
+      'Effective manual routing scope, with each subgraph and its selected SGKV combinations',
     type: [SubgraphKvSelectionDto],
   })
   @IsArray()

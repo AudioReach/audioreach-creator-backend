@@ -15,6 +15,7 @@ import type {
 import type {SubgraphPair} from '../../../ports/persistence/repositories/shared/links-for-pair.js';
 import type {KvPair} from '../../../ports/persistence/repositories/shared/kv-pair.js';
 import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
+import type {ManualTopology} from './routing-input.js';
 
 export const DELETED_COMPONENT_TYPE = {
   Subgraph: 'SUBGRAPH',
@@ -139,11 +140,6 @@ export interface IslandTransition {
   readonly addedPairs: readonly SubgraphPair[];
 }
 
-export interface RoutingCandidates {
-  readonly combinations: readonly RoutingCombination[];
-  readonly ecBridgeCandidates: readonly RoutingCombination[];
-}
-
 export interface SgkvInstance {
   readonly keyValues: readonly KvPair[];
 }
@@ -189,10 +185,46 @@ export interface DfsPath {
   readonly ecBoundaryLinkId: number | null;
 }
 
-export interface RoutingCombination {
-  readonly path: DfsPath;
+interface UsecaseCandidateBase {
   readonly sgkvAssignment: ReadonlyMap<number, SgkvInstance>;
   readonly gkv: readonly KvPair[];
+}
+
+export const USECASE_CANDIDATE_KIND = {
+  Auto: 'AUTO',
+  Manual: 'MANUAL',
+  EcBridge: 'EC_BRIDGE',
+} as const;
+
+export interface AutoUsecaseCandidate extends UsecaseCandidateBase {
+  readonly kind: typeof USECASE_CANDIDATE_KIND.Auto;
+  readonly path: DfsPath;
+}
+
+export interface ManualUsecaseCandidate extends UsecaseCandidateBase {
+  readonly kind: typeof USECASE_CANDIDATE_KIND.Manual;
+  readonly memberSubgraphSystemIds: readonly number[];
+  readonly topology: ManualTopology;
+}
+
+export interface EcBridgeUsecaseCandidate extends UsecaseCandidateBase {
+  readonly kind: typeof USECASE_CANDIDATE_KIND.EcBridge;
+  readonly path: DfsPath;
+}
+
+export type RoutedUsecaseCandidate =
+  | AutoUsecaseCandidate
+  | EcBridgeUsecaseCandidate;
+
+export type UsecaseCandidate =
+  | AutoUsecaseCandidate
+  | ManualUsecaseCandidate
+  | EcBridgeUsecaseCandidate;
+
+export interface UsecaseCandidates {
+  readonly automaticCandidates: AutoUsecaseCandidate[];
+  readonly manualCandidates: ManualUsecaseCandidate[];
+  readonly ecBridgeCandidates: EcBridgeUsecaseCandidate[];
 }
 
 export const ROUTING_CLASSIFICATION_KIND = {
@@ -203,18 +235,18 @@ export const ROUTING_CLASSIFICATION_KIND = {
 
 export interface CreateUsecaseClassification {
   readonly kind: typeof ROUTING_CLASSIFICATION_KIND.Create;
-  readonly candidate: RoutingCombination;
+  readonly candidate: UsecaseCandidate;
 }
 
 export interface ExactMatchClassification {
   readonly kind: typeof ROUTING_CLASSIFICATION_KIND.ExactMatch;
-  readonly candidate: RoutingCombination;
+  readonly candidate: UsecaseCandidate;
   readonly existingUsecase: UseCase;
 }
 
 export interface InteriorExtensionClassification {
   readonly kind: typeof ROUTING_CLASSIFICATION_KIND.InteriorExtension;
-  readonly candidate: RoutingCombination;
+  readonly candidate: RoutedUsecaseCandidate;
   readonly existingUsecase: UseCase;
   readonly cancelPendingDelete: boolean;
 }
