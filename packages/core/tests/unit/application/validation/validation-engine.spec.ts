@@ -83,27 +83,27 @@ describe('ValidationEngine', () => {
     expect(report.issues).toHaveLength(2);
   });
 
-  it('should only run rules in COMMIT group when group=COMMIT', () => {
+  it('should only run rules in SAVE_FILE group when group=SAVE_FILE', () => {
     const uploadRule = makeRule(
       'UPLOAD',
       [VALIDATION_RULE_GROUP.UploadFile],
       [makeIssue('UPLOAD')],
     );
-    const commitRule = makeRule(
-      'COMMIT',
-      [VALIDATION_RULE_GROUP.Commit],
-      [makeIssue('COMMIT')],
+    const saveFileRule = makeRule(
+      'SAVE_FILE',
+      [VALIDATION_RULE_GROUP.SaveFile],
+      [makeIssue('SAVE_FILE')],
     );
-    const engine = new ValidationEngine([uploadRule, commitRule]);
-    const report = engine.run(makeContext(), VALIDATION_RULE_GROUP.Commit);
+    const engine = new ValidationEngine([uploadRule, saveFileRule]);
+    const report = engine.run(makeContext(), VALIDATION_RULE_GROUP.SaveFile);
     expect(report.issues).toHaveLength(1);
-    expect(report.issues[0].code).toBe('COMMIT');
+    expect(report.issues[0].code).toBe('SAVE_FILE');
   });
 
   it('should run rules that belong to multiple groups', () => {
     const multiGroupRule = makeRule(
       'MULTI',
-      [VALIDATION_RULE_GROUP.UploadFile, VALIDATION_RULE_GROUP.Commit],
+      [VALIDATION_RULE_GROUP.UploadFile, VALIDATION_RULE_GROUP.SaveFile],
       [makeIssue('MULTI')],
     );
     const engine = new ValidationEngine([multiGroupRule]);
@@ -111,11 +111,8 @@ describe('ValidationEngine', () => {
       engine.run(makeContext(), VALIDATION_RULE_GROUP.UploadFile).issues,
     ).toHaveLength(1);
     expect(
-      engine.run(makeContext(), VALIDATION_RULE_GROUP.Commit).issues,
-    ).toHaveLength(1);
-    expect(
       engine.run(makeContext(), VALIDATION_RULE_GROUP.SaveFile).issues,
-    ).toHaveLength(0);
+    ).toHaveLength(1);
   });
 
   it('should filter out disabled issues via preferences', () => {
@@ -146,7 +143,7 @@ describe('ValidationEngine', () => {
       [makeIssue('R1')],
     );
     const engine = new ValidationEngine([rule]);
-    const report = engine.run(makeContext(), VALIDATION_RULE_GROUP.Commit);
+    const report = engine.run(makeContext(), VALIDATION_RULE_GROUP.SaveFile);
     expect(report.issues).toHaveLength(0);
   });
 
