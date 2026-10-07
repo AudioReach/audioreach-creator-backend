@@ -8,21 +8,25 @@ import type {
   ValidationQueryRepository,
   ValidationPreferences,
   ValidationIssue,
-  SpfModule,
   UseCase,
   Subgraph,
   DataLink,
   ControlLink,
   SpfModuleDefinition,
 } from '@arc/core';
-import {EMPTY_PREFERENCES} from '@arc/core';
+import {EMPTY_PREFERENCES, SpfModule, KvData} from '@arc/core';
 import {TypeOrmValidationPreferencesRepository} from './typeorm-validation-preferences.repository.js';
 import {ArcDbFileSchema} from '../../entity-schema/project-data/arc-db-file.schema.js';
 import type {ArcDbFileRow} from '../../entity-schema/project-data/arc-db-file.schema.js';
+import {SpfModuleSchema} from '../../entity-schema/usecase-data/module/spf-module.schema.js';
+import type {SpfModuleRow} from '../../entity-schema/usecase-data/module/spf-module.schema.js';
+import type {CkvRow} from '../../entity-schema/usecase-data/module/spf-module-calibration-data.schema.js';
+import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
+
+const CHUNK_SIZE = 999;
 
 /**
  * TypeORM implementation of ValidationQueryRepository.
- * Entity-loading methods are stubs — implemented when the validate endpoint is wired.
  * getPreferences delegates to TypeOrmValidationPreferencesRepository.
  *
  * The upload path uses ValidationContextBuilder.fromEntities() which bypasses
@@ -39,9 +43,59 @@ export class TypeOrmValidationQueryRepository implements ValidationQueryReposito
     );
   }
 
-  // TODO: add async when real DB query is implemented
-  findModulesByFile(_fileSystemId: number): Promise<SpfModule[]> {
-    return Promise.resolve([]);
+  async findModulesByFile(fileSystemId: number): Promise<SpfModule[]> {
+    const moduleRows = await this.dataSource
+      .getRepository<SpfModuleRow>(SpfModuleSchema)
+      .find({where: {fileSystemId}});
+
+    if (moduleRows.length === 0) return [];
+
+    const moduleIds = moduleRows.map(r => r.systemId);
+    const ckvRows: CkvRow[] = [];
+
+    for (let i = 0; i < moduleIds.length; i += CHUNK_SIZE) {
+      const chunk = moduleIds.slice(i, i + CHUNK_SIZE);
+      const rows = (await this.dataSource
+        .getRepository(ENTITY_NAMES.Ckv)
+        .createQueryBuilder('ckv')
+        .leftJoinAndSelect('ckv.values', 'ckvValues')
+        .where('ckv.spfModuleSystemId IN (:...ids)', {ids: chunk})
+        .getMany()) as CkvRow[];
+      ckvRows.push(...rows);
+    }
+
+    const ckvsByModule = new Map<number, CkvRow[]>();
+    for (const ckv of ckvRows) {
+      const existing = ckvsByModule.get(ckv.spfModuleSystemId) ?? [];
+      existing.push(ckv);
+      ckvsByModule.set(ckv.spfModuleSystemId, existing);
+    }
+
+    return moduleRows.map(row => {
+      const module = new SpfModule({
+        systemId: row.systemId,
+        naturalId: row.naturalId,
+        alias: row.alias ?? undefined,
+        definitionSystemId: row.definitionSystemId,
+        containerSystemId: row.containerSystemId,
+        subgraphSystemId: row.subgraphSystemId,
+        fileSystemId: row.fileSystemId,
+        dataPorts: [],
+        controlPorts: [],
+      });
+      for (const ckv of ckvsByModule.get(row.systemId) ?? []) {
+        module.addModuleCkv(
+          new KvData({
+            systemId: ckv.systemId,
+            valueDefinitionSystemIds: (ckv.values ?? []).map(
+              v => v.valueDefSystemId,
+            ),
+            uiPersistence: ckv.uiPersistence ?? null,
+          }),
+        );
+      }
+      return module;
+    });
   }
 
   // TODO: add async when real DB query is implemented

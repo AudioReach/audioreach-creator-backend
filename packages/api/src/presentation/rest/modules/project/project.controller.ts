@@ -41,6 +41,7 @@ import {
   UploadFileCommand,
   DownloadFileQuery,
   ProjectFilePropertiesQuery,
+  ValidateFileQuery,
   Result,
   StartSessionCommand,
   EndSessionCommand,
@@ -60,6 +61,7 @@ import type {
   Logger,
   DownloadFileResult,
   ProjectFilePropertiesResult,
+  ValidateFileResult,
   UploadFileResult,
   SessionResult,
   ActiveSession,
@@ -97,6 +99,10 @@ import {
 } from './dto/create-usecases-response.dto.js';
 import {CreateUsecasesRequestDto} from './dto/create-usecases-request.dto.js';
 import {CreateManualUsecasesRequestDto} from './dto/create-manual-usecases-request.dto.js';
+import {
+  ValidateFileRequestDto,
+  ValidateFileResponseDto,
+} from './dto/validate-file.dto.js';
 import {ProjectType} from './enums/project-type.enum.js';
 import {SessionMode} from './enums/session-mode.enum.js';
 import {MultipartResponseHelper} from '../../../../infrastructure-wrapper/helpers/multipart-response.helper.js';
@@ -790,6 +796,53 @@ export class ProjectController {
     );
 
     return toApiResult(Result.ok(result));
+  }
+
+  @Post('/:projectId/validate')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({name: 'projectId', description: 'Id of project', required: true})
+  @ApiBody({type: ValidateFileRequestDto, required: false})
+  @ApiOperation({
+    summary: 'Run validation on the project file',
+    description:
+      'Runs the validation rules of the requested group against the project file and returns the report.\n\n' +
+      'The body is optional. When `group` is omitted, `SAVE_FILE` is used.\n\n' +
+      'A run that finds issues is still a successful run and returns 200; use `blockedSave` and `summary` to decide what to do next.',
+  })
+  @ApiExtraModels(ApiResult, ValidateFileResponseDto)
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description:
+      'Validation completed; run metadata and summary are in `data`, the issues in the envelope `issues`',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {$ref: getSchemaPath(ValidateFileResponseDto)},
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Unknown `group`, or `projectId` is not a valid id',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Project or its file does not exist',
+  })
+  async validateFile(
+    @Param('projectId') projectId: string,
+    @Body() body: ValidateFileRequestDto,
+    @ClientId() clientId: string,
+  ): Promise<ApiResult<ValidateFileResponseDto>> {
+    const result = await this.queryBus.execute<Result<ValidateFileResult>>(
+      new ValidateFileQuery(projectId, body.group, clientId),
+    );
+
+    return toApiResult(result);
   }
 
   @Delete('/:projectId')

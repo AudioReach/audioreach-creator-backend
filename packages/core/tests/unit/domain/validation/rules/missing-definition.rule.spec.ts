@@ -37,9 +37,9 @@ describe('MissingDefinitionRule', () => {
     expect(rule.code).toBe('ARC-MOD-001');
   });
 
-  it('should be in UPLOAD_FILE and COMMIT groups', () => {
+  it('should be in UPLOAD_FILE group only', () => {
     expect(rule.groups).toContain(VALIDATION_RULE_GROUP.UploadFile);
-    expect(rule.groups).toContain(VALIDATION_RULE_GROUP.Commit);
+    expect(rule.groups).toHaveLength(1);
   });
 
   it('should require SpfModule and SpfModuleDefinition entity types', () => {

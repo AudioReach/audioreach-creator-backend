@@ -21,15 +21,12 @@ import {BinaryUtils} from '../../../../shared/utilities/binary-utils.js';
  * present in the loaded ACDB (definitions map). A module with a missing
  * definition cannot be configured or saved — this is a BLOCKING error.
  *
- * Groups: UPLOAD_FILE (run on file open), COMMIT (run before commit)
+ * Groups: UPLOAD_FILE (run on file open)
  */
 export class MissingDefinitionRule implements ValidationRule<ModuleValidationContext> {
   readonly code = 'ARC-MOD-001';
   readonly defaultSeverity = IssueSeverity.Error;
-  readonly groups = [
-    VALIDATION_RULE_GROUP.UploadFile,
-    VALIDATION_RULE_GROUP.Commit,
-  ];
+  readonly groups = [VALIDATION_RULE_GROUP.UploadFile];
   readonly requiredEntityTypes = [
     ISSUE_ENTITY_TYPE.SpfModule,
     ISSUE_ENTITY_TYPE.SpfModuleDefinition,

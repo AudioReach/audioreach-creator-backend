@@ -21,13 +21,11 @@ import type {
  *
  * Group descriptions:
  *   FULL        — All rules; comprehensive check (file open, on-demand validate)
- *   COMMIT      — Lightweight subset; structural integrity check before commit
  *   UPLOAD_FILE — Rules specific to file upload/open
  *   SAVE_FILE   — Rules specific to file save
  *   MULTI_DSP   — Rules for multi-DSP configurations
  */
 export const VALIDATION_RULE_GROUP = {
-  Commit: 'COMMIT',
   UploadFile: 'UPLOAD_FILE',
   SaveFile: 'SAVE_FILE',
 } as const;
@@ -62,10 +60,10 @@ export interface ValidationRule<
    * avoiding unnecessary queries when running a subset of rules (e.g., COMMIT group).
    *
    * The context builder maps each entity type to its DB query and derived index maps:
-   *   SpfModule           → modules + modulesBySystemId + modulesBySubgraphId
+   *   SpfModule           → modules + modulesBySystemId + modulesBySubgraphSystemId
    *   DataLink            → dataLinks
    *   ControlLink         → controlLinks
-   *   UseCase             → usecases + usecasesByModuleId
+   *   UseCase             → usecases + usecasesByModuleSystemId
    *   Subgraph            → subgraphs + subgraphsBySystemId
    *   SpfModuleDefinition → definitions
    */
