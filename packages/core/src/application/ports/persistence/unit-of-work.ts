@@ -17,6 +17,7 @@ import type {ControlLinkRepository} from './repositories/control-link/control-li
 import type {SubgraphRepository} from './repositories/subgraph/subgraph.repository.js';
 import type {SubsystemRepository} from './repositories/subsystem/subsystem.repository.js';
 import type {UsecaseRepository} from './repositories/usecase/usecase.repository.js';
+import type {KeyValueDefinitionRepository} from './repositories/key-value/key-value-definition.repository.js';
 import type {VcpmDefinitionRepository} from './repositories/vcpm-definition/vcpm-definition.repository.js';
 
 /**
@@ -71,5 +72,6 @@ export interface UnitOfWork {
   getSubgraphRepository(): SubgraphRepository;
   getSubsystemRepository(): SubsystemRepository;
   getUsecaseRepository(): UsecaseRepository;
+  getKeyValueDefinitionRepository(): KeyValueDefinitionRepository;
   getVcpmDefinitionRepository(): VcpmDefinitionRepository;
 }
