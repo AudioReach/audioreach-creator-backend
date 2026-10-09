@@ -17,9 +17,9 @@ import type {
   UsecaseTopologyDecision,
 } from '../../contracts/routing-state.js';
 import {USECASE_TOPOLOGY_DECISION_KIND as TOPOLOGY_DECISION_KIND} from '../../contracts/routing-state.js';
+import {directedPairKey} from '../../shared/usecase-topology.js';
 import {
   buildEffectiveGraph,
-  directedPairKey,
   findMdfBridgePath,
   hasControlLinkBetween,
   hasDirectedDataLink,

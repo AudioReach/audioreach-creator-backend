@@ -5,17 +5,13 @@
 
 import {CHANGE_OPERATION} from '../../../../shared/change-vocabulary.js';
 import type {UseCase} from '../../../../../domain/entities/usecase-data/usecase/usecase.js';
-import type {SubgraphPair} from '../../../../ports/persistence/repositories/shared/links-for-pair.js';
 import type {RoutingInput} from '../../contracts/routing-input.js';
 import {
   USECASE_TOPOLOGY_DECISION_KIND,
   type MdfSubstitutionDecision,
   type UsecaseTopologyDecision,
 } from '../../contracts/routing-state.js';
-
-function pairKey(pair: SubgraphPair): string {
-  return `${pair.sourceSubgraphSystemId}->${pair.destSubgraphSystemId}`;
-}
+import {directedPairKeyOf} from '../../shared/usecase-topology.js';
 
 function containsAll<T>(
   values: readonly T[],
@@ -43,10 +39,14 @@ function matchesManualProjection(
   return (
     !removedPairs.some(removedPair =>
       manualUsecase.subgraphPairs.some(
-        pair => pairKey(pair) === pairKey(removedPair),
+        pair => directedPairKeyOf(pair) === directedPairKeyOf(removedPair),
       ),
     ) &&
-    containsAll(manualUsecase.subgraphPairs, replacementPairs, pairKey) &&
+    containsAll(
+      manualUsecase.subgraphPairs,
+      replacementPairs,
+      directedPairKeyOf,
+    ) &&
     containsAll(
       manualUsecase.subgraphSystemIds,
       replacementSubgraphSystemIds,

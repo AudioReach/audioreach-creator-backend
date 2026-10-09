@@ -8,10 +8,10 @@ import {DATA_LINK_TYPE} from '../../../../../domain/entities/usecase-data/links/
 import type {MdfPairSubstitution} from '../../contracts/routing-state.js';
 import {
   compareDirectedEdges,
-  unorderedPairKey,
   type DirectedEdge,
   type TopologyImpactInventory,
 } from './topology-impact-inventory.js';
+import {unorderedPairKey} from '../../shared/usecase-topology.js';
 
 function semanticallyUnambiguousEdges(
   edges: readonly DirectedEdge[],

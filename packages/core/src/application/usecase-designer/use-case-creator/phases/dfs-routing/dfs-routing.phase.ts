@@ -8,6 +8,7 @@ import type {RoutingContext} from '../../contracts/routing-context.js';
 import {ROUTING_MODE} from '../../contracts/routing-input.js';
 import {
   USECASE_TOPOLOGY_DECISION_KIND,
+  type Cones,
   type DfsPath,
   type DeleteOrReconstructDecision,
 } from '../../contracts/routing-state.js';
@@ -15,8 +16,10 @@ import type {Issue} from '../../../../../shared/issues/issue.js';
 import {DATA_LINK_TYPE} from '../../../../../domain/entities/usecase-data/links/data-link-type.js';
 import {
   DfsPathTraverser,
+  type DfsTraversalEdge,
   type DfsTraversalState,
 } from './dfs-path-traverser.js';
+import {logicalEcConnections} from '../../shared/logical-ec-connections.js';
 
 /** Compares two SG paths lexicographically for stable reconstruction ordering. */
 function comparePathIds(
@@ -51,6 +54,50 @@ function collectComponent(
   return componentSubgraphIds;
 }
 
+function traverseAllComponents(
+  cones: Cones,
+  traversal: DfsTraversalState,
+  pathTraverser: DfsPathTraverser,
+  outgoingNeighbors: ReadonlyMap<number, readonly number[]>,
+  incomingNeighbors: ReadonlyMap<number, readonly number[]>,
+): void {
+  const coneSubgraphSystemIds = new Set(cones.sgSystemIds);
+  const rootSubgraphIds = [...cones.rootSgs]
+    .filter(subgraphSystemId => coneSubgraphSystemIds.has(subgraphSystemId))
+    .sort((left, right) => left - right);
+  for (const rootSubgraphId of rootSubgraphIds) {
+    if (traversal.coveredSubgraphIds.has(rootSubgraphId)) continue;
+    pathTraverser.traverse(
+      traversal,
+      rootSubgraphId,
+      [rootSubgraphId],
+      new Set([rootSubgraphId]),
+    );
+  }
+
+  // A pure cycle has no root. Start each remaining weak component at its lowest ID.
+  while (true) {
+    const uncoveredSubgraphIds = [...coneSubgraphSystemIds]
+      .filter(subgraphId => !traversal.coveredSubgraphIds.has(subgraphId))
+      .sort((left, right) => left - right);
+    if (uncoveredSubgraphIds.length === 0) return;
+    const componentSubgraphIds = collectComponent(
+      uncoveredSubgraphIds[0],
+      outgoingNeighbors,
+      incomingNeighbors,
+    );
+    const componentStartSubgraphId = [...componentSubgraphIds]
+      .filter(subgraphId => !traversal.coveredSubgraphIds.has(subgraphId))
+      .sort((left, right) => left - right)[0];
+    pathTraverser.traverse(
+      traversal,
+      componentStartSubgraphId,
+      [componentStartSubgraphId],
+      new Set([componentStartSubgraphId]),
+    );
+  }
+}
+
 /**
  * Discovers bounded automatic routing paths inside the computed cones.
  *
@@ -74,12 +121,28 @@ export class DfsRoutingPhase {
     const discoveredPaths: DfsPath[] = [];
     const cycleWarnings: Issue[] = [];
     const coneSubgraphSystemIds = new Set(context.cones.sgSystemIds);
-    const outgoingNeighborSets = new Map<number, Set<number>>();
+    const outgoingEdgeMaps = new Map<number, Map<string, DfsTraversalEdge>>();
     const incomingNeighborSets = new Map<number, Set<number>>();
     for (const subgraphSystemId of coneSubgraphSystemIds) {
-      outgoingNeighborSets.set(subgraphSystemId, new Set());
+      outgoingEdgeMaps.set(subgraphSystemId, new Map());
       incomingNeighborSets.set(subgraphSystemId, new Set());
     }
+    const addEdge = (
+      sourceSubgraphSystemId: number,
+      edge: DfsTraversalEdge,
+    ): void => {
+      if (
+        !coneSubgraphSystemIds.has(sourceSubgraphSystemId) ||
+        !coneSubgraphSystemIds.has(edge.destSubgraphSystemId)
+      ) {
+        return;
+      }
+      const edgeKey = `${edge.ecRepresentativeDataLinkSystemId ?? 'NORMAL'}:${edge.destSubgraphSystemId}`;
+      outgoingEdgeMaps.get(sourceSubgraphSystemId)!.set(edgeKey, edge);
+      incomingNeighborSets
+        .get(edge.destSubgraphSystemId)!
+        .add(sourceSubgraphSystemId);
+    };
     // Build topology from the immutable snapshot. Phase 7 must not reload graph state.
     for (const dataLink of context.input.graphSnapshot.routableDataLinks) {
       if (
@@ -89,19 +152,38 @@ export class DfsRoutingPhase {
       ) {
         continue;
       }
-      outgoingNeighborSets
-        .get(dataLink.sourceSubgraphSystemId)!
-        .add(dataLink.destSubgraphSystemId);
-      incomingNeighborSets
-        .get(dataLink.destSubgraphSystemId)!
-        .add(dataLink.sourceSubgraphSystemId);
+      addEdge(dataLink.sourceSubgraphSystemId, {
+        destSubgraphSystemId: dataLink.destSubgraphSystemId,
+        ecRepresentativeDataLinkSystemId: null,
+      });
     }
+    const logicalEcEdges = logicalEcConnections(
+      context.input.graphSnapshot.routableDataLinks,
+      context.input.graphSnapshot.mdfSubgraphSystemIds,
+    );
+    for (const connection of logicalEcEdges) {
+      addEdge(connection.leftSubgraphSystemId, {
+        destSubgraphSystemId: connection.rightSubgraphSystemId,
+        ecRepresentativeDataLinkSystemId:
+          connection.representativeDataLinkSystemId,
+      });
+    }
+    const outgoingEdges = new Map<number, readonly DfsTraversalEdge[]>();
     const outgoingNeighbors = new Map<number, readonly number[]>();
     const incomingNeighbors = new Map<number, readonly number[]>();
-    for (const [subgraphSystemId, neighborIds] of outgoingNeighborSets) {
+    for (const [subgraphSystemId, edgeMap] of outgoingEdgeMaps) {
+      const edges = [...edgeMap.values()].sort(
+        (left, right) =>
+          Number(left.ecRepresentativeDataLinkSystemId !== null) -
+            Number(right.ecRepresentativeDataLinkSystemId !== null) ||
+          left.destSubgraphSystemId - right.destSubgraphSystemId ||
+          (left.ecRepresentativeDataLinkSystemId ?? 0) -
+            (right.ecRepresentativeDataLinkSystemId ?? 0),
+      );
+      outgoingEdges.set(subgraphSystemId, edges);
       outgoingNeighbors.set(
         subgraphSystemId,
-        [...neighborIds].sort(
+        [...new Set(edges.map(edge => edge.destSubgraphSystemId))].sort(
           (leftSubgraphSystemId, rightSubgraphSystemId) =>
             leftSubgraphSystemId - rightSubgraphSystemId,
         ),
@@ -118,55 +200,24 @@ export class DfsRoutingPhase {
     }
 
     const traversal: DfsTraversalState = {
-      outgoingNeighbors,
+      outgoingEdges,
       coveredSubgraphIds: new Set<number>(),
       discoveredPaths,
       cycleWarnings,
+      ecIssues: [],
+      traversedRightSides: new Set(),
     };
 
-    const rootSubgraphIds = [...context.cones.rootSgs]
-      .filter(subgraphSystemId => coneSubgraphSystemIds.has(subgraphSystemId))
-      .sort(
-        (leftSubgraphSystemId, rightSubgraphSystemId) =>
-          leftSubgraphSystemId - rightSubgraphSystemId,
-      );
-    for (const rootSubgraphId of rootSubgraphIds) {
-      if (!traversal.coveredSubgraphIds.has(rootSubgraphId)) {
-        this.dfsPathTraverser.traverse(
-          traversal,
-          rootSubgraphId,
-          [rootSubgraphId],
-          new Set([rootSubgraphId]),
-        );
-      }
-    }
+    traverseAllComponents(
+      context.cones,
+      traversal,
+      this.dfsPathTraverser,
+      outgoingNeighbors,
+      incomingNeighbors,
+    );
 
-    // A pure cycle has no root. Start each remaining weak component at its lowest ID.
-    while (true) {
-      const uncoveredSubgraphIds = [...coneSubgraphSystemIds]
-        .filter(subgraphId => !traversal.coveredSubgraphIds.has(subgraphId))
-        .sort(
-          (leftSubgraphSystemId, rightSubgraphSystemId) =>
-            leftSubgraphSystemId - rightSubgraphSystemId,
-        );
-      if (uncoveredSubgraphIds.length === 0) break;
-      const componentSubgraphIds = collectComponent(
-        uncoveredSubgraphIds[0],
-        outgoingNeighbors,
-        incomingNeighbors,
-      );
-      const componentStartSubgraphId = [...componentSubgraphIds]
-        .filter(subgraphId => !traversal.coveredSubgraphIds.has(subgraphId))
-        .sort(
-          (leftSubgraphSystemId, rightSubgraphSystemId) =>
-            leftSubgraphSystemId - rightSubgraphSystemId,
-        )[0];
-      this.dfsPathTraverser.traverse(
-        traversal,
-        componentStartSubgraphId,
-        [componentStartSubgraphId],
-        new Set([componentStartSubgraphId]),
-      );
+    if (traversal.ecIssues.length > 0) {
+      return Result.fail(...traversal.ecIssues);
     }
 
     // Reconstruction paths are already computed by Phase 2; Phase 7 only orders

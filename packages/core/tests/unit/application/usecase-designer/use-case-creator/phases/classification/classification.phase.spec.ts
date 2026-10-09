@@ -16,6 +16,7 @@ import type {RoutingMode} from '../../../../../../../src/application/usecase-des
 import {RoutingContext} from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
 import {
   ROUTING_CLASSIFICATION_KIND,
+  SEED_REASON,
   USECASE_CANDIDATE_KIND,
   USECASE_TOPOLOGY_DECISION_KIND,
   type AutoUsecaseCandidate,
@@ -23,12 +24,14 @@ import {
   type ManualUsecaseCandidate,
 } from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {ClassificationPhase} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/classification/classification.phase.js';
+import {USECASE_TYPE} from '../../../../../../../src/domain/entities/usecase-data/usecase/usecase-type.js';
 
 function usecase(
   systemId: number,
   subgraphSystemIds: number[],
   subgraphPairs: Array<[number, number]>,
   valueSystemIds: number[],
+  type?: UseCase['type'],
 ): UseCase {
   return {
     systemId,
@@ -41,6 +44,7 @@ function usecase(
       }),
     ),
     keyVector: {valueSystemIds},
+    type,
   } as UseCase;
 }
 
@@ -107,6 +111,8 @@ function ecBridgeCombination(
   return {
     ...combination(path, values),
     kind: USECASE_CANDIDATE_KIND.EcBridge,
+    representativeDataLinkSystemId: 1,
+    dataLinkSystemIds: [1],
   };
 }
 
@@ -128,6 +134,7 @@ function context(
     selectedUsecases: [],
     graphSnapshot: {
       subgraphs: [],
+      mdfSubgraphSystemIds: new Set(),
       routableDataLinks: [],
       routableControlLinks: [],
       overlayDataLinks: [],
@@ -728,6 +735,288 @@ describe('ClassificationPhase', () => {
           path: expect.objectContaining({subgraphSystemIds: [10, 20]}),
         }),
       }),
+    ]);
+  });
+
+  it('T-EC-legacy-a suppresses a Bridge covered by a stable legacy EC UseCase', async () => {
+    const legacy = usecase(
+      50,
+      [1, 2, 3, 4],
+      [
+        [1, 2],
+        [2, 3],
+        [3, 4],
+      ],
+      [500],
+      USECASE_TYPE.Ec,
+    );
+    const routingContext = context([legacy]);
+    routingContext.seeds = {sgSystemIds: new Set(), reasons: new Map()};
+    routingContext.usecaseCandidates.ecBridgeCandidates.push(
+      ecBridgeCombination([2, 3], [200]),
+    );
+
+    const result = await new ClassificationPhase().run(routingContext);
+
+    expect(result.kind).toBe('OK');
+    expect(routingContext.classifiedUcs).toEqual([]);
+  });
+
+  it('does not suppress when endpoint overlap omits complete MDF Bridge topology', async () => {
+    const endpointOnlyLegacy = usecase(
+      50,
+      [1, 2, 3, 4],
+      [
+        [1, 2],
+        [2, 3],
+        [3, 4],
+      ],
+      [500],
+      USECASE_TYPE.Ec,
+    );
+    const routingContext = context([endpointOnlyLegacy]);
+    routingContext.seeds = {sgSystemIds: new Set(), reasons: new Map()};
+    routingContext.usecaseCandidates.ecBridgeCandidates.push(
+      ecBridgeCombination([2, 25, 3], [200]),
+    );
+
+    await new ClassificationPhase().run(routingContext);
+
+    expect(routingContext.classifiedUcs).toEqual([
+      expect.objectContaining({kind: ROUTING_CLASSIFICATION_KIND.Create}),
+    ]);
+  });
+
+  it('suppresses only when a surviving EC topology strictly covers every Bridge member and pair', async () => {
+    const coveringLegacy = usecase(
+      50,
+      [1, 2, 25, 3, 4],
+      [
+        [1, 2],
+        [2, 25],
+        [25, 3],
+        [3, 4],
+      ],
+      [500],
+      USECASE_TYPE.Ec,
+    );
+    const routingContext = context([coveringLegacy]);
+    routingContext.seeds = {sgSystemIds: new Set(), reasons: new Map()};
+    routingContext.usecaseCandidates.ecBridgeCandidates.push(
+      ecBridgeCombination([2, 25, 3], [200]),
+    );
+
+    await new ClassificationPhase().run(routingContext);
+
+    expect(routingContext.classifiedUcs).toEqual([]);
+  });
+
+  it('routes equal multi-SG Bridge topology through exact-match classification', async () => {
+    const existingBridge = usecase(
+      60,
+      [2, 25, 3],
+      [
+        [2, 25],
+        [25, 3],
+      ],
+      [100],
+      USECASE_TYPE.Ec,
+    );
+    const routingContext = context([existingBridge]);
+    routingContext.seeds = {sgSystemIds: new Set(), reasons: new Map()};
+    routingContext.usecaseCandidates.ecBridgeCandidates.push(
+      ecBridgeCombination([2, 25, 3], [100]),
+    );
+
+    await new ClassificationPhase().run(routingContext);
+
+    expect(routingContext.classifiedUcs).toEqual([
+      expect.objectContaining({
+        kind: ROUTING_CLASSIFICATION_KIND.ExactMatch,
+        existingUsecase: existingBridge,
+      }),
+    ]);
+  });
+
+  it('uses finalized projected EC topology when deciding strict coverage', async () => {
+    const committedLegacy = usecase(
+      50,
+      [1, 2, 3, 4],
+      [
+        [1, 2],
+        [2, 3],
+        [3, 4],
+      ],
+      [500],
+      USECASE_TYPE.Ec,
+    );
+    const routingContext = context([committedLegacy]);
+    routingContext.seeds = {sgSystemIds: new Set(), reasons: new Map()};
+    routingContext.topologyChangeAnalysis = {
+      affectedUsecaseSystemIds: new Set(),
+      decisions: [
+        {
+          kind: USECASE_TOPOLOGY_DECISION_KIND.MdfSubstitution,
+          usecase: committedLegacy,
+          substitutions: [],
+          structuralChange: {
+            addedSubgraphSystemIds: [25],
+            removedSubgraphSystemIds: [],
+            addedPairs: [
+              {sourceSubgraphSystemId: 2, destSubgraphSystemId: 25},
+              {sourceSubgraphSystemId: 25, destSubgraphSystemId: 3},
+            ],
+            removedPairs: [
+              {sourceSubgraphSystemId: 2, destSubgraphSystemId: 3},
+            ],
+            resultingSubgraphSystemIds: [1, 2, 25, 3, 4],
+            resultingPairs: [
+              {sourceSubgraphSystemId: 1, destSubgraphSystemId: 2},
+              {sourceSubgraphSystemId: 2, destSubgraphSystemId: 25},
+              {sourceSubgraphSystemId: 25, destSubgraphSystemId: 3},
+              {sourceSubgraphSystemId: 3, destSubgraphSystemId: 4},
+            ],
+            resultingType: USECASE_TYPE.Ec,
+            sgkvAssignments: [],
+          },
+        },
+      ],
+    };
+    routingContext.usecaseCandidates.ecBridgeCandidates.push(
+      ecBridgeCombination([2, 25, 3], [200]),
+    );
+
+    await new ClassificationPhase().run(routingContext);
+
+    expect(routingContext.classifiedUcs).toEqual([]);
+  });
+
+  it('T-EC-legacy-b keeps a Bridge when either legacy endpoint changed KV', async () => {
+    const legacy = usecase(
+      50,
+      [1, 2, 3, 4],
+      [
+        [1, 2],
+        [2, 3],
+        [3, 4],
+      ],
+      [500],
+      USECASE_TYPE.Ec,
+    );
+    const routingContext = context([legacy]);
+    routingContext.seeds = {
+      sgSystemIds: new Set([2]),
+      reasons: new Map([[2, SEED_REASON.KvChanged]]),
+    };
+    routingContext.usecaseCandidates.ecBridgeCandidates.push(
+      ecBridgeCombination([2, 3], [200]),
+    );
+
+    await new ClassificationPhase().run(routingContext);
+
+    expect(routingContext.classifiedUcs).toEqual([
+      expect.objectContaining({kind: ROUTING_CLASSIFICATION_KIND.Create}),
+    ]);
+  });
+
+  it('does not let a deletion-marked legacy EC UseCase suppress its Bridge', async () => {
+    const legacy = usecase(
+      50,
+      [1, 2, 3, 4],
+      [
+        [1, 2],
+        [2, 3],
+        [3, 4],
+      ],
+      [500],
+      USECASE_TYPE.Ec,
+    );
+    const routingContext = context([legacy]);
+    routingContext.seeds = {sgSystemIds: new Set(), reasons: new Map()};
+    routingContext.topologyChangeAnalysis = {
+      affectedUsecaseSystemIds: new Set([50]),
+      decisions: [
+        {
+          kind: USECASE_TOPOLOGY_DECISION_KIND.DeleteOrReconstruct,
+          usecase: legacy,
+          deletedComponent: {type: 'DATA_LINK', systemId: 10},
+          reconstructionPaths: [],
+        },
+      ],
+    };
+    routingContext.usecaseCandidates.ecBridgeCandidates.push(
+      ecBridgeCombination([2, 3], [200]),
+    );
+
+    await new ClassificationPhase().run(routingContext);
+
+    expect(routingContext.classifiedUcs).toEqual([
+      expect.objectContaining({kind: ROUTING_CLASSIFICATION_KIND.Create}),
+    ]);
+  });
+
+  it('never suppresses a regular Left candidate covered by a legacy EC UseCase', async () => {
+    const legacy = usecase(
+      50,
+      [1, 2, 3],
+      [
+        [1, 2],
+        [2, 3],
+      ],
+      [500],
+      USECASE_TYPE.Ec,
+    );
+    const routingContext = context([legacy]);
+    routingContext.seeds = {sgSystemIds: new Set(), reasons: new Map()};
+    routingContext.usecaseCandidates.automaticCandidates.push(
+      combination([1, 2], [200]),
+    );
+
+    await new ClassificationPhase().run(routingContext);
+
+    expect(routingContext.classifiedUcs).toEqual([
+      expect.objectContaining({kind: ROUTING_CLASSIFICATION_KIND.Create}),
+    ]);
+  });
+
+  it('preserves an exact existing EC Bridge and creates a changed-GKV Bridge', async () => {
+    const existing = usecase(60, [2, 3], [[2, 3]], [100], USECASE_TYPE.Ec);
+    const exactContext = context([existing]);
+    exactContext.usecaseCandidates.ecBridgeCandidates.push(
+      ecBridgeCombination([2, 3], [100]),
+    );
+
+    await new ClassificationPhase().run(exactContext);
+
+    expect(exactContext.classifiedUcs).toEqual([
+      expect.objectContaining({
+        kind: ROUTING_CLASSIFICATION_KIND.ExactMatch,
+        existingUsecase: existing,
+      }),
+    ]);
+
+    const changedContext = context([existing]);
+    changedContext.usecaseCandidates.ecBridgeCandidates.push(
+      ecBridgeCombination([2, 3], [200]),
+    );
+    await new ClassificationPhase().run(changedContext);
+    expect(changedContext.classifiedUcs).toEqual([
+      expect.objectContaining({kind: ROUTING_CLASSIFICATION_KIND.Create}),
+    ]);
+  });
+
+  it('routes a same-GKV Bridge versus non-EC exact topology through user choice', async () => {
+    const linked = usecase(70, [2, 3], [[2, 3]], [100], USECASE_TYPE.Linked);
+    const routingContext = context([linked]);
+    routingContext.usecaseCandidates.ecBridgeCandidates.push(
+      ecBridgeCombination([2, 3], [100]),
+    );
+
+    const result = await new ClassificationPhase().run(routingContext);
+
+    expect(result.kind).toBe('FAIL');
+    expect(result.issues).toEqual([
+      expect.objectContaining({code: 'ARC-ROUTING-SAME-GKV-CHOICE-REQUIRED'}),
     ]);
   });
 

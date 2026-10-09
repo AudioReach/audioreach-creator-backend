@@ -162,6 +162,7 @@ function createFixture(options: FixtureOptions = {}) {
         requestedSgkvs: options.requestedSgkvsBySubgraph?.[systemId] ?? [],
         isMdf: mdfSubgraphIds.has(systemId),
       })),
+      mdfSubgraphSystemIds: mdfSubgraphIds,
       routableDataLinks,
       routableControlLinks,
       overlayDataLinks,
@@ -905,7 +906,7 @@ describe('TopologyChangeAnalysisPhase', () => {
       fixture.context.input.graphSnapshot,
     );
 
-    expect(topology.survivingControlLinkPairKeys).toEqual(new Set(['10<->20']));
+    expect(topology.survivingControlLinkPairKeys).toEqual(new Set(['10>20']));
     expect(topology.routableAdjacency.get(10)).toEqual([
       {destSubgraphSystemId: 30, isEc: false},
     ]);
@@ -1283,6 +1284,55 @@ describe('TopologyChangeAnalysisPhase', () => {
         },
       ],
     });
+  });
+
+  it('checks only logical endpoints for a legacy MDF-transparent EC boundary', async () => {
+    const currentUsecase = usecase(
+      1,
+      [1, 2, 3, 4, 5],
+      [
+        {sourceSubgraphSystemId: 1, destSubgraphSystemId: 2},
+        {sourceSubgraphSystemId: 2, destSubgraphSystemId: 3},
+        {sourceSubgraphSystemId: 3, destSubgraphSystemId: 4},
+        {sourceSubgraphSystemId: 4, destSubgraphSystemId: 5},
+      ],
+      'EC',
+    );
+    const fixture = createFixture({
+      usecases: [currentUsecase],
+      subgraphIds: [1, 2, 3, 4, 5, 6],
+      mdfSubgraphIds: [3],
+      deletedDataLinks: [dataLink(101, 1, 2)],
+      overlayDataLinks: [
+        dataLink(102, 1, 6),
+        dataLink(103, 6, 2),
+        dataLink(104, 2, 3, true),
+        dataLink(105, 3, 4, true),
+        dataLink(106, 4, 5),
+      ],
+      routableDataLinks: [
+        dataLink(102, 1, 6),
+        dataLink(103, 6, 2),
+        dataLink(104, 2, 3, true),
+        dataLink(105, 3, 4, true),
+        dataLink(106, 4, 5),
+      ],
+    });
+
+    await runAnalysis(service, fixture);
+
+    expect(fixture.getSgkvs).toHaveBeenCalledWith(1, [2, 4]);
+    expect(fixture.context.topologyChangeAnalysis?.decisions[0]).toEqual(
+      expect.objectContaining({
+        reconstructionPaths: [
+          {
+            subgraphSystemIds: [1, 6, 2, 3, 4, 5],
+            termination: PATH_TERMINATION.NaturalLeaf,
+            ecBoundaryLinkId: null,
+          },
+        ],
+      }),
+    );
   });
 
   it('keeps a changed legacy EC boundary closed after comparing endpoint SGKVs', async () => {

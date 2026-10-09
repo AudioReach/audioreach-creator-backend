@@ -344,7 +344,7 @@ describe('MdfSubstitutionAnalyzer', () => {
           ],
           inScopeSubgraphSystemIds: [10, 20, 30],
           mdfSubgraphSystemIds: [20],
-          survivingDataLinkPairKeys: ['10<->30'],
+          survivingDataLinkPairKeys: ['10>30'],
         }),
       ),
     ).toBeNull();
@@ -361,7 +361,7 @@ describe('MdfSubstitutionAnalyzer', () => {
           ],
           inScopeSubgraphSystemIds: [10, 20, 30],
           mdfSubgraphSystemIds: [20],
-          survivingControlLinkPairKeys: ['10<->30'],
+          survivingControlLinkPairKeys: ['10>30'],
         }),
       ),
     ).toBeNull();

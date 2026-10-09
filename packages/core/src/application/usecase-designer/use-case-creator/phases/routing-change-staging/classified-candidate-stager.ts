@@ -8,8 +8,12 @@ import {
   Result,
 } from '../../../../../application/shared/result/result.js';
 import {CHANGE_OPERATION} from '../../../../shared/change-vocabulary.js';
+import type {DataLink} from '../../../../../domain/entities/usecase-data/links/data-link.js';
 import {UseCase} from '../../../../../domain/entities/usecase-data/usecase/usecase.js';
-import type {UsecaseType} from '../../../../../domain/entities/usecase-data/usecase/usecase-type.js';
+import {
+  USECASE_TYPE,
+  type UsecaseType,
+} from '../../../../../domain/entities/usecase-data/usecase/usecase-type.js';
 import {invariant} from '../../../../../shared/assertions/index.js';
 import type {IdGenerationPort} from '../../../../ports/id-generation/id-generation.port.js';
 import type {
@@ -25,6 +29,7 @@ import {
   ROUTING_CLASSIFICATION_KIND,
   USECASE_CANDIDATE_KIND,
   type ClassifiedUsecase,
+  type RoutedUsecaseCandidate,
   type UsecaseChangeDescriptor,
 } from '../../contracts/routing-state.js';
 import {RoutingIssueFactory} from '../../issues/routing-issue-factory.js';
@@ -38,6 +43,7 @@ import type {SubgraphPair} from '../../../../ports/persistence/repositories/shar
 import {
   candidateDirectedPairs,
   candidateSubgraphSystemIds,
+  directedPairKeyOf,
 } from '../../shared/usecase-topology.js';
 
 export interface ClassifiedCandidateStagerInput {
@@ -54,6 +60,20 @@ interface StructuralChangeDelta {
   readonly removedPairs?: readonly SubgraphPair[];
   readonly newType?: UsecaseType;
   readonly cancelPendingDelete?: boolean;
+}
+
+/**
+ * Bridge intent is authoritative for type. Complete MDF-transparent Bridge topology is
+ * still one logical EC crossing and must remain EC regardless of generic pair support.
+ */
+function automaticUsecaseType(
+  candidate: RoutedUsecaseCandidate,
+  pairs: readonly SubgraphPair[],
+  routableDataLinks: readonly DataLink[],
+): UsecaseType {
+  return candidate.kind === USECASE_CANDIDATE_KIND.EcBridge
+    ? USECASE_TYPE.Ec
+    : computeUsecaseType(pairs, routableDataLinks);
 }
 
 /** Applies exact-match, extension, and create classifications in input order. */
@@ -82,13 +102,15 @@ export class ClassifiedCandidateStager {
         const pairs = candidateDirectedPairs(classification.candidate);
         const existingPairKeys = new Set(
           classification.existingUsecase.subgraphPairs.map(pair =>
-            pairKey(pair),
+            directedPairKeyOf(pair),
           ),
         );
-        const candidatePairKeys = new Set(pairs.map(pair => pairKey(pair)));
+        const candidatePairKeys = new Set(
+          pairs.map(pair => directedPairKeyOf(pair)),
+        );
         const removedPairs =
           classification.existingUsecase.subgraphPairs.filter(
-            pair => !candidatePairKeys.has(pairKey(pair)),
+            pair => !candidatePairKeys.has(directedPairKeyOf(pair)),
           );
         const result = await this.applyStructuralChange(
           staging,
@@ -98,7 +120,7 @@ export class ClassifiedCandidateStager {
               classification.candidate,
             ).filter(systemId => !currentIds.has(systemId)),
             addedPairs: pairs.filter(
-              pair => !existingPairKeys.has(pairKey(pair)),
+              pair => !existingPairKeys.has(directedPairKeyOf(pair)),
             ),
             ...(removedPairs.length === 0 ? {} : {removedPairs}),
             cancelPendingDelete: classification.cancelPendingDelete,
@@ -129,7 +151,11 @@ export class ClassifiedCandidateStager {
           },
           subgraphSystemIds: [...memberSubgraphSystemIds],
           subgraphPairs: [...pairs],
-          type: computeUsecaseType(pairs, graphSnapshot.routableDataLinks),
+          type: automaticUsecaseType(
+            candidate,
+            pairs,
+            graphSnapshot.routableDataLinks,
+          ),
         }),
         staging.options,
         undefined,
@@ -280,10 +306,6 @@ export class ClassifiedCandidateStager {
     this.recordChange(staging, ref, operation);
     return Result.ok();
   }
-}
-
-function pairKey(pair: SubgraphPair): string {
-  return `${pair.sourceSubgraphSystemId}>${pair.destSubgraphSystemId}`;
 }
 
 function sortedUnique(ids: readonly number[]): number[] {

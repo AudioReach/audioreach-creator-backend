@@ -103,6 +103,7 @@ export class CreateManualUsecasesHandler implements CommandHandler<
           excludedDataLinkSystemIds: selection.excludedDataLinkSystemIds,
           excludedControlLinkSystemIds: selection.excludedControlLinkSystemIds,
           sessionEdits: graphEdits,
+          activeManualUsecaseEdits,
         },
         this.uow,
       );

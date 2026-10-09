@@ -24,6 +24,8 @@ import {
 import {
   candidateDirectedPairs,
   candidateSubgraphSystemIds,
+  directedPairKey,
+  unorderedPairKey,
 } from './usecase-topology.js';
 
 /**
@@ -35,22 +37,6 @@ export interface ProjectedUsecaseTopology {
   readonly subgraphSystemIds: ReadonlySet<number>;
   readonly directedPairKeys: ReadonlySet<string>;
   readonly unorderedPairKeys: ReadonlySet<string>;
-}
-
-export function directedProjectedPairKey(
-  sourceSubgraphSystemId: number,
-  destSubgraphSystemId: number,
-): string {
-  return `${sourceSubgraphSystemId}>${destSubgraphSystemId}`;
-}
-
-export function unorderedProjectedPairKey(
-  firstSubgraphSystemId: number,
-  secondSubgraphSystemId: number,
-): string {
-  return [firstSubgraphSystemId, secondSubgraphSystemId]
-    .sort((left, right) => left - right)
-    .join('>');
 }
 
 function cloneUsecase(
@@ -155,7 +141,7 @@ function withMergedTopology(
 function uniquePairs(pairs: readonly SubgraphPair[]): SubgraphPair[] {
   const seen = new Set<string>();
   return pairs.filter(pair => {
-    const key = directedProjectedPairKey(
+    const key = directedPairKey(
       pair.sourceSubgraphSystemId,
       pair.destSubgraphSystemId,
     );
@@ -274,7 +260,7 @@ function applyIslandTransition(
   if (!current) return;
   const corrections = new Map(
     transition.directionCorrections.map(correction => [
-      directedProjectedPairKey(
+      directedPairKey(
         correction.currentSourceSubgraphSystemId,
         correction.currentDestSubgraphSystemId,
       ),
@@ -287,10 +273,7 @@ function applyIslandTransition(
   const pairs = current.subgraphPairs.map(
     pair =>
       corrections.get(
-        directedProjectedPairKey(
-          pair.sourceSubgraphSystemId,
-          pair.destSubgraphSystemId,
-        ),
+        directedPairKey(pair.sourceSubgraphSystemId, pair.destSubgraphSystemId),
       ) ?? pair,
   );
   projected.set(
@@ -350,13 +333,10 @@ export function buildProjectedUsecaseTopology(
       subgraphSystemIds.add(systemId);
     for (const pair of usecase.subgraphPairs) {
       directedPairKeys.add(
-        directedProjectedPairKey(
-          pair.sourceSubgraphSystemId,
-          pair.destSubgraphSystemId,
-        ),
+        directedPairKey(pair.sourceSubgraphSystemId, pair.destSubgraphSystemId),
       );
       unorderedPairKeys.add(
-        unorderedProjectedPairKey(
+        unorderedPairKey(
           pair.sourceSubgraphSystemId,
           pair.destSubgraphSystemId,
         ),

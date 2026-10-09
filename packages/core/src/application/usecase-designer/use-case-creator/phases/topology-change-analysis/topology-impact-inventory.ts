@@ -11,24 +11,10 @@ import type {
   RoutingSubgraph,
 } from '../../contracts/routing-input.js';
 import {DATA_LINK_TYPE} from '../../../../../domain/entities/usecase-data/links/data-link-type.js';
-
-export function unorderedPairKey(
-  sourceSubgraphSystemId: number,
-  destSubgraphSystemId: number,
-): string {
-  // Support is an undirected property: either data-link direction or any control-link
-  // direction keeps the stored pair structurally supported.
-  const low = Math.min(sourceSubgraphSystemId, destSubgraphSystemId);
-  const high = Math.max(sourceSubgraphSystemId, destSubgraphSystemId);
-  return `${low}<->${high}`;
-}
-
-export function directedPairKey(
-  sourceSubgraphSystemId: number,
-  destSubgraphSystemId: number,
-): string {
-  return `${sourceSubgraphSystemId}->${destSubgraphSystemId}`;
-}
+import {
+  directedPairKey,
+  unorderedPairKey,
+} from '../../shared/usecase-topology.js';
 
 export function sortedBySystemId<T extends {readonly systemId: number}>(
   items: readonly T[],

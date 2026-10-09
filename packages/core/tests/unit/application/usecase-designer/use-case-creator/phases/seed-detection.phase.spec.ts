@@ -84,6 +84,11 @@ function makeContext(
     selectedUsecases,
     graphSnapshot: {
       subgraphs,
+      mdfSubgraphSystemIds: new Set(
+        subgraphs
+          .filter(subgraph => subgraph.isMdf)
+          .map(subgraph => subgraph.subgraph.systemId),
+      ),
       routableDataLinks: [],
       routableControlLinks: [],
       overlayDataLinks: [],

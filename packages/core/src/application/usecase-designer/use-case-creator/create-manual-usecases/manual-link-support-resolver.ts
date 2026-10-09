@@ -11,6 +11,7 @@ import {
   createDataLinkManualTopologyPair,
   type ManualTopologyPair,
 } from '../contracts/routing-input.js';
+import {unorderedPairKey} from '../shared/usecase-topology.js';
 
 /** Link collections used to resolve support for already-approved candidates. */
 export interface ManualLinkSupportInput {
@@ -153,9 +154,4 @@ function canonicalPair(pair: SubgraphPair): SubgraphPair {
       pair.destSubgraphSystemId,
     ),
   };
-}
-
-/** Identifies a relationship regardless of which endpoint appears first. */
-function unorderedPairKey(left: number, right: number): string {
-  return `${Math.min(left, right)}:${Math.max(left, right)}`;
 }

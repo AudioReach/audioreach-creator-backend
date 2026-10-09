@@ -182,6 +182,7 @@ export type PathTermination =
 export interface DfsPath {
   readonly subgraphSystemIds: readonly number[];
   readonly termination: PathTermination;
+  /** Representative physical EC link used only to correlate an EC boundary. */
   readonly ecBoundaryLinkId: number | null;
 }
 
@@ -209,6 +210,10 @@ export interface ManualUsecaseCandidate extends UsecaseCandidateBase {
 
 export interface EcBridgeUsecaseCandidate extends UsecaseCandidateBase {
   readonly kind: typeof USECASE_CANDIDATE_KIND.EcBridge;
+  /** First physical EC link; transient cross-phase correlation only. */
+  readonly representativeDataLinkSystemId: number;
+  /** Ordered physical EC links represented by the complete Bridge path. */
+  readonly dataLinkSystemIds: readonly number[];
   readonly path: DfsPath;
 }
 

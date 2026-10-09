@@ -31,6 +31,11 @@ import {
   collectUsecaseSgkvAdditions,
 } from '../shared/routing-sgkv-assignments.js';
 import {computeUsecaseType} from '../shared/usecase-type-classifier.js';
+import {
+  directedPairKey,
+  directedPairKeyOf,
+  unorderedPairKeyOf,
+} from '../shared/usecase-topology.js';
 
 interface Pair {
   readonly sourceSubgraphSystemId: number;
@@ -46,19 +51,9 @@ function candidatePairs(candidate: RoutedUsecaseCandidate): Pair[] {
   }));
 }
 
-function directedKey(pair: Pair): string {
-  return `${pair.sourceSubgraphSystemId}>${pair.destSubgraphSystemId}`;
-}
-
-function unorderedKey(pair: Pair): string {
-  return [pair.sourceSubgraphSystemId, pair.destSubgraphSystemId]
-    .sort((left, right) => left - right)
-    .join('>');
-}
-
 function uniquePairs(pairs: readonly Pair[]): Pair[] {
   const byKey = new Map<string, Pair>();
-  for (const pair of pairs) byKey.set(directedKey(pair), pair);
+  for (const pair of pairs) byKey.set(directedPairKeyOf(pair), pair);
   return [...byKey.values()].sort(
     (left, right) =>
       left.sourceSubgraphSystemId - right.sourceSubgraphSystemId ||
@@ -195,6 +190,8 @@ function mergeAllCandidates(group: SameGkvCollisionGroup): {
         }
       : {
           kind: USECASE_CANDIDATE_KIND.EcBridge,
+          representativeDataLinkSystemId: first.representativeDataLinkSystemId,
+          dataLinkSystemIds: first.dataLinkSystemIds,
           path,
           sgkvAssignment,
           gkv: first.gkv,
@@ -227,8 +224,8 @@ function componentReferences(
   subgraphSystemIds: readonly number[],
   pairs: readonly Pair[],
 ): ReferencedComponents {
-  const directedPairs = new Set(pairs.map(pair => directedKey(pair)));
-  const unorderedPairs = new Set(pairs.map(pair => unorderedKey(pair)));
+  const directedPairs = new Set(pairs.map(pair => directedPairKeyOf(pair)));
+  const unorderedPairs = new Set(pairs.map(pair => unorderedPairKeyOf(pair)));
   return {
     sgSystemIds: [...new Set(subgraphSystemIds)].sort(
       (left, right) => left - right,
@@ -236,7 +233,10 @@ function componentReferences(
     dataLinkSystemIds: input.graphSnapshot.overlayDataLinks
       .filter(link =>
         directedPairs.has(
-          `${link.sourceSubgraphSystemId}>${link.destSubgraphSystemId}`,
+          directedPairKey(
+            link.sourceSubgraphSystemId,
+            link.destSubgraphSystemId,
+          ),
         ),
       )
       .map(link => link.systemId)
@@ -244,7 +244,7 @@ function componentReferences(
     controlLinkSystemIds: input.graphSnapshot.overlayControlLinks
       .filter(link =>
         unorderedPairs.has(
-          unorderedKey({
+          unorderedPairKeyOf({
             sourceSubgraphSystemId: link.peerNodeASystemId,
             destSubgraphSystemId: link.peerNodeBSystemId,
           }),
@@ -310,7 +310,7 @@ export class SameGkvCollisionResolutionStager {
     ) {
       const existingSgIds = new Set(existing.subgraphSystemIds);
       const existingPairKeys = new Set(
-        existing.subgraphPairs.map(pair => directedKey(pair)),
+        existing.subgraphPairs.map(pair => directedPairKeyOf(pair)),
       );
       const ref = await repository.applyStructuralChange(
         existing.systemId,
@@ -319,7 +319,7 @@ export class SameGkvCollisionResolutionStager {
             systemId => !existingSgIds.has(systemId),
           ),
           addedPairs: selectedPairs.filter(
-            pair => !existingPairKeys.has(directedKey(pair)),
+            pair => !existingPairKeys.has(directedPairKeyOf(pair)),
           ),
           newType: computeUsecaseType(
             selectedPairs,

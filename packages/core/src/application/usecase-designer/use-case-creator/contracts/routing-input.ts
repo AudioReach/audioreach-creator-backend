@@ -44,6 +44,7 @@ export interface RoutingSubgraph {
 
 export interface RoutingGraphSnapshot {
   readonly subgraphs: readonly RoutingSubgraph[];
+  readonly mdfSubgraphSystemIds: ReadonlySet<number>;
   readonly routableDataLinks: readonly DataLink[];
   readonly routableControlLinks: readonly ControlLink[];
   readonly overlayDataLinks: readonly DataLink[];
@@ -190,6 +191,7 @@ function copyGraphSnapshot(
         }),
       ),
     ),
+    mdfSubgraphSystemIds: new Set(snapshot.mdfSubgraphSystemIds),
     routableDataLinks: Object.freeze([...snapshot.routableDataLinks]),
     routableControlLinks: Object.freeze([...snapshot.routableControlLinks]),
     overlayDataLinks: Object.freeze([...snapshot.overlayDataLinks]),

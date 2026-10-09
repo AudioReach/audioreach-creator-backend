@@ -12,13 +12,41 @@ import {
   emptyGraphEdits,
 } from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
 import {PreValidationPhase} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/pre-validation/pre-validation.phase.js';
+import {DATA_LINK_TYPE} from '../../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
+import type {UseCase} from '../../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
+import {CHANGE_OPERATION} from '../../../../../../../src/application/shared/change-vocabulary.js';
+import type {ActiveManualUsecaseEdit} from '../../../../../../../src/application/ports/persistence/repositories/usecase/usecase.repository.js';
 
 function link(
   systemId: number,
   sourceSubgraphSystemId: number,
   destSubgraphSystemId: number,
+  linkType = DATA_LINK_TYPE.Normal,
 ): DataLink {
-  return {systemId, sourceSubgraphSystemId, destSubgraphSystemId} as DataLink;
+  return {
+    systemId,
+    sourceSubgraphSystemId,
+    destSubgraphSystemId,
+    linkType,
+  } as DataLink;
+}
+
+function usecase(
+  systemId: number,
+  pairs: readonly (readonly [number, number])[],
+): UseCase {
+  const subgraphSystemIds = [...new Set(pairs.flat())];
+  return {
+    systemId,
+    subgraphSystemIds,
+    subgraphPairs: pairs.map(
+      ([sourceSubgraphSystemId, destSubgraphSystemId]) => ({
+        sourceSubgraphSystemId,
+        destSubgraphSystemId,
+      }),
+    ),
+    keyVector: {valueSystemIds: []},
+  } as UseCase;
 }
 
 function createFixture(options?: {
@@ -30,6 +58,9 @@ function createFixture(options?: {
     Record<number, readonly (readonly number[])[]>
   >;
   readonly mdfSubgraphIds?: readonly number[];
+  readonly committedUsecases?: readonly UseCase[];
+  readonly activeManualUsecaseEdits?: readonly ActiveManualUsecaseEdit[];
+  readonly deletedDataLinks?: readonly DataLink[];
 }) {
   const activeIds = options?.activeIds ?? [10, 20];
   const existingIds = options?.existingIds ?? activeIds;
@@ -55,10 +86,14 @@ function createFixture(options?: {
       routableControlLinks: controlLinks,
       overlayDataLinks: dataLinks,
       overlayControlLinks: controlLinks,
-      committedUsecases: [],
-      sessionEdits: emptyGraphEdits(),
+      committedUsecases: options?.committedUsecases ?? [],
+      mdfSubgraphSystemIds: new Set(options?.mdfSubgraphIds ?? []),
+      sessionEdits: {
+        ...emptyGraphEdits(),
+        deletedDataLinks: options?.deletedDataLinks ?? [],
+      },
     },
-    activeManualUsecaseEdits: [],
+    activeManualUsecaseEdits: options?.activeManualUsecaseEdits ?? [],
   });
   return {
     context: new RoutingContext(input),
@@ -192,5 +227,139 @@ describe('PreValidationPhase', () => {
     expect(
       fixture.context.warnings.map(issue => issue.impactedEntity?.systemId),
     ).toEqual([10, 20]);
+  });
+
+  it('accepts one physical EC connection and one MDF-transparent EC chain', async () => {
+    const fixture = createFixture({
+      activeIds: [1, 2, 3, 4, 5, 6],
+      existingIds: [1, 2, 3, 4, 5, 6],
+      mdfSubgraphIds: [4],
+      dataLinks: [
+        link(10, 1, 2, DATA_LINK_TYPE.Ec),
+        link(20, 3, 4, DATA_LINK_TYPE.Ec),
+        link(21, 4, 5, DATA_LINK_TYPE.Ec),
+      ],
+      committedUsecases: [
+        usecase(100, [[1, 2]]),
+        usecase(200, [
+          [3, 4],
+          [4, 5],
+        ]),
+      ],
+    });
+
+    const result = await service.run(fixture.context);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+  });
+
+  it('rejects every UseCase containing multiple logical EC connections', async () => {
+    const fixture = createFixture({
+      activeIds: [1, 2, 3, 4, 5],
+      existingIds: [1, 2, 3, 4, 5],
+      mdfSubgraphIds: [2],
+      dataLinks: [
+        link(10, 1, 2, DATA_LINK_TYPE.Ec),
+        link(11, 2, 3, DATA_LINK_TYPE.Ec),
+        link(12, 4, 5, DATA_LINK_TYPE.Ec),
+      ],
+      committedUsecases: [
+        usecase(200, [
+          [1, 2],
+          [2, 3],
+          [4, 5],
+        ]),
+      ],
+    });
+
+    const result = await service.run(fixture.context);
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        kind: RESULT_KIND.Fail,
+        issues: [
+          expect.objectContaining({
+            code: 'ARC-ROUTING-EC-MULTIPLE-LINKS',
+            impactedEntity: {entityType: 'UseCase', systemId: 200},
+            message: expect.stringContaining(
+              'EC data-link systemIds: [10, 11, 12]',
+            ),
+          }),
+        ],
+      }),
+    );
+  });
+
+  it('applies an active MANUAL update before validating EC cardinality', async () => {
+    const updatedUsecase = usecase(200, [
+      [1, 2],
+      [3, 4],
+    ]);
+    const fixture = createFixture({
+      activeIds: [1, 2, 3, 4],
+      existingIds: [1, 2, 3, 4],
+      dataLinks: [
+        link(10, 1, 2, DATA_LINK_TYPE.Ec),
+        link(11, 3, 4, DATA_LINK_TYPE.Ec),
+      ],
+      committedUsecases: [usecase(200, [[1, 2]])],
+      activeManualUsecaseEdits: [
+        {
+          changeId: 300,
+          operation: CHANGE_OPERATION.Update,
+          usecase: updatedUsecase,
+          referencedComponents: {
+            sgSystemIds: [1, 2, 3, 4],
+            dataLinkSystemIds: [10, 11],
+            controlLinkSystemIds: [],
+          },
+        },
+      ],
+    });
+
+    const result = await service.run(fixture.context);
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        kind: RESULT_KIND.Fail,
+        issues: [
+          expect.objectContaining({
+            code: 'ARC-ROUTING-EC-MULTIPLE-LINKS',
+            impactedEntity: {entityType: 'UseCase', systemId: 200},
+          }),
+        ],
+      }),
+    );
+  });
+
+  it('counts an about-to-be-deleted EC link when validating Rule C', async () => {
+    const fixture = createFixture({
+      activeIds: [1, 2, 3, 4],
+      existingIds: [1, 2, 3, 4],
+      dataLinks: [link(10, 1, 2, DATA_LINK_TYPE.Ec)],
+      deletedDataLinks: [link(11, 3, 4, DATA_LINK_TYPE.Ec)],
+      committedUsecases: [
+        usecase(200, [
+          [1, 2],
+          [3, 4],
+        ]),
+      ],
+    });
+
+    const result = await service.run(fixture.context);
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        kind: RESULT_KIND.Fail,
+        issues: [
+          expect.objectContaining({
+            code: 'ARC-ROUTING-EC-MULTIPLE-LINKS',
+            message: expect.stringContaining(
+              'EC data-link systemIds: [10, 11]',
+            ),
+          }),
+        ],
+      }),
+    );
   });
 });

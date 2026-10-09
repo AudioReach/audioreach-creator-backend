@@ -22,6 +22,7 @@ import {ISSUE_CODE} from '../../../../../../../src/shared/issues/operational-cod
 import {
   USECASE_CANDIDATE_KIND,
   type AutoUsecaseCandidate,
+  type EcBridgeUsecaseCandidate,
   type ManualUsecaseCandidate,
 } from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 
@@ -41,6 +42,17 @@ function candidate(
       ...path.slice(1).map(id => [id, {keyValues: []}] as const),
     ]),
     gkv: [{keyDefSystemId: 1, valueDefSystemId}],
+  };
+}
+
+function ecBridgeCandidate(
+  path: readonly [number, number],
+): EcBridgeUsecaseCandidate {
+  return {
+    ...candidate(path),
+    kind: USECASE_CANDIDATE_KIND.EcBridge,
+    representativeDataLinkSystemId: 1,
+    dataLinkSystemIds: [1],
   };
 }
 
@@ -98,6 +110,7 @@ function context(
         requestedSgkvs: [],
         isMdf: false,
       })),
+      mdfSubgraphSystemIds: new Set(),
       routableDataLinks: options.routableDataLinks ?? [
         {
           systemId: 5,
@@ -195,6 +208,49 @@ describe('RoutingChangeStagingPhase', () => {
         source: SOURCE.AutoRouting,
       },
     ]);
+  });
+
+  it('stages a logical MDF-chain Bridge candidate as EC without a direct endpoint link', async () => {
+    const routingContext = context(ROUTING_MODE.Auto, {
+      memberSystemIds: [10, 15, 20],
+      routableDataLinks: [
+        {
+          systemId: 5,
+          sourceSubgraphSystemId: 10,
+          destSubgraphSystemId: 15,
+          linkType: DATA_LINK_TYPE.Ec,
+        },
+        {
+          systemId: 6,
+          sourceSubgraphSystemId: 15,
+          destSubgraphSystemId: 20,
+          linkType: DATA_LINK_TYPE.Ec,
+        },
+      ],
+    });
+    routingContext.classifiedUcs.push({
+      kind: 'CREATE',
+      candidate: ecBridgeCandidate([10, 20]),
+    } as never);
+    const create = jest.fn().mockResolvedValue({systemId: 700, changeId: 900});
+
+    const result = await new RoutingChangeStagingPhase().run(
+      routingContext,
+      {getUsecaseRepository: () => ({create})} as never,
+      {getNextId: jest.fn().mockResolvedValue(700)} as never,
+    );
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: USECASE_TYPE.Ec,
+        subgraphSystemIds: [10, 20],
+        subgraphPairs: [{sourceSubgraphSystemId: 10, destSubgraphSystemId: 20}],
+      }),
+      {source: SOURCE.AutoRouting},
+      undefined,
+      expect.any(Array),
+    );
   });
 
   it('stages each manual GKV candidate from its owned topology and assignments', async () => {

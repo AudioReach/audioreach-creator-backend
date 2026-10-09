@@ -380,6 +380,14 @@ export function createMdfSubstitutionRoutingHarness(
     toDataLink,
   );
   const deletedLinks = scenario.deletedPairs.map(toDataLink);
+  const deletedLinkIds = new Set(deletedLinks.map(link => link.systemId));
+  const deletedSubgraphIds = new Set(scenario.deletedSubgraphSystemIds ?? []);
+  const effectiveLinks = allLinks.filter(
+    link =>
+      !deletedLinkIds.has(link.systemId) &&
+      !deletedSubgraphIds.has(link.sourceSubgraphSystemId) &&
+      !deletedSubgraphIds.has(link.destSubgraphSystemId),
+  );
   const allSubgraphIds = new Set<number>(
     scenario.subgraphs.map(item => item.subgraph.systemId),
   );
@@ -425,9 +433,14 @@ export function createMdfSubstitutionRoutingHarness(
     selectedUsecases,
     graphSnapshot: {
       subgraphs: routingSubgraphs,
-      routableDataLinks: allLinks,
+      mdfSubgraphSystemIds: new Set(
+        routingSubgraphs
+          .filter(item => item.isMdf)
+          .map(item => item.subgraph.systemId),
+      ),
+      routableDataLinks: effectiveLinks,
       routableControlLinks: [],
-      overlayDataLinks: allLinks,
+      overlayDataLinks: effectiveLinks,
       overlayControlLinks: [],
       committedUsecases,
       sessionEdits: {

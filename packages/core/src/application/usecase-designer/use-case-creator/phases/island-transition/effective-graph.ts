@@ -6,6 +6,10 @@
 import type {ControlLink} from '../../../../../domain/entities/usecase-data/links/control-link.js';
 import type {DataLink} from '../../../../../domain/entities/usecase-data/links/data-link.js';
 import type {RoutingGraphSnapshot} from '../../contracts/routing-input.js';
+import {
+  directedPairKey,
+  unorderedPairKey,
+} from '../../shared/usecase-topology.js';
 
 export interface EffectiveGraph {
   readonly scopeSubgraphSystemIds: ReadonlySet<number>;
@@ -13,22 +17,6 @@ export interface EffectiveGraph {
   readonly directedDataLinkKeys: ReadonlySet<string>;
   readonly controlLinkPairKeys: ReadonlySet<string>;
   readonly dataLinkDestinationsBySource: ReadonlyMap<number, readonly number[]>;
-}
-
-export function directedPairKey(
-  sourceSubgraphSystemId: number,
-  destSubgraphSystemId: number,
-): string {
-  return `${sourceSubgraphSystemId}:${destSubgraphSystemId}`;
-}
-
-function unorderedPairKey(
-  firstSubgraphSystemId: number,
-  secondSubgraphSystemId: number,
-): string {
-  return firstSubgraphSystemId < secondSubgraphSystemId
-    ? `${firstSubgraphSystemId}:${secondSubgraphSystemId}`
-    : `${secondSubgraphSystemId}:${firstSubgraphSystemId}`;
 }
 
 export function sortedBySystemId<T extends {readonly systemId: number}>(

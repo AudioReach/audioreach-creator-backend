@@ -18,9 +18,12 @@ import {
   canonicalNumericSetKey,
   deriveStartEndSets,
   directedPairKey,
+  directedPairKeyOf,
   exactTopologyEquals,
   gkvValueIdKey,
   hasEmptyAssignment,
+  unorderedPairKey,
+  unorderedPairKeyOf,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/shared/usecase-topology.js';
 
 function candidate(
@@ -104,6 +107,16 @@ describe('usecase topology helpers', () => {
       ]),
     ).toBe('10,30');
     expect(directedPairKey(10, 30)).toBe('10>30');
+    expect(unorderedPairKey(30, 10)).toBe('10>30');
+    expect(
+      directedPairKeyOf({sourceSubgraphSystemId: 10, destSubgraphSystemId: 30}),
+    ).toBe('10>30');
+    expect(
+      unorderedPairKeyOf({
+        sourceSubgraphSystemId: 30,
+        destSubgraphSystemId: 10,
+      }),
+    ).toBe('10>30');
   });
 
   it('derives starts and ends and candidate adjacent directed pairs', () => {

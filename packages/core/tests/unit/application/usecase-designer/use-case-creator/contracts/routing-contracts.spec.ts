@@ -71,6 +71,7 @@ function createDataLink(
 function createSnapshot(subgraph = createSubgraph(31)): RoutingGraphSnapshot {
   return {
     subgraphs: [{subgraph, requestedSgkvs: [[11]], isMdf: false}],
+    mdfSubgraphSystemIds: new Set(),
     routableDataLinks: [],
     routableControlLinks: [],
     overlayDataLinks: [],
