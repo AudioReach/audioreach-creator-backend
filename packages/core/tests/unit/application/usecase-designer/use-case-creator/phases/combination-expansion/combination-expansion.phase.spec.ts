@@ -21,6 +21,8 @@ import {
   type SgkvInstance,
 } from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {CombinationExpansionPhase} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/combination-expansion/combination-expansion.phase.js';
+import {DATA_LINK_TYPE} from '../../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
+import type {DataLink} from '../../../../../../../src/domain/entities/usecase-data/links/data-link.js';
 
 const FILE_ID = 1;
 
@@ -42,6 +44,30 @@ function makePath(subgraphSystemIds: readonly number[]): DfsPath {
   };
 }
 
+function ecBoundaryPath(
+  subgraphSystemIds: readonly number[],
+  ecBoundaryLinkId: number,
+): DfsPath {
+  return {
+    subgraphSystemIds,
+    termination: PATH_TERMINATION.EcBoundary,
+    ecBoundaryLinkId,
+  };
+}
+
+function ecLink(
+  systemId: number,
+  source: number,
+  destination: number,
+): DataLink {
+  return {
+    systemId,
+    sourceSubgraphSystemId: source,
+    destSubgraphSystemId: destination,
+    linkType: DATA_LINK_TYPE.Ec,
+  } as DataLink;
+}
+
 function makeSgkv(
   ...keyValues: readonly {keyDefSystemId: number; valueDefSystemId: number}[]
 ): SgkvInstance {
@@ -52,6 +78,8 @@ function makeContext(
   mode: typeof ROUTING_MODE.Auto | typeof ROUTING_MODE.Manual,
   subgraphSystemIds: readonly number[],
   paths: readonly DfsPath[] = [],
+  links: readonly DataLink[] = [],
+  mdfSubgraphSystemIds: readonly number[] = [],
 ): RoutingContext {
   const init = {
     fileSystemId: FILE_ID,
@@ -68,9 +96,10 @@ function makeContext(
     selectedUsecases: [],
     graphSnapshot: {
       subgraphs: subgraphSystemIds.map(makeSubgraph),
-      routableDataLinks: [],
+      mdfSubgraphSystemIds: new Set(mdfSubgraphSystemIds),
+      routableDataLinks: links,
       routableControlLinks: [],
-      overlayDataLinks: [],
+      overlayDataLinks: links,
       overlayControlLinks: [],
       committedUsecases: [],
       sessionEdits: emptyGraphEdits(),
@@ -280,6 +309,198 @@ describe('CombinationExpansionPhase', () => {
       throw new Error('Expected an automatic candidate');
     expect(candidate.path).toBe(path);
     expect([...candidate.sgkvAssignment.keys()]).toEqual([1, 2]);
+  });
+
+  it('T1-017 and T-EC-g emits compatible Left, Bridge, and Right candidates', async () => {
+    const boundary = ecBoundaryPath([1, 2], 10);
+    const right = makePath([3, 4]);
+    const context = makeContext(
+      ROUTING_MODE.Auto,
+      [1, 2, 3, 4],
+      [boundary, right],
+      [ecLink(10, 2, 3)],
+    );
+    setKvResolutions(
+      context,
+      new Map([
+        [1, [makeSgkv({keyDefSystemId: 10, valueDefSystemId: 100})]],
+        [2, [makeSgkv({keyDefSystemId: 20, valueDefSystemId: 200})]],
+        [3, [makeSgkv({keyDefSystemId: 30, valueDefSystemId: 300})]],
+        [4, [makeSgkv({keyDefSystemId: 40, valueDefSystemId: 400})]],
+      ]),
+    );
+
+    const result = await service.run(context);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(context.usecaseCandidates.automaticCandidates).toHaveLength(2);
+    expect(context.usecaseCandidates.ecBridgeCandidates).toEqual([
+      expect.objectContaining({
+        kind: USECASE_CANDIDATE_KIND.EcBridge,
+        representativeDataLinkSystemId: 10,
+        dataLinkSystemIds: [10],
+        path: makePath([2, 3]),
+        gkv: [
+          {keyDefSystemId: 20, valueDefSystemId: 200},
+          {keyDefSystemId: 30, valueDefSystemId: 300},
+        ],
+      }),
+    ]);
+  });
+
+  it('T2-037 emits every compatible Bridge SGKV assignment', async () => {
+    const context = makeContext(
+      ROUTING_MODE.Auto,
+      [1, 2],
+      [ecBoundaryPath([1], 10), makePath([2])],
+      [ecLink(10, 1, 2)],
+    );
+    setKvResolutions(
+      context,
+      new Map([
+        [
+          1,
+          [
+            makeSgkv({keyDefSystemId: 10, valueDefSystemId: 100}),
+            makeSgkv({keyDefSystemId: 10, valueDefSystemId: 101}),
+          ],
+        ],
+        [2, [makeSgkv({keyDefSystemId: 20, valueDefSystemId: 200})]],
+      ]),
+    );
+
+    await service.run(context);
+
+    expect(context.usecaseCandidates.ecBridgeCandidates).toHaveLength(2);
+  });
+
+  it('materializes an MDF-transparent Bridge with every physical member and link', async () => {
+    const context = makeContext(
+      ROUTING_MODE.Auto,
+      [1, 2, 3, 4],
+      [ecBoundaryPath([1], 10), makePath([4])],
+      [ecLink(10, 1, 2), ecLink(11, 2, 3), ecLink(12, 3, 4)],
+      [2, 3],
+    );
+    setKvResolutions(
+      context,
+      new Map([
+        [1, [makeSgkv({keyDefSystemId: 10, valueDefSystemId: 100})]],
+        [2, [makeSgkv()]],
+        [3, [makeSgkv()]],
+        [4, [makeSgkv({keyDefSystemId: 40, valueDefSystemId: 400})]],
+      ]),
+    );
+
+    const result = await service.run(context);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(context.usecaseCandidates.ecBridgeCandidates).toEqual([
+      expect.objectContaining({
+        representativeDataLinkSystemId: 10,
+        dataLinkSystemIds: [10, 11, 12],
+        path: makePath([1, 2, 3, 4]),
+        gkv: [
+          {keyDefSystemId: 10, valueDefSystemId: 100},
+          {keyDefSystemId: 40, valueDefSystemId: 400},
+        ],
+      }),
+    ]);
+    expect(
+      context.usecaseCandidates.ecBridgeCandidates[0]?.sgkvAssignment,
+    ).toEqual(
+      new Map([
+        [1, makeSgkv({keyDefSystemId: 10, valueDefSystemId: 100})],
+        [2, makeSgkv()],
+        [3, makeSgkv()],
+        [4, makeSgkv({keyDefSystemId: 40, valueDefSystemId: 400})],
+      ]),
+    );
+  });
+
+  it('T2-038 and T-EC-h blocks atomically when the Bridge is incompatible', async () => {
+    const context = makeContext(
+      ROUTING_MODE.Auto,
+      [1, 2, 3, 4],
+      [ecBoundaryPath([1, 2], 10), makePath([3, 4])],
+      [ecLink(10, 2, 3)],
+    );
+    setKvResolutions(
+      context,
+      new Map([
+        [1, [makeSgkv({keyDefSystemId: 10, valueDefSystemId: 100})]],
+        [2, [makeSgkv({keyDefSystemId: 20, valueDefSystemId: 200})]],
+        [3, [makeSgkv({keyDefSystemId: 20, valueDefSystemId: 201})]],
+        [4, [makeSgkv({keyDefSystemId: 40, valueDefSystemId: 400})]],
+      ]),
+    );
+
+    const result = await service.run(context);
+
+    expect(result.kind).toBe(RESULT_KIND.Fail);
+    expect(result.issues).toEqual([
+      expect.objectContaining({
+        code: 'ARC-ROUTING-EC-BRIDGE-INCOMPATIBLE',
+        severity: 'ERROR',
+        impactedEntity: {entityType: 'DataLink', systemId: 10},
+      }),
+    ]);
+    expect(result.issues[0]?.message).toContain('physical EC data links [10]');
+    expect(context.usecaseCandidates.automaticCandidates).toEqual([]);
+    expect(context.usecaseCandidates.ecBridgeCandidates).toEqual([]);
+    expect(context.warnings).toEqual([]);
+  });
+
+  it('emits one Bridge expansion for duplicate boundary paths to the same EC', async () => {
+    const context = makeContext(
+      ROUTING_MODE.Auto,
+      [1, 2, 3, 4],
+      [ecBoundaryPath([1, 2], 10), ecBoundaryPath([4, 2], 10), makePath([3])],
+      [ecLink(10, 2, 3)],
+    );
+    setKvResolutions(
+      context,
+      new Map([
+        [1, [makeSgkv({keyDefSystemId: 10, valueDefSystemId: 100})]],
+        [2, [makeSgkv({keyDefSystemId: 20, valueDefSystemId: 200})]],
+        [3, [makeSgkv({keyDefSystemId: 30, valueDefSystemId: 300})]],
+        [4, [makeSgkv({keyDefSystemId: 40, valueDefSystemId: 400})]],
+      ]),
+    );
+
+    await service.run(context);
+
+    expect(context.usecaseCandidates.ecBridgeCandidates).toHaveLength(1);
+  });
+
+  it('generates one complete physical Bridge for an ordinary MDF EC chain', async () => {
+    const context = makeContext(
+      ROUTING_MODE.Auto,
+      [1, 2, 3],
+      [ecBoundaryPath([1], 10), makePath([3])],
+      [ecLink(10, 1, 2), ecLink(11, 2, 3)],
+      [2],
+    );
+    setKvResolutions(
+      context,
+      new Map([
+        [1, [makeSgkv({keyDefSystemId: 10, valueDefSystemId: 100})]],
+        [2, [makeSgkv()]],
+        [3, [makeSgkv({keyDefSystemId: 30, valueDefSystemId: 300})]],
+      ]),
+    );
+
+    const result = await service.run(context);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(context.usecaseCandidates.ecBridgeCandidates).toEqual([
+      expect.objectContaining({
+        representativeDataLinkSystemId: 10,
+        dataLinkSystemIds: [10, 11],
+        path: makePath([1, 2, 3]),
+      }),
+    ]);
+    expect(context.warnings).toEqual([]);
   });
 
   it('T2-046 expands ordered manual scope, including a single-SG candidate', async () => {

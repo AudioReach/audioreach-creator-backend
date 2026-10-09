@@ -4,13 +4,21 @@
  */
 
 import {Result} from '../../../../../application/shared/result/result.js';
+import type {Issue} from '../../../../../shared/issues/issue.js';
 import type {RoutingContext} from '../../contracts/routing-context.js';
-import {ROUTING_MODE} from '../../contracts/routing-input.js';
-import type {
-  AutoUsecaseCandidate,
-  ManualUsecaseCandidate,
+import {
+  ROUTING_MODE,
+  type AutoRoutingInput,
+} from '../../contracts/routing-input.js';
+import {
+  PATH_TERMINATION,
+  type AutoUsecaseCandidate,
+  type DfsPath,
+  type EcBridgeUsecaseCandidate,
+  type KvResolutions,
+  type ManualUsecaseCandidate,
+  USECASE_CANDIDATE_KIND,
 } from '../../contracts/routing-state.js';
-import {USECASE_CANDIDATE_KIND} from '../../contracts/routing-state.js';
 import {
   RoutingIssueFactory,
   type UsecaseCandidateConflictDetails,
@@ -21,6 +29,7 @@ import {
   expandSubgraphCombinations,
   type PathExpansion,
 } from './path-combination-expander.js';
+import {logicalEcConnections} from '../../shared/logical-ec-connections.js';
 
 /** One valid SGKV assignment paired with its aggregated GKV, ready to become a candidate. */
 type ExpandedAssignment = {
@@ -64,6 +73,99 @@ function resolveExpansion(
   return {conflict: null, assignments};
 }
 
+function expandAutomaticPaths(
+  paths: readonly DfsPath[],
+  perSg: KvResolutions['perSg'],
+) {
+  const conflicts: UsecaseCandidateConflictDetails[] = [];
+  const candidates: AutoUsecaseCandidate[] = [];
+  for (const path of paths) {
+    const outcome = resolveExpansion(
+      expandPath(path, perSg),
+      path.subgraphSystemIds,
+    );
+    if (outcome.conflict) {
+      conflicts.push(outcome.conflict);
+      continue;
+    }
+    for (const {sgkvAssignment, gkv} of outcome.assignments) {
+      candidates.push({
+        kind: USECASE_CANDIDATE_KIND.Auto,
+        path,
+        sgkvAssignment,
+        gkv,
+      });
+    }
+  }
+  return {candidates, conflicts};
+}
+
+function expandEcBridges(
+  input: AutoRoutingInput,
+  paths: readonly DfsPath[],
+  perSg: KvResolutions['perSg'],
+) {
+  const connectionsById = new Map(
+    logicalEcConnections(
+      input.graphSnapshot.routableDataLinks,
+      input.graphSnapshot.mdfSubgraphSystemIds,
+    ).map(connection => [
+      connection.representativeDataLinkSystemId,
+      connection,
+    ]),
+  );
+  const candidates: EcBridgeUsecaseCandidate[] = [];
+  const issues: Issue[] = [];
+  const expandedConnectionIds = new Set<number>();
+  for (const boundaryPath of paths) {
+    if (boundaryPath.termination !== PATH_TERMINATION.EcBoundary) continue;
+    const connectionId = boundaryPath.ecBoundaryLinkId;
+    if (connectionId === null)
+      throw new Error('An EC-boundary path requires an EC connection ID');
+    if (expandedConnectionIds.has(connectionId)) continue;
+    expandedConnectionIds.add(connectionId);
+    const connection = connectionsById.get(connectionId);
+    if (!connection)
+      throw new Error(
+        `EC connection ${connectionId} is absent from the routing snapshot`,
+      );
+    const bridgePath = {
+      subgraphSystemIds: connection.subgraphSystemIds,
+      termination: PATH_TERMINATION.NaturalLeaf,
+      ecBoundaryLinkId: null,
+    } as const;
+    const outcome = resolveExpansion(
+      expandPath(bridgePath, perSg),
+      bridgePath.subgraphSystemIds,
+    );
+    if (outcome.conflict) {
+      // The complete Bridge owns the EC connection's physical pair coverage. Publishing
+      // Left/Right candidates without it would leave that topology orphaned.
+      issues.push(
+        RoutingIssueFactory.ecBridgeIncompatible(
+          connection.representativeDataLinkSystemId,
+          connection.subgraphSystemIds,
+          connection.dataLinkSystemIds,
+          outcome.conflict,
+        ),
+      );
+      continue;
+    }
+    for (const {sgkvAssignment, gkv} of outcome.assignments) {
+      candidates.push({
+        kind: USECASE_CANDIDATE_KIND.EcBridge,
+        representativeDataLinkSystemId:
+          connection.representativeDataLinkSystemId,
+        dataLinkSystemIds: connection.dataLinkSystemIds,
+        path: bridgePath,
+        sgkvAssignment,
+        gkv,
+      });
+    }
+  }
+  return {candidates, issues};
+}
+
 export class CombinationExpansionPhase {
   /**
    * Expands Phase 7's DFS paths (auto mode) or the manual topology's member subgraphs
@@ -87,35 +189,23 @@ export class CombinationExpansionPhase {
     if (input.mode === ROUTING_MODE.Auto) {
       // Each DFS path expands independently; collect locally so one conflicting path
       // cannot publish the candidates already found for the other paths.
-      const conflictingPathDetails: UsecaseCandidateConflictDetails[] = [];
-      const automaticCandidates: AutoUsecaseCandidate[] = [];
-      for (const path of context.dfsPaths) {
-        const outcome = resolveExpansion(
-          expandPath(path, perSg),
-          path.subgraphSystemIds,
-        );
-        if (outcome.conflict) {
-          conflictingPathDetails.push(outcome.conflict);
-          continue;
-        }
-        for (const {sgkvAssignment, gkv} of outcome.assignments) {
-          automaticCandidates.push({
-            kind: USECASE_CANDIDATE_KIND.Auto,
-            path,
-            sgkvAssignment,
-            gkv,
-          });
-        }
-      }
-      if (conflictingPathDetails.length > 0) {
+      const pathExpansion = expandAutomaticPaths(context.dfsPaths, perSg);
+      if (pathExpansion.conflicts.length > 0) {
         return Result.fail(
-          ...conflictingPathDetails.map(details =>
+          ...pathExpansion.conflicts.map(details =>
             RoutingIssueFactory.noValidCombination(details),
           ),
         );
       }
+      const bridgeExpansion = expandEcBridges(input, context.dfsPaths, perSg);
+      if (bridgeExpansion.issues.length > 0) {
+        return Result.fail(...bridgeExpansion.issues);
+      }
       context.usecaseCandidates.automaticCandidates.push(
-        ...automaticCandidates,
+        ...pathExpansion.candidates,
+      );
+      context.usecaseCandidates.ecBridgeCandidates.push(
+        ...bridgeExpansion.candidates,
       );
       return Result.ok();
     }

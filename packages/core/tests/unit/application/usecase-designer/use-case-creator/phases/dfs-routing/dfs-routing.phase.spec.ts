@@ -51,6 +51,7 @@ function makeContext(
   subgraphSystemIds: readonly number[],
   roots: readonly number[],
   links: readonly DataLink[],
+  mdfSubgraphSystemIds: readonly number[] = [],
 ): RoutingContext {
   const input = createAutoRoutingInput({
     fileSystemId: FILE_ID,
@@ -67,6 +68,7 @@ function makeContext(
     selectedUsecases: [],
     graphSnapshot: {
       subgraphs: subgraphSystemIds.map(makeSubgraph),
+      mdfSubgraphSystemIds: new Set(mdfSubgraphSystemIds),
       routableDataLinks: links,
       routableControlLinks: [],
       overlayDataLinks: links,
@@ -164,20 +166,227 @@ describe('DfsRoutingPhase', () => {
     );
   });
 
-  it('T1-006 and T2-016 traverse only effective intra-usecase data links', async () => {
+  it('T1-006 and T2-016 excludes inter-usecase data links', async () => {
     const context = makeContext(
-      [1, 2, 3, 4],
+      [1, 2, 3],
       [1],
       [
         makeDataLink(1, 1, 2),
         makeDataLink(2, 2, 3, DATA_LINK_TYPE.InterUsecase),
-        makeDataLink(3, 3, 4, DATA_LINK_TYPE.Ec),
       ],
     );
 
     await service.run(context);
 
     expect(context.dfsPaths).toEqual([naturalLeaf([1, 2])]);
+  });
+
+  it('T1-017 and T-EC-a split a linear route at an EC boundary', async () => {
+    const context = makeContext(
+      [1, 2, 3, 4],
+      [1],
+      [
+        makeDataLink(1, 1, 2),
+        makeDataLink(2, 2, 3, DATA_LINK_TYPE.Ec),
+        makeDataLink(3, 3, 4),
+      ],
+    );
+
+    const result = await service.run(context);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(context.dfsPaths).toEqual([
+      {
+        subgraphSystemIds: [1, 2],
+        termination: PATH_TERMINATION.EcBoundary,
+        ecBoundaryLinkId: 2,
+      },
+      naturalLeaf([3, 4]),
+    ]);
+  });
+
+  it('emits valid one-subgraph Left and Right paths when EC connects two leaves', async () => {
+    const context = makeContext(
+      [1, 2],
+      [1],
+      [makeDataLink(10, 1, 2, DATA_LINK_TYPE.Ec)],
+    );
+
+    await service.run(context);
+
+    expect(context.dfsPaths).toEqual([
+      {
+        subgraphSystemIds: [1],
+        termination: PATH_TERMINATION.EcBoundary,
+        ecBoundaryLinkId: 10,
+      },
+      naturalLeaf([2]),
+    ]);
+  });
+
+  it('T2-045 keeps a regular branch while splitting the EC branch', async () => {
+    const context = makeContext(
+      [1, 2, 3, 4],
+      [1],
+      [
+        makeDataLink(1, 1, 2),
+        makeDataLink(2, 2, 3, DATA_LINK_TYPE.Ec),
+        makeDataLink(3, 2, 4),
+      ],
+    );
+
+    await service.run(context);
+
+    expect(context.dfsPaths).toEqual([
+      naturalLeaf([1, 2, 4]),
+      {
+        subgraphSystemIds: [1, 2],
+        termination: PATH_TERMINATION.EcBoundary,
+        ecBoundaryLinkId: 2,
+      },
+      naturalLeaf([3]),
+    ]);
+  });
+
+  it('T-EC-e emits every right-side leaf', async () => {
+    const context = makeContext(
+      [1, 2, 3, 4],
+      [1],
+      [
+        makeDataLink(10, 1, 2, DATA_LINK_TYPE.Ec),
+        makeDataLink(11, 2, 3),
+        makeDataLink(12, 2, 4),
+      ],
+    );
+
+    await service.run(context);
+
+    expect(context.dfsPaths).toEqual([
+      {
+        subgraphSystemIds: [1],
+        termination: PATH_TERMINATION.EcBoundary,
+        ecBoundaryLinkId: 10,
+      },
+      naturalLeaf([2, 3]),
+      naturalLeaf([2, 4]),
+    ]);
+  });
+
+  it('T-EC-d reports a cycle reached from the right side of an EC boundary', async () => {
+    const context = makeContext(
+      [1, 2, 3],
+      [1],
+      [
+        makeDataLink(10, 1, 2, DATA_LINK_TYPE.Ec),
+        makeDataLink(11, 2, 3),
+        makeDataLink(12, 3, 2),
+      ],
+    );
+
+    const result = await service.run(context);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(context.dfsPaths).toEqual([
+      {
+        subgraphSystemIds: [1],
+        termination: PATH_TERMINATION.EcBoundary,
+        ecBoundaryLinkId: 10,
+      },
+      {
+        subgraphSystemIds: [2, 3],
+        termination: PATH_TERMINATION.Cycle,
+        ecBoundaryLinkId: null,
+      },
+    ]);
+    expect(context.warnings).toEqual([
+      expect.objectContaining({
+        code: 'ARC-ROUTING-CYCLE-DETECTED',
+        impactedEntity: {entityType: 'Subgraph', systemId: 2},
+      }),
+    ]);
+  });
+
+  it('T-EC-f runs one right traversal when multiple left paths reach the same EC', async () => {
+    const context = makeContext(
+      [1, 2, 3, 4, 5, 6],
+      [1],
+      [
+        makeDataLink(1, 1, 2),
+        makeDataLink(2, 1, 3),
+        makeDataLink(3, 2, 4),
+        makeDataLink(4, 3, 4),
+        makeDataLink(10, 4, 5, DATA_LINK_TYPE.Ec),
+        makeDataLink(11, 5, 6),
+      ],
+    );
+
+    await service.run(context);
+
+    expect(context.dfsPaths).toEqual([
+      {
+        subgraphSystemIds: [1, 2, 4],
+        termination: PATH_TERMINATION.EcBoundary,
+        ecBoundaryLinkId: 10,
+      },
+      naturalLeaf([5, 6]),
+      {
+        subgraphSystemIds: [1, 3, 4],
+        termination: PATH_TERMINATION.EcBoundary,
+        ecBoundaryLinkId: 10,
+      },
+    ]);
+  });
+
+  it('T2-039 blocks two logical EC connections on one path without publishing paths', async () => {
+    const context = makeContext(
+      [1, 2, 3, 4],
+      [1],
+      [
+        makeDataLink(10, 1, 2, DATA_LINK_TYPE.Ec),
+        makeDataLink(11, 2, 3),
+        makeDataLink(12, 3, 4, DATA_LINK_TYPE.Ec),
+      ],
+    );
+
+    const result = await service.run(context);
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        kind: RESULT_KIND.Fail,
+        issues: [
+          expect.objectContaining({
+            code: 'ARC-ROUTING-EC-05',
+            message: expect.stringContaining('first EC data link 10'),
+          }),
+        ],
+      }),
+    );
+    expect(context.dfsPaths).toEqual([]);
+  });
+
+  it('treats an MDF-transparent physical EC chain as one logical boundary', async () => {
+    const context = makeContext(
+      [1, 2, 3, 4],
+      [1],
+      [
+        makeDataLink(10, 1, 2, DATA_LINK_TYPE.Ec),
+        makeDataLink(11, 2, 3, DATA_LINK_TYPE.Ec),
+        makeDataLink(12, 3, 4),
+      ],
+      [2],
+    );
+
+    const result = await service.run(context);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(context.dfsPaths).toEqual([
+      {
+        subgraphSystemIds: [1],
+        termination: PATH_TERMINATION.EcBoundary,
+        ecBoundaryLinkId: 10,
+      },
+      naturalLeaf([3, 4]),
+    ]);
   });
 
   it('T1-004, T2-014, and T2-015 emit cycle paths and continue sibling traversal', async () => {
@@ -279,7 +488,7 @@ describe('DfsRoutingPhase', () => {
     expect(reconstructionPaths).toEqual(original);
   });
 
-  it('leaves manual mode unchanged until PR 7', async () => {
+  it('leaves manual-mode DFS paths unchanged', async () => {
     const context = makeContext([1, 2], [1], [makeDataLink(1, 1, 2)]);
     const manualInput = {
       ...context.input,

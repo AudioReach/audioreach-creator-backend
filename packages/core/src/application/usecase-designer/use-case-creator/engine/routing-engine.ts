@@ -29,8 +29,8 @@ import type {ResponseBuilderPhase} from '../phases/response-builder.phase.js';
 import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
 
 /**
- * A phase's outcome, however it got there. Most phases do real I/O and stay `async`;
- * a few (e.g. `CombinationExpansionPhase`) only touch in-memory `RoutingContext` state
+ * A phase's outcome, however it got there. I/O phases stay `async`; pure phases
+ * (e.g. `CombinationExpansionPhase`) only touch in-memory `RoutingContext` state
  * and return synchronously. `await` resolves either shape, so the engine does not need
  * every phase to pretend to be asynchronous just to fit one closure signature.
  */

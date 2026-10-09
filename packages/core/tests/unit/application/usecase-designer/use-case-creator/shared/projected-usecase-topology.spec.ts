@@ -36,6 +36,7 @@ function input(
     },
     graphSnapshot: {
       subgraphs: [],
+      mdfSubgraphSystemIds: new Set(),
       routableDataLinks: [],
       routableControlLinks: [],
       overlayDataLinks: [],

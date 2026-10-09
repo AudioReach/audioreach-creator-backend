@@ -23,15 +23,17 @@ import type {
 } from '../../contracts/routing-state.js';
 import {
   buildTopologyImpactInventory,
-  directedPairKey,
   sortedBySystemId,
-  unorderedPairKey,
   type DirectedEdge,
   type TopologyImpactInventory,
 } from './topology-impact-inventory.js';
 import {DATA_LINK_TYPE} from '../../../../../domain/entities/usecase-data/links/data-link-type.js';
 import {MdfSubstitutionAnalyzer} from './mdf-substitution-analyzer.js';
 import {computeUsecaseTypeFromPairSupport} from '../../shared/usecase-type-classifier.js';
+import {
+  directedPairKey,
+  unorderedPairKey,
+} from '../../shared/usecase-topology.js';
 
 const STORED_TOPOLOGY_KIND = {
   SinglePath: 'single-path',

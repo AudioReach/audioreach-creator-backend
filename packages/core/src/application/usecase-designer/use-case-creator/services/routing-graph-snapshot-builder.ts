@@ -11,6 +11,7 @@ import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {READ_MODE} from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
+import type {ActiveManualUsecaseEdit} from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
 import type {
   ActiveSubgraphSelection,
   GraphEditSummary,
@@ -29,6 +30,7 @@ export interface RoutingGraphSnapshotBuildInput {
   readonly excludedDataLinkSystemIds: readonly number[];
   readonly excludedControlLinkSystemIds: readonly number[];
   readonly sessionEdits: GraphEditSummary;
+  readonly activeManualUsecaseEdits: readonly ActiveManualUsecaseEdit[];
 }
 
 function isInScope(
@@ -78,25 +80,36 @@ export class RoutingGraphSnapshotBuilder {
     const effectiveIds = new Set(
       selections.map(selection => selection.systemId),
     );
-    const [
-      subgraphData,
-      overlayDataLinks,
-      overlayControlLinks,
-      committedUsecases,
-    ] = await Promise.all([
-      uow
-        .getSubgraphRepository()
-        .getAggregates([...effectiveIds], input.fileSystemId),
-      uow.getDataLinkRepository().findIntraUcLinksByFile(input.fileSystemId),
-      uow.getControlLinkRepository().findIntraUcLinksByFile(input.fileSystemId),
-      uow.getUsecaseRepository().findAll(input.fileSystemId, {
-        readMode: READ_MODE.Committed,
-      }),
-    ]);
-    const subgraphs = [...subgraphData.values()];
+    const [overlayDataLinks, overlayControlLinks, committedUsecases] =
+      await Promise.all([
+        uow.getDataLinkRepository().findIntraUcLinksByFile(input.fileSystemId),
+        uow
+          .getControlLinkRepository()
+          .findIntraUcLinksByFile(input.fileSystemId),
+        uow.getUsecaseRepository().findAll(input.fileSystemId, {
+          readMode: READ_MODE.Committed,
+        }),
+      ]);
+    // Routing remains selection-scoped, but Rule C is file-wide. Classify MDF identity
+    // for every SG referenced by committed or pending MANUAL UseCases without widening
+    // snapshot.subgraphs or introducing repository reads inside routing phases.
+    const catalogSubgraphIds = new Set(effectiveIds);
+    for (const usecase of committedUsecases) {
+      for (const subgraphSystemId of usecase.subgraphSystemIds)
+        catalogSubgraphIds.add(subgraphSystemId);
+    }
+    for (const edit of input.activeManualUsecaseEdits) {
+      for (const subgraphSystemId of edit.usecase?.subgraphSystemIds ?? [])
+        catalogSubgraphIds.add(subgraphSystemId);
+    }
+    const subgraphData = await uow.getSubgraphRepository().getAggregates(
+      [...catalogSubgraphIds].sort((left, right) => left - right),
+      input.fileSystemId,
+    );
+    const catalogSubgraphs = [...subgraphData.values()];
 
     const subgraphsById = new Map(
-      subgraphs.map(subgraph => [subgraph.systemId, subgraph]),
+      catalogSubgraphs.map(subgraph => [subgraph.systemId, subgraph]),
     );
     const missingIssues = selections
       .filter(selection => !subgraphsById.has(selection.systemId))
@@ -121,7 +134,7 @@ export class RoutingGraphSnapshotBuilder {
       return Result.fail(...missingIssues, ...integrityIssues);
 
     const mdfSubgraphIds = await this.mdfClassification.classify(
-      subgraphs,
+      catalogSubgraphs,
       input.fileSystemId,
       uow,
     );
@@ -148,6 +161,7 @@ export class RoutingGraphSnapshotBuilder {
     return Result.ok(
       Object.freeze({
         subgraphs: Object.freeze(routingSubgraphs),
+        mdfSubgraphSystemIds: new Set(mdfSubgraphIds),
         routableDataLinks: Object.freeze([...routableDataLinks]),
         routableControlLinks: Object.freeze([...routableControlLinks]),
         overlayDataLinks: Object.freeze([...overlayDataLinks]),

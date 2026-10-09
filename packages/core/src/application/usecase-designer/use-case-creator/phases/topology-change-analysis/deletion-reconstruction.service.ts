@@ -18,12 +18,16 @@ import {
 } from '../../contracts/routing-state.js';
 import {
   compareDirectedEdges,
-  unorderedPairKey,
   type DirectedEdge,
   type TopologyImpactInventory,
 } from './topology-impact-inventory.js';
 import {DATA_LINK_TYPE} from '../../../../../domain/entities/usecase-data/links/data-link-type.js';
 import type {UseCase} from '../../../../../domain/entities/usecase-data/usecase/usecase.js';
+import {
+  directedPairKey,
+  unorderedPairKey,
+} from '../../shared/usecase-topology.js';
+import {logicalEcConnections} from '../../shared/logical-ec-connections.js';
 
 export interface DeletionReconstructionRequest {
   readonly input: RoutingInput;
@@ -32,7 +36,7 @@ export interface DeletionReconstructionRequest {
 }
 
 interface LegacyEcBoundary {
-  readonly pairKey: string;
+  readonly physicalPairKeys: readonly string[];
   readonly sourceSubgraphSystemId: number;
   readonly destSubgraphSystemId: number;
 }
@@ -83,39 +87,100 @@ function filteredBaselineSgkvSet(
   return values;
 }
 
+/**
+ * Finds the logical EC crossing inside a legacy monolithic EC UseCase.
+ *
+ * Phase 2 uses this boundary in two places: first to batch-load SGKV baselines for only
+ * the logical left/right endpoints, and then to decide whether bounded deletion
+ * reconstruction may cross the EC connection. Unchanged endpoints leave the connection
+ * traversable; changed or unavailable endpoints cause every physical EC pair in the
+ * connection to be blocked. This special traversal is necessary because the normal DFS
+ * intentionally stops at EC boundaries and therefore cannot recreate a legacy UC that
+ * spans one.
+ *
+ * An empty result means the UseCase is not a legacy monolithic EC shape. In particular,
+ * a new-scheme MDF Bridge may contain more than two SGs, but has no topology outside its
+ * logical EC connection and must not be mistaken for a legacy UC.
+ */
 function legacyEcBoundaries(
   input: RoutingInput,
   usecase: UseCase,
 ): readonly LegacyEcBoundary[] {
-  if (usecase.type !== 'EC' || usecase.subgraphSystemIds.length <= 2) return [];
-  const pairKeys = new Set(
+  // Only EC UseCases can own the cross-EC legacy reconstruction exception.
+  if (usecase.type !== 'EC') return [];
+
+  // Limit discovery to directed pairs actually stored by this UseCase. Deleted links
+  // remain relevant because Phase 2 must recognize the pre-edit EC boundary, while the
+  // effective overlay wins when the same physical link appears in multiple catalogs.
+  const usecasePairKeys = new Set(
     usecase.subgraphPairs.map(pair =>
-      unorderedPairKey(pair.sourceSubgraphSystemId, pair.destSubgraphSystemId),
+      directedPairKey(pair.sourceSubgraphSystemId, pair.destSubgraphSystemId),
     ),
   );
-  const boundaries = new Map<string, LegacyEcBoundary>();
-  const links = [
-    ...input.graphSnapshot.overlayDataLinks,
-    ...input.graphSnapshot.routableDataLinks,
-    ...input.graphSnapshot.sessionEdits.deletedDataLinks,
-  ];
-  for (const link of links) {
-    const pairKey = unorderedPairKey(
-      link.sourceSubgraphSystemId,
-      link.destSubgraphSystemId,
-    );
-    if (link.linkType !== DATA_LINK_TYPE.Ec || !pairKeys.has(pairKey)) continue;
-    boundaries.set(pairKey, {
-      pairKey,
-      sourceSubgraphSystemId: link.sourceSubgraphSystemId,
-      destSubgraphSystemId: link.destSubgraphSystemId,
-    });
-  }
-  return [...boundaries.values()].sort(
-    (left, right) =>
-      left.sourceSubgraphSystemId - right.sourceSubgraphSystemId ||
-      left.destSubgraphSystemId - right.destSubgraphSystemId,
+  const linksById = new Map(
+    [
+      ...input.graphSnapshot.sessionEdits.deletedDataLinks,
+      ...input.graphSnapshot.routableDataLinks,
+      ...input.graphSnapshot.overlayDataLinks,
+    ].map(link => [link.systemId, link]),
   );
+  const ecLinks = [...linksById.values()].filter(
+    link =>
+      link.linkType === DATA_LINK_TYPE.Ec &&
+      usecasePairKeys.has(
+        directedPairKey(link.sourceSubgraphSystemId, link.destSubgraphSystemId),
+      ),
+  );
+
+  // Collapse a direct EC link or an MDF-transparent EC chain into one logical crossing.
+  // Rule C allows exactly one such crossing in a legacy EC UseCase.
+  const connections = logicalEcConnections(
+    ecLinks,
+    input.graphSnapshot.mdfSubgraphSystemIds,
+  );
+  if (connections.length !== 1) return [];
+
+  const connection = connections[0];
+
+  // Legacy UCs contain the complete EC connection plus additional path topology on one
+  // or both sides. Requiring that strict superset distinguishes them from new Bridges,
+  // including multi-SG Bridges whose physical EC path passes through MDF members.
+  const connectionMemberIds = new Set(connection.subgraphSystemIds);
+  const connectionPairKeys = connection.subgraphSystemIds
+    .slice(1)
+    .map((destSubgraphSystemId, index) =>
+      directedPairKey(
+        connection.subgraphSystemIds[index],
+        destSubgraphSystemId,
+      ),
+    );
+  const containsCompleteConnection =
+    [...connectionMemberIds].every(id =>
+      usecase.subgraphSystemIds.includes(id),
+    ) && connectionPairKeys.every(key => usecasePairKeys.has(key));
+  const hasLegacyTopologyOutsideConnection =
+    new Set(usecase.subgraphSystemIds).size > connectionMemberIds.size ||
+    usecasePairKeys.size > new Set(connectionPairKeys).size;
+  if (!containsCompleteConnection || !hasLegacyTopologyOutsideConnection)
+    return [];
+
+  // The bounded DFS compares relationships using unordered keys when deciding whether
+  // an EC edge is blocked. Return every physical pair so one logical MDF chain is opened
+  // or closed atomically, while SGKV comparison remains limited to its logical endpoints.
+  return [
+    {
+      physicalPairKeys: connection.subgraphSystemIds
+        .slice(1)
+        .map((destSubgraphSystemId, index) =>
+          unorderedPairKey(
+            connection.subgraphSystemIds[index],
+            destSubgraphSystemId,
+          ),
+        ),
+      sourceSubgraphSystemId: connection.leftSubgraphSystemId,
+      destSubgraphSystemId: connection.rightSubgraphSystemId,
+    },
+  ];
 }
 
 function storedEndpoints(usecase: UseCase): readonly [number, number] | null {
@@ -147,7 +212,7 @@ function blockedLegacyBoundaries(
       boundary.destSubgraphSystemId,
     );
     if (sourceRequested === null || destinationRequested === null) {
-      blocked.add(boundary.pairKey);
+      for (const pairKey of boundary.physicalPairKeys) blocked.add(pairKey);
       continue;
     }
     const sourceBaseline = filteredBaselineSgkvSet(
@@ -162,7 +227,7 @@ function blockedLegacyBoundaries(
       !sameCanonicalSgkvSets(sourceRequested, sourceBaseline) ||
       !sameCanonicalSgkvSets(destinationRequested, destinationBaseline)
     ) {
-      blocked.add(boundary.pairKey);
+      for (const pairKey of boundary.physicalPairKeys) blocked.add(pairKey);
     }
   }
   return blocked;

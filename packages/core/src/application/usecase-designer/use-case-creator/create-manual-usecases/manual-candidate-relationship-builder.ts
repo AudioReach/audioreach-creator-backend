@@ -5,6 +5,7 @@
 
 import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
 import type {SubgraphPair} from '../../../../application/ports/persistence/repositories/shared/links-for-pair.js';
+import {unorderedPairKey} from '../shared/usecase-topology.js';
 
 /**
  * The complete subgraph scope and the selected UseCases that authorize
@@ -67,9 +68,4 @@ export class ManualCandidateRelationshipBuilder {
     }
     return candidates;
   }
-}
-
-/** Identifies an unordered relationship without changing the emitted pair. */
-function unorderedPairKey(left: number, right: number): string {
-  return `${Math.min(left, right)}:${Math.max(left, right)}`;
 }

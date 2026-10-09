@@ -35,12 +35,46 @@ export function canonicalNumericSetKey(ids: Iterable<number>): string {
   return [...new Set(ids)].sort((left, right) => left - right).join(',');
 }
 
-/** Encodes a directional edge; reversing the IDs produces a different key. */
+/**
+ * Builds an in-memory key for a directed subgraph relationship.
+ * The source and destination remain ordered, so reversing them produces a
+ * different key.
+ */
 export function directedPairKey(
   sourceSubgraphSystemId: number,
   destSubgraphSystemId: number,
 ): string {
   return `${sourceSubgraphSystemId}>${destSubgraphSystemId}`;
+}
+
+/**
+ * Builds an in-memory key for an unordered subgraph relationship.
+ * The endpoint IDs are normalized to ascending order, so either direction
+ * produces the same key.
+ */
+export function unorderedPairKey(
+  firstSubgraphSystemId: number,
+  secondSubgraphSystemId: number,
+): string {
+  return firstSubgraphSystemId < secondSubgraphSystemId
+    ? `${firstSubgraphSystemId}>${secondSubgraphSystemId}`
+    : `${secondSubgraphSystemId}>${firstSubgraphSystemId}`;
+}
+
+/** Builds a directed key by extracting the ordered endpoints from a pair. */
+export function directedPairKeyOf(pair: SubgraphPair): string {
+  return directedPairKey(
+    pair.sourceSubgraphSystemId,
+    pair.destSubgraphSystemId,
+  );
+}
+
+/** Builds an unordered key by extracting the endpoints from a pair. */
+export function unorderedPairKeyOf(pair: SubgraphPair): string {
+  return unorderedPairKey(
+    pair.sourceSubgraphSystemId,
+    pair.destSubgraphSystemId,
+  );
 }
 
 export function gkvValueIdKey(gkv: readonly KvPair[]): string {

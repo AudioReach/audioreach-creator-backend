@@ -83,6 +83,7 @@ export class AutoRoutingPreparationService {
         excludedDataLinkSystemIds: selection.excludedDataLinkSystemIds,
         excludedControlLinkSystemIds: selection.excludedControlLinkSystemIds,
         sessionEdits: graphEdits,
+        activeManualUsecaseEdits,
       },
       uow,
     );

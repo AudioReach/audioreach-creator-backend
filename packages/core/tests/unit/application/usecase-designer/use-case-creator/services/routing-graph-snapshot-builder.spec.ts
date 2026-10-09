@@ -5,6 +5,7 @@
 
 import {describe, expect, it, jest} from '@jest/globals';
 import {RESULT_KIND} from '../../../../../../src/application/shared/result/result.js';
+import {CHANGE_OPERATION} from '../../../../../../src/application/shared/change-vocabulary.js';
 import {READ_MODE} from '../../../../../../src/application/ports/persistence/repositories/usecase/usecase.repository.js';
 import {emptyGraphEdits} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
 import {RoutingGraphSnapshotBuilder} from '../../../../../../src/application/usecase-designer/use-case-creator/services/routing-graph-snapshot-builder.js';
@@ -50,6 +51,7 @@ function buildInput(
     excludedDataLinkSystemIds: [],
     excludedControlLinkSystemIds: [],
     sessionEdits: emptyGraphEdits(),
+    activeManualUsecaseEdits: [],
     ...overrides,
   };
 }
@@ -141,7 +143,7 @@ describe('RoutingGraphSnapshotBuilder', () => {
       subgraphs: [subgraph(10), subgraph(20)],
       dataLinks,
       controlLinks,
-      committedUsecases: [subgraph(900)],
+      committedUsecases: [{systemId: 900, subgraphSystemIds: []}],
     });
     const classify = jest.fn(async () => new Set<number>([20]));
     const builder = new RoutingGraphSnapshotBuilder({classify} as never);
@@ -205,7 +207,72 @@ describe('RoutingGraphSnapshotBuilder', () => {
         [12, 13],
       ]);
       expect(result.data.subgraphs[0]!.isMdf).toBe(true);
+      expect(result.data.mdfSubgraphSystemIds).toEqual(new Set([10]));
     }
+  });
+
+  it('classifies committed UseCase members outside the selected routing scope', async () => {
+    const catalog = createUow({
+      subgraphs: [subgraph(10), subgraph(20), subgraph(30)],
+      dataLinks: [],
+      controlLinks: [],
+      committedUsecases: [{systemId: 900, subgraphSystemIds: [20, 30]}],
+    });
+    const classify = jest.fn(async () => new Set([20]));
+    const builder = new RoutingGraphSnapshotBuilder({classify} as never);
+
+    const result = await builder.build(
+      buildInput([{systemId: 10, sgkvs: []}]),
+      catalog.uow as never,
+    );
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(catalog.getAggregates).toHaveBeenCalledWith([10, 20, 30], 7);
+    expect(classify).toHaveBeenCalledWith(
+      [subgraph(10), subgraph(20), subgraph(30)],
+      7,
+      catalog.uow,
+    );
+    if (result.kind === RESULT_KIND.Ok) {
+      expect(result.data.subgraphs.map(item => item.subgraph.systemId)).toEqual(
+        [10],
+      );
+      expect(result.data.mdfSubgraphSystemIds).toEqual(new Set([20]));
+    }
+  });
+
+  it('classifies active MANUAL UseCase members outside the selected routing scope', async () => {
+    const catalog = createUow({
+      subgraphs: [subgraph(10), subgraph(40), subgraph(50)],
+      dataLinks: [],
+      controlLinks: [],
+    });
+    const classify = jest.fn(async () => new Set([50]));
+    const builder = new RoutingGraphSnapshotBuilder({classify} as never);
+
+    const result = await builder.build(
+      buildInput([{systemId: 10, sgkvs: []}], {
+        activeManualUsecaseEdits: [
+          {
+            changeId: 300,
+            operation: CHANGE_OPERATION.Update,
+            usecase: {systemId: 900, subgraphSystemIds: [40, 50]} as never,
+            referencedComponents: null,
+          },
+        ],
+      }),
+      catalog.uow as never,
+    );
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(catalog.getAggregates).toHaveBeenCalledWith([10, 40, 50], 7);
+    expect(classify).toHaveBeenCalledWith(
+      [subgraph(10), subgraph(40), subgraph(50)],
+      7,
+      catalog.uow,
+    );
+    if (result.kind === RESULT_KIND.Ok)
+      expect(result.data.mdfSubgraphSystemIds).toEqual(new Set([50]));
   });
 
   it('copies and freezes session edit collections', async () => {

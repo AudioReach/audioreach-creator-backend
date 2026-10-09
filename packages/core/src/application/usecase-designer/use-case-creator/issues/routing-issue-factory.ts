@@ -418,6 +418,68 @@ export const RoutingIssueFactory = {
     };
   },
 
+  multipleEcConnectionsInUsecase(
+    usecaseSystemId: number,
+    ecDataLinkSystemIds: readonly number[],
+    pairCount: number,
+  ): Issue {
+    const linkIds = sortedIds(ecDataLinkSystemIds);
+    return {
+      code: ISSUE_CODE.ROUTING_EC_MULTIPLE_LINKS,
+      severity: IssueSeverity.Error,
+      impactedEntity: {
+        entityType: ISSUE_ENTITY_TYPE.UseCase,
+        systemId: usecaseSystemId,
+      },
+      message:
+        `UseCase ${usecaseSystemId} contains more than one logical EC connection ` +
+        `(EC data-link systemIds: [${linkIds.join(', ')}], pairCount: ${pairCount}).`,
+    };
+  },
+
+  multipleEcConnectionsOnPath(
+    pathSubgraphSystemIds: readonly number[],
+    firstEcDataLinkSystemId: number,
+    secondEcDataLinkSystemId: number,
+  ): Issue {
+    return {
+      code: ISSUE_CODE.ROUTING_EC_MULTIPLE_ON_PATH,
+      severity: IssueSeverity.Error,
+      impactedEntity: {
+        entityType: ISSUE_ENTITY_TYPE.DataLink,
+        systemId: secondEcDataLinkSystemId,
+      },
+      message:
+        `Routing path [${pathSubgraphSystemIds.join(', ')}] crosses more than one ` +
+        `logical EC connection (first EC data link ${firstEcDataLinkSystemId}, ` +
+        `second EC data link ${secondEcDataLinkSystemId}).`,
+    };
+  },
+
+  ecBridgeIncompatible(
+    representativeDataLinkSystemId: number,
+    subgraphSystemIds: readonly number[],
+    dataLinkSystemIds: readonly number[],
+    details: UsecaseCandidateConflictDetails,
+  ): Issue {
+    const conflictingKeyIds = sortedIds(
+      new Set(details.conflicts.map(conflict => conflict.keyDefSystemId)),
+    );
+    return {
+      code: ISSUE_CODE.ROUTING_EC_BRIDGE_INCOMPATIBLE,
+      severity: IssueSeverity.Error,
+      impactedEntity: {
+        entityType: ISSUE_ENTITY_TYPE.DataLink,
+        systemId: representativeDataLinkSystemId,
+      },
+      message:
+        `EC Bridge path [${subgraphSystemIds.join(', ')}] using physical EC data links ` +
+        `[${dataLinkSystemIds.join(', ')}] has no compatible SGKV assignment because ` +
+        `its KV-contributing subgraphs conflict on key definitions ` +
+        `[${conflictingKeyIds.join(', ')}].`,
+    };
+  },
+
   manualCycleDetected(cycle: DirectedCycle): Issue {
     return {
       code: ISSUE_CODE.ROUTING_MANUAL_CYCLE,

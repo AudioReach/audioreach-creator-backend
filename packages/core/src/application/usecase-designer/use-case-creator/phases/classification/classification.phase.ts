@@ -7,12 +7,15 @@ import {Result} from '../../../../../application/shared/result/result.js';
 import {ROUTING_MODE} from '../../contracts/routing-input.js';
 import type {RoutingContext} from '../../contracts/routing-context.js';
 import type {UseCase} from '../../../../../domain/entities/usecase-data/usecase/usecase.js';
+import {USECASE_TYPE} from '../../../../../domain/entities/usecase-data/usecase/usecase-type.js';
 import type {ActiveManualUsecaseEdit} from '../../../../ports/persistence/repositories/usecase/usecase.repository.js';
 import {
   ROUTING_CLASSIFICATION_KIND,
   type ClassifiedUsecase,
   type ManualUsecaseCandidate,
   type RoutedUsecaseCandidate,
+  SEED_REASON,
+  USECASE_CANDIDATE_KIND,
   USECASE_TOPOLOGY_DECISION_KIND,
   type DeleteOrReconstructDecision,
 } from '../../contracts/routing-state.js';
@@ -30,7 +33,11 @@ import {
   exactTopologyEquals,
   gkvValueIdKey,
 } from '../../shared/usecase-topology.js';
-import {projectCommittedUcsWithMdfSubstitutions} from '../../shared/projected-usecase-topology.js';
+import {
+  buildProjectedUsecaseTopology,
+  projectCommittedUcsWithMdfSubstitutions,
+} from '../../shared/projected-usecase-topology.js';
+import {effectiveUsecasesWithManualEdits} from '../../shared/effective-usecase-catalog.js';
 
 interface ManualGkvBucket {
   readonly gkvValueSystemIds: readonly number[];
@@ -41,12 +48,80 @@ type MaterializedManualUsecaseEdit = ActiveManualUsecaseEdit & {
   readonly usecase: UseCase;
 };
 
+function suppressesLegacyBridge(
+  context: RoutingContext,
+  candidate: RoutedUsecaseCandidate,
+  projectedSurvivingUsecases: readonly UseCase[],
+): boolean {
+  if (candidate.kind !== USECASE_CANDIDATE_KIND.EcBridge) return false;
+  if (candidate.path.subgraphSystemIds.length < 2) {
+    throw new Error('An EC Bridge candidate requires two logical endpoints');
+  }
+  const leftSubgraphSystemId = candidate.path.subgraphSystemIds[0];
+  const rightSubgraphSystemId = candidate.path.subgraphSystemIds.at(-1)!;
+  const endpointKvChanged = [leftSubgraphSystemId, rightSubgraphSystemId].some(
+    subgraphSystemId =>
+      context.seeds?.reasons.get(subgraphSystemId) === SEED_REASON.KvChanged,
+  );
+  if (endpointKvChanged) return false;
+  const bridgeMemberIds = new Set(candidate.path.subgraphSystemIds);
+  const bridgePairKeys = new Set(
+    candidateDirectedPairs(candidate).map(pair =>
+      directedPairKey(pair.sourceSubgraphSystemId, pair.destSubgraphSystemId),
+    ),
+  );
+  return projectedSurvivingUsecases.some(usecase => {
+    if (usecase.type !== USECASE_TYPE.Ec) return false;
+    const projectedMemberIds = new Set(usecase.subgraphSystemIds);
+    const projectedPairKeys = new Set(
+      usecase.subgraphPairs.map(pair =>
+        directedPairKey(pair.sourceSubgraphSystemId, pair.destSubgraphSystemId),
+      ),
+    );
+    const coversCompleteBridge =
+      [...bridgeMemberIds].every(id => projectedMemberIds.has(id)) &&
+      [...bridgePairKeys].every(key => projectedPairKeys.has(key));
+    return (
+      coversCompleteBridge &&
+      (projectedMemberIds.size > bridgeMemberIds.size ||
+        projectedPairKeys.size > bridgePairKeys.size)
+    );
+  });
+}
+
+function isExactClassificationMatch(
+  candidate: RoutedUsecaseCandidate,
+  existingUsecase: UseCase,
+): boolean {
+  return (
+    exactTopologyEquals(candidate, existingUsecase) &&
+    (candidate.kind !== USECASE_CANDIDATE_KIND.EcBridge ||
+      existingUsecase.type === USECASE_TYPE.Ec)
+  );
+}
+
+function classifyManualMode(context: RoutingContext): Result<void> {
+  if (
+    context.usecaseCandidates.automaticCandidates.length > 0 ||
+    context.usecaseCandidates.ecBridgeCandidates.length > 0
+  ) {
+    throw new Error('Manual routing received a non-manual UseCase candidate');
+  }
+  const manualResult = classifyManualCandidates(
+    context,
+    context.usecaseCandidates.manualCandidates,
+  );
+  if (manualResult.issues.length > 0)
+    return Result.fail(...manualResult.issues);
+  context.classifiedUcs.push(...manualResult.classifications);
+  return Result.ok();
+}
+
 export class ClassificationPhase {
   constructor(
     private readonly sameGkvCollisionService: SameGkvCollisionService = new SameGkvCollisionService(),
   ) {}
 
-  // eslint-disable-next-line sonarjs/cognitive-complexity -- This method intentionally orchestrates mode validation, classification, collision collection, and atomic result publication.
   run(context: RoutingContext): Result<void> {
     const analysis = context.topologyChangeAnalysis;
     if (analysis === null)
@@ -57,28 +132,23 @@ export class ClassificationPhase {
         decision.kind === USECASE_TOPOLOGY_DECISION_KIND.DeleteOrReconstruct,
     );
 
-    if (context.input.mode === ROUTING_MODE.Manual) {
-      if (
-        context.usecaseCandidates.automaticCandidates.length > 0 ||
-        context.usecaseCandidates.ecBridgeCandidates.length > 0
-      )
-        throw new Error(
-          'Manual routing received a non-manual UseCase candidate',
-        );
-      const candidates: readonly ManualUsecaseCandidate[] =
-        context.usecaseCandidates.manualCandidates;
-      const manualResult = classifyManualCandidates(context, candidates);
-      if (manualResult.issues.length > 0)
-        return Result.fail(...manualResult.issues);
-      context.classifiedUcs.push(...manualResult.classifications);
-      return Result.ok();
-    }
+    if (context.input.mode === ROUTING_MODE.Manual)
+      return classifyManualMode(context);
 
     if (context.usecaseCandidates.manualCandidates.length > 0)
       throw new Error('Automatic routing received a manual UseCase candidate');
+    const projectedSurvivingUsecases =
+      buildProjectedUsecaseTopology(context).usecases;
     const candidates: RoutedUsecaseCandidate[] = [
       ...context.usecaseCandidates.automaticCandidates,
-      ...context.usecaseCandidates.ecBridgeCandidates,
+      ...context.usecaseCandidates.ecBridgeCandidates.filter(
+        candidate =>
+          !suppressesLegacyBridge(
+            context,
+            candidate,
+            projectedSurvivingUsecases,
+          ),
+      ),
     ];
     const projectedUsecases = projectCommittedUcsWithMdfSubstitutions(context);
     const buckets = this.sameGkvCollisionService.buildBuckets(
@@ -147,10 +217,10 @@ export class ClassificationPhase {
     }
 
     const exactCandidate = bucket.candidates.find(candidate =>
-      exactTopologyEquals(candidate, existingUsecase),
+      isExactClassificationMatch(candidate, existingUsecase),
     );
     const nonExactCandidates = bucket.candidates.filter(
-      candidate => !exactTopologyEquals(candidate, existingUsecase),
+      candidate => !isExactClassificationMatch(candidate, existingUsecase),
     );
     if (nonExactCandidates.length === 0) {
       if (exactCandidate === undefined) {
@@ -324,17 +394,8 @@ function manualGkvBuckets(
 }
 
 function manualComparisonUsecases(context: RoutingContext): readonly UseCase[] {
-  const bySystemId = new Map(
-    context.input.graphSnapshot.committedUsecases.map(usecase => [
-      usecase.systemId,
-      usecase,
-    ]),
-  );
-  for (const edit of context.input.activeManualUsecaseEdits) {
-    if (edit.usecase !== null)
-      bySystemId.set(edit.usecase.systemId, edit.usecase);
-  }
-  return [...bySystemId.values()].sort(
-    (left, right) => left.systemId - right.systemId,
+  return effectiveUsecasesWithManualEdits(
+    context.input.graphSnapshot.committedUsecases,
+    context.input.activeManualUsecaseEdits,
   );
 }

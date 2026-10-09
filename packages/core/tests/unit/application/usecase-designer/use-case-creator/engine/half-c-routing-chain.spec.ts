@@ -28,6 +28,7 @@ function input() {
     selectedUsecases: [],
     graphSnapshot: {
       subgraphs: [],
+      mdfSubgraphSystemIds: new Set(),
       routableDataLinks: [],
       routableControlLinks: [],
       overlayDataLinks: [],

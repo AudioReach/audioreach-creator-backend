@@ -39,10 +39,11 @@ function makeDataLink(
   systemId: number,
   sourceSubgraphSystemId: number,
   destSubgraphSystemId: number,
+  linkType = DATA_LINK_TYPE.Normal,
 ): DataLink {
   return {
     systemId,
-    linkType: DATA_LINK_TYPE.Normal,
+    linkType,
     sourceSubgraphSystemId,
     destSubgraphSystemId,
   } as DataLink;
@@ -68,6 +69,7 @@ function makeContext(
     selectedUsecases: [],
     graphSnapshot: {
       subgraphs: subgraphSystemIds.map(makeSubgraph),
+      mdfSubgraphSystemIds: new Set(),
       routableDataLinks: links,
       routableControlLinks: [],
       overlayDataLinks: links,
@@ -168,6 +170,22 @@ describe('ConeComputationPhase', () => {
     await new ConeComputationPhase().run(context);
 
     expect(context.cones?.sgSystemIds).toEqual(new Set([10, 30]));
+  });
+
+  it('keeps EC connections inside bidirectional cone expansion', async () => {
+    const context = makeContext(
+      ROUTING_MODE.Auto,
+      [10, 20, 30],
+      [makeDataLink(1, 10, 20), makeDataLink(2, 20, 30, DATA_LINK_TYPE.Ec)],
+    );
+    setSeeds(context, [10]);
+
+    await new ConeComputationPhase().run(context);
+
+    expect(context.cones).toEqual({
+      sgSystemIds: new Set([10, 20, 30]),
+      rootSgs: new Set([10]),
+    });
   });
 
   it('publishes an empty cone for empty seeds and no cone in manual mode', async () => {

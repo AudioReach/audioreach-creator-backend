@@ -29,7 +29,7 @@ export class ConeComputationPhase {
     }
     for (const link of context.input.graphSnapshot.routableDataLinks) {
       if (
-        link.linkType !== DATA_LINK_TYPE.Normal ||
+        link.linkType === DATA_LINK_TYPE.InterUsecase ||
         !scope.has(link.sourceSubgraphSystemId) ||
         !scope.has(link.destSubgraphSystemId)
       ) {

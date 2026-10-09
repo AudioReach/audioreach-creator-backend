@@ -62,6 +62,7 @@ function input(routableDataLinks: readonly unknown[] = []): AutoRoutingInput {
   return {
     fileSystemId: 1,
     graphSnapshot: {
+      mdfSubgraphSystemIds: new Set(),
       routableDataLinks,
       overlayDataLinks: routableDataLinks,
       overlayControlLinks: [],
