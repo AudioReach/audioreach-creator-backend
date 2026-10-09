@@ -5,7 +5,6 @@
 
 import {describe, it, expect, jest, beforeEach} from '@jest/globals';
 import {PendingChangeWriter} from '../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
-import {PendingChangeCache} from '../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
 import {EditActionsQueryService} from '../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 import {CHANGE_OPERATION, CHANGE_STATUS, SOURCE} from '@arc/core';
 import {SESSION_MODE} from '@arc/core';
@@ -125,10 +124,7 @@ describe('PendingChangeWriter — changeStatus determination', () => {
   let writer: PendingChangeWriter;
 
   beforeEach(() => {
-    writer = new PendingChangeWriter(
-      makeQueryService(),
-      new PendingChangeCache(),
-    );
+    writer = new PendingChangeWriter(makeQueryService());
   });
 
   it('MANUAL always resolves to STAGED', async () => {
@@ -249,25 +245,6 @@ describe('PendingChangeWriter — changeStatus determination', () => {
       'AUTO_ROUTING source does not accept an explicit changeStatus',
     );
   });
-
-  it('cache=true + fieldGroup=null throws', async () => {
-    const qr = makeQueryRunner();
-    await expect(
-      writer.writeDelta(
-        {
-          targetTable: ENTITY_NAMES.SpfModule,
-          targetSystemId: 5,
-          aggregateId: 10,
-          delta: {alias: 'x'},
-          source: SOURCE.Manual,
-          cache: true,
-        },
-        SESSION_ID,
-        GROUP_ID,
-        qr,
-      ),
-    ).rejects.toThrow('cache=true is invalid for accumulator writes');
-  });
 });
 
 // ── writeDelta accumulator mode (spec §9.2) ───────────────────────────────────
@@ -279,10 +256,7 @@ describe('PendingChangeWriter — writeDelta accumulator mode', () => {
       targetSystemId: 100,
       fieldPath: null,
     } as unknown as EditActionRow;
-    const writer = new PendingChangeWriter(
-      makeQueryService(existing),
-      new PendingChangeCache(),
-    );
+    const writer = new PendingChangeWriter(makeQueryService(existing));
     const qr = makeQueryRunner();
 
     await writer.writeDelta(
@@ -315,10 +289,7 @@ describe('PendingChangeWriter — writeDelta accumulator mode', () => {
   });
 
   it('captures baseVersion and inserts on first write (no existing row)', async () => {
-    const writer = new PendingChangeWriter(
-      makeQueryService(null),
-      new PendingChangeCache(),
-    );
+    const writer = new PendingChangeWriter(makeQueryService(null));
     const qr = makeQueryRunner(sql =>
       sql.startsWith('SELECT version') ? [{version: 3}] : [],
     );
@@ -353,10 +324,7 @@ describe('PendingChangeWriter — writeDelta accumulator mode', () => {
 
 describe('PendingChangeWriter — writeDelta per-slot mode', () => {
   it('supersedes old slot row and inserts new row with exact delta (no merge)', async () => {
-    const writer = new PendingChangeWriter(
-      makeQueryService(),
-      new PendingChangeCache(),
-    );
+    const writer = new PendingChangeWriter(makeQueryService());
     const qr = makeQueryRunner();
 
     await writer.writeDelta(
@@ -385,31 +353,6 @@ describe('PendingChangeWriter — writeDelta per-slot mode', () => {
       alias: 'slot-value',
     });
   });
-
-  it('returns null when a per-slot update is deferred to the cache', async () => {
-    const cache = new PendingChangeCache();
-    const writer = new PendingChangeWriter(makeQueryService(), cache);
-    const qr = makeQueryRunner();
-
-    await expect(
-      writer.writeDelta(
-        {
-          targetTable: ENTITY_NAMES.SpfModule,
-          targetSystemId: 301,
-          aggregateId: 10,
-          delta: {alias: 'cached-slot-value'},
-          fieldGroup: 'alias',
-          source: SOURCE.Manual,
-          cache: true,
-        },
-        SESSION_ID,
-        GROUP_ID,
-        qr,
-      ),
-    ).resolves.toBeNull();
-    expect(cache.size()).toBe(1);
-    expect(getInsertParams(qr)).toBeUndefined();
-  });
 });
 
 // ── writeCreate (spec §9.4) ───────────────────────────────────────────────────
@@ -417,10 +360,7 @@ describe('PendingChangeWriter — writeDelta per-slot mode', () => {
 describe('PendingChangeWriter — writeCreate', () => {
   let writer: PendingChangeWriter;
   beforeEach(() => {
-    writer = new PendingChangeWriter(
-      makeQueryService(),
-      new PendingChangeCache(),
-    );
+    writer = new PendingChangeWriter(makeQueryService());
   });
 
   it('inserts a CREATE row with fieldPath="$" and full payload', async () => {
@@ -518,29 +458,6 @@ describe('PendingChangeWriter — writeCreate', () => {
     );
     expect(getInsertParams(qr)?.[COL.changeStatus]).toBe(CHANGE_STATUS.Staged);
   });
-
-  it('enqueues to cache when cache=true, no immediate INSERT', async () => {
-    const cache = new PendingChangeCache();
-    const localWriter = new PendingChangeWriter(makeQueryService(), cache);
-    const qr = makeQueryRunner();
-    await expect(
-      localWriter.writeCreate(
-        {
-          targetTable: ENTITY_NAMES.SpfModule,
-          targetSystemId: 502,
-          aggregateId: 10,
-          payload: {alias: 'Cached'},
-          source: SOURCE.Manual,
-          cache: true,
-        },
-        SESSION_ID,
-        GROUP_ID,
-        qr,
-      ),
-    ).resolves.toBeNull();
-    expect(cache.size()).toBe(1);
-    expect(getInsertParams(qr)).toBeUndefined();
-  });
 });
 
 // ── writeDelete (spec §9.2 DELETE sub-case) ───────────────────────────────────
@@ -548,10 +465,7 @@ describe('PendingChangeWriter — writeCreate', () => {
 describe('PendingChangeWriter — writeDelete', () => {
   let writer: PendingChangeWriter;
   beforeEach(() => {
-    writer = new PendingChangeWriter(
-      makeQueryService(),
-      new PendingChangeCache(),
-    );
+    writer = new PendingChangeWriter(makeQueryService());
   });
 
   it('inserts a DELETE row with operation=DELETE', async () => {
@@ -597,28 +511,5 @@ describe('PendingChangeWriter — writeDelete', () => {
     );
     expect(versionInsert).toBeDefined();
     expect((versionInsert![1] as unknown[])[2]).toBe(5);
-  });
-
-  it('returns null when a DELETE is deferred to the cache', async () => {
-    const cache = new PendingChangeCache();
-    const writer = new PendingChangeWriter(makeQueryService(), cache);
-    const qr = makeQueryRunner();
-
-    await expect(
-      writer.writeDelete(
-        {
-          targetTable: ENTITY_NAMES.SpfModule,
-          targetSystemId: 602,
-          aggregateId: 10,
-          source: SOURCE.Manual,
-          cache: true,
-        },
-        SESSION_ID,
-        GROUP_ID,
-        qr,
-      ),
-    ).resolves.toBeNull();
-    expect(cache.size()).toBe(1);
-    expect(getInsertParams(qr)).toBeUndefined();
   });
 });

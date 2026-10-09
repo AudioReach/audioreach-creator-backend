@@ -98,7 +98,6 @@ function makeUow(
       groupId: GROUP_ID,
     }),
     setWriteContext: jest.fn(),
-    applyCachedActions: jest.fn(),
     getSessionRepository: jest.fn(),
     getBulkImportRepository: jest.fn(),
     getProjectRepository: jest.fn(),

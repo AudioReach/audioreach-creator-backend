@@ -32,7 +32,6 @@ function makeMockUow(): UnitOfWork & {capturedCtx: WriteContext | undefined} {
       capturedCtx = ctx;
     },
     getWriteContext: () => capturedCtx as WriteContext,
-    applyCachedActions: async () => undefined,
     getSessionRepository: () => ({}) as any,
     get capturedCtx() {
       return capturedCtx;

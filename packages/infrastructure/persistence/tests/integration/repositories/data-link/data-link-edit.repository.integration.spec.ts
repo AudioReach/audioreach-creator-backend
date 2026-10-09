@@ -15,7 +15,6 @@ import {
 import {TypeOrmDataLinkRepository} from '../../../../src/persistence-typeorm-sqllite/repositories/data-link/data-link.repository.js';
 import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 import {PendingChangeWriter} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
-import {PendingChangeCache} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 import {
@@ -122,9 +121,8 @@ function makeRepo(
   qr: QueryRunner,
   sessionId: number,
 ): TypeOrmDataLinkRepository {
-  const cache = new PendingChangeCache();
   const editSvc = new EditActionsQueryService(qr.manager);
-  const writer = new PendingChangeWriter(editSvc, cache);
+  const writer = new PendingChangeWriter(editSvc);
   const uow = {
     getWriteContext: () => ({
       session: {

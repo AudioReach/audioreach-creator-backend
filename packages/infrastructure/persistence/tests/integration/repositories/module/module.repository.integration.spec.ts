@@ -25,7 +25,6 @@ import {TypeOrmModuleRepository} from '../../../../src/persistence-typeorm-sqlli
 import {TypeOrmModuleDefinitionRepository} from '../../../../src/persistence-typeorm-sqllite/repositories/module/module-definition.repository.js';
 import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 import {PendingChangeWriter} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
-import {PendingChangeCache} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
 import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {EditActionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/edit-action.schema.js';
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
@@ -131,10 +130,7 @@ async function seedIntent(
 }
 
 function makeWriter(manager: QueryRunner['manager']): PendingChangeWriter {
-  return new PendingChangeWriter(
-    new EditActionsQueryService(manager),
-    new PendingChangeCache(),
-  );
+  return new PendingChangeWriter(new EditActionsQueryService(manager));
 }
 
 function makeUow(sessionId: number) {

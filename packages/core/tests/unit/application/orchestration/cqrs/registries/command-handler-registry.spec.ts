@@ -7,6 +7,8 @@ import {CommandHandlerRegistry} from '../../../../../../src/application/orchestr
 import {CommandHandlerNotFoundException} from '../../../../../../src/application/orchestration/cqrs/exceptions/handler-not-found-exception.js';
 import {StartSessionCommand} from '../../../../../../src/application/edit-session/start-session/start-session.command.js';
 import {EndSessionCommand} from '../../../../../../src/application/edit-session/end-session/end-session.command.js';
+import {ApplyChangesCommand} from '../../../../../../src/application/edit-session/apply-changes/apply-changes.command.js';
+import {DiscardChangesCommand} from '../../../../../../src/application/edit-session/discard-changes/discard-changes.command.js';
 import {SESSION_MODE} from '../../../../../../src/application/shared/change-vocabulary.js';
 import {UnknownCommand} from '../../helpers/test-commands.js';
 import {createMockUnitOfWork} from '../../helpers/mock-factories.js';
@@ -46,6 +48,16 @@ describe('CommandHandlerRegistry', () => {
       const cmd = new EndSessionCommand('proj-1');
       const handler = registry
         .getCommandHandlerFactory(cmd)
+        .create(buildMinimalDeps(createMockUnitOfWork()));
+      expect(typeof handler.handle).toBe('function');
+    });
+
+    it.each([
+      ['ApplyChangesCommand', new ApplyChangesCommand()],
+      ['DiscardChangesCommand', new DiscardChangesCommand()],
+    ] as const)('%s factory creates a handler', (_name, command) => {
+      const handler = registry
+        .getCommandHandlerFactory(command)
         .create(buildMinimalDeps(createMockUnitOfWork()));
       expect(typeof handler.handle).toBe('function');
     });

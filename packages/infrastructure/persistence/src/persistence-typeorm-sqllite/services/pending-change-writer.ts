@@ -3,13 +3,20 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {CHANGE_STATUS, CHANGE_OPERATION, SOURCE} from '@arc/core';
+import {
+  CHANGE_STATUS,
+  CHANGE_OPERATION,
+  SOURCE,
+  DomainRuleViolationException,
+  IssueFactory,
+} from '@arc/core';
 import type {ChangeStatus, Logger, Source} from '@arc/core';
 import type {EntityManager} from 'typeorm';
 import type {EntityName} from '../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
-import type {PendingChangeCache} from './pending-change-cache.js';
 import {serializeBlobs} from '../utils/blob-serialization.js';
+import {isCompositeApplyTarget} from './apply-changes/apply-target-registry.js';
+import {compositeValueFieldPath} from './apply-changes/composite-value-entity-reduction-rule.js';
 
 // ── Spec types ────────────────────────────────────────────────────────────────
 
@@ -21,8 +28,6 @@ export type WriteDeltaSpec = {
   /** null / omitted = accumulator mode; string = per-slot mode. */
   fieldGroup?: string;
   linkedEntityGroupId?: string;
-  /** Enqueue to PendingChangeCache instead of immediate INSERT. Invalid when fieldGroup is null. */
-  cache?: boolean;
   source?: Source;
   /** Honored only when source = DIFF_TOOL. */
   changeStatus?: ChangeStatus;
@@ -33,8 +38,9 @@ export type WriteCreateSpec = {
   targetSystemId: number;
   aggregateId: number;
   payload: Record<string, unknown>;
+  /** Canonical composite slot when the target has a value relationship key. */
+  fieldPath?: string | null;
   linkedEntityGroupId?: string;
-  cache?: boolean;
   source?: Source;
   /** Honored only when source = DIFF_TOOL (REQ-EA-05 revised).
    *  MANUAL CREATE is always STAGED; AUTO_ROUTING is always UNSTAGED. */
@@ -46,8 +52,9 @@ export type WriteDeleteSpec = {
   targetSystemId: number;
   aggregateId: number;
   payload?: Record<string, unknown>;
+  /** Canonical composite slot when the target has a value relationship key. */
+  fieldPath?: string | null;
   linkedEntityGroupId?: string;
-  cache?: boolean;
   source?: Source;
 };
 
@@ -73,16 +80,15 @@ type EditActionRow = {
  * Low-level persistence service that writes rows to `edit_actions` (spec §9).
  *
  * Called by aggregate edit repos (LLD2+). Write methods receive the already-resolved
- * `sessionId`, `groupId`, and `QueryRunner` from the caller — no UnitOfWork
+ * `sessionId`, `groupId`, and transaction-bound `EntityManager` from the caller — no UnitOfWork
  * dependency here, keeping this service free of core-layer coupling.
  *
  * Aggregate edit repos obtain sessionId/groupId via `uow.getWriteContext()` (core)
- * and the QueryRunner from `TypeOrmUnitOfWork.getQueryRunner()` (persistence adapter).
+ * and receive their EntityManager from `TypeOrmUnitOfWork` (persistence adapter).
  */
 export class PendingChangeWriter {
   constructor(
     private readonly queryService: EditActionsQueryService,
-    private readonly pendingChangeCache: PendingChangeCache,
     private readonly logger?: Logger,
   ) {}
 
@@ -91,14 +97,18 @@ export class PendingChangeWriter {
     sessionId: number,
     groupId: string,
     manager: EntityManager,
-  ): Promise<number | null> {
+  ): Promise<number> {
     const fieldGroup = spec.fieldGroup ?? null;
 
-    if (spec.cache === true && fieldGroup === null) {
-      throw new Error(
-        'cache=true is invalid for accumulator writes (fieldGroup=null). ' +
-          'Accumulator mode requires read-modify-write and cannot defer.',
-      );
+    if (isCompositeApplyTarget(spec.targetTable)) {
+      throw new DomainRuleViolationException([
+        IssueFactory.invalidApplyOperation(
+          spec.targetTable,
+          spec.aggregateId,
+          spec.targetSystemId,
+          CHANGE_OPERATION.Update,
+        ),
+      ]);
     }
 
     const source = spec.source ?? SOURCE.Manual;
@@ -143,14 +153,6 @@ export class PendingChangeWriter {
           'writeDeltaBatch only supports accumulator mode (fieldGroup must be omitted)',
         );
       }
-      // cache=true is invalid for accumulator mode: accumulator requires a
-      // read-modify-write (fetch → merge → supersede) that cannot be deferred.
-      // If per-slot support is added above, cache=true would be valid for that
-      // path since per-slot writes have no merge step.
-      if (spec.cache === true) {
-        throw new Error('writeDeltaBatch does not support cache=true');
-      }
-
       const source = spec.source ?? SOURCE.Manual;
       const changeStatus = this.resolveChangeStatus(source, spec.changeStatus);
 
@@ -205,7 +207,7 @@ export class PendingChangeWriter {
     sessionId: number,
     groupId: string,
     manager: EntityManager,
-  ): Promise<number | null> {
+  ): Promise<number> {
     const source = spec.source ?? SOURCE.Manual;
     const changeStatus = this.resolveChangeStatus(source, spec.changeStatus);
 
@@ -215,7 +217,11 @@ export class PendingChangeWriter {
       targetSystemId: spec.targetSystemId,
       targetTable: spec.targetTable,
       operation: CHANGE_OPERATION.Create,
-      fieldPath: '$' as string | null,
+      fieldPath: actionFieldPath(
+        spec.targetTable,
+        spec.payload,
+        spec.fieldPath,
+      ),
       newValue: spec.payload,
       source,
       changeStatus,
@@ -223,12 +229,7 @@ export class PendingChangeWriter {
       linkedEntityGroupId: spec.linkedEntityGroupId ?? null,
     };
 
-    if (spec.cache === true) {
-      this.pendingChangeCache.enqueueRow(row);
-      return null;
-    } else {
-      return this.insertRow(row, manager);
-    }
+    return this.insertRow(row, manager);
   }
 
   async writeDelete(
@@ -236,15 +237,22 @@ export class PendingChangeWriter {
     sessionId: number,
     groupId: string,
     manager: EntityManager,
-  ): Promise<number | null> {
+  ): Promise<number> {
     const source = spec.source ?? SOURCE.Manual;
     const changeStatus = this.resolveChangeStatus(source);
+
+    const payload = spec.payload ?? {};
+    const fieldPath = actionFieldPath(
+      spec.targetTable,
+      payload,
+      spec.fieldPath,
+    );
 
     await this.supersedeCurrent(
       sessionId,
       spec.targetSystemId,
       spec.targetTable,
-      null,
+      fieldPath,
       manager,
     );
 
@@ -254,27 +262,23 @@ export class PendingChangeWriter {
       targetSystemId: spec.targetSystemId,
       targetTable: spec.targetTable,
       operation: CHANGE_OPERATION.Delete,
-      fieldPath: null as string | null,
-      newValue: spec.payload ?? {},
+      fieldPath,
+      newValue: payload,
       source,
       changeStatus,
       groupId,
       linkedEntityGroupId: spec.linkedEntityGroupId ?? null,
     };
 
-    if (spec.cache === true) {
-      this.pendingChangeCache.enqueueRow(row);
-      // baseVersion capture is derived from operation type in PendingChangeCache.flush()
-      return null;
-    } else {
+    if (!isCompositeApplyTarget(spec.targetTable)) {
       await this.captureBaseVersion(
         sessionId,
         spec.targetTable,
         spec.targetSystemId,
         manager,
       );
-      return this.insertRow(row, manager);
     }
+    return this.insertRow(row, manager);
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────
@@ -369,7 +373,7 @@ export class PendingChangeWriter {
     groupId: string,
     changeStatus: ChangeStatus,
     manager: EntityManager,
-  ): Promise<number | null> {
+  ): Promise<number> {
     const row = {
       sessionId,
       aggregateId: spec.aggregateId,
@@ -394,12 +398,7 @@ export class PendingChangeWriter {
 
     this.logDebug('supersededCurrentAction', spec, sessionId, fieldGroup, true);
 
-    if (spec.cache === true) {
-      this.pendingChangeCache.enqueueRow(row);
-      return null;
-    } else {
-      return this.insertRow(row, manager);
-    }
+    return this.insertRow(row, manager);
   }
 
   private async supersedeCurrent(
@@ -558,6 +557,40 @@ export class PendingChangeWriter {
       params,
     );
   }
+}
+
+function actionFieldPath(
+  targetTable: EntityName,
+  payload: Record<string, unknown>,
+  explicitFieldPath: string | null | undefined,
+): string | null {
+  if (!isCompositeApplyTarget(targetTable)) return explicitFieldPath ?? '$';
+  const valueDefSystemId = payload.valueDefSystemId;
+  if (
+    typeof valueDefSystemId !== 'number' ||
+    !Number.isInteger(valueDefSystemId)
+  ) {
+    throw new DomainRuleViolationException([
+      IssueFactory.invalidApplySpecialKey(
+        targetTable,
+        0,
+        0,
+        'valueDefSystemId',
+      ),
+    ]);
+  }
+  const expected = compositeValueFieldPath(valueDefSystemId);
+  if (explicitFieldPath !== undefined && explicitFieldPath !== expected) {
+    throw new DomainRuleViolationException([
+      IssueFactory.invalidApplySpecialKey(
+        targetTable,
+        0,
+        0,
+        `fieldPath must be ${expected}`,
+      ),
+    ]);
+  }
+  return expected;
 }
 
 function getGeneratedChangeId(result: unknown): number | undefined {

@@ -23,7 +23,6 @@ import {ProjectSessionSchema} from '../../../../src/persistence-typeorm-sqllite/
 import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 import {TypeOrmUsecaseRepository} from '../../../../src/persistence-typeorm-sqllite/repositories/usecase/use-case.repository.js';
-import {PendingChangeCache} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
 import {PendingChangeWriter} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
 import {
   getTestDataSource,
@@ -152,7 +151,6 @@ async function createMdfPersistenceHarness(): Promise<MdfPersistenceHarness> {
   await queryRunner.connect();
   const writer = new PendingChangeWriter(
     new EditActionsQueryService(queryRunner.manager),
-    new PendingChangeCache(),
   );
   let nextGeneratedId = 30000;
   const repository = new TypeOrmUsecaseRepository(

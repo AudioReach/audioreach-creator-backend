@@ -21,6 +21,8 @@ import type {
   SubsystemRepository,
   VcpmDefinitionRepository,
   UsecaseRepository,
+  ApplyChangesSummary,
+  DiscardChangesSummary,
   Logger,
 } from '@arc/core';
 import type {QueryRunner, EntityManager} from 'typeorm';
@@ -41,11 +43,17 @@ import {
   TypeOrmUsecaseRepository,
   PendingChangeWriter,
   EditActionsQueryService,
+  TypeOrmApplyChangesService,
+  TypeOrmDiscardChangesService,
+  TypeOrmMutationExecutor,
+  ApplyOperationReducer,
+  createDefaultApplyExecutionSchedule,
+  createDefaultApplyReductionRegistry,
+  createDefaultApplyTargetRegistry,
 } from '@arc/persistence';
-import type {PendingChangeCache} from '@arc/persistence';
 
 /**
- * TypeORM implementation of Unit of Work (LLD1 §8.5, §10.3, §14).
+ * TypeORM implementation of Unit of Work (LLD1 §8.5, §10, §14).
  *
  * Lifecycle:
  * 1. CommandBus creates QueryRunner and connects it
@@ -60,7 +68,6 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
   constructor(
     private readonly queryRunner: QueryRunner,
     private readonly idGeneration: IdGenerationPort,
-    private readonly pendingChangeCache: PendingChangeCache,
     private readonly logger: Logger,
   ) {}
 
@@ -114,34 +121,42 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
     return this._writeContext;
   }
 
-  // ── LLD1: PendingChangeCache flush (§10.3) ────────────────────────────────
-
-  async applyCachedActions(): Promise<void> {
-    await this.pendingChangeCache.flush(this.queryRunner);
-
-    if (!this.pendingChangeCache.isEmpty()) {
-      throw new Error(
-        'PendingChangeCache is non-empty after flush — rows were not persisted. ' +
-          'This indicates a bug in PendingChangeCache.flush().',
-      );
-    }
-  }
-
   // ── LLD1: Session repository (§7b, §14) ──────────────────────────────────
 
   getSessionRepository(): ISessionRepository {
     return new TypeOrmSessionRepository(this.queryRunner.manager);
   }
 
+  /** Applies current staged actions using this UnitOfWork's transaction. */
+  async applyChanges(): Promise<ApplyChangesSummary> {
+    const manager = this.queryRunner.manager;
+    const reductionRegistry = createDefaultApplyReductionRegistry();
+    const operationReducer = new ApplyOperationReducer(reductionRegistry);
+    const applyService = new TypeOrmApplyChangesService(
+      this.getWriteContext(),
+      new EditActionsQueryService(manager),
+      operationReducer,
+      createDefaultApplyExecutionSchedule(),
+      new TypeOrmMutationExecutor(manager, createDefaultApplyTargetRegistry()),
+      new TypeOrmSessionRepository(manager),
+    );
+    return applyService.apply();
+  }
+
+  /** Discards all edit actions using this UnitOfWork's transaction. */
+  async discardChanges(): Promise<DiscardChangesSummary> {
+    const discardService = new TypeOrmDiscardChangesService(
+      this.getWriteContext(),
+      new TypeOrmSessionRepository(this.queryRunner.manager),
+    );
+    return discardService.discard();
+  }
+
   // ── Module write path (LLD2) ──────────────────────────────────────────────
 
   private getPendingChangeWriter(): PendingChangeWriter {
     const queryService = new EditActionsQueryService(this.queryRunner.manager);
-    return new PendingChangeWriter(
-      queryService,
-      this.pendingChangeCache,
-      this.logger,
-    );
+    return new PendingChangeWriter(queryService, this.logger);
   }
 
   getModuleRepository(): ModuleRepository {

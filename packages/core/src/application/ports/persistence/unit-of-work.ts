@@ -17,6 +17,8 @@ import type {ControlLinkRepository} from './repositories/control-link/control-li
 import type {SubgraphRepository} from './repositories/subgraph/subgraph.repository.js';
 import type {SubsystemRepository} from './repositories/subsystem/subsystem.repository.js';
 import type {UsecaseRepository} from './repositories/usecase/usecase.repository.js';
+import type {ApplyChangesSummary} from '../../edit-session/apply-changes/apply-changes.types.js';
+import type {DiscardChangesSummary} from '../../edit-session/discard-changes/discard-changes.types.js';
 import type {VcpmDefinitionRepository} from './repositories/vcpm-definition/vcpm-definition.repository.js';
 
 /**
@@ -29,7 +31,6 @@ import type {VcpmDefinitionRepository} from './repositories/vcpm-definition/vcpm
  * - CommandBus releases QueryRunner after command completes
  * - setWriteContext / getWriteContext: session + groupId plumbing for write handlers
  *   and edit-repo adapters. CommandBus stamps once; consumers read only.
- * - applyCachedActions: flushes the PendingChangeCache buffer before commit.
  * - getSessionRepository: provides session lifecycle methods inside handlers.
  *
  * NOTE: getQueryRunner() is intentionally NOT on this interface. UnitOfWork is a
@@ -53,14 +54,14 @@ export interface UnitOfWork {
   /** Returns the WriteContext stamped by CommandBus. @throws if never set. */
   getWriteContext(): WriteContext;
 
-  /**
-   * Flushes PendingChangeCache to DB within the current transaction.
-   * Call before uow.commit() when cache writes were used. No-op when empty.
-   */
-  applyCachedActions(): Promise<void>;
-
   /** Returns ISessionRepository bound to this UoW's connection. */
   getSessionRepository(): ISessionRepository;
+
+  /** Applies current staged actions through this UoW's transaction connection. */
+  applyChanges(): Promise<ApplyChangesSummary>;
+
+  /** Discards all edit actions through this UoW's transaction connection. */
+  discardChanges(): Promise<DiscardChangesSummary>;
 
   // ── Module write path (LLD2) ──────────────────────────────────────────────
   getModuleRepository(): ModuleRepository;

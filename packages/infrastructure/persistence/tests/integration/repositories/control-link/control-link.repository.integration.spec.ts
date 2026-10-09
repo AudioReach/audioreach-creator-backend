@@ -24,7 +24,6 @@ import {
   getTestRepository,
 } from '../../helpers/test-database-setup.js';
 import {TypeOrmControlLinkRepository} from '../../../../src/persistence-typeorm-sqllite/repositories/control-link/control-link.repository.js';
-import {PendingChangeCache} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
 import {PendingChangeWriter} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
 import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 import {EditActionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/edit-action.schema.js';
@@ -192,10 +191,7 @@ function makeRepo(
     }),
   } as any;
   return new TypeOrmControlLinkRepository(
-    new PendingChangeWriter(
-      new EditActionsQueryService(qr.manager),
-      new PendingChangeCache(),
-    ),
+    new PendingChangeWriter(new EditActionsQueryService(qr.manager)),
     qr.manager,
     uow,
   );

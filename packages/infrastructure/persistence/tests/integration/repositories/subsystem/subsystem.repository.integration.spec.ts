@@ -19,7 +19,6 @@ import {
 import {TypeOrmSubsystemRepository} from '../../../../src/persistence-typeorm-sqllite/repositories/subsystem/subsystem.repository.js';
 import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 import {PendingChangeWriter} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
-import {PendingChangeCache} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
 import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {EditActionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/edit-action.schema.js';
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
@@ -157,10 +156,7 @@ function makeRepo(
   sessionId: number,
 ): TypeOrmSubsystemRepository {
   return new TypeOrmSubsystemRepository(
-    new PendingChangeWriter(
-      new EditActionsQueryService(manager),
-      new PendingChangeCache(),
-    ),
+    new PendingChangeWriter(new EditActionsQueryService(manager)),
     manager,
     makeUow(sessionId),
   );
@@ -317,8 +313,5 @@ describe('TypeOrmSubsystemRepository (integration)', () => {
 });
 
 function makeWriter(manager: QueryRunner['manager']): PendingChangeWriter {
-  return new PendingChangeWriter(
-    new EditActionsQueryService(manager),
-    new PendingChangeCache(),
-  );
+  return new PendingChangeWriter(new EditActionsQueryService(manager));
 }

@@ -45,7 +45,7 @@ export interface ActiveManualUsecaseEdit {
 /**
  * Compact reference to the canonical UseCase-level edit action emitted by a
  * write. `null` is returned when no edit action is emitted, such as a
- * structural no-op or a write deferred through the pending-change cache.
+ * structural no-op.
  */
 export interface UsecaseChangeRef {
   readonly systemId: number;

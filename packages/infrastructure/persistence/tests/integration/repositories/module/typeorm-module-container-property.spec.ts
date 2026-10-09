@@ -28,7 +28,6 @@ import {
 import {TypeOrmModuleRepository} from '../../../../src/persistence-typeorm-sqllite/repositories/module/module.repository.js';
 import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 import {PendingChangeWriter} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
-import {PendingChangeCache} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
 import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
@@ -118,7 +117,6 @@ async function seedModule(ds: DataSource): Promise<void> {
 function makeRepo(qr: QueryRunner, sessionId: number): TypeOrmModuleRepository {
   const writer = new PendingChangeWriter(
     new EditActionsQueryService(qr.manager),
-    new PendingChangeCache(),
   );
   const uow = {
     getWriteContext: () => ({
