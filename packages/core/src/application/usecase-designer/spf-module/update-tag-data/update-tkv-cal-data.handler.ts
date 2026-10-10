@@ -33,7 +33,7 @@ export class UpdateTkvCalDataHandler {
     const moduleRepo = this.uow.getModuleRepository();
 
     // Step 1: validate SpfModule exists
-    const spfModule = await moduleRepo.getSpfModuleForValidation(
+    const spfModule = await moduleRepo.findModuleById(
       command.spfModuleSystemId,
       fileSystemId,
     );
