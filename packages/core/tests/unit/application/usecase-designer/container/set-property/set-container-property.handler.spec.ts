@@ -125,7 +125,7 @@ function makeModuleRepo(
     removeControlPort: jest.fn(),
     createModule: jest.fn(),
     createCkv: jest.fn(),
-    getSpfModuleForValidation: jest.fn(),
+    findModuleById: jest.fn(),
     ckvExists: jest.fn(),
     getExistingCkvPayloads: jest.fn(),
     setCkvCalData: jest.fn(),

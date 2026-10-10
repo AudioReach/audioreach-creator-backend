@@ -7,7 +7,11 @@ import type {SpfModuleDefinition} from '../../../../../domain/entities/definitio
 import type {ParameterDefinitionBase} from '../shared/parameter-definition-base.js';
 
 export interface ModuleParameterDefinition extends ParameterDefinitionBase {
+  naturalId?: number;
+  name?: string;
+  description?: string;
   isReadOnly: boolean;
+  toolPolicy: string; // First entry of spf_module_parameter_definition.tool_policies JSON array
 }
 
 export interface ModuleDefinitionRepository {
