@@ -64,6 +64,9 @@ export type {
   ModuleRepository,
   PayloadEntry,
   PayloadUpdate,
+  CkvSummary,
+  TagSummary,
+  TkvSummary,
 } from './application/ports/persistence/repositories/module/module.repository.js';
 export type {ContainerRepository} from './application/ports/persistence/repositories/container/container.repository.js';
 export type {
@@ -106,6 +109,26 @@ export {
 export type {LinkDeletionMode} from './application/usecase-designer/spf-module/delete/link-deletion-mode.js';
 export {DeleteSpfModuleResultSchema} from './application/usecase-designer/spf-module/dto/delete-spf-module-result.schema.js';
 export type {DeleteSpfModuleResult} from './application/usecase-designer/spf-module/dto/delete-spf-module-result.schema.js';
+export {AddCkvsCommand} from './application/usecase-designer/spf-module/add-ckvs/add-ckvs.command.js';
+export type {AddCkvsResult} from './application/usecase-designer/spf-module/add-ckvs/add-ckvs-result.js';
+export {RemoveCkvsCommand} from './application/usecase-designer/spf-module/remove-ckvs/remove-ckvs.command.js';
+export type {RemoveCkvsResult} from './application/usecase-designer/spf-module/remove-ckvs/remove-ckvs.handler.js';
+export {AddTagsCommand} from './application/usecase-designer/spf-module/add-tags/add-tags.command.js';
+export type {AddTagsResult} from './application/usecase-designer/spf-module/add-tags/add-tags.handler.js';
+export {RemoveTagsCommand} from './application/usecase-designer/spf-module/remove-tags/remove-tags.command.js';
+export type {RemoveTagsResult} from './application/usecase-designer/spf-module/remove-tags/remove-tags.handler.js';
+export {AddTkvsCommand} from './application/usecase-designer/spf-module/add-tkvs/add-tkvs.command.js';
+export type {AddTkvsResult} from './application/usecase-designer/spf-module/add-tkvs/add-tkvs.handler.js';
+export {RemoveTkvsCommand} from './application/usecase-designer/spf-module/remove-tkvs/remove-tkvs.command.js';
+export type {RemoveTkvsResult} from './application/usecase-designer/spf-module/remove-tkvs/remove-tkvs.handler.js';
+export {AddCkvParametersCommand} from './application/usecase-designer/spf-module/add-ckv-parameters/add-ckv-parameters.command.js';
+export type {AddCkvParametersResult} from './application/usecase-designer/spf-module/add-ckv-parameters/add-ckv-parameters.handler.js';
+export {RemoveCkvParametersCommand} from './application/usecase-designer/spf-module/remove-ckv-parameters/remove-ckv-parameters.command.js';
+export type {RemoveCkvParametersResult} from './application/usecase-designer/spf-module/remove-ckv-parameters/remove-ckv-parameters.handler.js';
+export {AddTkvParametersCommand} from './application/usecase-designer/spf-module/add-tkv-parameters/add-tkv-parameters.command.js';
+export type {AddTkvParametersResult} from './application/usecase-designer/spf-module/add-tkv-parameters/add-tkv-parameters.handler.js';
+export {RemoveTkvParametersCommand} from './application/usecase-designer/spf-module/remove-tkv-parameters/remove-tkv-parameters.command.js';
+export type {RemoveTkvParametersResult} from './application/usecase-designer/spf-module/remove-tkv-parameters/remove-tkv-parameters.handler.js';
 export {DeleteDataLinkResultSchema} from './application/usecase-designer/data-links/dto/delete-data-link.dto.js';
 export type {DeleteDataLinkResult} from './application/usecase-designer/data-links/dto/delete-data-link.dto.js';
 export {DeleteControlLinkResultSchema} from './application/usecase-designer/control-links/dto/delete-control-link.dto.js';
