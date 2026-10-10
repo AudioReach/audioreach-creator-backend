@@ -107,6 +107,8 @@ function serializeElement(
   parsedSoFar: Map<string, number>,
   logger?: Logger,
 ): SerializeResult {
+  if (def.alignment) writer.align(def.alignment);
+
   switch ((def as {elementType: string}).elementType) {
     case PARAMETER_ELEMENT_TYPE.ConfigElement:
       return serializeConfigElement(
@@ -467,19 +469,18 @@ function buildDefaultElement(
   switch (def.elementType) {
     case PARAMETER_ELEMENT_TYPE.ConfigElement: {
       if (def.defaultValue === undefined) {
-        throw new Error(
-          `Missing defaultValue for element "${def.name ?? '<unnamed>'}"`,
-        );
+        throw new Error(`Missing defaultValue for element "${def.name ?? ''}"`);
       }
+      const value = def.defaultValue;
       if (def.name !== undefined) {
-        const numericValue = Number(def.defaultValue);
+        const numericValue = Number(value);
         if (Number.isFinite(numericValue)) {
           parsedSoFar.set(def.name, numericValue);
         }
       }
       return {
         type: PARAMETER_ELEMENT_TYPE.ConfigElement,
-        value: def.defaultValue,
+        value,
       } as ConfigElementData;
     }
     case PARAMETER_ELEMENT_TYPE.Struct: {
@@ -505,9 +506,17 @@ function resolveDefaultArrayLength(
   element: ElementArray | StructArray,
   parsedSoFar: Map<string, number>,
 ): number {
-  const length = element.arrayLenFormulaStr
+  // Design: formula-driven arrays use the evaluated positive length and
+  // otherwise fall back to arrayLength (e.g. formula references a variable
+  // not yet parsed, yields NaN/negative, or no formula is present).
+  const formulaResult = element.arrayLenFormulaStr
     ? evaluateFormula(element.arrayLenFormulaStr, parsedSoFar)
-    : (element.arrayLength ?? 0);
+    : undefined;
+
+  const length =
+    Number.isInteger(formulaResult) && (formulaResult as number) > 0
+      ? (formulaResult as number)
+      : (element.arrayLength ?? 0);
 
   if (!Number.isInteger(length) || length < 0) {
     throw new Error(`Invalid default array length: ${length}`);
