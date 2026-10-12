@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 import {describe, it, expect, jest} from '@jest/globals';
-import type {UnitOfWork, ModuleRepository, QueryServices} from '@arc/core';
+import type {UnitOfWork, ModuleRepository} from '@arc/core';
 import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/index.js';
 import {RemoveTagsHandler} from '../../../../../../src/application/usecase-designer/spf-module/remove-tags/remove-tags.handler.js';
 import {RemoveTagsCommand} from '../../../../../../src/application/usecase-designer/spf-module/remove-tags/remove-tags.command.js';
@@ -36,15 +36,26 @@ function makeModuleRepo(
       },
     ]),
     getTkvPayloadEntries: jest.fn().mockResolvedValue([]),
-    removeTkv: jest.fn().mockResolvedValue(undefined),
-    removeTag: jest.fn().mockResolvedValue(undefined),
+    deleteTkv: jest.fn().mockResolvedValue(undefined),
+    deleteTag: jest.fn().mockResolvedValue(undefined),
+    getTagDefinition: jest.fn().mockResolvedValue({
+      systemId: 70,
+      naturalId: 7,
+      name: 'tag',
+      isVoice: false,
+      keys: [],
+    }),
+    getKeyValueSummaryForGivenValues: jest.fn().mockResolvedValue({
+      kind: 'OK',
+      data: [],
+    }),
     findModuleForPatch: jest.fn(),
     renameModule: jest.fn(),
     changeContainer: jest.fn(),
     addDataPort: jest.fn(),
-    removeDataPort: jest.fn(),
+    deleteDataPort: jest.fn(),
     addControlPort: jest.fn(),
-    removeControlPort: jest.fn(),
+    deleteControlPort: jest.fn(),
     createModule: jest.fn(),
     ckvExists: jest.fn(),
     createCkv: jest.fn(),
@@ -71,33 +82,13 @@ function makeUow(
   } as unknown as jest.Mocked<UnitOfWork>;
 }
 
-function makeQueryServices(): QueryServices {
-  return {
-    tagDefinitionQueryService: {
-      getTagDefinition: jest.fn().mockResolvedValue({
-        systemId: 70,
-        naturalId: 7,
-        name: 'tag',
-        isVoice: false,
-        keys: [],
-      }),
-    },
-    keyValueDefQueryService: {
-      getKeyValueSummaryForGivenValues: jest.fn().mockResolvedValue({
-        kind: 'OK',
-        data: [],
-      }),
-    },
-  } as unknown as QueryServices;
-}
-
 describe('RemoveTagsHandler', () => {
   it('throws ResourceNotFoundException when SpfModule not found', async () => {
     const moduleRepo = makeModuleRepo({
       findModuleById: jest.fn().mockResolvedValue(null),
     });
     await expect(
-      new RemoveTagsHandler(makeUow(moduleRepo), makeQueryServices()).handle(
+      new RemoveTagsHandler(makeUow(moduleRepo)).handle(
         new RemoveTagsCommand(String(MODULE_ID), [String(TAG_ID)]),
       ),
     ).rejects.toThrow(ResourceNotFoundException);
@@ -105,12 +96,11 @@ describe('RemoveTagsHandler', () => {
 
   it('cascades removeTkv before removeTag', async () => {
     const moduleRepo = makeModuleRepo();
-    const result = await new RemoveTagsHandler(
-      makeUow(moduleRepo),
-      makeQueryServices(),
-    ).handle(new RemoveTagsCommand(String(MODULE_ID), [String(TAG_ID)]));
-    expect(moduleRepo.removeTkv).toHaveBeenCalledWith(TKV_ID, TAG_ID);
-    expect(moduleRepo.removeTag).toHaveBeenCalledWith(TAG_ID, MODULE_ID);
+    const result = await new RemoveTagsHandler(makeUow(moduleRepo)).handle(
+      new RemoveTagsCommand(String(MODULE_ID), [String(TAG_ID)]),
+    );
+    expect(moduleRepo.deleteTkv).toHaveBeenCalledWith(TKV_ID, TAG_ID);
+    expect(moduleRepo.deleteTag).toHaveBeenCalledWith(TAG_ID, MODULE_ID);
     expect(result.data.removedTags[0]).toMatchObject({
       systemId: TAG_ID,
       naturalId: 7,
@@ -129,11 +119,10 @@ describe('RemoveTagsHandler', () => {
     const moduleRepo = makeModuleRepo({
       getTagBySystemId: jest.fn().mockResolvedValue(null),
     });
-    const result = await new RemoveTagsHandler(
-      makeUow(moduleRepo),
-      makeQueryServices(),
-    ).handle(new RemoveTagsCommand(String(MODULE_ID), [String(TAG_ID)]));
-    expect(moduleRepo.removeTag).not.toHaveBeenCalled();
+    const result = await new RemoveTagsHandler(makeUow(moduleRepo)).handle(
+      new RemoveTagsCommand(String(MODULE_ID), [String(TAG_ID)]),
+    );
+    expect(moduleRepo.deleteTag).not.toHaveBeenCalled();
     expect(result.issues).toHaveLength(1);
   });
 });

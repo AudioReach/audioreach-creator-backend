@@ -36,9 +36,7 @@ function makeModuleRepo(
         valueDefinitionSystemIds: [1],
       },
     ]),
-    getAllCkvParameterPayloads: jest
-      .fn()
-      .mockResolvedValue(new Map([[CKV_ID, []]])),
+    getCkvPayloadsForParameters: jest.fn().mockResolvedValue([]),
     addParameterToCkv: jest.fn().mockResolvedValue(undefined),
     findModuleForPatch: jest.fn(),
     renameModule: jest.fn(),
@@ -112,19 +110,20 @@ describe('AddCkvParametersHandler', () => {
   it('calls addParameterToCkv for non-zero CKV that does not have the param', async () => {
     const moduleRepo = makeModuleRepo();
     const uow = makeUow(moduleRepo, makeDefRepo());
-    await new AddCkvParametersHandler(uow, makeIdGen()).handle(
+    const result = await new AddCkvParametersHandler(uow, makeIdGen()).handle(
       new AddCkvParametersCommand(String(MODULE_ID), [String(PARAM_ID)]),
     );
     expect(moduleRepo.addParameterToCkv).toHaveBeenCalledTimes(1);
+    expect(result.data?.affectedCkvSystemIds).toEqual([CKV_ID]);
   });
 
   it('skips parameter already present on CKV', async () => {
     const moduleRepo = makeModuleRepo({
-      getAllCkvParameterPayloads: jest
+      getCkvPayloadsForParameters: jest
         .fn()
-        .mockResolvedValue(
-          new Map([[CKV_ID, [{systemId: 999, parameterSystemId: PARAM_ID}]]]),
-        ),
+        .mockResolvedValue([
+          {systemId: 999, ckvSystemId: CKV_ID, parameterSystemId: PARAM_ID},
+        ]),
     });
     const uow = makeUow(moduleRepo, makeDefRepo());
     await new AddCkvParametersHandler(uow, makeIdGen()).handle(

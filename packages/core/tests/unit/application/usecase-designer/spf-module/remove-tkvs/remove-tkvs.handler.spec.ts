@@ -7,7 +7,6 @@ import type {
   UnitOfWork,
   ModuleRepository,
   ModuleDefinitionRepository,
-  QueryServices,
 } from '@arc/core';
 import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/index.js';
 import {RemoveTkvsHandler} from '../../../../../../src/application/usecase-designer/spf-module/remove-tkvs/remove-tkvs.handler.js';
@@ -41,14 +40,23 @@ function makeModuleRepo(
       },
     ]),
     getTkvPayloadEntries: jest.fn().mockResolvedValue([]),
-    removeTkv: jest.fn().mockResolvedValue(undefined),
+    deleteTkv: jest.fn().mockResolvedValue(undefined),
+    getKeyValueSummaryForGivenValues: jest.fn().mockImplementation(ids =>
+      Promise.resolve({
+        kind: 'OK',
+        data: (ids as number[]).map(id => ({
+          key: {systemId: id + 100, naturalId: id + 100, name: 'key'},
+          value: {systemId: id, naturalId: id, name: 'value'},
+        })),
+      }),
+    ),
     findModuleForPatch: jest.fn(),
     renameModule: jest.fn(),
     changeContainer: jest.fn(),
     addDataPort: jest.fn(),
-    removeDataPort: jest.fn(),
+    deleteDataPort: jest.fn(),
     addControlPort: jest.fn(),
-    removeControlPort: jest.fn(),
+    deleteControlPort: jest.fn(),
     createModule: jest.fn(),
     ckvExists: jest.fn(),
     createCkv: jest.fn(),
@@ -75,29 +83,13 @@ function makeUow(
   } as unknown as jest.Mocked<UnitOfWork>;
 }
 
-function makeQueryServices(): QueryServices {
-  return {
-    keyValueDefQueryService: {
-      getKeyValueSummaryForGivenValues: jest.fn().mockImplementation(ids =>
-        Promise.resolve({
-          kind: 'OK',
-          data: (ids as number[]).map(id => ({
-            key: {systemId: id + 100, naturalId: id + 100, name: 'key'},
-            value: {systemId: id, naturalId: id, name: 'value'},
-          })),
-        }),
-      ),
-    },
-  } as unknown as QueryServices;
-}
-
 describe('RemoveTkvsHandler', () => {
   it('throws ResourceNotFoundException when SpfModule not found', async () => {
     const moduleRepo = makeModuleRepo({
       findModuleById: jest.fn().mockResolvedValue(null),
     });
     await expect(
-      new RemoveTkvsHandler(makeUow(moduleRepo), makeQueryServices()).handle(
+      new RemoveTkvsHandler(makeUow(moduleRepo)).handle(
         new RemoveTkvsCommand(String(MODULE_ID), String(TAG_ID), [
           String(TKV_ID),
         ]),
@@ -110,7 +102,7 @@ describe('RemoveTkvsHandler', () => {
       getTagBySystemId: jest.fn().mockResolvedValue(null),
     });
     await expect(
-      new RemoveTkvsHandler(makeUow(moduleRepo), makeQueryServices()).handle(
+      new RemoveTkvsHandler(makeUow(moduleRepo)).handle(
         new RemoveTkvsCommand(String(MODULE_ID), String(TAG_ID), [
           String(TKV_ID),
         ]),
@@ -120,30 +112,24 @@ describe('RemoveTkvsHandler', () => {
 
   it('calls removeTkv for each valid tkvSystemId', async () => {
     const moduleRepo = makeModuleRepo();
-    await new RemoveTkvsHandler(
-      makeUow(moduleRepo),
-      makeQueryServices(),
-    ).handle(
+    await new RemoveTkvsHandler(makeUow(moduleRepo)).handle(
       new RemoveTkvsCommand(String(MODULE_ID), String(TAG_ID), [
         String(TKV_ID),
       ]),
     );
-    expect(moduleRepo.removeTkv).toHaveBeenCalledWith(TKV_ID, TAG_ID);
+    expect(moduleRepo.deleteTkv).toHaveBeenCalledWith(TKV_ID, TAG_ID);
   });
 
   it('collects per-item error for TKV not found in tag', async () => {
     const moduleRepo = makeModuleRepo({
       getAllTkvsForTag: jest.fn().mockResolvedValue([]),
     });
-    const result = await new RemoveTkvsHandler(
-      makeUow(moduleRepo),
-      makeQueryServices(),
-    ).handle(
+    const result = await new RemoveTkvsHandler(makeUow(moduleRepo)).handle(
       new RemoveTkvsCommand(String(MODULE_ID), String(TAG_ID), [
         String(TKV_ID),
       ]),
     );
-    expect(moduleRepo.removeTkv).not.toHaveBeenCalled();
+    expect(moduleRepo.deleteTkv).not.toHaveBeenCalled();
     expect(result.issues).toHaveLength(1);
   });
 });

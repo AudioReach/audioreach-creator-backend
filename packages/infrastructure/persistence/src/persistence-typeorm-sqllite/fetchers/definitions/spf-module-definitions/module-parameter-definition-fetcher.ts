@@ -11,7 +11,7 @@ import {OverlayMergeImpl} from '../../../queries/edit-session/overlay-merge.js';
 export interface ModuleParameterDefinitionBase {
   systemId: number;
   naturalId: number;
-  name?: string;
+  name: string;
   description?: string;
   maxSize: number;
   pidType: string;

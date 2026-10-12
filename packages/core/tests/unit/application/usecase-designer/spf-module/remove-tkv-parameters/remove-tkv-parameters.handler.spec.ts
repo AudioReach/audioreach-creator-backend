@@ -32,14 +32,14 @@ function makeModuleRepo(
     getTkvPayloadEntries: jest
       .fn()
       .mockResolvedValue([{systemId: PAYLOAD_ID, parameterSystemId: PARAM_ID}]),
-    removeParameterFromTkv: jest.fn().mockResolvedValue(undefined),
+    deleteParameterFromTkv: jest.fn().mockResolvedValue(undefined),
     findModuleForPatch: jest.fn(),
     renameModule: jest.fn(),
     changeContainer: jest.fn(),
     addDataPort: jest.fn(),
-    removeDataPort: jest.fn(),
+    deleteDataPort: jest.fn(),
     addControlPort: jest.fn(),
-    removeControlPort: jest.fn(),
+    deleteControlPort: jest.fn(),
     createModule: jest.fn(),
     ckvExists: jest.fn(),
     createCkv: jest.fn(),
@@ -85,7 +85,7 @@ describe('RemoveTkvParametersHandler', () => {
         {tkvSystemId: String(TKV_ID), parameterSystemIds: [String(PARAM_ID)]},
       ]),
     );
-    expect(moduleRepo.removeParameterFromTkv).toHaveBeenCalledWith(
+    expect(moduleRepo.deleteParameterFromTkv).toHaveBeenCalledWith(
       PAYLOAD_ID,
       TKV_ID,
       50,
@@ -103,7 +103,7 @@ describe('RemoveTkvParametersHandler', () => {
         {tkvSystemId: String(TKV_ID), parameterSystemIds: [String(PARAM_ID)]},
       ]),
     );
-    expect(moduleRepo.removeParameterFromTkv).not.toHaveBeenCalled();
+    expect(moduleRepo.deleteParameterFromTkv).not.toHaveBeenCalled();
     expect(result.issues).toHaveLength(1);
   });
 });

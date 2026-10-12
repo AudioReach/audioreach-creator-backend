@@ -37,15 +37,18 @@ function makeModuleRepo(
         valueDefinitionSystemIds: [1],
       },
     ]),
-    getAllCkvParameterPayloads: jest
+    getCkvPayloadsForParameters: jest.fn().mockResolvedValue([
+      {
+        systemId: PAYLOAD_ID,
+        ckvSystemId: CKV_ID,
+        parameterSystemId: PARAM_ID,
+      },
+    ]),
+    getCkvPayloadCountByCkvs: jest
       .fn()
-      .mockResolvedValue(
-        new Map([
-          [CKV_ID, [{systemId: PAYLOAD_ID, parameterSystemId: PARAM_ID}]],
-        ]),
-      ),
-    removeParameterFromCkv: jest.fn().mockResolvedValue(undefined),
-    removeCkv: jest.fn().mockResolvedValue(undefined),
+      .mockResolvedValue(new Map([[CKV_ID, 0]])),
+    deleteParameterFromCkv: jest.fn().mockResolvedValue(undefined),
+    deleteCkv: jest.fn().mockResolvedValue(undefined),
     createCkv: jest.fn().mockResolvedValue(undefined),
     findModuleForPatch: jest.fn(),
     renameModule: jest.fn(),
@@ -115,13 +118,13 @@ describe('RemoveCkvParametersHandler', () => {
     ).rejects.toThrow(ResourceNotFoundException);
   });
 
-  it('calls removeParameterFromCkv for matching payload', async () => {
+  it('calls deleteParameterFromCkv for matching payload', async () => {
     const moduleRepo = makeModuleRepo();
     const uow = makeUow(moduleRepo, makeDefRepo());
     await new RemoveCkvParametersHandler(uow, makeIdGen()).handle(
       new RemoveCkvParametersCommand(String(MODULE_ID), [String(PARAM_ID)]),
     );
-    expect(moduleRepo.removeParameterFromCkv).toHaveBeenCalledWith(
+    expect(moduleRepo.deleteParameterFromCkv).toHaveBeenCalledWith(
       PAYLOAD_ID,
       CKV_ID,
       MODULE_ID,
@@ -134,15 +137,13 @@ describe('RemoveCkvParametersHandler', () => {
     await new RemoveCkvParametersHandler(uow, makeIdGen()).handle(
       new RemoveCkvParametersCommand(String(MODULE_ID), [String(PARAM_ID)]),
     );
-    expect(moduleRepo.removeCkv).toHaveBeenCalledWith(CKV_ID, MODULE_ID);
+    expect(moduleRepo.deleteCkv).toHaveBeenCalledWith(CKV_ID, MODULE_ID);
     expect(moduleRepo.createCkv).toHaveBeenCalledTimes(1);
   });
 
   it('does not remove an already-empty CKV when no requested parameter exists', async () => {
     const moduleRepo = makeModuleRepo({
-      getAllCkvParameterPayloads: jest
-        .fn()
-        .mockResolvedValue(new Map([[CKV_ID, []]])),
+      getCkvPayloadsForParameters: jest.fn().mockResolvedValue([]),
     });
     const uow = makeUow(moduleRepo, makeDefRepo());
 
@@ -153,7 +154,7 @@ describe('RemoveCkvParametersHandler', () => {
       new RemoveCkvParametersCommand(String(MODULE_ID), [String(PARAM_ID)]),
     );
 
-    expect(moduleRepo.removeCkv).not.toHaveBeenCalled();
+    expect(moduleRepo.deleteCkv).not.toHaveBeenCalled();
     expect(moduleRepo.createCkv).not.toHaveBeenCalled();
     expect(result.data.removedCkvSystemIds).toEqual([]);
   });

@@ -202,6 +202,16 @@ export class CreateTkvRequestItem {
   @ArrayMinSize(1)
   @IsString({each: true})
   valueSystemIds!: string[];
+
+  @ApiProperty({
+    description:
+      'Array of parameter definition system IDs to seed into this TKV',
+    type: [String],
+    required: true,
+  })
+  @IsArray()
+  @IsString({each: true})
+  paramSystemIds!: string[];
 }
 
 /**

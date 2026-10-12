@@ -3,12 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 import {describe, it, expect, jest} from '@jest/globals';
-import type {
-  UnitOfWork,
-  ModuleRepository,
-  IdGenerationPort,
-  QueryServices,
-} from '@arc/core';
+import type {UnitOfWork, ModuleRepository, IdGenerationPort} from '@arc/core';
 import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/index.js';
 import {AddTagsHandler} from '../../../../../../src/application/usecase-designer/spf-module/add-tags/add-tags.handler.js';
 import {AddTagsCommand} from '../../../../../../src/application/usecase-designer/spf-module/add-tags/add-tags.command.js';
@@ -30,6 +25,13 @@ function makeModuleRepo(
     }),
     getAllTagsForModule: jest.fn().mockResolvedValue([]),
     createTag: jest.fn().mockResolvedValue(undefined),
+    getTagDefinition: jest.fn().mockResolvedValue({
+      systemId: TAG_DEF_ID,
+      naturalId: 7,
+      name: 'tag',
+      isVoice: false,
+      keys: [],
+    }),
     findModuleForPatch: jest.fn(),
     renameModule: jest.fn(),
     changeContainer: jest.fn(),
@@ -49,20 +51,6 @@ function makeIdGen(): jest.Mocked<IdGenerationPort> {
   return {
     getNextId: jest.fn().mockImplementation(() => Promise.resolve(c++)),
   } as any;
-}
-
-function makeQueryServices(): QueryServices {
-  return {
-    tagDefinitionQueryService: {
-      getTagDefinition: jest.fn().mockResolvedValue({
-        systemId: TAG_DEF_ID,
-        naturalId: 7,
-        name: 'tag',
-        isVoice: false,
-        keys: [],
-      }),
-    },
-  } as unknown as QueryServices;
 }
 
 function makeUow(
@@ -88,11 +76,9 @@ describe('AddTagsHandler', () => {
       findModuleById: jest.fn().mockResolvedValue(null),
     });
     await expect(
-      new AddTagsHandler(
-        makeUow(moduleRepo),
-        makeIdGen(),
-        makeQueryServices(),
-      ).handle(new AddTagsCommand(String(MODULE_ID), [String(TAG_DEF_ID)])),
+      new AddTagsHandler(makeUow(moduleRepo), makeIdGen()).handle(
+        new AddTagsCommand(String(MODULE_ID), [String(TAG_DEF_ID)]),
+      ),
     ).rejects.toThrow(ResourceNotFoundException);
   });
 
@@ -109,7 +95,6 @@ describe('AddTagsHandler', () => {
     const result = await new AddTagsHandler(
       makeUow(moduleRepo),
       makeIdGen(),
-      makeQueryServices(),
     ).handle(new AddTagsCommand(String(MODULE_ID), [String(TAG_DEF_ID)]));
     expect(moduleRepo.createTag).not.toHaveBeenCalled();
     expect(result.data.addedTags).toHaveLength(0);
@@ -120,7 +105,6 @@ describe('AddTagsHandler', () => {
     const result = await new AddTagsHandler(
       makeUow(moduleRepo),
       makeIdGen(),
-      makeQueryServices(),
     ).handle(new AddTagsCommand(String(MODULE_ID), [String(TAG_DEF_ID)]));
     expect(moduleRepo.createTag).toHaveBeenCalledTimes(1);
     expect(result.data.groupId).toBe('grp');

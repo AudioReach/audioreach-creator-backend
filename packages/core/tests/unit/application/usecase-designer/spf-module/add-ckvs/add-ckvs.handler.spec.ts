@@ -8,7 +8,6 @@ import type {
   ModuleRepository,
   ModuleDefinitionRepository,
   IdGenerationPort,
-  QueryServices,
 } from '@arc/core';
 import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/index.js';
 import {AddCkvsHandler} from '../../../../../../src/application/usecase-designer/spf-module/add-ckvs/add-ckvs.handler.js';
@@ -29,10 +28,18 @@ function makeModuleRepo(
       containerSystemId: 4,
     }),
     getAllCkvsForModule: jest.fn().mockResolvedValue([]),
-    getZeroCkv: jest.fn().mockResolvedValue(null),
-    getCkvParameterPayloads: jest.fn().mockResolvedValue([]),
+    getCkvPayloadEntries: jest.fn().mockResolvedValue([]),
     createCkv: jest.fn().mockResolvedValue(undefined),
-    removeCkv: jest.fn().mockResolvedValue(undefined),
+    deleteCkv: jest.fn().mockResolvedValue(undefined),
+    getKeyValueSummaryForGivenValues: jest.fn().mockImplementation(ids =>
+      Promise.resolve({
+        kind: 'OK',
+        data: (ids as number[]).map(id => ({
+          key: {systemId: id + 100, naturalId: id + 100, name: 'key'},
+          value: {systemId: id, naturalId: id, name: 'value'},
+        })),
+      }),
+    ),
     findModuleForPatch: jest.fn(),
     renameModule: jest.fn(),
     changeContainer: jest.fn(),
@@ -73,22 +80,6 @@ function makeIdGen(): jest.Mocked<IdGenerationPort> {
   } as any;
 }
 
-function makeQueryServices(): QueryServices {
-  return {
-    keyValueDefQueryService: {
-      getKeyValueSummaryForGivenValues: jest.fn().mockImplementation(ids =>
-        Promise.resolve({
-          kind: 'OK',
-          data: (ids as number[]).map(id => ({
-            key: {systemId: id + 100, naturalId: id + 100, name: 'key'},
-            value: {systemId: id, naturalId: id, name: 'value'},
-          })),
-        }),
-      ),
-    },
-  } as unknown as QueryServices;
-}
-
 function makeUow(
   moduleRepo: jest.Mocked<ModuleRepository>,
   defRepo: jest.Mocked<ModuleDefinitionRepository>,
@@ -114,7 +105,7 @@ describe('AddCkvsHandler', () => {
     });
     const uow = makeUow(moduleRepo, makeDefRepo());
     await expect(
-      new AddCkvsHandler(uow, makeIdGen(), makeQueryServices()).handle(
+      new AddCkvsHandler(uow, makeIdGen()).handle(
         new AddCkvsCommand(String(MODULE_ID), [{valueSystemIds: ['1', '2']}]),
       ),
     ).rejects.toThrow(ResourceNotFoundException);
@@ -131,11 +122,7 @@ describe('AddCkvsHandler', () => {
       ]),
     });
     const uow = makeUow(moduleRepo, makeDefRepo());
-    const result = await new AddCkvsHandler(
-      uow,
-      makeIdGen(),
-      makeQueryServices(),
-    ).handle(
+    const result = await new AddCkvsHandler(uow, makeIdGen()).handle(
       new AddCkvsCommand(String(MODULE_ID), [{valueSystemIds: ['1', '2']}]),
     );
     expect(moduleRepo.createCkv).not.toHaveBeenCalled();
@@ -149,23 +136,19 @@ describe('AddCkvsHandler', () => {
       valueDefinitionSystemIds: [],
     };
     const moduleRepo = makeModuleRepo({
-      getZeroCkv: jest.fn().mockResolvedValue(zeroCkv),
+      getAllCkvsForModule: jest.fn().mockResolvedValue([zeroCkv]),
     });
     const uow = makeUow(moduleRepo, makeDefRepo());
-    await new AddCkvsHandler(uow, makeIdGen(), makeQueryServices()).handle(
+    await new AddCkvsHandler(uow, makeIdGen()).handle(
       new AddCkvsCommand(String(MODULE_ID), [{valueSystemIds: ['1', '2']}]),
     );
-    expect(moduleRepo.removeCkv).toHaveBeenCalledWith(99, MODULE_ID);
+    expect(moduleRepo.deleteCkv).toHaveBeenCalledWith(99, MODULE_ID);
   });
 
   it('calls createCkv and returns groupId on success', async () => {
     const moduleRepo = makeModuleRepo();
     const uow = makeUow(moduleRepo, makeDefRepo());
-    const result = await new AddCkvsHandler(
-      uow,
-      makeIdGen(),
-      makeQueryServices(),
-    ).handle(
+    const result = await new AddCkvsHandler(uow, makeIdGen()).handle(
       new AddCkvsCommand(String(MODULE_ID), [{valueSystemIds: ['3', '4']}]),
     );
     expect(moduleRepo.createCkv).toHaveBeenCalledTimes(1);
@@ -177,7 +160,7 @@ describe('AddCkvsHandler', () => {
     const moduleRepo = makeModuleRepo();
     const uow = makeUow(moduleRepo, makeDefRepo());
 
-    await new AddCkvsHandler(uow, makeIdGen(), makeQueryServices()).handle(
+    await new AddCkvsHandler(uow, makeIdGen()).handle(
       new AddCkvsCommand(String(MODULE_ID), [
         {valueSystemIds: ['3', '3', '4']},
       ]),
@@ -190,55 +173,47 @@ describe('AddCkvsHandler', () => {
   });
 
   it('returns a partial result without staging an invalid value definition', async () => {
-    const moduleRepo = makeModuleRepo();
+    const moduleRepo = makeModuleRepo({
+      getKeyValueSummaryForGivenValues: jest.fn().mockResolvedValue({
+        kind: 'PARTIAL',
+        data: [],
+        issues: [
+          {
+            code: 'ENTITY_NOT_FOUND',
+            message: 'ValueDefinition not found for systemId=3',
+            severity: 'ERROR',
+          },
+        ],
+      }),
+    });
     const uow = makeUow(moduleRepo, makeDefRepo());
-    const queryServices = {
-      keyValueDefQueryService: {
-        getKeyValueSummaryForGivenValues: jest.fn().mockResolvedValue({
-          kind: 'PARTIAL',
-          data: [],
-          issues: [
-            {
-              code: 'ENTITY_NOT_FOUND',
-              message: 'ValueDefinition not found for systemId=3',
-              severity: 'ERROR',
-            },
-          ],
-        }),
-      },
-    } as unknown as QueryServices;
 
-    const result = await new AddCkvsHandler(
-      uow,
-      makeIdGen(),
-      queryServices,
-    ).handle(new AddCkvsCommand(String(MODULE_ID), [{valueSystemIds: ['3']}]));
+    const result = await new AddCkvsHandler(uow, makeIdGen()).handle(
+      new AddCkvsCommand(String(MODULE_ID), [{valueSystemIds: ['3']}]),
+    );
 
     expect(result.kind).toBe('PARTIAL');
     expect(moduleRepo.createCkv).not.toHaveBeenCalled();
   });
 
   it('rolls back and throws when value resolution fails unexpectedly', async () => {
-    const moduleRepo = makeModuleRepo();
+    const moduleRepo = makeModuleRepo({
+      getKeyValueSummaryForGivenValues: jest.fn().mockResolvedValue({
+        kind: 'FAIL',
+        issues: [
+          {
+            code: 'ERR_9001',
+            message: 'database unavailable',
+            severity: 'ERROR',
+          },
+        ],
+      }),
+    });
     const uow = makeUow(moduleRepo, makeDefRepo());
     uow.isInTransaction.mockReturnValue(true);
-    const queryServices = {
-      keyValueDefQueryService: {
-        getKeyValueSummaryForGivenValues: jest.fn().mockResolvedValue({
-          kind: 'FAIL',
-          issues: [
-            {
-              code: 'ERR_9001',
-              message: 'database unavailable',
-              severity: 'ERROR',
-            },
-          ],
-        }),
-      },
-    } as unknown as QueryServices;
 
     await expect(
-      new AddCkvsHandler(uow, makeIdGen(), queryServices).handle(
+      new AddCkvsHandler(uow, makeIdGen()).handle(
         new AddCkvsCommand(String(MODULE_ID), [{valueSystemIds: ['3']}]),
       ),
     ).rejects.toThrow('database unavailable');
@@ -254,19 +229,15 @@ describe('AddCkvsHandler', () => {
     };
     const moduleRepo = makeModuleRepo({
       getAllCkvsForModule: jest.fn().mockResolvedValue([zeroCkv]),
-      getZeroCkv: jest.fn().mockResolvedValue(zeroCkv),
-      getCkvParameterPayloads: jest
+      getCkvPayloadEntries: jest
         .fn()
         .mockResolvedValue([{systemId: 300, parameterSystemId: 200}]),
     });
     const uow = makeUow(moduleRepo, makeDefRepo());
-    await new AddCkvsHandler(uow, makeIdGen(), makeQueryServices()).handle(
+    await new AddCkvsHandler(uow, makeIdGen()).handle(
       new AddCkvsCommand(String(MODULE_ID), [{valueSystemIds: ['1', '2']}]),
     );
-    expect(moduleRepo.getCkvParameterPayloads).toHaveBeenCalledWith(
-      50,
-      MODULE_ID,
-    );
+    expect(moduleRepo.getCkvPayloadEntries).toHaveBeenCalledWith(MODULE_ID, 50);
     expect(moduleRepo.createCkv).toHaveBeenCalledTimes(1);
   });
 
@@ -279,7 +250,7 @@ describe('AddCkvsHandler', () => {
           valueDefinitionSystemIds: [1],
         },
       ]),
-      getCkvParameterPayloads: jest.fn().mockResolvedValue([
+      getCkvPayloadEntries: jest.fn().mockResolvedValue([
         {systemId: 300, parameterSystemId: 200},
         {systemId: 301, parameterSystemId: 201},
       ]),
@@ -287,7 +258,7 @@ describe('AddCkvsHandler', () => {
     const uow = makeUow(moduleRepo, makeDefRepo());
 
     await expect(
-      new AddCkvsHandler(uow, makeIdGen(), makeQueryServices()).handle(
+      new AddCkvsHandler(uow, makeIdGen()).handle(
         new AddCkvsCommand(String(MODULE_ID), [{valueSystemIds: ['2']}]),
       ),
     ).rejects.toThrow(

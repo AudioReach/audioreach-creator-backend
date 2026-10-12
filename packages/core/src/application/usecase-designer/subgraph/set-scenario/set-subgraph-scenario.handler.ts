@@ -91,10 +91,7 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
     }
 
     const serialized = serializeParameterData(
-      {
-        systemId: scenarioDef.systemId,
-        elementsStructure: scenarioDef.elementsStructure,
-      },
+      scenarioDef,
       command.elements as unknown as ElementData[],
     );
     if (!serialized.ok) {

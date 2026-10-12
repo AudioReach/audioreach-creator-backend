@@ -2,36 +2,33 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
-import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import {Result} from '../../../shared/result/result.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
 import type {AddTagsCommand} from './add-tags.command.js';
-import {
-  getModuleWriteContext,
-  withTransaction,
-} from '../shared/module-handler-helpers.js';
+import {getModuleWriteContext} from '../shared/module-handler-helpers.js';
 
 export interface AddTagsResult {
   groupId: string;
   addedTags: Array<{systemId: number; naturalId: number; tagName: string}>;
 }
 
-export class AddTagsHandler {
+export class AddTagsHandler implements CommandHandler<
+  AddTagsCommand,
+  Result<AddTagsResult>
+> {
   constructor(
     private readonly uow: UnitOfWork,
     private readonly idGeneration: IdGenerationPort,
-    private readonly queryServices: QueryServices,
   ) {}
 
   async handle(command: AddTagsCommand): Promise<Result<AddTagsResult>> {
-    const {groupId, fileSystemId, moduleRepo} = await getModuleWriteContext(
-      this.uow,
-      command.spfModuleSystemId,
-    );
+    const {groupId, transact, fileSystemId, moduleRepo} =
+      await getModuleWriteContext(this.uow, command.spfModuleSystemId);
 
     const existingTags = await moduleRepo.getAllTagsForModule(
       command.spfModuleSystemId,
@@ -41,7 +38,7 @@ export class AddTagsHandler {
       existingTags.map(t => t.tagDefinitionSystemId),
     );
 
-    return withTransaction(this.uow, async () => {
+    return transact(async () => {
       const addedTags: AddTagsResult['addedTags'] = [];
       const issues: Issue[] = [];
 
@@ -49,11 +46,10 @@ export class AddTagsHandler {
         command.tagDefinitionSystemIds,
       )) {
         if (existingTagDefIds.has(tagDefinitionSystemId)) continue;
-        const definition =
-          await this.queryServices.tagDefinitionQueryService.getTagDefinition(
-            fileSystemId,
-            tagDefinitionSystemId,
-          );
+        const definition = await moduleRepo.getTagDefinition(
+          fileSystemId,
+          tagDefinitionSystemId,
+        );
         if (!definition) {
           issues.push(
             IssueFactory.notFound(

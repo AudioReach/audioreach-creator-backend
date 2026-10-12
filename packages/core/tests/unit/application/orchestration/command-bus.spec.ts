@@ -145,7 +145,6 @@ describe('CommandBus', () => {
         mockFileSystem,
         mockUowFactory,
         undefined,
-        undefined,
         logger,
       );
 

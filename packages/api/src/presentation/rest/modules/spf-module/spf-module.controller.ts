@@ -99,6 +99,7 @@ import {TkvResponseDto} from './dto/shared/tkv-response.dto.js';
 import {TagInfoResponseDto} from './dto/shared/tag-info-response.dto.js';
 import {
   AddCkvsResponseDto,
+  AddCkvParametersResponseDto,
   CkvParameterRemovalResponseDto,
   CkvParametersResponseDto,
   RemoveSpfModuleResponseDto,
@@ -149,6 +150,7 @@ import {
   TkvParameterRemovalResponseDto,
   TkvParameterItem,
   AddCkvsResponseDto,
+  AddCkvParametersResponseDto,
   RemoveSpfModuleResponseDto,
 )
 export class SpfModuleController extends BaseController {
@@ -898,7 +900,10 @@ export class SpfModuleController extends BaseController {
     );
     return toApiResult(result, data => ({
       addedCkvs: data.addedCkvs,
-      removedCkvSystemIds: data.removedCkvSystemIds.map(String),
+      removedZeroCkvSystemId:
+        data.removedZeroCkvSystemId !== undefined
+          ? String(data.removedZeroCkvSystemId)
+          : undefined,
     }));
   }
 
@@ -1265,12 +1270,12 @@ export class SpfModuleController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'CKV parameters added successfully',
-        dto: CkvParametersResponseDto,
+        dto: AddCkvParametersResponseDto,
       },
       {
         status: HttpStatus.MULTI_STATUS,
         description: 'Partial success - some CKV parameters were not added',
-        dto: CkvParametersResponseDto,
+        dto: AddCkvParametersResponseDto,
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -1288,7 +1293,7 @@ export class SpfModuleController extends BaseController {
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Body() request: CreateCkvParametersRequestDto,
     @ArcSession() session: ActiveSession,
-  ): Promise<ApiResult<CkvParametersResponseDto>> {
+  ): Promise<ApiResult<AddCkvParametersResponseDto>> {
     const command = new AddCkvParametersCommand(
       spfModuleSystemId,
       request.parameterSystemIds,
@@ -1296,7 +1301,9 @@ export class SpfModuleController extends BaseController {
     const result = await this.commandBus.execute<
       Result<AddCkvParametersResult>
     >(command, session);
-    return toApiResult(result, data => ({parameters: data.parameters}));
+    return toApiResult(result, data => ({
+      affectedCkvSystemIds: data.affectedCkvSystemIds.map(String),
+    }));
   }
 
   /**

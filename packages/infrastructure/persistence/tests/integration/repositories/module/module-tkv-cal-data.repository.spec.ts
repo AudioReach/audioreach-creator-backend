@@ -103,7 +103,7 @@ async function seedModule(ds: DataSource) {
 
 async function seedParamDef(ds: DataSource) {
   await ds.query(
-    `INSERT INTO spf_module_parameter_definitions (system_id, param_id, max_size, pid_type, is_persistent, elements_structure, is_read_only, spf_module_definition_system_id) VALUES (?, 1, 64, 'TYPE_A', 1, '[]', 0, ?)`,
+    `INSERT INTO spf_module_parameter_definitions (system_id, param_id, name, max_size, pid_type, is_persistent, elements_structure, is_read_only, spf_module_definition_system_id) VALUES (?, 1, 'test_param', 64, 'TYPE_A', 1, '[]', 0, ?)`,
     [PARAM_DEF_ID, DEF_ID],
   );
 }
@@ -151,7 +151,13 @@ function makeRepo(qr: QueryRunner, sessionId: number): TypeOrmModuleRepository {
       throw new Error('not needed');
     },
   };
-  return new TypeOrmModuleRepository(writer, qr.manager, uow as never);
+  const idGeneration = {getNextId: async () => PAYLOAD_ID};
+  return new TypeOrmModuleRepository(
+    writer,
+    qr.manager,
+    uow as never,
+    idGeneration as never,
+  );
 }
 
 describe('TypeOrmModuleRepository — TKV cal data methods', () => {
@@ -233,7 +239,7 @@ describe('TypeOrmModuleRepository — TKV cal data methods', () => {
       await seedPayload(ds);
       const repo = makeRepo(qr, sessionId);
 
-      await repo.removeTkv(TKV_ID, TAG_MAP_ID);
+      await repo.deleteTkv(TKV_ID, TAG_MAP_ID);
 
       const rows = (await ds.query(
         `SELECT target_table, aggregate_id FROM edit_actions WHERE session_id = ? AND valid_until IS NULL ORDER BY change_id`,
@@ -271,14 +277,13 @@ describe('TypeOrmModuleRepository — TKV cal data methods', () => {
         TKV_ID,
         TAG_MAP_ID,
         PARAM_DEF_ID,
-        PAYLOAD_ID,
         new Uint8Array([1]),
       );
       expect(await repo.getTkvPayloadEntries(TAG_MAP_ID, TKV_ID)).toHaveLength(
         1,
       );
 
-      await repo.removeParameterFromTkv(PAYLOAD_ID, TKV_ID, TAG_MAP_ID);
+      await repo.deleteParameterFromTkv(PAYLOAD_ID, TKV_ID, TAG_MAP_ID);
 
       expect(await repo.getTkvPayloadEntries(TAG_MAP_ID, TKV_ID)).toEqual([]);
     });

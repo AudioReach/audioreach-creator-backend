@@ -2,29 +2,30 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {Result} from '../../../shared/result/result.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
 import type {RemoveTkvParametersCommand} from './remove-tkv-parameters.command.js';
-import {
-  getModuleWriteContext,
-  withTransaction,
-} from '../shared/module-handler-helpers.js';
+import {getModuleWriteContext} from '../shared/module-handler-helpers.js';
 
 export interface RemoveTkvParametersResult {
   groupId: string;
   updates: Array<{tkvSystemId: number; removedParameterSystemIds: number[]}>;
 }
 
-export class RemoveTkvParametersHandler {
+export class RemoveTkvParametersHandler implements CommandHandler<
+  RemoveTkvParametersCommand,
+  Result<RemoveTkvParametersResult>
+> {
   constructor(private readonly uow: UnitOfWork) {}
 
   async handle(
     command: RemoveTkvParametersCommand,
   ): Promise<Result<RemoveTkvParametersResult>> {
-    const {groupId, moduleRepo} = await getModuleWriteContext(
+    const {groupId, transact, moduleRepo} = await getModuleWriteContext(
       this.uow,
       command.spfModuleSystemId,
     );
@@ -32,7 +33,7 @@ export class RemoveTkvParametersHandler {
     const issues: Issue[] = [];
     const updates: RemoveTkvParametersResult['updates'] = [];
 
-    return withTransaction(this.uow, async () => {
+    return transact(async () => {
       for (const {tkvSystemId, parameterSystemIds} of command.updates) {
         const tkv = await moduleRepo.getTkvBySystemId(
           tkvSystemId,
@@ -57,7 +58,7 @@ export class RemoveTkvParametersHandler {
         for (const parameterSystemId of new Set(parameterSystemIds)) {
           const payloadRow = payloadMap.get(parameterSystemId);
           if (!payloadRow) continue;
-          await moduleRepo.removeParameterFromTkv(
+          await moduleRepo.deleteParameterFromTkv(
             payloadRow.systemId,
             tkvSystemId,
             tkv.moduleTagIdMapSystemId,

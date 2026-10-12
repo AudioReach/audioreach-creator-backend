@@ -23,7 +23,7 @@ import {serializeDefaultParameterData} from '../../shared/serialize-elements.js'
  * yet, otherwise the exact parameter set inherited from one existing entity
  * (so every CKV/TKV of the same module/tag stays payload-aligned).
  */
-export async function resolveParametersToSeed(
+export async function getParamDefinitionsForKv(
   definitionSystemId: number,
   inheritFromSystemId: number | undefined,
   defRepo: ModuleDefinitionRepository,
@@ -59,12 +59,10 @@ export async function resolveParametersToSeed(
  * Serializes default parameter data for each definition and attaches it to
  * the given CKV/TKV aggregate as a parameter payload.
  */
-export async function seedKvParameterPayloads(
+export function buildDefaultPayloads(
   kvData: KvData,
   paramDefs: readonly ModuleParameterDefinition[],
-  fileSystemId: number,
-  idGeneration: IdGenerationPort,
-): Promise<void> {
+): void {
   for (const def of paramDefs) {
     const serialized = serializeDefaultParameterData(def);
     if (!serialized.ok) {
@@ -72,12 +70,10 @@ export async function seedKvParameterPayloads(
         `Failed to serialize default data for parameter ${def.systemId}: ${serialized.error}`,
       );
     }
-    const payloadSystemId = await idGeneration.getNextId(fileSystemId);
     const paramData = new ModuleParameterData(
       asSystemId(def.systemId),
       serialized.value,
     );
-    paramData.payloadSystemId = payloadSystemId;
     kvData.addParameterPayload(paramData);
   }
 }
@@ -105,11 +101,6 @@ export async function createZeroCkv(
     valueDefinitionSystemIds: [],
     uiPersistence: null,
   });
-  await seedKvParameterPayloads(
-    kvData,
-    calibrationDefs,
-    fileSystemId,
-    idGeneration,
-  );
+  buildDefaultPayloads(kvData, calibrationDefs);
   await moduleRepo.createCkv(kvData, moduleSystemId);
 }

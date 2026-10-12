@@ -2,12 +2,13 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 import type {
   CkvSummary,
+  CkvPayloadEntry,
   ModuleRepository,
-  PayloadEntry,
 } from '../../../ports/persistence/repositories/module/module.repository.js';
 import type {ParameterDefinitionBase} from '../../../ports/persistence/repositories/shared/parameter-definition-base.js';
 import {Result} from '../../../shared/result/result.js';
@@ -17,19 +18,17 @@ import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
 import {serializeDefaultParameterData} from '../../shared/serialize-elements.js';
 import type {AddCkvParametersCommand} from './add-ckv-parameters.command.js';
-import type {ParamInfoDto} from '../query/spf-module-dto.js';
-import {mapSupportedParameters} from '../shared/kv-write-response.js';
-import {
-  getModuleWriteContext,
-  withTransaction,
-} from '../shared/module-handler-helpers.js';
+import {getModuleWriteContext} from '../shared/module-handler-helpers.js';
 
 export interface AddCkvParametersResult {
   groupId: string;
-  parameters: ParamInfoDto[];
+  affectedCkvSystemIds: number[];
 }
 
-export class AddCkvParametersHandler {
+export class AddCkvParametersHandler implements CommandHandler<
+  AddCkvParametersCommand,
+  Result<AddCkvParametersResult>
+> {
   constructor(
     private readonly uow: UnitOfWork,
     private readonly idGeneration: IdGenerationPort,
@@ -38,7 +37,7 @@ export class AddCkvParametersHandler {
   async handle(
     command: AddCkvParametersCommand,
   ): Promise<Result<AddCkvParametersResult>> {
-    const {groupId, fileSystemId, moduleRepo, defRepo, spfModule} =
+    const {groupId, transact, fileSystemId, moduleRepo, defRepo, spfModule} =
       await getModuleWriteContext(this.uow, command.spfModuleSystemId);
 
     const allCkvs = await moduleRepo.getAllCkvsForModule(
@@ -48,8 +47,9 @@ export class AddCkvParametersHandler {
     const nonZeroCkvs = allCkvs.filter(
       c => c.valueDefinitionSystemIds.length > 0,
     );
-    const ckvPayloadMap = await moduleRepo.getAllCkvParameterPayloads(
+    const existingPayloads = await moduleRepo.getCkvPayloadsForParameters(
       command.spfModuleSystemId,
+      command.parameterSystemIds,
     );
 
     const allDefs = await defRepo.getParameterDefinitions(
@@ -60,13 +60,12 @@ export class AddCkvParametersHandler {
     const issues: Issue[] = [];
     const parameterSystemIds = [...new Set(command.parameterSystemIds)];
 
-    return withTransaction(this.uow, async () => {
+    return transact(async () => {
       const targetCkvs = await this.ensureTargetCkvs(
         nonZeroCkvs.length > 0 ? nonZeroCkvs : allCkvs,
         allDefs.length > 0,
         command.spfModuleSystemId,
         fileSystemId,
-        ckvPayloadMap,
         moduleRepo,
       );
 
@@ -84,33 +83,15 @@ export class AddCkvParametersHandler {
           parameterSystemId,
           defMap,
           targetCkvs,
-          ckvPayloadMap,
+          existingPayloads,
           command.spfModuleSystemId,
-          fileSystemId,
           moduleRepo,
         );
       }
 
-      const supportedParameterIds = new Set(
-        [...ckvPayloadMap.values()]
-          .flat()
-          .map(payload => payload.parameterSystemId),
-      );
-      for (const parameterSystemId of parameterSystemIds) {
-        if (defMap.has(parameterSystemId) && targetCkvs.length > 0) {
-          supportedParameterIds.add(parameterSystemId);
-        }
-      }
-      const supportedDefinitions =
-        supportedParameterIds.size === 0
-          ? []
-          : await defRepo.getParameterDefinitions(
-              spfModule.definitionSystemId,
-              [...supportedParameterIds],
-            );
       const data = {
         groupId,
-        parameters: mapSupportedParameters(supportedDefinitions),
+        affectedCkvSystemIds: targetCkvs.map(c => c.systemId),
       };
       return issues.length > 0 ? Result.partial(data, issues) : Result.ok(data);
     });
@@ -121,11 +102,15 @@ export class AddCkvParametersHandler {
     hasValidDefinitions: boolean,
     spfModuleSystemId: number,
     fileSystemId: number,
-    ckvPayloadMap: Map<number, PayloadEntry[]>,
     moduleRepo: ModuleRepository,
   ): Promise<CkvSummary[]> {
-    if (existingTargets.length > 0 || !hasValidDefinitions) {
+    if (existingTargets.length > 0) {
       return existingTargets;
+    }
+    if (!hasValidDefinitions) {
+      throw new Error(
+        `No valid parameter definitions found for module ${spfModuleSystemId}`,
+      );
     }
     const zeroCkvSystemId = await this.idGeneration.getNextId(fileSystemId);
     await moduleRepo.createCkv(
@@ -136,22 +121,21 @@ export class AddCkvParametersHandler {
       }),
       spfModuleSystemId,
     );
-    const zeroCkv = {
-      systemId: zeroCkvSystemId,
-      spfModuleSystemId,
-      valueDefinitionSystemIds: [],
-    };
-    ckvPayloadMap.set(zeroCkvSystemId, []);
-    return [zeroCkv];
+    return [
+      {
+        systemId: zeroCkvSystemId,
+        spfModuleSystemId,
+        valueDefinitionSystemIds: [],
+      },
+    ];
   }
 
   private async addParameterToCkvs(
     parameterSystemId: number,
     defMap: Map<number, ParameterDefinitionBase>,
     targetCkvs: CkvSummary[],
-    ckvPayloadMap: Map<number, PayloadEntry[]>,
+    existingPayloads: CkvPayloadEntry[],
     spfModuleSystemId: number,
-    fileSystemId: number,
     moduleRepo: ModuleRepository,
   ): Promise<void> {
     const def = defMap.get(parameterSystemId);
@@ -164,16 +148,19 @@ export class AddCkvParametersHandler {
     }
 
     for (const ckv of targetCkvs) {
-      const payloads = ckvPayloadMap.get(ckv.systemId) ?? [];
-      if (payloads.some(p => p.parameterSystemId === parameterSystemId)) {
+      if (
+        existingPayloads.some(
+          p =>
+            p.ckvSystemId === ckv.systemId &&
+            p.parameterSystemId === parameterSystemId,
+        )
+      ) {
         continue;
       }
-      const payloadSystemId = await this.idGeneration.getNextId(fileSystemId);
       await moduleRepo.addParameterToCkv(
         ckv.systemId,
         spfModuleSystemId,
         parameterSystemId,
-        payloadSystemId,
         serialized.value,
       );
     }

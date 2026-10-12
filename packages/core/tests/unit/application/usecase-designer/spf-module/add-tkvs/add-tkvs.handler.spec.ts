@@ -8,7 +8,6 @@ import type {
   ModuleRepository,
   ModuleDefinitionRepository,
   IdGenerationPort,
-  QueryServices,
 } from '@arc/core';
 import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/index.js';
 import {AddTkvsHandler} from '../../../../../../src/application/usecase-designer/spf-module/add-tkvs/add-tkvs.handler.js';
@@ -37,6 +36,15 @@ function makeModuleRepo(
     getAllTkvsForTag: jest.fn().mockResolvedValue([]),
     getTkvPayloadEntries: jest.fn().mockResolvedValue([]),
     createTkv: jest.fn().mockResolvedValue(undefined),
+    getKeyValueSummaryForGivenValues: jest.fn().mockImplementation(ids =>
+      Promise.resolve({
+        kind: 'OK',
+        data: (ids as number[]).map(id => ({
+          key: {systemId: id + 100, naturalId: id + 100, name: 'key'},
+          value: {systemId: id, naturalId: id, name: 'value'},
+        })),
+      }),
+    ),
     findModuleForPatch: jest.fn(),
     renameModule: jest.fn(),
     changeContainer: jest.fn(),
@@ -78,22 +86,6 @@ function makeIdGen(): jest.Mocked<IdGenerationPort> {
   } as any;
 }
 
-function makeQueryServices(): QueryServices {
-  return {
-    keyValueDefQueryService: {
-      getKeyValueSummaryForGivenValues: jest.fn().mockImplementation(ids =>
-        Promise.resolve({
-          kind: 'OK',
-          data: (ids as number[]).map(id => ({
-            key: {systemId: id + 100, naturalId: id + 100, name: 'key'},
-            value: {systemId: id, naturalId: id, name: 'value'},
-          })),
-        }),
-      ),
-    },
-  } as unknown as QueryServices;
-}
-
 function makeUow(
   moduleRepo: jest.Mocked<ModuleRepository>,
   defRepo: jest.Mocked<ModuleDefinitionRepository>,
@@ -119,9 +111,9 @@ describe('AddTkvsHandler', () => {
     });
     const uow = makeUow(moduleRepo, makeDefRepo());
     await expect(
-      new AddTkvsHandler(uow, makeIdGen(), makeQueryServices()).handle(
+      new AddTkvsHandler(uow, makeIdGen()).handle(
         new AddTkvsCommand(String(MODULE_ID), String(TAG_ID), [
-          {valueSystemIds: ['1']},
+          {valueSystemIds: ['1'], paramSystemIds: []},
         ]),
       ),
     ).rejects.toThrow(ResourceNotFoundException);
@@ -133,9 +125,9 @@ describe('AddTkvsHandler', () => {
     });
     const uow = makeUow(moduleRepo, makeDefRepo());
     await expect(
-      new AddTkvsHandler(uow, makeIdGen(), makeQueryServices()).handle(
+      new AddTkvsHandler(uow, makeIdGen()).handle(
         new AddTkvsCommand(String(MODULE_ID), String(TAG_ID), [
-          {valueSystemIds: ['1']},
+          {valueSystemIds: ['1'], paramSystemIds: []},
         ]),
       ),
     ).rejects.toThrow(ResourceNotFoundException);
@@ -152,13 +144,9 @@ describe('AddTkvsHandler', () => {
       ]),
     });
     const uow = makeUow(moduleRepo, makeDefRepo());
-    const result = await new AddTkvsHandler(
-      uow,
-      makeIdGen(),
-      makeQueryServices(),
-    ).handle(
+    const result = await new AddTkvsHandler(uow, makeIdGen()).handle(
       new AddTkvsCommand(String(MODULE_ID), String(TAG_ID), [
-        {valueSystemIds: ['1']},
+        {valueSystemIds: ['1'], paramSystemIds: []},
       ]),
     );
     expect(moduleRepo.createTkv).not.toHaveBeenCalled();
@@ -168,13 +156,9 @@ describe('AddTkvsHandler', () => {
   it('calls createTkv and returns groupId on success', async () => {
     const moduleRepo = makeModuleRepo();
     const uow = makeUow(moduleRepo, makeDefRepo());
-    const result = await new AddTkvsHandler(
-      uow,
-      makeIdGen(),
-      makeQueryServices(),
-    ).handle(
+    const result = await new AddTkvsHandler(uow, makeIdGen()).handle(
       new AddTkvsCommand(String(MODULE_ID), String(TAG_ID), [
-        {valueSystemIds: ['1']},
+        {valueSystemIds: ['1'], paramSystemIds: []},
       ]),
     );
     expect(moduleRepo.createTkv).toHaveBeenCalledTimes(1);
@@ -186,9 +170,9 @@ describe('AddTkvsHandler', () => {
     const moduleRepo = makeModuleRepo();
     const uow = makeUow(moduleRepo, makeDefRepo());
 
-    await new AddTkvsHandler(uow, makeIdGen(), makeQueryServices()).handle(
+    await new AddTkvsHandler(uow, makeIdGen()).handle(
       new AddTkvsCommand(String(MODULE_ID), String(TAG_ID), [
-        {valueSystemIds: ['1', '1', '2']},
+        {valueSystemIds: ['1', '1', '2'], paramSystemIds: []},
       ]),
     );
 
@@ -200,31 +184,24 @@ describe('AddTkvsHandler', () => {
   });
 
   it('returns a partial result without staging an invalid value definition', async () => {
-    const moduleRepo = makeModuleRepo();
+    const moduleRepo = makeModuleRepo({
+      getKeyValueSummaryForGivenValues: jest.fn().mockResolvedValue({
+        kind: 'PARTIAL',
+        data: [],
+        issues: [
+          {
+            code: 'ENTITY_NOT_FOUND',
+            message: 'ValueDefinition not found for systemId=1',
+            severity: 'ERROR',
+          },
+        ],
+      }),
+    });
     const uow = makeUow(moduleRepo, makeDefRepo());
-    const queryServices = {
-      keyValueDefQueryService: {
-        getKeyValueSummaryForGivenValues: jest.fn().mockResolvedValue({
-          kind: 'PARTIAL',
-          data: [],
-          issues: [
-            {
-              code: 'ENTITY_NOT_FOUND',
-              message: 'ValueDefinition not found for systemId=1',
-              severity: 'ERROR',
-            },
-          ],
-        }),
-      },
-    } as unknown as QueryServices;
 
-    const result = await new AddTkvsHandler(
-      uow,
-      makeIdGen(),
-      queryServices,
-    ).handle(
+    const result = await new AddTkvsHandler(uow, makeIdGen()).handle(
       new AddTkvsCommand(String(MODULE_ID), String(TAG_ID), [
-        {valueSystemIds: ['1']},
+        {valueSystemIds: ['1'], paramSystemIds: []},
       ]),
     );
 
@@ -233,60 +210,29 @@ describe('AddTkvsHandler', () => {
   });
 
   it('rolls back and throws when value resolution fails unexpectedly', async () => {
-    const moduleRepo = makeModuleRepo();
+    const moduleRepo = makeModuleRepo({
+      getKeyValueSummaryForGivenValues: jest.fn().mockResolvedValue({
+        kind: 'FAIL',
+        issues: [
+          {
+            code: 'ERR_9001',
+            message: 'database unavailable',
+            severity: 'ERROR',
+          },
+        ],
+      }),
+    });
     const uow = makeUow(moduleRepo, makeDefRepo());
     uow.isInTransaction.mockReturnValue(true);
-    const queryServices = {
-      keyValueDefQueryService: {
-        getKeyValueSummaryForGivenValues: jest.fn().mockResolvedValue({
-          kind: 'FAIL',
-          issues: [
-            {
-              code: 'ERR_9001',
-              message: 'database unavailable',
-              severity: 'ERROR',
-            },
-          ],
-        }),
-      },
-    } as unknown as QueryServices;
 
     await expect(
-      new AddTkvsHandler(uow, makeIdGen(), queryServices).handle(
+      new AddTkvsHandler(uow, makeIdGen()).handle(
         new AddTkvsCommand(String(MODULE_ID), String(TAG_ID), [
-          {valueSystemIds: ['1']},
+          {valueSystemIds: ['1'], paramSystemIds: []},
         ]),
       ),
     ).rejects.toThrow('database unavailable');
     expect(uow.rollback).toHaveBeenCalledTimes(1);
     expect(uow.commit).not.toHaveBeenCalled();
-  });
-
-  it('rejects an incomplete inherited parameter definition list', async () => {
-    const moduleRepo = makeModuleRepo({
-      getAllTkvsForTag: jest.fn().mockResolvedValue([
-        {
-          systemId: 80,
-          moduleTagIdMapSystemId: TAG_ID,
-          valueDefinitionSystemIds: [1],
-        },
-      ]),
-      getTkvPayloadEntries: jest.fn().mockResolvedValue([
-        {systemId: 300, parameterSystemId: 200},
-        {systemId: 301, parameterSystemId: 201},
-      ]),
-    });
-    const uow = makeUow(moduleRepo, makeDefRepo());
-
-    await expect(
-      new AddTkvsHandler(uow, makeIdGen(), makeQueryServices()).handle(
-        new AddTkvsCommand(String(MODULE_ID), String(TAG_ID), [
-          {valueSystemIds: ['2']},
-        ]),
-      ),
-    ).rejects.toThrow(
-      'Parameter definitions missing for inherited TKV payloads: 201',
-    );
-    expect(moduleRepo.createTkv).not.toHaveBeenCalled();
   });
 });

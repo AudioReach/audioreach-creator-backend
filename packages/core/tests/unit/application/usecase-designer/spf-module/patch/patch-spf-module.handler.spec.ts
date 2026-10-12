@@ -57,9 +57,9 @@ function makeModuleRepo(
     renameModule: jest.fn().mockResolvedValue(undefined),
     changeContainer: jest.fn().mockResolvedValue(undefined),
     addDataPort: jest.fn().mockResolvedValue(undefined),
-    removeDataPort: jest.fn().mockResolvedValue(undefined),
+    deleteDataPort: jest.fn().mockResolvedValue(undefined),
     addControlPort: jest.fn().mockResolvedValue(undefined),
-    removeControlPort: jest.fn().mockResolvedValue(undefined),
+    deleteControlPort: jest.fn().mockResolvedValue(undefined),
     createModule: jest.fn().mockResolvedValue(undefined),
     ...overrides,
   };
@@ -451,8 +451,8 @@ describe('PatchSpfModuleHandler', () => {
     // 2 INPUT ports, requesting 1 → remove highest systemId (3) first (LIFO)
     const cmd = new PatchSpfModuleCommand(MODULE_ID, undefined, undefined, 1);
     await handler.handle(cmd);
-    expect(moduleRepo.removeDataPort).toHaveBeenCalledWith(3, MODULE_ID);
-    expect(moduleRepo.removeDataPort).toHaveBeenCalledTimes(1);
+    expect(moduleRepo.deleteDataPort).toHaveBeenCalledWith(3, MODULE_ID);
+    expect(moduleRepo.deleteDataPort).toHaveBeenCalledTimes(1);
   });
 
   it('maxControlPortsSupported increase: throws DomainRuleViolationException when no available intents', async () => {
@@ -663,7 +663,7 @@ describe('PatchSpfModuleHandler — static port protection', () => {
     ).rejects.toThrow(DomainRuleViolationException);
     expect(testUow.rollback).toHaveBeenCalled();
     // Static ports must not be removed
-    expect(moduleRepo.removeDataPort).not.toHaveBeenCalled();
+    expect(moduleRepo.deleteDataPort).not.toHaveBeenCalled();
   });
 
   it('throws DomainRuleViolationException when requested < static control port count', async () => {
@@ -703,6 +703,6 @@ describe('PatchSpfModuleHandler — static port protection', () => {
       ),
     ).rejects.toThrow(DomainRuleViolationException);
     expect(testUow.rollback).toHaveBeenCalled();
-    expect(moduleRepo.removeControlPort).not.toHaveBeenCalled();
+    expect(moduleRepo.deleteControlPort).not.toHaveBeenCalled();
   });
 });

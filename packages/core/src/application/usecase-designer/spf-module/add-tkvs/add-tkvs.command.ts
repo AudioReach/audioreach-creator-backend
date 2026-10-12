@@ -9,6 +9,7 @@ import {parseId} from '../../shared/parse-id.js';
 
 export interface CreateTkvItem {
   valueSystemIds: string[];
+  paramSystemIds: string[];
 }
 
 export class AddTkvsCommand extends BaseCommand {
@@ -20,7 +21,10 @@ export class AddTkvsCommand extends BaseCommand {
 
   readonly spfModuleSystemId: number;
   readonly tagSystemId: number;
-  readonly tkvs: Array<{valueDefinitionSystemIds: number[]}>;
+  readonly tkvs: Array<{
+    valueDefinitionSystemIds: number[];
+    parameterSystemIds: number[];
+  }>;
 
   constructor(
     spfModuleSystemId: string,
@@ -37,6 +41,9 @@ export class AddTkvsCommand extends BaseCommand {
           t.valueSystemIds.map(value => parseId(value, 'valueSystemId')),
         ),
       ].sort((a, b) => a - b),
+      parameterSystemIds: t.paramSystemIds.map(id =>
+        parseId(id, 'paramSystemId'),
+      ),
     }));
   }
 }

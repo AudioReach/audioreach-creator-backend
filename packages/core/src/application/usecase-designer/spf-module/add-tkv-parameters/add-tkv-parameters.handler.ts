@@ -2,8 +2,8 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
-import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 import {Result} from '../../../shared/result/result.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
@@ -12,39 +12,35 @@ import {serializeDefaultParameterData} from '../../shared/serialize-elements.js'
 import type {AddTkvParametersCommand} from './add-tkv-parameters.command.js';
 import type {ParamInfoDto} from '../query/spf-module-dto.js';
 import {mapSupportedParameters} from '../shared/kv-write-response.js';
-import {
-  getModuleWriteContext,
-  withTransaction,
-} from '../shared/module-handler-helpers.js';
+import {getModuleWriteContext} from '../shared/module-handler-helpers.js';
 
 export interface AddTkvParametersResult {
   groupId: string;
   tkvParameters: Array<{tkvSystemId: number; parameters: ParamInfoDto[]}>;
 }
 
-export class AddTkvParametersHandler {
-  constructor(
-    private readonly uow: UnitOfWork,
-    private readonly idGeneration: IdGenerationPort,
-  ) {}
+export class AddTkvParametersHandler implements CommandHandler<
+  AddTkvParametersCommand,
+  Result<AddTkvParametersResult>
+> {
+  constructor(private readonly uow: UnitOfWork) {}
 
   async handle(
     command: AddTkvParametersCommand,
   ): Promise<Result<AddTkvParametersResult>> {
-    const {groupId, fileSystemId, moduleRepo, defRepo, spfModule} =
+    const {groupId, transact, moduleRepo, defRepo, spfModule} =
       await getModuleWriteContext(this.uow, command.spfModuleSystemId);
 
     const issues: Issue[] = [];
     const tkvParameters: AddTkvParametersResult['tkvParameters'] = [];
 
-    return withTransaction(this.uow, async () => {
+    return transact(async () => {
       for (const {tkvSystemId, parameterSystemIds} of command.updates) {
         const itemIssues = await this.addParametersToTkv(
           tkvSystemId,
           parameterSystemIds,
           spfModule.definitionSystemId,
           command.spfModuleSystemId,
-          fileSystemId,
           moduleRepo,
           defRepo,
         );
@@ -85,7 +81,6 @@ export class AddTkvParametersHandler {
     parameterSystemIds: number[],
     definitionSystemId: number,
     spfModuleSystemId: number,
-    fileSystemId: number,
     moduleRepo: ReturnType<UnitOfWork['getModuleRepository']>,
     defRepo: ReturnType<UnitOfWork['getModuleDefinitionRepository']>,
   ): Promise<Issue[]> {
@@ -132,12 +127,10 @@ export class AddTkvParametersHandler {
         );
         continue;
       }
-      const payloadSystemId = await this.idGeneration.getNextId(fileSystemId);
       await moduleRepo.addParameterToTkv(
         tkvSystemId,
         tkv.moduleTagIdMapSystemId,
         parameterSystemId,
-        payloadSystemId,
         serialized.value,
       );
       existingParameterIds.add(parameterSystemId);

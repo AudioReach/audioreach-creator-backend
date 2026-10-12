@@ -5,5 +5,8 @@
 
 export interface ParameterDefinitionBase {
   systemId: number;
+  naturalId: number;
+  name: string;
+  description?: string;
   elementsStructure: string; // JSON — parsed by serializeParameterData
 }

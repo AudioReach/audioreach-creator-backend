@@ -8,7 +8,6 @@ import type {
   ModuleRepository,
   ModuleDefinitionRepository,
   IdGenerationPort,
-  QueryServices,
 } from '@arc/core';
 import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/index.js';
 import {RemoveCkvsHandler} from '../../../../../../src/application/usecase-designer/spf-module/remove-ckvs/remove-ckvs.handler.js';
@@ -36,32 +35,39 @@ function makeModuleRepo(
         valueDefinitionSystemIds: [1, 2],
       },
     ]),
-    removeCkv: jest.fn().mockResolvedValue(undefined),
+    deleteCkv: jest.fn().mockResolvedValue(undefined),
     createCkv: jest.fn().mockResolvedValue(undefined),
     findModuleForPatch: jest.fn(),
     renameModule: jest.fn(),
     changeContainer: jest.fn(),
     addDataPort: jest.fn(),
-    removeDataPort: jest.fn(),
+    deleteDataPort: jest.fn(),
     addControlPort: jest.fn(),
-    removeControlPort: jest.fn(),
+    deleteControlPort: jest.fn(),
     createModule: jest.fn(),
     ckvExists: jest.fn(),
     getAllTagsForModule: jest.fn(),
     getTagBySystemId: jest.fn(),
     createTag: jest.fn(),
-    removeTag: jest.fn(),
+    deleteTag: jest.fn(),
     getAllTkvsForTag: jest.fn(),
     getTkvBySystemId: jest.fn(),
     createTkv: jest.fn(),
-    removeTkv: jest.fn(),
-    getAllCkvParameterPayloads: jest.fn(),
+    deleteTkv: jest.fn(),
     addParameterToCkv: jest.fn(),
-    removeParameterFromCkv: jest.fn(),
+    deleteParameterFromCkv: jest.fn(),
     addParameterToTkv: jest.fn(),
-    removeParameterFromTkv: jest.fn(),
-    getZeroCkv: jest.fn().mockResolvedValue(null),
-    getCkvParameterPayloads: jest.fn().mockResolvedValue([]),
+    deleteParameterFromTkv: jest.fn(),
+    getCkvPayloadEntries: jest.fn().mockResolvedValue([]),
+    getKeyValueSummaryForGivenValues: jest.fn().mockImplementation(ids =>
+      Promise.resolve({
+        kind: 'OK',
+        data: (ids as number[]).map(id => ({
+          key: {systemId: id + 100, naturalId: id + 100, name: 'key'},
+          value: {systemId: id, naturalId: id, name: 'value'},
+        })),
+      }),
+    ),
     ...overrides,
   } as unknown as jest.Mocked<ModuleRepository>;
 }
@@ -90,22 +96,6 @@ function makeIdGen(): jest.Mocked<IdGenerationPort> {
   } as any;
 }
 
-function makeQueryServices(): QueryServices {
-  return {
-    keyValueDefQueryService: {
-      getKeyValueSummaryForGivenValues: jest.fn().mockImplementation(ids =>
-        Promise.resolve({
-          kind: 'OK',
-          data: (ids as number[]).map(id => ({
-            key: {systemId: id + 100, naturalId: id + 100, name: 'key'},
-            value: {systemId: id, naturalId: id, name: 'value'},
-          })),
-        }),
-      ),
-    },
-  } as unknown as QueryServices;
-}
-
 function makeUow(
   moduleRepo: jest.Mocked<ModuleRepository>,
   defRepo: jest.Mocked<ModuleDefinitionRepository>,
@@ -131,7 +121,7 @@ describe('RemoveCkvsHandler', () => {
     });
     const uow = makeUow(moduleRepo, makeDefRepo());
     await expect(
-      new RemoveCkvsHandler(uow, makeIdGen(), makeQueryServices()).handle(
+      new RemoveCkvsHandler(uow, makeIdGen()).handle(
         new RemoveCkvsCommand(String(MODULE_ID), [String(CKV_ID)]),
       ),
     ).rejects.toThrow(ResourceNotFoundException);
@@ -140,16 +130,16 @@ describe('RemoveCkvsHandler', () => {
   it('calls removeCkv for each valid ckvSystemId', async () => {
     const moduleRepo = makeModuleRepo();
     const uow = makeUow(moduleRepo, makeDefRepo());
-    await new RemoveCkvsHandler(uow, makeIdGen(), makeQueryServices()).handle(
+    await new RemoveCkvsHandler(uow, makeIdGen()).handle(
       new RemoveCkvsCommand(String(MODULE_ID), [String(CKV_ID)]),
     );
-    expect(moduleRepo.removeCkv).toHaveBeenCalledWith(CKV_ID, MODULE_ID);
+    expect(moduleRepo.deleteCkv).toHaveBeenCalledWith(CKV_ID, MODULE_ID);
   });
 
   it('creates zero CKV when last non-zero CKV is removed', async () => {
     const moduleRepo = makeModuleRepo();
     const uow = makeUow(moduleRepo, makeDefRepo());
-    await new RemoveCkvsHandler(uow, makeIdGen(), makeQueryServices()).handle(
+    await new RemoveCkvsHandler(uow, makeIdGen()).handle(
       new RemoveCkvsCommand(String(MODULE_ID), [String(CKV_ID)]),
     );
     expect(moduleRepo.createCkv).toHaveBeenCalledTimes(1);
@@ -174,7 +164,7 @@ describe('RemoveCkvsHandler', () => {
       ]),
     });
     const uow = makeUow(moduleRepo, makeDefRepo());
-    await new RemoveCkvsHandler(uow, makeIdGen(), makeQueryServices()).handle(
+    await new RemoveCkvsHandler(uow, makeIdGen()).handle(
       new RemoveCkvsCommand(String(MODULE_ID), [String(CKV_ID)]),
     );
     expect(moduleRepo.createCkv).not.toHaveBeenCalled();

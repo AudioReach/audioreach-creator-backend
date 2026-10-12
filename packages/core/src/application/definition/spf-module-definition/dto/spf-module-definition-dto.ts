@@ -7,6 +7,10 @@ import {z} from 'zod';
 import type {SpfModuleDefinitionSummaryWithCustomData} from '../get-all/get-all-spf-module-definitions.handler.js';
 import type {CustomModuleMetadataReadModel} from '../../../ports/persistence/query-services/spf-module-definition/custom-module-metadata-read-model.js';
 import type {DataPortGroupReadModel} from '../../../ports/persistence/query-services/spf-module-definition/spf-module-definition-read-model.js';
+import {
+  TOOL_POLICY,
+  type ToolPolicy,
+} from '../../../../domain/entities/definitions/common/types/tool-policy-type.js';
 
 // ── Data type sub-schema (mirrors DataTypeDto in API) ──────────────────────
 
@@ -92,7 +96,7 @@ const ParameterDefinitionSummaryInfoDtoSchema = z
       .optional()
       .describe('Indicates if the parameter is deprecated'),
     toolPolicy: z
-      .string()
+      .enum(Object.values(TOOL_POLICY) as [ToolPolicy, ...ToolPolicy[]])
       .describe('Tool policy associated with the parameter'),
     pidType: z.string().describe('PID type of the parameter'),
   })
@@ -207,12 +211,15 @@ export type SpfModuleDefinitionDto = z.infer<
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function parseFirstToolPolicy(stored: string): string {
+function parseFirstToolPolicy(stored: string): ToolPolicy {
   const parsed: unknown = stored ? JSON.parse(stored) : [];
   const first: unknown = Array.isArray(parsed)
     ? (parsed as unknown[])[0]
     : undefined;
-  return typeof first === 'string' ? first : 'Calibration';
+  return typeof first === 'string' &&
+    Object.values(TOOL_POLICY).includes(first as ToolPolicy)
+    ? (first as ToolPolicy)
+    : TOOL_POLICY.Calibration;
 }
 
 function mapDataPortGroup(

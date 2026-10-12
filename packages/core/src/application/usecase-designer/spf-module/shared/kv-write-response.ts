@@ -2,7 +2,7 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
+import type {ModuleRepository} from '../../../ports/persistence/repositories/module/module.repository.js';
 import type {
   ModuleDefinitionRepository,
   ModuleParameterDefinition,
@@ -28,13 +28,12 @@ export function mapSupportedParameters(
 export async function resolveKeyValuePairs(
   valueDefinitionSystemIds: readonly number[],
   fileSystemId: number,
-  queryServices: QueryServices,
+  kvRepo: ModuleRepository,
 ): Promise<ResultType<KeyValueInfoDto[]>> {
-  const result =
-    await queryServices.keyValueDefQueryService.getKeyValueSummaryForGivenValues(
-      [...valueDefinitionSystemIds],
-      fileSystemId,
-    );
+  const result = await kvRepo.getKeyValueSummaryForGivenValues(
+    [...valueDefinitionSystemIds],
+    fileSystemId,
+  );
   if (result.kind === RESULT_KIND.Fail) {
     return Result.fail(...result.issues);
   }
@@ -103,7 +102,7 @@ export function buildKvResponse(
 /**
  * Builds the DTO for a CKV or TKV that has just been removed. The caller
  * pre-fetches the parameterSystemIds from the appropriate payload table
- * (getCkvParameterPayloads / getTkvPayloadEntries) before calling this.
+ * (getCkvPayloadEntries / getTkvPayloadEntries) before calling this.
  */
 export async function buildRemovedKvDto(
   kv: {systemId: number; valueDefinitionSystemIds: readonly number[]},
@@ -111,7 +110,7 @@ export async function buildRemovedKvDto(
   definitionSystemId: number,
   fileSystemId: number,
   defRepo: ModuleDefinitionRepository,
-  queryServices: QueryServices,
+  kvRepo: ModuleRepository,
 ): Promise<{dto: CkvDto; issues: readonly Issue[]}> {
   const paramDefs =
     parameterSystemIds.length === 0
@@ -123,7 +122,7 @@ export async function buildRemovedKvDto(
   const resolvedValues = await resolveKeyValuePairs(
     kv.valueDefinitionSystemIds,
     fileSystemId,
-    queryServices,
+    kvRepo,
   );
   const {data, issues} = resolveDisplayValues(resolvedValues);
   return {dto: buildKvResponse(kv.systemId, data, paramDefs), issues};

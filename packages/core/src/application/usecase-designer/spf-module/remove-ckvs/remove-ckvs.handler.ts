@@ -2,9 +2,9 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
-import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import {Result} from '../../../shared/result/result.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
@@ -13,25 +13,24 @@ import type {CkvDto} from '../query/spf-module-dto.js';
 import type {RemoveCkvsCommand} from './remove-ckvs.command.js';
 import {buildRemovedKvDto} from '../shared/kv-write-response.js';
 import {createZeroCkv} from '../shared/kv-seed-helpers.js';
-import {
-  getModuleWriteContext,
-  withTransaction,
-} from '../shared/module-handler-helpers.js';
+import {getModuleWriteContext} from '../shared/module-handler-helpers.js';
 
 export interface RemoveCkvsResult {
   groupId: string;
   removedCkvs: CkvDto[];
 }
 
-export class RemoveCkvsHandler {
+export class RemoveCkvsHandler implements CommandHandler<
+  RemoveCkvsCommand,
+  Result<RemoveCkvsResult>
+> {
   constructor(
     private readonly uow: UnitOfWork,
     private readonly idGeneration: IdGenerationPort,
-    private readonly queryServices: QueryServices,
   ) {}
 
   async handle(command: RemoveCkvsCommand): Promise<Result<RemoveCkvsResult>> {
-    const {groupId, fileSystemId, moduleRepo, defRepo, spfModule} =
+    const {groupId, transact, fileSystemId, moduleRepo, defRepo, spfModule} =
       await getModuleWriteContext(this.uow, command.spfModuleSystemId);
 
     const existingCkvs = await moduleRepo.getAllCkvsForModule(
@@ -50,12 +49,12 @@ export class RemoveCkvsHandler {
       }
     }
 
-    return withTransaction(this.uow, async () => {
+    return transact(async () => {
       const removedCkvs: CkvDto[] = [];
       for (const ckv of toRemove) {
-        const payloads = await moduleRepo.getCkvParameterPayloads(
-          ckv.systemId,
+        const payloads = await moduleRepo.getCkvPayloadEntries(
           command.spfModuleSystemId,
+          ckv.systemId,
         );
         const parameterSystemIds = payloads.map(
           payload => payload.parameterSystemId,
@@ -66,11 +65,11 @@ export class RemoveCkvsHandler {
           spfModule.definitionSystemId,
           fileSystemId,
           defRepo,
-          this.queryServices,
+          moduleRepo,
         );
         removedCkvs.push(built.dto);
         issues.push(...built.issues);
-        await moduleRepo.removeCkv(ckv.systemId, command.spfModuleSystemId);
+        await moduleRepo.deleteCkv(ckv.systemId, command.spfModuleSystemId);
       }
 
       // Check if any non-zero CKVs remain

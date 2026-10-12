@@ -12,12 +12,24 @@ import type {DataPort} from '../../../../../domain/entities/usecase-data/node/en
 import type {ControlPort} from '../../../../../domain/entities/usecase-data/node/entities/control-port.js';
 import type {KvData} from '../../../../../domain/entities/common/entities/kv-data.js';
 import type {PortIoType} from '../../../../../domain/entities/common/enums/port-io-type.js';
+import type {Result} from '../../../../shared/result/result.js';
+import type {
+  KeyDefinitionSummaryReadModel,
+  ValueDefinitionSummaryReadModel,
+} from '../../query-services/key-value/key-value-definition-read-model.js';
+import type {TagDefinitionReadModel} from '../../query-services/tag-definition/tag-definition-read-model.js';
 
 export type {SpfModuleBase} from '../../../../../domain/entities/usecase-data/module/spf-module.js';
 
 export interface PayloadEntry {
   systemId: number; // PK of CkvParameterPayload — matches param.systemId from client
   parameterSystemId: number; // FK → SpfModuleParameterDefinition.systemId
+}
+
+export interface CkvPayloadEntry {
+  systemId: number;
+  ckvSystemId: number;
+  parameterSystemId: number;
 }
 
 export interface PayloadUpdate {
@@ -115,7 +127,7 @@ export interface ModuleRepository {
     moduleSystemId: number,
     options?: EditOptions,
   ): Promise<void>;
-  removeDataPort(
+  deleteDataPort(
     portSystemId: number,
     moduleSystemId: number,
     options?: EditOptions,
@@ -125,7 +137,7 @@ export interface ModuleRepository {
     moduleSystemId: number,
     options?: EditOptions,
   ): Promise<void>;
-  removeControlPort(
+  deleteControlPort(
     portSystemId: number,
     moduleSystemId: number,
     options?: EditOptions,
@@ -185,16 +197,11 @@ export interface ModuleRepository {
     spfModuleSystemId: number,
     fileSystemId: number,
   ): Promise<CkvSummary[]>;
-  getCkvParameterPayloads(
-    ckvSystemId: number,
-    spfModuleSystemId: number,
-  ): Promise<PayloadEntry[]>;
-  removeCkv(
+  deleteCkv(
     ckvSystemId: number,
     moduleSystemId: number,
     options?: EditOptions,
   ): Promise<void>;
-  getZeroCkv(spfModuleSystemId: number): Promise<CkvSummary | null>;
 
   // ── Tag management ────────────────────────────────────────────────────────
   getAllTagsForModule(
@@ -211,7 +218,7 @@ export interface ModuleRepository {
     tagDefinitionSystemId: number,
     options?: EditOptions,
   ): Promise<void>;
-  removeTag(
+  deleteTag(
     tagSystemId: number,
     moduleSystemId: number,
     options?: EditOptions,
@@ -232,25 +239,29 @@ export interface ModuleRepository {
     moduleSystemId: number,
     options?: EditOptions,
   ): Promise<void>;
-  removeTkv(
+  deleteTkv(
     tkvSystemId: number,
     tagSystemId: number,
     options?: EditOptions,
   ): Promise<void>;
 
   // ── CKV parameter payload management ─────────────────────────────────────
-  getAllCkvParameterPayloads(
+  getCkvPayloadsForParameters(
     spfModuleSystemId: number,
-  ): Promise<Map<number, PayloadEntry[]>>;
+    parameterSystemIds: readonly number[],
+  ): Promise<CkvPayloadEntry[]>;
+  getCkvPayloadCountByCkvs(
+    ckvSystemIds: readonly number[],
+    spfModuleSystemId: number,
+  ): Promise<Map<number, number>>;
   addParameterToCkv(
     ckvSystemId: number,
     moduleSystemId: number,
     parameterSystemId: number,
-    payloadSystemId: number,
     payload: Uint8Array,
     options?: EditOptions,
   ): Promise<void>;
-  removeParameterFromCkv(
+  deleteParameterFromCkv(
     payloadSystemId: number,
     ckvSystemId: number,
     moduleSystemId: number,
@@ -262,11 +273,10 @@ export interface ModuleRepository {
     tkvSystemId: number,
     tagSystemId: number,
     parameterSystemId: number,
-    payloadSystemId: number,
     payload: Uint8Array,
     options?: EditOptions,
   ): Promise<void>;
-  removeParameterFromTkv(
+  deleteParameterFromTkv(
     payloadSystemId: number,
     tkvSystemId: number,
     tagSystemId: number,
@@ -290,4 +300,22 @@ export interface ModuleRepository {
 
   /** Deletes TKV/tag calibration data for a module. */
   DeleteAllTkvData(moduleSystemId: number, fileSystemId: number): Promise<void>;
+
+  // ── Key-value and tag definition lookups ─────────────────────────────────
+  getKeyValueSummaryForGivenValues(
+    valueDefSystemIds: number[],
+    fileSystemId: number,
+  ): Promise<
+    Result<
+      Array<{
+        key: KeyDefinitionSummaryReadModel;
+        value: ValueDefinitionSummaryReadModel;
+      }>
+    >
+  >;
+
+  getTagDefinition(
+    fileSystemId: number,
+    tagDefinitionSystemId: number,
+  ): Promise<TagDefinitionReadModel | null>;
 }

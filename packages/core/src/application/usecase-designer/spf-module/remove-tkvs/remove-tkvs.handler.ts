@@ -2,8 +2,8 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
-import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/index.js';
 import {Result} from '../../../shared/result/result.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
@@ -12,24 +12,21 @@ import type {Issue} from '../../../../shared/issues/issue.js';
 import type {RemoveTkvsCommand} from './remove-tkvs.command.js';
 import type {TkvDto} from '../query/spf-module-dto.js';
 import {buildRemovedKvDto} from '../shared/kv-write-response.js';
-import {
-  getModuleWriteContext,
-  withTransaction,
-} from '../shared/module-handler-helpers.js';
+import {getModuleWriteContext} from '../shared/module-handler-helpers.js';
 
 export interface RemoveTkvsResult {
   groupId: string;
   removedTkvs: TkvDto[];
 }
 
-export class RemoveTkvsHandler {
-  constructor(
-    private readonly uow: UnitOfWork,
-    private readonly queryServices: QueryServices,
-  ) {}
+export class RemoveTkvsHandler implements CommandHandler<
+  RemoveTkvsCommand,
+  Result<RemoveTkvsResult>
+> {
+  constructor(private readonly uow: UnitOfWork) {}
 
   async handle(command: RemoveTkvsCommand): Promise<Result<RemoveTkvsResult>> {
-    const {groupId, fileSystemId, moduleRepo, defRepo, spfModule} =
+    const {groupId, transact, fileSystemId, moduleRepo, defRepo, spfModule} =
       await getModuleWriteContext(this.uow, command.spfModuleSystemId);
 
     const tag = await moduleRepo.getTagBySystemId(
@@ -54,7 +51,7 @@ export class RemoveTkvsHandler {
       }
     }
 
-    return withTransaction(this.uow, async () => {
+    return transact(async () => {
       const removedTkvs: TkvDto[] = [];
       for (const tkv of toRemove) {
         const payloads = await moduleRepo.getTkvPayloadEntries(
@@ -70,11 +67,11 @@ export class RemoveTkvsHandler {
           spfModule.definitionSystemId,
           fileSystemId,
           defRepo,
-          this.queryServices,
+          moduleRepo,
         );
         issues.push(...built.issues);
         removedTkvs.push(built.dto);
-        await moduleRepo.removeTkv(tkv.systemId, command.tagSystemId);
+        await moduleRepo.deleteTkv(tkv.systemId, command.tagSystemId);
       }
 
       const data: RemoveTkvsResult = {groupId, removedTkvs};

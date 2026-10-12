@@ -2,15 +2,17 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 import {Result} from '../../../shared/result/result.js';
 import type {RemoveCkvParametersCommand} from './remove-ckv-parameters.command.js';
 import {createZeroCkv} from '../shared/kv-seed-helpers.js';
-import {
-  getModuleWriteContext,
-  withTransaction,
-} from '../shared/module-handler-helpers.js';
+import {getModuleWriteContext} from '../shared/module-handler-helpers.js';
+import type {
+  CkvSummary,
+  CkvPayloadEntry,
+} from '../../../ports/persistence/repositories/module/module.repository.js';
 
 export interface RemoveCkvParametersResult {
   groupId: string;
@@ -19,7 +21,10 @@ export interface RemoveCkvParametersResult {
   affectedCkvSystemIds: number[];
 }
 
-export class RemoveCkvParametersHandler {
+export class RemoveCkvParametersHandler implements CommandHandler<
+  RemoveCkvParametersCommand,
+  Result<RemoveCkvParametersResult>
+> {
   constructor(
     private readonly uow: UnitOfWork,
     private readonly idGeneration: IdGenerationPort,
@@ -28,45 +33,45 @@ export class RemoveCkvParametersHandler {
   async handle(
     command: RemoveCkvParametersCommand,
   ): Promise<Result<RemoveCkvParametersResult>> {
-    const {groupId, fileSystemId, moduleRepo, defRepo, spfModule} =
+    const {groupId, transact, fileSystemId, moduleRepo, defRepo, spfModule} =
       await getModuleWriteContext(this.uow, command.spfModuleSystemId);
 
     const allCkvs = await moduleRepo.getAllCkvsForModule(
       command.spfModuleSystemId,
       fileSystemId,
     );
-    const ckvPayloadMap = await moduleRepo.getAllCkvParameterPayloads(
+    const payloads = await moduleRepo.getCkvPayloadsForParameters(
       command.spfModuleSystemId,
+      command.parameterSystemIds,
     );
 
-    return withTransaction(this.uow, async () => {
+    return transact(async () => {
       const removedParameterSystemIds: number[] = [];
       const removedCkvSystemIds: number[] = [];
       const affectedCkvSystemIds: number[] = [];
 
-      // Track remaining payload counts per CKV after removals
-      const remainingPayloadCount = new Map<number, number>();
-      for (const [ckvId, payloads] of ckvPayloadMap) {
-        remainingPayloadCount.set(ckvId, payloads.length);
-      }
-
       await this.removeParametersFromCkvs(
         command,
         allCkvs,
-        ckvPayloadMap,
-        remainingPayloadCount,
+        payloads,
         affectedCkvSystemIds,
         moduleRepo,
         removedParameterSystemIds,
       );
 
-      // Collapse only CKVs that this request actually made empty.
-      for (const ckvId of new Set(affectedCkvSystemIds)) {
-        const count = remainingPayloadCount.get(ckvId) ?? 0;
+      // Query post-deletion payload counts for the affected CKVs to detect collapse.
+      const affectedSet = [...new Set(affectedCkvSystemIds)];
+      const countByCkv = await moduleRepo.getCkvPayloadCountByCkvs(
+        affectedSet,
+        command.spfModuleSystemId,
+      );
+
+      for (const ckvId of affectedSet) {
+        const count = countByCkv.get(ckvId) ?? 0;
         const ckv = allCkvs.find(c => c.systemId === ckvId);
         if (!ckv || ckv.valueDefinitionSystemIds.length === 0) continue;
         if (count <= 0) {
-          await moduleRepo.removeCkv(ckvId, command.spfModuleSystemId);
+          await moduleRepo.deleteCkv(ckvId, command.spfModuleSystemId);
           removedCkvSystemIds.push(ckvId);
         }
       }
@@ -113,19 +118,8 @@ export class RemoveCkvParametersHandler {
 
   private async removeParametersFromCkvs(
     command: RemoveCkvParametersCommand,
-    allCkvs: Awaited<
-      ReturnType<
-        ReturnType<UnitOfWork['getModuleRepository']>['getAllCkvsForModule']
-      >
-    >,
-    ckvPayloadMap: Awaited<
-      ReturnType<
-        ReturnType<
-          UnitOfWork['getModuleRepository']
-        >['getAllCkvParameterPayloads']
-      >
-    >,
-    remainingPayloadCount: Map<number, number>,
+    allCkvs: CkvSummary[],
+    payloads: CkvPayloadEntry[],
     affectedCkvSystemIds: number[],
     moduleRepo: ReturnType<UnitOfWork['getModuleRepository']>,
     removedParameterSystemIds: number[],
@@ -136,20 +130,18 @@ export class RemoveCkvParametersHandler {
     for (const parameterSystemId of new Set(command.parameterSystemIds)) {
       let removed = false;
       for (const ckv of nonZeroCkvs) {
-        const payloadRow = (ckvPayloadMap.get(ckv.systemId) ?? []).find(
-          p => p.parameterSystemId === parameterSystemId,
+        const payloadRow = payloads.find(
+          p =>
+            p.ckvSystemId === ckv.systemId &&
+            p.parameterSystemId === parameterSystemId,
         );
         if (!payloadRow) continue;
-        await moduleRepo.removeParameterFromCkv(
+        await moduleRepo.deleteParameterFromCkv(
           payloadRow.systemId,
           ckv.systemId,
           command.spfModuleSystemId,
         );
         removed = true;
-        remainingPayloadCount.set(
-          ckv.systemId,
-          (remainingPayloadCount.get(ckv.systemId) ?? 0) - 1,
-        );
         if (!affectedCkvSystemIds.includes(ckv.systemId)) {
           affectedCkvSystemIds.push(ckv.systemId);
         }

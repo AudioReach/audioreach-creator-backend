@@ -323,7 +323,7 @@ export class PatchSpfModuleHandler implements CommandHandler<
       );
     }
     for (const portSystemId of toRemove) {
-      await moduleRepo.removeDataPort(portSystemId, module.systemId);
+      await moduleRepo.deleteDataPort(portSystemId, module.systemId);
     }
   }
 
@@ -448,7 +448,7 @@ export class PatchSpfModuleHandler implements CommandHandler<
     }
     const moduleRepo = uow.getModuleRepository();
     for (const portSystemId of toRemove) {
-      await moduleRepo.removeControlPort(portSystemId, module.systemId);
+      await moduleRepo.deleteControlPort(portSystemId, module.systemId);
     }
   }
 }

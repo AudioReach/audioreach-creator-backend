@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {
   ResourceNotFoundException,
@@ -19,7 +20,10 @@ import type {PayloadEntry} from '../../../ports/persistence/repositories/module/
 import type {ModuleParameterDefinition} from '../../../ports/persistence/repositories/module/module-definition.repository.js';
 import type {ParameterElementDto} from '../dto/element-dto.js';
 
-export class PutCkvCalDataHandler {
+export class PutCkvCalDataHandler implements CommandHandler<
+  PutCkvCalDataCommand,
+  Result<PutCkvCalDataResult>
+> {
   constructor(
     private readonly uow: UnitOfWork,
     private readonly logger?: Logger,

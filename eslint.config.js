@@ -188,6 +188,12 @@ export default [
           handlerPattern: '**/packages/core/src/application/**/*.handler.ts',
         },
       ],
+      'custom/handler-must-implement-interface': [
+        'error',
+        {
+          handlerPattern: '**/packages/core/src/application/**/*.handler.ts',
+        },
+      ],
     },
   },
 

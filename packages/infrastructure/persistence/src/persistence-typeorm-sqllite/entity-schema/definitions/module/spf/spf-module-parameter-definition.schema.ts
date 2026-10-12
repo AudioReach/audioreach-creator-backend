@@ -16,7 +16,7 @@ import type {TkvParameterPayloadRow} from '../../../usecase-data/module/spf-modu
 export interface SpfModuleParameterDefinitionBase {
   systemId: number;
   naturalId: number;
-  name?: string;
+  name: string;
   description?: string;
   maxSize: number;
   pidType: string;
@@ -51,7 +51,6 @@ export const SpfModuleParameterDefinitionSchema =
       name: {
         type: 'varchar',
         length: 255,
-        nullable: true,
         name: 'name',
       },
       description: {

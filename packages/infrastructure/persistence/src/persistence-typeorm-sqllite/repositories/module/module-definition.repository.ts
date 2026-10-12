@@ -8,6 +8,7 @@ import type {
   ModuleDefinitionRepository,
   UnitOfWork,
   ModuleParameterDefinition,
+  ToolPolicy,
 } from '@arc/core';
 import {
   SpfModuleDefinition,
@@ -15,6 +16,7 @@ import {
   DataPortDefinition,
   StaticControlPortDefinition,
   DynamicIntentDefinition,
+  TOOL_POLICY,
 } from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {SpfModuleDefinitionRow} from '../../entity-schema/definitions/module/spf/spf-module-definition.schema.js';
@@ -187,14 +189,19 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
 //TODO: Create this data in db when upload-file happens and maintain/update it
 // in the session. Update and use that data instead of this.
 
-function parseFirstToolPolicy(stored: string): string {
+function parseFirstToolPolicy(stored: string): ToolPolicy {
+  const values = Object.values(TOOL_POLICY) as string[];
   try {
     const parsed: unknown = stored ? JSON.parse(stored) : [];
-    if (!Array.isArray(parsed)) return '';
-    if (parsed.includes('CALIBRATION')) return 'CALIBRATION';
+    if (!Array.isArray(parsed)) return TOOL_POLICY.Unknown;
+    const calibration = (parsed as unknown[]).find(
+      p => p === TOOL_POLICY.Calibration,
+    );
+    if (calibration) return TOOL_POLICY.Calibration;
     const first: unknown = parsed[0];
-    return typeof first === 'string' ? first : '';
+    const match = values.find(v => v === first);
+    return match ? (match as ToolPolicy) : TOOL_POLICY.Unknown;
   } catch {
-    return '';
+    return TOOL_POLICY.Unknown;
   }
 }

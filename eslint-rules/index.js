@@ -17,6 +17,7 @@ const noRawPersistenceQueries = require('./no-raw-persistence-queries.cjs');
 const noDomainInfrastructureDeps = require('./no-domain-infrastructure-deps.cjs');
 const enforceResponseDtoNaming = require('./enforce-response-dto-naming.cjs');
 const noQueryServicesInCommandHandler = require('./no-query-services-in-command-handler.cjs');
+const handlerMustImplementInterface = require('./handler-must-implement-interface.cjs');
 
 export default {
   rules: {
@@ -31,5 +32,6 @@ export default {
     'no-raw-persistence-queries': noRawPersistenceQueries,
     'enforce-response-dto-naming': enforceResponseDtoNaming,
     'no-query-services-in-command-handler': noQueryServicesInCommandHandler,
+    'handler-must-implement-interface': handlerMustImplementInterface,
   },
 };

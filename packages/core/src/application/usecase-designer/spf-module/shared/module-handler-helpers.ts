@@ -9,11 +9,13 @@ import type {SpfModuleBase} from '../../../../domain/entities/usecase-data/modul
 import {ResourceNotFoundException} from '../../../../shared/exceptions/index.js';
 
 export interface ModuleWriteContext {
+  uow: UnitOfWork;
   groupId: string;
   fileSystemId: number;
   moduleRepo: ModuleRepository;
   defRepo: ModuleDefinitionRepository;
   spfModule: SpfModuleBase;
+  transact: <T>(fn: () => Promise<T>) => Promise<T>;
 }
 
 export async function getModuleWriteContext(
@@ -29,7 +31,8 @@ export async function getModuleWriteContext(
     fileSystemId,
   );
   if (!spfModule) throw new ResourceNotFoundException('SpfModule not found');
-  return {groupId, fileSystemId, moduleRepo, defRepo, spfModule};
+  const transact = <T>(fn: () => Promise<T>) => withTransaction(uow, fn);
+  return {uow, groupId, fileSystemId, moduleRepo, defRepo, spfModule, transact};
 }
 
 export async function withTransaction<T>(

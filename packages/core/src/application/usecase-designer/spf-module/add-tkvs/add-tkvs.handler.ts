@@ -2,9 +2,9 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
-import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import {RESULT_KIND, Result} from '../../../shared/result/result.js';
 import {KvData} from '../../../../domain/entities/common/entities/kv-data.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/index.js';
@@ -16,29 +16,25 @@ import {
   resolveKeyValuePairs,
   throwOnUnexpectedKvResolutionFailure,
 } from '../shared/kv-write-response.js';
-import {
-  resolveParametersToSeed,
-  seedKvParameterPayloads,
-} from '../shared/kv-seed-helpers.js';
-import {
-  getModuleWriteContext,
-  withTransaction,
-} from '../shared/module-handler-helpers.js';
+import {buildDefaultPayloads} from '../shared/kv-seed-helpers.js';
+import {getModuleWriteContext} from '../shared/module-handler-helpers.js';
 
 export interface AddTkvsResult {
   groupId: string;
   addedTkvs: TkvDto[];
 }
 
-export class AddTkvsHandler {
+export class AddTkvsHandler implements CommandHandler<
+  AddTkvsCommand,
+  Result<AddTkvsResult>
+> {
   constructor(
     private readonly uow: UnitOfWork,
     private readonly idGeneration: IdGenerationPort,
-    private readonly queryServices: QueryServices,
   ) {}
 
   async handle(command: AddTkvsCommand): Promise<Result<AddTkvsResult>> {
-    const {groupId, fileSystemId, moduleRepo, defRepo, spfModule} =
+    const {groupId, transact, fileSystemId, moduleRepo, defRepo, spfModule} =
       await getModuleWriteContext(this.uow, command.spfModuleSystemId);
 
     const tag = await moduleRepo.getTagBySystemId(
@@ -57,16 +53,7 @@ export class AddTkvsHandler {
       ),
     );
 
-    const paramDefs = await resolveParametersToSeed(
-      spfModule.definitionSystemId,
-      existingTkvs[0]?.systemId,
-      defRepo,
-      systemId =>
-        moduleRepo.getTkvPayloadEntries(command.tagSystemId, systemId),
-      'TKV',
-    );
-
-    return withTransaction(this.uow, async () => {
+    return transact(async () => {
       const addedTkvs: AddTkvsResult['addedTkvs'] = [];
       const issues: Issue[] = [];
 
@@ -79,7 +66,7 @@ export class AddTkvsHandler {
         const resolvedValues = await resolveKeyValuePairs(
           item.valueDefinitionSystemIds,
           fileSystemId,
-          this.queryServices,
+          moduleRepo,
         );
         if (resolvedValues.kind !== RESULT_KIND.Ok) {
           throwOnUnexpectedKvResolutionFailure(resolvedValues);
@@ -87,13 +74,14 @@ export class AddTkvsHandler {
           continue;
         }
 
-        const tkvSystemId = await this.createTkv(
+        const {tkvSystemId, paramDefs} = await this.createTkv(
           item,
-          paramDefs,
+          spfModule.definitionSystemId,
           command.tagSystemId,
           command.spfModuleSystemId,
           fileSystemId,
           moduleRepo,
+          defRepo,
         );
         existingKeys.add(key);
         addedTkvs.push(
@@ -108,31 +96,34 @@ export class AddTkvsHandler {
 
   private async createTkv(
     item: AddTkvsCommand['tkvs'][number],
+    definitionSystemId: number,
+    tagSystemId: number,
+    moduleSystemId: number,
+    fileSystemId: number,
+    moduleRepo: ReturnType<UnitOfWork['getModuleRepository']>,
+    defRepo: ReturnType<UnitOfWork['getModuleDefinitionRepository']>,
+  ): Promise<{
+    tkvSystemId: number;
     paramDefs: Awaited<
       ReturnType<
         ReturnType<
           UnitOfWork['getModuleDefinitionRepository']
         >['getParameterDefinitions']
       >
-    >,
-    tagSystemId: number,
-    moduleSystemId: number,
-    fileSystemId: number,
-    moduleRepo: ReturnType<UnitOfWork['getModuleRepository']>,
-  ): Promise<number> {
+    >;
+  }> {
     const tkvSystemId = await this.idGeneration.getNextId(fileSystemId);
+    const paramDefs = await defRepo.getParameterDefinitions(
+      definitionSystemId,
+      item.parameterSystemIds,
+    );
     const kvData = new KvData({
       systemId: tkvSystemId,
       valueDefinitionSystemIds: item.valueDefinitionSystemIds,
       uiPersistence: null,
     });
-    await seedKvParameterPayloads(
-      kvData,
-      paramDefs,
-      fileSystemId,
-      this.idGeneration,
-    );
+    buildDefaultPayloads(kvData, paramDefs);
     await moduleRepo.createTkv(kvData, tagSystemId, moduleSystemId);
-    return tkvSystemId;
+    return {tkvSystemId, paramDefs};
   }
 }

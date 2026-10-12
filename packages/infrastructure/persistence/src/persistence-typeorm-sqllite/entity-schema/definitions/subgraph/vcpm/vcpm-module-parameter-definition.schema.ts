@@ -13,7 +13,7 @@ import type {VcpmParameterPayloadRow} from '../../../usecase-data/subgraph/subgr
 
 export interface VcpmModuleParameterDefinitionRow extends EntityBaseRow {
   naturalId: number;
-  name?: string;
+  name: string;
   description?: string;
   maxSize: number;
   pidType: string;
@@ -44,7 +44,6 @@ export const VcpmModuleParameterDefinitionSchema =
       name: {
         type: 'varchar',
         length: 255,
-        nullable: true,
         name: 'name',
       },
       description: {

@@ -63,6 +63,7 @@ export type {EditOptions} from './application/ports/persistence/edit-options.js'
 export type {
   ModuleRepository,
   PayloadEntry,
+  CkvPayloadEntry,
   PayloadUpdate,
   CkvSummary,
   TagSummary,

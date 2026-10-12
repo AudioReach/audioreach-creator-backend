@@ -5,13 +5,11 @@
 
 import type {SpfModuleDefinition} from '../../../../../domain/entities/definitions/spf-module/spf-module-definition.js';
 import type {ParameterDefinitionBase} from '../shared/parameter-definition-base.js';
+import type {ToolPolicy} from '../../../../../domain/entities/definitions/common/types/tool-policy-type.js';
 
 export interface ModuleParameterDefinition extends ParameterDefinitionBase {
-  naturalId?: number;
-  name?: string;
-  description?: string;
   isReadOnly: boolean;
-  toolPolicy: string; // First entry of spf_module_parameter_definition.tool_policies JSON array
+  toolPolicy: ToolPolicy;
 }
 
 export interface ModuleDefinitionRepository {

@@ -64,7 +64,6 @@ import {UpdateValidationPreferencesCommand} from '../../../validation/commands/u
 import {UpdateValidationPreferencesHandler} from '../../../validation/commands/update-validation-preferences.handler.js';
 import {AcknowledgeDataLossCommand} from '../../../validation/commands/acknowledge-data-loss.command.js';
 import {AcknowledgeDataLossHandler} from '../../../validation/commands/acknowledge-data-loss.handler.js';
-import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import {StartSessionCommand} from '../../../edit-session/start-session/start-session.command.js';
 import {StartSessionHandler} from '../../../edit-session/start-session/start-session.handler.js';
 import {EndSessionCommand} from '../../../edit-session/end-session/end-session.command.js';
@@ -157,7 +156,6 @@ export interface CommandHandlerDependencies {
   idGeneration: IdGenerationPort;
   naturalIdGeneration: NaturalIdGenerationPort;
   fileSystem: FileSystemPort;
-  queryServices: QueryServices;
   workerPool?: WorkerPoolPort;
   logger?: Logger;
   profiler?: ProfilerPort;
@@ -366,26 +364,22 @@ export class CommandHandlerRegistry {
         new MoveSubsystemComponentsHandler(deps.uow, deps.idGeneration),
     });
     this.commandHandlerFactories.set(AddCkvsCommand, {
-      create: deps =>
-        new AddCkvsHandler(deps.uow, deps.idGeneration, deps.queryServices),
+      create: deps => new AddCkvsHandler(deps.uow, deps.idGeneration),
     });
     this.commandHandlerFactories.set(RemoveCkvsCommand, {
-      create: deps =>
-        new RemoveCkvsHandler(deps.uow, deps.idGeneration, deps.queryServices),
+      create: deps => new RemoveCkvsHandler(deps.uow, deps.idGeneration),
     });
     this.commandHandlerFactories.set(AddTagsCommand, {
-      create: deps =>
-        new AddTagsHandler(deps.uow, deps.idGeneration, deps.queryServices),
+      create: deps => new AddTagsHandler(deps.uow, deps.idGeneration),
     });
     this.commandHandlerFactories.set(RemoveTagsCommand, {
-      create: deps => new RemoveTagsHandler(deps.uow, deps.queryServices),
+      create: deps => new RemoveTagsHandler(deps.uow),
     });
     this.commandHandlerFactories.set(AddTkvsCommand, {
-      create: deps =>
-        new AddTkvsHandler(deps.uow, deps.idGeneration, deps.queryServices),
+      create: deps => new AddTkvsHandler(deps.uow, deps.idGeneration),
     });
     this.commandHandlerFactories.set(RemoveTkvsCommand, {
-      create: deps => new RemoveTkvsHandler(deps.uow, deps.queryServices),
+      create: deps => new RemoveTkvsHandler(deps.uow),
     });
     this.commandHandlerFactories.set(AddCkvParametersCommand, {
       create: deps => new AddCkvParametersHandler(deps.uow, deps.idGeneration),
@@ -395,7 +389,7 @@ export class CommandHandlerRegistry {
         new RemoveCkvParametersHandler(deps.uow, deps.idGeneration),
     });
     this.commandHandlerFactories.set(AddTkvParametersCommand, {
-      create: deps => new AddTkvParametersHandler(deps.uow, deps.idGeneration),
+      create: deps => new AddTkvParametersHandler(deps.uow),
     });
     this.commandHandlerFactories.set(RemoveTkvParametersCommand, {
       create: deps => new RemoveTkvParametersHandler(deps.uow),
