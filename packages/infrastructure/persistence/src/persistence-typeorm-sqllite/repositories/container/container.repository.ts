@@ -53,7 +53,7 @@ export class TypeOrmContainerRepository implements ContainerRepository {
     _fileSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     const container = await this.containerFetcher.fetchOne(
       containerSystemId,
       session.fileSystemId,
@@ -70,7 +70,6 @@ export class TypeOrmContainerRepository implements ContainerRepository {
           ...options,
         },
         session.sessionId,
-        groupId,
         this.manager,
       );
     }
@@ -82,7 +81,6 @@ export class TypeOrmContainerRepository implements ContainerRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }
@@ -121,7 +119,7 @@ export class TypeOrmContainerRepository implements ContainerRepository {
     container: Container,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
 
     await this.writer.writeCreate(
       {
@@ -136,7 +134,6 @@ export class TypeOrmContainerRepository implements ContainerRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
 
@@ -154,7 +151,6 @@ export class TypeOrmContainerRepository implements ContainerRepository {
           ...options,
         },
         session.sessionId,
-        groupId,
         this.manager,
       );
     }
@@ -224,7 +220,7 @@ export class TypeOrmContainerRepository implements ContainerRepository {
     data: Uint8Array,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     const fileSystemId = session.fileSystemId;
     // Use the fetcher only to resolve the property data row's systemId.
     // The blob (payload) is not read here — only the integer systemId matters.
@@ -256,7 +252,6 @@ export class TypeOrmContainerRepository implements ContainerRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }

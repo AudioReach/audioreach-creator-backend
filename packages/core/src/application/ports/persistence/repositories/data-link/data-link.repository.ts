@@ -124,7 +124,8 @@ export interface DataLinkRepository {
    * Writes CREATE edit_action rows for the DataLink, all its SubsystemDataLinks,
    * and all auto-created boundary DataPorts. FK order: DataPort(s) → DataLink →
    * SubsystemDataLink(s). Boundary ports attach to subsystem nodes that already
-   * exist, so no Node row is written. All rows share the groupId from WriteContext.
+   * exist, so no Node row is written. The ambient WriteContext groupId is
+   * command/response correlation only; it is not persisted on edit actions.
    */
   createDataLink(
     dataLink: DataLink,

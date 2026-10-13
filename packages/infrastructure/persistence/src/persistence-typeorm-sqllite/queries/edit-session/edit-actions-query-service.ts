@@ -9,12 +9,16 @@ import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionRow} from '../../entity-schema/edit-session/edit-action.schema.js';
 import type {ProjectSessionRow} from '../../entity-schema/edit-session/project-session.schema.js';
 import {SESSION_STATUS} from '../../entity-schema/edit-session/project-session.schema.js';
+import {
+  editActionTargetKeyString,
+  type EditActionTargetKey,
+} from '../../services/pending-target-reducer.js';
 import type {EntityManager, SelectQueryBuilder} from 'typeorm';
 
 /**
  * All-in-one filter for edit-action queries. Every field is optional;
  * omitting a field means "no filter on that dimension".
- * Active-overlay queries apply `validUntil IS NULL` implicitly.
+ * All rows are current rows; no history predicate is required.
  */
 export type EditActionsQueryFilters = {
   sessionId: number;
@@ -28,7 +32,6 @@ export type EditActionsQueryFilters = {
 /**
  * Options for narrowing the result set of an edit-action query.
  * All fields are optional — omitting a field means "no filter on that dimension".
- * Active-overlay queries additionally filter `valid_until IS NULL` implicitly.
  */
 export type EditActionsQueryOptions = {
   /** Filter by operation type. Omit to return all operations. */
@@ -46,7 +49,7 @@ export type EditActionsQueryOptions = {
  * (pass queryRunner.manager — writes are visible immediately) and
  * outside one (pass dataSource.manager — read-only overlay lookups).
  *
- * Overlay queries return active rows only; history queries retain superseded rows.
+ * Every edit-action query returns the current pending projection.
  */
 export class EditActionsQueryService {
   constructor(private readonly manager: EntityManager) {}
@@ -57,9 +60,9 @@ export class EditActionsQueryService {
    * filter dimensions are needed — avoids multiple round-trips.
    */
   async query(filters: EditActionsQueryFilters): Promise<EditActionRow[]> {
-    const qb = this.baseQb()
-      .where('ea.sessionId = :sessionId', {sessionId: filters.sessionId})
-      .andWhere('ea.validUntil IS NULL');
+    const qb = this.baseQb().where('ea.sessionId = :sessionId', {
+      sessionId: filters.sessionId,
+    });
 
     if (filters.aggregateId !== undefined) {
       qb.andWhere('ea.aggregateId = :aggregateId', {
@@ -74,7 +77,7 @@ export class EditActionsQueryService {
     if (filters.source !== undefined) {
       qb.andWhere('ea.source = :source', {source: filters.source});
     }
-    if (filters.operations != null && filters.operations.length > 0) {
+    if (hasOperationsFilter(filters.operations)) {
       qb.andWhere('ea.operation IN(:...operations)', {
         operations: filters.operations,
       });
@@ -95,8 +98,7 @@ export class EditActionsQueryService {
   ): Promise<EditActionRow[]> {
     const qb = this.baseQb()
       .where('ea.sessionId = :sessionId', {sessionId})
-      .andWhere('ea.aggregateId = :aggregateId', {aggregateId})
-      .andWhere('ea.validUntil IS NULL');
+      .andWhere('ea.aggregateId = :aggregateId', {aggregateId});
     this.applyOptions(qb, options);
     return qb.getMany() as Promise<EditActionRow[]>;
   }
@@ -110,8 +112,7 @@ export class EditActionsQueryService {
     const qb = this.baseQb()
       .where('ea.sessionId = :sessionId', {sessionId})
       .andWhere('ea.aggregateId = :aggregateId', {aggregateId})
-      .andWhere('ea.targetTable = :targetTable', {targetTable})
-      .andWhere('ea.validUntil IS NULL');
+      .andWhere('ea.targetTable = :targetTable', {targetTable});
     this.applyOptions(qb, options);
     return qb.getMany() as Promise<EditActionRow[]>;
   }
@@ -123,8 +124,7 @@ export class EditActionsQueryService {
   ): Promise<EditActionRow[]> {
     const qb = this.baseQb()
       .where('ea.sessionId = :sessionId', {sessionId})
-      .andWhere('ea.targetTable = :targetTable', {targetTable})
-      .andWhere('ea.validUntil IS NULL');
+      .andWhere('ea.targetTable = :targetTable', {targetTable});
     this.applyOptions(qb, options);
     return qb.getMany() as Promise<EditActionRow[]>;
   }
@@ -136,36 +136,9 @@ export class EditActionsQueryService {
   ): Promise<EditActionRow[]> {
     const qb = this.baseQb()
       .where('ea.sessionId = :sessionId', {sessionId})
-      .andWhere('ea.source = :source', {source})
-      .andWhere('ea.validUntil IS NULL');
+      .andWhere('ea.source = :source', {source});
     this.applyOptions(qb, options);
     return qb.getMany() as Promise<EditActionRow[]>;
-  }
-
-  async getHistoryByGroupId(
-    sessionId: number,
-    groupId: string,
-  ): Promise<EditActionRow[]> {
-    return this.baseQb()
-      .where('ea.sessionId = :sessionId', {sessionId})
-      .andWhere('ea.groupId = :groupId', {groupId})
-      .orderBy('ea.createdAt', 'ASC')
-      .addOrderBy('ea.changeId', 'ASC')
-      .getMany() as Promise<EditActionRow[]>;
-  }
-
-  async getHistoryByAggregateIds(
-    sessionId: number,
-    aggregateIds: readonly number[],
-  ): Promise<EditActionRow[]> {
-    if (aggregateIds.length === 0) return [];
-
-    return this.baseQb()
-      .where('ea.sessionId = :sessionId', {sessionId})
-      .andWhere('ea.aggregateId IN (:...aggregateIds)', {aggregateIds})
-      .orderBy('ea.createdAt', 'ASC')
-      .addOrderBy('ea.changeId', 'ASC')
-      .getMany() as Promise<EditActionRow[]>;
   }
 
   async findCurrentRow(
@@ -177,8 +150,7 @@ export class EditActionsQueryService {
     const qb = this.baseQb()
       .where('ea.sessionId = :sessionId', {sessionId})
       .andWhere('ea.targetSystemId = :targetSystemId', {targetSystemId})
-      .andWhere('ea.targetTable = :targetTable', {targetTable})
-      .andWhere('ea.validUntil IS NULL');
+      .andWhere('ea.targetTable = :targetTable', {targetTable});
 
     if (fieldPath === null) {
       qb.andWhere('ea.fieldPath IS NULL');
@@ -187,6 +159,76 @@ export class EditActionsQueryService {
     }
 
     return qb.getOne() as Promise<EditActionRow | null>;
+  }
+
+  async getAllByTargetKey(
+    target: EditActionTargetKey,
+    manager: EntityManager = this.manager,
+  ): Promise<EditActionRow[]> {
+    return manager
+      .getRepository(ENTITY_NAMES.EditAction)
+      .createQueryBuilder('ea')
+      .where('ea.sessionId = :sessionId', {sessionId: target.sessionId})
+      .andWhere('ea.targetTable = :targetTable', {
+        targetTable: target.targetTable,
+      })
+      .andWhere('ea.targetSystemId = :targetSystemId', {
+        targetSystemId: target.targetSystemId,
+      })
+      .orderBy('ea.changeId', 'ASC')
+      .getMany() as Promise<EditActionRow[]>;
+  }
+
+  async getAllByTargetKeys(
+    targets: readonly EditActionTargetKey[],
+    manager: EntityManager = this.manager,
+  ): Promise<Map<string, EditActionRow[]>> {
+    const result = new Map<string, EditActionRow[]>();
+    for (const target of targets) {
+      result.set(editActionTargetKeyString(target), []);
+    }
+
+    const bySessionAndTable = new Map<string, EditActionTargetKey[]>();
+    for (const target of targets) {
+      const key = `${target.sessionId}|${target.targetTable}`;
+      const group = bySessionAndTable.get(key) ?? [];
+      group.push(target);
+      bySessionAndTable.set(key, group);
+    }
+
+    await Promise.all(
+      [...bySessionAndTable.values()].map(async group => {
+        const first = group[0];
+        const rows = (await manager
+          .getRepository(ENTITY_NAMES.EditAction)
+          .createQueryBuilder('ea')
+          .where('ea.sessionId = :sessionId', {sessionId: first.sessionId})
+          .andWhere('ea.targetTable = :targetTable', {
+            targetTable: first.targetTable,
+          })
+          .andWhere('ea.targetSystemId IN (:...targetSystemIds)', {
+            targetSystemIds: [
+              ...new Set(group.map(target => target.targetSystemId)),
+            ],
+          })
+          .orderBy('ea.changeId', 'ASC')
+          .getMany()) as EditActionRow[];
+
+        for (const row of rows) {
+          result
+            .get(
+              editActionTargetKeyString({
+                sessionId: row.sessionId,
+                targetTable: row.targetTable,
+                targetSystemId: row.targetSystemId,
+              }),
+            )
+            ?.push(row);
+        }
+      }),
+    );
+
+    return result;
   }
 
   // ── Backwards-compat shim — LLD3 removes when read services are rewritten ─
@@ -216,7 +258,7 @@ export class EditActionsQueryService {
     qb: SelectQueryBuilder<object>,
     options?: EditActionsQueryOptions,
   ): void {
-    if (options?.operations != null && options.operations.length > 0) {
+    if (hasOperationsFilter(options?.operations)) {
       qb.andWhere('ea.operation IN(:...operations)', {
         operations: options.operations,
       });
@@ -230,4 +272,10 @@ export class EditActionsQueryService {
       qb.andWhere('ea.source = :source', {source: options.source});
     }
   }
+}
+
+function hasOperationsFilter(
+  operations: readonly ChangeOperation[] | null | undefined,
+): operations is readonly ChangeOperation[] {
+  return Array.isArray(operations) && operations.length > 0;
 }

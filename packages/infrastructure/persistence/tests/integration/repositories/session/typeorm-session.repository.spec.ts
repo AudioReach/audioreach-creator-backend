@@ -19,6 +19,11 @@ import {
 import {CHANGE_STATUS, SOURCE, CHANGE_OPERATION} from '@arc/core';
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
+import {SessionEntityVersionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/session-entity-version.schema.js';
+import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
+import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
+import {PendingChangeCache} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
+import {PendingChangeWriter} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
 
 async function seedProjectAndFile(): Promise<{
   projectSystemId: number;
@@ -65,7 +70,13 @@ describe('TypeOrmSessionRepository (integration)', () => {
     ds = getTestDataSource();
     queryRunner = ds.createQueryRunner();
     await queryRunner.connect();
-    repo = new TypeOrmSessionRepository(queryRunner.manager);
+    repo = new TypeOrmSessionRepository(
+      queryRunner.manager,
+      new PendingChangeWriter(
+        new EditActionsQueryService(queryRunner.manager),
+        new PendingChangeCache(),
+      ),
+    );
   });
 
   afterEach(async () => {
@@ -141,7 +152,7 @@ describe('TypeOrmSessionRepository (integration)', () => {
   });
 
   describe('wipeUnstagedForSession', () => {
-    it('deletes only active UNSTAGED rows; leaves STAGED and superseded rows', async () => {
+    it('deletes UNSTAGED rows, leaves STAGED rows, and removes every baseline', async () => {
       const {fileSystemId} = await seedProjectAndFile();
       const sessionId = await repo.createSession({
         fileSystemId,
@@ -151,7 +162,7 @@ describe('TypeOrmSessionRepository (integration)', () => {
 
       // STAGED active row
       await ds.query(
-        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id)
+        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id)
          VALUES (?, 1, 10, 'SpfModule', ?, 'alias', '{}', ?, ?, NULL)`,
         [
           sessionId,
@@ -162,7 +173,7 @@ describe('TypeOrmSessionRepository (integration)', () => {
       );
       // UNSTAGED active row
       await ds.query(
-        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id)
+        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id)
          VALUES (?, 1, 11, 'SpfModule', ?, 'alias', '{}', ?, ?, NULL)`,
         [
           sessionId,
@@ -171,35 +182,41 @@ describe('TypeOrmSessionRepository (integration)', () => {
           CHANGE_STATUS.Unstaged,
         ],
       );
-      // Superseded UNSTAGED row (valid_until IS NOT NULL) — must NOT be deleted
-      await ds.query(
-        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, valid_until)
-         VALUES (?, 1, 12, 'SpfModule', ?, 'alias', '{}', ?, ?, NULL, datetime('now'))`,
-        [
+      await getTestRepository(SessionEntityVersionSchema).save([
+        {
           sessionId,
-          CHANGE_OPERATION.Update,
-          SOURCE.Manual,
-          CHANGE_STATUS.Unstaged,
-        ],
-      );
+          targetTable: ENTITY_NAMES.SpfModule,
+          targetSystemId: 10,
+          baseVersion: 1,
+        },
+        {
+          sessionId,
+          targetTable: ENTITY_NAMES.Container,
+          targetSystemId: 11,
+          baseVersion: 2,
+        },
+      ]);
 
       const affected = await repo.wipeUnstagedForSession(sessionId);
-      expect(affected).toBe(1); // only the active UNSTAGED row
+      expect(affected).toBe(1);
 
       const remaining = await ds.query(
-        `SELECT change_id, change_status, valid_until FROM edit_actions WHERE session_id = ?`,
+        `SELECT change_id, change_status FROM edit_actions WHERE session_id = ?`,
         [sessionId],
       );
-      expect(remaining).toHaveLength(2); // STAGED active + superseded UNSTAGED
+      expect(remaining).toHaveLength(1);
       const statuses = remaining.map(
         (r: {change_status: string}) => r.change_status,
       );
       expect(statuses).toContain(CHANGE_STATUS.Staged);
+      expect(
+        await getTestRepository(SessionEntityVersionSchema).findBy({sessionId}),
+      ).toEqual([]);
     });
   });
 
   describe('deleteEditActionsBySource', () => {
-    it('deletes every source-matched row, including history, without affecting other sessions or sources', async () => {
+    it('deletes every source-matched row without affecting other sessions or sources', async () => {
       const {fileSystemId} = await seedProjectAndFile();
       const sessionId = await repo.createSession({
         fileSystemId,
@@ -223,29 +240,33 @@ describe('TypeOrmSessionRepository (integration)', () => {
       const insertAction = async (
         targetSystemId: number,
         source: string,
-        validUntil: string | null = null,
         targetSessionId = sessionId,
       ) => {
         await ds.query(
-          `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, valid_until)
-           VALUES (?, 1, ?, 'UseCase', ?, NULL, '{}', ?, ?, NULL, ?)`,
+          `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id)
+           VALUES (?, 1, ?, 'UseCase', ?, NULL, '{}', ?, ?, NULL)`,
           [
             targetSessionId,
             targetSystemId,
             CHANGE_OPERATION.Update,
             source,
             CHANGE_STATUS.Staged,
-            validUntil,
           ],
         );
       };
 
       await insertAction(10, SOURCE.AutoRouting);
-      await insertAction(11, SOURCE.AutoRouting, '2026-01-01 00:00:00');
+      await insertAction(11, SOURCE.AutoRouting);
       await insertAction(12, SOURCE.AutoRouting);
       await insertAction(13, SOURCE.Manual);
       await insertAction(14, SOURCE.DiffTool);
-      await insertAction(15, SOURCE.AutoRouting, null, otherSessionId);
+      await insertAction(15, SOURCE.AutoRouting, otherSessionId);
+      await getTestRepository(SessionEntityVersionSchema).save({
+        sessionId,
+        targetTable: ENTITY_NAMES.UseCase,
+        targetSystemId: 10,
+        baseVersion: 1,
+      });
 
       await queryRunner.startTransaction();
       expect(
@@ -265,11 +286,14 @@ describe('TypeOrmSessionRepository (integration)', () => {
         {session_id: sessionId, source: SOURCE.DiffTool},
         {session_id: otherSessionId, source: SOURCE.AutoRouting},
       ]);
+      expect(
+        await getTestRepository(SessionEntityVersionSchema).findBy({sessionId}),
+      ).toHaveLength(1);
     });
   });
 
   describe('deleteEditActionsByChangeIds', () => {
-    it('deletes only active MANUAL UseCase CREATE/UPDATE rows named by ID', async () => {
+    it('deletes only current MANUAL UseCase CREATE/UPDATE rows named by ID', async () => {
       const {fileSystemId} = await seedProjectAndFile();
       const sessionId = await repo.createSession({
         fileSystemId,
@@ -281,11 +305,10 @@ describe('TypeOrmSessionRepository (integration)', () => {
         targetTable: string,
         operation: string,
         source: string,
-        validUntil: string | null = null,
       ) => {
         await ds.query(
-          `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, valid_until)
-           VALUES (?, 1, ?, ?, ?, NULL, '{}', ?, ?, NULL, ?)`,
+          `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id)
+           VALUES (?, 1, ?, ?, ?, NULL, '{}', ?, ?, NULL)`,
           [
             sessionId,
             targetSystemId,
@@ -293,20 +316,13 @@ describe('TypeOrmSessionRepository (integration)', () => {
             operation,
             source,
             CHANGE_STATUS.Staged,
-            validUntil,
           ],
         );
       };
 
       await insertAction(10, 'UseCase', CHANGE_OPERATION.Update, SOURCE.Manual);
       await insertAction(11, 'UseCase', CHANGE_OPERATION.Create, SOURCE.Manual);
-      await insertAction(
-        12,
-        'UseCase',
-        CHANGE_OPERATION.Update,
-        SOURCE.Manual,
-        '2026-01-01 00:00:00',
-      );
+      await insertAction(12, 'UseCase', CHANGE_OPERATION.Update, SOURCE.Manual);
       await insertAction(
         13,
         'DataLink',
@@ -329,7 +345,7 @@ describe('TypeOrmSessionRepository (integration)', () => {
           sessionId,
           rows.map(row => row.change_id),
         ),
-      ).toBe(2);
+      ).toBe(3);
 
       const remaining: Array<{target_table: string; target_system_id: number}> =
         await ds.query(
@@ -337,7 +353,6 @@ describe('TypeOrmSessionRepository (integration)', () => {
           [sessionId],
         );
       expect(remaining).toEqual([
-        {target_table: 'UseCase', target_system_id: 12},
         {target_table: 'DataLink', target_system_id: 13},
         {target_table: 'UseCase', target_system_id: 14},
       ]);
@@ -384,7 +399,7 @@ describe('TypeOrmSessionRepository (integration)', () => {
       });
 
       await ds.query(
-        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id)
+        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id)
          VALUES (?, 1, 20, 'SpfModule', ?, '$', '{}', ?, ?, NULL)`,
         [
           sessionId,

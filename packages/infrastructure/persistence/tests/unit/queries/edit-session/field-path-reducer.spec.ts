@@ -4,7 +4,10 @@
  */
 
 import {describe, it, expect} from '@jest/globals';
-import {FieldPathReducer} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/field-path-reducer.js';
+import {
+  FieldPathReducer,
+  getFieldCoverage,
+} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/field-path-reducer.js';
 import {CHANGE_OPERATION, CHANGE_STATUS, SOURCE} from '@arc/core';
 import type {EditActionRow} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/edit-action.schema.js';
 
@@ -22,12 +25,47 @@ function makeRow(
     source: SOURCE.Manual,
     changeStatus: CHANGE_STATUS.Staged,
     linkedEntityGroupId: null,
-    groupId: null,
     createdAt: new Date('2026-01-01T00:00:00Z'),
-    validUntil: null,
     ...overrides,
-  } as EditActionRow;
+  };
 }
+
+describe('getFieldCoverage', () => {
+  it('covers every key in a null accumulator', () => {
+    const coverage = getFieldCoverage(null, {alias: 'new', instanceId: 2});
+    expect(coverage.wholeRow).toBe(false);
+    expect([...coverage.fields]).toEqual(['alias', 'instanceId']);
+  });
+
+  it('marks a dollar path as whole-row coverage', () => {
+    const coverage = getFieldCoverage('$', {alias: 'new'});
+    expect(coverage.wholeRow).toBe(true);
+    expect([...coverage.fields]).toEqual(['alias']);
+  });
+
+  it('covers a scalar path when its payload is primitive', () => {
+    const coverage = getFieldCoverage(
+      'alias',
+      'new' as unknown as Record<string, unknown>,
+    );
+    expect(coverage.wholeRow).toBe(false);
+    expect([...coverage.fields]).toEqual(['alias']);
+  });
+
+  it('covers the payload members of a named group', () => {
+    const coverage = getFieldCoverage('identity', {
+      alias: 'new',
+      instanceId: 2,
+    });
+    expect([...coverage.fields]).toEqual(['alias', 'instanceId']);
+  });
+
+  it('rejects element paths', () => {
+    expect(() => getFieldCoverage('elements[gain]', {value: 3})).toThrow(
+      "Element-path mutation is not implemented: 'elements[gain]'.",
+    );
+  });
+});
 
 describe('FieldPathReducer', () => {
   const reducer = new FieldPathReducer();

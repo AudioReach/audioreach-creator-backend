@@ -3,11 +3,12 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {jest} from '@jest/globals';
+import {beforeEach, describe, expect, it, jest} from '@jest/globals';
+import {SESSION_MODE} from '@arc/core';
+import {PendingChangeWriter} from '@arc/persistence';
 import {TypeOrmUnitOfWork} from '../../../../../src/infrastructure-wrapper/persistence/unit-of-work/typeorm-unit-of-work.js';
 import type {WriteContext} from '@arc/core';
-import {SESSION_MODE} from '@arc/core';
-import type {QueryRunner, DataSource} from 'typeorm';
+import type {QueryRunner} from 'typeorm';
 
 function makeQueryRunner(): QueryRunner {
   return {
@@ -21,21 +22,12 @@ function makeQueryRunner(): QueryRunner {
   } as unknown as QueryRunner;
 }
 
-function makeDataSource(): DataSource {
-  return {
-    query: jest.fn(),
-    getRepository: jest.fn(),
-    createQueryRunner: jest.fn(),
-    manager: {},
-  } as unknown as DataSource;
-}
-
 function makeCacheStub() {
   return {
-    flush: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-    size: jest.fn<() => number>().mockReturnValue(0),
-    isEmpty: jest.fn<() => boolean>().mockReturnValue(true),
-    enqueueRow: jest.fn(),
+    entries: jest.fn().mockReturnValue([]),
+    size: jest.fn().mockReturnValue(0),
+    isEmpty: jest.fn().mockReturnValue(true),
+    clear: jest.fn(),
   };
 }
 
@@ -49,44 +41,64 @@ const sampleContext: WriteContext = {
   groupId: 'test-group-uuid',
 };
 
-describe('TypeOrmUnitOfWork — WriteContext + applyCachedActions', () => {
+describe('TypeOrmUnitOfWork', () => {
   let qr: QueryRunner;
   let uow: TypeOrmUnitOfWork;
   let cacheStub: ReturnType<typeof makeCacheStub>;
+  let flushCachedActions: jest.SpiedFunction<
+    PendingChangeWriter['flushCachedActions']
+  >;
 
   beforeEach(() => {
     qr = makeQueryRunner();
     cacheStub = makeCacheStub();
+    flushCachedActions = jest
+      .spyOn(PendingChangeWriter.prototype, 'flushCachedActions')
+      .mockResolvedValue(undefined);
     uow = new TypeOrmUnitOfWork(
       qr,
       {reserveBlock: jest.fn()} as never,
       cacheStub as never,
+      {logDebug: jest.fn(), logError: jest.fn()} as never,
     );
   });
 
-  describe('setWriteContext / getWriteContext', () => {
-    it('stores the context and returns it unchanged', () => {
-      uow.setWriteContext(sampleContext);
-      expect(uow.getWriteContext()).toBe(sampleContext);
-    });
-
-    it('throws when getWriteContext is called before setWriteContext', () => {
-      expect(() => uow.getWriteContext()).toThrow('WriteContext not set');
-    });
+  it('stores and returns write context unchanged', () => {
+    uow.setWriteContext(sampleContext);
+    expect(uow.getWriteContext()).toBe(sampleContext);
   });
 
-  describe('applyCachedActions', () => {
-    it('delegates to PendingChangeCache.flush with the queryRunner', async () => {
-      await uow.applyCachedActions();
-      expect(cacheStub.flush).toHaveBeenCalledTimes(1);
-      expect(cacheStub.flush).toHaveBeenCalledWith(qr);
-    });
+  it('throws when write context is read before being set', () => {
+    expect(() => uow.getWriteContext()).toThrow('WriteContext not set');
+  });
 
-    it('throws when cache is non-empty after flush', async () => {
-      cacheStub.isEmpty.mockReturnValue(false);
-      await expect(uow.applyCachedActions()).rejects.toThrow(
-        'non-empty after flush',
-      );
-    });
+  it('flushes cached intents through the writer', async () => {
+    await uow.applyCachedActions();
+    expect(flushCachedActions).toHaveBeenCalledWith(qr.manager);
+  });
+
+  it('flushes before committing the transaction', async () => {
+    await uow.startTransaction();
+    await uow.commit();
+
+    expect(flushCachedActions.mock.invocationCallOrder[0]).toBeLessThan(
+      (qr.commitTransaction as jest.Mock).mock.invocationCallOrder[0],
+    );
+  });
+
+  it('leaves the transaction active when cache flush fails', async () => {
+    flushCachedActions.mockRejectedValue(new Error('flush failed'));
+    await uow.startTransaction();
+
+    await expect(uow.commit()).rejects.toThrow('flush failed');
+    expect(qr.commitTransaction).not.toHaveBeenCalled();
+    expect(uow.isInTransaction()).toBe(true);
+  });
+
+  it('rejects a non-empty cache after the writer returns', async () => {
+    cacheStub.isEmpty.mockReturnValue(false);
+    await expect(uow.applyCachedActions()).rejects.toThrow(
+      'non-empty after flush',
+    );
   });
 });

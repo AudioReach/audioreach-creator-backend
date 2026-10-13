@@ -225,9 +225,7 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
       newValue: {name: 'UpdatedName'},
       source: SOURCE.Manual,
       changeStatus: CHANGE_STATUS.Staged,
-      groupId: null,
       linkedEntityGroupId: null,
-      validUntil: null,
     });
 
     const result = await service.getAllKeyDefinitions(fileSystemId);
@@ -255,12 +253,10 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
       targetTable: ENTITY_NAMES.KeyDefinition,
       operation: CHANGE_OPERATION.Delete,
       fieldPath: '$',
-      newValue: null,
+      newValue: {},
       source: SOURCE.Manual,
       changeStatus: CHANGE_STATUS.Staged,
-      groupId: null,
       linkedEntityGroupId: null,
-      validUntil: null,
     });
 
     const result = await service.getAllKeyDefinitions(fileSystemId);
@@ -289,9 +285,7 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
       },
       source: SOURCE.Manual,
       changeStatus: CHANGE_STATUS.Staged,
-      groupId: null,
       linkedEntityGroupId: null,
-      validUntil: null,
     });
 
     const result = await service.getAllKeyDefinitions(fileSystemId);

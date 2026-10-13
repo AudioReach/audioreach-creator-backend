@@ -5,8 +5,8 @@
 
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-export class InitialCreate1791532395443 implements MigrationInterface {
-  name = 'InitialCreate1791532395443';
+export class InitialCreate1791998316476 implements MigrationInterface {
+  name = 'InitialCreate1791998316476';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -31,7 +31,7 @@ export class InitialCreate1791532395443 implements MigrationInterface {
       `CREATE TABLE "driver_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "group_name" varchar(255), "file_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `CREATE TABLE "driver_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "parameter_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "param_structure" text NOT NULL, "copy_src_param_id" integer, "driver_module_definition_system_id" integer)`,
+      `CREATE TABLE "driver_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "parameter_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "max_size" integer NOT NULL, "param_structure" text NOT NULL, "copy_src_param_id" integer, "driver_module_definition_system_id" integer)`,
     );
     await queryRunner.query(
       `CREATE INDEX "idx_module_param_defs_driver_module_def_id" ON "driver_module_parameter_definitions" ("driver_module_definition_system_id") `,
@@ -76,7 +76,7 @@ export class InitialCreate1791532395443 implements MigrationInterface {
       `CREATE TABLE "spf_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "display_name" varchar(255), "description" text, "group_name" varchar(255), "mod_search_keys" text, "stack_size" integer NOT NULL DEFAULT (0), "file_system_id" integer NOT NULL, "metadata" text, "is_loaded_at_bootup" boolean NOT NULL DEFAULT (0), "processor_system_id" integer NOT NULL, "module_definition_system_id" integer, CONSTRAINT "REL_e5a9714fba21e5202c09bcfb7e" UNIQUE ("module_definition_system_id"))`,
     );
     await queryRunner.query(
-      `CREATE TABLE "spf_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "param_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "pid_type" varchar(100) NOT NULL, "is_persistent" boolean NOT NULL, "elements_structure" text, "is_read_only" boolean NOT NULL, "tool_policies" text, "copy_src_param_id" integer, "spf_module_definition_system_id" integer)`,
+      `CREATE TABLE "spf_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "param_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "max_size" integer NOT NULL, "pid_type" varchar(100) NOT NULL, "is_persistent" boolean NOT NULL, "elements_structure" text, "is_read_only" boolean NOT NULL, "tool_policies" text, "copy_src_param_id" integer, "spf_module_definition_system_id" integer)`,
     );
     await queryRunner.query(
       `CREATE INDEX "idx_module_param_defs_spf_module_def_id" ON "spf_module_parameter_definitions" ("spf_module_definition_system_id") `,
@@ -106,7 +106,7 @@ export class InitialCreate1791532395443 implements MigrationInterface {
       `CREATE TABLE "vcpm_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "display_name" varchar(255), "description" text, "group_name" varchar(255), "file_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `CREATE TABLE "vcpm_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "param_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "pid_type" varchar(100) NOT NULL, "is_persistent" boolean NOT NULL, "is_read_only" boolean NOT NULL, "tool_policies" text, "elements_structure" text, "copy_src_param_id" integer, "vcpm_module_definition_system_id" integer)`,
+      `CREATE TABLE "vcpm_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "param_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "max_size" integer NOT NULL, "pid_type" varchar(100) NOT NULL, "is_persistent" boolean NOT NULL, "is_read_only" boolean NOT NULL, "tool_policies" text, "elements_structure" text, "copy_src_param_id" integer, "vcpm_module_definition_system_id" integer)`,
     );
     await queryRunner.query(
       `CREATE INDEX "idx_module_param_defs_vcpm_module_def_id" ON "vcpm_module_parameter_definitions" ("vcpm_module_definition_system_id") `,
@@ -412,31 +412,31 @@ export class InitialCreate1791532395443 implements MigrationInterface {
       `CREATE UNIQUE INDEX "uk_entity_reviewed_at" ON "entity_reviewed_at" ("file_system_id", "entity_type", "entity_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "edit_actions" ("change_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "session_id" integer NOT NULL, "aggregate_id" integer NOT NULL DEFAULT (0), "target_system_id" integer NOT NULL, "target_table" varchar(100) NOT NULL, "operation" varchar CHECK( "operation" IN ('NONE','CREATE','UPDATE','DELETE') ) NOT NULL, "field_path" varchar, "new_value" text, "source" varchar CHECK( "source" IN ('MANUAL','DIFF_TOOL','AUTO_ROUTING') ) NOT NULL, "change_status" varchar CHECK( "change_status" IN ('STAGED','UNSTAGED') ) NOT NULL DEFAULT ('STAGED'), "group_id" text, "linked_entity_group_id" varchar, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "valid_until" datetime)`,
+      `CREATE TABLE "edit_actions" ("change_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "session_id" integer NOT NULL, "aggregate_id" integer NOT NULL DEFAULT (0), "target_system_id" integer NOT NULL, "target_table" varchar(100) NOT NULL, "operation" varchar CHECK( "operation" IN ('NONE','CREATE','UPDATE','DELETE') ) NOT NULL, "field_path" varchar, "new_value" text NOT NULL, "source" varchar CHECK( "source" IN ('MANUAL','DIFF_TOOL','AUTO_ROUTING') ) NOT NULL, "change_status" varchar CHECK( "change_status" IN ('STAGED','UNSTAGED') ) NOT NULL DEFAULT ('STAGED'), "linked_entity_group_id" varchar, "created_at" datetime NOT NULL DEFAULT (datetime('now')))`,
     );
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "uniq_edit_actions_current" ON "edit_actions" ("session_id", "target_table", "target_system_id", "field_path") WHERE "valid_until" IS NULL`,
+      `CREATE UNIQUE INDEX "uniq_edit_actions_slot" ON "edit_actions" ("session_id", "target_table", "target_system_id", "field_path") WHERE "field_path" IS NOT NULL`,
     );
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "uniq_edit_actions_current_null_path" ON "edit_actions" ("session_id", "target_table", "target_system_id") WHERE "valid_until" IS NULL AND "field_path" IS NULL`,
+      `CREATE UNIQUE INDEX "uniq_edit_actions_null_slot" ON "edit_actions" ("session_id", "target_table", "target_system_id") WHERE "field_path" IS NULL`,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_edit_actions_agg_active" ON "edit_actions" ("session_id", "aggregate_id") WHERE "valid_until" IS NULL`,
+      `CREATE INDEX "idx_edit_actions_aggregate" ON "edit_actions" ("session_id", "aggregate_id") `,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_edit_actions_table_active" ON "edit_actions" ("session_id", "target_table") WHERE "valid_until" IS NULL`,
+      `CREATE INDEX "idx_edit_actions_target" ON "edit_actions" ("session_id", "target_table", "target_system_id") `,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_edit_actions_status_active" ON "edit_actions" ("session_id", "change_status") WHERE "valid_until" IS NULL`,
+      `CREATE INDEX "idx_edit_actions_source" ON "edit_actions" ("session_id", "source") `,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_edit_actions_source_active" ON "edit_actions" ("session_id", "source") WHERE "valid_until" IS NULL`,
+      `CREATE INDEX "idx_edit_actions_status" ON "edit_actions" ("session_id", "change_status") `,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_edit_actions_xgroup_active" ON "edit_actions" ("session_id", "linked_entity_group_id") WHERE "valid_until" IS NULL AND "linked_entity_group_id" IS NOT NULL`,
+      `CREATE INDEX "idx_edit_actions_linked_group" ON "edit_actions" ("session_id", "linked_entity_group_id") WHERE "linked_entity_group_id" IS NOT NULL`,
     );
     await queryRunner.query(
-      `CREATE TABLE "session_entity_versions" ("session_id" integer NOT NULL, "target_system_id" integer NOT NULL, "base_version" integer NOT NULL, PRIMARY KEY ("session_id", "target_system_id"))`,
+      `CREATE TABLE "session_entity_versions" ("session_id" integer NOT NULL, "target_table" varchar(100) NOT NULL, "target_system_id" integer NOT NULL, "base_version" integer NOT NULL, PRIMARY KEY ("session_id", "target_table", "target_system_id"))`,
     );
     await queryRunner.query(
       `CREATE TABLE "restore_points" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "session_id" integer, "file_system_id" integer NOT NULL, "restore_type" varchar CHECK( "restore_type" IN ('EDIT_SNAPSHOT','FULL_SNAPSHOT') ) NOT NULL, "snapshot_data" text NOT NULL, "description" text, "created_at" datetime NOT NULL DEFAULT (datetime('now')))`,
@@ -532,7 +532,7 @@ export class InitialCreate1791532395443 implements MigrationInterface {
       `DROP INDEX "idx_module_param_defs_driver_module_def_id"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "temporary_driver_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "parameter_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "param_structure" text NOT NULL, "copy_src_param_id" integer, "driver_module_definition_system_id" integer, CONSTRAINT "FK_7bd56233a099d7f9cc447b54ee5" FOREIGN KEY ("driver_module_definition_system_id") REFERENCES "driver_module_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_driver_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "parameter_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "max_size" integer NOT NULL, "param_structure" text NOT NULL, "copy_src_param_id" integer, "driver_module_definition_system_id" integer, CONSTRAINT "FK_7bd56233a099d7f9cc447b54ee5" FOREIGN KEY ("driver_module_definition_system_id") REFERENCES "driver_module_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
       `INSERT INTO "temporary_driver_module_parameter_definitions"("system_id", "created_at", "updated_at", "version", "parameter_id", "name", "description", "max_size", "param_structure", "copy_src_param_id", "driver_module_definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "parameter_id", "name", "description", "max_size", "param_structure", "copy_src_param_id", "driver_module_definition_system_id" FROM "driver_module_parameter_definitions"`,
@@ -650,7 +650,7 @@ export class InitialCreate1791532395443 implements MigrationInterface {
       `DROP INDEX "idx_module_param_defs_spf_module_def_id"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "temporary_spf_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "param_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "pid_type" varchar(100) NOT NULL, "is_persistent" boolean NOT NULL, "elements_structure" text, "is_read_only" boolean NOT NULL, "tool_policies" text, "copy_src_param_id" integer, "spf_module_definition_system_id" integer, CONSTRAINT "FK_ef02bfa739e94a283a1726b2d22" FOREIGN KEY ("spf_module_definition_system_id") REFERENCES "spf_module_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_spf_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "param_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "max_size" integer NOT NULL, "pid_type" varchar(100) NOT NULL, "is_persistent" boolean NOT NULL, "elements_structure" text, "is_read_only" boolean NOT NULL, "tool_policies" text, "copy_src_param_id" integer, "spf_module_definition_system_id" integer, CONSTRAINT "FK_ef02bfa739e94a283a1726b2d22" FOREIGN KEY ("spf_module_definition_system_id") REFERENCES "spf_module_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
       `INSERT INTO "temporary_spf_module_parameter_definitions"("system_id", "created_at", "updated_at", "version", "param_id", "name", "description", "max_size", "pid_type", "is_persistent", "elements_structure", "is_read_only", "tool_policies", "copy_src_param_id", "spf_module_definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "param_id", "name", "description", "max_size", "pid_type", "is_persistent", "elements_structure", "is_read_only", "tool_policies", "copy_src_param_id", "spf_module_definition_system_id" FROM "spf_module_parameter_definitions"`,
@@ -736,7 +736,7 @@ export class InitialCreate1791532395443 implements MigrationInterface {
       `DROP INDEX "idx_module_param_defs_vcpm_module_def_id"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "temporary_vcpm_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "param_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "pid_type" varchar(100) NOT NULL, "is_persistent" boolean NOT NULL, "is_read_only" boolean NOT NULL, "tool_policies" text, "elements_structure" text, "copy_src_param_id" integer, "vcpm_module_definition_system_id" integer, CONSTRAINT "FK_5b700b594556357857f7f1c7822" FOREIGN KEY ("vcpm_module_definition_system_id") REFERENCES "vcpm_module_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_vcpm_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "param_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "max_size" integer NOT NULL, "pid_type" varchar(100) NOT NULL, "is_persistent" boolean NOT NULL, "is_read_only" boolean NOT NULL, "tool_policies" text, "elements_structure" text, "copy_src_param_id" integer, "vcpm_module_definition_system_id" integer, CONSTRAINT "FK_5b700b594556357857f7f1c7822" FOREIGN KEY ("vcpm_module_definition_system_id") REFERENCES "vcpm_module_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
       `INSERT INTO "temporary_vcpm_module_parameter_definitions"("system_id", "created_at", "updated_at", "version", "param_id", "name", "description", "max_size", "pid_type", "is_persistent", "is_read_only", "tool_policies", "elements_structure", "copy_src_param_id", "vcpm_module_definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "param_id", "name", "description", "max_size", "pid_type", "is_persistent", "is_read_only", "tool_policies", "elements_structure", "copy_src_param_id", "vcpm_module_definition_system_id" FROM "vcpm_module_parameter_definitions"`,
@@ -1414,49 +1414,49 @@ export class InitialCreate1791532395443 implements MigrationInterface {
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uk_entity_reviewed_at" ON "entity_reviewed_at" ("file_system_id", "entity_type", "entity_system_id") `,
     );
-    await queryRunner.query(`DROP INDEX "uniq_edit_actions_current"`);
-    await queryRunner.query(`DROP INDEX "uniq_edit_actions_current_null_path"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_agg_active"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_table_active"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_status_active"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_source_active"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_xgroup_active"`);
+    await queryRunner.query(`DROP INDEX "uniq_edit_actions_slot"`);
+    await queryRunner.query(`DROP INDEX "uniq_edit_actions_null_slot"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_aggregate"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_target"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_source"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_status"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_linked_group"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_edit_actions" ("change_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "session_id" integer NOT NULL, "aggregate_id" integer NOT NULL DEFAULT (0), "target_system_id" integer NOT NULL, "target_table" varchar(100) NOT NULL, "operation" varchar CHECK( "operation" IN ('NONE','CREATE','UPDATE','DELETE') ) NOT NULL, "field_path" varchar, "new_value" text, "source" varchar CHECK( "source" IN ('MANUAL','DIFF_TOOL','AUTO_ROUTING') ) NOT NULL, "change_status" varchar CHECK( "change_status" IN ('STAGED','UNSTAGED') ) NOT NULL DEFAULT ('STAGED'), "group_id" text, "linked_entity_group_id" varchar, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "valid_until" datetime, CONSTRAINT "FK_56f75f850acdde5e18d4eebdbdc" FOREIGN KEY ("session_id") REFERENCES "project_sessions" ("session_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_edit_actions" ("change_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "session_id" integer NOT NULL, "aggregate_id" integer NOT NULL DEFAULT (0), "target_system_id" integer NOT NULL, "target_table" varchar(100) NOT NULL, "operation" varchar CHECK( "operation" IN ('NONE','CREATE','UPDATE','DELETE') ) NOT NULL, "field_path" varchar, "new_value" text NOT NULL, "source" varchar CHECK( "source" IN ('MANUAL','DIFF_TOOL','AUTO_ROUTING') ) NOT NULL, "change_status" varchar CHECK( "change_status" IN ('STAGED','UNSTAGED') ) NOT NULL DEFAULT ('STAGED'), "linked_entity_group_id" varchar, "created_at" datetime NOT NULL DEFAULT (datetime('now')), CONSTRAINT "FK_56f75f850acdde5e18d4eebdbdc" FOREIGN KEY ("session_id") REFERENCES "project_sessions" ("session_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_edit_actions"("change_id", "session_id", "aggregate_id", "target_system_id", "target_table", "operation", "field_path", "new_value", "source", "change_status", "group_id", "linked_entity_group_id", "created_at", "valid_until") SELECT "change_id", "session_id", "aggregate_id", "target_system_id", "target_table", "operation", "field_path", "new_value", "source", "change_status", "group_id", "linked_entity_group_id", "created_at", "valid_until" FROM "edit_actions"`,
+      `INSERT INTO "temporary_edit_actions"("change_id", "session_id", "aggregate_id", "target_system_id", "target_table", "operation", "field_path", "new_value", "source", "change_status", "linked_entity_group_id", "created_at") SELECT "change_id", "session_id", "aggregate_id", "target_system_id", "target_table", "operation", "field_path", "new_value", "source", "change_status", "linked_entity_group_id", "created_at" FROM "edit_actions"`,
     );
     await queryRunner.query(`DROP TABLE "edit_actions"`);
     await queryRunner.query(
       `ALTER TABLE "temporary_edit_actions" RENAME TO "edit_actions"`,
     );
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "uniq_edit_actions_current" ON "edit_actions" ("session_id", "target_table", "target_system_id", "field_path") WHERE "valid_until" IS NULL`,
+      `CREATE UNIQUE INDEX "uniq_edit_actions_slot" ON "edit_actions" ("session_id", "target_table", "target_system_id", "field_path") WHERE "field_path" IS NOT NULL`,
     );
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "uniq_edit_actions_current_null_path" ON "edit_actions" ("session_id", "target_table", "target_system_id") WHERE "valid_until" IS NULL AND "field_path" IS NULL`,
+      `CREATE UNIQUE INDEX "uniq_edit_actions_null_slot" ON "edit_actions" ("session_id", "target_table", "target_system_id") WHERE "field_path" IS NULL`,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_edit_actions_agg_active" ON "edit_actions" ("session_id", "aggregate_id") WHERE "valid_until" IS NULL`,
+      `CREATE INDEX "idx_edit_actions_aggregate" ON "edit_actions" ("session_id", "aggregate_id") `,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_edit_actions_table_active" ON "edit_actions" ("session_id", "target_table") WHERE "valid_until" IS NULL`,
+      `CREATE INDEX "idx_edit_actions_target" ON "edit_actions" ("session_id", "target_table", "target_system_id") `,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_edit_actions_status_active" ON "edit_actions" ("session_id", "change_status") WHERE "valid_until" IS NULL`,
+      `CREATE INDEX "idx_edit_actions_source" ON "edit_actions" ("session_id", "source") `,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_edit_actions_source_active" ON "edit_actions" ("session_id", "source") WHERE "valid_until" IS NULL`,
+      `CREATE INDEX "idx_edit_actions_status" ON "edit_actions" ("session_id", "change_status") `,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_edit_actions_xgroup_active" ON "edit_actions" ("session_id", "linked_entity_group_id") WHERE "valid_until" IS NULL AND "linked_entity_group_id" IS NOT NULL`,
+      `CREATE INDEX "idx_edit_actions_linked_group" ON "edit_actions" ("session_id", "linked_entity_group_id") WHERE "linked_entity_group_id" IS NOT NULL`,
     );
     await queryRunner.query(
-      `CREATE TABLE "temporary_session_entity_versions" ("session_id" integer NOT NULL, "target_system_id" integer NOT NULL, "base_version" integer NOT NULL, CONSTRAINT "FK_b459d828cdd38b0472de30c117e" FOREIGN KEY ("session_id") REFERENCES "project_sessions" ("session_id") ON DELETE CASCADE ON UPDATE NO ACTION, PRIMARY KEY ("session_id", "target_system_id"))`,
+      `CREATE TABLE "temporary_session_entity_versions" ("session_id" integer NOT NULL, "target_table" varchar(100) NOT NULL, "target_system_id" integer NOT NULL, "base_version" integer NOT NULL, CONSTRAINT "FK_b459d828cdd38b0472de30c117e" FOREIGN KEY ("session_id") REFERENCES "project_sessions" ("session_id") ON DELETE CASCADE ON UPDATE NO ACTION, PRIMARY KEY ("session_id", "target_table", "target_system_id"))`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_session_entity_versions"("session_id", "target_system_id", "base_version") SELECT "session_id", "target_system_id", "base_version" FROM "session_entity_versions"`,
+      `INSERT INTO "temporary_session_entity_versions"("session_id", "target_table", "target_system_id", "base_version") SELECT "session_id", "target_table", "target_system_id", "base_version" FROM "session_entity_versions"`,
     );
     await queryRunner.query(`DROP TABLE "session_entity_versions"`);
     await queryRunner.query(
@@ -1637,49 +1637,49 @@ export class InitialCreate1791532395443 implements MigrationInterface {
       `ALTER TABLE "session_entity_versions" RENAME TO "temporary_session_entity_versions"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "session_entity_versions" ("session_id" integer NOT NULL, "target_system_id" integer NOT NULL, "base_version" integer NOT NULL, PRIMARY KEY ("session_id", "target_system_id"))`,
+      `CREATE TABLE "session_entity_versions" ("session_id" integer NOT NULL, "target_table" varchar(100) NOT NULL, "target_system_id" integer NOT NULL, "base_version" integer NOT NULL, PRIMARY KEY ("session_id", "target_table", "target_system_id"))`,
     );
     await queryRunner.query(
-      `INSERT INTO "session_entity_versions"("session_id", "target_system_id", "base_version") SELECT "session_id", "target_system_id", "base_version" FROM "temporary_session_entity_versions"`,
+      `INSERT INTO "session_entity_versions"("session_id", "target_table", "target_system_id", "base_version") SELECT "session_id", "target_table", "target_system_id", "base_version" FROM "temporary_session_entity_versions"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_session_entity_versions"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_xgroup_active"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_source_active"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_status_active"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_table_active"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_agg_active"`);
-    await queryRunner.query(`DROP INDEX "uniq_edit_actions_current_null_path"`);
-    await queryRunner.query(`DROP INDEX "uniq_edit_actions_current"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_linked_group"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_status"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_source"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_target"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_aggregate"`);
+    await queryRunner.query(`DROP INDEX "uniq_edit_actions_null_slot"`);
+    await queryRunner.query(`DROP INDEX "uniq_edit_actions_slot"`);
     await queryRunner.query(
       `ALTER TABLE "edit_actions" RENAME TO "temporary_edit_actions"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "edit_actions" ("change_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "session_id" integer NOT NULL, "aggregate_id" integer NOT NULL DEFAULT (0), "target_system_id" integer NOT NULL, "target_table" varchar(100) NOT NULL, "operation" varchar CHECK( "operation" IN ('NONE','CREATE','UPDATE','DELETE') ) NOT NULL, "field_path" varchar, "new_value" text, "source" varchar CHECK( "source" IN ('MANUAL','DIFF_TOOL','AUTO_ROUTING') ) NOT NULL, "change_status" varchar CHECK( "change_status" IN ('STAGED','UNSTAGED') ) NOT NULL DEFAULT ('STAGED'), "group_id" text, "linked_entity_group_id" varchar, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "valid_until" datetime)`,
+      `CREATE TABLE "edit_actions" ("change_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "session_id" integer NOT NULL, "aggregate_id" integer NOT NULL DEFAULT (0), "target_system_id" integer NOT NULL, "target_table" varchar(100) NOT NULL, "operation" varchar CHECK( "operation" IN ('NONE','CREATE','UPDATE','DELETE') ) NOT NULL, "field_path" varchar, "new_value" text NOT NULL, "source" varchar CHECK( "source" IN ('MANUAL','DIFF_TOOL','AUTO_ROUTING') ) NOT NULL, "change_status" varchar CHECK( "change_status" IN ('STAGED','UNSTAGED') ) NOT NULL DEFAULT ('STAGED'), "linked_entity_group_id" varchar, "created_at" datetime NOT NULL DEFAULT (datetime('now')))`,
     );
     await queryRunner.query(
-      `INSERT INTO "edit_actions"("change_id", "session_id", "aggregate_id", "target_system_id", "target_table", "operation", "field_path", "new_value", "source", "change_status", "group_id", "linked_entity_group_id", "created_at", "valid_until") SELECT "change_id", "session_id", "aggregate_id", "target_system_id", "target_table", "operation", "field_path", "new_value", "source", "change_status", "group_id", "linked_entity_group_id", "created_at", "valid_until" FROM "temporary_edit_actions"`,
+      `INSERT INTO "edit_actions"("change_id", "session_id", "aggregate_id", "target_system_id", "target_table", "operation", "field_path", "new_value", "source", "change_status", "linked_entity_group_id", "created_at") SELECT "change_id", "session_id", "aggregate_id", "target_system_id", "target_table", "operation", "field_path", "new_value", "source", "change_status", "linked_entity_group_id", "created_at" FROM "temporary_edit_actions"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_edit_actions"`);
     await queryRunner.query(
-      `CREATE INDEX "idx_edit_actions_xgroup_active" ON "edit_actions" ("session_id", "linked_entity_group_id") WHERE "valid_until" IS NULL AND "linked_entity_group_id" IS NOT NULL`,
+      `CREATE INDEX "idx_edit_actions_linked_group" ON "edit_actions" ("session_id", "linked_entity_group_id") WHERE "linked_entity_group_id" IS NOT NULL`,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_edit_actions_source_active" ON "edit_actions" ("session_id", "source") WHERE "valid_until" IS NULL`,
+      `CREATE INDEX "idx_edit_actions_status" ON "edit_actions" ("session_id", "change_status") `,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_edit_actions_status_active" ON "edit_actions" ("session_id", "change_status") WHERE "valid_until" IS NULL`,
+      `CREATE INDEX "idx_edit_actions_source" ON "edit_actions" ("session_id", "source") `,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_edit_actions_table_active" ON "edit_actions" ("session_id", "target_table") WHERE "valid_until" IS NULL`,
+      `CREATE INDEX "idx_edit_actions_target" ON "edit_actions" ("session_id", "target_table", "target_system_id") `,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_edit_actions_agg_active" ON "edit_actions" ("session_id", "aggregate_id") WHERE "valid_until" IS NULL`,
+      `CREATE INDEX "idx_edit_actions_aggregate" ON "edit_actions" ("session_id", "aggregate_id") `,
     );
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "uniq_edit_actions_current_null_path" ON "edit_actions" ("session_id", "target_table", "target_system_id") WHERE "valid_until" IS NULL AND "field_path" IS NULL`,
+      `CREATE UNIQUE INDEX "uniq_edit_actions_null_slot" ON "edit_actions" ("session_id", "target_table", "target_system_id") WHERE "field_path" IS NULL`,
     );
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "uniq_edit_actions_current" ON "edit_actions" ("session_id", "target_table", "target_system_id", "field_path") WHERE "valid_until" IS NULL`,
+      `CREATE UNIQUE INDEX "uniq_edit_actions_slot" ON "edit_actions" ("session_id", "target_table", "target_system_id", "field_path") WHERE "field_path" IS NOT NULL`,
     );
     await queryRunner.query(`DROP INDEX "uk_entity_reviewed_at"`);
     await queryRunner.query(
@@ -2356,7 +2356,7 @@ export class InitialCreate1791532395443 implements MigrationInterface {
       `ALTER TABLE "vcpm_module_parameter_definitions" RENAME TO "temporary_vcpm_module_parameter_definitions"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "vcpm_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "param_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "pid_type" varchar(100) NOT NULL, "is_persistent" boolean NOT NULL, "is_read_only" boolean NOT NULL, "tool_policies" text, "elements_structure" text, "copy_src_param_id" integer, "vcpm_module_definition_system_id" integer)`,
+      `CREATE TABLE "vcpm_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "param_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "max_size" integer NOT NULL, "pid_type" varchar(100) NOT NULL, "is_persistent" boolean NOT NULL, "is_read_only" boolean NOT NULL, "tool_policies" text, "elements_structure" text, "copy_src_param_id" integer, "vcpm_module_definition_system_id" integer)`,
     );
     await queryRunner.query(
       `INSERT INTO "vcpm_module_parameter_definitions"("system_id", "created_at", "updated_at", "version", "param_id", "name", "description", "max_size", "pid_type", "is_persistent", "is_read_only", "tool_policies", "elements_structure", "copy_src_param_id", "vcpm_module_definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "param_id", "name", "description", "max_size", "pid_type", "is_persistent", "is_read_only", "tool_policies", "elements_structure", "copy_src_param_id", "vcpm_module_definition_system_id" FROM "temporary_vcpm_module_parameter_definitions"`,
@@ -2450,7 +2450,7 @@ export class InitialCreate1791532395443 implements MigrationInterface {
       `ALTER TABLE "spf_module_parameter_definitions" RENAME TO "temporary_spf_module_parameter_definitions"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "spf_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "param_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "pid_type" varchar(100) NOT NULL, "is_persistent" boolean NOT NULL, "elements_structure" text, "is_read_only" boolean NOT NULL, "tool_policies" text, "copy_src_param_id" integer, "spf_module_definition_system_id" integer)`,
+      `CREATE TABLE "spf_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "param_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "max_size" integer NOT NULL, "pid_type" varchar(100) NOT NULL, "is_persistent" boolean NOT NULL, "elements_structure" text, "is_read_only" boolean NOT NULL, "tool_policies" text, "copy_src_param_id" integer, "spf_module_definition_system_id" integer)`,
     );
     await queryRunner.query(
       `INSERT INTO "spf_module_parameter_definitions"("system_id", "created_at", "updated_at", "version", "param_id", "name", "description", "max_size", "pid_type", "is_persistent", "elements_structure", "is_read_only", "tool_policies", "copy_src_param_id", "spf_module_definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "param_id", "name", "description", "max_size", "pid_type", "is_persistent", "elements_structure", "is_read_only", "tool_policies", "copy_src_param_id", "spf_module_definition_system_id" FROM "temporary_spf_module_parameter_definitions"`,
@@ -2578,7 +2578,7 @@ export class InitialCreate1791532395443 implements MigrationInterface {
       `ALTER TABLE "driver_module_parameter_definitions" RENAME TO "temporary_driver_module_parameter_definitions"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "driver_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "parameter_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "param_structure" text NOT NULL, "copy_src_param_id" integer, "driver_module_definition_system_id" integer)`,
+      `CREATE TABLE "driver_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "parameter_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "max_size" integer NOT NULL, "param_structure" text NOT NULL, "copy_src_param_id" integer, "driver_module_definition_system_id" integer)`,
     );
     await queryRunner.query(
       `INSERT INTO "driver_module_parameter_definitions"("system_id", "created_at", "updated_at", "version", "parameter_id", "name", "description", "max_size", "param_structure", "copy_src_param_id", "driver_module_definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "parameter_id", "name", "description", "max_size", "param_structure", "copy_src_param_id", "driver_module_definition_system_id" FROM "temporary_driver_module_parameter_definitions"`,
@@ -2660,13 +2660,13 @@ export class InitialCreate1791532395443 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "idx_restore_points_session"`);
     await queryRunner.query(`DROP TABLE "restore_points"`);
     await queryRunner.query(`DROP TABLE "session_entity_versions"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_xgroup_active"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_source_active"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_status_active"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_table_active"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_agg_active"`);
-    await queryRunner.query(`DROP INDEX "uniq_edit_actions_current_null_path"`);
-    await queryRunner.query(`DROP INDEX "uniq_edit_actions_current"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_linked_group"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_status"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_source"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_target"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_aggregate"`);
+    await queryRunner.query(`DROP INDEX "uniq_edit_actions_null_slot"`);
+    await queryRunner.query(`DROP INDEX "uniq_edit_actions_slot"`);
     await queryRunner.query(`DROP TABLE "edit_actions"`);
     await queryRunner.query(`DROP INDEX "uk_entity_reviewed_at"`);
     await queryRunner.query(`DROP TABLE "entity_reviewed_at"`);

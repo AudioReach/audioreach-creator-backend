@@ -175,8 +175,8 @@ describe('TypeOrmModuleRepository — findModulesByContainerId', () => {
 
   it('excludes a module that has a pending DELETE in the session', async () => {
     await ds.query(
-      `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, new_value, change_status, source, valid_until)
-       VALUES (?, ?, ?, ?, ?, '{}', ?, ?, NULL)`,
+      `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, new_value, change_status, source)
+       VALUES (?, ?, ?, ?, ?, '{}', ?, ?)`,
       [
         sessionId,
         MODULE_ID,
@@ -195,8 +195,8 @@ describe('TypeOrmModuleRepository — findModulesByContainerId', () => {
   it('includes a module that has a pending CREATE in the session', async () => {
     const STAGED_MODULE_ID = 999;
     await ds.query(
-      `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, new_value, change_status, source, valid_until)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+      `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, new_value, change_status, source)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         sessionId,
         STAGED_MODULE_ID,
@@ -247,6 +247,8 @@ describe('TypeOrmModuleRepository — updateHeapId', () => {
     await setupEachTest();
     ds = getTestDataSource();
     await seedProjectAndFile(ds);
+    await seedDefinition(ds);
+    await seedModule(ds);
     sessionId = await seedSession(ds);
     qr = ds.createQueryRunner();
     await qr.connect();
@@ -268,7 +270,7 @@ describe('TypeOrmModuleRepository — updateHeapId', () => {
     }> = await ds.query(
       `SELECT target_table, aggregate_id, target_system_id, new_value, change_status
        FROM edit_actions
-       WHERE session_id = ? AND valid_until IS NULL`,
+       WHERE session_id = ?`,
       [sessionId],
     );
 
@@ -282,24 +284,24 @@ describe('TypeOrmModuleRepository — updateHeapId', () => {
     expect(delta.heapId).toBe(0x2);
   });
 
-  it('supersedes a prior pending change — old row gets valid_until stamped, new merged row inserted', async () => {
+  it('updates the existing pending field row in place', async () => {
     const repo = makeRepo(qr, sessionId);
 
     await repo.updateHeapId(MODULE_ID, 0x1);
     await repo.updateHeapId(MODULE_ID, 0x2);
 
     const activeRows: Array<{new_value: string}> = await ds.query(
-      `SELECT new_value FROM edit_actions WHERE session_id = ? AND valid_until IS NULL`,
+      `SELECT new_value FROM edit_actions WHERE session_id = ?`,
       [sessionId],
     );
     expect(activeRows).toHaveLength(1);
     const activeDelta = JSON.parse(activeRows[0].new_value) as {heapId: number};
     expect(activeDelta.heapId).toBe(0x2);
 
-    const supersededRows: Array<unknown> = await ds.query(
-      `SELECT * FROM edit_actions WHERE session_id = ? AND valid_until IS NOT NULL`,
+    const rowsAfterUpdate: Array<unknown> = await ds.query(
+      `SELECT * FROM edit_actions WHERE session_id = ?`,
       [sessionId],
     );
-    expect(supersededRows).toHaveLength(1);
+    expect(rowsAfterUpdate).toHaveLength(1);
   });
 });

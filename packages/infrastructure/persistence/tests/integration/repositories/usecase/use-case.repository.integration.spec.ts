@@ -254,17 +254,21 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
           .valueSystemIds,
       ).toEqual([7001, 7002]);
 
+      const [gkvRow] = (await ds.query(
+        `SELECT target_system_id FROM edit_actions
+           WHERE session_id = ? AND target_table = 'UsecaseGkvValues'
+             AND json_extract(new_value, '$.valueDefSystemId') = ?`,
+        [sessionId, 7001],
+      )) as Array<{target_system_id: number}>;
       await qr.startTransaction();
       await makeWriter(qr.manager).writeDelete(
         {
           targetTable: ENTITY_NAMES.UsecaseGkvValues,
-          targetSystemId: 9003,
+          targetSystemId: gkvRow.target_system_id,
           aggregateId: uc.systemId,
-          payload: {usecaseSystemId: uc.systemId, valueDefSystemId: 7001},
           source: SOURCE.AutoRouting,
         },
         sessionId,
-        'test-group',
         qr.manager,
       );
       await qr.commitTransaction();
@@ -293,8 +297,8 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       const membershipSystemId = await linkSg(ds, 1000, SG_ID_1);
       // Stage a DELETE on the UseCaseSubgraph junction
       await ds.query(
-        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)
-         VALUES (?, ?, ?, 'UseCaseSubgraph', 'DELETE', NULL, '{}', 'MANUAL', 'STAGED', NULL, datetime('now'), NULL)`,
+        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id, created_at)
+         VALUES (?, ?, ?, 'UseCaseSubgraph', 'DELETE', NULL, '{}', 'MANUAL', 'STAGED', NULL, datetime('now'))`,
         [sessionId, 1000, membershipSystemId],
       );
       const repo = makeRepo(qr.manager, sessionId);
@@ -371,8 +375,8 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
         [pairSystemId, 'UseCaseSubgraphPair'],
       ] as const) {
         await qr.manager.query(
-          `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)
-           VALUES (?, ?, ?, ?, 'DELETE', NULL, '{}', 'MANUAL', 'STAGED', NULL, datetime('now'), NULL)`,
+          `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id, created_at)
+           VALUES (?, ?, ?, ?, 'DELETE', NULL, '{}', 'MANUAL', 'STAGED', NULL, datetime('now'))`,
           [sessionId, 1000, targetSystemId, targetTable],
         );
       }
@@ -398,8 +402,8 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
     it('returns UCs with active MANUAL source edit_actions', async () => {
       await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
       await ds.query(
-        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)
-         VALUES (?, ?, ?, 'UseCase', 'CREATE', NULL, '{}', 'MANUAL', 'UNSTAGED', NULL, datetime('now'), NULL)`,
+        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id, created_at)
+         VALUES (?, ?, ?, 'UseCase', 'UPDATE', NULL, '{}', 'MANUAL', 'UNSTAGED', NULL, datetime('now'))`,
         [sessionId, 1000, 1000],
       );
       const repo = makeRepo(qr.manager, sessionId);
@@ -407,7 +411,7 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       expect(result).toEqual([
         expect.objectContaining({
           usecase: expect.objectContaining({systemId: 1000}),
-          operation: CHANGE_OPERATION.Create,
+          operation: CHANGE_OPERATION.Update,
           referencedComponents: null,
         }),
       ]);
@@ -416,8 +420,8 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
     it('excludes AUTO_ROUTING edits', async () => {
       await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
       await ds.query(
-        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)
-         VALUES (?, ?, ?, 'UseCase', 'CREATE', NULL, '{}', 'AUTO_ROUTING', 'UNSTAGED', NULL, datetime('now'), NULL)`,
+        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id, created_at)
+         VALUES (?, ?, ?, 'UseCase', 'UPDATE', NULL, '{}', 'AUTO_ROUTING', 'UNSTAGED', NULL, datetime('now'))`,
         [sessionId, 1000, 1000],
       );
       const repo = makeRepo(qr.manager, sessionId);
@@ -427,8 +431,8 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
     it('preserves each manual action metadata and hydrated usecase', async () => {
       await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
       await ds.query(
-        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)
-         VALUES (?, ?, ?, 'UseCase', 'UPDATE', NULL, ?, 'MANUAL', 'UNSTAGED', NULL, datetime('now'), NULL)`,
+        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id, created_at)
+         VALUES (?, ?, ?, 'UseCase', 'UPDATE', NULL, ?, 'MANUAL', 'UNSTAGED', NULL, datetime('now'))`,
         [
           sessionId,
           1000,
@@ -463,8 +467,8 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
 
     it('retains a manual action when its effective usecase is missing', async () => {
       await ds.query(
-        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)
-         VALUES (?, ?, ?, 'UseCase', 'UPDATE', NULL, '{}', 'MANUAL', 'UNSTAGED', NULL, datetime('now'), NULL)`,
+        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id, created_at)
+         VALUES (?, ?, ?, 'UseCase', 'UPDATE', NULL, '{}', 'MANUAL', 'UNSTAGED', NULL, datetime('now'))`,
         [sessionId, 9999, 9999],
       );
 
@@ -480,15 +484,20 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       ]);
     });
 
-    it('excludes superseded edits', async () => {
+    it('includes the current UPDATE projection', async () => {
       await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
       await ds.query(
-        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)
-         VALUES (?, ?, ?, 'UseCase', 'CREATE', NULL, '{}', 'MANUAL', 'UNSTAGED', NULL, datetime('now'), datetime('now'))`,
+        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id, created_at)
+         VALUES (?, ?, ?, 'UseCase', 'UPDATE', NULL, '{}', 'MANUAL', 'UNSTAGED', NULL, datetime('now'))`,
         [sessionId, 1000, 1000],
       );
       const repo = makeRepo(qr.manager, sessionId);
-      expect(await repo.findWithActiveManualEdits(FILE_ID)).toEqual([]);
+      expect(await repo.findWithActiveManualEdits(FILE_ID)).toEqual([
+        expect.objectContaining({
+          operation: CHANGE_OPERATION.Update,
+          usecase: expect.objectContaining({systemId: 1000}),
+        }),
+      ]);
     });
   });
 
@@ -578,9 +587,9 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
         changeStatus: CHANGE_STATUS.Staged,
       });
       expect(actions).toHaveLength(6);
-      expect(new Set(actions.map(action => action.groupId))).toEqual(
-        new Set(['test-group']),
-      );
+      expect(
+        new Set(actions.map(action => action.linkedEntityGroupId)),
+      ).toEqual(new Set([null]));
       expect(
         actions.every(
           action =>
@@ -706,10 +715,10 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       const rows: Array<{
         target_table: string;
         target_system_id: number;
-        group_id: string;
+        linked_entity_group_id: string | null;
         new_value: string;
       }> = await ds.query(
-        `SELECT target_table, target_system_id, group_id, new_value
+        `SELECT target_table, target_system_id, linked_entity_group_id, new_value
            FROM edit_actions WHERE session_id = ? AND aggregate_id = ?`,
         [sessionId, 1000],
       );
@@ -718,8 +727,8 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       );
       expect(rows).toHaveLength(6);
       expect(gkvRows).toHaveLength(2);
-      expect(new Set(rows.map(row => row.group_id))).toEqual(
-        new Set(['test-group']),
+      expect(new Set(rows.map(row => row.linked_entity_group_id))).toEqual(
+        new Set([null]),
       );
       expect(new Set(rows.map(row => row.target_system_id)).size).toBe(6);
       expect(gkvRows.map(row => JSON.parse(row.new_value))).toEqual(

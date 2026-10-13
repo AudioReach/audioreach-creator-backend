@@ -84,26 +84,25 @@ export interface ISessionRepository {
   markSessionEnded(sessionId: number): Promise<void>;
 
   /**
-   * Deletes all UNSTAGED edit_actions rows for the session where validUntil IS NULL
-   * (i.e. the current/active rows only — historical superseded rows are retained).
-   * Returns the number of rows deleted.
+   * Deletes all UNSTAGED current edit-actions and every captured baseline for the
+   * session. Returns the number of edit-action rows deleted.
    */
   wipeUnstagedForSession(sessionId: number): Promise<number>;
 
   /**
-   * Deletes every edit action for the session from one source, including
-   * superseded rows and all operations/tables. Returns the number of rows.
+   * Deletes every current edit action for the session from one source across all
+   * operations and tables. Returns the number of rows.
    */
   deleteEditActionsBySource(sessionId: number, source: Source): Promise<number>;
 
-  /** Deletes active MANUAL UseCase CREATE/UPDATE edit rows for the supplied IDs. */
+  /** Deletes current MANUAL UseCase CREATE/UPDATE edit rows for the supplied IDs. */
   deleteEditActionsByChangeIds(
     sessionId: number,
     changeIds: readonly number[],
   ): Promise<number>;
 
   /**
-   * Counts active (validUntil IS NULL) STAGED edit_actions rows for the session.
+   * Counts STAGED current edit-actions rows for the session.
    * Used by EndSessionHandler to guard against ending a session with uncommitted staged changes.
    */
   countStagedChangesForSession(sessionId: number): Promise<number>;

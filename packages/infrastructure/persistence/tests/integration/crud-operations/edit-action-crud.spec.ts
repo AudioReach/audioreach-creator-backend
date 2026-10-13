@@ -48,11 +48,12 @@ import {
  * - payload (simple-json blob) → field_path + new_value (addressed-slot model)
  * - base_version removed (moved to session_entity_versions side-table)
  * - source added (MANUAL / DIFF_TOOL / AUTO_ROUTING)
- * - cross_entity_group_id added
+ * - linked_entity_group_id added for explicit cross-entity relationships
  *
- * New index set (LLD1 §5.1):
- * - uniq_edit_actions_current on (session_id, target_system_id, field_path) WHERE valid_until IS NULL
- * - idx_edit_actions_agg_active, _table_active, _status_active, _source_active, _xgroup_active
+ * Current-state index set:
+ * - one unique index for each non-null field storage slot
+ * - one unique index for each target-wide null accumulator
+ * - lookup indexes for aggregate, target, source, status, and linked group
  */
 describe('EditAction CRUD Integration Tests', () => {
   let editActionRepository: Repository<EditActionRow>;
@@ -132,9 +133,7 @@ describe('EditAction CRUD Integration Tests', () => {
         newValue: {alias: 'VolumeControl_Module', instanceId: 1},
         source: SOURCE.Manual,
         changeStatus: CHANGE_STATUS.Staged,
-        groupId: null,
         linkedEntityGroupId: null,
-        validUntil: null,
       });
 
       expect(savedAction.changeId).toBeGreaterThan(0);
@@ -175,9 +174,7 @@ describe('EditAction CRUD Integration Tests', () => {
         newValue: 'VolumeControl_New',
         source: SOURCE.Manual,
         changeStatus: CHANGE_STATUS.Staged,
-        groupId: null,
         linkedEntityGroupId: null,
-        validUntil: null,
       });
 
       expect(savedAction.operation).toBe(CHANGE_OPERATION.Update);
@@ -196,16 +193,14 @@ describe('EditAction CRUD Integration Tests', () => {
         targetTable: ENTITY_NAMES.SpfModule,
         operation: CHANGE_OPERATION.Delete,
         fieldPath: '$',
-        newValue: null,
+        newValue: {},
         source: SOURCE.Manual,
         changeStatus: CHANGE_STATUS.Staged,
-        groupId: null,
         linkedEntityGroupId: null,
-        validUntil: null,
       });
 
       expect(savedAction.operation).toBe(CHANGE_OPERATION.Delete);
-      expect(savedAction.newValue).toBeNull();
+      expect(savedAction.newValue).toEqual({});
     });
   });
 
@@ -226,9 +221,7 @@ describe('EditAction CRUD Integration Tests', () => {
           newValue: {order},
           source: SOURCE.Manual,
           changeStatus: CHANGE_STATUS.Staged,
-          groupId: null,
           linkedEntityGroupId: null,
-          validUntil: null,
         });
       }
 
@@ -259,9 +252,7 @@ describe('EditAction CRUD Integration Tests', () => {
           newValue: {s: 1},
           source: SOURCE.Manual,
           changeStatus: CHANGE_STATUS.Staged,
-          groupId: null,
           linkedEntityGroupId: null,
-          validUntil: null,
         },
         {
           targetSystemId: 102,
@@ -273,9 +264,7 @@ describe('EditAction CRUD Integration Tests', () => {
           newValue: {s: 2},
           source: SOURCE.Manual,
           changeStatus: CHANGE_STATUS.Staged,
-          groupId: null,
           linkedEntityGroupId: null,
-          validUntil: null,
         },
         {
           targetSystemId: 103,
@@ -284,12 +273,10 @@ describe('EditAction CRUD Integration Tests', () => {
           targetTable: ENTITY_NAMES.SpfModule,
           operation: CHANGE_OPERATION.Delete,
           fieldPath: '$',
-          newValue: null,
+          newValue: {},
           source: SOURCE.Manual,
           changeStatus: CHANGE_STATUS.Unstaged,
-          groupId: null,
           linkedEntityGroupId: null,
-          validUntil: null,
         },
       ]);
 
@@ -321,9 +308,7 @@ describe('EditAction CRUD Integration Tests', () => {
           newValue: {test: 'orphan'},
           source: SOURCE.Manual,
           changeStatus: CHANGE_STATUS.Staged,
-          groupId: null,
           linkedEntityGroupId: null,
-          validUntil: null,
         }),
       ).rejects.toThrow();
     });
@@ -342,9 +327,7 @@ describe('EditAction CRUD Integration Tests', () => {
         newValue: {test: 'cascade'},
         source: SOURCE.Manual,
         changeStatus: CHANGE_STATUS.Staged,
-        groupId: null,
         linkedEntityGroupId: null,
-        validUntil: null,
       });
 
       let action = await editActionRepository.findOne({
@@ -378,9 +361,7 @@ describe('EditAction CRUD Integration Tests', () => {
           newValue: 'a',
           source: SOURCE.Manual,
           changeStatus: CHANGE_STATUS.Staged,
-          groupId: null,
           linkedEntityGroupId: null,
-          validUntil: null,
         },
         {
           targetSystemId: 102,
@@ -392,9 +373,7 @@ describe('EditAction CRUD Integration Tests', () => {
           newValue: 'b',
           source: SOURCE.Manual,
           changeStatus: CHANGE_STATUS.Staged,
-          groupId: null,
           linkedEntityGroupId: null,
-          validUntil: null,
         },
       ]);
 
@@ -411,13 +390,14 @@ describe('EditAction CRUD Integration Tests', () => {
       );
       const indexNames = indexes.map((idx: {name: string}) => idx.name);
 
-      // LLD1 §5.1 index set
-      expect(indexNames).toContain('uniq_edit_actions_current');
-      expect(indexNames).toContain('idx_edit_actions_agg_active');
-      expect(indexNames).toContain('idx_edit_actions_table_active');
-      expect(indexNames).toContain('idx_edit_actions_status_active');
-      expect(indexNames).toContain('idx_edit_actions_source_active');
-      expect(indexNames).toContain('idx_edit_actions_xgroup_active');
+      // Current-state indexes defined by EditActionSchema.
+      expect(indexNames).toContain('uniq_edit_actions_slot');
+      expect(indexNames).toContain('uniq_edit_actions_null_slot');
+      expect(indexNames).toContain('idx_edit_actions_aggregate');
+      expect(indexNames).toContain('idx_edit_actions_target');
+      expect(indexNames).toContain('idx_edit_actions_status');
+      expect(indexNames).toContain('idx_edit_actions_source');
+      expect(indexNames).toContain('idx_edit_actions_linked_group');
     });
   });
 });

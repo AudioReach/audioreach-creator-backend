@@ -243,9 +243,7 @@ describe('DbSubgraphPropertyDefQueryService Integration Tests', () => {
         source: SOURCE.Manual,
         fieldPath: 'isVoice',
         newValue: {isVoice: true},
-        groupId: null,
         linkedEntityGroupId: null,
-        validUntil: null,
       });
 
       const result =
@@ -322,9 +320,7 @@ describe('DbSubgraphPropertyDefQueryService Integration Tests', () => {
         source: SOURCE.Manual,
         fieldPath: 'name',
         newValue: {name: 'UpdatedName'},
-        groupId: null,
         linkedEntityGroupId: null,
-        validUntil: null,
       });
 
       const result = await service.getSubgraphPropertyDefinition(

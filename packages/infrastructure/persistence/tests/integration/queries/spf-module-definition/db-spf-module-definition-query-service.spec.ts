@@ -204,9 +204,7 @@ describe('DbSpfModuleDefinitionQueryService Integration Tests', () => {
       newValue,
       source: SOURCE.Manual,
       changeStatus: CHANGE_STATUS.Staged,
-      groupId: null,
       linkedEntityGroupId: null,
-      validUntil: null,
     });
   }
 

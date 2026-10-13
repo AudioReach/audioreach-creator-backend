@@ -115,9 +115,7 @@ describe('ContainerTypeFetcher (integration)', () => {
       newValue: options.newValue,
       source: SOURCE.Manual,
       changeStatus: CHANGE_STATUS.Staged,
-      groupId: null,
       linkedEntityGroupId: null,
-      validUntil: null,
       ...(options.createdAt ? {createdAt: options.createdAt} : {}),
     });
   }
@@ -166,22 +164,15 @@ describe('ContainerTypeFetcher (integration)', () => {
     expect(rows[0]).toMatchObject({systemId: 10, name: 'Created'});
   });
 
-  it('composes CREATE and UPDATE actions for a session-created container type', async () => {
+  it('reads the current CREATE projection for a session-created container type', async () => {
     const sessionId = await createSession();
     await saveAction({
       sessionId,
       targetSystemId: 10,
       operation: CHANGE_OPERATION.Create,
-      newValue: {name: 'Created', value: 10},
+      newValue: {name: 'Updated', value: 10},
       fieldPath: '$',
       createdAt: new Date(1000),
-    });
-    await saveAction({
-      sessionId,
-      targetSystemId: 10,
-      operation: CHANGE_OPERATION.Update,
-      newValue: {name: 'Updated'},
-      createdAt: new Date(2000),
     });
 
     await expect(fetcher.fetchOne(10, sessionId)).resolves.toMatchObject({

@@ -113,7 +113,7 @@ async function seedDeletedDataLink(
     ],
   );
   await ds.query(
-    `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id) VALUES (?, ?, ?, 'DataLink', 'DELETE', NULL, '{}', 'MANUAL', 'STAGED', ?)`,
+    `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id) VALUES (?, ?, ?, 'DataLink', 'DELETE', NULL, '{}', 'MANUAL', 'STAGED', ?)`,
     [sessionId, DATA_LINK_ID, DATA_LINK_ID, groupId],
   );
 }
@@ -180,7 +180,7 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
     expect(result!.systemId).toBe(DATA_LINK_ID);
   });
 
-  it('reactivateDataLink supersedes DELETE row and inserts new CREATE row', async () => {
+  it('reactivateDataLink cancels the pending DELETE', async () => {
     await seedDeletedDataLink(ds, sessionId, 'grp1');
     await qr.startTransaction();
     const repo = makeRepo(qr, sessionId);
@@ -196,13 +196,6 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
       `SELECT * FROM edit_actions WHERE session_id = ? AND target_system_id = ? AND target_table = 'DataLink' ORDER BY change_id`,
       [sessionId, DATA_LINK_ID],
     );
-    expect(rows.length).toBe(2);
-    const deleteRow = rows.find(r => r['operation'] === 'DELETE');
-    const createRow = rows.find(r => r['operation'] === 'CREATE');
-    expect(deleteRow).toBeDefined();
-    expect(createRow).toBeDefined();
-    expect(deleteRow!['valid_until']).not.toBeNull();
-    expect(createRow!['valid_until']).toBeNull();
-    expect(createRow!['change_status']).toBe('STAGED');
+    expect(rows).toEqual([]);
   });
 });

@@ -76,6 +76,7 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
 
   async commit(): Promise<void> {
     if (!this.inTransaction) throw new Error('No active transaction to commit');
+    await this.applyCachedActions();
     try {
       await this.queryRunner.commitTransaction();
     } finally {
@@ -117,12 +118,14 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
   // ── LLD1: PendingChangeCache flush (§10.3) ────────────────────────────────
 
   async applyCachedActions(): Promise<void> {
-    await this.pendingChangeCache.flush(this.queryRunner);
+    await this.getPendingChangeWriter().flushCachedActions(
+      this.queryRunner.manager,
+    );
 
     if (!this.pendingChangeCache.isEmpty()) {
       throw new Error(
-        'PendingChangeCache is non-empty after flush — rows were not persisted. ' +
-          'This indicates a bug in PendingChangeCache.flush().',
+        'PendingChangeCache is non-empty after flush — intents were not persisted. ' +
+          'This indicates a bug in PendingChangeWriter.flushCachedActions().',
       );
     }
   }
@@ -130,7 +133,10 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
   // ── LLD1: Session repository (§7b, §14) ──────────────────────────────────
 
   getSessionRepository(): ISessionRepository {
-    return new TypeOrmSessionRepository(this.queryRunner.manager);
+    return new TypeOrmSessionRepository(
+      this.queryRunner.manager,
+      this.getPendingChangeWriter(),
+    );
   }
 
   // ── Module write path (LLD2) ──────────────────────────────────────────────

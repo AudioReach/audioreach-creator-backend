@@ -121,7 +121,7 @@ export class CreateModuleHandler implements CommandHandler<
         controlPorts,
       });
 
-      // 8. Stage all rows atomically — all share the ambient groupId
+      // 8. Stage all rows atomically; groupId remains response correlation.
       await uow.getModuleRepository().createModule(module);
 
       // Step 10: TODO(add-module-calibration-defaults) — zero CKV with default

@@ -55,7 +55,7 @@ export interface UsecaseChangeRef {
 /**
  * Structural delta applied atomically to a UseCase by
  * `applyStructuralChange`. All fields optional; the adapter emits a group of
- * edit-actions sharing one groupId reflecting the union of changes.
+ * current-state edit actions reflecting the union of changes.
  *
  * Used to extend, trim, rebuild, or otherwise update a UseCase structure.
  */
@@ -116,10 +116,9 @@ export interface UsecaseRepository {
   findAll(fileSystemId: number, options?: ReadOptions): Promise<UseCase[]>;
 
   /**
-   * Returns UCs that are the target of at least one **active MANUAL**
-   * edit-action on this file — i.e., an `edit_actions` row with
-   * `target_table='UseCase'`, `source='MANUAL'`, and `valid_until IS NULL`
-   * (not superseded, not committed).
+   * Returns UCs that are the target of at least one current MANUAL edit action
+   * on this file — i.e., an `edit_actions` row with
+   * `target_table='UseCase'` and `source='MANUAL'`.
    *
    * Each result retains the edit ID, operation, effective UseCase (or null),
    * and referenced component payload (or null) for dependency validation.
@@ -137,7 +136,8 @@ export interface UsecaseRepository {
    * Creates a UseCase. Emits a CREATE `edit_actions` row for the base
    * `UseCase` row plus one CREATE per element of `uc.subgraphSystemIds`
    * (in `UseCaseSubgraph`) and per `uc.subgraphPairs` element (in
-   * `UseCaseSubgraphPair`), all sharing the ambient groupId.
+   * `UseCaseSubgraphPair`). The ambient groupId is response correlation only
+   * and is not persisted on these rows.
    *
    * When provided, routing SGKV additions and `referencedComponents` are
    * merged into the base CREATE payload.
@@ -160,8 +160,8 @@ export interface UsecaseRepository {
   ): Promise<UsecaseChangeRef | null>;
 
   /**
-   * Applies a routing-shaped structural delta to `uc`. Emits one atomic
-   * group of `edit_actions` sharing the ambient groupId, covering
+   * Applies a routing-shaped structural delta to `uc`. Emits one ordered set
+   * of current-state `edit_actions`, covering
    * (in the following order):
    *   1. optional `cancelPendingDelete` (removes any pending
    *      `DELETE UseCase` edit for this UC).

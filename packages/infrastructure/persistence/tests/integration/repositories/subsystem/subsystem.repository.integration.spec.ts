@@ -171,7 +171,6 @@ async function getActiveActions(qr: QueryRunner, sessionId: number) {
     .getRepository(EditActionSchema)
     .createQueryBuilder('editAction')
     .where('editAction.sessionId = :sessionId', {sessionId})
-    .andWhere('editAction.validUntil IS NULL')
     .orderBy('editAction.changeId', 'ASC')
     .getMany();
 }
@@ -254,7 +253,6 @@ describe('TypeOrmSubsystemRepository (integration)', () => {
         delta: {parentSystemId: ROOT_SUBSYSTEM_ID},
       },
       sessionId,
-      'move-group',
       qr.manager,
     );
 
@@ -310,8 +308,8 @@ describe('TypeOrmSubsystemRepository (integration)', () => {
         [ENTITY_NAMES.DataPort, EXISTING_DATA_PORT_ID],
       ]),
     );
-    expect(new Set(actions.map(action => action.groupId))).toEqual(
-      new Set(['test-group']),
+    expect(new Set(actions.map(action => action.linkedEntityGroupId))).toEqual(
+      new Set([null]),
     );
   });
 });

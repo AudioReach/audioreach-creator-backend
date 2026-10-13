@@ -139,9 +139,7 @@ describe('DriverModuleParameterDefinitionFetcher (integration)', () => {
       newValue: options.newValue,
       source: SOURCE.Manual,
       changeStatus: CHANGE_STATUS.Staged,
-      groupId: null,
       linkedEntityGroupId: null,
-      validUntil: null,
       ...(options.createdAt ? {createdAt: options.createdAt} : {}),
     });
   }
@@ -198,7 +196,7 @@ describe('DriverModuleParameterDefinitionFetcher (integration)', () => {
     expect(rows[0]).toMatchObject({systemId: 20, name: 'Created'});
   });
 
-  it('composes CREATE and UPDATE actions for a session-created parameter', async () => {
+  it('reads the current CREATE projection for a session-created parameter', async () => {
     const sessionId = await createSession();
     await saveAction({
       sessionId,
@@ -207,20 +205,13 @@ describe('DriverModuleParameterDefinitionFetcher (integration)', () => {
       fieldPath: '$',
       newValue: {
         naturalId: 20,
-        name: 'Created',
+        name: 'Updated',
         description: 'Created description',
         maxSize: 4,
         paramStructure: '[]',
         driverModuleDefinitionSystemId: DEFINITION_ID,
       },
       createdAt: new Date(1000),
-    });
-    await saveAction({
-      sessionId,
-      targetSystemId: 20,
-      operation: CHANGE_OPERATION.Update,
-      newValue: {name: 'Updated'},
-      createdAt: new Date(2000),
     });
 
     await expect(

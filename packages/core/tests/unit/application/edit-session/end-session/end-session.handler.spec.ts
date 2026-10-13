@@ -139,6 +139,7 @@ describe('EndSessionHandler', () => {
       buildMockNaturalIds(),
     ).handle(new EndSessionCommand(PROJECT_ID));
 
+    expect(sessionRepo.wipeUnstagedForSession).toHaveBeenCalledWith(SESSION_ID);
     expect(sessionRepo.deleteSession).not.toHaveBeenCalled();
     expect(sessionRepo.markSessionEnded).toHaveBeenCalledWith(SESSION_ID);
     expect(result.kind).toBe(RESULT_KIND.Ok);

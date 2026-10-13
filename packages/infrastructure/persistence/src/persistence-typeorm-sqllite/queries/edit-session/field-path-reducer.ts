@@ -24,6 +24,52 @@ export type DiffEntry = {
 };
 
 /**
+ * Describes which logical fields a pending row stores.
+ *
+ * A null accumulator and a whole-row replacement expose the keys in their
+ * payload. A scalar path normally stores that one path, while a named group
+ * exposes the fixed keys in its object payload.
+ */
+export type FieldCoverage = {
+  wholeRow: boolean;
+  fields: ReadonlySet<string>;
+};
+
+/**
+ * Converts a pending field path and payload into logical field coverage.
+ *
+ * Element paths are intentionally rejected here so every current-state
+ * consumer applies the same unsupported-operation boundary. The reducer will
+ * translate this error into its typed reducer error.
+ */
+export function getFieldCoverage(
+  fieldPath: string | null,
+  newValue: unknown,
+): FieldCoverage {
+  if (fieldPath?.startsWith('elements[') === true) {
+    throw new Error(
+      `Element-path mutation is not implemented: '${fieldPath}'.`,
+    );
+  }
+
+  // Writer intents use object payloads for every field path. Keeping the
+  // scalar fallback makes this helper safe for older rows read by the overlay.
+  const fields =
+    fieldPath !== null && fieldPath !== '$' && !isObjectPayload(newValue)
+      ? new Set([fieldPath])
+      : new Set(Object.keys(newValue as object));
+
+  return {
+    wholeRow: fieldPath === '$',
+    fields,
+  };
+}
+
+function isObjectPayload(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
  * Applies a single EditActionRow to an effective-state accumulator object,
  * dispatching on the shape of `row.fieldPath`.
  *
