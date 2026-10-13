@@ -14,7 +14,7 @@ import {getModuleWriteContext} from '../shared/module-handler-helpers.js';
 
 export interface AddTagsResult {
   groupId: string;
-  addedTags: Array<{systemId: number; naturalId: number; tagName: string}>;
+  addedTagSystemIds: number[];
 }
 
 export class AddTagsHandler implements CommandHandler<
@@ -27,7 +27,7 @@ export class AddTagsHandler implements CommandHandler<
   ) {}
 
   async handle(command: AddTagsCommand): Promise<Result<AddTagsResult>> {
-    const {groupId, transact, fileSystemId, moduleRepo} =
+    const {groupId, transact, fileSystemId, moduleRepo, defRepo} =
       await getModuleWriteContext(this.uow, command.spfModuleSystemId);
 
     const existingTags = await moduleRepo.getAllTagsForModule(
@@ -39,18 +39,18 @@ export class AddTagsHandler implements CommandHandler<
     );
 
     return transact(async () => {
-      const addedTags: AddTagsResult['addedTags'] = [];
+      const addedTagSystemIds: number[] = [];
       const issues: Issue[] = [];
 
       for (const tagDefinitionSystemId of new Set(
         command.tagDefinitionSystemIds,
       )) {
         if (existingTagDefIds.has(tagDefinitionSystemId)) continue;
-        const definition = await moduleRepo.getTagDefinition(
+        const exists = await defRepo.tagDefinitionExists(
           fileSystemId,
           tagDefinitionSystemId,
         );
-        if (!definition) {
+        if (!exists) {
           issues.push(
             IssueFactory.notFound(
               ISSUE_ENTITY_TYPE.TagDefinition,
@@ -66,14 +66,10 @@ export class AddTagsHandler implements CommandHandler<
           tagDefinitionSystemId,
         );
         existingTagDefIds.add(tagDefinitionSystemId);
-        addedTags.push({
-          systemId: tagSystemId,
-          naturalId: definition.naturalId,
-          tagName: definition.name,
-        });
+        addedTagSystemIds.push(tagSystemId);
       }
 
-      const data = {groupId, addedTags};
+      const data = {groupId, addedTagSystemIds};
       return issues.length > 0 ? Result.partial(data, issues) : Result.ok(data);
     });
   }

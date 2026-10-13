@@ -41,4 +41,9 @@ export interface ModuleDefinitionRepository {
     moduleDefSystemId: number,
     paramSystemIds?: number[],
   ): Promise<ModuleParameterDefinition[]>;
+
+  tagDefinitionExists(
+    fileSystemId: number,
+    tagDefinitionSystemId: number,
+  ): Promise<boolean>;
 }

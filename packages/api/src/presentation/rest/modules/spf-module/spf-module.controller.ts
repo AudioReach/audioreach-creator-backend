@@ -888,21 +888,34 @@ export class SpfModuleController extends BaseController {
   })
   @UseGuards(SessionGuard)
   async addCkvs(
-    @Param('projectId') _projectId: string,
+    @Param('projectId', ParseIntPipe) projectId: number,
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Body() request: CreateCkvsRequestDto,
     @ArcSession() session: ActiveSession,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<AddCkvsResponseDto>> {
     const command = new AddCkvsCommand(spfModuleSystemId, request.ckvs);
-    const result = await this.commandBus.execute<Result<AddCkvsResult>>(
+    const cmdResult = await this.commandBus.execute<Result<AddCkvsResult>>(
       command,
       session,
     );
-    return toApiResult(result, data => ({
-      addedCkvs: data.addedCkvs,
+    if (cmdResult.kind === RESULT_KIND.Fail) return toApiResult(cmdResult);
+    const addedSet = new Set(cmdResult.data.addedCkvSystemIds.map(String));
+    const {removedZeroCkvSystemId} = cmdResult.data;
+    const query = new SpfModuleQuery(
+      [Number(spfModuleSystemId)],
+      projectId,
+      true,
+      false,
+      clientId,
+    );
+    const readResult =
+      await this.queryBus.execute<Result<SpfModuleDto[]>>(query);
+    return toApiResult(readResult, data => ({
+      addedCkvs: (data[0]?.ckvs ?? []).filter(c => addedSet.has(c.systemId)),
       removedZeroCkvSystemId:
-        data.removedZeroCkvSystemId !== undefined
-          ? String(data.removedZeroCkvSystemId)
+        removedZeroCkvSystemId !== undefined
+          ? String(removedZeroCkvSystemId)
           : undefined,
     }));
   }
@@ -949,7 +962,7 @@ export class SpfModuleController extends BaseController {
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Body() request: DeleteCkvsRequestDto,
     @ArcSession() session: ActiveSession,
-  ): Promise<ApiResult<CkvResponseDto[]>> {
+  ): Promise<ApiResult<string[]>> {
     const command = new RemoveCkvsCommand(
       spfModuleSystemId,
       request.ckvSystemIds,
@@ -958,7 +971,7 @@ export class SpfModuleController extends BaseController {
       command,
       session,
     );
-    return toApiResult(result, data => data.removedCkvs);
+    return toApiResult(result, data => data.removedCkvSystemIds.map(String));
   }
 
   /**
@@ -1000,26 +1013,33 @@ export class SpfModuleController extends BaseController {
   })
   @UseGuards(SessionGuard)
   async addTags(
-    @Param('projectId') _projectId: string,
+    @Param('projectId', ParseIntPipe) projectId: number,
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Body() request: CreateTagsRequestDto,
     @ArcSession() session: ActiveSession,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<TagInfoResponseDto[]>> {
     const command = new AddTagsCommand(
       spfModuleSystemId,
       request.tagDefinitionSystemIds,
     );
-    const result = await this.commandBus.execute<Result<AddTagsResult>>(
+    const cmdResult = await this.commandBus.execute<Result<AddTagsResult>>(
       command,
       session,
     );
-    return toApiResult(result, data =>
-      data.addedTags.map(tag => ({
-        systemId: String(tag.systemId),
-        naturalId: tag.naturalId,
-        tagName: tag.tagName,
-        tkvs: [],
-      })),
+    if (cmdResult.kind === RESULT_KIND.Fail) return toApiResult(cmdResult);
+    const addedSet = new Set(cmdResult.data.addedTagSystemIds.map(String));
+    const query = new SpfModuleQuery(
+      [Number(spfModuleSystemId)],
+      projectId,
+      false,
+      true,
+      clientId,
+    );
+    const readResult =
+      await this.queryBus.execute<Result<SpfModuleDto[]>>(query);
+    return toApiResult(readResult, data =>
+      (data[0]?.tags ?? []).filter(t => addedSet.has(t.systemId)),
     );
   }
 
@@ -1065,7 +1085,7 @@ export class SpfModuleController extends BaseController {
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Body() request: DeleteTagsRequestDto,
     @ArcSession() session: ActiveSession,
-  ): Promise<ApiResult<TagInfoResponseDto[]>> {
+  ): Promise<ApiResult<string[]>> {
     const command = new RemoveTagsCommand(
       spfModuleSystemId,
       request.tagSystemIds,
@@ -1074,14 +1094,7 @@ export class SpfModuleController extends BaseController {
       command,
       session,
     );
-    return toApiResult(result, data =>
-      data.removedTags.map(tag => ({
-        systemId: String(tag.systemId),
-        naturalId: tag.naturalId,
-        tagName: tag.tagName,
-        tkvs: tag.tkvs,
-      })),
-    );
+    return toApiResult(result, data => data.removedTagSystemIds.map(String));
   }
 
   /**
@@ -1130,22 +1143,37 @@ export class SpfModuleController extends BaseController {
   })
   @UseGuards(SessionGuard)
   async addTkvs(
-    @Param('projectId') _projectId: string,
+    @Param('projectId', ParseIntPipe) projectId: number,
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Param('tagSystemId') tagSystemId: string,
     @Body() request: CreateTkvsRequestDto,
     @ArcSession() session: ActiveSession,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<TkvResponseDto[]>> {
     const command = new AddTkvsCommand(
       spfModuleSystemId,
       tagSystemId,
       request.tkvs,
     );
-    const result = await this.commandBus.execute<Result<AddTkvsResult>>(
+    const cmdResult = await this.commandBus.execute<Result<AddTkvsResult>>(
       command,
       session,
     );
-    return toApiResult(result, data => data.addedTkvs);
+    if (cmdResult.kind === RESULT_KIND.Fail) return toApiResult(cmdResult);
+    const addedSet = new Set(cmdResult.data.addedTkvSystemIds.map(String));
+    const query = new SpfModuleQuery(
+      [Number(spfModuleSystemId)],
+      projectId,
+      false,
+      true,
+      clientId,
+    );
+    const readResult =
+      await this.queryBus.execute<Result<SpfModuleDto[]>>(query);
+    return toApiResult(readResult, data => {
+      const tag = data[0]?.tags?.find(t => t.systemId === tagSystemId);
+      return (tag?.tkvs ?? []).filter(t => addedSet.has(t.systemId));
+    });
   }
 
   /**
@@ -1198,7 +1226,7 @@ export class SpfModuleController extends BaseController {
     @Param('tagSystemId') tagSystemId: string,
     @Body() request: DeleteTkvsRequestDto,
     @ArcSession() session: ActiveSession,
-  ): Promise<ApiResult<TkvResponseDto[]>> {
+  ): Promise<ApiResult<string[]>> {
     const command = new RemoveTkvsCommand(
       spfModuleSystemId,
       tagSystemId,
@@ -1208,7 +1236,7 @@ export class SpfModuleController extends BaseController {
       command,
       session,
     );
-    return toApiResult(result, data => data.removedTkvs);
+    return toApiResult(result, data => data.removedTkvSystemIds.map(String));
   }
 
   /**
@@ -1437,23 +1465,38 @@ export class SpfModuleController extends BaseController {
   })
   @UseGuards(SessionGuard)
   async addTkvParameters(
-    @Param('projectId') _projectId: string,
+    @Param('projectId', ParseIntPipe) projectId: number,
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Body() request: CreateTkvParametersRequestDto,
     @ArcSession() session: ActiveSession,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<TkvParametersResponseDto>> {
     const command = new AddTkvParametersCommand(
       spfModuleSystemId,
       request.updates,
     );
-    const result = await this.commandBus.execute<
+    const cmdResult = await this.commandBus.execute<
       Result<AddTkvParametersResult>
     >(command, session);
-    return toApiResult(result, data => ({
-      tkvParameters: data.tkvParameters.map(item => ({
-        tkvSystemId: String(item.tkvSystemId),
-        parameters: item.parameters,
-      })),
+    if (cmdResult.kind === RESULT_KIND.Fail) return toApiResult(cmdResult);
+    const affectedSet = new Set(cmdResult.data.tkvSystemIds.map(String));
+    const query = new SpfModuleQuery(
+      [Number(spfModuleSystemId)],
+      projectId,
+      false,
+      true,
+      clientId,
+    );
+    const readResult =
+      await this.queryBus.execute<Result<SpfModuleDto[]>>(query);
+    return toApiResult(readResult, data => ({
+      tkvParameters: (data[0]?.tags ?? [])
+        .flatMap(t => t.tkvs ?? [])
+        .filter(t => affectedSet.has(t.systemId))
+        .map(t => ({
+          tkvSystemId: t.systemId,
+          parameters: t.supportedParameters,
+        })),
     }));
   }
 

@@ -12,12 +12,6 @@ import type {DataPort} from '../../../../../domain/entities/usecase-data/node/en
 import type {ControlPort} from '../../../../../domain/entities/usecase-data/node/entities/control-port.js';
 import type {KvData} from '../../../../../domain/entities/common/entities/kv-data.js';
 import type {PortIoType} from '../../../../../domain/entities/common/enums/port-io-type.js';
-import type {Result} from '../../../../shared/result/result.js';
-import type {
-  KeyDefinitionSummaryReadModel,
-  ValueDefinitionSummaryReadModel,
-} from '../../query-services/key-value/key-value-definition-read-model.js';
-import type {TagDefinitionReadModel} from '../../query-services/tag-definition/tag-definition-read-model.js';
 
 export type {SpfModuleBase} from '../../../../../domain/entities/usecase-data/module/spf-module.js';
 
@@ -300,22 +294,4 @@ export interface ModuleRepository {
 
   /** Deletes TKV/tag calibration data for a module. */
   DeleteAllTkvData(moduleSystemId: number, fileSystemId: number): Promise<void>;
-
-  // ── Key-value and tag definition lookups ─────────────────────────────────
-  getKeyValueSummaryForGivenValues(
-    valueDefSystemIds: number[],
-    fileSystemId: number,
-  ): Promise<
-    Result<
-      Array<{
-        key: KeyDefinitionSummaryReadModel;
-        value: ValueDefinitionSummaryReadModel;
-      }>
-    >
-  >;
-
-  getTagDefinition(
-    fileSystemId: number,
-    tagDefinitionSystemId: number,
-  ): Promise<TagDefinitionReadModel | null>;
 }

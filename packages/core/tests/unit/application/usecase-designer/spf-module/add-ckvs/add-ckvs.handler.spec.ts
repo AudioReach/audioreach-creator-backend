@@ -126,7 +126,7 @@ describe('AddCkvsHandler', () => {
       new AddCkvsCommand(String(MODULE_ID), [{valueSystemIds: ['1', '2']}]),
     );
     expect(moduleRepo.createCkv).not.toHaveBeenCalled();
-    expect(result.data.addedCkvs).toHaveLength(0);
+    expect(result.data.addedCkvSystemIds).toHaveLength(0);
   });
 
   it('removes zero CKV when first non-zero CKV is added', async () => {
@@ -153,7 +153,7 @@ describe('AddCkvsHandler', () => {
     );
     expect(moduleRepo.createCkv).toHaveBeenCalledTimes(1);
     expect(result.data.groupId).toBe('grp');
-    expect(result.data.addedCkvs).toHaveLength(1);
+    expect(result.data.addedCkvSystemIds).toHaveLength(1);
   });
 
   it('deduplicates repeated value IDs within a CKV', async () => {
@@ -170,55 +170,6 @@ describe('AddCkvsHandler', () => {
       expect.objectContaining({valueDefinitionSystemIds: [3, 4]}),
       MODULE_ID,
     );
-  });
-
-  it('returns a partial result without staging an invalid value definition', async () => {
-    const moduleRepo = makeModuleRepo({
-      getKeyValueSummaryForGivenValues: jest.fn().mockResolvedValue({
-        kind: 'PARTIAL',
-        data: [],
-        issues: [
-          {
-            code: 'ENTITY_NOT_FOUND',
-            message: 'ValueDefinition not found for systemId=3',
-            severity: 'ERROR',
-          },
-        ],
-      }),
-    });
-    const uow = makeUow(moduleRepo, makeDefRepo());
-
-    const result = await new AddCkvsHandler(uow, makeIdGen()).handle(
-      new AddCkvsCommand(String(MODULE_ID), [{valueSystemIds: ['3']}]),
-    );
-
-    expect(result.kind).toBe('PARTIAL');
-    expect(moduleRepo.createCkv).not.toHaveBeenCalled();
-  });
-
-  it('rolls back and throws when value resolution fails unexpectedly', async () => {
-    const moduleRepo = makeModuleRepo({
-      getKeyValueSummaryForGivenValues: jest.fn().mockResolvedValue({
-        kind: 'FAIL',
-        issues: [
-          {
-            code: 'ERR_9001',
-            message: 'database unavailable',
-            severity: 'ERROR',
-          },
-        ],
-      }),
-    });
-    const uow = makeUow(moduleRepo, makeDefRepo());
-    uow.isInTransaction.mockReturnValue(true);
-
-    await expect(
-      new AddCkvsHandler(uow, makeIdGen()).handle(
-        new AddCkvsCommand(String(MODULE_ID), [{valueSystemIds: ['3']}]),
-      ),
-    ).rejects.toThrow('database unavailable');
-    expect(uow.rollback).toHaveBeenCalledTimes(1);
-    expect(uow.commit).not.toHaveBeenCalled();
   });
 
   it('inherits parameter list from zero CKV when no non-zero CKV exists', async () => {

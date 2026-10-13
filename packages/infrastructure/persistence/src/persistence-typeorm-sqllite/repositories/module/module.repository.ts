@@ -9,9 +9,6 @@ import {
   SpfModule,
   DataPort,
   ControlPort,
-  Result,
-  ERROR_CODES,
-  IssueSeverity,
   type ModuleRepository,
   type UnitOfWork,
   type EditOptions,
@@ -25,9 +22,6 @@ import {
   type TkvSummary,
   type KvData,
   type IdGenerationPort,
-  type KeyDefinitionSummaryReadModel,
-  type ValueDefinitionSummaryReadModel,
-  type TagDefinitionReadModel,
 } from '@arc/core';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
@@ -41,12 +35,6 @@ import {CkvParameterPayloadFetcher} from '../../fetchers/ckv-parameter-payload-f
 import {TkvOverlayFetcher} from '../../fetchers/tkv-overlay-fetcher.js';
 import {TkvParameterPayloadFetcher} from '../../fetchers/tkv-parameter-payload-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
-import {ValueDefinitionFetcher} from '../../fetchers/definitions/key-value/value-definition-fetcher.js';
-import {
-  KeyValueDefinitionFetcher,
-  type OverlaidKeyDefinition,
-} from '../../fetchers/definitions/key-value/key-value-definition-fetcher.js';
-import {TagDefinitionFetcher} from '../../fetchers/definitions/tag-key-value/tag-definition-fetcher.js';
 
 export class TypeOrmModuleRepository implements ModuleRepository {
   private readonly spfModuleFetcher: SpfModuleOverlayFetcher;
@@ -55,9 +43,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
   private readonly portFetcher: PortOverlayFetcher;
   private readonly ckvOverlayFetcher: CkvOverlayFetcher;
   private readonly tkvOverlayFetcher: TkvOverlayFetcher;
-  private readonly valueFetcher: ValueDefinitionFetcher;
-  private readonly kvFetcher: KeyValueDefinitionFetcher;
-  private readonly tagDefinitionFetcher: TagDefinitionFetcher;
 
   constructor(
     private readonly writer: PendingChangeWriter,
@@ -86,16 +71,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       manager,
       editActionsQs,
       new TkvParameterPayloadFetcher(manager, editActionsQs),
-    );
-    this.valueFetcher = new ValueDefinitionFetcher(manager, editActionsQs);
-    this.kvFetcher = new KeyValueDefinitionFetcher(
-      manager,
-      editActionsQs,
-      this.valueFetcher,
-    );
-    this.tagDefinitionFetcher = new TagDefinitionFetcher(
-      manager,
-      editActionsQs,
     );
   }
 
@@ -192,6 +167,27 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     });
   }
 
+  private async writeDeleteRow(
+    targetTable: keyof typeof ENTITY_NAMES,
+    targetSystemId: number,
+    aggregateId: number,
+    sessionId: number,
+    groupId: string,
+    options?: EditOptions,
+  ): Promise<void> {
+    await this.writer.writeDelete(
+      {
+        targetTable: ENTITY_NAMES[targetTable],
+        targetSystemId,
+        aggregateId,
+        ...options,
+      },
+      sessionId,
+      groupId,
+      this.manager,
+    );
+  }
+
   async deleteModule(
     moduleSystemId: number,
     fileSystemId: number,
@@ -231,46 +227,102 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     );
     const tkvPayloads = tkvPayloadArrays.flat();
 
-    const deleteRow = async (
-      targetTable: keyof typeof ENTITY_NAMES,
-      targetSystemId: number,
-      aggregateId = moduleSystemId,
-    ): Promise<void> => {
-      await this.writer.writeDelete(
-        {
-          targetTable: ENTITY_NAMES[targetTable],
-          targetSystemId,
-          aggregateId,
-          ...options,
-        },
+    for (const intent of controlPorts.flatMap(port => port.intents)) {
+      await this.writeDeleteRow(
+        'Intent',
+        intent.systemId,
+        moduleSystemId,
         sessionId,
         groupId,
-        this.manager,
+        options,
       );
-    };
-
-    for (const intent of controlPorts.flatMap(port => port.intents)) {
-      await deleteRow('Intent', intent.systemId);
     }
     for (const port of dataPorts) {
-      await deleteRow('DataPort', port.systemId);
+      await this.writeDeleteRow(
+        'DataPort',
+        port.systemId,
+        moduleSystemId,
+        sessionId,
+        groupId,
+        options,
+      );
     }
     for (const port of controlPorts) {
-      await deleteRow('ControlPort', port.systemId);
+      await this.writeDeleteRow(
+        'ControlPort',
+        port.systemId,
+        moduleSystemId,
+        sessionId,
+        groupId,
+        options,
+      );
     }
     for (const payload of ckvPayloads) {
-      await deleteRow('CkvParameterPayload', payload.systemId);
+      await this.writeDeleteRow(
+        'CkvParameterPayload',
+        payload.systemId,
+        moduleSystemId,
+        sessionId,
+        groupId,
+        options,
+      );
     }
     for (const payload of tkvPayloads) {
-      await deleteRow('TkvParameterPayload', payload.systemId);
+      await this.writeDeleteRow(
+        'TkvParameterPayload',
+        payload.systemId,
+        moduleSystemId,
+        sessionId,
+        groupId,
+        options,
+      );
     }
-    for (const ckv of ckvs) await deleteRow('Ckv', ckv.systemId);
-    for (const tkv of tkvs) await deleteRow('Tkv', tkv.systemId);
+    for (const ckv of ckvs) {
+      await this.writeDeleteRow(
+        'Ckv',
+        ckv.systemId,
+        moduleSystemId,
+        sessionId,
+        groupId,
+        options,
+      );
+    }
+    for (const tkv of tkvs) {
+      await this.writeDeleteRow(
+        'Tkv',
+        tkv.systemId,
+        moduleSystemId,
+        sessionId,
+        groupId,
+        options,
+      );
+    }
     for (const tagMap of tagMaps) {
-      await deleteRow('ModuleTagIdMap', tagMap.systemId);
+      await this.writeDeleteRow(
+        'ModuleTagIdMap',
+        tagMap.systemId,
+        moduleSystemId,
+        sessionId,
+        groupId,
+        options,
+      );
     }
-    await deleteRow('SpfModule', moduleSystemId);
-    await deleteRow('Node', moduleSystemId);
+    await this.writeDeleteRow(
+      'SpfModule',
+      moduleSystemId,
+      moduleSystemId,
+      sessionId,
+      groupId,
+      options,
+    );
+    await this.writeDeleteRow(
+      'Node',
+      moduleSystemId,
+      moduleSystemId,
+      sessionId,
+      groupId,
+      options,
+    );
   }
 
   async findModuleForPatch(
@@ -794,33 +846,28 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     options?: EditOptions,
   ): Promise<void> {
     const {session, groupId} = this.uow.getWriteContext();
+    const sessionId = session.sessionId;
     const payloads = await this.fetchCkvPayloadEntries(
       ckvSystemId,
       moduleSystemId,
     );
     for (const payload of payloads) {
-      await this.writer.writeDelete(
-        {
-          targetTable: ENTITY_NAMES.CkvParameterPayload,
-          targetSystemId: payload.systemId,
-          aggregateId: moduleSystemId,
-          ...options,
-        },
-        session.sessionId,
+      await this.writeDeleteRow(
+        'CkvParameterPayload',
+        payload.systemId,
+        moduleSystemId,
+        sessionId,
         groupId,
-        this.manager,
+        options,
       );
     }
-    await this.writer.writeDelete(
-      {
-        targetTable: ENTITY_NAMES.Ckv,
-        targetSystemId: ckvSystemId,
-        aggregateId: moduleSystemId,
-        ...options,
-      },
-      session.sessionId,
+    await this.writeDeleteRow(
+      'Ckv',
+      ckvSystemId,
+      moduleSystemId,
+      sessionId,
       groupId,
-      this.manager,
+      options,
     );
   }
 
@@ -891,16 +938,13 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     options?: EditOptions,
   ): Promise<void> {
     const {session, groupId} = this.uow.getWriteContext();
-    await this.writer.writeDelete(
-      {
-        targetTable: ENTITY_NAMES.ModuleTagIdMap,
-        targetSystemId: tagSystemId,
-        aggregateId: moduleSystemId,
-        ...options,
-      },
+    await this.writeDeleteRow(
+      'ModuleTagIdMap',
+      tagSystemId,
+      moduleSystemId,
       session.sessionId,
       groupId,
-      this.manager,
+      options,
     );
   }
 
@@ -986,34 +1030,28 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     options?: EditOptions,
   ): Promise<void> {
     const {session, groupId} = this.uow.getWriteContext();
+    const sessionId = session.sessionId;
     const payloads = await this.tkvOverlayFetcher.fetchPayloads(
       tkvSystemId,
-      session.sessionId,
+      sessionId,
     );
     for (const payload of payloads) {
-      await this.writer.writeDelete(
-        {
-          targetTable: ENTITY_NAMES.TkvParameterPayload,
-          targetSystemId: payload.systemId,
-          aggregateId: tagSystemId,
-          payload: {tkvSystemId},
-          ...options,
-        },
-        session.sessionId,
+      await this.writeDeleteRow(
+        'TkvParameterPayload',
+        payload.systemId,
+        tagSystemId,
+        sessionId,
         groupId,
-        this.manager,
+        options,
       );
     }
-    await this.writer.writeDelete(
-      {
-        targetTable: ENTITY_NAMES.Tkv,
-        targetSystemId: tkvSystemId,
-        aggregateId: tagSystemId,
-        ...options,
-      },
-      session.sessionId,
+    await this.writeDeleteRow(
+      'Tkv',
+      tkvSystemId,
+      tagSystemId,
+      sessionId,
       groupId,
-      this.manager,
+      options,
     );
   }
 
@@ -1100,16 +1138,13 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     options?: EditOptions,
   ): Promise<void> {
     const {session, groupId} = this.uow.getWriteContext();
-    await this.writer.writeDelete(
-      {
-        targetTable: ENTITY_NAMES.CkvParameterPayload,
-        targetSystemId: payloadSystemId,
-        aggregateId: moduleSystemId,
-        ...options,
-      },
+    await this.writeDeleteRow(
+      'CkvParameterPayload',
+      payloadSystemId,
+      moduleSystemId,
       session.sessionId,
       groupId,
-      this.manager,
+      options,
     );
   }
 
@@ -1145,22 +1180,18 @@ export class TypeOrmModuleRepository implements ModuleRepository {
 
   async deleteParameterFromTkv(
     payloadSystemId: number,
-    tkvSystemId: number,
+    _tkvSystemId: number,
     tagSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
     const {session, groupId} = this.uow.getWriteContext();
-    await this.writer.writeDelete(
-      {
-        targetTable: ENTITY_NAMES.TkvParameterPayload,
-        targetSystemId: payloadSystemId,
-        aggregateId: tagSystemId,
-        payload: {tkvSystemId},
-        ...options,
-      },
+    await this.writeDeleteRow(
+      'TkvParameterPayload',
+      payloadSystemId,
+      tagSystemId,
       session.sessionId,
       groupId,
-      this.manager,
+      options,
     );
   }
 
@@ -1303,156 +1334,5 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         );
       }),
     );
-  }
-
-  async getKeyValueSummaryForGivenValues(
-    valueDefSystemIds: number[],
-    fileSystemId: number,
-  ): Promise<
-    Result<
-      Array<{
-        key: KeyDefinitionSummaryReadModel;
-        value: ValueDefinitionSummaryReadModel;
-      }>
-    >
-  > {
-    if (valueDefSystemIds.length === 0) return Result.ok([]);
-
-    try {
-      const sessionId = this.uow.getWriteContext().session.sessionId;
-
-      const overlaidValues = await this.valueFetcher.fetchMany(
-        valueDefSystemIds,
-        sessionId,
-      );
-      const foundValueIds = new Set(overlaidValues.map(r => r.systemId));
-      const missingValueIds = valueDefSystemIds.filter(
-        id => !foundValueIds.has(id),
-      );
-
-      const requestedValueIdsByKeyId = new Map<number, number[]>();
-      for (const row of overlaidValues) {
-        const bucket = requestedValueIdsByKeyId.get(row.keySystemId) ?? [];
-        bucket.push(row.systemId);
-        requestedValueIdsByKeyId.set(row.keySystemId, bucket);
-      }
-
-      const keySystemIds = [...requestedValueIdsByKeyId.keys()];
-
-      if (keySystemIds.length === 0) {
-        return missingValueIds.length > 0
-          ? Result.fail(
-              ...missingValueIds.map(id => ({
-                code: ERROR_CODES.ENTITY_NOT_FOUND,
-                message: `ValueDefinition not found for systemId=${id}`,
-                severity: IssueSeverity.Error,
-              })),
-            )
-          : Result.ok([]);
-      }
-
-      const keys = await this.kvFetcher.fetchMany(
-        keySystemIds,
-        fileSystemId,
-        sessionId,
-      );
-      const keyMap = new Map(keys.map(k => [k.systemId, k]));
-
-      const requestedIds = new Set(valueDefSystemIds);
-
-      const pairs = this.buildKeyValuePairs(
-        requestedValueIdsByKeyId,
-        keyMap,
-        requestedIds,
-        missingValueIds,
-      );
-
-      if (missingValueIds.length > 0) {
-        return Result.partial(
-          pairs,
-          missingValueIds.map(id => ({
-            code: ERROR_CODES.ENTITY_NOT_FOUND,
-            message: `ValueDefinition not found for systemId=${id}`,
-            severity: IssueSeverity.Error,
-          })),
-        );
-      }
-
-      return Result.ok(pairs);
-    } catch (error) {
-      return Result.fail({
-        code: ERROR_CODES.INTERNAL_ERROR,
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to load value definitions',
-        severity: IssueSeverity.Error,
-      });
-    }
-  }
-
-  private buildKeyValuePairs(
-    requestedValueIdsByKeyId: Map<number, number[]>,
-    keyMap: Map<number, OverlaidKeyDefinition>,
-    requestedIds: Set<number>,
-    missingValueIds: number[],
-  ): Array<{
-    key: KeyDefinitionSummaryReadModel;
-    value: ValueDefinitionSummaryReadModel;
-  }> {
-    const pairs: Array<{
-      key: KeyDefinitionSummaryReadModel;
-      value: ValueDefinitionSummaryReadModel;
-    }> = [];
-    for (const [keyId, valueIds] of requestedValueIdsByKeyId) {
-      const key = keyMap.get(keyId);
-      if (!key) {
-        missingValueIds.push(...valueIds);
-        continue;
-      }
-      for (const value of key.values) {
-        if (requestedIds.has(value.systemId)) {
-          pairs.push({
-            key: {
-              systemId: key.systemId,
-              naturalId: key.naturalId,
-              name: key.name,
-              description: key.description,
-            },
-            value: {
-              systemId: value.systemId,
-              naturalId: value.naturalId,
-              name: value.name,
-              description: value.description,
-            },
-          });
-        }
-      }
-    }
-    return pairs;
-  }
-
-  async getTagDefinition(
-    fileSystemId: number,
-    tagDefinitionSystemId: number,
-  ): Promise<TagDefinitionReadModel | null> {
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-    const overlaid = await this.tagDefinitionFetcher.fetchOne(
-      tagDefinitionSystemId,
-      fileSystemId,
-      sessionId,
-    );
-    if (!overlaid) return null;
-
-    return {
-      systemId: overlaid.systemId,
-      naturalId: overlaid.naturalId,
-      name: overlaid.name,
-      description: overlaid.description,
-      isVoice: overlaid.isVoice,
-      cHeaderEnumName: overlaid.cHeaderEnumName,
-      cHeaderEnumMember: overlaid.cHeaderEnumValue,
-      keys: [],
-    };
   }
 }

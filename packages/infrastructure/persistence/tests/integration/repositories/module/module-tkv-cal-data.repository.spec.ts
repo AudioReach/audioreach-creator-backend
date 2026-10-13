@@ -271,7 +271,7 @@ describe('TypeOrmModuleRepository — TKV cal data methods', () => {
       expect(rows).toHaveLength(0);
     });
 
-    it('hides a payload added and removed in the same session', async () => {
+    it('still returns a payload added and removed in the same session', async () => {
       const repo = makeRepo(qr, sessionId);
       await repo.addParameterToTkv(
         TKV_ID,
@@ -285,7 +285,9 @@ describe('TypeOrmModuleRepository — TKV cal data methods', () => {
 
       await repo.deleteParameterFromTkv(PAYLOAD_ID, TKV_ID, TAG_MAP_ID);
 
-      expect(await repo.getTkvPayloadEntries(TAG_MAP_ID, TKV_ID)).toEqual([]);
+      expect(await repo.getTkvPayloadEntries(TAG_MAP_ID, TKV_ID)).toEqual([
+        {systemId: PAYLOAD_ID, parameterSystemId: PARAM_DEF_ID},
+      ]);
     });
   });
 

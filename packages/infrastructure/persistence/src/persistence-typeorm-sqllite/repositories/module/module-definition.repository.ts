@@ -26,6 +26,7 @@ import {DataPortGroupFetcher} from '../../fetchers/definitions/spf-module-defini
 import {StaticControlPortDefFetcher} from '../../fetchers/definitions/spf-module-definitions/static-control-port-def-fetcher.js';
 import {DynamicIntentDefFetcher} from '../../fetchers/definitions/spf-module-definitions/dynamic-intent-def-fetcher.js';
 import {ModuleParameterDefinitionFetcher} from '../../fetchers/definitions/spf-module-definitions/module-parameter-definition-fetcher.js';
+import {TagDefinitionFetcher} from '../../fetchers/definitions/tag-key-value/tag-definition-fetcher.js';
 
 export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionRepository {
   private readonly rootFetcher: SpfModuleDefinitionFetcher;
@@ -33,6 +34,7 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
   private readonly staticPortFetcher: StaticControlPortDefFetcher;
   private readonly dynamicIntentFetcher: DynamicIntentDefFetcher;
   private readonly paramDefFetcher: ModuleParameterDefinitionFetcher;
+  private readonly tagDefinitionFetcher: TagDefinitionFetcher;
 
   constructor(
     private readonly manager: EntityManager,
@@ -50,6 +52,10 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
       editActionsQs,
     );
     this.paramDefFetcher = new ModuleParameterDefinitionFetcher(
+      manager,
+      editActionsQs,
+    );
+    this.tagDefinitionFetcher = new TagDefinitionFetcher(
       manager,
       editActionsQs,
     );
@@ -181,27 +187,29 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
       description: r.description,
       isReadOnly: r.isReadOnly,
       elementsStructure: r.elementsStructure,
-      toolPolicy: parseFirstToolPolicy(r.toolPolicies ?? ''),
+      toolPolicy: pickFirstToolPolicy(r.toolPolicies ?? []),
     }));
+  }
+
+  async tagDefinitionExists(
+    fileSystemId: number,
+    tagDefinitionSystemId: number,
+  ): Promise<boolean> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const row = await this.tagDefinitionFetcher.fetchOne(
+      tagDefinitionSystemId,
+      fileSystemId,
+      sessionId,
+    );
+    return row !== null;
   }
 }
 
 //TODO: Create this data in db when upload-file happens and maintain/update it
 // in the session. Update and use that data instead of this.
 
-function parseFirstToolPolicy(stored: string): ToolPolicy {
-  const values = Object.values(TOOL_POLICY) as string[];
-  try {
-    const parsed: unknown = stored ? JSON.parse(stored) : [];
-    if (!Array.isArray(parsed)) return TOOL_POLICY.Unknown;
-    const calibration = (parsed as unknown[]).find(
-      p => p === TOOL_POLICY.Calibration,
-    );
-    if (calibration) return TOOL_POLICY.Calibration;
-    const first: unknown = parsed[0];
-    const match = values.find(v => v === first);
-    return match ? (match as ToolPolicy) : TOOL_POLICY.Unknown;
-  } catch {
-    return TOOL_POLICY.Unknown;
-  }
+function pickFirstToolPolicy(policies: ToolPolicy[]): ToolPolicy {
+  if (policies.includes(TOOL_POLICY.Calibration))
+    return TOOL_POLICY.Calibration;
+  return policies[0] ?? TOOL_POLICY.Unknown;
 }

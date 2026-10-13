@@ -5,16 +5,11 @@
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
-import {RESULT_KIND, Result} from '../../../shared/result/result.js';
+import {Result} from '../../../shared/result/result.js';
 import {KvData} from '../../../../domain/entities/common/entities/kv-data.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
 import type {AddCkvsCommand} from './add-ckvs.command.js';
 import type {AddCkvsResult} from './add-ckvs-result.js';
-import {
-  buildKvResponse,
-  resolveKeyValuePairs,
-  throwOnUnexpectedKvResolutionFailure,
-} from '../shared/kv-write-response.js';
 import {
   getParamDefinitionsForKv,
   buildDefaultPayloads,
@@ -60,7 +55,7 @@ export class AddCkvsHandler implements CommandHandler<
       existingCkvs.find(c => c.valueDefinitionSystemIds.length === 0) ?? null;
 
     return transact(async () => {
-      const addedCkvs: AddCkvsResult['addedCkvs'] = [];
+      const addedCkvSystemIds: number[] = [];
       const issues: Issue[] = [];
       let removedZeroCkvSystemId: number | undefined;
 
@@ -75,17 +70,6 @@ export class AddCkvsHandler implements CommandHandler<
           .join(',');
         if (existingKeys.has(key)) continue;
 
-        const resolvedValues = await resolveKeyValuePairs(
-          item.valueDefinitionSystemIds,
-          fileSystemId,
-          moduleRepo,
-        );
-        if (resolvedValues.kind !== RESULT_KIND.Ok) {
-          throwOnUnexpectedKvResolutionFailure(resolvedValues);
-          issues.push(...resolvedValues.issues);
-          continue;
-        }
-
         const ckvSystemId = await this.createCkv(
           item,
           paramDefs,
@@ -94,12 +78,10 @@ export class AddCkvsHandler implements CommandHandler<
           moduleRepo,
         );
         existingKeys.add(key);
-        addedCkvs.push(
-          buildKvResponse(ckvSystemId, resolvedValues.data, paramDefs),
-        );
+        addedCkvSystemIds.push(ckvSystemId);
       }
 
-      const data = {groupId, addedCkvs, removedZeroCkvSystemId};
+      const data = {groupId, addedCkvSystemIds, removedZeroCkvSystemId};
       return issues.length > 0 ? Result.partial(data, issues) : Result.ok(data);
     });
   }

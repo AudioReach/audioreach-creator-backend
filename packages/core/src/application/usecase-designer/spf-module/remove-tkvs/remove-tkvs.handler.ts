@@ -10,13 +10,11 @@ import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
 import type {RemoveTkvsCommand} from './remove-tkvs.command.js';
-import type {TkvDto} from '../query/spf-module-dto.js';
-import {buildRemovedKvDto} from '../shared/kv-write-response.js';
 import {getModuleWriteContext} from '../shared/module-handler-helpers.js';
 
 export interface RemoveTkvsResult {
   groupId: string;
-  removedTkvs: TkvDto[];
+  removedTkvSystemIds: number[];
 }
 
 export class RemoveTkvsHandler implements CommandHandler<
@@ -26,8 +24,10 @@ export class RemoveTkvsHandler implements CommandHandler<
   constructor(private readonly uow: UnitOfWork) {}
 
   async handle(command: RemoveTkvsCommand): Promise<Result<RemoveTkvsResult>> {
-    const {groupId, transact, fileSystemId, moduleRepo, defRepo, spfModule} =
-      await getModuleWriteContext(this.uow, command.spfModuleSystemId);
+    const {groupId, transact, moduleRepo} = await getModuleWriteContext(
+      this.uow,
+      command.spfModuleSystemId,
+    );
 
     const tag = await moduleRepo.getTagBySystemId(
       command.tagSystemId,
@@ -52,29 +52,13 @@ export class RemoveTkvsHandler implements CommandHandler<
     }
 
     return transact(async () => {
-      const removedTkvs: TkvDto[] = [];
+      const removedTkvSystemIds: number[] = [];
       for (const tkv of toRemove) {
-        const payloads = await moduleRepo.getTkvPayloadEntries(
-          command.tagSystemId,
-          tkv.systemId,
-        );
-        const parameterSystemIds = payloads.map(
-          payload => payload.parameterSystemId,
-        );
-        const built = await buildRemovedKvDto(
-          tkv,
-          parameterSystemIds,
-          spfModule.definitionSystemId,
-          fileSystemId,
-          defRepo,
-          moduleRepo,
-        );
-        issues.push(...built.issues);
-        removedTkvs.push(built.dto);
         await moduleRepo.deleteTkv(tkv.systemId, command.tagSystemId);
+        removedTkvSystemIds.push(tkv.systemId);
       }
 
-      const data: RemoveTkvsResult = {groupId, removedTkvs};
+      const data: RemoveTkvsResult = {groupId, removedTkvSystemIds};
       return issues.length > 0 ? Result.partial(data, issues) : Result.ok(data);
     });
   }

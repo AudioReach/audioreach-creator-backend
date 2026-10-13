@@ -5,23 +5,17 @@
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
-import {RESULT_KIND, Result} from '../../../shared/result/result.js';
+import {Result} from '../../../shared/result/result.js';
 import {KvData} from '../../../../domain/entities/common/entities/kv-data.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/index.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
 import type {AddTkvsCommand} from './add-tkvs.command.js';
-import type {TkvDto} from '../query/spf-module-dto.js';
-import {
-  buildKvResponse,
-  resolveKeyValuePairs,
-  throwOnUnexpectedKvResolutionFailure,
-} from '../shared/kv-write-response.js';
 import {buildDefaultPayloads} from '../shared/kv-seed-helpers.js';
 import {getModuleWriteContext} from '../shared/module-handler-helpers.js';
 
 export interface AddTkvsResult {
   groupId: string;
-  addedTkvs: TkvDto[];
+  addedTkvSystemIds: number[];
 }
 
 export class AddTkvsHandler implements CommandHandler<
@@ -54,7 +48,7 @@ export class AddTkvsHandler implements CommandHandler<
     );
 
     return transact(async () => {
-      const addedTkvs: AddTkvsResult['addedTkvs'] = [];
+      const addedTkvSystemIds: number[] = [];
       const issues: Issue[] = [];
 
       for (const item of command.tkvs) {
@@ -63,18 +57,7 @@ export class AddTkvsHandler implements CommandHandler<
           .join(',');
         if (existingKeys.has(key)) continue;
 
-        const resolvedValues = await resolveKeyValuePairs(
-          item.valueDefinitionSystemIds,
-          fileSystemId,
-          moduleRepo,
-        );
-        if (resolvedValues.kind !== RESULT_KIND.Ok) {
-          throwOnUnexpectedKvResolutionFailure(resolvedValues);
-          issues.push(...resolvedValues.issues);
-          continue;
-        }
-
-        const {tkvSystemId, paramDefs} = await this.createTkv(
+        const tkvSystemId = await this.createTkv(
           item,
           spfModule.definitionSystemId,
           command.tagSystemId,
@@ -84,12 +67,10 @@ export class AddTkvsHandler implements CommandHandler<
           defRepo,
         );
         existingKeys.add(key);
-        addedTkvs.push(
-          buildKvResponse(tkvSystemId, resolvedValues.data, paramDefs),
-        );
+        addedTkvSystemIds.push(tkvSystemId);
       }
 
-      const data = {groupId, addedTkvs};
+      const data = {groupId, addedTkvSystemIds};
       return issues.length > 0 ? Result.partial(data, issues) : Result.ok(data);
     });
   }
@@ -102,16 +83,7 @@ export class AddTkvsHandler implements CommandHandler<
     fileSystemId: number,
     moduleRepo: ReturnType<UnitOfWork['getModuleRepository']>,
     defRepo: ReturnType<UnitOfWork['getModuleDefinitionRepository']>,
-  ): Promise<{
-    tkvSystemId: number;
-    paramDefs: Awaited<
-      ReturnType<
-        ReturnType<
-          UnitOfWork['getModuleDefinitionRepository']
-        >['getParameterDefinitions']
-      >
-    >;
-  }> {
+  ): Promise<number> {
     const tkvSystemId = await this.idGeneration.getNextId(fileSystemId);
     const paramDefs = await defRepo.getParameterDefinitions(
       definitionSystemId,
@@ -124,6 +96,6 @@ export class AddTkvsHandler implements CommandHandler<
     });
     buildDefaultPayloads(kvData, paramDefs);
     await moduleRepo.createTkv(kvData, tagSystemId, moduleSystemId);
-    return {tkvSystemId, paramDefs};
+    return tkvSystemId;
   }
 }

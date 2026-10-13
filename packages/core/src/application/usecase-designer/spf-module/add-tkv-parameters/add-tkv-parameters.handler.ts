@@ -10,13 +10,11 @@ import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
 import {serializeDefaultParameterData} from '../../shared/serialize-elements.js';
 import type {AddTkvParametersCommand} from './add-tkv-parameters.command.js';
-import type {ParamInfoDto} from '../query/spf-module-dto.js';
-import {mapSupportedParameters} from '../shared/kv-write-response.js';
 import {getModuleWriteContext} from '../shared/module-handler-helpers.js';
 
 export interface AddTkvParametersResult {
   groupId: string;
-  tkvParameters: Array<{tkvSystemId: number; parameters: ParamInfoDto[]}>;
+  tkvSystemIds: number[];
 }
 
 export class AddTkvParametersHandler implements CommandHandler<
@@ -32,9 +30,10 @@ export class AddTkvParametersHandler implements CommandHandler<
       await getModuleWriteContext(this.uow, command.spfModuleSystemId);
 
     const issues: Issue[] = [];
-    const tkvParameters: AddTkvParametersResult['tkvParameters'] = [];
 
     return transact(async () => {
+      const tkvSystemIds: number[] = [];
+
       for (const {tkvSystemId, parameterSystemIds} of command.updates) {
         const itemIssues = await this.addParametersToTkv(
           tkvSystemId,
@@ -45,33 +44,10 @@ export class AddTkvParametersHandler implements CommandHandler<
           defRepo,
         );
         issues.push(...itemIssues);
-        const tkv = await moduleRepo.getTkvBySystemId(
-          tkvSystemId,
-          command.spfModuleSystemId,
-        );
-        if (tkv) {
-          const payloads = await moduleRepo.getTkvPayloadEntries(
-            tkv.moduleTagIdMapSystemId,
-            tkvSystemId,
-          );
-          const parameterIds = payloads.map(
-            payload => payload.parameterSystemId,
-          );
-          const definitions =
-            parameterIds.length === 0
-              ? []
-              : await defRepo.getParameterDefinitions(
-                  spfModule.definitionSystemId,
-                  parameterIds,
-                );
-          tkvParameters.push({
-            tkvSystemId,
-            parameters: mapSupportedParameters(definitions),
-          });
-        }
+        tkvSystemIds.push(tkvSystemId);
       }
 
-      const data: AddTkvParametersResult = {groupId, tkvParameters};
+      const data: AddTkvParametersResult = {groupId, tkvSystemIds};
       return issues.length > 0 ? Result.partial(data, issues) : Result.ok(data);
     });
   }

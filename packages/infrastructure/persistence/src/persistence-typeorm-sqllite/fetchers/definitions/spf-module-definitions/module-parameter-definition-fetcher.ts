@@ -7,6 +7,7 @@ import type {EntityManager} from 'typeorm';
 import {ENTITY_NAMES} from '../../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../../../queries/edit-session/edit-actions-query-service.js';
 import {OverlayMergeImpl} from '../../../queries/edit-session/overlay-merge.js';
+import {TOOL_POLICY, type ToolPolicy} from '@arc/core';
 
 export interface ModuleParameterDefinitionBase {
   systemId: number;
@@ -18,8 +19,36 @@ export interface ModuleParameterDefinitionBase {
   isPersistent: boolean;
   elementsStructure: string;
   isReadOnly: boolean;
-  toolPolicies?: string;
+  toolPolicies?: ToolPolicy[];
   spfModuleDefinitionSystemId: number;
+}
+
+/** Raw shape returned by TypeORM before JSON parsing. */
+interface RawModuleParameterDefinitionBase extends Omit<
+  ModuleParameterDefinitionBase,
+  'toolPolicies'
+> {
+  toolPolicies?: string;
+}
+
+function parseToolPolicies(
+  raw: RawModuleParameterDefinitionBase,
+): ModuleParameterDefinitionBase {
+  let toolPolicies: ToolPolicy[] | undefined;
+  if (raw.toolPolicies) {
+    try {
+      const parsed: unknown = JSON.parse(raw.toolPolicies);
+      if (Array.isArray(parsed)) {
+        const valid = Object.values(TOOL_POLICY) as string[];
+        toolPolicies = (parsed as unknown[]).filter(
+          (v): v is ToolPolicy => typeof v === 'string' && valid.includes(v),
+        );
+      }
+    } catch {
+      // leave undefined on malformed JSON
+    }
+  }
+  return {...raw, toolPolicies};
 }
 
 export class ModuleParameterDefinitionFetcher {
@@ -46,8 +75,9 @@ export class ModuleParameterDefinitionFetcher {
       qb = qb.andWhere('pd.systemId IN (:...paramSystemIds)', {paramSystemIds});
     }
 
-    const rows =
-      (await qb.getMany()) as unknown as ModuleParameterDefinitionBase[];
+    const rawRows =
+      (await qb.getMany()) as unknown as RawModuleParameterDefinitionBase[];
+    const rows = rawRows.map(r => parseToolPolicies(r));
 
     if (sessionId === null) return rows;
 

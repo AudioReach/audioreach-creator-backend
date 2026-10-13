@@ -150,7 +150,7 @@ describe('AddTkvsHandler', () => {
       ]),
     );
     expect(moduleRepo.createTkv).not.toHaveBeenCalled();
-    expect(result.data.addedTkvs).toHaveLength(0);
+    expect(result.data.addedTkvSystemIds).toHaveLength(0);
   });
 
   it('calls createTkv and returns groupId on success', async () => {
@@ -163,7 +163,7 @@ describe('AddTkvsHandler', () => {
     );
     expect(moduleRepo.createTkv).toHaveBeenCalledTimes(1);
     expect(result.data.groupId).toBe('grp');
-    expect(result.data.addedTkvs).toHaveLength(1);
+    expect(result.data.addedTkvSystemIds).toHaveLength(1);
   });
 
   it('deduplicates repeated value IDs within a TKV', async () => {
@@ -181,58 +181,5 @@ describe('AddTkvsHandler', () => {
       TAG_ID,
       MODULE_ID,
     );
-  });
-
-  it('returns a partial result without staging an invalid value definition', async () => {
-    const moduleRepo = makeModuleRepo({
-      getKeyValueSummaryForGivenValues: jest.fn().mockResolvedValue({
-        kind: 'PARTIAL',
-        data: [],
-        issues: [
-          {
-            code: 'ENTITY_NOT_FOUND',
-            message: 'ValueDefinition not found for systemId=1',
-            severity: 'ERROR',
-          },
-        ],
-      }),
-    });
-    const uow = makeUow(moduleRepo, makeDefRepo());
-
-    const result = await new AddTkvsHandler(uow, makeIdGen()).handle(
-      new AddTkvsCommand(String(MODULE_ID), String(TAG_ID), [
-        {valueSystemIds: ['1'], paramSystemIds: []},
-      ]),
-    );
-
-    expect(result.kind).toBe('PARTIAL');
-    expect(moduleRepo.createTkv).not.toHaveBeenCalled();
-  });
-
-  it('rolls back and throws when value resolution fails unexpectedly', async () => {
-    const moduleRepo = makeModuleRepo({
-      getKeyValueSummaryForGivenValues: jest.fn().mockResolvedValue({
-        kind: 'FAIL',
-        issues: [
-          {
-            code: 'ERR_9001',
-            message: 'database unavailable',
-            severity: 'ERROR',
-          },
-        ],
-      }),
-    });
-    const uow = makeUow(moduleRepo, makeDefRepo());
-    uow.isInTransaction.mockReturnValue(true);
-
-    await expect(
-      new AddTkvsHandler(uow, makeIdGen()).handle(
-        new AddTkvsCommand(String(MODULE_ID), String(TAG_ID), [
-          {valueSystemIds: ['1'], paramSystemIds: []},
-        ]),
-      ),
-    ).rejects.toThrow('database unavailable');
-    expect(uow.rollback).toHaveBeenCalledTimes(1);
-    expect(uow.commit).not.toHaveBeenCalled();
   });
 });

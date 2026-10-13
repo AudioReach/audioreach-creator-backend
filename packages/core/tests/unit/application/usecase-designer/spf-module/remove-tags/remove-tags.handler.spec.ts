@@ -101,18 +101,8 @@ describe('RemoveTagsHandler', () => {
     );
     expect(moduleRepo.deleteTkv).toHaveBeenCalledWith(TKV_ID, TAG_ID);
     expect(moduleRepo.deleteTag).toHaveBeenCalledWith(TAG_ID, MODULE_ID);
-    expect(result.data.removedTags[0]).toMatchObject({
-      systemId: TAG_ID,
-      naturalId: 7,
-      tagName: 'tag',
-      tkvs: [
-        {
-          systemId: String(TKV_ID),
-          keyValuePairs: [],
-          supportedParameters: [],
-        },
-      ],
-    });
+    expect(result.data.removedTagSystemIds).toHaveLength(1);
+    expect(result.data.removedTagSystemIds[0]).toBe(TAG_ID);
   });
 
   it('collects per-item error for tag not found on module', async () => {

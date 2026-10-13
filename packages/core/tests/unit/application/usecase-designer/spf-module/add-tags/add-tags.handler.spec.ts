@@ -62,7 +62,9 @@ function makeUow(
       groupId: 'grp',
     }),
     getModuleRepository: jest.fn().mockReturnValue(moduleRepo),
-    getModuleDefinitionRepository: jest.fn().mockReturnValue({}),
+    getModuleDefinitionRepository: jest.fn().mockReturnValue({
+      tagDefinitionExists: jest.fn().mockResolvedValue(true),
+    }),
     startTransaction: jest.fn().mockResolvedValue(undefined),
     commit: jest.fn().mockResolvedValue(undefined),
     rollback: jest.fn().mockResolvedValue(undefined),
@@ -97,7 +99,7 @@ describe('AddTagsHandler', () => {
       makeIdGen(),
     ).handle(new AddTagsCommand(String(MODULE_ID), [String(TAG_DEF_ID)]));
     expect(moduleRepo.createTag).not.toHaveBeenCalled();
-    expect(result.data.addedTags).toHaveLength(0);
+    expect(result.data.addedTagSystemIds).toHaveLength(0);
   });
 
   it('calls createTag with allocated tagSystemId and returns groupId', async () => {
@@ -108,6 +110,6 @@ describe('AddTagsHandler', () => {
     ).handle(new AddTagsCommand(String(MODULE_ID), [String(TAG_DEF_ID)]));
     expect(moduleRepo.createTag).toHaveBeenCalledTimes(1);
     expect(result.data.groupId).toBe('grp');
-    expect(result.data.addedTags).toHaveLength(1);
+    expect(result.data.addedTagSystemIds).toHaveLength(1);
   });
 });

@@ -9,15 +9,13 @@ import {Result} from '../../../shared/result/result.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
-import type {CkvDto} from '../query/spf-module-dto.js';
 import type {RemoveCkvsCommand} from './remove-ckvs.command.js';
-import {buildRemovedKvDto} from '../shared/kv-write-response.js';
 import {createZeroCkv} from '../shared/kv-seed-helpers.js';
 import {getModuleWriteContext} from '../shared/module-handler-helpers.js';
 
 export interface RemoveCkvsResult {
   groupId: string;
-  removedCkvs: CkvDto[];
+  removedCkvSystemIds: number[];
 }
 
 export class RemoveCkvsHandler implements CommandHandler<
@@ -50,26 +48,10 @@ export class RemoveCkvsHandler implements CommandHandler<
     }
 
     return transact(async () => {
-      const removedCkvs: CkvDto[] = [];
+      const removedCkvSystemIds: number[] = [];
       for (const ckv of toRemove) {
-        const payloads = await moduleRepo.getCkvPayloadEntries(
-          command.spfModuleSystemId,
-          ckv.systemId,
-        );
-        const parameterSystemIds = payloads.map(
-          payload => payload.parameterSystemId,
-        );
-        const built = await buildRemovedKvDto(
-          ckv,
-          parameterSystemIds,
-          spfModule.definitionSystemId,
-          fileSystemId,
-          defRepo,
-          moduleRepo,
-        );
-        removedCkvs.push(built.dto);
-        issues.push(...built.issues);
         await moduleRepo.deleteCkv(ckv.systemId, command.spfModuleSystemId);
+        removedCkvSystemIds.push(ckv.systemId);
       }
 
       // Check if any non-zero CKVs remain
@@ -94,7 +76,7 @@ export class RemoveCkvsHandler implements CommandHandler<
         );
       }
 
-      const data: RemoveCkvsResult = {groupId, removedCkvs};
+      const data: RemoveCkvsResult = {groupId, removedCkvSystemIds};
       return issues.length > 0 ? Result.partial(data, issues) : Result.ok(data);
     });
   }
