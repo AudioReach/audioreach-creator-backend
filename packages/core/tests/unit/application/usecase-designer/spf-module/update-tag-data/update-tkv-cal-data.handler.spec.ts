@@ -27,7 +27,7 @@ function makeModuleRepo(
   overrides: Partial<ModuleRepository> = {},
 ): jest.Mocked<ModuleRepository> {
   return {
-    getSpfModuleForValidation: jest.fn().mockResolvedValue({
+    findModuleById: jest.fn().mockResolvedValue({
       systemId: MODULE_ID,
       definitionSystemId: DEF_ID,
       subgraphSystemId: 3,
@@ -123,7 +123,7 @@ function makeCommand(
 describe('UpdateTkvCalDataHandler', () => {
   it('throws ResourceNotFoundException when SpfModule not found', async () => {
     const moduleRepo = makeModuleRepo({
-      getSpfModuleForValidation: jest.fn().mockResolvedValue(null),
+      findModuleById: jest.fn().mockResolvedValue(null),
     });
     const uow = makeUow(moduleRepo, makeDefRepo());
     const handler = new UpdateTkvCalDataHandler(uow);

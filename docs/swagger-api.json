@@ -4987,6 +4987,27 @@
               }
             }
           },
+          "207": {
+            "description": "Partial success - some CKVs were not added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/AddCkvsResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "404": {
             "description": "Project or SPF module not found"
           },
@@ -5037,6 +5058,30 @@
         "responses": {
           "200": {
             "description": "CKVs removed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/CkvResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Partial success - some CKVs were not removed",
             "content": {
               "application/json": {
                 "schema": {
@@ -5133,6 +5178,30 @@
               }
             }
           },
+          "207": {
+            "description": "Partial success - some tags were not added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/TagInfoResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "404": {
             "description": "Project or SPF module not found"
           },
@@ -5183,6 +5252,30 @@
         "responses": {
           "200": {
             "description": "Tags removed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/TagInfoResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Partial success - some tags were not removed",
             "content": {
               "application/json": {
                 "schema": {
@@ -5289,6 +5382,30 @@
               }
             }
           },
+          "207": {
+            "description": "Partial success - some TKVs were not added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/TkvResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "404": {
             "description": "Project, SPF module, or tag not found"
           },
@@ -5349,6 +5466,30 @@
         "responses": {
           "200": {
             "description": "TKVs removed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/TkvResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Partial success - some TKVs were not removed",
             "content": {
               "application/json": {
                 "schema": {
@@ -5481,6 +5622,27 @@
         "responses": {
           "200": {
             "description": "CKV parameters added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/CkvParametersResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Partial success - some CKV parameters were not added",
             "content": {
               "application/json": {
                 "schema": {
@@ -5698,6 +5860,27 @@
               }
             }
           },
+          "207": {
+            "description": "Partial success - some TKV parameters were not added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/TkvParametersResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "404": {
             "description": "Project or SPF module not found"
           },
@@ -5748,6 +5931,27 @@
         "responses": {
           "200": {
             "description": "TKV parameters removed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/TkvParameterRemovalResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Partial success - some TKV parameters were not removed",
             "content": {
               "application/json": {
                 "schema": {
@@ -8609,6 +8813,7 @@
           "Container",
           "Subsystem",
           "SpfModuleDefinition",
+          "SpfModuleParameterDefinition",
           "DriverModule",
           "DriverModuleDefinition",
           "VcpmModuleDefinition",
@@ -8621,6 +8826,9 @@
           "ModuleManagerData",
           "SubgraphPropertyDefinition",
           "ContainerPropertyDefinition",
+          "Ckv",
+          "Tag",
+          "Tkv",
           "Unknown"
         ],
         "description": "The type of entity this issue applies to."
@@ -15926,18 +16134,10 @@
             "items": {
               "type": "string"
             }
-          },
-          "parameterSystemIds": {
-            "description": "Array of parameter system IDs for this TKV.",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
           }
         },
         "required": [
-          "valueSystemIds",
-          "parameterSystemIds"
+          "valueSystemIds"
         ]
       },
       "CreateTkvsRequestDto": {

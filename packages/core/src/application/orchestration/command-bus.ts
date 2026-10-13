@@ -19,7 +19,6 @@ import type {UnitOfWorkFactory} from '../ports/persistence/unit-of-work-factory.
 import type {UnitOfWork} from '../ports/persistence/unit-of-work.js';
 import type {IdGenerationPort} from '../ports/id-generation/id-generation.port.js';
 import type {NaturalIdGenerationPort} from '../ports/id-generation/natural-id-generation.port.js';
-import type {QueryServices} from '../ports/persistence/query-services/query-services.js';
 import {generateUuid} from '../../shared/utilities/uuid.js';
 
 export class CommandBus {
@@ -29,7 +28,6 @@ export class CommandBus {
     private readonly naturalIdGeneration: NaturalIdGenerationPort,
     private readonly fileSystem: FileSystemPort,
     private readonly uowFactory: UnitOfWorkFactory,
-    private readonly queryServices: QueryServices,
     private readonly workerPool?: WorkerPoolPort,
     private readonly logger?: Logger,
     private readonly profiler?: ProfilerPort,
@@ -160,7 +158,6 @@ export class CommandBus {
       idGeneration: this.idGeneration,
       naturalIdGeneration: this.naturalIdGeneration,
       fileSystem: this.fileSystem,
-      queryServices: this.queryServices,
       workerPool: this.workerPool,
       logger: this.logger,
       profiler: this.profiler,

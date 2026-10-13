@@ -58,10 +58,7 @@ export class SetSubgraphPropertyHandler implements CommandHandler<
     }
 
     const serialized = serializeParameterData(
-      {
-        systemId: propDef.systemId,
-        elementsStructure: propDef.elementsStructure,
-      },
+      propDef,
       command.elements as unknown as ElementData[],
     );
     if (!serialized.ok) {

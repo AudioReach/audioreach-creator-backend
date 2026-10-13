@@ -8,6 +8,7 @@ import type {
   ModuleDefinitionRepository,
   UnitOfWork,
   ModuleParameterDefinition,
+  ToolPolicy,
 } from '@arc/core';
 import {
   SpfModuleDefinition,
@@ -15,6 +16,7 @@ import {
   DataPortDefinition,
   StaticControlPortDefinition,
   DynamicIntentDefinition,
+  TOOL_POLICY,
 } from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {SpfModuleDefinitionRow} from '../../entity-schema/definitions/module/spf/spf-module-definition.schema.js';
@@ -24,6 +26,7 @@ import {DataPortGroupFetcher} from '../../fetchers/definitions/spf-module-defini
 import {StaticControlPortDefFetcher} from '../../fetchers/definitions/spf-module-definitions/static-control-port-def-fetcher.js';
 import {DynamicIntentDefFetcher} from '../../fetchers/definitions/spf-module-definitions/dynamic-intent-def-fetcher.js';
 import {ModuleParameterDefinitionFetcher} from '../../fetchers/definitions/spf-module-definitions/module-parameter-definition-fetcher.js';
+import {TagDefinitionFetcher} from '../../fetchers/definitions/tag-key-value/tag-definition-fetcher.js';
 
 export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionRepository {
   private readonly rootFetcher: SpfModuleDefinitionFetcher;
@@ -31,6 +34,7 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
   private readonly staticPortFetcher: StaticControlPortDefFetcher;
   private readonly dynamicIntentFetcher: DynamicIntentDefFetcher;
   private readonly paramDefFetcher: ModuleParameterDefinitionFetcher;
+  private readonly tagDefinitionFetcher: TagDefinitionFetcher;
 
   constructor(
     private readonly manager: EntityManager,
@@ -48,6 +52,10 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
       editActionsQs,
     );
     this.paramDefFetcher = new ModuleParameterDefinitionFetcher(
+      manager,
+      editActionsQs,
+    );
+    this.tagDefinitionFetcher = new TagDefinitionFetcher(
       manager,
       editActionsQs,
     );
@@ -174,8 +182,34 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
     );
     return rows.map(r => ({
       systemId: r.systemId,
+      naturalId: r.naturalId,
+      name: r.name,
+      description: r.description,
       isReadOnly: r.isReadOnly,
       elementsStructure: r.elementsStructure,
+      toolPolicy: pickFirstToolPolicy(r.toolPolicies ?? []),
     }));
   }
+
+  async tagDefinitionExists(
+    fileSystemId: number,
+    tagDefinitionSystemId: number,
+  ): Promise<boolean> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const row = await this.tagDefinitionFetcher.fetchOne(
+      tagDefinitionSystemId,
+      fileSystemId,
+      sessionId,
+    );
+    return row !== null;
+  }
+}
+
+//TODO: Create this data in db when upload-file happens and maintain/update it
+// in the session. Update and use that data instead of this.
+
+function pickFirstToolPolicy(policies: ToolPolicy[]): ToolPolicy {
+  if (policies.includes(TOOL_POLICY.Calibration))
+    return TOOL_POLICY.Calibration;
+  return policies[0] ?? TOOL_POLICY.Unknown;
 }

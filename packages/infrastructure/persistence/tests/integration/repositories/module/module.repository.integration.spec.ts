@@ -352,7 +352,7 @@ describe('TypeOrmModuleRepository (integration)', () => {
     });
   });
 
-  describe('addDataPort / removeDataPort', () => {
+  describe('addDataPort / deleteDataPort', () => {
     it('addDataPort writes a CREATE edit_action for DataPort under module aggregate', async () => {
       await seedModule(ds);
       const sessionId = await seedSession(ds);
@@ -375,13 +375,13 @@ describe('TypeOrmModuleRepository (integration)', () => {
       expect(rows[0].target_system_id).toBe(700);
     });
 
-    it('removeDataPort writes a DELETE edit_action for DataPort', async () => {
+    it('deleteDataPort writes a DELETE edit_action for DataPort', async () => {
       await seedModule(ds);
       await seedDataPort(ds, 600);
       const sessionId = await seedSession(ds);
       await qr.startTransaction();
       const repo = makeRepo(qr.manager, sessionId);
-      await repo.removeDataPort(600, MODULE_ID);
+      await repo.deleteDataPort(600, MODULE_ID);
       await qr.commitTransaction();
       const rows: any[] = await ds.query(
         `SELECT * FROM edit_actions WHERE session_id = ? AND target_system_id = ? AND operation = ?`,

@@ -5,6 +5,10 @@
 
 import {z} from 'zod';
 import type {BaseModuleDefinitionSummaryReadModel} from '../../../ports/persistence/query-services/shared/module-definition-summary-read-model.js';
+import {
+  TOOL_POLICY,
+  type ToolPolicy,
+} from '../../../../domain/entities/definitions/common/types/tool-policy-type.js';
 
 const DriverParameterSummaryInfoDtoSchema = z.object({
   systemId: z.string().describe('Unique system identifier for the param'),
@@ -12,7 +16,9 @@ const DriverParameterSummaryInfoDtoSchema = z.object({
   name: z.string().describe('Name of the parameter'),
   description: z.string().describe('Description of the parameter'),
   isReadOnly: z.boolean().describe('Indicates if the parameter is read-only'),
-  toolPolicy: z.string().describe('Tool policy associated with the parameter'),
+  toolPolicy: z
+    .enum(Object.values(TOOL_POLICY) as [ToolPolicy, ...ToolPolicy[]])
+    .describe('Tool policy associated with the parameter'),
   pidType: z.string().describe('PID type of the parameter'),
 });
 
@@ -34,12 +40,15 @@ export type DriverModuleDefinitionDto = z.infer<
   typeof DriverModuleDefinitionDtoSchema
 >;
 
-function parseFirstToolPolicy(stored: string): string {
+function parseFirstToolPolicy(stored: string): ToolPolicy {
   const parsed: unknown = stored ? JSON.parse(stored) : [];
   const first: unknown = Array.isArray(parsed)
     ? (parsed as unknown[])[0]
     : undefined;
-  return typeof first === 'string' ? first : 'Calibration';
+  return typeof first === 'string' &&
+    Object.values(TOOL_POLICY).includes(first as ToolPolicy)
+    ? (first as ToolPolicy)
+    : TOOL_POLICY.Calibration;
 }
 
 export function mapDriverModuleDefinition(

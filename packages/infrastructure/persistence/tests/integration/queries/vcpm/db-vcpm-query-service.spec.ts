@@ -94,7 +94,7 @@ async function seedAll(ds: DataSource) {
     [CKV_ID, VALUE_DEF_ID],
   );
   await ds.query(
-    `INSERT INTO vcpm_module_parameter_definitions (system_id, param_id, max_size, pid_type, is_persistent, elements_structure, is_read_only, vcpm_module_definition_system_id) VALUES (?, 1, 64, 'TYPE_A', 1, '[]', 0, ?)`,
+    `INSERT INTO vcpm_module_parameter_definitions (system_id, param_id, name, max_size, pid_type, is_persistent, elements_structure, is_read_only, vcpm_module_definition_system_id) VALUES (?, 1, 'test_param', 64, 'TYPE_A', 1, '[]', 0, ?)`,
     [PARAM_DEF_ID, VCPM_DEF_ID],
   );
   await ds.query(

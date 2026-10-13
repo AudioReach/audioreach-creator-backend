@@ -5,9 +5,11 @@
 
 import type {SpfModuleDefinition} from '../../../../../domain/entities/definitions/spf-module/spf-module-definition.js';
 import type {ParameterDefinitionBase} from '../shared/parameter-definition-base.js';
+import type {ToolPolicy} from '../../../../../domain/entities/definitions/common/types/tool-policy-type.js';
 
 export interface ModuleParameterDefinition extends ParameterDefinitionBase {
   isReadOnly: boolean;
+  toolPolicy: ToolPolicy;
 }
 
 export interface ModuleDefinitionRepository {
@@ -39,4 +41,9 @@ export interface ModuleDefinitionRepository {
     moduleDefSystemId: number,
     paramSystemIds?: number[],
   ): Promise<ModuleParameterDefinition[]>;
+
+  tagDefinitionExists(
+    fileSystemId: number,
+    tagDefinitionSystemId: number,
+  ): Promise<boolean>;
 }

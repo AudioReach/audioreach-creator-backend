@@ -73,10 +73,7 @@ export class SetSubgraphVsidHandler implements CommandHandler<
     }
 
     const serialized = serializeParameterData(
-      {
-        systemId: vsidDef.systemId,
-        elementsStructure: vsidDef.elementsStructure,
-      },
+      vsidDef,
       command.elements as unknown as ElementData[],
     );
     if (!serialized.ok) {

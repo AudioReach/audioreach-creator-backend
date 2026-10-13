@@ -51,6 +51,19 @@ export class TkvParametersResponseDto {
 }
 
 /**
+ * Response DTO for POST /ckv-parameters.
+ * Returns the CKV system IDs that had parameters added.
+ * Use GET /spf-modules?include=ckvs to retrieve the updated supportedParameters per CKV.
+ */
+export class AddCkvParametersResponseDto {
+  @ApiProperty({
+    description: 'CKV system IDs that had parameters added',
+    type: [String],
+  })
+  affectedCkvSystemIds!: string[];
+}
+
+/**
  * Response DTO for CKV parameter removal operations.
  * Returns information about which parameters were removed and which CKVs were affected.
  */
@@ -121,11 +134,12 @@ export class AddCkvsResponseDto {
 
   @ApiProperty({
     description:
-      'Array of CKV system IDs that were implicitly removed as a side effect ' +
-      '(e.g. zero placeholder CKV). Empty array if no CKVs were removed.',
-    type: [String],
+      'System ID of the zero placeholder CKV that was implicitly removed when the first real CKV was added. ' +
+      'Absent if no zero CKV was removed.',
+    type: String,
+    required: false,
   })
-  removedCkvSystemIds!: string[];
+  removedZeroCkvSystemId?: string;
 }
 
 /**

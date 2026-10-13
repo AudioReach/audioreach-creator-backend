@@ -316,6 +316,48 @@ describe('serializeParameterData', () => {
     expect(result.value[1]).toBe(20);
   });
 
+  it('pads with writer.align(alignment) before an element that declares an explicit alignment', () => {
+    // x: UInt8 (1 byte) at offset 0.
+    // y: UInt32 declares alignment=4, so 3 padding bytes are inserted before it,
+    // placing y at offset 4 instead of offset 1.
+    const def = makeDef(
+      JSON.stringify([
+        {elementType: 'ConfigElement', name: 'x', dataType: 'UInt8'},
+        {
+          elementType: 'ConfigElement',
+          name: 'y',
+          dataType: 'UInt32',
+          alignment: 4,
+        },
+      ]),
+    );
+    const result = serializeParameterData(def, [
+      {
+        type: 'ConfigElement',
+        name: 'x',
+        isReadOnly: false,
+        dataType: 'UInt8',
+        value: '10',
+        min: undefined,
+        max: undefined,
+      },
+      {
+        type: 'ConfigElement',
+        name: 'y',
+        isReadOnly: false,
+        dataType: 'UInt32',
+        value: '42',
+        min: undefined,
+        max: undefined,
+      },
+    ]);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const view = new DataView(result.value.buffer, result.value.byteOffset);
+    expect(view.getUint8(0)).toBe(10);
+    expect(view.getUint32(4, true)).toBe(42);
+  });
+
   it('returns ok:false on type discriminator mismatch', () => {
     const def = makeDef(scalarDef('Int16'));
     const result = serializeParameterData(def, [

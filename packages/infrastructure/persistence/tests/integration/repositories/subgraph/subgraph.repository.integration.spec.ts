@@ -117,9 +117,9 @@ async function seedVcpmData(
   );
   await ds.query(
     `INSERT INTO vcpm_module_parameter_definitions
-       (system_id, param_id, max_size, pid_type, is_persistent, is_read_only,
+       (system_id, param_id, name, max_size, pid_type, is_persistent, is_read_only,
         vcpm_module_definition_system_id)
-     VALUES (801, 1, 4, 'UINT32', 0, 0, 800)`,
+     VALUES (801, 1, 'test_param', 4, 'UINT32', 0, 0, 800)`,
   );
   await ds.query(
     `INSERT INTO vcpm_instances

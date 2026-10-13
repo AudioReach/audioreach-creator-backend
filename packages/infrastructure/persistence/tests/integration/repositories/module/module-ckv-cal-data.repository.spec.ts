@@ -4,7 +4,7 @@
  */
 
 import type {DataSource, QueryRunner} from 'typeorm';
-import {CHANGE_STATUS, SOURCE} from '@arc/core';
+import {CHANGE_STATUS, SOURCE, KvData} from '@arc/core';
 import {
   SESSION_MODE,
   SESSION_STATUS,
@@ -21,6 +21,7 @@ import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqlli
 import {PendingChangeWriter} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
 import {PendingChangeCache} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
 import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
+import {CkvOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/ckv-overlay-fetcher.js';
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 import {ProjectSessionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
@@ -101,7 +102,7 @@ async function seedModule(ds: DataSource) {
 
 async function seedParamDef(ds: DataSource) {
   await ds.query(
-    `INSERT INTO spf_module_parameter_definitions (system_id, param_id, max_size, pid_type, is_persistent, elements_structure, is_read_only, spf_module_definition_system_id) VALUES (?, 1, 64, 'TYPE_A', 1, '[]', 0, ?)`,
+    `INSERT INTO spf_module_parameter_definitions (system_id, param_id, name, max_size, pid_type, is_persistent, elements_structure, is_read_only, spf_module_definition_system_id) VALUES (?, 1, 'test_param', 64, 'TYPE_A', 1, '[]', 0, ?)`,
     [PARAM_DEF_ID, DEF_ID],
   );
 }
@@ -141,7 +142,13 @@ function makeRepo(qr: QueryRunner, sessionId: number): TypeOrmModuleRepository {
       throw new Error('not needed');
     },
   };
-  return new TypeOrmModuleRepository(writer, qr.manager, uow as never);
+  const idGeneration = {getNextId: async () => PAYLOAD_ID};
+  return new TypeOrmModuleRepository(
+    writer,
+    qr.manager,
+    uow as never,
+    idGeneration as never,
+  );
 }
 
 describe('TypeOrmModuleRepository — CKV cal data', () => {
@@ -170,9 +177,9 @@ describe('TypeOrmModuleRepository — CKV cal data', () => {
     await qr.release();
   });
 
-  it('getSpfModuleForValidation returns SpfModuleBase with all four fields', async () => {
+  it('findModuleById returns SpfModuleBase with all four fields', async () => {
     const repo = makeRepo(qr, sessionId);
-    const result = await repo.getSpfModuleForValidation(MODULE_ID, FILE_ID);
+    const result = await repo.findModuleById(MODULE_ID, FILE_ID);
     expect(result).not.toBeNull();
     expect(result!.systemId).toBe(MODULE_ID);
     expect(result!.definitionSystemId).toBe(DEF_ID);
@@ -180,9 +187,9 @@ describe('TypeOrmModuleRepository — CKV cal data', () => {
     expect(result!.containerSystemId).toBe(CONTAINER_ID);
   });
 
-  it('getSpfModuleForValidation returns null when module does not exist', async () => {
+  it('findModuleById returns null when module does not exist', async () => {
     const repo = makeRepo(qr, sessionId);
-    const result = await repo.getSpfModuleForValidation(9999, FILE_ID);
+    const result = await repo.findModuleById(9999, FILE_ID);
     expect(result).toBeNull();
   });
 
@@ -196,6 +203,66 @@ describe('TypeOrmModuleRepository — CKV cal data', () => {
     const repo = makeRepo(qr, sessionId);
     const result = await repo.ckvExists(MODULE_ID, 9999);
     expect(result).toBe(false);
+  });
+
+  it('returns staged CKV key values in the session overlay', async () => {
+    const repo = makeRepo(qr, sessionId);
+    await repo.createCkv(
+      new KvData({
+        systemId: 11,
+        valueDefinitionSystemIds: [701, 702],
+        uiPersistence: null,
+      }),
+      MODULE_ID,
+    );
+
+    const ckvs = await repo.getAllCkvsForModule(MODULE_ID, FILE_ID);
+
+    expect(ckvs).toContainEqual({
+      systemId: 11,
+      spfModuleSystemId: MODULE_ID,
+      valueDefinitionSystemIds: [701, 702],
+    });
+  });
+
+  it('returns staged key values when fetching one session-created CKV', async () => {
+    const repo = makeRepo(qr, sessionId);
+    await repo.createCkv(
+      new KvData({
+        systemId: 11,
+        valueDefinitionSystemIds: [701, 702],
+        uiPersistence: null,
+      }),
+      MODULE_ID,
+    );
+    const fetcher = new CkvOverlayFetcher(
+      qr.manager,
+      new EditActionsQueryService(qr.manager),
+      undefined as never,
+    );
+
+    const ckv = await fetcher.fetchOne(11, MODULE_ID, sessionId);
+
+    expect(ckv?.values).toEqual([
+      {ckvSystemId: 11, valueDefSystemId: 701},
+      {ckvSystemId: 11, valueDefSystemId: 702},
+    ]);
+  });
+
+  it('stages payload deletes before deleting a CKV', async () => {
+    await seedPayload(ds);
+    const repo = makeRepo(qr, sessionId);
+
+    await repo.deleteCkv(CKV_ID, MODULE_ID);
+
+    const rows = (await ds.query(
+      `SELECT target_table FROM edit_actions WHERE session_id = ? AND valid_until IS NULL ORDER BY change_id`,
+      [sessionId],
+    )) as Array<{target_table: string}>;
+    expect(rows.map(row => row.target_table)).toEqual([
+      ENTITY_NAMES.CkvParameterPayload,
+      ENTITY_NAMES.Ckv,
+    ]);
   });
 
   it('getCkvPayloadEntries returns rows with systemId and parameterSystemId', async () => {

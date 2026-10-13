@@ -32,7 +32,7 @@ export class VcpmModuleParameterDefinitionFetcher {
       (row): VcpmParameterDefinitionBase => ({
         systemId: row.systemId,
         paramId: row.naturalId,
-        name: row.name ?? '',
+        name: row.name,
         isReadOnly: row.isReadOnly,
         elementsStructure: row.elementsStructure ?? '',
       }),

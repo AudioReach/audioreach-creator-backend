@@ -14,7 +14,7 @@ import type {DriverModuleDefinitionRow} from './driver-module-definition.schema.
 export interface DriverModuleParameterDefinitionBase {
   systemId: number;
   naturalId: number;
-  name?: string;
+  name: string;
   description?: string;
   maxSize: number;
   paramStructure: string; // JSON
@@ -42,7 +42,6 @@ export const DriverModuleParameterDefinitionSchema =
       name: {
         type: 'varchar',
         length: 255,
-        nullable: true,
         name: 'name',
       },
       description: {

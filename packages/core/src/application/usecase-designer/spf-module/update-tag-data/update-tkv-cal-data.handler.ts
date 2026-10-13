@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {
   ResourceNotFoundException,
@@ -19,7 +20,10 @@ import type {PayloadEntry} from '../../../ports/persistence/repositories/module/
 import type {ModuleParameterDefinition} from '../../../ports/persistence/repositories/module/module-definition.repository.js';
 import type {ParameterElementDto} from '../dto/element-dto.js';
 
-export class UpdateTkvCalDataHandler {
+export class UpdateTkvCalDataHandler implements CommandHandler<
+  UpdateTkvCalDataCommand,
+  Result<UpdateTkvCalDataResult>
+> {
   constructor(
     private readonly uow: UnitOfWork,
     private readonly logger?: Logger,
@@ -33,7 +37,7 @@ export class UpdateTkvCalDataHandler {
     const moduleRepo = this.uow.getModuleRepository();
 
     // Step 1: validate SpfModule exists
-    const spfModule = await moduleRepo.getSpfModuleForValidation(
+    const spfModule = await moduleRepo.findModuleById(
       command.spfModuleSystemId,
       fileSystemId,
     );
