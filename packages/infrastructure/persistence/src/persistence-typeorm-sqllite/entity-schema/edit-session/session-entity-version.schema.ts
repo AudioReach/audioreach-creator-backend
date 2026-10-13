@@ -5,9 +5,11 @@
 
 import {EntitySchema} from 'typeorm';
 import type {ProjectSessionRow} from './project-session.schema.js';
+import type {EntityName} from '../entity-table-names.js';
 
 export interface SessionEntityVersionRow {
   sessionId: number;
+  targetTable: EntityName;
   targetSystemId: number;
   baseVersion: number;
   session?: ProjectSessionRow;
@@ -21,6 +23,12 @@ export const SessionEntityVersionSchema =
       sessionId: {
         name: 'session_id',
         type: 'integer',
+        primary: true,
+      },
+      targetTable: {
+        name: 'target_table',
+        type: 'varchar',
+        length: 100,
         primary: true,
       },
       targetSystemId: {

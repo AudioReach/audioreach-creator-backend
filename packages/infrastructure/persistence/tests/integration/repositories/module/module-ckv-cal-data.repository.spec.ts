@@ -256,7 +256,7 @@ describe('TypeOrmModuleRepository — CKV cal data', () => {
     await repo.deleteCkv(CKV_ID, MODULE_ID);
 
     const rows = (await ds.query(
-      `SELECT target_table FROM edit_actions WHERE session_id = ? AND valid_until IS NULL ORDER BY change_id`,
+      `SELECT target_table FROM edit_actions WHERE session_id = ? ORDER BY change_id`,
       [sessionId],
     )) as Array<{target_table: string}>;
     expect(rows.map(row => row.target_table)).toEqual([

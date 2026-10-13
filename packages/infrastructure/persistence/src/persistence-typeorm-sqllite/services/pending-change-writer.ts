@@ -3,15 +3,25 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {CHANGE_STATUS, CHANGE_OPERATION, SOURCE} from '@arc/core';
+import {CHANGE_OPERATION, CHANGE_STATUS, SOURCE} from '@arc/core';
 import type {ChangeStatus, Logger, Source} from '@arc/core';
+import {In} from 'typeorm';
 import type {EntityManager} from 'typeorm';
 import type {EntityName} from '../entity-schema/entity-table-names.js';
+import {
+  EditActionSchema,
+  type EditActionRow,
+} from '../entity-schema/edit-session/edit-action.schema.js';
+import {SessionEntityVersionSchema} from '../entity-schema/edit-session/session-entity-version.schema.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
+import {
+  editActionTargetKeyString,
+  reducePendingTarget,
+  type EditActionMutationIntent,
+  type EditActionMutationPlan,
+  type EditActionTargetKey,
+} from './pending-target-reducer.js';
 import type {PendingChangeCache} from './pending-change-cache.js';
-import {serializeBlobs} from '../utils/blob-serialization.js';
-
-// ── Spec types ────────────────────────────────────────────────────────────────
 
 export type WriteDeltaSpec = {
   targetTable: EntityName;
@@ -21,7 +31,7 @@ export type WriteDeltaSpec = {
   /** null / omitted = accumulator mode; string = per-slot mode. */
   fieldGroup?: string;
   linkedEntityGroupId?: string;
-  /** Enqueue to PendingChangeCache instead of immediate INSERT. Invalid when fieldGroup is null. */
+  /** Defer the ordered intent until the owning UoW flushes. */
   cache?: boolean;
   source?: Source;
   /** Honored only when source = DIFF_TOOL. */
@@ -36,8 +46,7 @@ export type WriteCreateSpec = {
   linkedEntityGroupId?: string;
   cache?: boolean;
   source?: Source;
-  /** Honored only when source = DIFF_TOOL (REQ-EA-05 revised).
-   *  MANUAL CREATE is always STAGED; AUTO_ROUTING is always UNSTAGED. */
+  /** Honored only when source = DIFF_TOOL. */
   changeStatus?: ChangeStatus;
 };
 
@@ -45,39 +54,29 @@ export type WriteDeleteSpec = {
   targetTable: EntityName;
   targetSystemId: number;
   aggregateId: number;
-  payload?: Record<string, unknown>;
   linkedEntityGroupId?: string;
   cache?: boolean;
   source?: Source;
 };
 
-// ── Internal row type ─────────────────────────────────────────────────────────
-
-type EditActionRow = {
+type EditActionInsertRow = {
   sessionId: number;
   aggregateId: number;
   targetSystemId: number;
   targetTable: EntityName;
-  operation: string;
+  operation: EditActionRow['operation'];
   fieldPath: string | null;
   newValue: Record<string, unknown>;
-  source: string;
-  changeStatus: string;
-  groupId: string | null;
+  source: EditActionRow['source'];
+  changeStatus: EditActionRow['changeStatus'];
   linkedEntityGroupId: string | null;
 };
 
-// ── Writer ────────────────────────────────────────────────────────────────────
+type CommittedState = {exists: boolean; version?: number};
 
 /**
- * Low-level persistence service that writes rows to `edit_actions` (spec §9).
- *
- * Called by aggregate edit repos (LLD2+). Write methods receive the already-resolved
- * `sessionId`, `groupId`, and `QueryRunner` from the caller — no UnitOfWork
- * dependency here, keeping this service free of core-layer coupling.
- *
- * Aggregate edit repos obtain sessionId/groupId via `uow.getWriteContext()` (core)
- * and the QueryRunner from `TypeOrmUnitOfWork.getQueryRunner()` (persistence adapter).
+ * The persistence mutation facade. It loads one target snapshot, delegates
+ * lifecycle and field-slot policy to the pure reducer, then executes its plan.
  */
 export class PendingChangeWriter {
   constructor(
@@ -89,195 +88,320 @@ export class PendingChangeWriter {
   async writeDelta(
     spec: WriteDeltaSpec,
     sessionId: number,
-    groupId: string,
     manager: EntityManager,
   ): Promise<number | null> {
-    const fieldGroup = spec.fieldGroup ?? null;
-
-    if (spec.cache === true && fieldGroup === null) {
-      throw new Error(
-        'cache=true is invalid for accumulator writes (fieldGroup=null). ' +
-          'Accumulator mode requires read-modify-write and cannot defer.',
-      );
-    }
-
-    const source = spec.source ?? SOURCE.Manual;
-    const changeStatus = this.resolveChangeStatus(source, spec.changeStatus);
-
-    if (fieldGroup === null) {
-      return this.writeAccumulator(
-        spec,
-        sessionId,
-        groupId,
-        changeStatus,
-        manager,
-      );
-    } else {
-      return this.writePerSlot(
-        spec,
-        fieldGroup,
-        sessionId,
-        groupId,
-        changeStatus,
-        manager,
-      );
-    }
+    const intent = this.deltaIntent(
+      spec,
+      // An empty delta is a structural marker, not an empty accumulator.
+      spec.fieldGroup ?? (Object.keys(spec.delta).length === 0 ? '$' : null),
+    );
+    return this.acceptIntent(
+      this.targetKey(spec, sessionId),
+      intent,
+      spec.cache === true,
+      manager,
+    );
   }
 
   async writeDeltaBatch(
     specs: WriteDeltaSpec[],
     sessionId: number,
-    groupId: string,
     manager: EntityManager,
   ): Promise<void> {
-    if (specs.length === 0) return;
-
-    const rows: EditActionRow[] = [];
+    const grouped = new Map<
+      string,
+      {
+        target: EditActionTargetKey;
+        intents: EditActionMutationIntent[];
+        cache: boolean;
+      }
+    >();
 
     for (const spec of specs) {
-      // Per-slot writes are not yet implemented in batch mode — they require a
-      // different path (no read-modify-write, just supersede + insert per slot).
-      // Extend this method when per-slot batch support is needed.
-      if (spec.fieldGroup !== undefined) {
-        throw new Error(
-          'writeDeltaBatch only supports accumulator mode (fieldGroup must be omitted)',
-        );
-      }
-      // cache=true is invalid for accumulator mode: accumulator requires a
-      // read-modify-write (fetch → merge → supersede) that cannot be deferred.
-      // If per-slot support is added above, cache=true would be valid for that
-      // path since per-slot writes have no merge step.
-      if (spec.cache === true) {
-        throw new Error('writeDeltaBatch does not support cache=true');
-      }
-
-      const source = spec.source ?? SOURCE.Manual;
-      const changeStatus = this.resolveChangeStatus(source, spec.changeStatus);
-
-      const existing = await this.queryService.findCurrentRow(
-        sessionId,
-        spec.targetSystemId,
-        spec.targetTable,
-        null,
-      );
-
-      const mergedPayload: Record<string, unknown> = existing
-        ? {...(existing.newValue as Record<string, unknown>), ...spec.delta}
-        : {...spec.delta};
-
-      if (existing) {
-        await this.supersedeCurrent(
-          sessionId,
-          spec.targetSystemId,
-          spec.targetTable,
-          null,
-          manager,
-        );
-      } else {
-        await this.captureBaseVersion(
-          sessionId,
-          spec.targetTable,
-          spec.targetSystemId,
-          manager,
-        );
-      }
-
-      rows.push({
-        sessionId,
-        aggregateId: spec.aggregateId,
-        targetSystemId: spec.targetSystemId,
-        targetTable: spec.targetTable,
-        operation: CHANGE_OPERATION.Update,
-        fieldPath: null,
-        newValue: mergedPayload,
-        source,
-        changeStatus,
-        groupId,
-        linkedEntityGroupId: spec.linkedEntityGroupId ?? null,
-      });
+      const target = this.targetKey(spec, sessionId);
+      const key = editActionTargetKeyString(target);
+      const entry = grouped.get(key) ?? {target, intents: [], cache: false};
+      entry.intents.push(this.deltaIntent(spec, spec.fieldGroup ?? null));
+      entry.cache ||=
+        spec.cache === true || this.pendingChangeCache.has(target);
+      grouped.set(key, entry);
     }
 
-    await this.insertRows(rows, manager);
+    const entries = [...grouped.values()];
+    entries.sort((left, right) =>
+      editActionTargetKeyString(left.target).localeCompare(
+        editActionTargetKeyString(right.target),
+      ),
+    );
+    for (const entry of entries) {
+      if (entry.cache) {
+        for (const intent of entry.intents) {
+          this.pendingChangeCache.enqueue(entry.target, intent);
+        }
+      } else {
+        await this.applyImmediate(entry.target, entry.intents, manager);
+      }
+    }
   }
 
   async writeCreate(
     spec: WriteCreateSpec,
     sessionId: number,
-    groupId: string,
     manager: EntityManager,
   ): Promise<number | null> {
     const source = spec.source ?? SOURCE.Manual;
-    const changeStatus = this.resolveChangeStatus(source, spec.changeStatus);
-
-    const row = {
-      sessionId,
-      aggregateId: spec.aggregateId,
-      targetSystemId: spec.targetSystemId,
-      targetTable: spec.targetTable,
-      operation: CHANGE_OPERATION.Create,
-      fieldPath: '$' as string | null,
-      newValue: spec.payload,
-      source,
-      changeStatus,
-      groupId,
-      linkedEntityGroupId: spec.linkedEntityGroupId ?? null,
-    };
-
-    if (spec.cache === true) {
-      this.pendingChangeCache.enqueueRow(row);
-      return null;
-    } else {
-      return this.insertRow(row, manager);
-    }
+    return this.acceptIntent(
+      this.targetKey(spec, sessionId),
+      {
+        kind: CHANGE_OPERATION.Create,
+        aggregateId: spec.aggregateId,
+        source,
+        changeStatus: this.resolveChangeStatus(source, spec.changeStatus),
+        linkedEntityGroupId: spec.linkedEntityGroupId ?? null,
+        newValue: spec.payload,
+      },
+      spec.cache === true,
+      manager,
+    );
   }
 
   async writeDelete(
     spec: WriteDeleteSpec,
     sessionId: number,
-    groupId: string,
     manager: EntityManager,
   ): Promise<number | null> {
     const source = spec.source ?? SOURCE.Manual;
-    const changeStatus = this.resolveChangeStatus(source);
-
-    await this.supersedeCurrent(
-      sessionId,
-      spec.targetSystemId,
-      spec.targetTable,
-      null,
+    return this.acceptIntent(
+      this.targetKey(spec, sessionId),
+      {
+        kind: CHANGE_OPERATION.Delete,
+        aggregateId: spec.aggregateId,
+        source,
+        changeStatus: this.resolveChangeStatus(source),
+        linkedEntityGroupId: spec.linkedEntityGroupId ?? null,
+      },
+      spec.cache === true,
       manager,
     );
-
-    const row = {
-      sessionId,
-      aggregateId: spec.aggregateId,
-      targetSystemId: spec.targetSystemId,
-      targetTable: spec.targetTable,
-      operation: CHANGE_OPERATION.Delete,
-      fieldPath: null as string | null,
-      newValue: spec.payload ?? {},
-      source,
-      changeStatus,
-      groupId,
-      linkedEntityGroupId: spec.linkedEntityGroupId ?? null,
-    };
-
-    if (spec.cache === true) {
-      this.pendingChangeCache.enqueueRow(row);
-      // baseVersion capture is derived from operation type in PendingChangeCache.flush()
-      return null;
-    } else {
-      await this.captureBaseVersion(
-        sessionId,
-        spec.targetTable,
-        spec.targetSystemId,
-        manager,
-      );
-      return this.insertRow(row, manager);
-    }
   }
 
-  // ── Private helpers ────────────────────────────────────────────────────────
+  async flushCachedActions(manager: EntityManager): Promise<void> {
+    const entries = this.pendingChangeCache.entries();
+    if (entries.length === 0) return;
+
+    const targets = entries.map(entry => entry.target);
+    const rowsByTarget = await this.queryService.getAllByTargetKeys(
+      targets,
+      manager,
+    );
+    const committedByTarget = await this.loadCommittedStates(targets, manager);
+    const sortedEntries = [...entries];
+    sortedEntries.sort((left, right) =>
+      editActionTargetKeyString(left.target).localeCompare(
+        editActionTargetKeyString(right.target),
+      ),
+    );
+    const plans = sortedEntries.map(entry => ({
+      target: entry.target,
+      plan: reducePendingTarget(
+        {
+          target: entry.target,
+          existingEditActionRows:
+            rowsByTarget.get(editActionTargetKeyString(entry.target)) ?? [],
+          committed: committedByTarget.get(
+            editActionTargetKeyString(entry.target),
+          ) ?? {exists: false},
+        },
+        entry.intents,
+      ),
+    }));
+
+    for (const {target, plan} of plans) {
+      await this.executePlan(target, plan, manager);
+    }
+    this.pendingChangeCache.clear();
+  }
+
+  async wipeUnstagedForSession(
+    sessionId: number,
+    manager: EntityManager,
+  ): Promise<number> {
+    const result = await manager.delete(EditActionSchema, {
+      sessionId,
+      changeStatus: CHANGE_STATUS.Unstaged,
+    });
+    await manager.delete(SessionEntityVersionSchema, {sessionId});
+    return result.affected ?? 0;
+  }
+
+  async deleteBySource(
+    sessionId: number,
+    source: Source,
+    manager: EntityManager,
+  ): Promise<number> {
+    const result = await manager.delete(EditActionSchema, {sessionId, source});
+    return result.affected ?? 0;
+  }
+
+  private async acceptIntent(
+    target: EditActionTargetKey,
+    intent: EditActionMutationIntent,
+    requestedCache: boolean,
+    manager: EntityManager,
+  ): Promise<number | null> {
+    if (requestedCache || this.pendingChangeCache.has(target)) {
+      this.pendingChangeCache.enqueue(target, intent);
+      return null;
+    }
+    return this.applyImmediate(target, [intent], manager);
+  }
+
+  private async applyImmediate(
+    target: EditActionTargetKey,
+    intents: readonly EditActionMutationIntent[],
+    manager: EntityManager,
+  ): Promise<number | null> {
+    const rows = await this.queryService.getAllByTargetKey(target, manager);
+    const committedByTarget = await this.loadCommittedStates([target], manager);
+    const committed = committedByTarget.get(
+      editActionTargetKeyString(target),
+    ) ?? {exists: false};
+    const plan = reducePendingTarget(
+      {target, committed, existingEditActionRows: rows},
+      intents,
+    );
+    return this.executePlan(target, plan, manager);
+  }
+
+  private async executePlan(
+    target: EditActionTargetKey,
+    plan: EditActionMutationPlan,
+    manager: EntityManager,
+  ): Promise<number | null> {
+    if (plan.baselineToCapture !== undefined) {
+      await manager
+        .createQueryBuilder()
+        .insert()
+        .into(SessionEntityVersionSchema)
+        .values({
+          sessionId: plan.baselineToCapture.target.sessionId,
+          targetTable: plan.baselineToCapture.target.targetTable,
+          targetSystemId: plan.baselineToCapture.target.targetSystemId,
+          baseVersion: plan.baselineToCapture.baseVersion,
+        })
+        .orIgnore()
+        .execute();
+    }
+
+    for (const update of plan.updatesToExistingEditActions) {
+      await manager.update(EditActionSchema, update.changeId, {
+        newValue: update.newValue,
+        source: update.source,
+      });
+    }
+
+    if (plan.deleteEntireTarget) {
+      await manager.delete(EditActionSchema, {
+        sessionId: target.sessionId,
+        targetTable: target.targetTable,
+        targetSystemId: target.targetSystemId,
+      });
+    } else if (plan.changeIdsToDelete.length > 0) {
+      await manager.delete(EditActionSchema, {
+        changeId: In(plan.changeIdsToDelete),
+      });
+    }
+
+    let firstInsertedChangeId: number | null = null;
+    for (const insert of plan.newEditActionInserts) {
+      const changeId = await this.insertRow(
+        {
+          sessionId: target.sessionId,
+          aggregateId: insert.aggregateId,
+          targetSystemId: target.targetSystemId,
+          targetTable: target.targetTable,
+          operation: insert.operation,
+          fieldPath: insert.fieldPath,
+          newValue: insert.newValue,
+          source: insert.source,
+          changeStatus: insert.changeStatus,
+          linkedEntityGroupId: insert.linkedEntityGroupId,
+        },
+        manager,
+      );
+      firstInsertedChangeId ??= changeId;
+    }
+
+    return (
+      plan.updatesToExistingEditActions[0]?.changeId ?? firstInsertedChangeId
+    );
+  }
+
+  private async loadCommittedStates(
+    targets: readonly EditActionTargetKey[],
+    manager: EntityManager,
+  ): Promise<Map<string, CommittedState>> {
+    const result = new Map<string, CommittedState>();
+    for (const target of targets) {
+      result.set(editActionTargetKeyString(target), {exists: false});
+    }
+
+    const byTable = new Map<EntityName, EditActionTargetKey[]>();
+    for (const target of targets) {
+      const group = byTable.get(target.targetTable) ?? [];
+      group.push(target);
+      byTable.set(target.targetTable, group);
+    }
+
+    await Promise.all(
+      [...byTable.values()].map(async group => {
+        const first = group[0];
+        const targetSystemIds = [
+          ...new Set(group.map(target => target.targetSystemId)),
+        ];
+        const repository = manager.getRepository(first.targetTable);
+        const hasSystemId = repository.metadata.columns.some(
+          column => column.propertyName === 'systemId',
+        );
+        if (!hasSystemId) {
+          return;
+        }
+        const query = repository
+          .createQueryBuilder('e')
+          .select('e.systemId', 'systemId')
+          .where('e.systemId IN (:...targetSystemIds)', {targetSystemIds});
+        const hasVersion = repository.metadata.columns.some(
+          column => column.propertyName === 'version',
+        );
+        if (hasVersion) {
+          query.addSelect('e.version', 'version');
+        }
+        const rows = await query.getRawMany<{
+          systemId: number;
+          version?: number;
+        }>();
+        this.setCommittedRows(result, group, rows);
+      }),
+    );
+    return result;
+  }
+
+  private setCommittedRows(
+    result: Map<string, CommittedState>,
+    targets: readonly EditActionTargetKey[],
+    rows: readonly {systemId: number; version?: number}[],
+  ): void {
+    const byId = new Map(rows.map(row => [Number(row.systemId), row]));
+    for (const target of targets) {
+      const row = byId.get(target.targetSystemId);
+      if (row !== undefined) {
+        result.set(editActionTargetKeyString(target), {
+          exists: true,
+          ...(typeof row.version === 'number' ? {version: row.version} : {}),
+        });
+      }
+    }
+  }
 
   private resolveChangeStatus(
     source: Source,
@@ -300,278 +424,76 @@ export class PendingChangeWriter {
     return override ?? CHANGE_STATUS.Unstaged;
   }
 
-  private async writeAccumulator(
-    spec: WriteDeltaSpec,
-    sessionId: number,
-    groupId: string,
-    changeStatus: ChangeStatus,
-    manager: EntityManager,
-  ): Promise<number> {
-    const existing = await this.queryService.findCurrentRow(
-      sessionId,
-      spec.targetSystemId,
-      spec.targetTable,
-      null,
-    );
-
-    this.logDebug(
-      'checkedCurrentAction',
-      spec,
-      sessionId,
-      null,
-      existing !== null,
-    );
-
-    const mergedPayload: Record<string, unknown> = existing
-      ? {...(existing.newValue as Record<string, unknown>), ...spec.delta}
-      : {...spec.delta};
-
-    if (existing) {
-      await this.supersedeCurrent(
-        sessionId,
-        spec.targetSystemId,
-        spec.targetTable,
-        null,
-        manager,
-      );
-      this.logDebug('supersededCurrentAction', spec, sessionId, null, true);
-    } else {
-      await this.captureBaseVersion(
-        sessionId,
-        spec.targetTable,
-        spec.targetSystemId,
-        manager,
-      );
-    }
-
-    return this.insertRow(
-      {
-        sessionId,
-        aggregateId: spec.aggregateId,
-        targetSystemId: spec.targetSystemId,
-        targetTable: spec.targetTable,
-        operation: CHANGE_OPERATION.Update,
-        fieldPath: null,
-        newValue: mergedPayload,
-        source: spec.source ?? SOURCE.Manual,
-        changeStatus,
-        groupId,
-        linkedEntityGroupId: spec.linkedEntityGroupId ?? null,
-      },
-      manager,
-    );
-  }
-
-  private async writePerSlot(
-    spec: WriteDeltaSpec,
-    fieldGroup: string,
-    sessionId: number,
-    groupId: string,
-    changeStatus: ChangeStatus,
-    manager: EntityManager,
-  ): Promise<number | null> {
-    const row = {
-      sessionId,
-      aggregateId: spec.aggregateId,
-      targetSystemId: spec.targetSystemId,
-      targetTable: spec.targetTable,
-      operation: CHANGE_OPERATION.Update,
-      fieldPath: fieldGroup as string | null,
-      newValue: spec.delta,
-      source: spec.source ?? SOURCE.Manual,
-      changeStatus,
-      groupId,
-      linkedEntityGroupId: spec.linkedEntityGroupId ?? null,
-    };
-
-    await this.supersedeCurrent(
-      sessionId,
-      spec.targetSystemId,
-      spec.targetTable,
-      fieldGroup,
-      manager,
-    );
-
-    this.logDebug('supersededCurrentAction', spec, sessionId, fieldGroup, true);
-
-    if (spec.cache === true) {
-      this.pendingChangeCache.enqueueRow(row);
-      return null;
-    } else {
-      return this.insertRow(row, manager);
-    }
-  }
-
-  private async supersedeCurrent(
-    sessionId: number,
-    targetSystemId: number,
-    targetTable: EntityName,
-    fieldPath: string | null,
-    manager: EntityManager,
-  ): Promise<void> {
-    const fieldPathClause =
-      fieldPath === null ? 'field_path IS NULL' : 'field_path = $5';
-    const params: unknown[] =
-      fieldPath === null
-        ? [new Date().toISOString(), sessionId, targetSystemId, targetTable]
-        : [
-            new Date().toISOString(),
-            sessionId,
-            targetSystemId,
-            targetTable,
-            fieldPath,
-          ];
-    // eslint-disable-next-line custom/no-raw-persistence-queries -- dynamic fieldPath clause (null vs value) cannot be expressed with TypeORM QueryBuilder
-    await manager.query(
-      `UPDATE edit_actions SET valid_until = $1 WHERE session_id = $2 AND target_system_id = $3 AND target_table = $4 AND ${fieldPathClause} AND valid_until IS NULL`,
-      params,
-    );
-  }
-
-  private logDebug(
-    msg: string,
+  private targetKey(
     spec: Pick<WriteDeltaSpec, 'targetTable' | 'targetSystemId'>,
     sessionId: number,
-    fieldPath: string | null,
-    existing?: boolean,
-  ): void {
-    const existingSuffix =
-      existing === undefined ? '' : `, existing=${existing}`;
-    this.logger?.logDebug({
-      msg,
-      description: `edit_actions key session=${sessionId}, table=${spec.targetTable}, target=${spec.targetSystemId}, fieldPath=${fieldPath ?? '<null>'}${existingSuffix}`,
-      component: 'PendingChangeWriter',
-      tag: 'edit-actions',
-    });
+  ): EditActionTargetKey {
+    return {
+      sessionId,
+      targetTable: spec.targetTable,
+      targetSystemId: spec.targetSystemId,
+    };
   }
 
-  private async captureBaseVersion(
-    sessionId: number,
-    targetTable: EntityName,
-    targetSystemId: number,
-    manager: EntityManager,
-  ): Promise<void> {
-    // Use TypeORM's entity metadata to resolve the actual table name from the entity name.
-    // Directly embedding targetTable in raw SQL would fail because ENTITY_NAMES values are
-    // TypeORM entity names (e.g. 'SpfModule') while SQLite expects physical table names (e.g. 'spf_modules').
-    let row: {version: number} | undefined;
-    try {
-      row = await manager
-        .createQueryBuilder(targetTable, 'e')
-        .select('e.version', 'version')
-        .where('e.systemId = :targetSystemId', {targetSystemId})
-        .getRawOne<{version: number}>();
-    } catch {
-      // Entity schema has no `version` column (e.g., junction tables such as
-      // UseCaseSubgraph and UseCaseSubgraphPair). Nothing to capture.
-      return;
-    }
-    if (!row) return;
-    // eslint-disable-next-line custom/no-raw-persistence-queries -- INSERT OR IGNORE semantics (capture-once) are not supported by TypeORM QueryBuilder
-    await manager.query(
-      `INSERT OR IGNORE INTO session_entity_versions (session_id, target_system_id, base_version) VALUES ($1, $2, $3)`,
-      [sessionId, targetSystemId, row.version],
-    );
+  private deltaIntent(
+    spec: WriteDeltaSpec,
+    fieldPath: string | null,
+  ): Extract<EditActionMutationIntent, {kind: typeof CHANGE_OPERATION.Update}> {
+    const source = spec.source ?? SOURCE.Manual;
+    return {
+      kind: CHANGE_OPERATION.Update,
+      aggregateId: spec.aggregateId,
+      fieldPath,
+      source,
+      changeStatus: this.resolveChangeStatus(source, spec.changeStatus),
+      linkedEntityGroupId: spec.linkedEntityGroupId ?? null,
+      newValue: spec.delta,
+    };
   }
 
   private async insertRow(
-    row: EditActionRow,
+    row: EditActionInsertRow,
     manager: EntityManager,
   ): Promise<number> {
-    this.logDebug('insertingAction', row, row.sessionId, row.fieldPath);
+    this.logger?.logDebug({
+      msg: 'insertingAction',
+      description: `edit_actions key session=${row.sessionId}, table=${row.targetTable}, target=${row.targetSystemId}, fieldPath=${row.fieldPath ?? '<null>'}, operation=${row.operation}`,
+      component: 'PendingChangeWriter',
+      tag: 'edit-actions',
+    });
 
-    let result: unknown;
+    let generatedChangeId: number | undefined;
     try {
-      // eslint-disable-next-line custom/no-raw-persistence-queries -- manual JSON serialization of newValue requires raw INSERT; manager.insert() does not support column-level JSON.stringify
-      result = await manager.query(
-        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, linked_entity_group_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING change_id`,
-        [
-          row.sessionId,
-          row.aggregateId,
-          row.targetSystemId,
-          row.targetTable,
-          row.operation,
-          row.fieldPath,
-          JSON.stringify(serializeBlobs(row.newValue)),
-          row.source,
-          row.changeStatus,
-          row.groupId,
-          row.linkedEntityGroupId,
-        ],
-      );
+      const result = await manager.insert(EditActionSchema, row);
+      generatedChangeId = getGeneratedChangeId(result.identifiers[0]);
     } catch (error) {
       this.logger?.logError({
         msg: 'insertActionFailed',
-        description: `Failed to insert edit_actions key session=${row.sessionId}, table=${row.targetTable}, target=${row.targetSystemId}, fieldPath=${row.fieldPath ?? '<null>'}, operation=${row.operation}, groupId=${row.groupId ?? '<null>'}`,
+        description: `Failed to insert edit_actions key session=${row.sessionId}, table=${row.targetTable}, target=${row.targetSystemId}, fieldPath=${row.fieldPath ?? '<null>'}, operation=${row.operation}`,
         component: 'PendingChangeWriter',
         tag: 'edit-actions',
         error: error instanceof Error ? error : new Error(String(error)),
       });
       throw error;
     }
-    const returnedChangeId = getGeneratedChangeId(result);
-    if (returnedChangeId !== undefined) return returnedChangeId;
+    if (generatedChangeId !== undefined) return generatedChangeId;
 
-    // Some SQLite drivers discard rows from INSERT ... RETURNING. This query
-    // runs on the same manager/connection as the INSERT, so it remains scoped
-    // to the edit action just written.
-    // eslint-disable-next-line custom/no-raw-persistence-queries -- SQLite connection-local generated-ID fallback when RETURNING rows are unavailable
-    const fallback: unknown = await manager.query(
-      'SELECT last_insert_rowid() AS change_id',
-    );
+    // SQLite tracks this per connection, so the transaction-scoped manager
+    // returns the ID of the insert immediately above when TypeORM omits it.
+    const fallback = await manager
+      .createQueryBuilder()
+      .select('last_insert_rowid()', 'changeId')
+      .getRawOne<unknown>();
     const fallbackChangeId = getGeneratedChangeId(fallback);
     if (fallbackChangeId === undefined) {
       throw new Error('Failed to obtain the generated edit action change ID.');
     }
     return fallbackChangeId;
   }
-
-  private async insertRows(
-    rows: EditActionRow[],
-    manager: EntityManager,
-  ): Promise<void> {
-    if (rows.length === 0) return;
-    const params: unknown[] = [];
-    const placeholders: string[] = [];
-    for (const [i, row] of rows.entries()) {
-      const b = i * 11;
-      placeholders.push(
-        `($${b + 1}, $${b + 2}, $${b + 3}, $${b + 4}, $${b + 5}, $${b + 6}, $${b + 7}, $${b + 8}, $${b + 9}, $${b + 10}, $${b + 11})`,
-      );
-      params.push(
-        row.sessionId,
-        row.aggregateId,
-        row.targetSystemId,
-        row.targetTable,
-        row.operation,
-        row.fieldPath,
-        JSON.stringify(serializeBlobs(row.newValue)),
-        row.source,
-        row.changeStatus,
-        row.groupId,
-        row.linkedEntityGroupId,
-      );
-    }
-    // eslint-disable-next-line custom/no-raw-persistence-queries -- multi-row INSERT requires raw SQL; manager.insert() does not support column-level JSON.stringify
-    await manager.query(
-      `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, linked_entity_group_id) VALUES ${placeholders.join(', ')}`,
-      params,
-    );
-  }
 }
 
 function getGeneratedChangeId(result: unknown): number | undefined {
-  if (!isUnknownArray(result)) return undefined;
-  const row = result[0];
-  if (!isRecord(row)) return undefined;
-  const changeId = row['change_id'];
+  if (typeof result !== 'object' || result === null) return undefined;
+  const changeId = (result as Record<string, unknown>)['changeId'];
   return typeof changeId === 'number' ? changeId : undefined;
-}
-
-function isUnknownArray(value: unknown): value is readonly unknown[] {
-  return Array.isArray(value);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }

@@ -3,11 +3,14 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {
-  ISessionRepository,
-  ProjectSession,
-  SessionMode,
-  Source,
+import {
+  CHANGE_OPERATION,
+  CHANGE_STATUS,
+  SOURCE,
+  type ISessionRepository,
+  type ProjectSession,
+  type SessionMode,
+  type Source,
 } from '@arc/core';
 import type {EntityManager} from 'typeorm';
 import {
@@ -17,8 +20,8 @@ import {
 import {SessionCommitSchema} from '../../entity-schema/edit-session/session-commit.schema.js';
 import {ArcDbFileSchema} from '../../entity-schema/project-data/arc-db-file.schema.js';
 import {EditActionSchema} from '../../entity-schema/edit-session/edit-action.schema.js';
-import {CHANGE_OPERATION, CHANGE_STATUS, SOURCE} from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
+import {PendingChangeWriter} from '../../services/pending-change-writer.js';
 
 /**
  * TypeORM adapter for ISessionRepository (spec §7b.3).
@@ -31,7 +34,10 @@ import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
  * (TypeOrmBulkImportRepository, TypeOrmProjectRepository all take EntityManager).
  */
 export class TypeOrmSessionRepository implements ISessionRepository {
-  constructor(private readonly manager: EntityManager) {}
+  constructor(
+    private readonly manager: EntityManager,
+    private readonly pendingChangeWriter?: PendingChangeWriter,
+  ) {}
 
   async findActiveSessionByProjectId(
     projectId: string,
@@ -118,29 +124,31 @@ export class TypeOrmSessionRepository implements ISessionRepository {
   }
 
   async wipeUnstagedForSession(sessionId: number): Promise<number> {
-    const result = await this.manager
-      .createQueryBuilder()
-      .delete()
-      .from(EditActionSchema)
-      .where('sessionId = :sessionId', {sessionId})
-      .andWhere('changeStatus = :status', {status: CHANGE_STATUS.Unstaged})
-      .andWhere('validUntil IS NULL')
-      .execute();
-    return result.affected ?? 0;
+    if (this.pendingChangeWriter === undefined) {
+      throw new Error(
+        'Session pending-state cleanup requires a transaction-scoped writer.',
+      );
+    }
+    return this.pendingChangeWriter.wipeUnstagedForSession(
+      sessionId,
+      this.manager,
+    );
   }
 
   async deleteEditActionsBySource(
     sessionId: number,
     source: Source,
   ): Promise<number> {
-    const result = await this.manager
-      .createQueryBuilder()
-      .delete()
-      .from(EditActionSchema)
-      .where('sessionId = :sessionId', {sessionId})
-      .andWhere('source = :source', {source})
-      .execute();
-    return result.affected ?? 0;
+    if (this.pendingChangeWriter === undefined) {
+      throw new Error(
+        'Session pending-state cleanup requires a transaction-scoped writer.',
+      );
+    }
+    return this.pendingChangeWriter.deleteBySource(
+      sessionId,
+      source,
+      this.manager,
+    );
   }
 
   async deleteEditActionsByChangeIds(
@@ -161,7 +169,6 @@ export class TypeOrmSessionRepository implements ISessionRepository {
       .andWhere('operation IN (:...operations)', {
         operations: [CHANGE_OPERATION.Create, CHANGE_OPERATION.Update],
       })
-      .andWhere('validUntil IS NULL')
       .execute();
     return result.affected ?? 0;
   }
@@ -172,7 +179,6 @@ export class TypeOrmSessionRepository implements ISessionRepository {
       .select('COUNT(*)', 'count')
       .where('ea.sessionId = :sessionId', {sessionId})
       .andWhere('ea.changeStatus = :status', {status: CHANGE_STATUS.Staged})
-      .andWhere('ea.validUntil IS NULL')
       .getRawOne<{count: string}>();
     return Number(result?.count ?? 0);
   }

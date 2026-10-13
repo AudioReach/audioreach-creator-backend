@@ -109,7 +109,7 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     _fileSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     const subgraph = await this.subgraphFetcher.fetchOne(
       subgraphSystemId,
       session.fileSystemId,
@@ -149,7 +149,6 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
             ...options,
           },
           session.sessionId,
-          groupId,
           this.manager,
         );
       }
@@ -162,7 +161,6 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }
@@ -302,7 +300,7 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     subgraph: Subgraph,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
 
     await this.writer.writeCreate(
       {
@@ -318,7 +316,6 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
 
@@ -336,7 +333,6 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
           ...options,
         },
         session.sessionId,
-        groupId,
         this.manager,
       );
     }
@@ -379,7 +375,7 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     propertySystemId: number,
     payload: Uint8Array,
   ): Promise<number> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     const systemId = await this.idGeneration.getNextId(session.fileSystemId);
     await this.writer.writeCreate(
       {
@@ -389,14 +385,13 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
         payload: {subgraphSystemId, propertySystemId, payload},
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
     return systemId;
   }
 
   async rename(subgraphSystemId: number, name: string): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     await this.writer.writeDelta(
       {
         targetTable: ENTITY_NAMES.Subgraph,
@@ -405,7 +400,6 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
         delta: {name},
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }
@@ -415,7 +409,7 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     propertySystemId: number,
     data: Uint8Array,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     const subgraph = await this.subgraphFetcher.fetchOne(
       subgraphSystemId,
       session.fileSystemId,
@@ -437,7 +431,6 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
         delta: {payload: data},
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }
@@ -446,7 +439,7 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     subgraphSystemId: number,
     propertyDataSystemId: number,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     await this.writer.writeDelete(
       {
         targetTable: ENTITY_NAMES.SubgraphPropertyData,
@@ -454,7 +447,6 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
         aggregateId: subgraphSystemId,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }
@@ -463,7 +455,7 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     instance: VcpmInstance,
     payloadSystemIdsByParameterSystemId: ReadonlyMap<number, number>,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     if (instance.ckvs.length !== 1) {
       throw new Error(
         `Expected exactly one CKV for VCPM instance ${instance.systemId}`,
@@ -482,7 +474,6 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
         },
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
 
@@ -494,7 +485,6 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
         payload: {vcpmInstanceSystemId: instance.systemId},
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
 
@@ -519,14 +509,13 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
           },
         },
         session.sessionId,
-        groupId,
         this.manager,
       );
     }
   }
 
   async deleteAllVcpmData(subgraphSystemId: number): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     const data = await this.vcpmDataFetcher.fetchForSubgraph(
       subgraphSystemId,
       session.sessionId,
@@ -548,7 +537,6 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
             aggregateId: subgraphSystemId,
           },
           session.sessionId,
-          groupId,
           this.manager,
         );
       }

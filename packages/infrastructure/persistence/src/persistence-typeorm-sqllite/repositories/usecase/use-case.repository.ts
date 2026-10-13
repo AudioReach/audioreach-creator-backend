@@ -167,7 +167,7 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
       return {affectedUseCaseSystemIds};
     }
 
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     for (const row of memberships) {
       await this.writer.writeDelete(
         {
@@ -177,7 +177,6 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
           ...options,
         },
         session.sessionId,
-        groupId,
         this.manager,
       );
     }
@@ -190,7 +189,6 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
           ...options,
         },
         session.sessionId,
-        groupId,
         this.manager,
       );
     }
@@ -206,7 +204,7 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     referencedComponents?: ReferencedComponents,
     sgkvAssignments?: readonly UsecaseSgkvAssignment[],
   ): Promise<UsecaseChangeRef | null> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
 
     const rootChangeId = await this.writer.writeCreate(
       {
@@ -224,7 +222,6 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
 
@@ -241,7 +238,6 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
           ...options,
         },
         session.sessionId,
-        groupId,
         this.manager,
       );
     }
@@ -259,7 +255,6 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
           ...options,
         },
         session.sessionId,
-        groupId,
         this.manager,
       );
     }
@@ -281,7 +276,6 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
           ...options,
         },
         session.sessionId,
-        groupId,
         this.manager,
       );
     }
@@ -293,7 +287,7 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     ucSystemId: number,
     options?: EditOptions,
   ): Promise<UsecaseChangeRef | null> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     const changeId = await this.writer.writeDelete(
       {
         targetTable: ENTITY_NAMES.UseCase,
@@ -302,7 +296,6 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
     return this.toChangeRef(ucSystemId, changeId);
@@ -315,7 +308,7 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     referencedComponents?: ReferencedComponents,
     sgkvAssignments?: readonly UsecaseSgkvAssignment[],
   ): Promise<UsecaseChangeRef | null> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     let emittedStructuralChange = false;
 
     // Cancel any pending UseCase DELETE for this UC.
@@ -341,7 +334,6 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
           ...options,
         },
         session.sessionId,
-        groupId,
         this.manager,
       );
       emittedStructuralChange = true;
@@ -358,7 +350,6 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
           ...options,
         },
         session.sessionId,
-        groupId,
         this.manager,
       );
       emittedStructuralChange = true;
@@ -378,7 +369,6 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
           ...options,
         },
         session.sessionId,
-        groupId,
         this.manager,
       );
       emittedStructuralChange = true;
@@ -409,7 +399,6 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
           ...options,
         },
         session.sessionId,
-        groupId,
         this.manager,
       );
       emittedStructuralChange = true;
@@ -421,7 +410,6 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
       referencedComponents,
       options,
       session.sessionId,
-      groupId,
       emittedStructuralChange,
       sgkvAssignments,
     );
@@ -433,7 +421,7 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     newType: UsecaseType,
     options?: EditOptions,
   ): Promise<UsecaseChangeRef | null> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     const changeId = await this.writer.writeDelta(
       {
         targetTable: ENTITY_NAMES.UseCase,
@@ -443,7 +431,6 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
     return this.toChangeRef(ucSystemId, changeId);
@@ -455,7 +442,7 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     currentDestSgSystemId: number,
     options?: EditOptions,
   ): Promise<UsecaseChangeRef | null> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     const relationship = await this.findSubgraphPair(
       ucSystemId,
       currentSourceSgSystemId,
@@ -480,7 +467,6 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
     const rootChangeId = await this.writeUsecaseDelta(
@@ -489,7 +475,6 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
       undefined,
       options,
       session.sessionId,
-      groupId,
       true,
     );
     return this.toChangeRef(ucSystemId, rootChangeId);
@@ -503,7 +488,6 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     referencedComponents: ReferencedComponents | undefined,
     options: EditOptions | undefined,
     sessionId: number,
-    groupId: string,
     writeMarker = false,
     sgkvAssignments?: readonly UsecaseSgkvAssignment[],
   ): Promise<number | null> {
@@ -531,7 +515,6 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
         ...options,
       },
       sessionId,
-      groupId,
       this.manager,
     );
   }
@@ -547,32 +530,29 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     sessionId: number,
     ucSystemId: number,
   ): Promise<boolean> {
-    // eslint-disable-next-line custom/no-raw-persistence-queries -- checking active DELETE rows by operation is not expressible through the UseCase entity repository
+    // eslint-disable-next-line custom/no-raw-persistence-queries -- checking current DELETE rows is not expressible through the UseCase entity repository
     const pendingDeletes: unknown = await this.manager.query(
       `SELECT change_id
          FROM edit_actions
         WHERE session_id = $1
-          AND target_system_id = $2
-          AND target_table = $3
-          AND operation = 'DELETE'
-          AND valid_until IS NULL
-        LIMIT 1`,
-      [sessionId, ucSystemId, ENTITY_NAMES.UseCase],
+           AND target_system_id = $2
+           AND target_table = $3
+           AND operation = $4
+         LIMIT 1`,
+      [sessionId, ucSystemId, ENTITY_NAMES.UseCase, CHANGE_OPERATION.Delete],
     );
     if (!Array.isArray(pendingDeletes) || pendingDeletes.length === 0) {
       return false;
     }
 
-    // eslint-disable-next-line custom/no-raw-persistence-queries -- superseding by operation type is not expressible with TypeORM QueryBuilder
+    // eslint-disable-next-line custom/no-raw-persistence-queries -- removing the current DELETE is not expressible with the UseCase entity repository
     await this.manager.query(
-      `UPDATE edit_actions
-          SET valid_until = $1
-        WHERE session_id = $2
-          AND target_system_id = $3
-          AND target_table = $4
-          AND operation = 'DELETE'
-          AND valid_until IS NULL`,
-      [new Date().toISOString(), sessionId, ucSystemId, ENTITY_NAMES.UseCase],
+      `DELETE FROM edit_actions
+        WHERE session_id = $1
+          AND target_system_id = $2
+          AND target_table = $3
+          AND operation = $4`,
+      [sessionId, ucSystemId, ENTITY_NAMES.UseCase, CHANGE_OPERATION.Delete],
     );
     return true;
   }

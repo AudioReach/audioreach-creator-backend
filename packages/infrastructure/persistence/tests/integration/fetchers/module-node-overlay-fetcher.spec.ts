@@ -114,7 +114,7 @@ async function seedEditAction(
   },
 ) {
   await ds.query(
-    `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id)
+    `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
     [
       opts.sessionId,

@@ -290,8 +290,8 @@ describe('TypeOrmDataLinkRepository — routing methods (integration)', () => {
       await seedDataLink(ds, 1001, DATA_LINK_TYPE.InterUsecase, SG_1, SG_2);
       const sessionId = await seedSession(ds);
       await ds.query(
-        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)
-         VALUES (?, ?, ?, 'DataLink', 'CREATE', NULL, '{}', 'MANUAL', 'STAGED', NULL, datetime('now'), NULL)`,
+        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id, created_at)
+         VALUES (?, ?, ?, 'DataLink', 'CREATE', '$', '{}', 'MANUAL', 'STAGED', NULL, datetime('now'))`,
         [sessionId, 1001, 1001],
       );
       const result = await makeRepo(qr.manager, sessionId).findChangedInSession(
@@ -305,8 +305,8 @@ describe('TypeOrmDataLinkRepository — routing methods (integration)', () => {
       await seedDataLink(ds, 1001, DATA_LINK_TYPE.InterUsecase, SG_1, SG_2);
       const sessionId = await seedSession(ds);
       await ds.query(
-        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)
-         VALUES (?, ?, ?, 'DataLink', 'CREATE', NULL, '{}', 'AUTO_ROUTING', 'UNSTAGED', NULL, datetime('now'), NULL)`,
+        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id, created_at)
+         VALUES (?, ?, ?, 'DataLink', 'CREATE', '$', '{}', 'AUTO_ROUTING', 'UNSTAGED', NULL, datetime('now'))`,
         [sessionId, 1001, 1001],
       );
       const result = await makeRepo(qr.manager, sessionId).findChangedInSession(
@@ -316,25 +316,25 @@ describe('TypeOrmDataLinkRepository — routing methods (integration)', () => {
       expect(result.deleted).toEqual([]);
     });
 
-    it('excludes superseded edit_actions', async () => {
+    it('uses the current CREATE edit_action', async () => {
       await seedDataLink(ds, 1001, DATA_LINK_TYPE.InterUsecase, SG_1, SG_2);
       const sessionId = await seedSession(ds);
       await ds.query(
-        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)
-         VALUES (?, ?, ?, 'DataLink', 'CREATE', NULL, '{}', 'MANUAL', 'STAGED', NULL, datetime('now'), datetime('now'))`,
+        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id, created_at)
+         VALUES (?, ?, ?, 'DataLink', 'CREATE', '$', '{}', 'MANUAL', 'STAGED', NULL, datetime('now'))`,
         [sessionId, 1001, 1001],
       );
       expect(
         await makeRepo(qr.manager, sessionId).findChangedInSession(FILE_ID),
-      ).toEqual({added: [], deleted: []});
+      ).toMatchObject({added: [{systemId: 1001}], deleted: []});
     });
 
     it('puts DELETE-operation targets in the deleted bucket', async () => {
       await seedDataLink(ds, 1001, DATA_LINK_TYPE.InterUsecase, SG_1, SG_2);
       const sessionId = await seedSession(ds);
       await ds.query(
-        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)
-         VALUES (?, ?, ?, 'DataLink', 'DELETE', NULL, NULL, 'MANUAL', 'STAGED', NULL, datetime('now'), NULL)`,
+        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id, created_at)
+         VALUES (?, ?, ?, 'DataLink', 'DELETE', NULL, '{}', 'MANUAL', 'STAGED', NULL, datetime('now'))`,
         [sessionId, 1001, 1001],
       );
       const result = await makeRepo(qr.manager, sessionId).findChangedInSession(
@@ -348,8 +348,8 @@ describe('TypeOrmDataLinkRepository — routing methods (integration)', () => {
       await seedDataLink(ds, 1001, DATA_LINK_TYPE.InterUsecase, SG_1, SG_2);
       const sessionId = await seedSession(ds);
       await ds.query(
-        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)
-         VALUES (?, ?, ?, 'DataLink', 'UPDATE', 'linkType', '"NORMAL"', 'MANUAL', 'STAGED', NULL, datetime('now'), NULL)`,
+        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id, created_at)
+         VALUES (?, ?, ?, 'DataLink', 'UPDATE', 'linkType', '"NORMAL"', 'MANUAL', 'STAGED', NULL, datetime('now'))`,
         [sessionId, 1001, 1001],
       );
       const result = await makeRepo(qr.manager, sessionId).findChangedInSession(

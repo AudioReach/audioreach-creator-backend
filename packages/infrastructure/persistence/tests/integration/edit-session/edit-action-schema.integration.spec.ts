@@ -4,6 +4,7 @@
  */
 
 import {CHANGE_OPERATION, CHANGE_STATUS, SOURCE} from '@arc/core';
+import {ENTITY_NAMES} from '../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {
   setupIntegrationTest,
   teardownIntegrationTest,
@@ -54,7 +55,7 @@ describe('EditActionSchema — integration', () => {
     return fid;
   }
 
-  it('has the reshaped columns and can INSERT + SELECT a row', async () => {
+  it('round-trips a current row', async () => {
     const ds = getTestDataSource();
     const repo = ds.getRepository(EditActionSchema);
     const sessionRepo = ds.getRepository(ProjectSessionSchema);
@@ -68,33 +69,34 @@ describe('EditActionSchema — integration', () => {
     });
 
     const row = repo.create({
-      targetSystemId: 42,
-      aggregateId: 10,
       sessionId: session.sessionId,
-      targetTable: 'SpfModule',
+      aggregateId: 10,
+      targetSystemId: 42,
+      targetTable: ENTITY_NAMES.SpfModule,
       operation: CHANGE_OPERATION.Update,
       fieldPath: 'alias',
-      newValue: 'my-module',
+      newValue: {alias: 'new-alias'},
       source: SOURCE.Manual,
       changeStatus: CHANGE_STATUS.Staged,
-      groupId: 'group-uuid-1',
       linkedEntityGroupId: null,
-      validUntil: null,
     });
 
     const saved = await repo.save(row);
 
     expect(saved.changeId).toBeGreaterThan(0);
-    expect(saved.targetSystemId).toBe(42);
-    expect(saved.targetTable).toBe('SpfModule');
-    expect(saved.fieldPath).toBe('alias');
-    expect(saved.newValue).toBe('my-module');
-    expect(saved.source).toBe(SOURCE.Manual);
-    expect(saved.linkedEntityGroupId).toBeNull();
-    expect(saved.createdAt).toBeInstanceOf(Date);
+    expect(saved).toEqual(
+      expect.objectContaining({
+        targetSystemId: 42,
+        targetTable: ENTITY_NAMES.SpfModule,
+        fieldPath: 'alias',
+        newValue: {alias: 'new-alias'},
+        source: SOURCE.Manual,
+        linkedEntityGroupId: null,
+      }),
+    );
   });
 
-  it('enforces the uniq_edit_actions_current partial unique index', async () => {
+  it('rejects a duplicate non-null field storage slot', async () => {
     const ds = getTestDataSource();
     const repo = ds.getRepository(EditActionSchema);
     const sessionRepo = ds.getRepository(ProjectSessionSchema);
@@ -108,30 +110,54 @@ describe('EditActionSchema — integration', () => {
     });
 
     const base = {
-      targetSystemId: 99,
-      aggregateId: 5,
       sessionId: session.sessionId,
-      targetTable: 'SpfModule' as const,
+      aggregateId: 5,
+      targetSystemId: 99,
+      targetTable: ENTITY_NAMES.SpfModule,
       operation: CHANGE_OPERATION.Update,
       fieldPath: 'alias',
-      newValue: 'first',
+      newValue: {alias: 'first'},
       source: SOURCE.Manual,
       changeStatus: CHANGE_STATUS.Staged,
-      groupId: 'g1',
       linkedEntityGroupId: null,
-      validUntil: null,
     };
 
     await repo.save(repo.create(base));
 
-    // Second INSERT with the same target table, system ID, field path, and
-    // validUntil IS NULL must be rejected by the unique index.
-    await expect(
-      repo.save(repo.create({...base, groupId: 'g2'})),
-    ).rejects.toThrow();
+    await expect(repo.save(repo.create(base))).rejects.toThrow();
   });
 
-  it('allows the same system ID and field path across different target tables', async () => {
+  it('rejects a second null accumulator for the same target', async () => {
+    const ds = getTestDataSource();
+    const repo = ds.getRepository(EditActionSchema);
+    const sessionRepo = ds.getRepository(ProjectSessionSchema);
+
+    const fileId = await createFile();
+    const session = await sessionRepo.save({
+      fileSystemId: fileId,
+      clientId: 'test-client-null-slot',
+      sessionMode: 'DESIGNER',
+      status: 'ACTIVE',
+    });
+
+    const base = {
+      sessionId: session.sessionId,
+      aggregateId: 100,
+      targetSystemId: 100,
+      targetTable: ENTITY_NAMES.SpfModule,
+      operation: CHANGE_OPERATION.Update,
+      fieldPath: null,
+      newValue: {alias: 'first'},
+      source: SOURCE.Manual,
+      changeStatus: CHANGE_STATUS.Staged,
+      linkedEntityGroupId: null,
+    };
+
+    await repo.save(repo.create(base));
+    await expect(repo.save(repo.create(base))).rejects.toThrow();
+  });
+
+  it('allows the same targetSystemId in different target tables', async () => {
     const ds = getTestDataSource();
     const repo = ds.getRepository(EditActionSchema);
     const sessionRepo = ds.getRepository(ProjectSessionSchema);
@@ -145,22 +171,22 @@ describe('EditActionSchema — integration', () => {
     });
 
     const base = {
-      targetSystemId: 100,
-      aggregateId: 100,
       sessionId: session.sessionId,
+      aggregateId: 100,
+      targetSystemId: 100,
       operation: CHANGE_OPERATION.Delete,
       fieldPath: null,
       newValue: {},
       source: SOURCE.Manual,
       changeStatus: CHANGE_STATUS.Staged,
-      groupId: 'same-id-group',
       linkedEntityGroupId: null,
-      validUntil: null,
     };
 
-    await repo.save(repo.create({...base, targetTable: 'SpfModule'}));
+    await repo.save(
+      repo.create({...base, targetTable: ENTITY_NAMES.SpfModule}),
+    );
     await expect(
-      repo.save(repo.create({...base, targetTable: 'Node'})),
+      repo.save(repo.create({...base, targetTable: ENTITY_NAMES.Container})),
     ).resolves.toBeDefined();
   });
 });

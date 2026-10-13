@@ -239,7 +239,6 @@ describe('TypeOrmContainerRepository (integration)', () => {
         delta: {name: 'Effective Stack Size'},
       },
       sessionId,
-      'definition-update',
       qr.manager,
     );
 

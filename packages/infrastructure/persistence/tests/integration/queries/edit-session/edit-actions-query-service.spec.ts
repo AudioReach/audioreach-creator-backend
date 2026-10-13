@@ -40,6 +40,7 @@ import {
   type ArcDbFileRow,
 } from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
+import {editActionTargetKeyString} from '../../../../src/persistence-typeorm-sqllite/services/pending-target-reducer.js';
 
 describe('EditActionsQueryService integration', () => {
   let service: EditActionsQueryService;
@@ -111,15 +112,13 @@ describe('EditActionsQueryService integration', () => {
       source: SOURCE.Manual,
       changeStatus: CHANGE_STATUS.Staged,
       operation: CHANGE_OPERATION.Update,
-      groupId: null,
       linkedEntityGroupId: null,
-      validUntil: null,
       ...partial,
     } as unknown as EditActionRow);
   }
 
   describe('getByAggregateId', () => {
-    it('returns only rows where validUntil IS NULL', async () => {
+    it('returns current rows for an aggregate', async () => {
       const {fileSystemId} = await createFileDependency();
       const session = await createSession(fileSystemId);
 
@@ -129,14 +128,6 @@ describe('EditActionsQueryService integration', () => {
         targetSystemId: 101,
         targetTable: ENTITY_NAMES.SpfModule,
       });
-      await insertRow({
-        sessionId: session.sessionId,
-        aggregateId: 10,
-        targetSystemId: 102,
-        targetTable: ENTITY_NAMES.SpfModule,
-        validUntil: new Date(),
-      });
-
       const rows = await service.getByAggregateId(session.sessionId, 10);
 
       expect(rows).toHaveLength(1);
@@ -152,7 +143,7 @@ describe('EditActionsQueryService integration', () => {
   });
 
   describe('getByAggregateAndTable', () => {
-    it('filters by aggregateId and targetTable, excludes superseded rows', async () => {
+    it('filters by aggregateId and targetTable', async () => {
       const {fileSystemId} = await createFileDependency();
       const session = await createSession(fileSystemId);
 
@@ -181,7 +172,7 @@ describe('EditActionsQueryService integration', () => {
   });
 
   describe('getByTable', () => {
-    it('returns active rows scoped to targetTable', async () => {
+    it('returns current rows scoped to targetTable', async () => {
       const {fileSystemId} = await createFileDependency();
       const session = await createSession(fileSystemId);
 
@@ -191,14 +182,6 @@ describe('EditActionsQueryService integration', () => {
         targetSystemId: 301,
         targetTable: ENTITY_NAMES.SpfModule,
       });
-      await insertRow({
-        sessionId: session.sessionId,
-        aggregateId: 10,
-        targetSystemId: 302,
-        targetTable: ENTITY_NAMES.SpfModule,
-        validUntil: new Date(),
-      });
-
       const rows = await service.getByTable(
         session.sessionId,
         ENTITY_NAMES.SpfModule,
@@ -335,7 +318,7 @@ describe('EditActionsQueryService integration', () => {
       expect(row).toBeNull();
     });
 
-    it('returns the active row matching sessionId, targetSystemId, and fieldPath', async () => {
+    it('returns the current row matching sessionId, targetSystemId, and fieldPath', async () => {
       const {fileSystemId} = await createFileDependency();
       const session = await createSession(fileSystemId);
 
@@ -356,28 +339,6 @@ describe('EditActionsQueryService integration', () => {
       expect(row).not.toBeNull();
       expect(row!.targetSystemId).toBe(801);
       expect(row!.fieldPath).toBe('alias');
-    });
-
-    it('returns null when only a superseded row exists', async () => {
-      const {fileSystemId} = await createFileDependency();
-      const session = await createSession(fileSystemId);
-
-      await insertRow({
-        sessionId: session.sessionId,
-        aggregateId: 10,
-        targetSystemId: 901,
-        targetTable: ENTITY_NAMES.SpfModule,
-        fieldPath: 'alias',
-        validUntil: new Date(),
-      });
-
-      const row = await service.findCurrentRow(
-        session.sessionId,
-        901,
-        ENTITY_NAMES.SpfModule,
-        'alias',
-      );
-      expect(row).toBeNull();
     });
 
     it('returns the active row when fieldPath is null (accumulator slot)', async () => {
@@ -403,25 +364,105 @@ describe('EditActionsQueryService integration', () => {
     });
   });
 
+  describe('target loaders', () => {
+    it('returns every current slot for exactly one target', async () => {
+      const {fileSystemId} = await createFileDependency();
+      const session = await createSession(fileSystemId);
+      const target = {
+        sessionId: session.sessionId,
+        targetTable: ENTITY_NAMES.SpfModule,
+        targetSystemId: 1101,
+      } as const;
+
+      await insertRow({...target, aggregateId: 10, fieldPath: 'alias'});
+      await insertRow({
+        ...target,
+        aggregateId: 10,
+        fieldPath: 'containerSystemId',
+        newValue: {containerSystemId: 8},
+      });
+
+      const rows = await service.getAllByTargetKey(
+        target,
+        getTestDataSource().manager,
+      );
+      expect(rows.map(row => row.fieldPath)).toEqual([
+        'alias',
+        'containerSystemId',
+      ]);
+    });
+
+    it('returns an entry for every requested target and separates tables', async () => {
+      const {fileSystemId} = await createFileDependency();
+      const session = await createSession(fileSystemId);
+      const moduleTarget = {
+        sessionId: session.sessionId,
+        targetTable: ENTITY_NAMES.SpfModule,
+        targetSystemId: 1102,
+      } as const;
+      const containerTarget = {
+        sessionId: session.sessionId,
+        targetTable: ENTITY_NAMES.Container,
+        targetSystemId: 1102,
+      } as const;
+      const emptyTarget = {
+        sessionId: session.sessionId,
+        targetTable: ENTITY_NAMES.SpfModule,
+        targetSystemId: 1103,
+      } as const;
+
+      await insertRow({...moduleTarget, aggregateId: 10});
+      await insertRow({...containerTarget, aggregateId: 10});
+
+      const rowsByTarget = await service.getAllByTargetKeys(
+        [moduleTarget, containerTarget, emptyTarget],
+        getTestDataSource().manager,
+      );
+
+      expect(
+        rowsByTarget.get(editActionTargetKeyString(moduleTarget)),
+      ).toHaveLength(1);
+      expect(
+        rowsByTarget.get(editActionTargetKeyString(containerTarget)),
+      ).toHaveLength(1);
+      expect(rowsByTarget.get(editActionTargetKeyString(emptyTarget))).toEqual(
+        [],
+      );
+      expect(
+        rowsByTarget.get(editActionTargetKeyString(containerTarget))?.[0]
+          .targetTable,
+      ).toBe(ENTITY_NAMES.Container);
+    });
+  });
+
   describe('queryRunner parameter', () => {
     it('uses the provided QueryRunner when supplied', async () => {
       const {fileSystemId} = await createFileDependency();
       const session = await createSession(fileSystemId);
 
-      await insertRow({
-        sessionId: session.sessionId,
-        aggregateId: 10,
-        targetSystemId: 1001,
-        targetTable: ENTITY_NAMES.SpfModule,
-      });
-
       const ds = getTestDataSource();
       const qr = ds.createQueryRunner();
       await qr.connect();
+      await qr.startTransaction();
       try {
-        const rows = await service.getByAggregateId(session.sessionId, 10);
+        await qr.manager.getRepository(EditActionSchema).save({
+          sessionId: session.sessionId,
+          aggregateId: 10,
+          targetSystemId: 1001,
+          targetTable: ENTITY_NAMES.SpfModule,
+          fieldPath: null,
+          newValue: {value: 1},
+          source: SOURCE.Manual,
+          changeStatus: CHANGE_STATUS.Staged,
+          operation: CHANGE_OPERATION.Update,
+          linkedEntityGroupId: null,
+        });
+        const rows = await new EditActionsQueryService(
+          qr.manager,
+        ).getByAggregateId(session.sessionId, 10);
         expect(rows).toHaveLength(1);
       } finally {
+        await qr.rollbackTransaction();
         await qr.release();
       }
     });

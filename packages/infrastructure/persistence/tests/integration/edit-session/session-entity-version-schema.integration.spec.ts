@@ -13,6 +13,7 @@ import {SessionEntityVersionSchema} from '../../../src/persistence-typeorm-sqlli
 import {ProjectSessionSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
 import {ArcDbFileSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 import {ProjectSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
+import {ENTITY_NAMES} from '../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 
 describe('SessionEntityVersionSchema — integration', () => {
   let nextFileId = 200;
@@ -53,7 +54,7 @@ describe('SessionEntityVersionSchema — integration', () => {
     return fid;
   }
 
-  it('can INSERT and SELECT a row by composite PK', async () => {
+  it('allows the same numeric target ID in different tables', async () => {
     const ds = getTestDataSource();
     const sessionRepo = ds.getRepository(ProjectSessionSchema);
     const versionRepo = ds.getRepository(SessionEntityVersionSchema);
@@ -66,25 +67,26 @@ describe('SessionEntityVersionSchema — integration', () => {
       status: 'ACTIVE',
     });
 
-    await versionRepo.save(
-      versionRepo.create({
-        sessionId: session.sessionId,
-        targetSystemId: 777,
-        baseVersion: 5,
-      }),
-    );
-
-    const found = await versionRepo.findOne({
-      where: {sessionId: session.sessionId, targetSystemId: 777},
+    await versionRepo.save({
+      sessionId: session.sessionId,
+      targetTable: ENTITY_NAMES.SpfModule,
+      targetSystemId: 10,
+      baseVersion: 2,
     });
-
-    expect(found).not.toBeNull();
-    expect(found!.baseVersion).toBe(5);
+    await expect(
+      versionRepo.save({
+        sessionId: session.sessionId,
+        targetTable: ENTITY_NAMES.Container,
+        targetSystemId: 10,
+        baseVersion: 3,
+      }),
+    ).resolves.toBeDefined();
   });
 
-  it('rejects a duplicate (sessionId, targetSystemId) pair — composite PK enforces capture-once', async () => {
+  it('rejects a duplicate complete target key', async () => {
     const ds = getTestDataSource();
     const sessionRepo = ds.getRepository(ProjectSessionSchema);
+    const versionRepo = ds.getRepository(SessionEntityVersionSchema);
 
     const fileId = await createFile();
     const session = await sessionRepo.save({
@@ -94,19 +96,16 @@ describe('SessionEntityVersionSchema — integration', () => {
       status: 'ACTIVE',
     });
 
-    // First INSERT via raw SQL — must succeed
-    await ds.query(
-      `INSERT INTO session_entity_versions (session_id, target_system_id, base_version) VALUES (?, ?, ?)`,
-      [session.sessionId, 888, 3],
-    );
-
-    // Second raw SQL INSERT with same PK — must be rejected by the composite PK constraint
-    await expect(
-      ds.query(
-        `INSERT INTO session_entity_versions (session_id, target_system_id, base_version) VALUES (?, ?, ?)`,
-        [session.sessionId, 888, 4],
-      ),
-    ).rejects.toThrow();
+    const row = {
+      sessionId: session.sessionId,
+      targetTable: ENTITY_NAMES.SpfModule,
+      targetSystemId: 10,
+      baseVersion: 2,
+    };
+    // Use INSERT rather than save so TypeORM cannot treat the duplicate key as
+    // an update and silently bypass the capture-once constraint.
+    await versionRepo.insert(row);
+    await expect(versionRepo.insert(row)).rejects.toThrow();
   });
 
   it('cascades DELETE when parent session is deleted', async () => {
@@ -125,6 +124,7 @@ describe('SessionEntityVersionSchema — integration', () => {
     await versionRepo.save(
       versionRepo.create({
         sessionId: session.sessionId,
+        targetTable: ENTITY_NAMES.SpfModule,
         targetSystemId: 999,
         baseVersion: 1,
       }),
@@ -133,7 +133,11 @@ describe('SessionEntityVersionSchema — integration', () => {
     await sessionRepo.delete(session.sessionId);
 
     const afterDelete = await versionRepo.findOne({
-      where: {sessionId: session.sessionId, targetSystemId: 999},
+      where: {
+        sessionId: session.sessionId,
+        targetTable: ENTITY_NAMES.SpfModule,
+        targetSystemId: 999,
+      },
     });
     expect(afterDelete).toBeNull();
   });

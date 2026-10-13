@@ -3,622 +3,269 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {describe, it, expect, jest, beforeEach} from '@jest/globals';
-import {PendingChangeWriter} from '../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
-import {PendingChangeCache} from '../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
-import {EditActionsQueryService} from '../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
+import {beforeEach, describe, expect, it, jest} from '@jest/globals';
 import {CHANGE_OPERATION, CHANGE_STATUS, SOURCE} from '@arc/core';
-import {SESSION_MODE} from '@arc/core';
+import type {EntityManager} from 'typeorm';
+import {
+  EditActionSchema,
+  type EditActionRow,
+} from '../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/edit-action.schema.js';
 import {ENTITY_NAMES} from '../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
-import type {QueryRunner} from 'typeorm';
-import type {EditActionRow} from '../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/edit-action.schema.js';
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
+import {SessionEntityVersionSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/session-entity-version.schema.js';
+import {EditActionsQueryService} from '../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
+import {PendingChangeCache} from '../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
+import {PendingChangeWriter} from '../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
 
 const SESSION_ID = 1;
-const GROUP_ID = 'grp-uuid-1';
+const TARGET = {
+  targetTable: ENTITY_NAMES.SpfModule,
+  targetSystemId: 100,
+  aggregateId: 10,
+} as const;
 
-function makeQueryRunner(
-  selectImpl?: (sql: string) => unknown[],
-  returningRows: unknown[] = [{change_id: 123}],
-): QueryRunner {
-  const queryFn = jest.fn(async (sql: string, _params?: unknown[]) => {
-    if (sql.includes('RETURNING change_id')) return returningRows;
-    if (selectImpl && sql.startsWith('SELECT')) return selectImpl(sql);
-    return [];
-  });
-
-  const manager = {
-    createQueryBuilder: jest.fn((_entity?: string, _alias?: string) => ({
-      select: jest.fn().mockReturnThis(),
-      update: jest.fn().mockReturnThis(),
-      set: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      getRawOne: jest.fn(async () => {
-        const results = selectImpl ? selectImpl('SELECT version') : [];
-        return (results as {version: number}[])[0] ?? undefined;
-      }),
-      execute: jest.fn(async () => ({affected: 1})),
-    })),
-    findOne: jest.fn().mockResolvedValue(undefined),
-    insert: jest.fn(async (_schema: unknown, value: unknown) => {
-      const rows = Array.isArray(value) ? value : [value];
-      const first = rows[0] as Record<string, unknown>;
-      if ('operation' in first) {
-        for (const row of rows as Record<string, unknown>[]) {
-          queryFn('INSERT INTO edit_actions', [
-            row['sessionId'],
-            row['aggregateId'],
-            row['targetSystemId'],
-            row['targetTable'],
-            row['operation'],
-            row['fieldPath'],
-            JSON.stringify(row['newValue']),
-            row['source'],
-            row['changeStatus'],
-            row['groupId'],
-            row['linkedEntityGroupId'],
-          ]);
-        }
-      } else {
-        queryFn('INSERT OR IGNORE INTO session_entity_versions', [
-          first['sessionId'],
-          first['targetSystemId'],
-          first['baseVersion'],
-        ]);
-      }
-      return {
-        identifiers: [
-          {
-            changeId:
-              (returningRows[0] as {change_id?: number})?.change_id ?? 123,
-          },
-        ],
-      };
-    }),
-  };
-
+function makeRow(overrides: Partial<EditActionRow> = {}): EditActionRow {
   return {
-    query: queryFn,
-    createQueryBuilder: manager.createQueryBuilder,
-    manager,
-  } as unknown as QueryRunner;
+    changeId: 41,
+    sessionId: SESSION_ID,
+    aggregateId: TARGET.aggregateId,
+    targetSystemId: TARGET.targetSystemId,
+    targetTable: TARGET.targetTable,
+    operation: CHANGE_OPERATION.Update,
+    fieldPath: 'alias',
+    newValue: {alias: 'old'},
+    source: SOURCE.DiffTool,
+    changeStatus: CHANGE_STATUS.Unstaged,
+    linkedEntityGroupId: 'linked-1',
+    createdAt: new Date('2026-01-01T00:00:00Z'),
+    ...overrides,
+  };
 }
 
 function makeQueryService(
-  existingRow: EditActionRow | null = null,
+  rows: EditActionRow[] = [],
 ): jest.Mocked<EditActionsQueryService> {
   return {
-    findCurrentRow: jest.fn().mockResolvedValue(existingRow),
-    getByAggregateId: jest.fn().mockResolvedValue([]),
-    getByAggregateAndTable: jest.fn().mockResolvedValue([]),
-    getByTable: jest.fn().mockResolvedValue([]),
-    getBySource: jest.fn().mockResolvedValue([]),
+    getAllByTargetKey: jest.fn().mockResolvedValue(rows),
+    getAllByTargetKeys: jest.fn().mockResolvedValue(new Map()),
   } as unknown as jest.Mocked<EditActionsQueryService>;
 }
 
-function getInsertParams(qr: QueryRunner): unknown[] | undefined {
-  const calls = (qr.query as jest.Mock).mock.calls as unknown[][];
-  const call = calls.find(
-    ([sql]) =>
-      typeof sql === 'string' &&
-      (sql as string).startsWith('INSERT INTO edit_actions'),
-  );
-  return call?.[1] as unknown[] | undefined;
+type MockManager = EntityManager & {
+  insert: jest.Mock;
+  update: jest.Mock;
+  delete: jest.Mock;
+  createQueryBuilder: jest.Mock;
+  builder: Record<string, jest.Mock>;
+};
+
+function makeManager(
+  committedRows: Array<{systemId: number; version?: number}> = [],
+): MockManager {
+  const builder = {
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    insert: jest.fn().mockReturnThis(),
+    into: jest.fn().mockReturnThis(),
+    values: jest.fn().mockReturnThis(),
+    orIgnore: jest.fn().mockReturnThis(),
+    getRawOne: jest.fn().mockResolvedValue(committedRows[0]),
+    getRawMany: jest.fn().mockResolvedValue(committedRows),
+    execute: jest.fn().mockResolvedValue({affected: 1}),
+  };
+  const createQueryBuilder = jest.fn(() => builder);
+  const getRepository = jest.fn(() => ({
+    metadata: {
+      columns: [{propertyName: 'systemId'}, {propertyName: 'version'}],
+    },
+    createQueryBuilder: jest.fn(() => builder),
+  }));
+  return {
+    insert: jest.fn().mockResolvedValue({identifiers: [{changeId: 123}]}),
+    update: jest.fn().mockResolvedValue({affected: 1}),
+    delete: jest.fn().mockResolvedValue({affected: 1}),
+    createQueryBuilder,
+    getRepository,
+    builder,
+  } as unknown as MockManager;
 }
 
-// Column indices in INSERT INTO edit_actions (...) VALUES ($1...$11):
-// 0=session_id 1=aggregate_id 2=target_system_id 3=target_table
-// 4=operation 5=field_path 6=new_value 7=source 8=change_status 9=group_id 10=linked_entity_group_id
-const COL = {
-  operation: 4,
-  fieldPath: 5,
-  newValue: 6,
-  source: 7,
-  changeStatus: 8,
-} as const;
+describe('PendingChangeWriter', () => {
+  it('updates an exact slot in place and preserves its stable changeId', async () => {
+    const queryService = makeQueryService([makeRow()]);
+    const manager = makeManager([
+      {systemId: TARGET.targetSystemId, version: 3},
+    ]);
+    const writer = new PendingChangeWriter(
+      queryService,
+      new PendingChangeCache(),
+    );
 
-// ── changeStatus determination (spec §9.6) ────────────────────────────────────
+    await expect(
+      writer.writeDelta(
+        {...TARGET, delta: {alias: 'new'}, fieldGroup: 'alias'},
+        SESSION_ID,
+        manager,
+      ),
+    ).resolves.toBe(41);
 
-describe('PendingChangeWriter — changeStatus determination', () => {
-  let writer: PendingChangeWriter;
+    expect(manager.update).toHaveBeenCalledWith(EditActionSchema, 41, {
+      newValue: {alias: 'new'},
+      source: SOURCE.Manual,
+    });
+    expect(manager.insert).not.toHaveBeenCalled();
+  });
 
-  beforeEach(() => {
-    writer = new PendingChangeWriter(
+  it('captures the complete target baseline on the first committed mutation', async () => {
+    const queryService = makeQueryService([]);
+    const manager = makeManager([
+      {systemId: TARGET.targetSystemId, version: 3},
+    ]);
+    const writer = new PendingChangeWriter(
+      queryService,
+      new PendingChangeCache(),
+    );
+
+    await writer.writeDelta(
+      {...TARGET, delta: {alias: 'new'}, fieldGroup: 'alias'},
+      SESSION_ID,
+      manager,
+    );
+
+    expect(manager.builder.insert).toHaveBeenCalledTimes(1);
+    expect(manager.builder.into).toHaveBeenCalledWith(
+      SessionEntityVersionSchema,
+    );
+    expect(manager.builder.values).toHaveBeenCalledWith({
+      sessionId: SESSION_ID,
+      targetTable: TARGET.targetTable,
+      targetSystemId: TARGET.targetSystemId,
+      baseVersion: 3,
+    });
+    expect(manager.builder.orIgnore).toHaveBeenCalledTimes(1);
+  });
+
+  it('accepts cached accumulator writes without performing SQL at enqueue', async () => {
+    const cache = new PendingChangeCache();
+    const manager = makeManager();
+    const writer = new PendingChangeWriter(makeQueryService(), cache);
+
+    await expect(
+      writer.writeDelta(
+        {...TARGET, delta: {alias: 'cached'}, cache: true},
+        SESSION_ID,
+        manager,
+      ),
+    ).resolves.toBeNull();
+
+    expect(cache.size()).toBe(1);
+    expect(manager.insert).not.toHaveBeenCalled();
+    expect(manager.update).not.toHaveBeenCalled();
+    expect(manager.delete).not.toHaveBeenCalled();
+  });
+
+  it('preserves CREATE metadata while folding later cached updates', async () => {
+    const cache = new PendingChangeCache();
+    const queryService = makeQueryService();
+    const manager = makeManager([]);
+    const writer = new PendingChangeWriter(queryService, cache);
+
+    await writer.writeCreate(
+      {
+        ...TARGET,
+        payload: {alias: 'created'},
+        source: SOURCE.DiffTool,
+        changeStatus: CHANGE_STATUS.Unstaged,
+        cache: true,
+      },
+      SESSION_ID,
+      manager,
+    );
+    await writer.writeDelta(
+      {...TARGET, delta: {alias: 'updated'}, fieldGroup: 'alias'},
+      SESSION_ID,
+      manager,
+    );
+
+    queryService.getAllByTargetKeys.mockResolvedValue(
+      new Map([
+        [`${SESSION_ID}|${TARGET.targetTable}|${TARGET.targetSystemId}`, []],
+      ]),
+    );
+    await writer.flushCachedActions(manager);
+
+    expect(manager.insert).toHaveBeenCalledWith(EditActionSchema, {
+      sessionId: SESSION_ID,
+      aggregateId: TARGET.aggregateId,
+      targetSystemId: TARGET.targetSystemId,
+      targetTable: TARGET.targetTable,
+      operation: CHANGE_OPERATION.Create,
+      fieldPath: '$',
+      newValue: {alias: 'updated'},
+      source: SOURCE.DiffTool,
+      changeStatus: CHANGE_STATUS.Unstaged,
+      linkedEntityGroupId: null,
+    });
+    expect(cache.isEmpty()).toBe(true);
+  });
+
+  it('uses the connection-local generated-ID fallback when TypeORM returns no identifier', async () => {
+    const manager = makeManager();
+    manager.insert.mockResolvedValue({identifiers: []});
+    manager.builder.getRawOne.mockResolvedValue({changeId: 456});
+    const writer = new PendingChangeWriter(
       makeQueryService(),
       new PendingChangeCache(),
     );
-  });
 
-  it('MANUAL always resolves to STAGED', async () => {
-    const qr = makeQueryRunner();
-    await writer.writeDelta(
-      {
-        targetTable: ENTITY_NAMES.SpfModule,
-        targetSystemId: 1,
-        aggregateId: 10,
-        delta: {alias: 'x'},
-        fieldGroup: 'alias',
-        source: SOURCE.Manual,
-      },
-      SESSION_ID,
-      GROUP_ID,
-      qr,
+    await expect(
+      writer.writeCreate(
+        {...TARGET, payload: {alias: 'created'}},
+        SESSION_ID,
+        manager,
+      ),
+    ).resolves.toBe(456);
+
+    expect(manager.builder.select).toHaveBeenCalledWith(
+      'last_insert_rowid()',
+      'changeId',
     );
-    expect(getInsertParams(qr)?.[COL.changeStatus]).toBe(CHANGE_STATUS.Staged);
   });
 
-  it('MANUAL with explicit changeStatus throws', async () => {
-    const qr = makeQueryRunner();
+  it('keeps cached intents when target loading fails', async () => {
+    const cache = new PendingChangeCache();
+    const queryService = makeQueryService();
+    queryService.getAllByTargetKeys.mockRejectedValue(new Error('forced'));
+    const writer = new PendingChangeWriter(queryService, cache);
+    const manager = makeManager();
+
+    await writer.writeDelta(
+      {...TARGET, delta: {alias: 'cached'}, fieldGroup: 'alias', cache: true},
+      SESSION_ID,
+      manager,
+    );
+    await expect(writer.flushCachedActions(manager)).rejects.toThrow('forced');
+    expect(cache.size()).toBe(1);
+  });
+
+  it('rejects explicit status for MANUAL writes', async () => {
+    const writer = new PendingChangeWriter(
+      makeQueryService(),
+      new PendingChangeCache(),
+    );
     await expect(
       writer.writeDelta(
         {
-          targetTable: ENTITY_NAMES.SpfModule,
-          targetSystemId: 1,
-          aggregateId: 10,
-          delta: {alias: 'x'},
+          ...TARGET,
+          delta: {alias: 'new'},
           fieldGroup: 'alias',
           source: SOURCE.Manual,
           changeStatus: CHANGE_STATUS.Unstaged,
         },
         SESSION_ID,
-        GROUP_ID,
-        qr,
+        makeManager(),
       ),
     ).rejects.toThrow('MANUAL source does not accept an explicit changeStatus');
-  });
-
-  it('DIFF_TOOL without override defaults to UNSTAGED', async () => {
-    const qr = makeQueryRunner();
-    await writer.writeDelta(
-      {
-        targetTable: ENTITY_NAMES.SpfModule,
-        targetSystemId: 2,
-        aggregateId: 10,
-        delta: {alias: 'x'},
-        fieldGroup: 'alias',
-        source: SOURCE.DiffTool,
-      },
-      SESSION_ID,
-      GROUP_ID,
-      qr,
-    );
-    expect(getInsertParams(qr)?.[COL.changeStatus]).toBe(
-      CHANGE_STATUS.Unstaged,
-    );
-  });
-
-  it('DIFF_TOOL with STAGED override uses STAGED', async () => {
-    const qr = makeQueryRunner();
-    await writer.writeDelta(
-      {
-        targetTable: ENTITY_NAMES.SpfModule,
-        targetSystemId: 3,
-        aggregateId: 10,
-        delta: {alias: 'x'},
-        fieldGroup: 'alias',
-        source: SOURCE.DiffTool,
-        changeStatus: CHANGE_STATUS.Staged,
-      },
-      SESSION_ID,
-      GROUP_ID,
-      qr,
-    );
-    expect(getInsertParams(qr)?.[COL.changeStatus]).toBe(CHANGE_STATUS.Staged);
-  });
-
-  it('AUTO_ROUTING always resolves to UNSTAGED', async () => {
-    const qr = makeQueryRunner();
-    await writer.writeDelta(
-      {
-        targetTable: ENTITY_NAMES.SpfModule,
-        targetSystemId: 4,
-        aggregateId: 10,
-        delta: {alias: 'x'},
-        fieldGroup: 'alias',
-        source: SOURCE.AutoRouting,
-      },
-      SESSION_ID,
-      GROUP_ID,
-      qr,
-    );
-    expect(getInsertParams(qr)?.[COL.changeStatus]).toBe(
-      CHANGE_STATUS.Unstaged,
-    );
-  });
-
-  it('AUTO_ROUTING with explicit changeStatus throws', async () => {
-    const qr = makeQueryRunner();
-    await expect(
-      writer.writeDelta(
-        {
-          targetTable: ENTITY_NAMES.SpfModule,
-          targetSystemId: 4,
-          aggregateId: 10,
-          delta: {alias: 'x'},
-          fieldGroup: 'alias',
-          source: SOURCE.AutoRouting,
-          changeStatus: CHANGE_STATUS.Staged,
-        },
-        SESSION_ID,
-        GROUP_ID,
-        qr,
-      ),
-    ).rejects.toThrow(
-      'AUTO_ROUTING source does not accept an explicit changeStatus',
-    );
-  });
-
-  it('cache=true + fieldGroup=null throws', async () => {
-    const qr = makeQueryRunner();
-    await expect(
-      writer.writeDelta(
-        {
-          targetTable: ENTITY_NAMES.SpfModule,
-          targetSystemId: 5,
-          aggregateId: 10,
-          delta: {alias: 'x'},
-          source: SOURCE.Manual,
-          cache: true,
-        },
-        SESSION_ID,
-        GROUP_ID,
-        qr,
-      ),
-    ).rejects.toThrow('cache=true is invalid for accumulator writes');
-  });
-});
-
-// ── writeDelta accumulator mode (spec §9.2) ───────────────────────────────────
-
-describe('PendingChangeWriter — writeDelta accumulator mode', () => {
-  it('merges new delta keys with existing payload when a prior accumulator row exists', async () => {
-    const existing = {
-      newValue: {alias: 'old', instanceId: 5},
-      targetSystemId: 100,
-      fieldPath: null,
-    } as unknown as EditActionRow;
-    const writer = new PendingChangeWriter(
-      makeQueryService(existing),
-      new PendingChangeCache(),
-    );
-    const qr = makeQueryRunner();
-
-    await writer.writeDelta(
-      {
-        targetTable: ENTITY_NAMES.SpfModule,
-        targetSystemId: 100,
-        aggregateId: 10,
-        delta: {alias: 'new', description: 'added'},
-        source: SOURCE.Manual,
-      },
-      SESSION_ID,
-      GROUP_ID,
-      qr,
-    );
-
-    expect(
-      (qr.query as jest.Mock).mock.calls.some(
-        ([sql]: unknown[]) =>
-          typeof sql === 'string' && (sql as string).startsWith('UPDATE'),
-      ),
-    ).toBe(true);
-    const payload = JSON.parse(
-      getInsertParams(qr)![COL.newValue] as string,
-    ) as Record<string, unknown>;
-    expect(payload).toMatchObject({
-      alias: 'new',
-      instanceId: 5,
-      description: 'added',
-    });
-  });
-
-  it('captures baseVersion and inserts on first write (no existing row)', async () => {
-    const writer = new PendingChangeWriter(
-      makeQueryService(null),
-      new PendingChangeCache(),
-    );
-    const qr = makeQueryRunner(sql =>
-      sql.startsWith('SELECT version') ? [{version: 3}] : [],
-    );
-
-    await writer.writeDelta(
-      {
-        targetTable: ENTITY_NAMES.SpfModule,
-        targetSystemId: 200,
-        aggregateId: 10,
-        delta: {alias: 'fresh'},
-        source: SOURCE.Manual,
-      },
-      SESSION_ID,
-      GROUP_ID,
-      qr,
-    );
-
-    const calls = (qr.query as jest.Mock).mock.calls as unknown[][];
-    const versionInsert = calls.find(
-      ([sql]) =>
-        typeof sql === 'string' &&
-        (sql as string).startsWith(
-          'INSERT OR IGNORE INTO session_entity_versions',
-        ),
-    );
-    expect(versionInsert).toBeDefined();
-    expect((versionInsert![1] as unknown[])[2]).toBe(3);
-  });
-});
-
-// ── writeDelta per-slot mode (spec §9.3) ─────────────────────────────────────
-
-describe('PendingChangeWriter — writeDelta per-slot mode', () => {
-  it('supersedes old slot row and inserts new row with exact delta (no merge)', async () => {
-    const writer = new PendingChangeWriter(
-      makeQueryService(),
-      new PendingChangeCache(),
-    );
-    const qr = makeQueryRunner();
-
-    await writer.writeDelta(
-      {
-        targetTable: ENTITY_NAMES.SpfModule,
-        targetSystemId: 300,
-        aggregateId: 10,
-        delta: {alias: 'slot-value'},
-        fieldGroup: 'alias',
-        source: SOURCE.Manual,
-      },
-      SESSION_ID,
-      GROUP_ID,
-      qr,
-    );
-
-    expect(
-      (qr.query as jest.Mock).mock.calls.some(
-        ([sql]: unknown[]) =>
-          typeof sql === 'string' && (sql as string).startsWith('UPDATE'),
-      ),
-    ).toBe(true);
-    const params = getInsertParams(qr)!;
-    expect(params[COL.fieldPath]).toBe('alias');
-    expect(JSON.parse(params[COL.newValue] as string)).toEqual({
-      alias: 'slot-value',
-    });
-  });
-
-  it('returns null when a per-slot update is deferred to the cache', async () => {
-    const cache = new PendingChangeCache();
-    const writer = new PendingChangeWriter(makeQueryService(), cache);
-    const qr = makeQueryRunner();
-
-    await expect(
-      writer.writeDelta(
-        {
-          targetTable: ENTITY_NAMES.SpfModule,
-          targetSystemId: 301,
-          aggregateId: 10,
-          delta: {alias: 'cached-slot-value'},
-          fieldGroup: 'alias',
-          source: SOURCE.Manual,
-          cache: true,
-        },
-        SESSION_ID,
-        GROUP_ID,
-        qr,
-      ),
-    ).resolves.toBeNull();
-    expect(cache.size()).toBe(1);
-    expect(getInsertParams(qr)).toBeUndefined();
-  });
-});
-
-// ── writeCreate (spec §9.4) ───────────────────────────────────────────────────
-
-describe('PendingChangeWriter — writeCreate', () => {
-  let writer: PendingChangeWriter;
-  beforeEach(() => {
-    writer = new PendingChangeWriter(
-      makeQueryService(),
-      new PendingChangeCache(),
-    );
-  });
-
-  it('inserts a CREATE row with fieldPath="$" and full payload', async () => {
-    const qr = makeQueryRunner();
-    await expect(
-      writer.writeCreate(
-        {
-          targetTable: ENTITY_NAMES.SpfModule,
-          targetSystemId: 500,
-          aggregateId: 10,
-          payload: {alias: 'NewModule', instanceId: 7},
-          source: SOURCE.Manual,
-        },
-        SESSION_ID,
-        GROUP_ID,
-        qr,
-      ),
-    ).resolves.toBe(123);
-    const params = getInsertParams(qr)!;
-    expect(params[COL.operation]).toBe(CHANGE_OPERATION.Create);
-    expect(params[COL.fieldPath]).toBe('$');
-    expect(JSON.parse(params[COL.newValue] as string)).toEqual({
-      alias: 'NewModule',
-      instanceId: 7,
-    });
-  });
-
-  it('falls back to SQLite last_insert_rowid when RETURNING rows are unavailable', async () => {
-    const qr = makeQueryRunner(
-      sql =>
-        sql.startsWith('SELECT last_insert_rowid') ? [{change_id: 456}] : [],
-      [],
-    );
-
-    await expect(
-      writer.writeCreate(
-        {
-          targetTable: ENTITY_NAMES.SpfModule,
-          targetSystemId: 504,
-          aggregateId: 10,
-          payload: {alias: 'Fallback'},
-          source: SOURCE.Manual,
-        },
-        SESSION_ID,
-        GROUP_ID,
-        qr,
-      ),
-    ).resolves.toBe(456);
-  });
-
-  it('does NOT capture baseVersion (no SELECT or INSERT OR IGNORE)', async () => {
-    const qr = makeQueryRunner();
-    await writer.writeCreate(
-      {
-        targetTable: ENTITY_NAMES.SpfModule,
-        targetSystemId: 501,
-        aggregateId: 10,
-        payload: {alias: 'Fresh'},
-        source: SOURCE.Manual,
-      },
-      SESSION_ID,
-      GROUP_ID,
-      qr,
-    );
-    const calls = (qr.query as jest.Mock).mock.calls as unknown[][];
-    expect(
-      calls.some(
-        ([sql]) =>
-          typeof sql === 'string' && (sql as string).startsWith('SELECT'),
-      ),
-    ).toBe(false);
-    expect(
-      calls.some(
-        ([sql]) =>
-          typeof sql === 'string' &&
-          (sql as string).startsWith('INSERT OR IGNORE'),
-      ),
-    ).toBe(false);
-  });
-
-  it('DIFF_TOOL CREATE with STAGED override produces STAGED row', async () => {
-    const qr = makeQueryRunner();
-    await writer.writeCreate(
-      {
-        targetTable: ENTITY_NAMES.SpfModule,
-        targetSystemId: 503,
-        aggregateId: 10,
-        payload: {alias: 'DiffModule'},
-        source: SOURCE.DiffTool,
-        changeStatus: CHANGE_STATUS.Staged,
-      },
-      SESSION_ID,
-      GROUP_ID,
-      qr,
-    );
-    expect(getInsertParams(qr)?.[COL.changeStatus]).toBe(CHANGE_STATUS.Staged);
-  });
-
-  it('enqueues to cache when cache=true, no immediate INSERT', async () => {
-    const cache = new PendingChangeCache();
-    const localWriter = new PendingChangeWriter(makeQueryService(), cache);
-    const qr = makeQueryRunner();
-    await expect(
-      localWriter.writeCreate(
-        {
-          targetTable: ENTITY_NAMES.SpfModule,
-          targetSystemId: 502,
-          aggregateId: 10,
-          payload: {alias: 'Cached'},
-          source: SOURCE.Manual,
-          cache: true,
-        },
-        SESSION_ID,
-        GROUP_ID,
-        qr,
-      ),
-    ).resolves.toBeNull();
-    expect(cache.size()).toBe(1);
-    expect(getInsertParams(qr)).toBeUndefined();
-  });
-});
-
-// ── writeDelete (spec §9.2 DELETE sub-case) ───────────────────────────────────
-
-describe('PendingChangeWriter — writeDelete', () => {
-  let writer: PendingChangeWriter;
-  beforeEach(() => {
-    writer = new PendingChangeWriter(
-      makeQueryService(),
-      new PendingChangeCache(),
-    );
-  });
-
-  it('inserts a DELETE row with operation=DELETE', async () => {
-    const qr = makeQueryRunner(sql =>
-      sql.startsWith('SELECT version') ? [{version: 2}] : [],
-    );
-    await writer.writeDelete(
-      {
-        targetTable: ENTITY_NAMES.SpfModule,
-        targetSystemId: 600,
-        aggregateId: 10,
-        source: SOURCE.Manual,
-      },
-      SESSION_ID,
-      GROUP_ID,
-      qr,
-    );
-    expect(getInsertParams(qr)?.[COL.operation]).toBe(CHANGE_OPERATION.Delete);
-  });
-
-  it('captures baseVersion before inserting the DELETE row', async () => {
-    const qr = makeQueryRunner(sql =>
-      sql.startsWith('SELECT version') ? [{version: 5}] : [],
-    );
-    await writer.writeDelete(
-      {
-        targetTable: ENTITY_NAMES.SpfModule,
-        targetSystemId: 601,
-        aggregateId: 10,
-        source: SOURCE.Manual,
-      },
-      SESSION_ID,
-      GROUP_ID,
-      qr,
-    );
-    const calls = (qr.query as jest.Mock).mock.calls as unknown[][];
-    const versionInsert = calls.find(
-      ([sql]) =>
-        typeof sql === 'string' &&
-        (sql as string).startsWith(
-          'INSERT OR IGNORE INTO session_entity_versions',
-        ),
-    );
-    expect(versionInsert).toBeDefined();
-    expect((versionInsert![1] as unknown[])[2]).toBe(5);
-  });
-
-  it('returns null when a DELETE is deferred to the cache', async () => {
-    const cache = new PendingChangeCache();
-    const writer = new PendingChangeWriter(makeQueryService(), cache);
-    const qr = makeQueryRunner();
-
-    await expect(
-      writer.writeDelete(
-        {
-          targetTable: ENTITY_NAMES.SpfModule,
-          targetSystemId: 602,
-          aggregateId: 10,
-          source: SOURCE.Manual,
-          cache: true,
-        },
-        SESSION_ID,
-        GROUP_ID,
-        qr,
-      ),
-    ).resolves.toBeNull();
-    expect(cache.size()).toBe(1);
-    expect(getInsertParams(qr)).toBeUndefined();
   });
 });

@@ -255,9 +255,7 @@ describe('DbContainerQueryService.findPropertyPayloads Integration Tests', () =>
         source: SOURCE.Manual,
         fieldPath: 'payload',
         newValue: {payload: updatedPayload},
-        groupId: null,
         linkedEntityGroupId: null,
-        validUntil: null,
       });
 
       const result = await service.findPropertyPayloads(1, fileSystemId);
@@ -290,10 +288,8 @@ describe('DbContainerQueryService.findPropertyPayloads Integration Tests', () =>
         changeStatus: CHANGE_STATUS.Staged,
         source: SOURCE.Manual,
         fieldPath: null,
-        newValue: null,
-        groupId: null,
+        newValue: {},
         linkedEntityGroupId: null,
-        validUntil: null,
       });
 
       const result = await service.findPropertyPayloads(1, fileSystemId);
@@ -322,9 +318,7 @@ describe('DbContainerQueryService.findPropertyPayloads Integration Tests', () =>
           containerTypeSystemId: 0,
           fileSystemId,
         },
-        groupId: null,
         linkedEntityGroupId: null,
-        validUntil: null,
       });
       const createdPayload = Buffer.from([0xcc]);
       await editActionRepository.save({
@@ -342,9 +336,7 @@ describe('DbContainerQueryService.findPropertyPayloads Integration Tests', () =>
           propertySystemId: 75,
           payload: createdPayload,
         },
-        groupId: null,
         linkedEntityGroupId: null,
-        validUntil: null,
       });
 
       const result = await service.findPropertyPayloads(2, fileSystemId);

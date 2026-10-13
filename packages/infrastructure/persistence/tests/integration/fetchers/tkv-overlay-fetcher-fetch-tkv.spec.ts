@@ -145,7 +145,8 @@ describe('TkvOverlayFetcher.fetchTkv', () => {
       operation: CHANGE_OPERATION.Delete,
       changeStatus: CHANGE_STATUS.Pending,
       source: SOURCE.Manual,
-      newValue: null,
+      fieldPath: null,
+      newValue: {},
     });
     const fetcher = makeFetcher(ds);
     expect(await fetcher.fetchTkv(TKV_ID, sessionId)).toBeNull();
@@ -164,6 +165,7 @@ describe('TkvOverlayFetcher.fetchTkv', () => {
       operation: CHANGE_OPERATION.Create,
       changeStatus: CHANGE_STATUS.Pending,
       source: SOURCE.Manual,
+      fieldPath: '$',
       newValue: {systemId: newTkvId, moduleTagIdMapSystemId: TAG_MAP_ID},
     });
     const fetcher = makeFetcher(ds);

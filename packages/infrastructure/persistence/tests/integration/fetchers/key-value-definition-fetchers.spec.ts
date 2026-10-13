@@ -198,24 +198,24 @@ describe('Key/value definition fetchers', () => {
       },
       source: SOURCE.Manual,
       changeStatus: CHANGE_STATUS.Staged,
-      groupId: null,
       linkedEntityGroupId: null,
-      validUntil: null,
     });
-    await editActionRepository.save({
-      targetSystemId: keySystemId,
-      aggregateId: keySystemId,
-      sessionId,
-      targetTable: ENTITY_NAMES.KeyDefinition,
-      operation: CHANGE_OPERATION.Update,
-      fieldPath: null,
-      newValue: {name: 'UpdatedCreatedKey'},
-      source: SOURCE.Manual,
-      changeStatus: CHANGE_STATUS.Staged,
-      groupId: null,
-      linkedEntityGroupId: null,
-      validUntil: null,
-    });
+    await editActionRepository.update(
+      {targetSystemId: keySystemId, sessionId},
+      {
+        newValue: {
+          ...({
+            fileSystemId,
+            naturalId: 500,
+            name: 'UpdatedCreatedKey',
+            isCalibrationKey: true,
+            isGraphKey: false,
+            isVoice: false,
+            isDynamic: false,
+          } as Record<string, unknown>),
+        },
+      },
+    );
     await editActionRepository.save({
       targetSystemId: valueSystemId,
       aggregateId: keySystemId,
@@ -230,24 +230,12 @@ describe('Key/value definition fetchers', () => {
       },
       source: SOURCE.Manual,
       changeStatus: CHANGE_STATUS.Staged,
-      groupId: null,
       linkedEntityGroupId: null,
-      validUntil: null,
     });
-    await editActionRepository.save({
-      targetSystemId: valueSystemId,
-      aggregateId: keySystemId,
-      sessionId,
-      targetTable: ENTITY_NAMES.ValueDefinition,
-      operation: CHANGE_OPERATION.Update,
-      fieldPath: null,
-      newValue: {name: 'UpdatedCreatedValue'},
-      source: SOURCE.Manual,
-      changeStatus: CHANGE_STATUS.Staged,
-      groupId: null,
-      linkedEntityGroupId: null,
-      validUntil: null,
-    });
+    await editActionRepository.update(
+      {targetSystemId: valueSystemId, sessionId},
+      {newValue: {keySystemId, naturalId: 600, name: 'UpdatedCreatedValue'}},
+    );
 
     const {keyFetcher, valueFetcher} = createFetchers();
     const many = await keyFetcher.fetchMany('all', fileSystemId, sessionId, {

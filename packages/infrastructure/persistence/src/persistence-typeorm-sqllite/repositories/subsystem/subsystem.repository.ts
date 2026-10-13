@@ -253,7 +253,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     options?: EditOptions,
   ): Promise<void> {
     if (ports.length === 0) return;
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     const controlPortSystemIds = new Set(
       ports.map(port => port.controlPortSystemId),
     );
@@ -283,7 +283,6 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
             ...options,
           },
           session.sessionId,
-          groupId,
           this.manager,
         );
       }
@@ -346,7 +345,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     subsystem: Subsystem,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     const fileSystemId = subsystem.fileSystemId;
 
     await this.writer.writeCreate(
@@ -362,7 +361,6 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
     await this.writer.writeCreate(
@@ -378,7 +376,6 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
 
@@ -401,7 +398,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     systemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     const sessionId = session.sessionId;
     const fileSystemId = session.fileSystemId;
     const [dataPorts, controlPorts] = await Promise.all([
@@ -423,7 +420,6 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
             ...options,
           },
           sessionId,
-          groupId,
           this.manager,
         );
       }
@@ -437,7 +433,6 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
           ...options,
         },
         sessionId,
-        groupId,
         this.manager,
       );
     }
@@ -450,7 +445,6 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
           ...options,
         },
         sessionId,
-        groupId,
         this.manager,
       );
     }
@@ -462,7 +456,6 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
         ...options,
       },
       sessionId,
-      groupId,
       this.manager,
     );
     await this.writer.writeDelete(
@@ -473,7 +466,6 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
         ...options,
       },
       sessionId,
-      groupId,
       this.manager,
     );
   }
@@ -483,7 +475,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     name: string,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     await this.writer.writeDelta(
       {
         targetTable: ENTITY_NAMES.Subsystem,
@@ -493,7 +485,6 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }
@@ -503,7 +494,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     keySystemIds: number[],
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     await this.writer.writeDelta(
       {
         targetTable: ENTITY_NAMES.Subsystem,
@@ -513,7 +504,6 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }
@@ -523,7 +513,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     subsystemSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     await this.writer.writeCreate(
       {
         targetTable: ENTITY_NAMES.DataPort,
@@ -540,7 +530,6 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }
@@ -550,7 +539,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     subsystemSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     await this.writer.writeDelete(
       {
         targetTable: ENTITY_NAMES.DataPort,
@@ -559,7 +548,6 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }
@@ -569,7 +557,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     subsystemSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     await this.writer.writeCreate(
       {
         targetTable: ENTITY_NAMES.ControlPort,
@@ -585,7 +573,6 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }
@@ -595,7 +582,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     subsystemSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     await this.writer.writeDelete(
       {
         targetTable: ENTITY_NAMES.ControlPort,
@@ -604,7 +591,6 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }
@@ -614,7 +600,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     parentSubsystemSystemId: number | null,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     await this.writer.writeDelta(
       {
         targetTable: ENTITY_NAMES.Node,
@@ -624,7 +610,6 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }

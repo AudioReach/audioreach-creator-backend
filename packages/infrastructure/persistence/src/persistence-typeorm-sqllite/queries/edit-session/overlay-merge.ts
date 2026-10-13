@@ -12,7 +12,10 @@ import {
 import type {ChangeOperation, PendingChangeStatus} from '@arc/core';
 import type {EditActionRow} from '../../entity-schema/edit-session/edit-action.schema.js';
 import type {DiffEntry} from './field-path-reducer.js';
-import {FieldPathReducer as FieldPathReducerImpl} from './field-path-reducer.js';
+import {
+  FieldPathReducer as FieldPathReducerImpl,
+  getFieldCoverage,
+} from './field-path-reducer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 
 // ── Public types ──────────────────────────────────────────────────────────────
@@ -86,6 +89,8 @@ export class OverlayMergeImpl implements OverlayMerge {
         ? null
         : result;
     }
+
+    assertCurrentProjection(pendingRows);
 
     const createAction = pendingRows.find(
       row => row.operation === CHANGE_OPERATION.Create,
@@ -230,6 +235,54 @@ function computePendingChangeStatus(
     : PENDING_CHANGE_STATUS.Staged;
 }
 
+function assertCurrentProjection(rows: readonly EditActionRow[]): void {
+  assertCurrentLifecycle(rows);
+  assertDisjointUpdateCoverage(rows);
+}
+
+function assertCurrentLifecycle(rows: readonly EditActionRow[]): void {
+  const creates = rows.filter(row => row.operation === CHANGE_OPERATION.Create);
+  const updates = rows.filter(row => row.operation === CHANGE_OPERATION.Update);
+  const deletes = rows.filter(row => row.operation === CHANGE_OPERATION.Delete);
+
+  const validLifecycle =
+    rows.length === 0 ||
+    (creates.length === 1 && rows.length === 1) ||
+    updates.length === rows.length ||
+    (deletes.length === 1 && rows.length === 1);
+  if (!validLifecycle) {
+    throw new Error('Corrupt current pending target lifecycle shape.');
+  }
+}
+
+function assertDisjointUpdateCoverage(rows: readonly EditActionRow[]): void {
+  const updates = rows.filter(row => row.operation === CHANGE_OPERATION.Update);
+  const covered = new Set<string>();
+  let wholeRow = false;
+  for (const row of updates) {
+    let coverage: ReturnType<typeof getFieldCoverage>;
+    try {
+      coverage = getFieldCoverage(row.fieldPath, row.newValue);
+    } catch (error) {
+      throw new Error(
+        `Corrupt current pending field storage: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    if (wholeRow || (coverage.wholeRow && covered.size > 0)) {
+      throw new Error('Corrupt overlapping current pending field storage.');
+    }
+    wholeRow ||= coverage.wholeRow;
+    for (const field of coverage.fields) {
+      if (covered.has(field)) {
+        throw new Error(
+          `Corrupt overlapping current pending field storage for '${field}'.`,
+        );
+      }
+      covered.add(field);
+    }
+  }
+}
+
 function deepClone<T>(value: T): T {
   return structuredClone(value);
 }
@@ -261,10 +314,8 @@ function toEditActionRow(ea: EditActionForOverlay): EditActionRow {
     newValue: ea.newValue,
     source: SOURCE.Manual,
     changeStatus: CHANGE_STATUS.Staged,
-    groupId: null,
     linkedEntityGroupId: null,
     createdAt: new Date(0),
-    validUntil: null,
   };
 }
 

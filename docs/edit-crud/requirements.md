@@ -37,7 +37,7 @@ These requirements define **what** the write path of the AudioReach Creator Back
 - Commit and undo/redo behavior.
 - Three-way DiffMerge workflow, change granularity, atomic cross-entity groups.
 - DiffMerge-exclusive write operations: Reference-file definition import; `CREATE` and `UPDATE` on definition entities (e.g., key-value definitions).
-- Manual user-authored edits during a DiffMerge session (conflict resolution and manual authoring) — treated as user-initiated writes and staged by default.
+- Manual user-authored edits during a DiffMerge session (conflict resolution and manual authoring) — new pending slots are staged by default, while replacement of an existing pending slot preserves that slot's status.
 - Stage/unstage APIs, change summary API, visual diff on entity GETs.
 - Designer-mode pending-change surfacing.
 
@@ -93,7 +93,7 @@ These requirements define **what** the write path of the AudioReach Creator Back
 
 **REQ-SESS-06:** Every write API call shall declare the session mode(s) it accepts. Calls made under a disallowed mode shall be rejected with `403 Forbidden`.
 
-**REQ-SESS-07:** Module structural modifications, module port modifications, Add Module, Add DataPort, and Add ControlPort operations shall be permitted under both `DESIGNER` mode and `DIFF_MERGE` mode. Performing these operations under `DIFF_MERGE` mode represents user-driven manual authoring during a merge session — analogous to the user manually editing files during a git rebase conflict resolution — and shall follow the same staging rules as `DESIGNER` (see REQ-EA-04): user-initiated edits are `STAGED` by default regardless of mode.
+**REQ-SESS-07:** Module structural modifications, module port modifications, Add Module, Add DataPort, and Add ControlPort operations shall be permitted under both `DESIGNER` mode and `DIFF_MERGE` mode. Performing these operations under `DIFF_MERGE` mode represents user-driven manual authoring during a merge session — analogous to the user manually editing files during a git rebase conflict resolution — and shall follow REQ-EA-04: a new manual pending slot is `STAGED` by default, while replacement of an existing pending slot preserves its status.
 
 **REQ-SESS-08:** DiffMerge staging, unstaging, and change-summary retrieval operations shall be permitted only under `DIFF_MERGE` mode.
 
@@ -101,7 +101,7 @@ These requirements define **what** the write path of the AudioReach Creator Back
 - Importing module definitions from the Reference file into the Target file.
 - `CREATE` and `UPDATE` on definition entities (e.g., module key-value definitions and other definition-scoped data) that are read-only in `DESIGNER` mode.
 
-**REQ-SESS-12 (Manual conflict-resolution edits are STAGED):** When the user performs a designer-style write operation while in `DIFF_MERGE` mode — including edits made to resolve merge conflicts introduced by a prior diff apply — the resulting edit-action shall be recorded with `changeStatus = STAGED`. These user-authored edits are conceptually a manually-authored diff applied by the user, not by the diff-compare tool, and they bypass the DiffMerge selection panel.
+**REQ-SESS-12 (Manual conflict-resolution status):** When a designer-style write in `DIFF_MERGE` mode creates a new pending field, group, relationship, or entity slot, that slot shall start `STAGED`. When the write replaces an existing pending slot, including refinement of a pending CREATE, the replacement shall preserve that slot's current `STAGED` or `UNSTAGED` status. Aggregate-level `PARTIAL` is a derived display state and shall never be copied onto a row.
 
 ### 3.3 End-Session Behavior
 
@@ -125,11 +125,9 @@ These requirements define **what** the write path of the AudioReach Creator Back
 
 ### 4.2 Staging Defaults
 
-**REQ-EA-04 (Auto-staged by user):** All user-initiated write API calls shall produce edit-actions with `changeStatus = STAGED`, regardless of session mode. No separate staging call shall be required for user-initiated writes in either `DESIGNER` or `DIFF_MERGE` mode. (See REQ-SESS-12 for the DIFF_MERGE-specific rationale.)
+**REQ-EA-04 (User-write status):** A user-initiated write to a slot with no current pending row shall create a `STAGED` row. A user-initiated write that replaces an existing current slot shall preserve that slot's current `STAGED` or `UNSTAGED` status. Only an explicit stage or unstage operation shall otherwise change the status of existing pending work. (See REQ-SESS-12 for `DIFF_MERGE` semantics.)
 
-**REQ-EA-05 (Algorithm-produced changes — default UNSTAGED, diff-tool may override):** Changes produced by algorithmic writers shall default to `changeStatus = UNSTAGED`. Promotion to `STAGED` requires an explicit user action through the staging mechanism appropriate to the writer: the DiffMerge Stage API (§12) for diff-tool changes, and the auto-routing stage API (defined in the auto-usecase-routing spec) for auto-routed UseCases.
-
-The diff-compare tool MAY override this default on a per-apply-diff-call basis when the user configures it — producing rows with `changeStatus = STAGED` directly for workflows where up-front review is not required. When the tool applies its writes as `STAGED`, they behave identically to user-manual STAGED writes: they are committed by the next commit call and do not appear as items awaiting selection in the change summary. Auto-routing does not support this override and always produces `UNSTAGED` rows.
+**REQ-EA-05 (Algorithm-produced change status):** The diff-compare tool shall create all changes from one apply operation as either `STAGED` or `UNSTAGED`, according to apply configuration. Pending storage shall support either configured value without hard-coding the product default. Auto-routing remains governed by its own staging requirements.
 
 ### 4.3 Payload Rules by Operation
 
@@ -297,13 +295,13 @@ The specific storage strategy that achieves the above (superseding the current e
 
 **REQ-TM-02:** The diff-compare tool shall compute what changed between Reference and Base, decide the granularity of each change (independently-selectable field, atomic multi-field group, cross-entity atomic group, or whole-entity replacement), and stage those changes against the Target file's active `DIFF_MERGE` session. The tool submits changes through the same edit-repository methods used by user-initiated writes; the specific submission mechanism (direct in-process invocation of the write path vs. an external wire format) is a design choice. Pure comparison (without staging) shall be an independently-invokable capability so that compare-only responses can be served without a session write.
 
-**REQ-TM-03:** All change units produced by the diff-compare tool and applied to the Target file's session shall start as `UNSTAGED`. Nothing produced by the diff-compare tool shall be selected by default on first load. (This applies to changes emitted by the diff-compare tool; it does not apply to user-initiated manual edits performed under `DIFF_MERGE` mode, which follow REQ-EA-04 / REQ-SESS-12 and are `STAGED` by default.)
+**REQ-TM-03:** All change units produced by one diff-apply operation shall use the `STAGED` or `UNSTAGED` status selected by that operation's configuration. The default configuration is outside the edit-action storage redesign. User-initiated manual edits follow REQ-EA-04 / REQ-SESS-12: new manual slots start `STAGED`, while manual replacement of a tool-emitted slot preserves that slot's existing status.
 
 **REQ-TM-04:** The user shall review proposed changes, stage the ones they want, and commit. Only staged change units shall be applied to the Target file at commit time.
 
 **REQ-TM-05:** `UNSTAGED` change units shall be discarded when the session ends.
 
-**REQ-TM-06 (Idempotent apply):** Applying a diff to an active DiffMerge session shall be idempotent. Re-applying shall clear all existing `UNSTAGED` edit-actions for that session and rewrite them from the new diff result.
+**REQ-TM-06 (Single diff application per session):** A diff may be applied at most once to an active `DIFF_MERGE` session. Re-applying a diff to the same session shall be rejected. To recompute or re-add diff changes, the user shall close the current session, start a fresh `DIFF_MERGE` session, and apply the diff there.
 
 ---
 
@@ -539,21 +537,19 @@ The specific storage strategy that achieves the above (superseding the current e
 
 **OQ-1 — Property data for auto-created aggregates:** REQ-ADD-04 requires default subgraph and container property data to be staged as CREATEs on Add Module. The exact set of property definitions to seed (and whether they are read from a per-file or global source) is deferred to the Add Module design LLD.
 
-**OQ-2 — Change identifier stability across re-apply:** REQ-TM-06 (idempotent apply) rewrites `UNSTAGED` edit-actions on re-apply. Whether change identifiers must be stable across re-applies (so the UI's prior staging survives a re-apply) is an open question for the DiffMerge design LLD.
+**OQ-2 — Change identifier stability across re-apply — RESOLVED:** REQ-TM-06 permits only one diff application per active `DIFF_MERGE` session. Recomputing the diff requires a fresh session, so change identifiers do not need to remain stable across re-application.
 
 **OQ-3 — Change-summary hierarchy for aggregates spanning multiple API-call groups:** REQ-CS-02 requires hierarchical presentation; multiple API-call groups (§6) may touch the same aggregate root. The composition rule (how groupings across the same aggregate compose in the summary tree) is an open question for the design LLD.
 
-**OQ-4 — Manual STAGED edit superseding a tool-emitted UNSTAGED edit for the same entity:** Under `DIFF_MERGE` mode, a user's manual edit (REQ-SESS-12) may target an entity that already has an `UNSTAGED` diff-tool edit-action (REQ-EA-05). REQ-EA-02 permits only one current edit-action per `(sessionId, systemId)`. Open questions: (a) does the manual edit supersede the tool edit? (b) if so, does the resulting edit-action's payload accumulate over the tool payload or replace it? (c) does the resulting edit-action inherit `STAGED` (per REQ-SESS-12) or does the tool's `UNSTAGED` provenance persist as a separate selectable line? Design LLD must resolve.
-
-**Storage-mechanism half resolved:** the reference design supersession key is `(sessionId, targetSystemId, fieldPath)` — not `(sessionId, systemId)` — so manual rows (typically scalar `fieldPath`) and tool rows (typically `"$"` or a custom named group) target *different* fieldPaths and coexist without supersession. The read overlay folds all active rows in `createdAt` order (later writes win per column). This resolves (a) and (b) mechanically: both edits remain independently stored, and the effective state is a deterministic per-field fold. Part (c) — selection-panel semantics when a manual STAGED row overrides a field also covered by a tool UNSTAGED row — remains open for the DiffMerge LLD (see OQ-6).
+**OQ-4 — Manual edit replacing a tool-emitted value — RESOLVED:** `fieldPath` defines logical current slots, and one field may be stored by only one field storage slot. A manual edit updates that slot instead of creating an overlapping row. For UPDATE, the slot source becomes `MANUAL`; its status and linked-selection membership remain unchanged. For CREATE, the complete latest payload remains in one CREATE row and its origin source remains unchanged. Exact-slot replacement preserves `changeId`, and no superseded value is retained.
 
 **OQ-5 — Change-summary treatment of user-authored STAGED edits in DIFF_MERGE:** REQ-DEF-08 states user-authored `DIFF_MERGE` edits are not part of the selection panel. Whether they appear in the change-summary payload at all (as read-only entries, informational entries, or omitted entirely) is an open question for the DiffMerge design LLD.
 
 **OQ-6 — Selection controls in a DIFF_MERGE session containing both change kinds:** REQ-CV-01 places selection controls on entities in `DIFF_MERGE` mode. When an entity has both an `UNSTAGED` tool-emitted change and a `STAGED` user-authored change (see OQ-4), the semantics of the entity-level selection control (does it toggle only the UNSTAGED portion? all of it?) is an open question for the design LLD.
 
-**OQ-7 — DTO-level tension: Designer accumulation vs DiffMerge field-level granularity — RESOLVED:** Storage uses a `fieldPath` addressing scheme that lets each pending-change row target any atomicity granularity — `null` or `"$"` for whole-entity accumulator (Designer default; subsequent SETs merge via read-modify-write into a single active row per entity), a scalar column name for independent per-field granularity (DiffMerge default when the tool marks fields independent), a custom named group for multi-column atomic units, or an element path like `elements[id]` for sub-column atomicity in serialized-string columns. Supersession is keyed by `(sessionId, targetSystemId, fieldPath) WHERE validUntil IS NULL`. Both DTO projections — Designer's single accumulated change unit (REQ-DM-03) and DiffMerge's independently-selectable per-field units (REQ-CG-01) — are naturally supported by the same underlying storage without read-time transformation. The commit reducer dispatches on `fieldPath` shape (scalar column, `"$"` full row, named group of columns, or element-in-serialized-column) rather than on any interpretation of custom field names.
+**OQ-7 — DTO-level tension: Designer accumulation vs DiffMerge field-level granularity — RESOLVED AND AMENDED:** Storage uses `fieldPath` to address one current atomic slot: `null` for a Designer accumulator, `"$"` for CREATE or whole-row replacement, a scalar column for one field, a custom name for a multi-field group, or an element path for structured content. Exact-slot writes update the stable current row in place, and the mutation boundary prevents overlapping storage of the same field. There is no `validUntil` history chain. Designer and DiffMerge DTOs project from this same current state.
 
-**OQ-8 — API-call tracking handle representation — RESOLVED:** Every write API call returns both a `groupId` (a UUID stamped by the write handler on every pending-change row the call produces) and the list of `changeId`s produced. Undo and Redo use `groupId` as the API-call atomic boundary. Stage and Unstage accept `groupId`s, change-unit identifiers, or a mix as their initial selection set, then expand that set through atomic groups and directed dependencies according to §§11-12. This degenerates cleanly for single-change API calls.
+**OQ-8 — API-call tracking handle representation — SUPERSEDED:** The current-state requirements remove API-call `groupId` from current pending rows. Current selection uses current change handles and linked-selection metadata. A future undo release stores command identity and affected-target membership in separate operation and memento tables.
 
 ---
 

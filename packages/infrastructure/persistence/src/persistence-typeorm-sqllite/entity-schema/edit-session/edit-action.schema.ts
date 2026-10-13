@@ -24,10 +24,8 @@ export interface EditActionRow {
   newValue: unknown; // simple-json
   source: Source;
   changeStatus: ChangeStatus;
-  groupId: string | null;
   linkedEntityGroupId: string | null;
   createdAt: Date;
-  validUntil: Date | null;
   session?: ProjectSessionRow;
 }
 
@@ -76,7 +74,7 @@ export const EditActionSchema = new EntitySchema<EditActionRow>({
     newValue: {
       name: 'new_value',
       type: 'simple-json',
-      nullable: true,
+      nullable: false,
       transformer: {
         to: (value: unknown) => serializeBlobs(value),
         from: (value: unknown) => deserializeBlobs(value),
@@ -94,11 +92,6 @@ export const EditActionSchema = new EntitySchema<EditActionRow>({
       enum: Object.values(CHANGE_STATUS),
       default: CHANGE_STATUS.Staged,
     },
-    groupId: {
-      name: 'group_id',
-      type: 'text',
-      nullable: true,
-    },
     linkedEntityGroupId: {
       name: 'linked_entity_group_id',
       type: 'varchar',
@@ -108,11 +101,6 @@ export const EditActionSchema = new EntitySchema<EditActionRow>({
       name: 'created_at',
       type: 'datetime',
       createDate: true,
-    },
-    validUntil: {
-      name: 'valid_until',
-      type: 'datetime',
-      nullable: true,
     },
   },
   relations: {
@@ -125,44 +113,40 @@ export const EditActionSchema = new EntitySchema<EditActionRow>({
   },
   indices: [
     {
-      name: 'uniq_edit_actions_current',
+      // Each non-null field path is one independently replaceable current slot.
+      name: 'uniq_edit_actions_slot',
       columns: ['sessionId', 'targetTable', 'targetSystemId', 'fieldPath'],
       unique: true,
-      where: '"valid_until" IS NULL',
+      where: '"field_path" IS NOT NULL',
     },
     {
-      // SQLite treats each NULL as distinct in unique indexes, so the above
-      // index does NOT enforce uniqueness for accumulator rows (fieldPath IS NULL).
-      // This separate index covers that case.
-      name: 'uniq_edit_actions_current_null_path',
+      // SQLite allows multiple NULL values in a unique index. This separate
+      // index makes the null field path a single target-wide accumulator slot.
+      name: 'uniq_edit_actions_null_slot',
       columns: ['sessionId', 'targetTable', 'targetSystemId'],
       unique: true,
-      where: '"valid_until" IS NULL AND "field_path" IS NULL',
+      where: '"field_path" IS NULL',
     },
     {
-      name: 'idx_edit_actions_agg_active',
+      name: 'idx_edit_actions_aggregate',
       columns: ['sessionId', 'aggregateId'],
-      where: '"valid_until" IS NULL',
     },
     {
-      name: 'idx_edit_actions_table_active',
-      columns: ['sessionId', 'targetTable'],
-      where: '"valid_until" IS NULL',
+      name: 'idx_edit_actions_target',
+      columns: ['sessionId', 'targetTable', 'targetSystemId'],
     },
     {
-      name: 'idx_edit_actions_status_active',
-      columns: ['sessionId', 'changeStatus'],
-      where: '"valid_until" IS NULL',
-    },
-    {
-      name: 'idx_edit_actions_source_active',
+      name: 'idx_edit_actions_source',
       columns: ['sessionId', 'source'],
-      where: '"valid_until" IS NULL',
     },
     {
-      name: 'idx_edit_actions_xgroup_active',
+      name: 'idx_edit_actions_status',
+      columns: ['sessionId', 'changeStatus'],
+    },
+    {
+      name: 'idx_edit_actions_linked_group',
       columns: ['sessionId', 'linkedEntityGroupId'],
-      where: '"valid_until" IS NULL AND "linked_entity_group_id" IS NOT NULL',
+      where: '"linked_entity_group_id" IS NOT NULL',
     },
   ],
 });

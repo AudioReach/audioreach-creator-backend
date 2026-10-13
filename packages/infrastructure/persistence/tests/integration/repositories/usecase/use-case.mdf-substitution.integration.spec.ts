@@ -43,7 +43,7 @@ interface NormalizedEditAction {
   readonly entity: 'usecase' | 'usecase_subgraph' | 'usecase_data_link';
   readonly operation: 'CREATE' | 'UPDATE' | 'DELETE';
   readonly aggregateSystemId: number;
-  readonly groupId: string;
+  readonly groupId: string | null;
   readonly sourceSubgraphSystemId: number | null;
   readonly destSubgraphSystemId: number | null;
   readonly subgraphSystemId: number | null;
@@ -272,7 +272,7 @@ async function createMdfPersistenceHarness(): Promise<MdfPersistenceHarness> {
     ReadonlyArray<NormalizedEditAction>
   > {
     const rows: Array<Record<string, unknown>> = await dataSource.query(
-      `SELECT target_table, target_system_id, operation, aggregate_id, group_id, new_value
+      `SELECT target_table, target_system_id, operation, aggregate_id, linked_entity_group_id, new_value
        FROM edit_actions WHERE session_id = ? ORDER BY change_id`,
       [session.sessionId],
     );
@@ -307,7 +307,10 @@ async function createMdfPersistenceHarness(): Promise<MdfPersistenceHarness> {
           entity,
           operation,
           aggregateSystemId: Number(row.aggregate_id),
-          groupId: String(row.group_id),
+          groupId:
+            row.linked_entity_group_id === null
+              ? null
+              : String(row.linked_entity_group_id),
           sourceSubgraphSystemId: payload.sourceSubgraphSystemId ?? null,
           destSubgraphSystemId: payload.destSubgraphSystemId ?? null,
           subgraphSystemId: payload.subgraphSystemId ?? null,

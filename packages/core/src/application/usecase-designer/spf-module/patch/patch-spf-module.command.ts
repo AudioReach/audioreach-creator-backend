@@ -11,7 +11,7 @@ import type {SessionMode} from '../../../shared/change-vocabulary.js';
  * Backs PATCH /arc-api/v1/projects/:projectId/spf-modules/:spfModuleSystemId.
  *
  * All payload fields are optional — the handler applies only those that are
- * defined. All applied changes share one groupId → one atomic undo/redo unit.
+ * defined. Its result returns the per-command groupId for correlation.
  */
 export class PatchSpfModuleCommand extends BaseCommand {
   static override readonly requiresSession = true;

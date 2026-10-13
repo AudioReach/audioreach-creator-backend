@@ -18,7 +18,12 @@ import {
   getTestRepository,
   getTestDataSource,
 } from '../helpers/test-database-setup.js';
-import {SOURCE, CHANGE_STATUS, CHANGE_OPERATION} from '@arc/core';
+import {
+  SOURCE,
+  CHANGE_STATUS,
+  CHANGE_OPERATION,
+  PENDING_CHANGE_STATUS,
+} from '@arc/core';
 import {
   ProjectSessionSchema,
   type ProjectSessionRow,
@@ -30,8 +35,6 @@ import {ArcDbFileSchema} from '../../../src/persistence-typeorm-sqllite/entity-s
 import {ENTITY_NAMES} from '../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {EditActionsQueryService} from '../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 import {OverlayMergeImpl} from '../../../src/persistence-typeorm-sqllite/queries/edit-session/overlay-merge.js';
-import {FieldPathReducer} from '../../../src/persistence-typeorm-sqllite/queries/edit-session/field-path-reducer.js';
-import {PENDING_CHANGE_STATUS} from '@arc/core';
 
 /**
  * Integration test: full staging + query + overlay cycle.
@@ -51,7 +54,7 @@ describe('Staging + overlay cycle — integration', () => {
     await setupIntegrationTest();
     const ds = getTestDataSource();
     queryService = new EditActionsQueryService(ds.manager);
-    overlayMerge = new OverlayMergeImpl(new FieldPathReducer());
+    overlayMerge = new OverlayMergeImpl();
   });
 
   afterAll(async () => {
@@ -115,8 +118,8 @@ describe('Staging + overlay cycle — integration', () => {
 
     // 2. Insert a pending UPDATE row directly into edit_actions
     await ds.query(
-      `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, linked_entity_group_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         sessionId,
         aggregateId,
@@ -127,7 +130,6 @@ describe('Staging + overlay cycle — integration', () => {
         JSON.stringify({name: 'RenamedKey'}),
         SOURCE.Manual,
         CHANGE_STATUS.Staged,
-        'grp-test',
         null,
       ],
     );
@@ -166,8 +168,8 @@ describe('Staging + overlay cycle — integration', () => {
     const committedRow = {systemId: targetSystemId, name: 'ToBeDeleted'};
 
     await ds.query(
-      `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, linked_entity_group_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         sessionId,
         aggregateId,
@@ -178,7 +180,6 @@ describe('Staging + overlay cycle — integration', () => {
         '{}',
         SOURCE.Manual,
         CHANGE_STATUS.Staged,
-        'grp-delete',
         null,
       ],
     );

@@ -174,7 +174,6 @@ async function getActiveActions(qr: QueryRunner, sessionId: number) {
     .getRepository(EditActionSchema)
     .createQueryBuilder('editAction')
     .where('editAction.sessionId = :sessionId', {sessionId})
-    .andWhere('editAction.validUntil IS NULL')
     .orderBy('editAction.changeId', 'ASC')
     .getMany();
 }
@@ -262,10 +261,9 @@ describe('TypeOrmModuleRepository (integration)', () => {
         targetTable: ENTITY_NAMES.SpfModule,
         operation: CHANGE_OPERATION.Delete,
         fieldPath: null,
-        newValue: null,
+        newValue: {},
         source: SOURCE.Manual,
         changeStatus: CHANGE_STATUS.Unstaged,
-        groupId: 'existing-delete',
         linkedEntityGroupId: null,
       });
 
@@ -290,7 +288,6 @@ describe('TypeOrmModuleRepository (integration)', () => {
           delta: {stackSize: 12},
         },
         sessionId,
-        'definition-update',
         qr.manager,
       );
 
@@ -321,7 +318,6 @@ describe('TypeOrmModuleRepository (integration)', () => {
           delta: {stackSize: 12},
         },
         sessionId,
-        'definition-update',
         qr.manager,
       );
 
@@ -392,7 +388,7 @@ describe('TypeOrmModuleRepository (integration)', () => {
   });
 
   describe('deleteModule', () => {
-    it('records deletes for module-owned rows under one operation group', async () => {
+    it('records deletes for module-owned rows as current state', async () => {
       await seedModule(ds);
       await seedDataPort(ds, 600);
       await seedControlPort(ds, 601);
@@ -410,7 +406,6 @@ describe('TypeOrmModuleRepository (integration)', () => {
           targetTable: action.targetTable,
           targetSystemId: action.targetSystemId,
           aggregateId: action.aggregateId,
-          groupId: action.groupId,
         })),
       ).toEqual(
         expect.arrayContaining([
@@ -418,36 +413,28 @@ describe('TypeOrmModuleRepository (integration)', () => {
             targetTable: ENTITY_NAMES.Intent,
             targetSystemId: 701,
             aggregateId: MODULE_ID,
-            groupId: 'test-group',
           },
           {
             targetTable: ENTITY_NAMES.DataPort,
             targetSystemId: 600,
             aggregateId: MODULE_ID,
-            groupId: 'test-group',
           },
           {
             targetTable: ENTITY_NAMES.ControlPort,
             targetSystemId: 601,
             aggregateId: MODULE_ID,
-            groupId: 'test-group',
           },
           {
             targetTable: ENTITY_NAMES.SpfModule,
             targetSystemId: MODULE_ID,
             aggregateId: MODULE_ID,
-            groupId: 'test-group',
           },
           {
             targetTable: ENTITY_NAMES.Node,
             targetSystemId: MODULE_ID,
             aggregateId: MODULE_ID,
-            groupId: 'test-group',
           },
         ]),
-      );
-      expect(new Set(deletes.map(action => action.groupId))).toEqual(
-        new Set(['test-group']),
       );
     });
   });

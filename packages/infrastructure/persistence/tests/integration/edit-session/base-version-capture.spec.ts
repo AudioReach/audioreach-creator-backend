@@ -31,6 +31,7 @@ import {
   SessionEntityVersionSchema,
   type SessionEntityVersionRow,
 } from '../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/session-entity-version.schema.js';
+import {ENTITY_NAMES} from '../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 
 /**
  * Integration test: INSERT-IGNORE capture-once semantics on session_entity_versions.
@@ -89,8 +90,8 @@ describe('baseVersion capture-once — integration', () => {
     const sessionId = await createSessionFixture();
     const ds = getTestDataSource();
     await ds.query(
-      `INSERT OR IGNORE INTO session_entity_versions (session_id, target_system_id, base_version) VALUES (?, ?, ?)`,
-      [sessionId, 42, 7],
+      `INSERT OR IGNORE INTO session_entity_versions (session_id, target_table, target_system_id, base_version) VALUES (?, ?, ?, ?)`,
+      [sessionId, ENTITY_NAMES.SpfModule, 42, 7],
     );
     const rows = await versionRepo.find({
       where: {sessionId, targetSystemId: 42},
@@ -103,12 +104,12 @@ describe('baseVersion capture-once — integration', () => {
     const sessionId = await createSessionFixture();
     const ds = getTestDataSource();
     await ds.query(
-      `INSERT OR IGNORE INTO session_entity_versions (session_id, target_system_id, base_version) VALUES (?, ?, ?)`,
-      [sessionId, 42, 7],
+      `INSERT OR IGNORE INTO session_entity_versions (session_id, target_table, target_system_id, base_version) VALUES (?, ?, ?, ?)`,
+      [sessionId, ENTITY_NAMES.SpfModule, 42, 7],
     );
     await ds.query(
-      `INSERT OR IGNORE INTO session_entity_versions (session_id, target_system_id, base_version) VALUES (?, ?, ?)`,
-      [sessionId, 42, 99],
+      `INSERT OR IGNORE INTO session_entity_versions (session_id, target_table, target_system_id, base_version) VALUES (?, ?, ?, ?)`,
+      [sessionId, ENTITY_NAMES.SpfModule, 42, 99],
     );
     const rows = await versionRepo.find({
       where: {sessionId, targetSystemId: 42},
@@ -121,12 +122,12 @@ describe('baseVersion capture-once — integration', () => {
     const sessionId = await createSessionFixture();
     const ds = getTestDataSource();
     await ds.query(
-      `INSERT OR IGNORE INTO session_entity_versions (session_id, target_system_id, base_version) VALUES (?, ?, ?)`,
-      [sessionId, 10, 1],
+      `INSERT OR IGNORE INTO session_entity_versions (session_id, target_table, target_system_id, base_version) VALUES (?, ?, ?, ?)`,
+      [sessionId, ENTITY_NAMES.SpfModule, 10, 1],
     );
     await ds.query(
-      `INSERT OR IGNORE INTO session_entity_versions (session_id, target_system_id, base_version) VALUES (?, ?, ?)`,
-      [sessionId, 20, 2],
+      `INSERT OR IGNORE INTO session_entity_versions (session_id, target_table, target_system_id, base_version) VALUES (?, ?, ?, ?)`,
+      [sessionId, ENTITY_NAMES.SpfModule, 20, 2],
     );
     const all = await versionRepo.find({where: {sessionId}});
     expect(all).toHaveLength(2);
@@ -141,8 +142,8 @@ describe('baseVersion capture-once — integration', () => {
     const sessionId = await createSessionFixture();
     const ds = getTestDataSource();
     await ds.query(
-      `INSERT OR IGNORE INTO session_entity_versions (session_id, target_system_id, base_version) VALUES (?, ?, ?)`,
-      [sessionId, 10, 3],
+      `INSERT OR IGNORE INTO session_entity_versions (session_id, target_table, target_system_id, base_version) VALUES (?, ?, ?, ?)`,
+      [sessionId, ENTITY_NAMES.SpfModule, 10, 3],
     );
     await sessionRepo.delete(sessionId);
     const rows = await versionRepo.find({where: {sessionId}});

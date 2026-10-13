@@ -124,9 +124,8 @@ describe('Module PATCH write path (integration)', () => {
     await qr.release();
   });
 
-  it('multi-field patch: all edit_actions rows share the same group_id', async () => {
+  it('multi-field patch persists current rows without command group metadata', async () => {
     const sessionId = await seedSession(ds);
-    const groupId = 'shared-group-uuid';
     const uow = {
       getWriteContext: () => ({
         session: {
@@ -135,7 +134,7 @@ describe('Module PATCH write path (integration)', () => {
           mode: SESSION_MODE.Designer,
           projectId: '1',
         },
-        groupId,
+        groupId: 'shared-group-uuid',
       }),
     } as any;
     const repo = new TypeOrmModuleRepository(
@@ -155,13 +154,10 @@ describe('Module PATCH write path (integration)', () => {
     await qr.commitTransaction();
 
     const rows: any[] = await ds.query(
-      `SELECT group_id FROM edit_actions WHERE session_id = ? AND aggregate_id = ?`,
+      `SELECT change_id FROM edit_actions WHERE session_id = ? AND aggregate_id = ?`,
       [sessionId, MODULE_ID],
     );
     expect(rows.length).toBeGreaterThanOrEqual(2);
-    const groupIds = new Set(rows.map((r: any) => r.group_id));
-    expect(groupIds.size).toBe(1);
-    expect([...groupIds][0]).toBe(groupId);
   });
 
   it('two renameModule calls: second supersedes first — one active row remains', async () => {
@@ -188,10 +184,10 @@ describe('Module PATCH write path (integration)', () => {
     await qr.commitTransaction();
 
     const activeRows: any[] = await ds.query(
-      `SELECT * FROM edit_actions WHERE session_id = ? AND aggregate_id = ? AND valid_until IS NULL`,
+      `SELECT * FROM edit_actions WHERE session_id = ? AND aggregate_id = ?`,
       [sessionId, MODULE_ID],
     );
-    // Accumulator mode: second rename should supersede first → 1 active row
+    // Accumulator mode: the second rename updates the stable current row.
     expect(activeRows).toHaveLength(1);
     const parsed = JSON.parse(activeRows[0].new_value);
     // The accumulated value should reflect 'second' alias

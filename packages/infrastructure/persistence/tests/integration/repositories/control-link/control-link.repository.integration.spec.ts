@@ -206,7 +206,6 @@ async function getActiveActions(qr: QueryRunner, sessionId: number) {
     .getRepository(EditActionSchema)
     .createQueryBuilder('editAction')
     .where('editAction.sessionId = :sessionId', {sessionId})
-    .andWhere('editAction.validUntil IS NULL')
     .orderBy('editAction.changeId', 'ASC')
     .getMany();
 }
@@ -303,7 +302,7 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
         targetTable: action.targetTable,
         targetSystemId: action.targetSystemId,
         operation: action.operation,
-        groupId: action.groupId,
+        linkedEntityGroupId: action.linkedEntityGroupId,
       })),
     ).toEqual(
       expect.arrayContaining([
@@ -311,19 +310,19 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
           targetTable: ENTITY_NAMES.ControlLink,
           targetSystemId: 800,
           operation: CHANGE_OPERATION.Delete,
-          groupId: 'test-group',
+          linkedEntityGroupId: null,
         },
         {
           targetTable: ENTITY_NAMES.SubsystemControlLink,
           targetSystemId: 801,
           operation: CHANGE_OPERATION.Delete,
-          groupId: 'test-group',
+          linkedEntityGroupId: null,
         },
         {
           targetTable: ENTITY_NAMES.SubsystemControlLink,
           targetSystemId: 802,
           operation: CHANGE_OPERATION.Delete,
-          groupId: 'test-group',
+          linkedEntityGroupId: null,
         },
       ]),
     );
@@ -375,10 +374,9 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
       actions.filter(
         action =>
           action.targetTable === ENTITY_NAMES.SubsystemControlLink &&
-          action.targetSystemId === 803 &&
-          action.operation === CHANGE_OPERATION.Delete,
+          action.targetSystemId === 803,
       ),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
     expect(
       actions.filter(
         action =>

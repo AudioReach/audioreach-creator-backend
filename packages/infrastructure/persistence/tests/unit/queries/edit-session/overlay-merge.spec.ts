@@ -5,8 +5,12 @@
 
 import {describe, it, expect, beforeEach} from '@jest/globals';
 import {OverlayMergeImpl} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/overlay-merge.js';
-import {FieldPathReducer} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/field-path-reducer.js';
-import {CHANGE_OPERATION, CHANGE_STATUS, SOURCE} from '@arc/core';
+import {
+  CHANGE_OPERATION,
+  CHANGE_STATUS,
+  PENDING_CHANGE_STATUS,
+  SOURCE,
+} from '@arc/core';
 import type {EditActionRow} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/edit-action.schema.js';
 
 type TestRow = {systemId: number; alias: string; instanceId: number};
@@ -28,9 +32,7 @@ function makeRow(
     source: SOURCE.Manual,
     changeStatus: CHANGE_STATUS.Staged,
     linkedEntityGroupId: null,
-    groupId: null,
     createdAt: new Date('2026-01-01T00:00:00Z'),
-    validUntil: null,
     ...overrides,
   } as unknown as EditActionRow;
 }
@@ -39,7 +41,7 @@ describe('OverlayMergeImpl', () => {
   let overlay: OverlayMergeImpl;
 
   beforeEach(() => {
-    overlay = new OverlayMergeImpl(new FieldPathReducer());
+    overlay = new OverlayMergeImpl();
   });
 
   describe('applyToSingle — single UPDATE', () => {
@@ -62,8 +64,8 @@ describe('OverlayMergeImpl', () => {
       expect(result!.diffEntries[0].fieldName).toBe('alias');
       expect(result!.diffEntries[0].oldValue).toBe('original');
       expect(result!.diffEntries[0].newValue).toBe('updated');
-      expect(result!.pendingChangeStatus).toBe('STAGED');
-      expect(result!.operation).toBe('UPDATE');
+      expect(result!.pendingChangeStatus).toBe(PENDING_CHANGE_STATUS.Staged);
+      expect(result!.operation).toBe(CHANGE_OPERATION.Update);
     });
   });
 
@@ -112,8 +114,8 @@ describe('OverlayMergeImpl', () => {
       expect(result).not.toBeNull();
       expect(result!.effective.systemId).toBe(200);
       expect(result!.effective.alias).toBe('new-entity');
-      expect(result!.operation).toBe('CREATE');
-      expect(result!.pendingChangeStatus).toBe('STAGED');
+      expect(result!.operation).toBe(CHANGE_OPERATION.Create);
+      expect(result!.pendingChangeStatus).toBe(PENDING_CHANGE_STATUS.Staged);
     });
   });
 
@@ -132,8 +134,8 @@ describe('OverlayMergeImpl', () => {
     });
   });
 
-  describe('applyToSingle — CREATE then DELETE', () => {
-    it('returns null when CREATE row is followed by DELETE row', () => {
+  describe('current-state integrity', () => {
+    it('rejects CREATE plus DELETE rows instead of resolving chronology', () => {
       const createRow = makeRow({
         changeId: 1,
         targetSystemId: 300,
@@ -151,9 +153,29 @@ describe('OverlayMergeImpl', () => {
         createdAt: new Date('2026-01-01T00:00:02Z'),
       });
 
-      expect(
+      expect(() =>
         overlay.applyToSingle<TestRow>(null, [createRow, deleteRow]),
-      ).toBeNull();
+      ).toThrow(/integrity|lifecycle/i);
+    });
+
+    it('rejects overlapping current UPDATE slots', () => {
+      const base: TestRow = {systemId: 301, alias: 'old', instanceId: 1};
+      const first = makeRow({
+        changeId: 1,
+        targetSystemId: 301,
+        fieldPath: 'alias',
+        newValue: 'first',
+      });
+      const second = makeRow({
+        changeId: 2,
+        targetSystemId: 301,
+        fieldPath: 'alias',
+        newValue: 'second',
+      });
+
+      expect(() => overlay.applyToSingle(base, [first, second])).toThrow(
+        /overlap/i,
+      );
     });
   });
 
@@ -237,7 +259,7 @@ describe('OverlayMergeImpl', () => {
       expect(
         overlay.applyToSingle<TestRow>(base, [staged, unstaged])!
           .pendingChangeStatus,
-      ).toBe('PARTIAL');
+      ).toBe(PENDING_CHANGE_STATUS.Partial);
     });
 
     it('all UNSTAGED rows → UNSTAGED', () => {
@@ -252,12 +274,12 @@ describe('OverlayMergeImpl', () => {
 
       expect(
         overlay.applyToSingle<TestRow>(base, [row])!.pendingChangeStatus,
-      ).toBe('UNSTAGED');
+      ).toBe(PENDING_CHANGE_STATUS.Unstaged);
     });
   });
 
   describe('applyToSingle — fold order', () => {
-    it('later createdAt wins on same field even when passed in reverse order', () => {
+    it('rejects duplicate field storage instead of using chronology', () => {
       const base: TestRow = {systemId: 100, alias: 'original', instanceId: 1};
       const laterRow = makeRow({
         changeId: 2,
@@ -274,12 +296,9 @@ describe('OverlayMergeImpl', () => {
         createdAt: new Date('2026-01-01T00:00:01Z'),
       });
 
-      const result = overlay.applyToSingle<TestRow>(base, [
-        laterRow,
-        earlierRow,
-      ]);
-
-      expect(result!.effective.alias).toBe('later-value');
+      expect(() =>
+        overlay.applyToSingle<TestRow>(base, [laterRow, earlierRow]),
+      ).toThrow(/overlap/i);
     });
   });
 
@@ -330,7 +349,7 @@ describe('OverlayMergeImpl', () => {
       ]);
     });
 
-    it('evaluates an action-only CREATE after subsequent UPDATEs are folded', () => {
+    it('rejects an action-only CREATE mixed with UPDATE rows', () => {
       const create = makeRow({
         changeId: 1,
         targetSystemId: 22,
@@ -347,14 +366,9 @@ describe('OverlayMergeImpl', () => {
         createdAt: new Date('2026-01-01T00:00:02Z'),
       });
 
-      const results = overlay.applyToCollection<TestRow>([], [create, update], {
-        matchesEffective: row =>
-          row.fileSystemId === 7 && row.alias === 'after',
-      });
-
-      expect(results.map(row => row.effective)).toEqual([
-        {fileSystemId: 7, alias: 'after', instanceId: 1, systemId: 22},
-      ]);
+      expect(() =>
+        overlay.applyToCollection<TestRow>([], [create, update]),
+      ).toThrow(/integrity|lifecycle/i);
     });
 
     it('excludes an action-only CREATE outside immutable scope', () => {
@@ -449,7 +463,7 @@ describe('OverlayMergeImpl', () => {
       expect(results).toHaveLength(2);
       const newEntity = results.find(r => r.effective.systemId === 999)!;
       expect(newEntity.effective.alias).toBe('brand-new');
-      expect(newEntity.operation).toBe('CREATE');
+      expect(newEntity.operation).toBe(CHANGE_OPERATION.Create);
     });
 
     it('empty pending rows → base rows returned with empty diffEntries and no pendingChangeStatus', () => {

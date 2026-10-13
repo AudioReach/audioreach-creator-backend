@@ -172,7 +172,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     targetSystemId: number,
     aggregateId: number,
     sessionId: number,
-    groupId: string,
     options?: EditOptions,
   ): Promise<void> {
     await this.writer.writeDelete(
@@ -183,7 +182,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         ...options,
       },
       sessionId,
-      groupId,
       this.manager,
     );
   }
@@ -193,7 +191,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     fileSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     const sessionId = session.sessionId;
     const [dataPorts, controlPorts, ckvs, tagMaps] = await Promise.all([
       this.portFetcher.fetchDataPorts(moduleSystemId, fileSystemId, sessionId),
@@ -233,7 +231,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         intent.systemId,
         moduleSystemId,
         sessionId,
-        groupId,
         options,
       );
     }
@@ -243,7 +240,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         port.systemId,
         moduleSystemId,
         sessionId,
-        groupId,
         options,
       );
     }
@@ -253,7 +249,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         port.systemId,
         moduleSystemId,
         sessionId,
-        groupId,
         options,
       );
     }
@@ -263,7 +258,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         payload.systemId,
         moduleSystemId,
         sessionId,
-        groupId,
         options,
       );
     }
@@ -273,7 +267,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         payload.systemId,
         moduleSystemId,
         sessionId,
-        groupId,
         options,
       );
     }
@@ -283,7 +276,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         ckv.systemId,
         moduleSystemId,
         sessionId,
-        groupId,
         options,
       );
     }
@@ -293,7 +285,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         tkv.systemId,
         moduleSystemId,
         sessionId,
-        groupId,
         options,
       );
     }
@@ -303,7 +294,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         tagMap.systemId,
         moduleSystemId,
         sessionId,
-        groupId,
         options,
       );
     }
@@ -312,7 +302,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       moduleSystemId,
       moduleSystemId,
       sessionId,
-      groupId,
       options,
     );
     await this.writeDeleteRow(
@@ -320,7 +309,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       moduleSystemId,
       moduleSystemId,
       sessionId,
-      groupId,
       options,
     );
   }
@@ -421,7 +409,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     alias: string,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     await this.writer.writeDelta(
       {
         targetTable: ENTITY_NAMES.SpfModule,
@@ -431,7 +419,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }
@@ -441,7 +428,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     containerSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     await this.writer.writeDelta(
       {
         targetTable: ENTITY_NAMES.SpfModule,
@@ -451,7 +438,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }
@@ -461,7 +447,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     moduleSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     await this.writer.writeCreate(
       {
         targetTable: ENTITY_NAMES.DataPort,
@@ -478,7 +464,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }
@@ -488,7 +473,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     moduleSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     await this.writer.writeDelete(
       {
         targetTable: ENTITY_NAMES.DataPort,
@@ -497,7 +482,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }
@@ -507,7 +491,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     moduleSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     await this.writer.writeCreate(
       {
         targetTable: ENTITY_NAMES.ControlPort,
@@ -523,7 +507,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }
@@ -533,7 +516,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     moduleSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     await this.writer.writeDelete(
       {
         targetTable: ENTITY_NAMES.ControlPort,
@@ -542,7 +525,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }
@@ -552,7 +534,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     parentSubsystemSystemId: number | null,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     await this.writer.writeDelta(
       {
         targetTable: ENTITY_NAMES.Node,
@@ -562,16 +544,15 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }
 
   async createModule(module: SpfModule, options?: EditOptions): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     const fileSystemId = module.fileSystemId;
 
-    // FK order: Node → SpfModule → DataPorts → ControlPorts (all share ambient groupId)
+    // FK order: Node → SpfModule → DataPorts → ControlPorts
     await this.writer.writeCreate(
       {
         targetTable: ENTITY_NAMES.Node,
@@ -585,7 +566,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
     await this.writer.writeCreate(
@@ -604,7 +584,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
     for (const dp of module.dataPorts) {
@@ -624,7 +603,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
           ...options,
         },
         session.sessionId,
-        groupId,
         this.manager,
       );
     }
@@ -644,7 +622,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
           ...options,
         },
         session.sessionId,
-        groupId,
         this.manager,
       );
     }
@@ -676,7 +653,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     payloadUpdates: PayloadUpdate[],
     uiPersistence?: string,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     if (payloadUpdates.length > 0) {
       await this.writer.writeDeltaBatch(
         payloadUpdates.map(u => ({
@@ -686,7 +663,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
           delta: {payload: u.payload},
         })),
         session.sessionId,
-        groupId,
         this.manager,
       );
     }
@@ -699,7 +675,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
           delta: {uiPersistence: uiPersistence},
         },
         session.sessionId,
-        groupId,
         this.manager,
       );
     }
@@ -744,7 +719,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     payloadUpdates: PayloadUpdate[],
     uiPersistence?: string,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     if (payloadUpdates.length > 0) {
       await this.writer.writeDeltaBatch(
         payloadUpdates.map(u => ({
@@ -754,7 +729,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
           delta: {payload: u.payload},
         })),
         session.sessionId,
-        groupId,
         this.manager,
       );
     }
@@ -767,7 +741,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
           delta: {uiPersistence},
         },
         session.sessionId,
-        groupId,
         this.manager,
       );
     }
@@ -778,7 +751,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     moduleSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     // FK order: Ckv first, then CkvParameterPayload children
     await this.writer.writeCreate(
       {
@@ -794,7 +767,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
     for (const param of kvData.parameterPayloads) {
@@ -845,7 +817,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     moduleSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     const sessionId = session.sessionId;
     const payloads = await this.fetchCkvPayloadEntries(
       ckvSystemId,
@@ -857,7 +829,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         payload.systemId,
         moduleSystemId,
         sessionId,
-        groupId,
         options,
       );
     }
@@ -866,7 +837,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       ckvSystemId,
       moduleSystemId,
       sessionId,
-      groupId,
       options,
     );
   }
@@ -913,7 +883,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     tagDefinitionSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     await this.writer.writeCreate(
       {
         targetTable: ENTITY_NAMES.ModuleTagIdMap,
@@ -927,7 +897,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }
@@ -937,13 +906,12 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     moduleSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     await this.writeDeleteRow(
       'ModuleTagIdMap',
       tagSystemId,
       moduleSystemId,
       session.sessionId,
-      groupId,
       options,
     );
   }
@@ -995,7 +963,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     _moduleSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     await this.writer.writeCreate(
       {
         targetTable: ENTITY_NAMES.Tkv,
@@ -1010,7 +978,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
     for (const param of kvData.parameterPayloads) {
@@ -1029,7 +996,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     tagSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     const sessionId = session.sessionId;
     const payloads = await this.tkvOverlayFetcher.fetchPayloads(
       tkvSystemId,
@@ -1041,7 +1008,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         payload.systemId,
         tagSystemId,
         sessionId,
-        groupId,
         options,
       );
     }
@@ -1050,7 +1016,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       tkvSystemId,
       tagSystemId,
       sessionId,
-      groupId,
       options,
     );
   }
@@ -1108,7 +1073,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     payload: Uint8Array,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     const payloadSystemId = await this.idGeneration.getNextId(
       session.fileSystemId,
     );
@@ -1126,7 +1091,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }
@@ -1137,13 +1101,12 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     moduleSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     await this.writeDeleteRow(
       'CkvParameterPayload',
       payloadSystemId,
       moduleSystemId,
       session.sessionId,
-      groupId,
       options,
     );
   }
@@ -1155,7 +1118,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     payload: Uint8Array,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     const payloadSystemId = await this.idGeneration.getNextId(
       session.fileSystemId,
     );
@@ -1173,7 +1136,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }
@@ -1184,19 +1146,18 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     tagSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     await this.writeDeleteRow(
       'TkvParameterPayload',
       payloadSystemId,
       tagSystemId,
       session.sessionId,
-      groupId,
       options,
     );
   }
 
   async updateHeapId(moduleSystemId: number, heapId: number): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
 
     await this.writer.writeDelta(
       {
@@ -1206,7 +1167,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         delta: {heapId},
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }
@@ -1222,7 +1182,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     moduleSystemId: number,
     _fileSystemId: number,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     const tkvDeleteTargets = await this.readTkvDeleteTargets(
       moduleSystemId,
       session.sessionId,
@@ -1231,7 +1191,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       tkvDeleteTargets,
       moduleSystemId,
       session.sessionId,
-      groupId,
     );
   }
 
@@ -1289,7 +1248,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     }>,
     moduleSystemId: number,
     sessionId: number,
-    groupId: string,
   ): Promise<void> {
     await Promise.all(
       targets.map(async target => {
@@ -1305,7 +1263,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
                     aggregateId: target.tagMapSystemId,
                   },
                   sessionId,
-                  groupId,
                   this.manager,
                 ),
               ),
@@ -1317,7 +1274,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
                 aggregateId: target.tagMapSystemId,
               },
               sessionId,
-              groupId,
               this.manager,
             );
           }),
@@ -1329,7 +1285,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
             aggregateId: moduleSystemId,
           },
           sessionId,
-          groupId,
           this.manager,
         );
       }),

@@ -157,7 +157,7 @@ async function seedEditAction(
   },
 ) {
   await ds.query(
-    `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id)
+    `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
     [
       opts.sessionId,
@@ -275,7 +275,7 @@ describe('TkvOverlayFetcher — fetchMany (integration)', () => {
     expect(results[0].tkvs[0].systemId).toBe(newTkvId);
   });
 
-  it('fetchMany — CREATE then UPDATE in same session — UPDATE is applied to created TKV', async () => {
+  it('fetchMany — reads the current CREATE projection', async () => {
     await seedTagMap(ds);
     const sessionId = await seedSession(ds);
     const newTkvId = TKV_ID + 10;
@@ -285,17 +285,8 @@ describe('TkvOverlayFetcher — fetchMany (integration)', () => {
       targetSystemId: newTkvId,
       targetTable: ENTITY_NAMES.Tkv,
       operation: CHANGE_OPERATION.Create,
-      fieldPath: null,
+      fieldPath: '$',
       newValue: JSON.stringify({moduleTagIdMapSystemId: TAG_MAP_ID}),
-    });
-    await seedEditAction(ds, {
-      sessionId,
-      aggregateId: TAG_MAP_ID,
-      targetSystemId: newTkvId,
-      targetTable: ENTITY_NAMES.Tkv,
-      operation: CHANGE_OPERATION.Update,
-      fieldPath: 'moduleTagIdMapSystemId',
-      newValue: String(TAG_MAP_ID),
     });
     const results = await fetcher.fetchMany(
       MODULE_ID,

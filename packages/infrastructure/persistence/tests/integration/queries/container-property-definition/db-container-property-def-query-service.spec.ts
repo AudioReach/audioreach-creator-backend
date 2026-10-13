@@ -237,9 +237,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
         source: SOURCE.Manual,
         fieldPath: 'name',
         newValue: {name: 'UpdatedName'},
-        groupId: null,
         linkedEntityGroupId: null,
-        validUntil: null,
       });
 
       const result =
@@ -313,9 +311,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
         source: SOURCE.Manual,
         fieldPath: 'name',
         newValue: {name: 'UpdatedName'},
-        groupId: null,
         linkedEntityGroupId: null,
-        validUntil: null,
       });
 
       const result = await service.getContainerPropertyDefinition(
@@ -351,10 +347,8 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
         changeStatus: CHANGE_STATUS.Staged,
         source: SOURCE.Manual,
         fieldPath: null,
-        newValue: null,
-        groupId: null,
+        newValue: {},
         linkedEntityGroupId: null,
-        validUntil: null,
       });
 
       const result = await service.getContainerPropertyDefinition(
@@ -448,9 +442,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
         source: SOURCE.Manual,
         fieldPath: 'elementsStructure',
         newValue: {elementsStructure: '[{"tag":2}]'},
-        groupId: null,
         linkedEntityGroupId: null,
-        validUntil: null,
       });
 
       const result =

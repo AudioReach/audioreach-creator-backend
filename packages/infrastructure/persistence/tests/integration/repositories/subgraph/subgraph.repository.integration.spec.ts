@@ -307,7 +307,6 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
           delta: {keySystemId: KEY_B},
         },
         sessionId,
-        'definition-update',
         qr.manager,
       );
 
@@ -347,7 +346,6 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
           delta: {name: 'Effective Subgraph Property'},
         },
         sessionId,
-        'definition-update',
         qr.manager,
       );
 
@@ -481,8 +479,8 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
     it('returns Subgraphs that have any active edit_action in the current session', async () => {
       const sessionId = await seedSession(ds);
       await ds.query(
-        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)
-         VALUES (?, ?, ?, 'Subgraph', 'CREATE', NULL, '{}', 'MANUAL', 'STAGED', NULL, datetime('now'), NULL)`,
+        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id, created_at)
+         VALUES (?, ?, ?, 'Subgraph', 'CREATE', '$', '{}', 'MANUAL', 'STAGED', NULL, datetime('now'))`,
         [sessionId, SG_A, SG_A],
       );
       const result = await makeRepo(qr.manager, sessionId).findChangedInSession(
@@ -495,8 +493,8 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
     it('includes edits regardless of source', async () => {
       const sessionId = await seedSession(ds);
       await ds.query(
-        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)
-         VALUES (?, ?, ?, 'Subgraph', 'CREATE', NULL, '{}', 'AUTO_ROUTING', 'UNSTAGED', NULL, datetime('now'), NULL)`,
+        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id, created_at)
+         VALUES (?, ?, ?, 'Subgraph', 'CREATE', '$', '{}', 'AUTO_ROUTING', 'UNSTAGED', NULL, datetime('now'))`,
         [sessionId, SG_A, SG_A],
       );
       const result = await makeRepo(qr.manager, sessionId).findChangedInSession(
@@ -506,23 +504,23 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
       expect(result.deleted).toEqual([]);
     });
 
-    it('excludes superseded edit_actions (valid_until non-null)', async () => {
+    it('uses the current CREATE edit_action', async () => {
       const sessionId = await seedSession(ds);
       await ds.query(
-        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)
-         VALUES (?, ?, ?, 'Subgraph', 'CREATE', NULL, '{}', 'MANUAL', 'STAGED', NULL, datetime('now'), datetime('now'))`,
+        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id, created_at)
+         VALUES (?, ?, ?, 'Subgraph', 'CREATE', '$', '{}', 'MANUAL', 'STAGED', NULL, datetime('now'))`,
         [sessionId, SG_A, SG_A],
       );
       expect(
         await makeRepo(qr.manager, sessionId).findChangedInSession(FILE_ID),
-      ).toEqual({added: [], deleted: []});
+      ).toMatchObject({added: [{systemId: SG_A}], deleted: []});
     });
 
     it('puts DELETE-operation targets in the deleted bucket', async () => {
       const sessionId = await seedSession(ds);
       await ds.query(
-        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)
-         VALUES (?, ?, ?, 'Subgraph', 'DELETE', NULL, NULL, 'MANUAL', 'STAGED', NULL, datetime('now'), NULL)`,
+        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id, created_at)
+         VALUES (?, ?, ?, 'Subgraph', 'DELETE', NULL, '{}', 'MANUAL', 'STAGED', NULL, datetime('now'))`,
         [sessionId, SG_A, SG_A],
       );
       const result = await makeRepo(qr.manager, sessionId).findChangedInSession(
@@ -535,8 +533,8 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
     it('excludes UPDATE-operation edit_actions from both buckets', async () => {
       const sessionId = await seedSession(ds);
       await ds.query(
-        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)
-         VALUES (?, ?, ?, 'Subgraph', 'UPDATE', 'name', '"renamed"', 'MANUAL', 'STAGED', NULL, datetime('now'), NULL)`,
+        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id, created_at)
+         VALUES (?, ?, ?, 'Subgraph', 'UPDATE', 'name', '"renamed"', 'MANUAL', 'STAGED', NULL, datetime('now'))`,
         [sessionId, SG_A, SG_A],
       );
       const result = await makeRepo(qr.manager, sessionId).findChangedInSession(

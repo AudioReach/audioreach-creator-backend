@@ -184,7 +184,7 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
     fileSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     const sessionId = session.sessionId;
     const resolvedSegments =
       await this.linkFetcher.loadSubsystemControlLinkRows(
@@ -200,7 +200,6 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
         ...options,
       },
       sessionId,
-      groupId,
       this.manager,
     );
     for (const segment of resolvedSegments) {
@@ -212,7 +211,6 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
           ...options,
         },
         sessionId,
-        groupId,
         this.manager,
       );
     }
@@ -223,7 +221,7 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
     fileSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     await this.getWriter().writeCreate(
       {
         targetTable: ENTITY_NAMES.ControlLink,
@@ -243,7 +241,6 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }
@@ -328,7 +325,7 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
     fileSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     for (const segment of subsystemControlLinks) {
       await this.writer.writeCreate(
         {
@@ -346,7 +343,6 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
           ...options,
         },
         session.sessionId,
-        groupId,
         this.manager,
       );
     }
@@ -371,7 +367,7 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
       );
     if (effectiveSegments.length === 0) return;
 
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     for (const segment of effectiveSegments) {
       await this.writer.writeDelete(
         {
@@ -381,7 +377,6 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
           ...options,
         },
         session.sessionId,
-        groupId,
         this.manager,
       );
     }
@@ -421,7 +416,7 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
     subsystemControlLinks: readonly SubsystemControlLink[],
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     for (const segment of subsystemControlLinks) {
       await this.writer.writeDelta(
         {
@@ -432,7 +427,6 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
           ...options,
         },
         session.sessionId,
-        groupId,
         this.manager,
       );
     }

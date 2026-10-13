@@ -26,6 +26,7 @@ import {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
+import {EditActionSchema} from '../../entity-schema/edit-session/edit-action.schema.js';
 
 function baseToSubsystemDataLink(
   r: EffectiveSubsystemDataLinkRow,
@@ -192,7 +193,7 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     fileSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     const sessionId = session.sessionId;
     const resolvedSegments = await this.linkFetcher.loadSubsystemDataLinkRows(
       fileSystemId,
@@ -207,7 +208,6 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
         ...options,
       },
       sessionId,
-      groupId,
       this.manager,
     );
     for (const segment of resolvedSegments) {
@@ -219,7 +219,6 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
           ...options,
         },
         sessionId,
-        groupId,
         this.manager,
       );
     }
@@ -314,7 +313,7 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     fileSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     for (const segment of subsystemDataLinks) {
       await this.writer.writeCreate(
         {
@@ -332,7 +331,6 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
           ...options,
         },
         session.sessionId,
-        groupId,
         this.manager,
       );
     }
@@ -356,7 +354,7 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     );
     if (effectiveSegments.length === 0) return;
 
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     for (const segment of effectiveSegments) {
       await this.writer.writeDelete(
         {
@@ -366,7 +364,6 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
           ...options,
         },
         session.sessionId,
-        groupId,
         this.manager,
       );
     }
@@ -406,7 +403,7 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     subsystemDataLinks: readonly SubsystemDataLink[],
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     for (const segment of subsystemDataLinks) {
       await this.writer.writeDelta(
         {
@@ -417,7 +414,6 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
           ...options,
         },
         session.sessionId,
-        groupId,
         this.manager,
       );
     }
@@ -442,7 +438,7 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     boundaryPortPayloads: BoundaryPortPayload[],
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     const fileSystemId = dataLink.fileSystemId;
     const writer = this.requireWriter();
 
@@ -454,7 +450,6 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
       boundaryPortPayloads,
       dataLink.systemId,
       session.sessionId,
-      groupId,
       writer,
       options,
     );
@@ -477,7 +472,6 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
 
@@ -486,7 +480,6 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
       dataLink.systemId,
       fileSystemId,
       session.sessionId,
-      groupId,
       writer,
       options,
     );
@@ -505,14 +498,13 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     fileSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     const writer = this.requireWriter();
 
     await this.writeBoundaryPortCreates(
       boundaryPortPayloads,
       dataLinkSystemId,
       session.sessionId,
-      groupId,
       writer,
       options,
     );
@@ -522,7 +514,6 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
       dataLinkSystemId,
       fileSystemId,
       session.sessionId,
-      groupId,
       writer,
       options,
     );
@@ -532,7 +523,6 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     boundaryPortPayloads: BoundaryPortPayload[],
     aggregateId: number,
     sessionId: number,
-    groupId: string,
     writer: PendingChangeWriter,
     options?: EditOptions,
   ): Promise<void> {
@@ -553,7 +543,6 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
           ...options,
         },
         sessionId,
-        groupId,
         this.manager,
       );
     }
@@ -564,7 +553,6 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     aggregateId: number,
     fileSystemId: number,
     sessionId: number,
-    groupId: string,
     writer: PendingChangeWriter,
     options?: EditOptions,
   ): Promise<void> {
@@ -586,7 +574,6 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
           ...options,
         },
         sessionId,
-        groupId,
         this.manager,
       );
     }
@@ -657,36 +644,26 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
 
   async reactivateDataLink(
     systemId: number,
-    aggregateId: number,
-    payload: Record<string, unknown>,
-    options?: EditOptions,
+    _aggregateId: number,
+    _payload: Record<string, unknown>,
+    _options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
-    const writer = this.requireWriter();
-    // eslint-disable-next-line custom/no-raw-persistence-queries -- conditional UPDATE with IS NULL on valid_until cannot be expressed with TypeORM QueryBuilder
-    await this.manager.query(
-      `UPDATE edit_actions SET valid_until = $1 WHERE session_id = $2 AND target_system_id = $3 AND field_path IS NULL AND valid_until IS NULL`,
-      [new Date().toISOString(), session.sessionId, systemId],
-    );
-    await writer.writeCreate(
-      {
-        targetTable: ENTITY_NAMES.DataLink,
-        targetSystemId: systemId,
-        aggregateId,
-        payload,
-        ...options,
-      },
-      session.sessionId,
-      groupId,
-      this.manager,
-    );
+    const {session} = this.uow.getWriteContext();
+    // A committed link is reactivated by cancelling its pending DELETE; it is
+    // not a new entity and therefore must not produce a CREATE projection.
+    await this.manager.delete(EditActionSchema, {
+      sessionId: session.sessionId,
+      targetTable: ENTITY_NAMES.DataLink,
+      targetSystemId: systemId,
+      operation: CHANGE_OPERATION.Delete,
+    });
   }
 
   async createSubsystemDataLink(
     sls: SubsystemDataLink,
     options?: EditOptions,
   ): Promise<void> {
-    const {session, groupId} = this.uow.getWriteContext();
+    const {session} = this.uow.getWriteContext();
     const writer = this.requireWriter();
     await writer.writeCreate(
       {
@@ -705,7 +682,6 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
         ...options,
       },
       session.sessionId,
-      groupId,
       this.manager,
     );
   }

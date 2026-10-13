@@ -180,8 +180,7 @@ async function seedUnresolvedSubsystemDataLink(
     },
     source: SOURCE.Manual,
     changeStatus: CHANGE_STATUS.Staged,
-    groupId: 'existing-group',
-    linkedEntityGroupId: null,
+    linkedEntityGroupId: 'existing-group',
   });
 }
 
@@ -215,7 +214,6 @@ async function getActiveActions(qr: QueryRunner, sessionId: number) {
     .getRepository(EditActionSchema)
     .createQueryBuilder('editAction')
     .where('editAction.sessionId = :sessionId', {sessionId})
-    .andWhere('editAction.validUntil IS NULL')
     .orderBy('editAction.changeId', 'ASC')
     .getMany();
 }
@@ -313,7 +311,7 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
         targetTable: action.targetTable,
         targetSystemId: action.targetSystemId,
         operation: action.operation,
-        groupId: action.groupId,
+        linkedEntityGroupId: action.linkedEntityGroupId,
       })),
     ).toEqual(
       expect.arrayContaining([
@@ -321,19 +319,19 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
           targetTable: ENTITY_NAMES.DataLink,
           targetSystemId: 500,
           operation: CHANGE_OPERATION.Delete,
-          groupId: 'test-group',
+          linkedEntityGroupId: null,
         },
         {
           targetTable: ENTITY_NAMES.SubsystemDataLink,
           targetSystemId: 701,
           operation: CHANGE_OPERATION.Delete,
-          groupId: 'test-group',
+          linkedEntityGroupId: null,
         },
         {
           targetTable: ENTITY_NAMES.SubsystemDataLink,
           targetSystemId: 702,
           operation: CHANGE_OPERATION.Delete,
-          groupId: 'test-group',
+          linkedEntityGroupId: null,
         },
       ]),
     );
@@ -352,10 +350,9 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
       actions.filter(
         action =>
           action.targetTable === ENTITY_NAMES.SubsystemDataLink &&
-          action.targetSystemId === 703 &&
-          action.operation === CHANGE_OPERATION.Delete,
+          action.targetSystemId === 703,
       ),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
     expect(
       actions.filter(
         action =>

@@ -141,7 +141,7 @@ async function seedEditAction(
   },
 ) {
   await ds.query(
-    `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id)
+    `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, linked_entity_group_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
     [
       opts.sessionId,
@@ -366,7 +366,7 @@ describe('CkvOverlayFetcher — fetchMany (integration)', () => {
     expect(results).toHaveLength(0);
   });
 
-  it('fetchMany — CREATE then UPDATE in same session — UPDATE is applied to created row', async () => {
+  it('fetchMany — reads the current CREATE projection', async () => {
     const sessionId = await seedSession(ds);
     const newCkvId = CKV_ID + 10;
     await seedEditAction(ds, {
@@ -375,17 +375,8 @@ describe('CkvOverlayFetcher — fetchMany (integration)', () => {
       targetSystemId: newCkvId,
       targetTable: ENTITY_NAMES.Ckv,
       operation: CHANGE_OPERATION.Create,
-      fieldPath: null,
+      fieldPath: '$',
       newValue: JSON.stringify({spfModuleSystemId: MODULE_ID}),
-    });
-    await seedEditAction(ds, {
-      sessionId,
-      aggregateId: MODULE_ID,
-      targetSystemId: newCkvId,
-      targetTable: ENTITY_NAMES.Ckv,
-      operation: CHANGE_OPERATION.Update,
-      fieldPath: 'spfModuleSystemId',
-      newValue: String(MODULE_ID),
     });
     const results = await fetcher.fetchMany(MODULE_ID, sessionId);
     expect(results).toHaveLength(1);

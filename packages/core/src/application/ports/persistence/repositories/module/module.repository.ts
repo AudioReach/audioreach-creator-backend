@@ -280,7 +280,7 @@ export interface ModuleRepository {
   /**
    * Stages a heapId update on a SpfModule row via edit_actions.
    * targetTable = SpfModule; aggregateId = moduleSystemId.
-   * All cascade writes for one API call share the same groupId (stamped by CommandBus).
+   * The CommandBus-stamped groupId remains command/response correlation only.
    */
   updateHeapId(moduleSystemId: number, heapId: number): Promise<void>;
 
