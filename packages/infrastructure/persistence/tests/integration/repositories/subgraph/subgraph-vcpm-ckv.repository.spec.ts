@@ -1,0 +1,403 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  afterEach,
+} from '@jest/globals';
+import type {DataSource, QueryRunner} from 'typeorm';
+import {CHANGE_OPERATION} from '@arc/core';
+import {
+  SESSION_MODE,
+  SESSION_STATUS,
+} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
+import {
+  setupIntegrationTest,
+  teardownIntegrationTest,
+  setupEachTest,
+  getTestDataSource,
+  getTestRepository,
+} from '../../helpers/test-database-setup.js';
+import {TypeOrmSubgraphRepository} from '../../../../src/persistence-typeorm-sqllite/repositories/subgraph/subgraph.repository.js';
+import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
+import {PendingChangeWriter} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
+import {PendingChangeCache} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
+import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
+import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
+import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
+import {ProjectSessionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
+import {EditActionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/edit-action.schema.js';
+
+const FILE_ID = 100;
+const SUBGRAPH_ID = 200;
+const VCPM_DEF_ID = 10;
+const VCPM_INSTANCE_ID = 20;
+const VALUE_DEF_ID = 40;
+const CKV_ID = 50;
+const VCPM_PARAM_DEF_ID = 60;
+const PAYLOAD_ID = 70;
+
+async function seedBase(ds: DataSource): Promise<number> {
+  await getTestRepository(ProjectSchema).save({
+    systemId: 1,
+    name: 'P',
+    description: '',
+    type: 'Offline',
+  });
+  await getTestRepository(ArcDbFileSchema).save({
+    systemId: FILE_ID,
+    projectSystemId: 1,
+    fileName: 'f.acdb',
+    description: '',
+    metadata: '{}',
+    isTarget: true,
+    lastReservedId: 1000,
+  });
+  await ds.query(
+    `INSERT INTO subgraphs (system_id, name, subgraph_id, is_imported, file_system_id) VALUES (?, 'sg', 1, 0, ?)`,
+    [SUBGRAPH_ID, FILE_ID],
+  );
+  await ds.query(
+    `INSERT INTO vcpm_module_definitions (system_id, module_definition_id, name, file_system_id) VALUES (?, 1, 'vcpm', ?)`,
+    [VCPM_DEF_ID, FILE_ID],
+  );
+  await ds.query(
+    `INSERT INTO vcpm_instances (system_id, subgraph_system_id, vcpm_definition_id) VALUES (?, ?, ?)`,
+    [VCPM_INSTANCE_ID, SUBGRAPH_ID, VCPM_DEF_ID],
+  );
+  await seedParameterDefinition(ds);
+  await ds.query(
+    `INSERT INTO arc_keys (system_id, file_system_id, key_id, name) VALUES (?, ?, 1, 'key')`,
+    [30, FILE_ID],
+  );
+  await ds.query(
+    `INSERT INTO arc_values (system_id, value_id, name, keys_system_id) VALUES (?, 1, 'val', ?)`,
+    [VALUE_DEF_ID, 30],
+  );
+  const session = await getTestRepository(ProjectSessionSchema).save({
+    fileSystemId: FILE_ID,
+    userId: 'u',
+    clientId: 'c',
+    sessionMode: SESSION_MODE.Designer,
+    status: SESSION_STATUS.Active,
+    endedAt: null,
+  });
+  return session.sessionId;
+}
+
+async function seedParameterDefinition(ds: DataSource): Promise<void> {
+  await ds.query(
+    `INSERT OR IGNORE INTO vcpm_module_parameter_definitions (system_id, param_id, max_size, pid_type, is_persistent, elements_structure, is_read_only, vcpm_module_definition_system_id) VALUES (?, 1, 64, 'TYPE_A', 1, ?, 0, ?)`,
+    [
+      VCPM_PARAM_DEF_ID,
+      JSON.stringify([
+        {elementType: 'ConfigElement', dataType: 'UInt8', defaultValue: '3'},
+      ]),
+      VCPM_DEF_ID,
+    ],
+  );
+}
+
+async function seedCkv(ds: DataSource): Promise<void> {
+  await seedCkvParent(ds, CKV_ID);
+  await ds.query(
+    `INSERT INTO vcpm_ckv_values (vcpm_ckv_system_id, value_def_system_id) VALUES (?, ?)`,
+    [CKV_ID, VALUE_DEF_ID],
+  );
+}
+
+async function seedCkvParent(
+  ds: DataSource,
+  ckvSystemId: number,
+): Promise<void> {
+  await ds.query(
+    `INSERT INTO vcpm_ckv (system_id, vcpm_instance_system_id) VALUES (?, ?)`,
+    [ckvSystemId, VCPM_INSTANCE_ID],
+  );
+}
+
+async function seedPayload(ds: DataSource): Promise<void> {
+  await ds.query(
+    `INSERT INTO vcpm_parameter_payload (system_id, vcpm_parameter_system_id, vcpm_ckv_system_id, payload) VALUES (?, ?, ?, ?)`,
+    [PAYLOAD_ID, VCPM_PARAM_DEF_ID, CKV_ID, Buffer.alloc(1)],
+  );
+}
+
+function makeRepo(
+  qr: QueryRunner,
+  sessionId: number,
+): TypeOrmSubgraphRepository {
+  const editActionsSvc = new EditActionsQueryService(qr.manager);
+  const writer = new PendingChangeWriter(
+    editActionsSvc,
+    new PendingChangeCache(),
+  );
+  const uow = {
+    getWriteContext: () => ({
+      session: {sessionId, fileSystemId: FILE_ID},
+      groupId: 'grp-test',
+    }),
+  };
+  return new TypeOrmSubgraphRepository(writer, qr.manager, uow as never);
+}
+
+describe('TypeOrmSubgraphRepository VCPM CKV methods', () => {
+  let ds: DataSource;
+  let qr: QueryRunner;
+  let sessionId: number;
+
+  beforeAll(async () => {
+    await setupIntegrationTest();
+  });
+
+  afterAll(async () => {
+    await teardownIntegrationTest();
+  });
+
+  beforeEach(async () => {
+    await setupEachTest();
+    ds = getTestDataSource();
+    sessionId = await seedBase(ds);
+    qr = ds.createQueryRunner();
+    await qr.connect();
+  });
+
+  afterEach(async () => {
+    if (qr) await qr.release();
+  });
+
+  it('returns the committed VCPM write aggregate', async () => {
+    await seedCkv(ds);
+    await seedPayload(ds);
+    const repo = makeRepo(qr, sessionId);
+    await expect(repo.getAllVcpmData(SUBGRAPH_ID)).resolves.toMatchObject({
+      instance: {
+        systemId: VCPM_INSTANCE_ID,
+        subgraphSystemId: SUBGRAPH_ID,
+        vcpmModuleDefinitionSystemId: VCPM_DEF_ID,
+        ckvs: [
+          {
+            systemId: CKV_ID,
+            valueDefinitionSystemIds: [VALUE_DEF_ID],
+          },
+        ],
+      },
+      payloads: new Map(),
+    });
+    await expect(
+      repo.getAllVcpmData(SUBGRAPH_ID, CKV_ID),
+    ).resolves.toMatchObject({
+      instance: {
+        systemId: VCPM_INSTANCE_ID,
+        subgraphSystemId: SUBGRAPH_ID,
+        vcpmModuleDefinitionSystemId: VCPM_DEF_ID,
+        ckvs: [expect.objectContaining({systemId: CKV_ID})],
+      },
+      payloads: new Map([[PAYLOAD_ID, VCPM_PARAM_DEF_ID]]),
+    });
+  });
+
+  it('returns no instance or CKV for an unrelated subgraph', async () => {
+    const repo = makeRepo(qr, sessionId);
+    await expect(repo.getAllVcpmData(9999)).resolves.toBeNull();
+    await expect(repo.getAllVcpmData(9999, CKV_ID)).resolves.toBeNull();
+  });
+
+  it('includes staged CKV values without inserting physical child rows', async () => {
+    const repo = makeRepo(qr, sessionId);
+    const ckvId = 502;
+    await repo.createVcpmCkv(
+      SUBGRAPH_ID,
+      ckvId,
+      VCPM_INSTANCE_ID,
+      [VALUE_DEF_ID],
+      [],
+    );
+    await expect(repo.getAllVcpmData(SUBGRAPH_ID)).resolves.toMatchObject({
+      instance: {
+        ckvs: [
+          {
+            systemId: ckvId,
+            valueDefinitionSystemIds: [VALUE_DEF_ID],
+          },
+        ],
+      },
+    });
+    await expect(
+      ds.query(`SELECT * FROM vcpm_ckv_values WHERE vcpm_ckv_system_id = ?`, [
+        ckvId,
+      ]),
+    ).resolves.toHaveLength(0);
+  });
+
+  it('excludes a staged-deleted CKV from the effective aggregate', async () => {
+    await seedCkv(ds);
+    const repo = makeRepo(qr, sessionId);
+    await repo.deleteVcpmCkv(SUBGRAPH_ID, CKV_ID);
+    await expect(repo.getAllVcpmData(SUBGRAPH_ID)).resolves.toEqual({
+      instance: expect.objectContaining({
+        systemId: VCPM_INSTANCE_ID,
+        subgraphSystemId: SUBGRAPH_ID,
+        vcpmModuleDefinitionSystemId: VCPM_DEF_ID,
+        ckvs: [],
+      }),
+      payloads: new Map(),
+    });
+  });
+
+  it('creates a staged CKV value list and default payload actions', async () => {
+    await seedParameterDefinition(ds);
+    await seedCkvParent(ds, 500);
+    const repo = makeRepo(qr, sessionId);
+    const ckvId = 500;
+    await repo.createVcpmCkv(
+      SUBGRAPH_ID,
+      ckvId,
+      VCPM_INSTANCE_ID,
+      [VALUE_DEF_ID],
+      [
+        {
+          payloadSystemId: 501,
+          parameterDefinitionSystemId: VCPM_PARAM_DEF_ID,
+          payload: new Uint8Array([3]),
+        },
+      ],
+    );
+    const values = await ds.query(
+      `SELECT * FROM vcpm_ckv_values WHERE vcpm_ckv_system_id = ?`,
+      [ckvId],
+    );
+    expect(values).toHaveLength(0);
+    const ckvAction = await ds.query(
+      `SELECT new_value FROM edit_actions WHERE session_id = ? AND target_system_id = ? AND valid_until IS NULL`,
+      [sessionId, ckvId],
+    );
+    expect(JSON.parse(ckvAction[0].new_value)).toMatchObject({
+      valueDefSystemIds: [VALUE_DEF_ID],
+    });
+    const actions = await ds.query(
+      `SELECT * FROM edit_actions WHERE session_id = ? AND target_system_id = ? AND valid_until IS NULL`,
+      [sessionId, 501],
+    );
+    expect(actions).toHaveLength(1);
+  });
+
+  it('returns committed payload rows', async () => {
+    await seedCkv(ds);
+    await seedPayload(ds);
+    const repo = makeRepo(qr, sessionId);
+    await expect(
+      repo.getAllVcpmData(SUBGRAPH_ID, CKV_ID),
+    ).resolves.toMatchObject({
+      payloads: new Map([[PAYLOAD_ID, VCPM_PARAM_DEF_ID]]),
+    });
+  });
+
+  it('includes staged payload creates and excludes staged deletes', async () => {
+    await seedParameterDefinition(ds);
+    await seedCkvParent(ds, 600);
+    const repo = makeRepo(qr, sessionId);
+    const ckvId = 600;
+    await repo.createVcpmCkv(
+      SUBGRAPH_ID,
+      ckvId,
+      VCPM_INSTANCE_ID,
+      [VALUE_DEF_ID],
+      [
+        {
+          payloadSystemId: 601,
+          parameterDefinitionSystemId: VCPM_PARAM_DEF_ID,
+          payload: new Uint8Array(0),
+        },
+      ],
+    );
+    await expect(
+      repo.getAllVcpmData(SUBGRAPH_ID, ckvId),
+    ).resolves.toMatchObject({
+      payloads: new Map([[601, VCPM_PARAM_DEF_ID]]),
+    });
+
+    await seedCkv(ds);
+    await seedPayload(ds);
+    await repo.deleteVcpmCkv(SUBGRAPH_ID, CKV_ID);
+    await expect(
+      repo.getAllVcpmData(SUBGRAPH_ID, CKV_ID),
+    ).resolves.toMatchObject({payloads: new Map()});
+  });
+
+  it('stages calibration-data deltas and supersedes prior deltas', async () => {
+    await seedCkv(ds);
+    await seedPayload(ds);
+    const repo = makeRepo(qr, sessionId);
+    await repo.updateVcpmCalData(SUBGRAPH_ID, [
+      {
+        payloadSystemId: PAYLOAD_ID,
+        vcpmCkvSystemId: CKV_ID,
+        parameterDefinitionSystemId: VCPM_PARAM_DEF_ID,
+        payload: new Uint8Array([1]),
+      },
+    ]);
+    await repo.updateVcpmCalData(SUBGRAPH_ID, [
+      {
+        payloadSystemId: PAYLOAD_ID,
+        vcpmCkvSystemId: CKV_ID,
+        parameterDefinitionSystemId: VCPM_PARAM_DEF_ID,
+        payload: new Uint8Array([2]),
+      },
+    ]);
+    const rows = await ds.query(
+      `SELECT * FROM edit_actions WHERE session_id = ? AND target_system_id = ? AND valid_until IS NULL`,
+      [sessionId, PAYLOAD_ID],
+    );
+    expect(rows).toHaveLength(1);
+  });
+
+  it('keeps an existing payload visible after an overlay update', async () => {
+    await seedCkv(ds);
+    await seedPayload(ds);
+    const repo = makeRepo(qr, sessionId);
+    await repo.updateVcpmCalData(SUBGRAPH_ID, [
+      {
+        payloadSystemId: PAYLOAD_ID,
+        vcpmCkvSystemId: CKV_ID,
+        parameterDefinitionSystemId: VCPM_PARAM_DEF_ID,
+        payload: new Uint8Array([3, 4]),
+      },
+    ]);
+    await expect(
+      repo.getAllVcpmData(SUBGRAPH_ID, CKV_ID),
+    ).resolves.toMatchObject({
+      payloads: new Map([[PAYLOAD_ID, VCPM_PARAM_DEF_ID]]),
+    });
+  });
+
+  it('stages deletes for payloads and the CKV row', async () => {
+    await seedCkv(ds);
+    await seedPayload(ds);
+    const repo = makeRepo(qr, sessionId);
+    await repo.deleteVcpmCkv(SUBGRAPH_ID, CKV_ID);
+    const rows = await ds.query(
+      `SELECT target_table, operation FROM edit_actions WHERE session_id = ? AND valid_until IS NULL`,
+      [sessionId],
+    );
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        {
+          target_table: ENTITY_NAMES.VcpmParameterPayload,
+          operation: CHANGE_OPERATION.Delete,
+        },
+        {
+          target_table: ENTITY_NAMES.VcpmCkv,
+          operation: CHANGE_OPERATION.Delete,
+        },
+      ]),
+    );
+  });
+});

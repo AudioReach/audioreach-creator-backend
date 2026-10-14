@@ -6,6 +6,7 @@
 import {BaseCommand} from '../../../shared/base-command.js';
 import {SESSION_MODE} from '../../../shared/change-vocabulary.js';
 import type {SessionMode} from '../../../shared/change-vocabulary.js';
+import type {ParameterElementSummaryDto} from '../../spf-module/dto/element-dto.js';
 
 export class UpdateVcpmCalDataCommand extends BaseCommand {
   static override readonly requiresSession = true;
@@ -17,7 +18,10 @@ export class UpdateVcpmCalDataCommand extends BaseCommand {
   constructor(
     public readonly subgraphSystemId: number,
     public readonly ckvSystemId: number,
-    public readonly data: unknown[],
+    public readonly parameters: Array<{
+      systemId: number;
+      elements: ParameterElementSummaryDto[];
+    }>,
   ) {
     super();
   }

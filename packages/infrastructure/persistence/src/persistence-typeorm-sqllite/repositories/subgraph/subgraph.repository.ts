@@ -12,12 +12,16 @@ import type {
   SessionChanged,
   SgkvEntry,
   KvPair,
-  VcpmInstance,
+  CreateVcpmCkvPayload,
+  UpdateVcpmCalDataPayload,
+  VcpmInstanceData,
 } from '@arc/core';
 import {
+  KvData,
   Subgraph,
   SubgraphPropertyData,
   SubgraphPropertyDefinition,
+  VcpmInstance,
 } from '@arc/core';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
@@ -31,6 +35,10 @@ import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-q
 import type {SubgraphBase} from '../../entity-schema/usecase-data/subgraph/subgraph.schema.js';
 import type {SubgraphPropertyDataBase} from '../../entity-schema/usecase-data/subgraph/subgraph-property-data.js';
 import {SubgraphVcpmDataFetcher} from '../../fetchers/subgraph-vcpm-data-fetcher.js';
+import {VcpmInstanceFetcher} from '../../fetchers/vcpm-instance-fetcher.js';
+import {VcpmCkvFetcher} from '../../fetchers/vcpm-ckv-fetcher.js';
+import {VcpmParameterPayloadFetcher} from '../../fetchers/vcpm-parameter-payload-fetcher.js';
+import type {VcpmQueryContext} from '../../fetchers/vcpm-query-context.js';
 
 export class TypeOrmSubgraphRepository implements SubgraphRepository {
   private readonly subgraphFetcher: SubgraphOverlayFetcher;
@@ -40,6 +48,10 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
   private readonly propertyDefinitionFetcher: SubgraphPropertyDefinitionFetcher;
   private readonly propertyDataFetcher: SubgraphPropertyDataFetcher;
   private readonly vcpmDataFetcher: SubgraphVcpmDataFetcher;
+  private readonly editActionsQueryService: EditActionsQueryService;
+  private readonly vcpmInstanceFetcher: VcpmInstanceFetcher;
+  private readonly vcpmCkvFetcher: VcpmCkvFetcher;
+  private readonly vcpmParameterPayloadFetcher: VcpmParameterPayloadFetcher;
 
   constructor(
     private readonly writer: PendingChangeWriter,
@@ -48,6 +60,7 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     private readonly idGeneration: IdGenerationPort,
   ) {
     const editActionsQs = new EditActionsQueryService(manager);
+    this.editActionsQueryService = editActionsQs;
     this.sgkvFetcher = new SubgraphSgkvFetcher(manager, editActionsQs);
     this.propertyDataFetcher = new SubgraphPropertyDataFetcher(
       manager,
@@ -69,6 +82,9 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
       manager,
       editActionsQs,
     );
+    this.vcpmInstanceFetcher = new VcpmInstanceFetcher(manager);
+    this.vcpmCkvFetcher = new VcpmCkvFetcher(manager, this.vcpmInstanceFetcher);
+    this.vcpmParameterPayloadFetcher = new VcpmParameterPayloadFetcher(manager);
     this.vcpmDataFetcher = new SubgraphVcpmDataFetcher(manager, editActionsQs);
   }
 
@@ -574,5 +590,191 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
           ),
       ),
     });
+  }
+
+  async getAllVcpmData(
+    subgraphSystemId: number,
+    ckvSystemId?: number,
+  ): Promise<VcpmInstanceData | null> {
+    const {session} = this.uow.getWriteContext();
+    const context: VcpmQueryContext = {
+      sessionId: session.sessionId,
+      editActions: await this.editActionsQueryService.getByAggregateId(
+        session.sessionId,
+        subgraphSystemId,
+      ),
+    };
+    const instances = await this.vcpmInstanceFetcher.fetchMany(
+      subgraphSystemId,
+      session.fileSystemId,
+      context,
+    );
+    if (instances.length === 0) return null;
+    if (instances.length > 1) {
+      throw new Error(
+        `Expected exactly one VCPM instance for subgraph ${subgraphSystemId}, found ${instances.length}`,
+      );
+    }
+
+    const ckvRows =
+      ckvSystemId === undefined
+        ? await this.vcpmCkvFetcher.fetchMany(
+            subgraphSystemId,
+            session.fileSystemId,
+            context,
+          )
+        : await this.vcpmCkvFetcher
+            .fetchOne(
+              ckvSystemId,
+              subgraphSystemId,
+              session.fileSystemId,
+              context,
+            )
+            .then(row => (row === null ? [] : [row]));
+    const effectiveCkvSystemIds = new Set(ckvRows.map(row => row.systemId));
+    const payloadRows =
+      ckvSystemId === undefined || ckvRows.length === 0
+        ? []
+        : await this.vcpmParameterPayloadFetcher.fetchMany(
+            ckvSystemId,
+            subgraphSystemId,
+            session.fileSystemId,
+            context,
+            effectiveCkvSystemIds,
+          );
+
+    const instance = new VcpmInstance({
+      systemId: instances[0].systemId,
+      subgraphSystemId,
+      vcpmModuleDefinitionSystemId: Number(instances[0].vcpmDefinitionId),
+    });
+    for (const row of ckvRows) instance.addCkv(this.toKvData(row));
+
+    return {
+      instance,
+      payloads: new Map(
+        payloadRows.map(row => [
+          row.systemId,
+          Number(row.vcpmParameterSystemId),
+        ]),
+      ),
+    };
+  }
+
+  private toKvData(row: {
+    systemId: number;
+    values?: Array<{valueDefSystemId: number}>;
+    valueDefSystemIds?: number[];
+  }): KvData {
+    const valueDefSystemIds = Array.isArray(row.valueDefSystemIds)
+      ? row.valueDefSystemIds
+      : (row.values ?? []).map(value => value.valueDefSystemId);
+
+    return new KvData({
+      systemId: row.systemId,
+      valueDefinitionSystemIds: valueDefSystemIds.map(Number),
+      uiPersistence: null,
+    });
+  }
+
+  async createVcpmCkv(
+    subgraphSystemId: number,
+    newCkvSystemId: number,
+    vcpmInstanceSystemId: number,
+    valueSystemIds: number[],
+    payloads: CreateVcpmCkvPayload[],
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+
+    await this.writer.writeCreate(
+      {
+        targetTable: ENTITY_NAMES.VcpmCkv,
+        targetSystemId: newCkvSystemId,
+        aggregateId: subgraphSystemId,
+        payload: {
+          vcpmInstanceSystemId,
+          valueDefSystemIds: valueSystemIds,
+        },
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+
+    for (const payload of payloads) {
+      await this.writer.writeCreate(
+        {
+          targetTable: ENTITY_NAMES.VcpmParameterPayload,
+          targetSystemId: payload.payloadSystemId,
+          aggregateId: subgraphSystemId,
+          payload: {
+            vcpmCkvSystemId: newCkvSystemId,
+            vcpmParameterSystemId: payload.parameterDefinitionSystemId,
+            payload: payload.payload,
+          },
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+  }
+
+  async deleteVcpmCkv(
+    subgraphSystemId: number,
+    ckvSystemId: number,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    const aggregate = await this.getAllVcpmData(subgraphSystemId, ckvSystemId);
+    if (aggregate === null) {
+      throw new Error(
+        `VCPM instance not found for subgraph ${subgraphSystemId}`,
+      );
+    }
+    const payloads = aggregate.payloads;
+
+    for (const payloadSystemId of payloads.keys()) {
+      await this.writer.writeDelete(
+        {
+          targetTable: ENTITY_NAMES.VcpmParameterPayload,
+          targetSystemId: payloadSystemId,
+          aggregateId: subgraphSystemId,
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+
+    await this.writer.writeDelete(
+      {
+        targetTable: ENTITY_NAMES.VcpmCkv,
+        targetSystemId: ckvSystemId,
+        aggregateId: subgraphSystemId,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+  }
+
+  async updateVcpmCalData(
+    subgraphSystemId: number,
+    updates: UpdateVcpmCalDataPayload[],
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    for (const update of updates) {
+      await this.writer.writeDelta(
+        {
+          targetTable: ENTITY_NAMES.VcpmParameterPayload,
+          targetSystemId: update.payloadSystemId,
+          aggregateId: subgraphSystemId,
+          delta: {payload: update.payload},
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
   }
 }

@@ -9,12 +9,26 @@ import type {VcpmInstance} from '../../../../../domain/entities/usecase-data/sub
 import type {SubgraphPropertyDefinition} from '../../../../../domain/entities/definitions/subgraph/subgraph-property-definitions.js';
 import type {KvPair} from '../shared/kv-pair.js';
 import type {SessionChanged} from '../shared/session-changed.js';
+import type {ModuleParameterPayload} from '../../../../shared/module-parameter-payload.js';
 
 /** A subgraph key/value instance with its resolved key and value definitions. */
 export interface SgkvEntry {
   sgSystemId: number;
   sgkvSystemId: number;
   keyValues: KvPair[];
+}
+export interface CreateVcpmCkvPayload extends ModuleParameterPayload {
+  payloadSystemId: number;
+}
+
+export interface UpdateVcpmCalDataPayload extends CreateVcpmCkvPayload {
+  vcpmCkvSystemId: number;
+}
+
+export interface VcpmInstanceData {
+  instance: VcpmInstance;
+  /** Effective payload mapping: payloadSystemId → parameterDefinitionSystemId. */
+  payloads: Map<number, number>;
 }
 
 export interface SubgraphRepository {
@@ -131,4 +145,28 @@ export interface SubgraphRepository {
    * Consumer: routing engine graphEdits assembly (addedSgs / deletedSgs).
    */
   findChangedInSession(fileSystemId: number): Promise<SessionChanged<Subgraph>>;
+
+  /**
+   * Returns all effective VCPM data. When ckvSystemId is supplied,
+   * payloads are limited to that effective CKV.
+   */
+  getAllVcpmData(
+    subgraphSystemId: number,
+    ckvSystemId?: number,
+  ): Promise<VcpmInstanceData | null>;
+
+  createVcpmCkv(
+    subgraphSystemId: number,
+    newCkvSystemId: number,
+    vcpmInstanceSystemId: number,
+    valueSystemIds: number[],
+    payloads: CreateVcpmCkvPayload[],
+  ): Promise<void>;
+
+  deleteVcpmCkv(subgraphSystemId: number, ckvSystemId: number): Promise<void>;
+
+  updateVcpmCalData(
+    subgraphSystemId: number,
+    updates: UpdateVcpmCalDataPayload[],
+  ): Promise<void>;
 }

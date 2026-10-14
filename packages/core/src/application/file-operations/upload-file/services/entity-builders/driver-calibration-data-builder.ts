@@ -22,15 +22,14 @@ import type {
   CalDataOffsetEntry,
 } from '../../../shared/acdb-chunks/driver-calibration-chunk.js';
 import type {DatapoolChunk} from '../../../shared/acdb-chunks/datapool-chunk.js';
+import type {ModuleParameterPayload} from '../../../../shared/module-parameter-payload.js';
 
 /**
  * Intermediate structure for module-parameter-payload extraction
  * Stores system IDs (not natural IDs) for database insertion
  */
-interface ModuleParameterPayload {
+interface DriverModuleParameterPayload extends ModuleParameterPayload {
   moduleDefinitionSystemId: number;
-  parameterDefinitionSystemId: number;
-  payload: Uint8Array;
 }
 
 /**
@@ -319,8 +318,8 @@ export class DriverCalibrationDataBuilder {
     moduleDefinitionId: number,
     parsedAcdb: ParsedAcdb,
     foreignKeyMapper: ForeignKeyMapper,
-  ): ModuleParameterPayload[] {
-    const payloads: ModuleParameterPayload[] = [];
+  ): DriverModuleParameterPayload[] {
+    const payloads: DriverModuleParameterPayload[] = [];
     const datapoolChunk = parsedAcdb.getChunk<DatapoolChunk>(
       PARSED_CHUNK_TYPES.DATAPOOL,
     );
@@ -393,7 +392,7 @@ export class DriverCalibrationDataBuilder {
    * Payloads already contain systemIds, so we can use them directly
    */
   private createDkvDataFromPayloads(
-    moduleParamPayloads: ModuleParameterPayload[],
+    moduleParamPayloads: DriverModuleParameterPayload[],
     keyVectorInput: KeyVectorInput,
     foreignKeyMapper: ForeignKeyMapper,
     moduleDefinitionId: number,

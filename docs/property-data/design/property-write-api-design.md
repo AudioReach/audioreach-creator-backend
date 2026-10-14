@@ -191,7 +191,7 @@ Where `PropertyChange = { systemId: string, propertyId: number, propertyName: st
 | `SetContainerCapabilitiesRequestDto` | `{ capabilities: number[] }` | PATCH capabilities |
 | `CreateVcpmCkvRequestDto` | `{ ckv: { keyId: number; valueId: number }[] }` | POST vcpm-ckv |
 
-`UpdateSpfModuleCalDataRequestDto` (already exists) is **reused** for all `{ data: ParameterDto[] }` request bodies — generic subgraph PATCH, generic container PATCH, and PUT vcpm cal-data.
+`UpdateSpfModuleCalDataRequestDto` (already exists) is **reused** for all `{ parameters: ParameterDto[] }` request bodies — generic subgraph PATCH, generic container PATCH, and PUT VCPM cal-data. The VCPM PUT updates one CKV per request and is atomic: all submitted parameter payloads are validated and staged together, or none are changed.
 
 ### 5. Controller changes
 

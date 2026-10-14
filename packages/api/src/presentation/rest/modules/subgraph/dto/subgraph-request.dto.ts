@@ -4,7 +4,7 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {IsNotEmpty, IsOptional, IsString} from 'class-validator';
+import {Allow, IsNotEmpty, IsOptional, IsString} from 'class-validator';
 import {z} from 'zod';
 import {createZodDto} from 'nestjs-zod';
 
@@ -39,4 +39,7 @@ export class CreateVcpmCkvRequestDto extends createZodDto(
   z.object({
     ckv: z.array(z.object({valueSystemIds: z.array(z.string()).min(1)})).min(1),
   }),
-) {}
+) {
+  @Allow()
+  ckv!: Array<{valueSystemIds: string[]}>;
+}

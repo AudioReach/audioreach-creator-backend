@@ -49,6 +49,7 @@ import {
   CreateVcpmCkvRequestDto,
 } from './dto/subgraph-request.dto.js';
 import {UpdatePropertyRequestDto} from '../../common/dto/update-property-request.dto.js';
+import {UpdateSpfModuleCalDataRequestDto} from '../spf-module/dto/request/update-spf-module-cal-data-request.dto.js';
 import {ParameterSummaryDto} from '../../common/dto/parameter-summary.dto.js';
 import {PropertySummaryDto} from '../../common/dto/property-summary.dto.js';
 import {ConfigElementSummaryDto} from '../../common/dto/element-data/elements/config-element-summary.dto.js';
@@ -87,6 +88,7 @@ import {
   type CkvCalDataDto,
   type SubgraphDto,
   type PropertyDataDto,
+  type ParameterElementSummaryDto,
 } from '@arc/core';
 /**
  * Controller to support all subgraph related APIs for usecase design.
@@ -634,6 +636,7 @@ export class SubgraphController extends BaseController {
     description: 'System id of a subgraph',
   })
   @UseGuards(SessionGuard)
+  @HttpCode(HttpStatus.OK)
   @ApiDocumentationWithExample({
     summary: 'Create a new VCPM CKV entry for a subgraph',
     requestDto: CreateVcpmCkvRequestDto,
@@ -726,7 +729,7 @@ export class SubgraphController extends BaseController {
   @UseGuards(SessionGuard)
   @ApiDocumentationWithExample({
     summary: 'Update VCPM calibration data for a specific CKV',
-    requestDto: UpdatePropertyRequestDto,
+    requestDto: UpdateSpfModuleCalDataRequestDto,
     responses: [
       {
         status: HttpStatus.OK,
@@ -747,22 +750,31 @@ export class SubgraphController extends BaseController {
     @Param('projectId') projectId: string,
     @Param('subgraphSystemId', ParseIntPipe) subgraphSystemId: number,
     @Param('ckvSystemId', ParseIntPipe) ckvSystemId: number,
-    @Body() dto: UpdatePropertyRequestDto,
+    @Body() dto: UpdateSpfModuleCalDataRequestDto,
     @ArcSession() session: ActiveSession,
     @ClientId() clientId: string,
   ): Promise<ApiResult<CkvCalDataResponseDto>> {
     await this.commandBus.execute<void>(
-      new UpdateVcpmCalDataCommand(subgraphSystemId, ckvSystemId, [dto]),
+      new UpdateVcpmCalDataCommand(
+        subgraphSystemId,
+        ckvSystemId,
+        dto.parameters.map(parameter => ({
+          systemId: Number(parameter.systemId),
+          elements:
+            parameter.elements as unknown as ParameterElementSummaryDto[],
+        })),
+      ),
       session,
     );
-    const query = new GetVcpmCalDataQuery(
-      projectId,
-      String(subgraphSystemId),
-      String(ckvSystemId),
-      clientId,
+    const readResult = await this.queryBus.execute<Result<CkvCalDataDto>>(
+      new GetVcpmCalDataQuery(
+        projectId,
+        String(subgraphSystemId),
+        String(ckvSystemId),
+        clientId,
+      ),
     );
-    const result = await this.queryBus.execute<Result<CkvCalDataDto>>(query);
-    return toApiResult(result);
+    return toApiResult(readResult);
   }
 
   /**

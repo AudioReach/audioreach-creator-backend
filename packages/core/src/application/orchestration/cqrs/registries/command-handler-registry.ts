@@ -288,7 +288,7 @@ export class CommandHandlerRegistry {
     });
 
     this.commandHandlerFactories.set(CreateVcpmCkvCommand, {
-      create: deps => new CreateVcpmCkvHandler(deps.uow),
+      create: deps => new CreateVcpmCkvHandler(deps.uow, deps.idGeneration),
     });
 
     this.commandHandlerFactories.set(DeleteVcpmCkvCommand, {
