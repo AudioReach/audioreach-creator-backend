@@ -226,6 +226,7 @@ export default [
             'lastReservedId',
             'ipcTxId',
             'ipcRxId',
+            'HeapId',
           ],
         },
       ],

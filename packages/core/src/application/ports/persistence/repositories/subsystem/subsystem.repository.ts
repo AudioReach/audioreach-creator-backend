@@ -4,13 +4,6 @@
  */
 
 import type {PortIoType} from '../../../../../domain/entities/common/enums/port-io-type.js';
-
-/** Identifies a subsystem control port without losing its aggregate owner. */
-export interface SubsystemControlPortRef {
-  subsystemSystemId: number;
-  controlPortSystemId: number;
-}
-
 import type {EditOptions} from '../../edit-options.js';
 import type {ControlPort} from '../../../../../domain/entities/usecase-data/node/entities/control-port.js';
 import type {DataPort} from '../../../../../domain/entities/usecase-data/node/entities/data-port.js';
@@ -19,6 +12,12 @@ import type {
   SubsystemHierarchy,
 } from '../../../../../domain/entities/usecase-data/subsystem/subsystem.js';
 import type {NodeType} from '../../../../../domain/entities/usecase-data/node/node.js';
+
+/** Identifies a subsystem control port without losing its aggregate owner. */
+export interface SubsystemControlPortRef {
+  subsystemSystemId: number;
+  controlPortSystemId: number;
+}
 
 export interface SubsystemKey {
   readonly systemId: number;
@@ -51,6 +50,8 @@ export interface SubsystemRepository {
   findOrphanSubsystemSystemIds(
     fileSystemId: number,
   ): Promise<readonly number[]>;
+
+  createControlPorts(ports: ControlPort[]): Promise<void>;
 
   clearControlPortIntents(
     ports: SubsystemControlPortRef[],
@@ -96,6 +97,12 @@ export interface SubsystemRepository {
    * from 422 (port belongs to wrong module).
    */
   portExists(portSystemId: number, fileSystemId: number): Promise<boolean>;
+
+  /** Returns true when a control port exists in the file/session overlay. */
+  controlPortExists(
+    portSystemId: number,
+    fileSystemId: number,
+  ): Promise<boolean>;
 
   createSubsystem(subsystem: Subsystem, options?: EditOptions): Promise<void>;
   deleteSubsystem(systemId: number, options?: EditOptions): Promise<void>;

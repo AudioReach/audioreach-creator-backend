@@ -37,6 +37,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
   private readonly moduleFetcher: SpfModuleOverlayFetcher;
   private readonly nodeFetcher: NodeOverlayFetcher;
   private readonly keyDefinitionFetcher: KeyValueDefinitionFetcher;
+  private readonly editActionsQs: EditActionsQueryService;
 
   constructor(
     writer: PendingChangeWriter,
@@ -46,29 +47,21 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     this.writer = writer;
     this.manager = manager;
     this.uow = uow;
-    const editActionsQueryService = new EditActionsQueryService(this.manager);
-    this.intentFetcher = new IntentFetcher(
-      this.manager,
-      editActionsQueryService,
-    );
+    const editActionsQs = new EditActionsQueryService(this.manager);
+    this.editActionsQs = editActionsQs;
+    this.intentFetcher = new IntentFetcher(this.manager, editActionsQs);
     this.portFetcher = new PortOverlayFetcher(
       this.manager,
-      editActionsQueryService,
+      editActionsQs,
       this.intentFetcher,
     );
-    this.subsystemFetcher = new SubsystemOverlayFetcher(
-      manager,
-      editActionsQueryService,
-    );
-    this.moduleFetcher = new SpfModuleOverlayFetcher(
-      manager,
-      editActionsQueryService,
-    );
-    this.nodeFetcher = new NodeOverlayFetcher(manager, editActionsQueryService);
+    this.subsystemFetcher = new SubsystemOverlayFetcher(manager, editActionsQs);
+    this.moduleFetcher = new SpfModuleOverlayFetcher(manager, editActionsQs);
+    this.nodeFetcher = new NodeOverlayFetcher(manager, editActionsQs);
     this.keyDefinitionFetcher = new KeyValueDefinitionFetcher(
       manager,
-      editActionsQueryService,
-      new ValueDefinitionFetcher(manager, editActionsQueryService),
+      editActionsQs,
+      new ValueDefinitionFetcher(manager, editActionsQs),
     );
   }
 
@@ -198,6 +191,43 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     return rows.some(row => row.systemId === systemId);
   }
 
+  async controlPortExists(
+    portSystemId: number,
+    fileSystemId: number,
+  ): Promise<boolean> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const actions =
+      sessionId == null
+        ? []
+        : await this.editActionsQs.getByTable(
+            sessionId,
+            ENTITY_NAMES.ControlPort,
+          );
+    if (
+      actions.some(
+        action =>
+          action.targetSystemId === portSystemId &&
+          action.operation === 'DELETE',
+      )
+    )
+      return false;
+    const count = await this.manager
+      .getRepository(ENTITY_NAMES.ControlPort)
+      .createQueryBuilder('port')
+      .innerJoin('port.node', 'node')
+      .where('port.systemId = :portSystemId', {portSystemId})
+      .andWhere('node.fileSystemId = :fileSystemId', {fileSystemId})
+      .getCount();
+    if (count > 0) return true;
+    return actions.some(
+      action =>
+        action.targetSystemId === portSystemId &&
+        action.operation === 'CREATE' &&
+        Number((action.newValue as Record<string, unknown>)['fileSystemId']) ===
+          fileSystemId,
+    );
+  }
+
   async hasSubsystems(fileSystemId: number): Promise<boolean> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
     const subsystems = await this.subsystemFetcher.fetchAll(
@@ -245,6 +275,29 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
       .map(subsystem => subsystem.systemId)
       .filter(systemId => !subsystemHasModule.has(systemId))
       .sort((left, right) => left - right);
+  }
+
+  async createControlPorts(ports: ControlPort[]): Promise<void> {
+    if (ports.length === 0) return;
+    const {session, groupId} = this.uow.getWriteContext();
+    for (const port of ports)
+      await this.writer.writeCreate(
+        {
+          targetTable: ENTITY_NAMES.ControlPort,
+          targetSystemId: port.systemId,
+          aggregateId: port.nodeSystemId,
+          payload: {
+            naturalId: port.naturalId,
+            isStatic: port.isStatic,
+            name: port.name,
+            nodeSystemId: port.nodeSystemId,
+            fileSystemId: session.fileSystemId,
+          },
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
   }
 
   async clearControlPortIntents(
