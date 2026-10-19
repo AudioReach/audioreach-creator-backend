@@ -38,6 +38,10 @@ const USECASE_ID = 700;
 const OLD_SOURCE = 10;
 const OLD_DESTINATION = 20;
 const MDF_SUBGRAPH = 30;
+const COLLAPSE_USECASE_ID = 800;
+const COLLAPSE_SOURCE = 10;
+const COLLAPSE_DESTINATION = 20;
+const COLLAPSE_MDF_SUBGRAPH = 30;
 
 interface NormalizedEditAction {
   readonly entity: 'usecase' | 'usecase_subgraph' | 'usecase_data_link';
@@ -66,6 +70,26 @@ interface MdfPersistenceHarness {
     gkv: readonly [number, number][];
     type: string;
   }>;
+  close(): Promise<void>;
+}
+
+interface CollapsePersistenceHarness {
+  routeCollapse(): Promise<ReturnType<typeof Result.ok>>;
+  loadOverlayTopology(usecaseSystemId: number): Promise<{
+    members: readonly number[];
+    pairs: readonly [number, number][];
+    gkv: readonly [number, number][];
+    type: string;
+  }>;
+  loadActionCounts(): Promise<
+    ReadonlyArray<{
+      readonly targetTable: string;
+      readonly targetSystemId: number;
+      readonly operation: string;
+      readonly count: number;
+    }>
+  >;
+  wipeStagedActions(): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -398,6 +422,189 @@ async function createMdfPersistenceHarness(): Promise<MdfPersistenceHarness> {
   };
 }
 
+async function createCollapsePersistenceHarness(): Promise<CollapsePersistenceHarness> {
+  const dataSource = getTestDataSource();
+  const session = await getTestRepository(ProjectSessionSchema).save({
+    fileSystemId: FILE_ID,
+    userId: 'collapse-user',
+    clientId: 'collapse-client',
+    sessionMode: SESSION_MODE.Designer,
+    status: SESSION_STATUS.Active,
+    endedAt: null,
+  });
+  const queryRunner = dataSource.createQueryRunner();
+  await queryRunner.connect();
+  const writer = new PendingChangeWriter(
+    new EditActionsQueryService(queryRunner.manager),
+    new PendingChangeCache(),
+  );
+  let nextGeneratedId = 40000;
+  const repository = new TypeOrmUsecaseRepository(
+    writer,
+    queryRunner.manager,
+    {
+      getWriteContext: () => ({
+        session: {
+          sessionId: session.sessionId,
+          fileSystemId: FILE_ID,
+          mode: SESSION_MODE.Designer,
+          projectId: '1',
+        },
+        groupId: 'collapse-group',
+      }),
+    } as never,
+    {
+      getNextId: async () => nextGeneratedId++,
+      reserveBlock: async () => nextGeneratedId,
+      persistLastUsedId: async () => undefined,
+    },
+  );
+
+  await dataSource.query(
+    `INSERT INTO use_cases (system_id, alias_id, alias, type, file_system_id)
+     VALUES (?, ?, ?, ?, ?)`,
+    [COLLAPSE_USECASE_ID, 2, 'collapse-uc', USECASE_TYPE.Linked, FILE_ID],
+  );
+  await dataSource.query(
+    `INSERT INTO usecase_gkv_values (usecase_system_id, value_def_system_id)
+     VALUES (?, ?)`,
+    [COLLAPSE_USECASE_ID, 100],
+  );
+  await dataSource.query(
+    `INSERT INTO use_case_subgraphs (system_id, usecase_system_id, subgraph_system_id)
+     VALUES (30001, ?, ?), (30002, ?, ?), (30003, ?, ?)`,
+    [
+      COLLAPSE_USECASE_ID,
+      COLLAPSE_SOURCE,
+      COLLAPSE_USECASE_ID,
+      COLLAPSE_MDF_SUBGRAPH,
+      COLLAPSE_USECASE_ID,
+      COLLAPSE_DESTINATION,
+    ],
+  );
+  await dataSource.query(
+    `INSERT INTO use_case_subgraph_pairs
+     (system_id, usecase_system_id, source_subgraph_system_id, dest_subgraph_system_id)
+     VALUES (30004, ?, ?, ?), (30005, ?, ?, ?)`,
+    [
+      COLLAPSE_USECASE_ID,
+      COLLAPSE_SOURCE,
+      COLLAPSE_MDF_SUBGRAPH,
+      COLLAPSE_USECASE_ID,
+      COLLAPSE_MDF_SUBGRAPH,
+      COLLAPSE_DESTINATION,
+    ],
+  );
+
+  async function routeCollapse(): Promise<ReturnType<typeof Result.ok>> {
+    await queryRunner.startTransaction();
+    try {
+      await repository.removeSubgraphReferences(
+        COLLAPSE_MDF_SUBGRAPH,
+        FILE_ID,
+        {source: SOURCE.AutoRouting},
+      );
+      await repository.applyStructuralChange(
+        COLLAPSE_USECASE_ID,
+        {
+          removedSgSystemIds: [COLLAPSE_MDF_SUBGRAPH],
+          removedPairs: [
+            {
+              sourceSubgraphSystemId: COLLAPSE_SOURCE,
+              destSubgraphSystemId: COLLAPSE_MDF_SUBGRAPH,
+            },
+            {
+              sourceSubgraphSystemId: COLLAPSE_MDF_SUBGRAPH,
+              destSubgraphSystemId: COLLAPSE_DESTINATION,
+            },
+          ],
+          addedPairs: [
+            {
+              sourceSubgraphSystemId: COLLAPSE_SOURCE,
+              destSubgraphSystemId: COLLAPSE_DESTINATION,
+            },
+          ],
+        },
+        {source: SOURCE.AutoRouting},
+        undefined,
+        [],
+      );
+      await queryRunner.commitTransaction();
+      return Result.ok({
+        emittedChanges: [],
+        issues: [],
+        groupId: 'collapse-group',
+      });
+    } catch {
+      if (queryRunner.isTransactionActive)
+        await queryRunner.rollbackTransaction();
+      return Result.fail({
+        code: 'TEST-COLLAPSE-FAILURE',
+        message: 'collapse write failed',
+        severity: 'ERROR',
+      });
+    }
+  }
+
+  async function loadOverlayTopology(usecaseSystemId: number) {
+    const [usecase] = await repository.findBySystemIds(FILE_ID, [
+      usecaseSystemId,
+    ]);
+    return {
+      members: [...usecase.subgraphSystemIds],
+      pairs: usecase.subgraphPairs.map(
+        pair =>
+          [pair.sourceSubgraphSystemId, pair.destSubgraphSystemId] as [
+            number,
+            number,
+          ],
+      ),
+      gkv: usecase.keyVector.valueSystemIds.map(
+        valueSystemId => [1, valueSystemId] as [number, number],
+      ),
+      type: usecase.type ?? 'UNSPECIFIED',
+    };
+  }
+
+  async function loadActionCounts() {
+    const rows: Array<{
+      target_table: string;
+      target_system_id: number;
+      operation: string;
+      count: number;
+    }> = await dataSource.query(
+      `SELECT target_table, target_system_id, operation, COUNT(*) AS count
+       FROM edit_actions
+       WHERE session_id = ?
+       GROUP BY target_table, target_system_id, operation
+       ORDER BY target_table, target_system_id, operation`,
+      [session.sessionId],
+    );
+    return rows.map(row => ({
+      targetTable: row.target_table,
+      targetSystemId: Number(row.target_system_id),
+      operation: row.operation,
+      count: Number(row.count),
+    }));
+  }
+
+  async function wipeStagedActions(): Promise<void> {
+    await dataSource.query('DELETE FROM edit_actions WHERE session_id = ?', [
+      session.sessionId,
+    ]);
+  }
+
+  return {
+    routeCollapse,
+    loadOverlayTopology,
+    loadActionCounts,
+    wipeStagedActions,
+    close: async () => {
+      if (!queryRunner.isReleased) await queryRunner.release();
+    },
+  };
+}
+
 describe('TypeOrm MDF substitution persistence', () => {
   beforeAll(async () => {
     await setupIntegrationTest();
@@ -507,6 +714,89 @@ describe('TypeOrm MDF substitution persistence', () => {
       gkv: [[1, 100]],
       type: USECASE_TYPE.Linked,
     });
+    await harness.close();
+  });
+});
+
+describe('TypeOrm MDF collapse persistence', () => {
+  beforeAll(async () => {
+    await setupIntegrationTest();
+  });
+  afterAll(async () => {
+    await teardownIntegrationTest();
+  });
+  beforeEach(async () => {
+    await setupEachTest();
+    await seedProjectAndFile(getTestDataSource());
+  });
+
+  it('combines subgraph cleanup and collapse without duplicate junction deletes', async () => {
+    const harness = await createCollapsePersistenceHarness();
+
+    const result = await harness.routeCollapse();
+    const actionCounts = await harness.loadActionCounts();
+
+    expect(result.kind).toBe('OK');
+    expect(actionCounts.every(action => action.count === 1)).toBe(true);
+    expect(
+      actionCounts.filter(
+        action =>
+          action.targetTable === ENTITY_NAMES.UseCaseSubgraphPair &&
+          action.operation === 'DELETE',
+      ),
+    ).toHaveLength(2);
+    expect(
+      actionCounts.filter(
+        action =>
+          action.targetTable === ENTITY_NAMES.UseCaseSubgraphPair &&
+          action.operation === 'CREATE',
+      ),
+    ).toHaveLength(1);
+    await harness.close();
+  });
+
+  it('projects only boundary SGs and one direct pair while preserving the UC', async () => {
+    const harness = await createCollapsePersistenceHarness();
+
+    await harness.routeCollapse();
+    const overlay = await harness.loadOverlayTopology(COLLAPSE_USECASE_ID);
+
+    expect(overlay).toEqual({
+      members: [COLLAPSE_SOURCE, COLLAPSE_DESTINATION],
+      pairs: [[COLLAPSE_SOURCE, COLLAPSE_DESTINATION]],
+      gkv: [[1, 100]],
+      type: USECASE_TYPE.Linked,
+    });
+    await harness.close();
+  });
+
+  it('persists one UC pair for the collapse boundary', async () => {
+    const harness = await createCollapsePersistenceHarness();
+
+    await harness.routeCollapse();
+    const overlay = await harness.loadOverlayTopology(COLLAPSE_USECASE_ID);
+
+    expect(
+      overlay.pairs.filter(
+        ([source, destination]) =>
+          source === COLLAPSE_SOURCE && destination === COLLAPSE_DESTINATION,
+      ),
+    ).toHaveLength(1);
+    await harness.close();
+  });
+
+  it('recreates the same collapse overlay after staged actions are wiped', async () => {
+    const harness = await createCollapsePersistenceHarness();
+
+    await harness.routeCollapse();
+    const firstOverlay = await harness.loadOverlayTopology(COLLAPSE_USECASE_ID);
+    await harness.wipeStagedActions();
+    const rerun = await harness.routeCollapse();
+
+    expect(rerun.kind).toBe('OK');
+    expect(await harness.loadOverlayTopology(COLLAPSE_USECASE_ID)).toEqual(
+      firstOverlay,
+    );
     await harness.close();
   });
 });

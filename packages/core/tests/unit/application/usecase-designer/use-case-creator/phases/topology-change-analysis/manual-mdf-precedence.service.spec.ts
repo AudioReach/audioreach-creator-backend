@@ -8,8 +8,9 @@ import {CHANGE_OPERATION} from '../../../../../../../src/application/shared/chan
 import {ManualMdfPrecedenceService} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/topology-change-analysis/manual-mdf-precedence.service.js';
 import {UseCase} from '../../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
 import {
+  MDF_TOPOLOGY_REWRITE_KIND,
   USECASE_TOPOLOGY_DECISION_KIND,
-  type MdfSubstitutionDecision,
+  type MdfNormalizationDecision,
   type UsecaseTopologyDecision,
 } from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import type {RoutingInput} from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
@@ -37,18 +38,22 @@ function input(
   return {activeManualUsecaseEdits} as RoutingInput;
 }
 
-function mdfDecision(currentUsecase: UseCase): MdfSubstitutionDecision {
+function mdfDecision(currentUsecase: UseCase): MdfNormalizationDecision {
   return {
-    kind: USECASE_TOPOLOGY_DECISION_KIND.MdfSubstitution,
+    kind: USECASE_TOPOLOGY_DECISION_KIND.MdfNormalization,
     usecase: currentUsecase,
-    substitutions: [
+    rewrites: [
       {
-        removedPair: {
+        kind: MDF_TOPOLOGY_REWRITE_KIND.DirectToMdf,
+        directPair: {
           sourceSubgraphSystemId: 10,
           destSubgraphSystemId: 20,
         },
-        replacementSubgraphSystemIds: [30],
-        replacementPairs: [
+        mdfSubgraphSystemIds: [30],
+        committedPairs: [
+          {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+        ],
+        normalizedPairs: [
           {sourceSubgraphSystemId: 10, destSubgraphSystemId: 30},
           {sourceSubgraphSystemId: 30, destSubgraphSystemId: 20},
         ],

@@ -90,7 +90,7 @@ export function buildEffectiveGraph(
   const controlLinkPairKeys = new Set<string>();
   const destinationsBySource = new Map<number, Set<number>>();
 
-  for (const dataLink of sortedBySystemId(snapshot.routableDataLinks)) {
+  for (const dataLink of snapshot.routableDataLinks) {
     addDataLinkToGraph(
       dataLink,
       scopeSubgraphSystemIds,
@@ -98,7 +98,7 @@ export function buildEffectiveGraph(
       destinationsBySource,
     );
   }
-  for (const controlLink of sortedBySystemId(snapshot.routableControlLinks)) {
+  for (const controlLink of snapshot.routableControlLinks) {
     addControlLinkToGraph(
       controlLink,
       scopeSubgraphSystemIds,

@@ -440,7 +440,7 @@ describe('manual routing chain', () => {
     ]);
   });
 
-  it('uses current reverse data direction authorized by a selected UseCase pair without mutating it', async () => {
+  it('rejects a current reverse data direction that conflicts with a selected same-GKV UseCase', async () => {
     const selected = usecase({
       systemId: 700,
       gkv: [101],
@@ -453,19 +453,23 @@ describe('manual routing chain', () => {
       committedUsecases: [selected],
     });
 
-    await fixture.handler.handle(
-      command([{systemId: 10, sgkvs: [[101]]}, {systemId: 20}], {
-        selectedUsecaseSystemIds: [700],
-      }),
-    );
-
-    const writes = fixture.recordedWrites();
-    expect(writes.creates).toHaveLength(1);
-    expect(writes.creates[0]?.usecase?.subgraphPairs).toEqual([
-      {sourceSubgraphSystemId: 20, destSubgraphSystemId: 10},
-    ]);
-    expect(writes.updates).toEqual([]);
-    expect(writes.deletes).toEqual([]);
+    await expect(
+      fixture.handler.handle(
+        command([{systemId: 10, sgkvs: [[101]]}, {systemId: 20}], {
+          selectedUsecaseSystemIds: [700],
+        }),
+      ),
+    ).rejects.toMatchObject({
+      issues: [
+        expect.objectContaining({code: 'ARC-ROUTING-MANUAL-GKV-CONFLICT'}),
+      ],
+    });
+    expect(fixture.recordedWrites()).toEqual({
+      creates: [],
+      updates: [],
+      deletes: [],
+    });
+    expect(fixture.transactionCounts()).toEqual({commits: 0, rollbacks: 1});
   });
 
   it('omits unauthorized selected-selected relationships but keeps selected-to-out relationships', async () => {

@@ -9,6 +9,7 @@ import {CHANGE_OPERATION} from '../../../../../../src/application/shared/change-
 import {
   USECASE_CANDIDATE_KIND,
   type AutoUsecaseCandidate,
+  type ManualUsecaseCandidate,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {SameGkvCollisionService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/classification/same-gkv-collision.service.js';
 import {RoutingIssueFactory} from '../../../../../../src/application/usecase-designer/use-case-creator/issues/routing-issue-factory.js';
@@ -141,5 +142,35 @@ describe('RoutingIssueFactory same-GKV groups', () => {
     );
     expect(issue.fixOptions).toBeUndefined();
     expect(issue.message).toContain('changeIds: [11, 12]');
+  });
+
+  it('manualGkvConflict includes canonical requested member and directed-pair IDs', () => {
+    const manualCandidate: ManualUsecaseCandidate = {
+      kind: USECASE_CANDIDATE_KIND.Manual,
+      memberSubgraphSystemIds: [20, 10],
+      topology: {
+        pairs: [
+          {
+            pair: {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+            dataLinks: [],
+            controlLinks: [],
+          },
+        ],
+      },
+      sgkvAssignment: new Map(),
+      gkv: [{keyDefSystemId: 1001, valueDefSystemId: 100}],
+    };
+
+    const issue = RoutingIssueFactory.manualGkvConflict(
+      [100],
+      [5, 3],
+      manualCandidate,
+    );
+
+    expect(issue.code).toBe('ARC-ROUTING-MANUAL-GKV-CONFLICT');
+    expect(issue.severity).toBe('ERROR');
+    expect(issue.message).toContain('members: [10, 20]');
+    expect(issue.message).toContain('pairs: [10->20]');
+    expect(issue.impactedUsecases).toEqual([3, 5]);
   });
 });

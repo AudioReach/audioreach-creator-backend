@@ -587,16 +587,20 @@ describe('RoutingChangeStagingPhase', () => {
       affectedUsecaseSystemIds: new Set(),
       decisions: [
         {
-          kind: 'MDF_SUBSTITUTION',
+          kind: 'MDF_NORMALIZATION',
           usecase: committed,
-          substitutions: [
+          rewrites: [
             {
-              removedPair: {
+              kind: 'DIRECT_TO_MDF',
+              directPair: {
                 sourceSubgraphSystemId: 10,
                 destSubgraphSystemId: 20,
               },
-              replacementSubgraphSystemIds: [15],
-              replacementPairs: [
+              mdfSubgraphSystemIds: [15],
+              committedPairs: [
+                {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+              ],
+              normalizedPairs: [
                 {sourceSubgraphSystemId: 10, destSubgraphSystemId: 15},
                 {sourceSubgraphSystemId: 15, destSubgraphSystemId: 20},
               ],

@@ -9,6 +9,7 @@ import {
   SpfModule,
   DataPort,
   ControlPort,
+  READ_MODE,
   type ModuleRepository,
   type UnitOfWork,
   type EditOptions,
@@ -22,6 +23,7 @@ import {
   type TkvSummary,
   type KvData,
   type IdGenerationPort,
+  type ReadOptions,
 } from '@arc/core';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
@@ -102,12 +104,19 @@ export class TypeOrmModuleRepository implements ModuleRepository {
   async findModulesBySubgraphIds(
     subgraphSystemIds: readonly number[],
     fileSystemId: number,
+    options?: ReadOptions,
   ): Promise<SpfModuleBase[]> {
     if (subgraphSystemIds.length === 0) return [];
 
+    const mode = options?.readMode ?? READ_MODE.Overlay;
+    const sessionId =
+      mode === READ_MODE.Committed
+        ? null
+        : this.uow.getWriteContext().session.sessionId;
+
     const rows = await this.spfModuleFetcher.fetchMany(
       fileSystemId,
-      this.uow.getWriteContext().session.sessionId,
+      sessionId,
       {subgraphSystemId: [...new Set(subgraphSystemIds)]},
     );
     return rows.map(row => this.toModuleBase(row));

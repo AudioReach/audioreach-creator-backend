@@ -4,7 +4,7 @@
  */
 
 import type {DataSource, QueryRunner} from 'typeorm';
-import {DATA_LINK_TYPE} from '@arc/core';
+import {DATA_LINK_TYPE, READ_MODE} from '@arc/core';
 import {
   SESSION_MODE,
   SESSION_STATUS,
@@ -252,6 +252,25 @@ describe('TypeOrmDataLinkRepository — routing methods (integration)', () => {
     });
   });
 
+  describe('findIntraUcLinksByFile — readMode', () => {
+    it('overlay mode (default) excludes a session-deleted base link; committed mode returns it', async () => {
+      await seedDataLink(ds, 1001, DATA_LINK_TYPE.Normal, SG_1, SG_2);
+      const sessionId = await seedSession(ds);
+      const repo = makeRepo(qr.manager, sessionId);
+
+      await repo.deleteAggregate(1001, FILE_ID);
+
+      const overlay = await repo.findIntraUcLinksByFile(FILE_ID);
+      expect(overlay).toHaveLength(0);
+
+      const committed = await repo.findIntraUcLinksByFile(FILE_ID, {
+        readMode: READ_MODE.Committed,
+      });
+      expect(committed).toHaveLength(1);
+      expect(committed[0]!.systemId).toBe(1001);
+    });
+  });
+
   describe('findIntraUcLinksByFile', () => {
     it('returns all intra-usecase data links in the file', async () => {
       await seedDataLink(ds, 1001, DATA_LINK_TYPE.Normal, SG_1, SG_2);
@@ -261,7 +280,13 @@ describe('TypeOrmDataLinkRepository — routing methods (integration)', () => {
         qr.manager,
         sessionId,
       ).findIntraUcLinksByFile(FILE_ID);
-      expect(result.map(l => l.systemId).sort()).toEqual([1001, 1002]);
+      // findIntraUcLinksByFile has no ORDER BY, so row order from the DB is
+      // not guaranteed; sort numerically before comparing so the assertion
+      // checks the returned set rather than relying on default (lexicographic)
+      // Array.prototype.sort(), which silently breaks for values like [10, 9].
+      expect(
+        result.map(l => l.systemId).sort((left, right) => left - right),
+      ).toEqual([1001, 1002]);
     });
 
     it('excludes non-intra-usecase link types', async () => {

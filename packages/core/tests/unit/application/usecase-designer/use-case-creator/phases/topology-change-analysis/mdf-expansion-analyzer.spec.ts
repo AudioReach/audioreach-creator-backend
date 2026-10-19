@@ -11,7 +11,7 @@ import type {
   DirectedEdge,
   TopologyImpactInventory,
 } from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/topology-change-analysis/topology-impact-inventory.js';
-import {MdfSubstitutionAnalyzer} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/topology-change-analysis/mdf-substitution-analyzer.js';
+import {MdfExpansionAnalyzer} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/topology-change-analysis/mdf-expansion-analyzer.js';
 
 interface InventoryOptions {
   readonly adjacency: readonly (readonly [number, readonly DirectedEdge[]])[];
@@ -65,8 +65,8 @@ function inventory(options: InventoryOptions): TopologyImpactInventory {
   };
 }
 
-describe('MdfSubstitutionAnalyzer', () => {
-  const analyzer = new MdfSubstitutionAnalyzer();
+describe('MdfExpansionAnalyzer', () => {
+  const analyzer = new MdfExpansionAnalyzer();
 
   it('returns a normal substitution through one MDF member', () => {
     const result = analyzer.analyze(
@@ -82,12 +82,14 @@ describe('MdfSubstitutionAnalyzer', () => {
     );
 
     expect(result).toEqual({
-      removedPair: {
+      kind: 'DIRECT_TO_MDF',
+      directPair: {
         sourceSubgraphSystemId: 10,
         destSubgraphSystemId: 30,
       },
-      replacementSubgraphSystemIds: [20],
-      replacementPairs: [
+      mdfSubgraphSystemIds: [20],
+      committedPairs: [{sourceSubgraphSystemId: 10, destSubgraphSystemId: 30}],
+      normalizedPairs: [
         {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
         {sourceSubgraphSystemId: 20, destSubgraphSystemId: 30},
       ],
@@ -109,12 +111,14 @@ describe('MdfSubstitutionAnalyzer', () => {
     );
 
     expect(result).toEqual({
-      removedPair: {
+      kind: 'DIRECT_TO_MDF',
+      directPair: {
         sourceSubgraphSystemId: 10,
         destSubgraphSystemId: 40,
       },
-      replacementSubgraphSystemIds: [20, 30],
-      replacementPairs: [
+      mdfSubgraphSystemIds: [20, 30],
+      committedPairs: [{sourceSubgraphSystemId: 10, destSubgraphSystemId: 40}],
+      normalizedPairs: [
         {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
         {sourceSubgraphSystemId: 20, destSubgraphSystemId: 30},
         {sourceSubgraphSystemId: 30, destSubgraphSystemId: 40},
@@ -135,8 +139,8 @@ describe('MdfSubstitutionAnalyzer', () => {
       }),
     );
 
-    expect(result?.replacementSubgraphSystemIds).toEqual([20]);
-    expect(result?.replacementPairs).toEqual([
+    expect(result?.mdfSubgraphSystemIds).toEqual([20]);
+    expect(result?.normalizedPairs).toEqual([
       {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
       {sourceSubgraphSystemId: 20, destSubgraphSystemId: 30},
     ]);
@@ -321,12 +325,14 @@ describe('MdfSubstitutionAnalyzer', () => {
     );
 
     expect(result).toEqual({
-      removedPair: {
+      kind: 'DIRECT_TO_MDF',
+      directPair: {
         sourceSubgraphSystemId: 10,
         destSubgraphSystemId: 30,
       },
-      replacementSubgraphSystemIds: [20],
-      replacementPairs: [
+      mdfSubgraphSystemIds: [20],
+      committedPairs: [{sourceSubgraphSystemId: 10, destSubgraphSystemId: 30}],
+      normalizedPairs: [
         {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
         {sourceSubgraphSystemId: 20, destSubgraphSystemId: 30},
       ],
@@ -415,7 +421,7 @@ describe('MdfSubstitutionAnalyzer', () => {
       }),
     );
 
-    expect(result?.replacementSubgraphSystemIds).toEqual([20]);
+    expect(result?.mdfSubgraphSystemIds).toEqual([20]);
   });
 
   it('does not count a second route whose intermediate is not MDF', () => {
@@ -432,7 +438,7 @@ describe('MdfSubstitutionAnalyzer', () => {
       }),
     );
 
-    expect(result?.replacementSubgraphSystemIds).toEqual([20]);
+    expect(result?.mdfSubgraphSystemIds).toEqual([20]);
   });
 
   it('ignores a cycle and returns the sole complete chain', () => {
@@ -448,7 +454,7 @@ describe('MdfSubstitutionAnalyzer', () => {
       }),
     );
 
-    expect(result?.replacementSubgraphSystemIds).toEqual([20]);
+    expect(result?.mdfSubgraphSystemIds).toEqual([20]);
   });
 
   it('returns null when a cycle has no complete route to the destination', () => {
@@ -481,7 +487,7 @@ describe('MdfSubstitutionAnalyzer', () => {
       }),
     );
 
-    expect(result?.replacementSubgraphSystemIds).toEqual([20, 30]);
+    expect(result?.mdfSubgraphSystemIds).toEqual([20, 30]);
   });
 
   it('sorts candidates and stops before inspecting a third branch after uniqueness is impossible', () => {

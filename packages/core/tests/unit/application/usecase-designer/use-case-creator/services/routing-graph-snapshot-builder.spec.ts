@@ -61,6 +61,7 @@ function createUow(options: {
   dataLinks: readonly unknown[];
   controlLinks: readonly unknown[];
   committedUsecases?: readonly unknown[];
+  committedDataLinks?: readonly unknown[];
 }) {
   const getAggregates = jest.fn(
     async () =>
@@ -71,7 +72,12 @@ function createUow(options: {
         }),
       ),
   );
-  const findDataLinks = jest.fn(async () => [...options.dataLinks]);
+  const findDataLinks = jest.fn(
+    async (_fileId: number, opts?: {readMode?: string}) =>
+      opts?.readMode === READ_MODE.Committed
+        ? [...(options.committedDataLinks ?? [])]
+        : [...options.dataLinks],
+  );
   const findControlLinks = jest.fn(async () => [...options.controlLinks]);
   const findAll = jest.fn(async () => [...(options.committedUsecases ?? [])]);
   return {
@@ -99,8 +105,10 @@ describe('RoutingGraphSnapshotBuilder', () => {
       dataLinks: [],
       controlLinks: [],
     });
-    const classify = jest.fn();
-    const builder = new RoutingGraphSnapshotBuilder({classify} as never);
+    const classifyMdfSubgraphs = jest.fn();
+    const builder = new RoutingGraphSnapshotBuilder({
+      classifyMdfSubgraphs,
+    } as never);
 
     const result = await builder.build(
       buildInput([
@@ -129,7 +137,7 @@ describe('RoutingGraphSnapshotBuilder', () => {
     expect(catalog.findDataLinks).not.toHaveBeenCalled();
     expect(catalog.findControlLinks).not.toHaveBeenCalled();
     expect(catalog.findAll).not.toHaveBeenCalled();
-    expect(classify).not.toHaveBeenCalled();
+    expect(classifyMdfSubgraphs).not.toHaveBeenCalled();
   });
 
   it('loads each graph catalog once and builds routable and overlay views', async () => {
@@ -145,8 +153,13 @@ describe('RoutingGraphSnapshotBuilder', () => {
       controlLinks,
       committedUsecases: [{systemId: 900, subgraphSystemIds: []}],
     });
-    const classify = jest.fn(async () => new Set<number>([20]));
-    const builder = new RoutingGraphSnapshotBuilder({classify} as never);
+    const classifyMdfSubgraphs = jest.fn(async () => ({
+      effectiveMdfIds: new Set<number>([20]),
+      deletedMdfIds: new Set<number>(),
+    }));
+    const builder = new RoutingGraphSnapshotBuilder({
+      classifyMdfSubgraphs,
+    } as never);
     const input = buildInput(
       [
         {systemId: 10, sgkvs: [[1]]},
@@ -162,12 +175,17 @@ describe('RoutingGraphSnapshotBuilder', () => {
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     expect(catalog.getAggregates).toHaveBeenCalledTimes(1);
-    expect(catalog.findDataLinks).toHaveBeenCalledTimes(1);
+    expect(catalog.findDataLinks).toHaveBeenCalledTimes(2);
     expect(catalog.findControlLinks).toHaveBeenCalledTimes(1);
     expect(catalog.findAll).toHaveBeenCalledWith(7, {
       readMode: READ_MODE.Committed,
     });
-    expect(classify).toHaveBeenCalledTimes(1);
+    expect(classifyMdfSubgraphs).toHaveBeenCalledWith(
+      [subgraph(10), subgraph(20)],
+      [],
+      7,
+      catalog.uow,
+    );
     expect(result).toEqual(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -190,7 +208,10 @@ describe('RoutingGraphSnapshotBuilder', () => {
       controlLinks: [],
     });
     const builder = new RoutingGraphSnapshotBuilder({
-      classify: jest.fn(async () => new Set([10])),
+      classifyMdfSubgraphs: jest.fn(async () => ({
+        effectiveMdfIds: new Set([10]),
+        deletedMdfIds: new Set<number>(),
+      })),
     } as never);
 
     const result = await builder.build(
@@ -218,8 +239,13 @@ describe('RoutingGraphSnapshotBuilder', () => {
       controlLinks: [],
       committedUsecases: [{systemId: 900, subgraphSystemIds: [20, 30]}],
     });
-    const classify = jest.fn(async () => new Set([20]));
-    const builder = new RoutingGraphSnapshotBuilder({classify} as never);
+    const classifyMdfSubgraphs = jest.fn(async () => ({
+      effectiveMdfIds: new Set<number>(),
+      deletedMdfIds: new Set<number>(),
+    }));
+    const builder = new RoutingGraphSnapshotBuilder({
+      classifyMdfSubgraphs,
+    } as never);
 
     const result = await builder.build(
       buildInput([{systemId: 10, sgkvs: []}]),
@@ -228,8 +254,9 @@ describe('RoutingGraphSnapshotBuilder', () => {
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     expect(catalog.getAggregates).toHaveBeenCalledWith([10, 20, 30], 7);
-    expect(classify).toHaveBeenCalledWith(
-      [subgraph(10), subgraph(20), subgraph(30)],
+    expect(classifyMdfSubgraphs).toHaveBeenCalledWith(
+      [subgraph(10)],
+      [],
       7,
       catalog.uow,
     );
@@ -237,7 +264,7 @@ describe('RoutingGraphSnapshotBuilder', () => {
       expect(result.data.subgraphs.map(item => item.subgraph.systemId)).toEqual(
         [10],
       );
-      expect(result.data.mdfSubgraphSystemIds).toEqual(new Set([20]));
+      expect(result.data.mdfSubgraphSystemIds).toEqual(new Set());
     }
   });
 
@@ -247,8 +274,13 @@ describe('RoutingGraphSnapshotBuilder', () => {
       dataLinks: [],
       controlLinks: [],
     });
-    const classify = jest.fn(async () => new Set([50]));
-    const builder = new RoutingGraphSnapshotBuilder({classify} as never);
+    const classifyMdfSubgraphs = jest.fn(async () => ({
+      effectiveMdfIds: new Set<number>(),
+      deletedMdfIds: new Set<number>(),
+    }));
+    const builder = new RoutingGraphSnapshotBuilder({
+      classifyMdfSubgraphs,
+    } as never);
 
     const result = await builder.build(
       buildInput([{systemId: 10, sgkvs: []}], {
@@ -266,13 +298,14 @@ describe('RoutingGraphSnapshotBuilder', () => {
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     expect(catalog.getAggregates).toHaveBeenCalledWith([10, 40, 50], 7);
-    expect(classify).toHaveBeenCalledWith(
-      [subgraph(10), subgraph(40), subgraph(50)],
+    expect(classifyMdfSubgraphs).toHaveBeenCalledWith(
+      [subgraph(10)],
+      [],
       7,
       catalog.uow,
     );
     if (result.kind === RESULT_KIND.Ok)
-      expect(result.data.mdfSubgraphSystemIds).toEqual(new Set([50]));
+      expect(result.data.mdfSubgraphSystemIds).toEqual(new Set());
   });
 
   it('copies and freezes session edit collections', async () => {
@@ -287,7 +320,10 @@ describe('RoutingGraphSnapshotBuilder', () => {
       controlLinks: [],
     });
     const builder = new RoutingGraphSnapshotBuilder({
-      classify: jest.fn(async () => new Set()),
+      classifyMdfSubgraphs: jest.fn(async () => ({
+        effectiveMdfIds: new Set<number>(),
+        deletedMdfIds: new Set<number>(),
+      })),
     } as never);
 
     const result = await builder.build(
@@ -311,7 +347,7 @@ describe('RoutingGraphSnapshotBuilder', () => {
       controlLinks: [],
     });
     const builder = new RoutingGraphSnapshotBuilder({
-      classify: jest.fn(),
+      classifyMdfSubgraphs: jest.fn(),
     } as never);
 
     const result = await builder.build(
@@ -340,7 +376,7 @@ describe('RoutingGraphSnapshotBuilder', () => {
       controlLinks: [],
     });
     const builder = new RoutingGraphSnapshotBuilder({
-      classify: jest.fn(),
+      classifyMdfSubgraphs: jest.fn(),
     } as never);
 
     const result = await builder.build(
@@ -361,5 +397,108 @@ describe('RoutingGraphSnapshotBuilder', () => {
           }),
         ]),
       );
+  });
+
+  it('classifies effective-only subgraphs and deleted SGs; isMdf uses effectiveMdfIds only', async () => {
+    const deletedSg = subgraph(20);
+    const catalog = createUow({
+      subgraphs: [subgraph(10)],
+      dataLinks: [],
+      controlLinks: [],
+    });
+    const classifyMdfSubgraphs = jest.fn(async () => ({
+      effectiveMdfIds: new Set([10]),
+      deletedMdfIds: new Set([20]),
+    }));
+    const builder = new RoutingGraphSnapshotBuilder({
+      classifyMdfSubgraphs,
+    } as never);
+
+    const result = await builder.build(
+      buildInput([{systemId: 10, sgkvs: []}], {
+        sessionEdits: {...emptyGraphEdits(), deletedSgs: [deletedSg]},
+      }),
+      catalog.uow as never,
+    );
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    if (result.kind === RESULT_KIND.Ok) {
+      expect(classifyMdfSubgraphs).toHaveBeenCalledWith(
+        [subgraph(10)],
+        [deletedSg],
+        7,
+        catalog.uow,
+      );
+      expect(result.data.subgraphs[0]!.isMdf).toBe(true);
+      expect(result.data.mdfSubgraphSystemIds).toEqual(new Set([10]));
+    }
+  });
+
+  it('copies deletedMdfSubgraphSystemIds as a frozen array from deletedMdfIds', async () => {
+    const catalog = createUow({
+      subgraphs: [subgraph(10)],
+      dataLinks: [],
+      controlLinks: [],
+    });
+    const classifyMdfSubgraphs = jest.fn(async () => ({
+      effectiveMdfIds: new Set<number>(),
+      deletedMdfIds: new Set([30, 10, 20]),
+    }));
+    const builder = new RoutingGraphSnapshotBuilder({
+      classifyMdfSubgraphs,
+    } as never);
+
+    const result = await builder.build(
+      buildInput([{systemId: 10, sgkvs: []}], {
+        sessionEdits: {
+          ...emptyGraphEdits(),
+          deletedSgs: [subgraph(30), subgraph(10), subgraph(20)],
+        },
+      }),
+      catalog.uow as never,
+    );
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    if (result.kind === RESULT_KIND.Ok) {
+      expect(result.data.deletedMdfSubgraphSystemIds).toEqual([30, 10, 20]);
+      expect(Object.isFrozen(result.data.deletedMdfSubgraphSystemIds)).toBe(
+        true,
+      );
+    }
+  });
+
+  it('populates committedDataLinks from the READ_MODE.Committed data-link call', async () => {
+    const overlayLink = dataLink(100, 10, 20);
+    const committedLink = dataLink(200, 10, 30);
+    const catalog = createUow({
+      subgraphs: [subgraph(10), subgraph(20)],
+      dataLinks: [overlayLink],
+      controlLinks: [],
+      committedDataLinks: [committedLink],
+    });
+    const classifyMdfSubgraphs = jest.fn(async () => ({
+      effectiveMdfIds: new Set<number>(),
+      deletedMdfIds: new Set<number>(),
+    }));
+    const builder = new RoutingGraphSnapshotBuilder({
+      classifyMdfSubgraphs,
+    } as never);
+
+    const result = await builder.build(
+      buildInput([
+        {systemId: 10, sgkvs: []},
+        {systemId: 20, sgkvs: []},
+      ]),
+      catalog.uow as never,
+    );
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    if (result.kind === RESULT_KIND.Ok) {
+      expect(result.data.overlayDataLinks).toEqual([overlayLink]);
+      expect(result.data.committedDataLinks).toEqual([committedLink]);
+      expect(catalog.findDataLinks).toHaveBeenCalledWith(7, {
+        readMode: READ_MODE.Committed,
+      });
+    }
   });
 });

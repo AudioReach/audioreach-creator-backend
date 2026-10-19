@@ -19,11 +19,12 @@ import type {TopologyImpactInventory} from './topology-impact-inventory.js';
 import {RoutingIssueFactory} from '../../issues/routing-issue-factory.js';
 import {DeletionReconstructionService} from './deletion-reconstruction.service.js';
 import {ManualMdfPrecedenceService} from './manual-mdf-precedence.service.js';
-import {MdfSubstitutionAnalyzer} from './mdf-substitution-analyzer.js';
+import {MdfExpansionAnalyzer} from './mdf-expansion-analyzer.js';
+import {MdfCollapseAnalyzer} from './mdf-collapse-analyzer.js';
 import {analyzeTopologyChanges} from './topology-decision-analysis.js';
 import {
   deriveAffectedUsecaseSystemIds,
-  validateTopologyGates,
+  validateAutomaticRoutingSelectionsAndExclusions,
 } from './topology-gate-validator.js';
 
 function appendAutomaticIslandWarnings(
@@ -53,7 +54,8 @@ export class TopologyChangeAnalysisPhase {
   constructor(
     private readonly deletionReconstruction = new DeletionReconstructionService(),
     private readonly manualMdfPrecedence = new ManualMdfPrecedenceService(),
-    private readonly mdfSubstitutionAnalyzer = new MdfSubstitutionAnalyzer(),
+    private readonly mdfExpansionAnalyzer = new MdfExpansionAnalyzer(),
+    private readonly mdfCollapseAnalyzer = new MdfCollapseAnalyzer(),
   ) {}
 
   async run(
@@ -72,7 +74,8 @@ export class TopologyChangeAnalysisPhase {
     // EC Rule B makes one bounded SGKV baseline lookup through the supplied repository.
     const {inventory, analysis} = analyzeTopologyChanges(
       context.input.graphSnapshot,
-      this.mdfSubstitutionAnalyzer,
+      this.mdfExpansionAnalyzer,
+      this.mdfCollapseAnalyzer,
     );
     // Manual edits can already own the effective topology for an MDF replacement. Apply
     // that precedence before deriving affected UCs or validating client selection.
@@ -81,7 +84,7 @@ export class TopologyChangeAnalysisPhase {
       draft.decisions,
     );
     const {selection} = context.input;
-    const gateFailure = validateTopologyGates({
+    const gateFailure = validateAutomaticRoutingSelectionsAndExclusions({
       selectedUsecaseSystemIds: new Set(
         context.input.selectedUsecases.map(usecase => usecase.systemId),
       ),

@@ -420,9 +420,9 @@ describe('buildProjectedUsecaseTopology', () => {
       affectedUsecaseSystemIds: new Set([102, 103, 104]),
       decisions: [
         {
-          kind: USECASE_TOPOLOGY_DECISION_KIND.MdfSubstitution,
+          kind: USECASE_TOPOLOGY_DECISION_KIND.MdfNormalization,
           usecase: mdfUsecase,
-          substitutions: [],
+          rewrites: [],
           structuralChange: {
             addedSubgraphSystemIds: [15],
             removedSubgraphSystemIds: [],
