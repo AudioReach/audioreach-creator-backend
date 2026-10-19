@@ -12,6 +12,7 @@ import type {DataPort} from '../../../../../domain/entities/usecase-data/node/en
 import type {ControlPort} from '../../../../../domain/entities/usecase-data/node/entities/control-port.js';
 import type {KvData} from '../../../../../domain/entities/common/entities/kv-data.js';
 import type {PortIoType} from '../../../../../domain/entities/common/enums/port-io-type.js';
+import type {ReadOptions} from '../shared/read-options.js';
 
 export type {SpfModuleBase} from '../../../../../domain/entities/usecase-data/module/spf-module.js';
 
@@ -69,6 +70,7 @@ export interface ModuleRepository {
   findModulesBySubgraphIds(
     subgraphSystemIds: readonly number[],
     fileSystemId: number,
+    options?: ReadOptions,
   ): Promise<SpfModuleBase[]>;
 
   deleteModule(

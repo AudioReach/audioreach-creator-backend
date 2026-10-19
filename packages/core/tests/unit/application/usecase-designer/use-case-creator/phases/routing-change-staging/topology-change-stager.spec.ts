@@ -43,9 +43,9 @@ describe('TopologyChangeStager', () => {
         affectedUsecaseSystemIds: new Set([302]),
         decisions: [
           {
-            kind: 'MDF_SUBSTITUTION',
+            kind: 'MDF_NORMALIZATION',
             usecase: usecase(301),
-            substitutions: [],
+            rewrites: [],
             structuralChange: {
               addedSubgraphSystemIds: [15],
               removedSubgraphSystemIds: [],

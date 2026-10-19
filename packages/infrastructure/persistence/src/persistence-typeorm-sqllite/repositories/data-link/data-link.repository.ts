@@ -13,12 +13,14 @@ import type {
   EditOptions,
   DataLinkTopology,
   BoundaryPortPayload,
+  ReadOptions,
 } from '@arc/core';
 import {
   CHANGE_OPERATION,
   DataLink,
   DATA_LINK_TYPE,
   SubsystemDataLink,
+  READ_MODE,
 } from '@arc/core';
 import type {DataLinkBase} from '../../entity-schema/usecase-data/Links/data-link.js';
 import type {EffectiveSubsystemDataLinkRow} from '../../fetchers/link-overlay-fetcher.js';
@@ -298,8 +300,15 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     return result;
   }
 
-  async findIntraUcLinksByFile(fileSystemId: number): Promise<DataLink[]> {
-    const sessionId = this.uow.getWriteContext().session.sessionId;
+  async findIntraUcLinksByFile(
+    fileSystemId: number,
+    options?: ReadOptions,
+  ): Promise<DataLink[]> {
+    const mode = options?.readMode ?? READ_MODE.Overlay;
+    const sessionId =
+      mode === READ_MODE.Committed
+        ? null
+        : this.uow.getWriteContext().session.sessionId;
     const rows = await this.linkFetcher.loadDataLinkRows(
       fileSystemId,
       sessionId,

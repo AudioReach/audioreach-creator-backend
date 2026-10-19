@@ -258,9 +258,9 @@ describe('ClassificationPhase', () => {
       affectedUsecaseSystemIds: new Set(),
       decisions: [
         {
-          kind: USECASE_TOPOLOGY_DECISION_KIND.MdfSubstitution,
+          kind: USECASE_TOPOLOGY_DECISION_KIND.MdfNormalization,
           usecase: existing,
-          substitutions: [],
+          rewrites: [],
           structuralChange: {
             addedSubgraphSystemIds: [15],
             removedSubgraphSystemIds: [],
@@ -513,7 +513,7 @@ describe('ClassificationPhase', () => {
     );
   });
 
-  it('creates a different topology when an active manual CREATE owns the GKV', async () => {
+  it('emits manualGkvConflict when an active manual CREATE owns the GKV with different topology', async () => {
     const created = usecase(13, [10, 20], [[10, 20]], [100]);
     const routingContext = context(
       [],
@@ -527,10 +527,16 @@ describe('ClassificationPhase', () => {
 
     const result = await new ClassificationPhase().run(routingContext);
 
-    expect(result.kind).toBe('OK');
-    expect(routingContext.classifiedUcs).toEqual([
-      expect.objectContaining({kind: ROUTING_CLASSIFICATION_KIND.Create}),
-    ]);
+    expect(result.kind).toBe('FAIL');
+    expect(result.issues[0]).toEqual(
+      expect.objectContaining({
+        code: 'ARC-ROUTING-MANUAL-GKV-CONFLICT',
+        impactedUsecases: [13],
+      }),
+    );
+    expect(result.issues[0]?.message).toContain('members: [10, 20]');
+    expect(result.issues[0]?.message).toContain('pairs: [20->10]');
+    expect(routingContext.classifiedUcs).toEqual([]);
   });
 
   it('ignores a null active manual edit while matching committed state', async () => {
@@ -562,7 +568,7 @@ describe('ClassificationPhase', () => {
     );
   });
 
-  it('creates a manual candidate when the same GKV has a different directed pair', async () => {
+  it('emits manualGkvConflict when one committed owner has a different directed pair for the same GKV', async () => {
     const existing = usecase(10, [10, 20], [[10, 20]], [100]);
     const routingContext = context([existing], [], ROUTING_MODE.Manual, [
       [20, 10],
@@ -573,27 +579,33 @@ describe('ClassificationPhase', () => {
 
     const result = await new ClassificationPhase().run(routingContext);
 
-    expect(result.kind).toBe('OK');
-    expect(routingContext.classifiedUcs).toEqual([
-      expect.objectContaining({kind: ROUTING_CLASSIFICATION_KIND.Create}),
-    ]);
+    expect(result.kind).toBe('FAIL');
+    expect(result.issues[0]).toEqual(
+      expect.objectContaining({code: 'ARC-ROUTING-MANUAL-GKV-CONFLICT'}),
+    );
+    expect(result.issues[0]?.message).toContain('members: [10, 20]');
+    expect(result.issues[0]?.message).toContain('pairs: [20->10]');
+    expect(routingContext.classifiedUcs).toEqual([]);
   });
 
-  it('creates a manual interior-shaped candidate without classifying an update', async () => {
+  it('emits manualGkvConflict when one committed owner has a different member set for the same GKV', async () => {
     const existing = usecase(11, [10, 20], [[10, 20]], [100]);
     const routingContext = context([existing], [], ROUTING_MODE.Manual, [
       [10, 20],
     ]);
     routingContext.usecaseCandidates.manualCandidates.push(
-      manualCombination([10, 30, 20], [100], [[10, 20]], {30: []}),
+      manualCombination([10, 30, 20], [100], [[10, 20]]),
     );
 
     const result = await new ClassificationPhase().run(routingContext);
 
-    expect(result.kind).toBe('OK');
-    expect(routingContext.classifiedUcs).toEqual([
-      expect.objectContaining({kind: ROUTING_CLASSIFICATION_KIND.Create}),
-    ]);
+    expect(result.kind).toBe('FAIL');
+    expect(result.issues[0]).toEqual(
+      expect.objectContaining({code: 'ARC-ROUTING-MANUAL-GKV-CONFLICT'}),
+    );
+    expect(result.issues[0]?.message).toContain('members: [10, 20, 30]');
+    expect(result.issues[0]?.message).toContain('pairs: [10->20]');
+    expect(routingContext.classifiedUcs).toEqual([]);
   });
 
   it('creates a manual candidate when its canonical GKV is unowned', async () => {
@@ -698,6 +710,30 @@ describe('ClassificationPhase', () => {
         impactedUsecases: [93, 94],
       }),
     ]);
+    expect(routingContext.classifiedUcs).toEqual([]);
+  });
+
+  it('emits manualGkvConflict with candidate context when two committed usecases share the GKV', async () => {
+    const owner1 = usecase(10, [10, 20], [[10, 20]], [100]);
+    const owner2 = usecase(11, [30, 40], [[30, 40]], [100]);
+    const routingContext = context([owner1, owner2], [], ROUTING_MODE.Manual, [
+      [10, 20],
+    ]);
+    routingContext.usecaseCandidates.manualCandidates.push(
+      manualCombination([10, 20], [100], [[10, 20]]),
+    );
+
+    const result = await new ClassificationPhase().run(routingContext);
+
+    expect(result.kind).toBe('FAIL');
+    expect(result.issues[0]).toEqual(
+      expect.objectContaining({
+        code: 'ARC-ROUTING-MANUAL-GKV-CONFLICT',
+        impactedUsecases: [10, 11],
+      }),
+    );
+    expect(result.issues[0]?.message).toContain('members: [10, 20]');
+    expect(result.issues[0]?.message).toContain('pairs: [10->20]');
     expect(routingContext.classifiedUcs).toEqual([]);
   });
 
@@ -856,9 +892,9 @@ describe('ClassificationPhase', () => {
       affectedUsecaseSystemIds: new Set(),
       decisions: [
         {
-          kind: USECASE_TOPOLOGY_DECISION_KIND.MdfSubstitution,
+          kind: USECASE_TOPOLOGY_DECISION_KIND.MdfNormalization,
           usecase: committedLegacy,
-          substitutions: [],
+          rewrites: [],
           structuralChange: {
             addedSubgraphSystemIds: [25],
             removedSubgraphSystemIds: [],
@@ -1027,9 +1063,9 @@ describe('ClassificationPhase', () => {
       affectedUsecaseSystemIds: new Set(),
       decisions: [
         {
-          kind: USECASE_TOPOLOGY_DECISION_KIND.MdfSubstitution,
+          kind: USECASE_TOPOLOGY_DECISION_KIND.MdfNormalization,
           usecase: committed,
-          substitutions: [],
+          rewrites: [],
           structuralChange: {
             addedSubgraphSystemIds: [15],
             removedSubgraphSystemIds: [],

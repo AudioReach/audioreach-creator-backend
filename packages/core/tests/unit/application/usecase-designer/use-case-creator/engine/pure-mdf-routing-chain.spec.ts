@@ -41,7 +41,7 @@ describe('pure MDF routing chain', () => {
       }),
     ]);
     expect(harness.observed.topologyDecisionKinds).toEqual([
-      'MDF_SUBSTITUTION',
+      'MDF_NORMALIZATION',
     ]);
     expect(harness.writes.descriptors).toEqual([
       {usecaseSystemId: 700, kind: 'UPDATE'},
@@ -75,7 +75,7 @@ describe('pure MDF routing chain', () => {
       }),
     ]);
     expect(harness.observed.topologyDecisionKinds).toEqual([
-      'MDF_SUBSTITUTION',
+      'MDF_NORMALIZATION',
     ]);
     expect(harness.writes.descriptors).toEqual([
       {usecaseSystemId: 700, kind: 'UPDATE'},

@@ -84,6 +84,8 @@ function makeContext(
         overlayControlLinks: [],
         committedUsecases: [],
         sessionEdits: emptyGraphEdits(),
+        deletedMdfSubgraphSystemIds: [],
+        committedDataLinks: [],
       },
       activeManualUsecaseEdits: [],
     }),
@@ -260,5 +262,86 @@ describe('KvResolutionPhase', () => {
     expect(result.kind).toBe(RESULT_KIND.Ok);
     expect(context.kvResolutions?.ucFilteredBaseline.get(10)).toEqual([]);
     expect(context.kvResolutions?.perSg.get(10)).toEqual([{keyValues: []}]);
+  });
+
+  describe('MDF canonicalization (spec §11)', () => {
+    it('MDF [[]] publishes exactly [{keyValues: []}]', async () => {
+      const repository = createRepository({baseline: [], resolved: []});
+      const context = makeContext([makeSubgraph(10, [[]], true)]);
+
+      const result = await new KvResolutionPhase().run(context, repository);
+
+      expect(result.kind).toBe(RESULT_KIND.Ok);
+      expect(context.kvResolutions?.perSg.get(10)).toEqual([{keyValues: []}]);
+    });
+
+    it('MDF [[], []] publishes exactly one [{keyValues: []}], not two', async () => {
+      const repository = createRepository({baseline: [], resolved: []});
+      const context = makeContext([makeSubgraph(10, [[], []], true)]);
+
+      const result = await new KvResolutionPhase().run(context, repository);
+
+      expect(result.kind).toBe(RESULT_KIND.Ok);
+      expect(context.kvResolutions?.perSg.get(10)).toEqual([{keyValues: []}]);
+    });
+
+    it('MDF with five empty alternatives publishes exactly one [{keyValues: []}]', async () => {
+      const repository = createRepository({baseline: [], resolved: []});
+      const context = makeContext([
+        makeSubgraph(10, [[], [], [], [], []], true),
+      ]);
+
+      const result = await new KvResolutionPhase().run(context, repository);
+
+      expect(result.kind).toBe(RESULT_KIND.Ok);
+      expect(context.kvResolutions?.perSg.get(10)).toEqual([{keyValues: []}]);
+    });
+
+    it('MDF with non-empty values returns Ok with [{keyValues: []}] — Phase 1 owns ARC-ROUTING-MDF-01', async () => {
+      // Phase 1 issues ARC-ROUTING-MDF-01 before Phase 4 runs for non-empty MDF
+      // selections; Phase 4 is never called with non-empty MDF in production.
+      // This test confirms the Phase 4 isMdf branch short-circuits the value-resolution
+      // loop and emits no unresolved-value issue of its own.
+      const repository = createRepository({baseline: [], resolved: []});
+      const context = makeContext([makeSubgraph(10, [[101, 102]], true)]);
+
+      const result = await new KvResolutionPhase().run(context, repository);
+
+      expect(result.kind).toBe(RESULT_KIND.Ok);
+      expect(context.kvResolutions?.perSg.get(10)).toEqual([{keyValues: []}]);
+    });
+
+    it('MDF canonicalization does not affect an adjacent non-MDF subgraph with values', async () => {
+      const repository = createRepository({
+        baseline: [],
+        resolved: [{keyDefSystemId: 501, valueDefSystemId: 101}],
+      });
+      const context = makeContext([
+        makeSubgraph(10, [[], []], true),
+        makeSubgraph(20, [[101]], false),
+      ]);
+
+      const result = await new KvResolutionPhase().run(context, repository);
+
+      expect(result.kind).toBe(RESULT_KIND.Ok);
+      expect(context.kvResolutions?.perSg.get(10)).toEqual([{keyValues: []}]);
+      expect(context.kvResolutions?.perSg.get(20)).toEqual([
+        {keyValues: [{keyDefSystemId: 501, valueDefSystemId: 101}]},
+      ]);
+    });
+
+    it('MDF [[], []] mixed with non-MDF [] both publish [{keyValues: []}] independently', async () => {
+      const repository = createRepository({baseline: [], resolved: []});
+      const context = makeContext([
+        makeSubgraph(10, [[], []], true),
+        makeSubgraph(20, [], false),
+      ]);
+
+      const result = await new KvResolutionPhase().run(context, repository);
+
+      expect(result.kind).toBe(RESULT_KIND.Ok);
+      expect(context.kvResolutions?.perSg.get(10)).toEqual([{keyValues: []}]);
+      expect(context.kvResolutions?.perSg.get(20)).toEqual([{keyValues: []}]);
+    });
   });
 });

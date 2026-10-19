@@ -7,7 +7,10 @@ import type {Issue} from '../../../../shared/issues/issue.js';
 import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
 import {ISSUE_CODE} from '../../../../shared/issues/operational-codes.js';
 import {IssueSeverity} from '../../../../shared/issues/severity.js';
-import type {DataLinkLossPair} from '../contracts/routing-state.js';
+import type {
+  DataLinkLossPair,
+  ManualUsecaseCandidate,
+} from '../contracts/routing-state.js';
 import {
   COLLISION_ALTERNATIVE_KIND,
   COLLISION_RESOLUTION_MODE,
@@ -738,14 +741,27 @@ export const RoutingIssueFactory = {
   manualGkvConflict(
     gkvValueSystemIds: readonly number[],
     usecaseSystemIds: readonly number[],
+    candidate: ManualUsecaseCandidate,
   ): Issue {
     const gkvIds = sortedIds(new Set(gkvValueSystemIds));
     const impactedUsecases = sortedIds(new Set(usecaseSystemIds));
+    const memberIds = sortedIds(new Set(candidateSubgraphSystemIds(candidate)));
+    const pairDescriptions = [...candidateDirectedPairs(candidate)]
+      .sort(
+        (left, right) =>
+          left.sourceSubgraphSystemId - right.sourceSubgraphSystemId ||
+          left.destSubgraphSystemId - right.destSubgraphSystemId,
+      )
+      .map(
+        pair => `${pair.sourceSubgraphSystemId}->${pair.destSubgraphSystemId}`,
+      );
     return {
       code: ISSUE_CODE.ROUTING_MANUAL_GKV_CONFLICT,
       message:
         'Manual UseCase topology conflicts with another topology for GKV ' +
-        `values [${gkvIds.join(', ')}].`,
+        `values [${gkvIds.join(', ')}] ` +
+        `(requested members: [${memberIds.join(', ')}]; ` +
+        `requested pairs: [${pairDescriptions.join(', ')}]).`,
       severity: IssueSeverity.Error,
       ...(impactedUsecases.length > 0 ? {impactedUsecases} : {}),
     };

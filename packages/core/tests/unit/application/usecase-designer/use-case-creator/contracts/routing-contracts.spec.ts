@@ -78,6 +78,8 @@ function createSnapshot(subgraph = createSubgraph(31)): RoutingGraphSnapshot {
     overlayControlLinks: [],
     committedUsecases: [],
     sessionEdits: emptyGraphEdits(),
+    deletedMdfSubgraphSystemIds: [],
+    committedDataLinks: [],
   };
 }
 
@@ -396,5 +398,37 @@ describe('routing contracts', () => {
 
     expect(dataPair.dataLinks.map(link => link.systemId)).toEqual([1]);
     expect(controlPair.controlLinks.map(link => link.systemId)).toEqual([2]);
+  });
+
+  it('copies deletedMdfSubgraphSystemIds and committedDataLinks through snapshot copy', () => {
+    const link = createDataLink(1, 10, 20);
+    const input = createAutoRoutingInput({
+      fileSystemId: 1,
+      selection: {
+        selectedUsecaseSystemIds: [],
+        activeSubgraphs: [],
+        excludedSubgraphSystemIds: [],
+        excludedDataLinkSystemIds: [],
+        excludedControlLinkSystemIds: [],
+      },
+      selectedUsecases: [],
+      graphSnapshot: {
+        subgraphs: [],
+        mdfSubgraphSystemIds: new Set(),
+        routableDataLinks: [],
+        routableControlLinks: [],
+        overlayDataLinks: [],
+        overlayControlLinks: [],
+        committedUsecases: [],
+        sessionEdits: emptyGraphEdits(),
+        deletedMdfSubgraphSystemIds: [11, 22],
+        committedDataLinks: [link],
+      },
+      activeManualUsecaseEdits: [],
+    });
+
+    expect(input.graphSnapshot.deletedMdfSubgraphSystemIds).toEqual([11, 22]);
+    expect(input.graphSnapshot.committedDataLinks).toHaveLength(1);
+    expect(input.graphSnapshot.committedDataLinks[0]).toBe(link);
   });
 });

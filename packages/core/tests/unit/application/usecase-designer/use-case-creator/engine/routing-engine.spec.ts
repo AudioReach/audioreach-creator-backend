@@ -466,9 +466,9 @@ describe('RoutingEngine', () => {
         affectedUsecaseSystemIds: new Set(),
         decisions: [
           {
-            kind: USECASE_TOPOLOGY_DECISION_KIND.MdfSubstitution,
+            kind: USECASE_TOPOLOGY_DECISION_KIND.MdfNormalization,
             usecase: committed,
-            substitutions: [],
+            rewrites: [],
             structuralChange: {
               addedSubgraphSystemIds: [15],
               removedSubgraphSystemIds: [],

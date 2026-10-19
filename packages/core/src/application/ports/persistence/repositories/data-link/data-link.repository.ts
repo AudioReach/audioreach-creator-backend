@@ -9,6 +9,7 @@ import type {PortIoType} from '../../../../../domain/entities/common/enums/port-
 import type {EditOptions} from '../../edit-options.js';
 import type {LinksForPair, SubgraphPair} from '../shared/links-for-pair.js';
 import type {SessionChanged} from '../shared/session-changed.js';
+import type {ReadOptions} from '../shared/read-options.js';
 
 export interface DataLinkTopology {
   dataLinks: DataLink[];
@@ -74,20 +75,23 @@ export interface DataLinkRepository {
   ): Promise<LinksForPair<DataLink>[]>;
 
   /**
-   * Returns ALL NORMAL data links in the file with session overlay
-   * applied — session-created links included, session-deleted links
-   * excluded, session-updated links reflect their post-update state.
+   * Returns ALL NORMAL data links in the file.
    *
-   * Use cases: Phase 2 bounded-DFS reconstruction (walks the intra-UC
-   * adjacency to find a transparent-bridge path through IsMdf SGs); Phases
-   * 1, 6, 7 file-wide reads.
+   * Defaults to `ReadMode.Overlay` — session-created links included,
+   * session-deleted links excluded, session-updated links reflect
+   * their post-update state.
    *
-   * Callers filter in memory if they need to exclude specific link IDs
-   * (e.g., links currently being deleted in the routing session).
+   * Pass `{ readMode: READ_MODE.Committed }` to bypass the session overlay
+   * and read base-table state only. Required by the reverse MDF collapse
+   * analyzer, which must inspect committed links after session deletions
+   * have already been staged.
    *
    * Empty file → [].
    */
-  findIntraUcLinksByFile(fileSystemId: number): Promise<DataLink[]>;
+  findIntraUcLinksByFile(
+    fileSystemId: number,
+    options?: ReadOptions,
+  ): Promise<DataLink[]>;
 
   createSubsystemDataLinks(
     subsystemDataLinks: readonly SubsystemDataLink[],

@@ -10,7 +10,7 @@ import {Result} from '../../../shared/result/result.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
-import {READ_MODE} from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
+import {READ_MODE} from '../../../ports/persistence/repositories/shared/read-options.js';
 import type {ActiveManualUsecaseEdit} from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
 import type {
   ActiveSubgraphSelection,
@@ -80,16 +80,21 @@ export class RoutingGraphSnapshotBuilder {
     const effectiveIds = new Set(
       selections.map(selection => selection.systemId),
     );
-    const [overlayDataLinks, overlayControlLinks, committedUsecases] =
-      await Promise.all([
-        uow.getDataLinkRepository().findIntraUcLinksByFile(input.fileSystemId),
-        uow
-          .getControlLinkRepository()
-          .findIntraUcLinksByFile(input.fileSystemId),
-        uow.getUsecaseRepository().findAll(input.fileSystemId, {
-          readMode: READ_MODE.Committed,
-        }),
-      ]);
+    const [
+      overlayDataLinks,
+      overlayControlLinks,
+      committedUsecases,
+      committedDataLinks,
+    ] = await Promise.all([
+      uow.getDataLinkRepository().findIntraUcLinksByFile(input.fileSystemId),
+      uow.getControlLinkRepository().findIntraUcLinksByFile(input.fileSystemId),
+      uow.getUsecaseRepository().findAll(input.fileSystemId, {
+        readMode: READ_MODE.Committed,
+      }),
+      uow.getDataLinkRepository().findIntraUcLinksByFile(input.fileSystemId, {
+        readMode: READ_MODE.Committed,
+      }),
+    ]);
     // Routing remains selection-scoped, but Rule C is file-wide. Classify MDF identity
     // for every SG referenced by committed or pending MANUAL UseCases without widening
     // snapshot.subgraphs or introducing repository reads inside routing phases.
@@ -102,10 +107,9 @@ export class RoutingGraphSnapshotBuilder {
       for (const subgraphSystemId of edit.usecase?.subgraphSystemIds ?? [])
         catalogSubgraphIds.add(subgraphSystemId);
     }
-    const subgraphData = await uow.getSubgraphRepository().getAggregates(
-      [...catalogSubgraphIds].sort((left, right) => left - right),
-      input.fileSystemId,
-    );
+    const subgraphData = await uow
+      .getSubgraphRepository()
+      .getAggregates([...catalogSubgraphIds], input.fileSystemId);
     const catalogSubgraphs = [...subgraphData.values()];
 
     const subgraphsById = new Map(
@@ -133,11 +137,15 @@ export class RoutingGraphSnapshotBuilder {
     if (missingIssues.length > 0 || integrityIssues.length > 0)
       return Result.fail(...missingIssues, ...integrityIssues);
 
-    const mdfSubgraphIds = await this.mdfClassification.classify(
-      catalogSubgraphs,
-      input.fileSystemId,
-      uow,
-    );
+    const {effectiveMdfIds, deletedMdfIds} =
+      await this.mdfClassification.classifyMdfSubgraphs(
+        catalogSubgraphs.filter(subgraph =>
+          effectiveIds.has(subgraph.systemId),
+        ),
+        input.sessionEdits.deletedSgs,
+        input.fileSystemId,
+        uow,
+      );
     const routingSubgraphs = selections.map(selection => {
       const subgraph = subgraphsById.get(selection.systemId) as Subgraph;
       return Object.freeze({
@@ -145,9 +153,10 @@ export class RoutingGraphSnapshotBuilder {
         requestedSgkvs: Object.freeze(
           selection.sgkvs.map(values => Object.freeze([...values])),
         ),
-        isMdf: mdfSubgraphIds.has(selection.systemId),
+        isMdf: effectiveMdfIds.has(selection.systemId),
       });
     });
+    const deletedMdfSubgraphSystemIds = Object.freeze([...deletedMdfIds]);
 
     const excludedDataLinkIds = new Set(input.excludedDataLinkSystemIds);
     const excludedControlLinkIds = new Set(input.excludedControlLinkSystemIds);
@@ -161,13 +170,15 @@ export class RoutingGraphSnapshotBuilder {
     return Result.ok(
       Object.freeze({
         subgraphs: Object.freeze(routingSubgraphs),
-        mdfSubgraphSystemIds: new Set(mdfSubgraphIds),
+        mdfSubgraphSystemIds: new Set(effectiveMdfIds),
         routableDataLinks: Object.freeze([...routableDataLinks]),
         routableControlLinks: Object.freeze([...routableControlLinks]),
         overlayDataLinks: Object.freeze([...overlayDataLinks]),
         overlayControlLinks: Object.freeze([...overlayControlLinks]),
         committedUsecases: Object.freeze([...committedUsecases]),
         sessionEdits: copyGraphEditSummary(input.sessionEdits),
+        deletedMdfSubgraphSystemIds,
+        committedDataLinks: Object.freeze([...committedDataLinks]),
       }),
     );
   }

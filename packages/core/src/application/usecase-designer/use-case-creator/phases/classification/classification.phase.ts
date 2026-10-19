@@ -286,7 +286,7 @@ function classifyManualCandidates(
     if (duplicateManualGkvKeys.has(gkvKey)) continue;
     const manualOverrides = manualOverridesByGkv.get(gkvKey) ?? [];
 
-    const matchingUsecases =
+    const existingUsecasesWithSameGkv =
       manualOverrides.length === 1
         ? [manualOverrides[0].usecase]
         : comparisonUsecases.filter(
@@ -295,25 +295,31 @@ function classifyManualCandidates(
               gkvKey,
           );
     const candidate = bucket.candidates[0];
-    const exactUsecase = matchingUsecases.find(usecase =>
-      exactTopologyEquals(candidate, usecase),
+    const exactMatchExistingUsecase = existingUsecasesWithSameGkv.find(
+      usecase => exactTopologyEquals(candidate, usecase),
     );
-    if (bucket.candidates.length > 1 || matchingUsecases.length > 1) {
+    if (
+      bucket.candidates.length > 1 ||
+      existingUsecasesWithSameGkv.length > 1 ||
+      (existingUsecasesWithSameGkv.length === 1 &&
+        exactMatchExistingUsecase === undefined)
+    ) {
       issues.push(
         RoutingIssueFactory.manualGkvConflict(
           bucket.gkvValueSystemIds,
-          matchingUsecases.map(usecase => usecase.systemId),
+          existingUsecasesWithSameGkv.map(usecase => usecase.systemId),
+          candidate,
         ),
       );
       continue;
     }
     classifications.push(
-      exactUsecase === undefined
+      exactMatchExistingUsecase === undefined
         ? {kind: ROUTING_CLASSIFICATION_KIND.Create, candidate}
         : {
             kind: ROUTING_CLASSIFICATION_KIND.ExactMatch,
             candidate,
-            existingUsecase: exactUsecase,
+            existingUsecase: exactMatchExistingUsecase,
           },
     );
   }

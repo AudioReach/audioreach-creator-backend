@@ -13,13 +13,14 @@ import {
 import {RoutingContext} from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
 import {
   DELETED_COMPONENT_TYPE,
-  type MdfPairSubstitution,
+  MDF_TOPOLOGY_REWRITE_KIND,
+  type MdfTopologyRewrite,
   PATH_TERMINATION,
   USECASE_TOPOLOGY_DECISION_KIND,
 } from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {TopologyChangeAnalysisPhase} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/topology-change-analysis/topology-change-analysis.phase.js';
 import {buildTopologyImpactInventory} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/topology-change-analysis/topology-impact-inventory.js';
-import type {MdfSubstitutionAnalyzer} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/topology-change-analysis/mdf-substitution-analyzer.js';
+import type {MdfExpansionAnalyzer} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/topology-change-analysis/mdf-expansion-analyzer.js';
 import {UseCase} from '../../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
 import type {ControlLink} from '../../../../../../../src/domain/entities/usecase-data/links/control-link.js';
 import type {DataLink} from '../../../../../../../src/domain/entities/usecase-data/links/data-link.js';
@@ -37,6 +38,9 @@ interface FixtureOptions {
   readonly selectedUsecases?: readonly UseCase[];
   readonly subgraphIds?: readonly number[];
   readonly mdfSubgraphIds?: readonly number[];
+  readonly deletedMdfSubgraphIds?: readonly number[];
+  readonly committedDataLinks?: readonly DataLink[];
+  readonly addedDataLinks?: readonly DataLink[];
   readonly overlayDataLinks?: readonly DataLink[];
   readonly routableDataLinks?: readonly DataLink[];
   readonly overlayControlLinks?: readonly ControlLink[];
@@ -105,6 +109,8 @@ function createFixture(options: FixtureOptions = {}) {
   const committedUsecases = [...(options.usecases ?? [])];
   const selectedUsecases = [...(options.selectedUsecases ?? committedUsecases)];
   const overlayDataLinks = [...(options.overlayDataLinks ?? [])];
+  const committedDataLinks = [...(options.committedDataLinks ?? [])];
+  const addedDataLinks = [...(options.addedDataLinks ?? [])];
   const routableDataLinks = [
     ...(options.routableDataLinks ?? overlayDataLinks),
   ];
@@ -114,6 +120,7 @@ function createFixture(options: FixtureOptions = {}) {
   ];
   const sessionEdits = {
     ...emptyGraphEdits(),
+    addedDataLinks,
     deletedSgs: (options.deletedSgs ?? []).map(
       systemId => ({systemId}) as never,
     ),
@@ -163,11 +170,13 @@ function createFixture(options: FixtureOptions = {}) {
         isMdf: mdfSubgraphIds.has(systemId),
       })),
       mdfSubgraphSystemIds: mdfSubgraphIds,
+      deletedMdfSubgraphSystemIds: new Set(options.deletedMdfSubgraphIds ?? []),
       routableDataLinks,
       routableControlLinks,
       overlayDataLinks,
       overlayControlLinks,
       committedUsecases,
+      committedDataLinks,
       sessionEdits,
     },
     activeManualUsecaseEdits: [],
@@ -235,19 +244,21 @@ describe('TopologyChangeAnalysisPhase', () => {
       [{sourceSubgraphSystemId: 10, destSubgraphSystemId: 20}],
     );
     const deletedLink = dataLink(501, 10, 20);
-    const substitution: MdfPairSubstitution = {
-      removedPair: {
+    const rewrite: MdfTopologyRewrite = {
+      kind: MDF_TOPOLOGY_REWRITE_KIND.DirectToMdf,
+      directPair: {
         sourceSubgraphSystemId: 10,
         destSubgraphSystemId: 20,
       },
-      replacementSubgraphSystemIds: [30],
-      replacementPairs: [
+      mdfSubgraphSystemIds: [30],
+      committedPairs: [{sourceSubgraphSystemId: 10, destSubgraphSystemId: 20}],
+      normalizedPairs: [
         {sourceSubgraphSystemId: 10, destSubgraphSystemId: 30},
         {sourceSubgraphSystemId: 30, destSubgraphSystemId: 20},
       ],
     };
-    const analyze = jest.fn(() => substitution);
-    const analyzer = {analyze} as unknown as MdfSubstitutionAnalyzer;
+    const analyze = jest.fn(() => rewrite);
+    const analyzer = {analyze} as unknown as MdfExpansionAnalyzer;
     const phase = new TopologyChangeAnalysisPhase(
       undefined,
       undefined,
@@ -274,16 +285,16 @@ describe('TopologyChangeAnalysisPhase', () => {
       affectedUsecaseSystemIds: new Set(),
       decisions: [
         {
-          kind: USECASE_TOPOLOGY_DECISION_KIND.MdfSubstitution,
+          kind: USECASE_TOPOLOGY_DECISION_KIND.MdfNormalization,
           usecase: currentUsecase,
-          substitutions: [substitution],
+          rewrites: [rewrite],
           structuralChange: {
             addedSubgraphSystemIds: [30],
             removedSubgraphSystemIds: [],
-            addedPairs: substitution.replacementPairs,
-            removedPairs: [substitution.removedPair],
+            addedPairs: rewrite.normalizedPairs,
+            removedPairs: [rewrite.directPair],
             resultingSubgraphSystemIds: [10, 20, 30],
-            resultingPairs: substitution.replacementPairs,
+            resultingPairs: rewrite.normalizedPairs,
             resultingType: currentUsecase.type,
             sgkvAssignments: [
               {subgraphSystemId: 30, valueDefinitionSystemIds: []},
@@ -316,7 +327,7 @@ describe('TopologyChangeAnalysisPhase', () => {
         affectedUsecaseSystemIds: new Set(),
         decisions: [
           expect.objectContaining({
-            kind: USECASE_TOPOLOGY_DECISION_KIND.MdfSubstitution,
+            kind: USECASE_TOPOLOGY_DECISION_KIND.MdfNormalization,
             usecase: currentUsecase,
           }),
         ],
@@ -355,7 +366,7 @@ describe('TopologyChangeAnalysisPhase', () => {
         ).toEqual(new Set());
         expect(fixture.context.topologyChangeAnalysis?.decisions).toEqual([
           expect.objectContaining({
-            kind: USECASE_TOPOLOGY_DECISION_KIND.MdfSubstitution,
+            kind: USECASE_TOPOLOGY_DECISION_KIND.MdfNormalization,
             usecase: currentUsecase,
           }),
         ]);
@@ -413,16 +424,20 @@ describe('TopologyChangeAnalysisPhase', () => {
     );
     const firstDeletedLink = dataLink(601, 10, 20);
     const secondDeletedLink = dataLink(602, 20, 40);
-    const substitutions = new Map<number, MdfPairSubstitution>([
+    const rewrites = new Map<number, MdfTopologyRewrite>([
       [
         601,
         {
-          removedPair: {
+          kind: MDF_TOPOLOGY_REWRITE_KIND.DirectToMdf,
+          directPair: {
             sourceSubgraphSystemId: 10,
             destSubgraphSystemId: 20,
           },
-          replacementSubgraphSystemIds: [15],
-          replacementPairs: [
+          mdfSubgraphSystemIds: [15],
+          committedPairs: [
+            {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+          ],
+          normalizedPairs: [
             {sourceSubgraphSystemId: 10, destSubgraphSystemId: 15},
             {sourceSubgraphSystemId: 15, destSubgraphSystemId: 20},
           ],
@@ -431,12 +446,16 @@ describe('TopologyChangeAnalysisPhase', () => {
       [
         602,
         {
-          removedPair: {
+          kind: MDF_TOPOLOGY_REWRITE_KIND.DirectToMdf,
+          directPair: {
             sourceSubgraphSystemId: 20,
             destSubgraphSystemId: 40,
           },
-          replacementSubgraphSystemIds: [30],
-          replacementPairs: [
+          mdfSubgraphSystemIds: [30],
+          committedPairs: [
+            {sourceSubgraphSystemId: 20, destSubgraphSystemId: 40},
+          ],
+          normalizedPairs: [
             {sourceSubgraphSystemId: 20, destSubgraphSystemId: 30},
             {sourceSubgraphSystemId: 30, destSubgraphSystemId: 40},
           ],
@@ -444,11 +463,11 @@ describe('TopologyChangeAnalysisPhase', () => {
       ],
     ]);
     const analyze = jest.fn(
-      (link: DataLink) => substitutions.get(link.systemId) ?? null,
+      (link: DataLink) => rewrites.get(link.systemId) ?? null,
     );
     const phase = new TopologyChangeAnalysisPhase(undefined, undefined, {
       analyze,
-    } as unknown as MdfSubstitutionAnalyzer);
+    } as unknown as MdfExpansionAnalyzer);
     const fixture = createFixture({
       usecases: [currentUsecase],
       subgraphIds: [10, 15, 20, 30, 40],
@@ -466,7 +485,7 @@ describe('TopologyChangeAnalysisPhase', () => {
     expect(analyze).toHaveBeenCalledTimes(2);
     expect(fixture.context.topologyChangeAnalysis?.decisions).toEqual([
       expect.objectContaining({
-        kind: USECASE_TOPOLOGY_DECISION_KIND.MdfSubstitution,
+        kind: USECASE_TOPOLOGY_DECISION_KIND.MdfNormalization,
         usecase: currentUsecase,
         structuralChange: expect.objectContaining({
           addedSubgraphSystemIds: [15, 30],
@@ -495,13 +514,17 @@ describe('TopologyChangeAnalysisPhase', () => {
     const firstDeletedLink = dataLink(701, 10, 20);
     const secondDeletedLink = dataLink(702, 10, 20);
     const analyze = jest.fn(
-      (link: DataLink): MdfPairSubstitution => ({
-        removedPair: {
+      (link: DataLink): MdfTopologyRewrite => ({
+        kind: MDF_TOPOLOGY_REWRITE_KIND.DirectToMdf,
+        directPair: {
           sourceSubgraphSystemId: 10,
           destSubgraphSystemId: 20,
         },
-        replacementSubgraphSystemIds: [link.systemId === 701 ? 15 : 16],
-        replacementPairs: [
+        mdfSubgraphSystemIds: [link.systemId === 701 ? 15 : 16],
+        committedPairs: [
+          {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+        ],
+        normalizedPairs: [
           {
             sourceSubgraphSystemId: 10,
             destSubgraphSystemId: link.systemId === 701 ? 15 : 16,
@@ -515,7 +538,7 @@ describe('TopologyChangeAnalysisPhase', () => {
     );
     const phase = new TopologyChangeAnalysisPhase(undefined, undefined, {
       analyze,
-    } as unknown as MdfSubstitutionAnalyzer);
+    } as unknown as MdfExpansionAnalyzer);
     const fixture = createFixture({
       usecases: [currentUsecase],
       subgraphIds: [10, 15, 16, 20],
@@ -854,7 +877,7 @@ describe('TopologyChangeAnalysisPhase', () => {
     expect(result.kind).toBe(RESULT_KIND.Ok);
     expect(fixture.context.topologyChangeAnalysis?.decisions).toEqual([
       expect.objectContaining({
-        kind: USECASE_TOPOLOGY_DECISION_KIND.MdfSubstitution,
+        kind: USECASE_TOPOLOGY_DECISION_KIND.MdfNormalization,
         usecase: currentUsecase,
       }),
     ]);
@@ -1582,7 +1605,7 @@ describe('TopologyChangeAnalysisPhase', () => {
         decision.kind,
       ]),
     ).toEqual([
-      [101, USECASE_TOPOLOGY_DECISION_KIND.MdfSubstitution],
+      [101, USECASE_TOPOLOGY_DECISION_KIND.MdfNormalization],
       [102, USECASE_TOPOLOGY_DECISION_KIND.Preserve],
       [103, USECASE_TOPOLOGY_DECISION_KIND.TransitionToIsland],
       [104, USECASE_TOPOLOGY_DECISION_KIND.DeleteOrReconstruct],
@@ -1595,7 +1618,7 @@ describe('TopologyChangeAnalysisPhase', () => {
       expect.arrayContaining([
         expect.objectContaining({
           usecase: mdfOnly,
-          kind: USECASE_TOPOLOGY_DECISION_KIND.MdfSubstitution,
+          kind: USECASE_TOPOLOGY_DECISION_KIND.MdfNormalization,
         }),
         expect.objectContaining({
           usecase: preserved,

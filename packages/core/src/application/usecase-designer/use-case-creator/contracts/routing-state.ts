@@ -38,11 +38,30 @@ export interface DataLinkLossPair {
   readonly deletedDataLinkSystemId: number;
 }
 
-/** Exact topology replacing one removed committed pair through MDF members. */
-export interface MdfPairSubstitution {
-  readonly removedPair: SubgraphPair;
-  readonly replacementSubgraphSystemIds: readonly number[];
-  readonly replacementPairs: readonly SubgraphPair[];
+export const MDF_TOPOLOGY_REWRITE_KIND = {
+  DirectToMdf: 'DIRECT_TO_MDF',
+  MdfToDirect: 'MDF_TO_DIRECT',
+} as const;
+
+export type MdfTopologyRewriteKind =
+  (typeof MDF_TOPOLOGY_REWRITE_KIND)[keyof typeof MDF_TOPOLOGY_REWRITE_KIND];
+
+/**
+ * Direction-neutral contract for one MDF path normalization.
+ * `MdfExpansionAnalyzer` produces `DirectToMdf` rewrites;
+ * `MdfCollapseAnalyzer` produces `MdfToDirect` rewrites.
+ * Downstream staging consumes `structuralChange`; it never inspects direction.
+ */
+export interface MdfTopologyRewrite {
+  readonly kind: MdfTopologyRewriteKind;
+  /** Logical direct A → B; stable anchor for manual-precedence and conflict checks. */
+  readonly directPair: SubgraphPair;
+  /** Ordered intermediate MDF SG chain between A and B. */
+  readonly mdfSubgraphSystemIds: readonly number[];
+  /** Pair representation as it exists in committed state (before normalization). */
+  readonly committedPairs: readonly SubgraphPair[];
+  /** Pair representation after normalization is applied. */
+  readonly normalizedPairs: readonly SubgraphPair[];
 }
 
 /**
@@ -63,7 +82,7 @@ export interface UsecaseStructuralChange {
 
 /** Phase 2 assigns exactly one of these outcomes to each impacted committed UseCase. */
 export const USECASE_TOPOLOGY_DECISION_KIND = {
-  MdfSubstitution: 'MDF_SUBSTITUTION',
+  MdfNormalization: 'MDF_NORMALIZATION',
   Preserve: 'PRESERVE',
   TransitionToIsland: 'TRANSITION_TO_ISLAND',
   DeleteOrReconstruct: 'DELETE_OR_RECONSTRUCT',
@@ -72,11 +91,11 @@ export const USECASE_TOPOLOGY_DECISION_KIND = {
 export type UsecaseTopologyDecisionKind =
   (typeof USECASE_TOPOLOGY_DECISION_KIND)[keyof typeof USECASE_TOPOLOGY_DECISION_KIND];
 
-/** Direct system-owned maintenance that preserves the existing UseCase identity. */
-export interface MdfSubstitutionDecision {
-  readonly kind: typeof USECASE_TOPOLOGY_DECISION_KIND.MdfSubstitution;
+/** System-owned normalization that preserves UseCase identity (expansion or collapse). */
+export interface MdfNormalizationDecision {
+  readonly kind: typeof USECASE_TOPOLOGY_DECISION_KIND.MdfNormalization;
   readonly usecase: UseCase;
-  readonly substitutions: readonly MdfPairSubstitution[];
+  readonly rewrites: readonly MdfTopologyRewrite[];
   /** Shared by classification, orphan projection, collision replay, and staging. */
   readonly structuralChange: UsecaseStructuralChange;
 }
@@ -111,7 +130,7 @@ export interface DeleteOrReconstructDecision {
 }
 
 export type UsecaseTopologyDecision =
-  | MdfSubstitutionDecision
+  | MdfNormalizationDecision
   | PreserveUsecaseDecision
   | TransitionToIslandDecision
   | DeleteOrReconstructDecision;

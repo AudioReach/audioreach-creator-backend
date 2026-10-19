@@ -11,6 +11,7 @@ import type {
   SubgraphRepository,
 } from '../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
 import type {RoutingContext} from '../contracts/routing-context.js';
+import type {RoutingSubgraph} from '../contracts/routing-input.js';
 import type {SgkvInstance, KvResolutions} from '../contracts/routing-state.js';
 import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
 
@@ -24,6 +25,10 @@ function canonicalKeyValues(keyValues: readonly KvPair[]): KvPair[] {
       left.keyDefSystemId - right.keyDefSystemId ||
       left.valueDefSystemId - right.valueDefSystemId,
   );
+}
+
+function shouldUseEmptySgkvInstance(routingSubgraph: RoutingSubgraph): boolean {
+  return routingSubgraph.isMdf || routingSubgraph.requestedSgkvs.length === 0;
 }
 
 export class KvResolutionPhase {
@@ -79,7 +84,11 @@ export class KvResolutionPhase {
     for (const routingSubgraph of graphSnapshot.subgraphs) {
       const subgraphSystemId = routingSubgraph.subgraph.systemId;
       const requestedSgkvs = routingSubgraph.requestedSgkvs;
-      if (requestedSgkvs.length === 0) {
+      if (shouldUseEmptySgkvInstance(routingSubgraph)) {
+        // spec §11: every MDF slot contributes exactly one empty routing instance
+        // regardless of how many empty alternatives requestedSgkvs contains.
+        // Phase 1 (ARC-ROUTING-MDF-01) blocks non-empty MDF selections before
+        // Phase 4 runs; this branch is the canonicalization safety net.
         perSg.set(subgraphSystemId, [{keyValues: []}]);
         continue;
       }

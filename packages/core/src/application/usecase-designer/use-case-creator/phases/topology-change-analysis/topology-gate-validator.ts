@@ -13,7 +13,7 @@ import {
 import {RoutingIssueFactory} from '../../issues/routing-issue-factory.js';
 import {sortedIds} from './topology-impact-inventory.js';
 
-export interface TopologyGateInput {
+export interface AutomaticRoutingSelectionAndExclusionInput {
   readonly selectedUsecaseSystemIds: ReadonlySet<number>;
   readonly affectedUsecaseSystemIds: ReadonlySet<number>;
   readonly requestedSubgraphSystemIds: ReadonlySet<number>;
@@ -44,7 +44,7 @@ function hasAnyValues(conflicts: DeletionSideConflicts): boolean {
 }
 
 function buildDeletionSideConflicts(
-  input: TopologyGateInput,
+  input: AutomaticRoutingSelectionAndExclusionInput,
 ): DeletionSideConflicts {
   // Deleted control-link endpoints intentionally do not expand automatic routing scope.
   const requiredSurvivingEndpointSubgraphSystemIds = new Set<number>();
@@ -117,15 +117,15 @@ export function deriveAffectedUsecaseSystemIds(
 ): ReadonlySet<number> {
   const affected = new Set<number>();
   for (const decision of decisions) {
-    if (decision.kind === USECASE_TOPOLOGY_DECISION_KIND.MdfSubstitution)
+    if (decision.kind === USECASE_TOPOLOGY_DECISION_KIND.MdfNormalization)
       continue;
     affected.add(decision.usecase.systemId);
   }
   return affected;
 }
 
-export function validateTopologyGates(
-  input: TopologyGateInput,
+export function validateAutomaticRoutingSelectionsAndExclusions(
+  input: AutomaticRoutingSelectionAndExclusionInput,
 ): ReturnType<typeof Result.fail<void>> | null {
   // Gate ordering is part of the client contract: selection is reported before scope.
   const missingUsecaseSystemIds = new Set(

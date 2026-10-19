@@ -5,18 +5,21 @@
 
 import {
   DELETED_COMPONENT_TYPE,
+  MDF_TOPOLOGY_REWRITE_KIND,
   USECASE_TOPOLOGY_DECISION_KIND,
 } from '../../contracts/routing-state.js';
 import type {DataLink} from '../../../../../domain/entities/usecase-data/links/data-link.js';
 import type {ControlLink} from '../../../../../domain/entities/usecase-data/links/control-link.js';
 import type {UseCase} from '../../../../../domain/entities/usecase-data/usecase/usecase.js';
+import {USECASE_TYPE} from '../../../../../domain/entities/usecase-data/usecase/usecase-type.js';
+import type {SubgraphPair} from '../../../../ports/persistence/repositories/shared/links-for-pair.js';
 import type {RoutingGraphSnapshot} from '../../contracts/routing-input.js';
 import type {
   DataLinkLossPair,
   DeletedComponent,
   DeletedComponentType,
-  MdfPairSubstitution,
-  MdfSubstitutionDecision,
+  MdfNormalizationDecision,
+  MdfTopologyRewrite,
   TopologyChangeAnalysis,
   TransitionToIslandDecision,
   UsecaseTopologyDecision,
@@ -24,32 +27,34 @@ import type {
 import {
   buildTopologyImpactInventory,
   sortedBySystemId,
-  type DirectedEdge,
   type TopologyImpactInventory,
 } from './topology-impact-inventory.js';
 import {DATA_LINK_TYPE} from '../../../../../domain/entities/usecase-data/links/data-link-type.js';
-import {MdfSubstitutionAnalyzer} from './mdf-substitution-analyzer.js';
+import {MdfExpansionAnalyzer} from './mdf-expansion-analyzer.js';
+import {MdfCollapseAnalyzer} from './mdf-collapse-analyzer.js';
 import {computeUsecaseTypeFromPairSupport} from '../../shared/usecase-type-classifier.js';
 import {
   directedPairKey,
   unorderedPairKey,
 } from '../../shared/usecase-topology.js';
 
-const STORED_TOPOLOGY_KIND = {
-  SinglePath: 'single-path',
-  MultiPath: 'multi-path',
-} as const;
-
-/** Closed vocabulary for the committed-UC topology shapes relevant to deletion handling. */
-type StoredTopologyKind =
-  (typeof STORED_TOPOLOGY_KIND)[keyof typeof STORED_TOPOLOGY_KIND];
-
-/** Coarse committed-UC shape used only to decide whether automatic reconstruction is safe. */
-interface StoredTopology {
-  readonly kind: StoredTopologyKind;
-  readonly startSubgraphSystemId?: number;
-  readonly endSubgraphSystemId?: number;
-}
+/**
+ * Phase 2 of routing: decide what happens to every committed UseCase (UC) touched by the
+ * session's subgraph/link deletions, before any new routing is attempted.
+ *
+ * Reading order for this file:
+ *   1. `buildImpactInventory` and its helpers classify every deleted subgraph, data-link,
+ *      and control-link against committed UCs, producing provisional deletion marks and
+ *      island candidates (no decisions are finalized yet).
+ *   2. `collectAllRewrites` / `buildMdfNormalizationDecisions` look for MDF-only causes
+ *      behind a deletion mark: if an MDF expansion/collapse fully explains the loss, the
+ *      UC is normalized in place instead of deleted.
+ *   3. `buildAnalysis` resolves what remains: multi-path UCs whose stored pairs still hold
+ *      are preserved, LINKED UCs that lost their last data-link but kept a control-link
+ *      become island-transition candidates, and everything else stays marked for deletion
+ *      (handled later by DeletionReconstructionService).
+ *   4. `analyzeTopologyChanges` is the single public entry point tying 1-3 together.
+ */
 
 /** Provisional ordinary impact retained until MDF and preservation rules are finalized. */
 interface DeletionMarkDraft {
@@ -70,7 +75,7 @@ interface IslandCandidateAccumulator {
 }
 
 function buildTopologyChangeAnalysis(
-  mdfDecisions: readonly MdfSubstitutionDecision[],
+  mdfDecisions: readonly MdfNormalizationDecision[],
   markedForDeletion: readonly DeletionMarkDraft[],
   preservedUsecases: readonly PreservedUsecaseDraft[],
   transitionToIslandDecisions: readonly TransitionToIslandDecision[],
@@ -93,6 +98,8 @@ function buildTopologyChangeAnalysis(
   ];
 
   return {
+    // The phase caller derives and overwrites this from the merged decision list; this
+    // function only owns decision assembly, not the aggregate affected-UC summary.
     affectedUsecaseSystemIds: new Set(),
     decisions: [...decisions].sort(
       (left, right) => left.usecase.systemId - right.usecase.systemId,
@@ -100,40 +107,23 @@ function buildTopologyChangeAnalysis(
   };
 }
 
-/** Mutable Phase 2 working set that aggregates all committed-UC topology impacts. */
+/**
+ * Mutable Phase 2 working set that aggregates all committed-UC topology impacts.
+ * `topology` carries the immutable Stage 1 snapshot (deleted/surviving sets included);
+ * the two maps below are the only new state this phase originates, so they are the only
+ * fields duplicated at the top level instead of read through `topology`.
+ */
 interface ImpactInventory {
   readonly topology: TopologyImpactInventory;
-  readonly deletedSubgraphSystemIds: ReadonlySet<number>;
-  readonly deletedDataLinkSystemIds: ReadonlySet<number>;
-  readonly deletedControlLinkSystemIds: ReadonlySet<number>;
-  readonly survivingDataLinkPairKeys: ReadonlySet<string>;
-  readonly survivingControlLinkPairKeys: ReadonlySet<string>;
   readonly ucMarkedForDeletionBySystemId: Map<number, DeletionMarkDraft>;
   readonly islandUseCaseCandidatesBySystemId: Map<
     number,
     IslandCandidateAccumulator
   >;
-  readonly mdfSubstitutionsByUsecaseSystemId: Map<
-    number,
-    readonly MdfPairSubstitution[]
-  >;
-  readonly mdfSubstitutedDataLinkSystemIdsByUsecaseSystemId: ReadonlyMap<
-    number,
-    ReadonlySet<number>
-  >;
-  readonly unsupportedDataLinkSystemIdsByUsecaseSystemId: ReadonlyMap<
-    number,
-    ReadonlySet<number>
-  >;
-  readonly unsupportedControlLinkSystemIdsByUsecaseSystemId: ReadonlyMap<
-    number,
-    ReadonlySet<number>
-  >;
-  readonly deletedSubgraphSystemIdsByUsecaseSystemId: ReadonlyMap<
-    number,
-    ReadonlySet<number>
-  >;
 }
+
+// --- Stage 1: impact inventory. Classify every deleted subgraph/data-link/control-link
+// against committed UCs into provisional deletion marks or island candidates. ---
 
 function addIslandCandidate(
   islandUseCaseCandidatesBySystemId: Map<number, IslandCandidateAccumulator>,
@@ -193,7 +183,7 @@ function classifyDeletedDataLink(
     // Only LINKED UCs need an automatic LINKED -> ISLAND candidate. Existing ISLAND UCs
     // already represent this control-link-supported state.
     for (const usecase of pairUsecases) {
-      if (usecase.type === 'LINKED') {
+      if (usecase.type === USECASE_TYPE.Linked) {
         addIslandCandidate(
           islandUseCaseCandidatesBySystemId,
           usecase,
@@ -270,33 +260,17 @@ function classifyDeletedControlLinks(
 
 function buildImpactInventory(
   graphSnapshot: RoutingGraphSnapshot,
-  mdfSubstitutionAnalyzer: MdfSubstitutionAnalyzer,
 ): ImpactInventory {
   // This is the only inventory-building pass. Everything below consumes the immutable
   // snapshot and keeps its indexes local to Phase 2.
   const {sessionEdits} = graphSnapshot;
   const topology = buildTopologyImpactInventory(graphSnapshot);
-  const deletedSubgraphSystemIds = topology.deletedSubgraphSystemIds;
-  const deletedDataLinkSystemIds = new Set(
-    sessionEdits.deletedDataLinks.map(link => link.systemId),
-  );
-  const deletedControlLinkSystemIds = new Set(
-    sessionEdits.deletedControlLinks.map(link => link.systemId),
-  );
   const survivingDataLinkPairKeys = topology.survivingDataLinkPairKeys;
   const survivingControlLinkPairKeys = topology.survivingControlLinkPairKeys;
   const ucMarkedForDeletionBySystemId = new Map<number, DeletionMarkDraft>();
   const islandUseCaseCandidatesBySystemId = new Map<
     number,
     IslandCandidateAccumulator
-  >();
-  const mdfSubstitutionsByUsecaseSystemId = new Map<
-    number,
-    MdfPairSubstitution[]
-  >();
-  const mdfSubstitutedDataLinkSystemIdsByUsecaseSystemId = new Map<
-    number,
-    Set<number>
   >();
   const committedUsecasesBySubgraph = topology.committedUsecasesBySubgraph;
   const committedUsecasesByPair = topology.committedUsecasesByDirectedPair;
@@ -324,133 +298,11 @@ function buildImpactInventory(
     ucMarkedForDeletionBySystemId,
   );
 
-  // These are provisional per-link substitutions. They are grouped by UseCase and
-  // finalized together below, preventing a partial direct update for mixed impact.
-  for (const dataLink of topology.deletedDataLinks) {
-    const substitution = mdfSubstitutionAnalyzer.analyze(dataLink, topology);
-    if (substitution === null) continue;
-    const pairKey = directedPairKey(
-      dataLink.sourceSubgraphSystemId,
-      dataLink.destSubgraphSystemId,
-    );
-    for (const usecase of committedUsecasesByPair.get(pairKey) ?? []) {
-      const substitutions =
-        mdfSubstitutionsByUsecaseSystemId.get(usecase.systemId) ?? [];
-      if (usecase.type === 'EC' && dataLink.linkType !== DATA_LINK_TYPE.Ec)
-        continue;
-      substitutions.push(substitution);
-      mdfSubstitutionsByUsecaseSystemId.set(usecase.systemId, substitutions);
-      const dataLinkSystemIds =
-        mdfSubstitutedDataLinkSystemIdsByUsecaseSystemId.get(
-          usecase.systemId,
-        ) ?? new Set<number>();
-      dataLinkSystemIds.add(dataLink.systemId);
-      mdfSubstitutedDataLinkSystemIdsByUsecaseSystemId.set(
-        usecase.systemId,
-        dataLinkSystemIds,
-      );
-    }
-  }
-  const unsupportedDataLinkSystemIdsByUsecaseSystemId =
-    buildUnsupportedDataLinkIndex(topology);
-  const unsupportedControlLinkSystemIdsByUsecaseSystemId =
-    buildUnsupportedControlLinkIndex(topology);
-  const deletedSubgraphSystemIdsByUsecaseSystemId =
-    buildDeletedSubgraphIndex(topology);
   return {
     topology,
-    deletedSubgraphSystemIds,
-    deletedDataLinkSystemIds,
-    deletedControlLinkSystemIds,
-    survivingDataLinkPairKeys,
-    survivingControlLinkPairKeys,
     ucMarkedForDeletionBySystemId,
     islandUseCaseCandidatesBySystemId,
-    mdfSubstitutionsByUsecaseSystemId,
-    mdfSubstitutedDataLinkSystemIdsByUsecaseSystemId,
-    unsupportedDataLinkSystemIdsByUsecaseSystemId,
-    unsupportedControlLinkSystemIdsByUsecaseSystemId,
-    deletedSubgraphSystemIdsByUsecaseSystemId,
   };
-}
-
-function buildUnsupportedDataLinkIndex(
-  topology: TopologyImpactInventory,
-): ReadonlyMap<number, ReadonlySet<number>> {
-  const index = new Map<number, Set<number>>();
-  for (const dataLink of topology.deletedDataLinks) {
-    const supportKey = unorderedPairKey(
-      dataLink.sourceSubgraphSystemId,
-      dataLink.destSubgraphSystemId,
-    );
-    if (
-      topology.survivingDataLinkPairKeys.has(supportKey) ||
-      topology.survivingControlLinkPairKeys.has(supportKey)
-    ) {
-      continue;
-    }
-    const pairUsecases = topology.committedUsecasesByDirectedPair.get(
-      directedPairKey(
-        dataLink.sourceSubgraphSystemId,
-        dataLink.destSubgraphSystemId,
-      ),
-    );
-    for (const usecase of pairUsecases ?? []) {
-      const dataLinkSystemIds =
-        index.get(usecase.systemId) ?? new Set<number>();
-      dataLinkSystemIds.add(dataLink.systemId);
-      index.set(usecase.systemId, dataLinkSystemIds);
-    }
-  }
-  return index;
-}
-
-function buildUnsupportedControlLinkIndex(
-  topology: TopologyImpactInventory,
-): ReadonlyMap<number, ReadonlySet<number>> {
-  const index = new Map<number, Set<number>>();
-  for (const controlLink of topology.deletedControlLinks) {
-    const supportKey = unorderedPairKey(
-      controlLink.sourceSubgraphSystemId,
-      controlLink.destSubgraphSystemId,
-    );
-    if (
-      topology.survivingDataLinkPairKeys.has(supportKey) ||
-      topology.survivingControlLinkPairKeys.has(supportKey)
-    ) {
-      continue;
-    }
-    const pairUsecases = topology.committedUsecasesByDirectedPair.get(
-      directedPairKey(
-        controlLink.sourceSubgraphSystemId,
-        controlLink.destSubgraphSystemId,
-      ),
-    );
-    for (const usecase of pairUsecases ?? []) {
-      const controlLinkSystemIds =
-        index.get(usecase.systemId) ?? new Set<number>();
-      controlLinkSystemIds.add(controlLink.systemId);
-      index.set(usecase.systemId, controlLinkSystemIds);
-    }
-  }
-  return index;
-}
-
-function buildDeletedSubgraphIndex(
-  topology: TopologyImpactInventory,
-): ReadonlyMap<number, ReadonlySet<number>> {
-  const index = new Map<number, Set<number>>();
-  for (const subgraphSystemId of topology.deletedSubgraphSystemIds) {
-    for (const usecase of topology.committedUsecasesBySubgraph.get(
-      subgraphSystemId,
-    ) ?? []) {
-      const deletedSubgraphSystemIds =
-        index.get(usecase.systemId) ?? new Set<number>();
-      deletedSubgraphSystemIds.add(subgraphSystemId);
-      index.set(usecase.systemId, deletedSubgraphSystemIds);
-    }
-  }
-  return index;
 }
 
 function comparePairs(
@@ -469,278 +321,435 @@ function comparePairs(
   );
 }
 
-function substitutionSignature(substitution: MdfPairSubstitution): string {
-  return `${substitution.replacementSubgraphSystemIds.join(',')}|${substitution.replacementPairs
-    .map(pair =>
-      directedPairKey(pair.sourceSubgraphSystemId, pair.destSubgraphSystemId),
-    )
-    .join(',')}`;
-}
+// --- Stage 2: MDF normalization. Look for MDF expansion/collapse rewrites that fully
+// explain a provisional deletion mark, so the UC is normalized in place instead of deleted.
+// `collectAllRewrites` gathers every candidate rewrite per UC; `buildMdfNormalizationDecisions`
+// then validates each UC's rewrite set as a whole and turns the survivors into decisions. ---
 
-function directedPairSupport(
-  pair: {
-    readonly sourceSubgraphSystemId: number;
-    readonly destSubgraphSystemId: number;
-  },
-  adjacency: TopologyImpactInventory['routableAdjacency'],
-): readonly DirectedEdge[] {
-  return (
-    adjacency
-      .get(pair.sourceSubgraphSystemId)
-      ?.filter(
-        edge => edge.destSubgraphSystemId === pair.destSubgraphSystemId,
-      ) ?? []
-  );
-}
-
-function replacementChainIsEc(
-  substitution: MdfPairSubstitution,
-  adjacency: TopologyImpactInventory['routableAdjacency'],
-): boolean | null {
-  let chainSemantic: boolean | undefined;
-  for (const pair of substitution.replacementPairs) {
-    const semantics = new Set(
-      directedPairSupport(pair, adjacency).map(edge => edge.isEc),
-    );
-    if (semantics.size !== 1) return null;
-    const [isEc] = semantics;
-    if (chainSemantic !== undefined && chainSemantic !== isEc) return null;
-    chainSemantic = isEc;
-  }
-  return chainSemantic ?? null;
-}
-
-// The aggregate validation intentionally keeps all substitution invariants in one boundary.
+// Cognitive complexity is inherent: every deleted data-link and every deleted MDF member
+// must be checked against both rewrite analyzers, and the two loops cannot be merged because
+// collapse analysis needs the complete per-UC rewrite set from the expansion loop above it.
 // eslint-disable-next-line sonarjs/cognitive-complexity
-function finalizeMdfDecision(
-  usecase: UseCase,
-  substitutions: readonly MdfPairSubstitution[],
+function collectAllRewrites(
   inventory: ImpactInventory,
-): MdfSubstitutionDecision | null {
-  const substitutionsByRemovedPair = new Map<string, MdfPairSubstitution>();
-  for (const substitution of substitutions) {
-    const removedPairKey = directedPairKey(
-      substitution.removedPair.sourceSubgraphSystemId,
-      substitution.removedPair.destSubgraphSystemId,
-    );
-    const existing = substitutionsByRemovedPair.get(removedPairKey);
-    if (
-      existing !== undefined &&
-      substitutionSignature(existing) !== substitutionSignature(substitution)
-    ) {
-      return null;
+  mdfExpansionAnalyzer: MdfExpansionAnalyzer,
+  mdfCollapseAnalyzer: MdfCollapseAnalyzer,
+): Map<number, MdfTopologyRewrite[]> {
+  const rewritesByUsecaseSystemId = new Map<number, MdfTopologyRewrite[]>();
+
+  for (const dataLink of inventory.topology.deletedDataLinks) {
+    const rewrite = mdfExpansionAnalyzer.analyze(dataLink, inventory.topology);
+    if (rewrite === null) continue;
+    const usecases =
+      inventory.topology.committedUsecasesByDirectedPair.get(
+        directedPairKey(
+          dataLink.sourceSubgraphSystemId,
+          dataLink.destSubgraphSystemId,
+        ),
+      ) ?? [];
+    for (const usecase of usecases) {
+      if (
+        usecase.type === USECASE_TYPE.Ec &&
+        dataLink.linkType !== DATA_LINK_TYPE.Ec
+      )
+        continue;
+      const rewrites = rewritesByUsecaseSystemId.get(usecase.systemId) ?? [];
+      rewrites.push(rewrite);
+      rewritesByUsecaseSystemId.set(usecase.systemId, rewrites);
     }
-    if (!existing) substitutionsByRemovedPair.set(removedPairKey, substitution);
   }
 
-  const orderedSubstitutions = [...substitutionsByRemovedPair.values()].sort(
-    (left, right) => comparePairs(left.removedPair, right.removedPair),
-  );
-  const removedPairKeys = new Set(
-    orderedSubstitutions.map(substitution =>
-      directedPairKey(
-        substitution.removedPair.sourceSubgraphSystemId,
-        substitution.removedPair.destSubgraphSystemId,
-      ),
-    ),
-  );
-  const committedPairKeys = new Set(
-    usecase.subgraphPairs.map(pair =>
-      directedPairKey(pair.sourceSubgraphSystemId, pair.destSubgraphSystemId),
-    ),
+  const seenUsecaseSystemIds = new Set<number>();
+  for (const mdfSubgraphSystemId of [
+    ...inventory.topology.deletedMdfSubgraphSystemIds,
+  ].sort((left, right) => left - right)) {
+    for (const usecase of inventory.topology.committedUsecasesByMdfSubgraph.get(
+      mdfSubgraphSystemId,
+    ) ?? []) {
+      if (seenUsecaseSystemIds.has(usecase.systemId)) continue;
+      seenUsecaseSystemIds.add(usecase.systemId);
+      const collapseRewrites = mdfCollapseAnalyzer.analyze(
+        usecase,
+        inventory.topology,
+      );
+      if (collapseRewrites.length === 0) continue;
+      const rewrites = rewritesByUsecaseSystemId.get(usecase.systemId) ?? [];
+      rewrites.push(...collapseRewrites);
+      rewritesByUsecaseSystemId.set(usecase.systemId, rewrites);
+    }
+  }
+
+  return rewritesByUsecaseSystemId;
+}
+
+/**
+ * Recovers the committed UC for a rewrite candidate. Most UCs are found directly via an
+ * existing deletion mark; a UC whose only impact is an MDF collapse (no ordinary deletion
+ * mark at all) is found instead by searching the rewrite's own MDF member index.
+ */
+function getCommittedUsecase(
+  usecaseSystemId: number,
+  rewrites: readonly MdfTopologyRewrite[],
+  inventory: ImpactInventory,
+): UseCase | undefined {
+  const deletionMark =
+    inventory.ucMarkedForDeletionBySystemId.get(usecaseSystemId);
+  if (deletionMark !== undefined) return deletionMark.usecase;
+  for (const rewrite of rewrites) {
+    for (const mdfSubgraphSystemId of rewrite.mdfSubgraphSystemIds) {
+      const usecase = inventory.topology.committedUsecasesByMdfSubgraph
+        .get(mdfSubgraphSystemId)
+        ?.find(candidate => candidate.systemId === usecaseSystemId);
+      if (usecase !== undefined) return usecase;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * True when this UC has any deletion impact that its candidate rewrites do not already
+ * explain: an uncovered deleted member subgraph, a deleted control link between two of its
+ * subgraphs, a pending island-transition candidate, or an uncovered deleted data-link. Any
+ * of these means the UC still needs ordinary deletion/preservation handling, so it must not
+ * be normalized in place.
+ */
+function hasUncoveredOrdinaryImpact(
+  usecase: UseCase,
+  rewrites: readonly MdfTopologyRewrite[],
+  inventory: ImpactInventory,
+): boolean {
+  const coveredMdfSubgraphSystemIds = new Set(
+    rewrites.flatMap(rewrite => rewrite.mdfSubgraphSystemIds),
   );
   if (
-    orderedSubstitutions.some(
-      substitution =>
-        !committedPairKeys.has(
-          directedPairKey(
-            substitution.removedPair.sourceSubgraphSystemId,
-            substitution.removedPair.destSubgraphSystemId,
-          ),
-        ),
+    usecase.subgraphSystemIds.some(
+      systemId =>
+        inventory.topology.deletedSubgraphSystemIds.has(systemId) &&
+        !coveredMdfSubgraphSystemIds.has(systemId),
     )
   ) {
-    return null;
+    return true;
   }
-
-  const resultingSubgraphSystemIds = new Set(usecase.subgraphSystemIds);
-  const addedPairByKey = new Map<
-    string,
-    {
-      readonly sourceSubgraphSystemId: number;
-      readonly destSubgraphSystemId: number;
-    }
-  >();
-  for (const substitution of orderedSubstitutions) {
-    for (const subgraphSystemId of substitution.replacementSubgraphSystemIds)
-      resultingSubgraphSystemIds.add(subgraphSystemId);
-    for (const replacementPair of substitution.replacementPairs) {
-      if (
-        replacementPair.sourceSubgraphSystemId ===
-        replacementPair.destSubgraphSystemId
-      ) {
-        return null;
-      }
-      const replacementPairKey = directedPairKey(
-        replacementPair.sourceSubgraphSystemId,
-        replacementPair.destSubgraphSystemId,
-      );
-      if (removedPairKeys.has(replacementPairKey)) return null;
-      addedPairByKey.set(replacementPairKey, replacementPair);
-    }
+  if (
+    inventory.topology.deletedControlLinks.some(
+      link =>
+        usecase.subgraphSystemIds.includes(link.sourceSubgraphSystemId) &&
+        usecase.subgraphSystemIds.includes(link.destSubgraphSystemId),
+    )
+  ) {
+    return true;
   }
-
-  for (const replacementPair of addedPairByKey.values()) {
-    if (
-      !resultingSubgraphSystemIds.has(replacementPair.sourceSubgraphSystemId) ||
-      !resultingSubgraphSystemIds.has(replacementPair.destSubgraphSystemId)
-    ) {
-      return null;
-    }
+  if (inventory.islandUseCaseCandidatesBySystemId.has(usecase.systemId)) {
+    return true;
   }
-
-  const resultingPairByKey = new Map<
-    string,
-    (typeof usecase.subgraphPairs)[number]
-  >();
-  for (const currentPair of usecase.subgraphPairs) {
-    const currentPairKey = directedPairKey(
-      currentPair.sourceSubgraphSystemId,
-      currentPair.destSubgraphSystemId,
-    );
-    if (!removedPairKeys.has(currentPairKey))
-      resultingPairByKey.set(currentPairKey, currentPair);
-  }
-  for (const [replacementPairKey, replacementPair] of addedPairByKey)
-    resultingPairByKey.set(replacementPairKey, replacementPair);
-  const resultingPairs = [...resultingPairByKey.values()].sort(comparePairs);
-  const removedPairs = orderedSubstitutions
-    .map(substitution => substitution.removedPair)
-    .sort(comparePairs);
-  const addedPairs = [...addedPairByKey.values()].sort(comparePairs);
-  const resultingType = computeUsecaseTypeFromPairSupport(
-    resultingPairs,
-    pair =>
-      inventory.topology.routableAdjacency
-        .get(pair.sourceSubgraphSystemId)
-        ?.filter(
-          edge => edge.destSubgraphSystemId === pair.destSubgraphSystemId,
-        ) ?? [],
-  );
-
-  const replacementPairKeys = new Set(
-    orderedSubstitutions.flatMap(substitution =>
-      substitution.replacementPairs.map(pair =>
+  const coveredPairKeys = new Set(
+    rewrites.flatMap(rewrite =>
+      rewrite.committedPairs.map(pair =>
         directedPairKey(pair.sourceSubgraphSystemId, pair.destSubgraphSystemId),
       ),
     ),
   );
-  let logicalEcCrossings = 0;
-  for (const substitution of orderedSubstitutions) {
-    const isEc = replacementChainIsEc(
-      substitution,
-      inventory.topology.routableAdjacency,
+  return inventory.topology.deletedDataLinks.some(link => {
+    const pairKey = directedPairKey(
+      link.sourceSubgraphSystemId,
+      link.destSubgraphSystemId,
     );
-    if (isEc === null) return null;
-    if (isEc) logicalEcCrossings += 1;
-  }
-  for (const pair of resultingPairs) {
-    const key = directedPairKey(
-      pair.sourceSubgraphSystemId,
-      pair.destSubgraphSystemId,
+    return (
+      usecase.subgraphSystemIds.includes(link.sourceSubgraphSystemId) &&
+      usecase.subgraphSystemIds.includes(link.destSubgraphSystemId) &&
+      !coveredPairKeys.has(pairKey)
     );
-    if (replacementPairKeys.has(key)) continue;
-    if (
-      directedPairSupport(pair, inventory.topology.routableAdjacency).some(
-        edge => edge.isEc,
-      )
-    ) {
-      logicalEcCrossings += 1;
-    }
-  }
-
-  if (logicalEcCrossings > 1 || resultingType !== usecase.type) return null;
-
-  const addedSubgraphSystemIds = [...resultingSubgraphSystemIds]
-    .filter(id => !usecase.subgraphSystemIds.includes(id))
-    .sort((left, right) => left - right);
-
-  return {
-    kind: USECASE_TOPOLOGY_DECISION_KIND.MdfSubstitution,
-    usecase,
-    substitutions: orderedSubstitutions,
-    structuralChange: {
-      addedSubgraphSystemIds,
-      removedSubgraphSystemIds: [],
-      addedPairs,
-      removedPairs,
-      resultingSubgraphSystemIds: [...resultingSubgraphSystemIds].sort(
-        (left, right) => left - right,
-      ),
-      resultingPairs,
-      resultingType,
-      sgkvAssignments: addedSubgraphSystemIds.map(subgraphSystemId => ({
-        subgraphSystemId,
-        valueDefinitionSystemIds: [],
-      })),
-    },
-  };
+  });
 }
 
-function buildMdfDecisions(
+/**
+ * Determines the single EC/non-EC semantic a rewrite's normalized pairs must share, by
+ * reading the live routable adjacency (not the deleted committed links). Returns `null` when
+ * a normalized pair's adjacency is ambiguous (not exactly one semantic) or when different
+ * normalized pairs in the same rewrite disagree — either case makes the rewrite's EC status
+ * undecidable, and `buildMdfNormalizationDecisions` treats that as a rewrite conflict.
+ */
+function rewriteIsEc(
+  rewrite: MdfTopologyRewrite,
+  adjacency: TopologyImpactInventory['routableAdjacency'],
+): boolean | null {
+  let semantic: boolean | undefined;
+  for (const pair of rewrite.normalizedPairs) {
+    const semantics = new Set(
+      (adjacency.get(pair.sourceSubgraphSystemId) ?? [])
+        .filter(edge => edge.destSubgraphSystemId === pair.destSubgraphSystemId)
+        .map(edge => edge.isEc),
+    );
+    if (semantics.size !== 1) return null;
+    const [isEc] = semantics;
+    if (semantic !== undefined && semantic !== isEc) return null;
+    semantic = isEc;
+  }
+  return semantic ?? null;
+}
+
+// A UC's rewrite set must pass every one of ~8 independent validation gates (conflicting
+// rewrites, cross-covering add/remove, invalid pairs, endpoint survival, unchanged UC type,
+// at most one EC crossing) before it is safe to normalize instead of delete; each gate is a
+// short, self-contained check, but the sheer count is what drives the complexity score up.
+// eslint-disable-next-line sonarjs/cognitive-complexity
+function buildMdfNormalizationDecisions(
+  allRewrites: ReadonlyMap<number, readonly MdfTopologyRewrite[]>,
   inventory: ImpactInventory,
-): readonly MdfSubstitutionDecision[] {
-  // A pure MDF update is all-or-nothing for one committed UseCase. Any ordinary deletion
-  // impact keeps its deletion mark intact so the existing workflow owns the fallback.
-  const decisions: MdfSubstitutionDecision[] = [];
-  for (const [usecaseSystemId, substitutions] of [
-    ...inventory.mdfSubstitutionsByUsecaseSystemId.entries(),
-  ].sort(([left], [right]) => left - right)) {
-    const mark = inventory.ucMarkedForDeletionBySystemId.get(usecaseSystemId);
-    const substitutedDataLinkSystemIds =
-      inventory.mdfSubstitutedDataLinkSystemIdsByUsecaseSystemId.get(
-        usecaseSystemId,
+): readonly MdfNormalizationDecision[] {
+  const decisions: MdfNormalizationDecision[] = [];
+
+  for (const [usecaseSystemId, rawRewrites] of [...allRewrites.entries()].sort(
+    ([left], [right]) => left - right,
+  )) {
+    // Gate 1: the UC must still be a known committed UC (deletion mark or MDF member).
+    const usecase = getCommittedUsecase(
+      usecaseSystemId,
+      rawRewrites,
+      inventory,
+    );
+    if (usecase === undefined) continue;
+    // Gate 2: every deletion touching this UC must be explained by an MDF rewrite; any
+    // leftover ordinary impact means the UC still needs deletion/reconstruction handling.
+    if (hasUncoveredOrdinaryImpact(usecase, rawRewrites, inventory)) continue;
+
+    // Gate 3: collapse duplicate rewrites for the same direct pair, but reject the UC if two
+    // rewrites disagree on how that pair should be normalized.
+    const rewritesByDirectPairKey = new Map<string, MdfTopologyRewrite>();
+    let hasRewriteConflict = false;
+    for (const rewrite of rawRewrites) {
+      const key = directedPairKey(
+        rewrite.directPair.sourceSubgraphSystemId,
+        rewrite.directPair.destSubgraphSystemId,
       );
-    const unsupportedDataLinkSystemIds =
-      inventory.unsupportedDataLinkSystemIdsByUsecaseSystemId.get(
-        usecaseSystemId,
-      );
+      const existing = rewritesByDirectPairKey.get(key);
+      if (
+        existing !== undefined &&
+        (existing.kind !== rewrite.kind ||
+          existing.mdfSubgraphSystemIds.join(',') !==
+            rewrite.mdfSubgraphSystemIds.join(','))
+      ) {
+        hasRewriteConflict = true;
+        break;
+      }
+      if (existing === undefined) rewritesByDirectPairKey.set(key, rewrite);
+    }
+    if (hasRewriteConflict) continue;
+    const rewrites = [...rewritesByDirectPairKey.values()].sort((left, right) =>
+      comparePairs(left.directPair, right.directPair),
+    );
+
+    // Gate 4: a single MDF member must not be simultaneously added (expansion) and removed
+    // (collapse) by this UC's rewrite set; that would be an unresolvable structural conflict.
+    const addedMdfSubgraphSystemIds = new Set(
+      rewrites
+        .filter(
+          rewrite => rewrite.kind === MDF_TOPOLOGY_REWRITE_KIND.DirectToMdf,
+        )
+        .flatMap(rewrite => rewrite.mdfSubgraphSystemIds),
+    );
+    const removedMdfSubgraphSystemIds = new Set(
+      rewrites
+        .filter(
+          rewrite => rewrite.kind === MDF_TOPOLOGY_REWRITE_KIND.MdfToDirect,
+        )
+        .flatMap(rewrite => rewrite.mdfSubgraphSystemIds),
+    );
     if (
-      mark === undefined ||
-      mark.deletedComponent.type !== DELETED_COMPONENT_TYPE.DataLink ||
-      substitutedDataLinkSystemIds === undefined ||
-      unsupportedDataLinkSystemIds === undefined ||
-      substitutedDataLinkSystemIds.size !== unsupportedDataLinkSystemIds.size ||
-      [...unsupportedDataLinkSystemIds].some(
-        systemId => !substitutedDataLinkSystemIds.has(systemId),
-      ) ||
-      (inventory.unsupportedControlLinkSystemIdsByUsecaseSystemId.get(
-        usecaseSystemId,
-      )?.size ?? 0) > 0 ||
-      (inventory.deletedSubgraphSystemIdsByUsecaseSystemId.get(usecaseSystemId)
-        ?.size ?? 0) > 0 ||
-      inventory.islandUseCaseCandidatesBySystemId.has(usecaseSystemId)
+      [...addedMdfSubgraphSystemIds].some(systemId =>
+        removedMdfSubgraphSystemIds.has(systemId),
+      )
     ) {
       continue;
     }
-    const decision = finalizeMdfDecision(
-      mark.usecase,
-      substitutions,
-      inventory,
+
+    // Gate 5: a normalized pair must not be a self-loop or duplicate a pair the rewrite set
+    // is simultaneously removing; either case means the rewrite set describes an invalid UC.
+    const removedPairKeys = new Set(
+      rewrites.flatMap(rewrite =>
+        rewrite.committedPairs.map(pair =>
+          directedPairKey(
+            pair.sourceSubgraphSystemId,
+            pair.destSubgraphSystemId,
+          ),
+        ),
+      ),
     );
-    if (decision === null) continue;
+    const addedPairByKey = new Map<string, SubgraphPair>();
+    let hasInvalidPair = false;
+    for (const rewrite of rewrites) {
+      for (const normalizedPair of rewrite.normalizedPairs) {
+        if (
+          normalizedPair.sourceSubgraphSystemId ===
+            normalizedPair.destSubgraphSystemId ||
+          removedPairKeys.has(
+            directedPairKey(
+              normalizedPair.sourceSubgraphSystemId,
+              normalizedPair.destSubgraphSystemId,
+            ),
+          )
+        ) {
+          hasInvalidPair = true;
+          break;
+        }
+        addedPairByKey.set(
+          directedPairKey(
+            normalizedPair.sourceSubgraphSystemId,
+            normalizedPair.destSubgraphSystemId,
+          ),
+          normalizedPair,
+        );
+      }
+      if (hasInvalidPair) break;
+    }
+    if (hasInvalidPair) continue;
+
+    // Gate 6: every endpoint of an added pair must end up as a member of the resulting UC;
+    // otherwise the normalization would reference a subgraph the UC no longer contains.
+    const resultingSubgraphSystemIds = new Set(usecase.subgraphSystemIds);
+    for (const systemId of addedMdfSubgraphSystemIds)
+      resultingSubgraphSystemIds.add(systemId);
+    for (const systemId of removedMdfSubgraphSystemIds)
+      resultingSubgraphSystemIds.delete(systemId);
+    if (
+      [...addedPairByKey.values()].some(
+        pair =>
+          !resultingSubgraphSystemIds.has(pair.sourceSubgraphSystemId) ||
+          !resultingSubgraphSystemIds.has(pair.destSubgraphSystemId),
+      )
+    ) {
+      continue;
+    }
+
+    const resultingPairByKey = new Map<string, SubgraphPair>();
+    for (const committedPair of usecase.subgraphPairs) {
+      const key = directedPairKey(
+        committedPair.sourceSubgraphSystemId,
+        committedPair.destSubgraphSystemId,
+      );
+      if (!removedPairKeys.has(key)) resultingPairByKey.set(key, committedPair);
+    }
+    for (const [key, addedPair] of addedPairByKey)
+      resultingPairByKey.set(key, addedPair);
+    const resultingPairs = [...resultingPairByKey.values()].sort(comparePairs);
+    // Gate 7: normalization must be type-neutral. A pair-support change that would flip the
+    // UC between LINKED/EC/ISLAND is a different topology decision, not an MDF normalization.
+    const resultingType = computeUsecaseTypeFromPairSupport(
+      resultingPairs,
+      pair =>
+        inventory.topology.routableAdjacency
+          .get(pair.sourceSubgraphSystemId)
+          ?.filter(
+            edge => edge.destSubgraphSystemId === pair.destSubgraphSystemId,
+          ) ?? [],
+    );
+    if (resultingType !== usecase.type) continue;
+
+    // Gate 8: an EC crossing can legally move but not multiply. Count EC pairs the rewrites
+    // introduce, plus any already-EC resulting pair the rewrite set left untouched, and
+    // reject if the UC would end up with more than one logical EC crossing.
+    const normalizedPairKeys = new Set(
+      rewrites.flatMap(rewrite =>
+        rewrite.normalizedPairs.map(pair =>
+          directedPairKey(
+            pair.sourceSubgraphSystemId,
+            pair.destSubgraphSystemId,
+          ),
+        ),
+      ),
+    );
+    let logicalEcCrossings = 0;
+    for (const rewrite of rewrites) {
+      const isEc = rewriteIsEc(rewrite, inventory.topology.routableAdjacency);
+      if (isEc === null) {
+        hasRewriteConflict = true;
+        break;
+      }
+      if (isEc) logicalEcCrossings += 1;
+    }
+    if (hasRewriteConflict) continue;
+    for (const resultingPair of resultingPairs) {
+      const key = directedPairKey(
+        resultingPair.sourceSubgraphSystemId,
+        resultingPair.destSubgraphSystemId,
+      );
+      if (normalizedPairKeys.has(key)) continue;
+      if (
+        (
+          inventory.topology.routableAdjacency.get(
+            resultingPair.sourceSubgraphSystemId,
+          ) ?? []
+        ).some(
+          edge =>
+            edge.destSubgraphSystemId === resultingPair.destSubgraphSystemId &&
+            edge.isEc,
+        )
+      ) {
+        logicalEcCrossings += 1;
+      }
+    }
+    if (logicalEcCrossings > 1) continue;
+
+    const addedSubgraphSystemIds = [...addedMdfSubgraphSystemIds].sort(
+      (left, right) => left - right,
+    );
+    const removedSubgraphSystemIds = [...removedMdfSubgraphSystemIds].sort(
+      (left, right) => left - right,
+    );
+    const removedPairs = [...removedPairKeys]
+      .map(key =>
+        rewrites
+          .flatMap(rewrite => rewrite.committedPairs)
+          .find(
+            pair =>
+              directedPairKey(
+                pair.sourceSubgraphSystemId,
+                pair.destSubgraphSystemId,
+              ) === key,
+          ),
+      )
+      .filter((pair): pair is SubgraphPair => pair !== undefined)
+      .sort(comparePairs);
+
+    // All gates passed: this UC is normalized instead of deleted, so its deletion mark (if
+    // any) is retracted before the decision is recorded.
     inventory.ucMarkedForDeletionBySystemId.delete(usecaseSystemId);
-    decisions.push(decision);
+    decisions.push({
+      kind: USECASE_TOPOLOGY_DECISION_KIND.MdfNormalization,
+      usecase,
+      rewrites,
+      structuralChange: {
+        addedSubgraphSystemIds,
+        removedSubgraphSystemIds,
+        addedPairs: [...addedPairByKey.values()].sort(comparePairs),
+        removedPairs,
+        resultingSubgraphSystemIds: [...resultingSubgraphSystemIds].sort(
+          (left, right) => left - right,
+        ),
+        resultingPairs,
+        resultingType,
+        sgkvAssignments: addedSubgraphSystemIds.map(subgraphSystemId => ({
+          subgraphSystemId,
+          valueDefinitionSystemIds: [],
+        })),
+      },
+    });
   }
+
   return decisions;
 }
+
+// --- Stage 3: resolve what remains after MDF normalization. Multi-path UCs whose stored
+// pairs still hold are preserved as-is; LINKED UCs that lost their last data-link but kept a
+// control-link become island-transition candidates; everything else stays marked for
+// deletion, to be handled later by DeletionReconstructionService. ---
+
 function processMarkedUsecase(
   mark: DeletionMarkDraft,
   inventory: ImpactInventory,
   preservedUsecases: PreservedUsecaseDraft[],
 ): void {
-  const topology = classifyStoredTopology(mark.usecase);
-  if (topology.kind === STORED_TOPOLOGY_KIND.MultiPath) {
+  if (isMultiPathTopology(mark.usecase)) {
     // Multi-path UCs may lose isolated members, but auto-routing must not invent a new
     // topology. Preserve only when every stored pair remains supported.
     const hasBrokenPair = mark.usecase.subgraphPairs.some(
@@ -748,12 +757,12 @@ function processMarkedUsecase(
         !endpointsSurvive(
           pair.sourceSubgraphSystemId,
           pair.destSubgraphSystemId,
-          inventory.deletedSubgraphSystemIds,
+          inventory.topology.deletedSubgraphSystemIds,
         ) ||
         !hasPairSupport(
           pair,
-          inventory.survivingDataLinkPairKeys,
-          inventory.survivingControlLinkPairKeys,
+          inventory.topology.survivingDataLinkPairKeys,
+          inventory.topology.survivingControlLinkPairKeys,
         ),
     );
     if (hasBrokenPair) {
@@ -764,7 +773,7 @@ function processMarkedUsecase(
       preservedUsecases.push({
         usecase: mark.usecase,
         droppedSubgraphSystemIds: mark.usecase.subgraphSystemIds.filter(
-          systemId => inventory.deletedSubgraphSystemIds.has(systemId),
+          systemId => inventory.topology.deletedSubgraphSystemIds.has(systemId),
         ),
       });
     }
@@ -804,7 +813,25 @@ function buildTransitionToIslandDecisions(
   return decisions;
 }
 
-function buildAnalysis(inventory: ImpactInventory): TopologyChangeAnalysis {
+/**
+ * Ties Stage 2 and Stage 3 together in the order decisions must be resolved: MDF
+ * normalization runs first and retracts any deletion mark it explains, then the remaining
+ * marks are resolved as preserve-or-delete, then island-transition candidates are built.
+ * A UC that is both preserved (multi-path, pairs intact) and an island-transition candidate
+ * is reported only as the island transition, since that is the more specific decision.
+ */
+function buildAnalysis(
+  inventory: ImpactInventory,
+  mdfExpansionAnalyzer: MdfExpansionAnalyzer,
+  mdfCollapseAnalyzer: MdfCollapseAnalyzer,
+): TopologyChangeAnalysis {
+  const allRewrites = collectAllRewrites(
+    inventory,
+    mdfExpansionAnalyzer,
+    mdfCollapseAnalyzer,
+  );
+  const mdfDecisions = buildMdfNormalizationDecisions(allRewrites, inventory);
+
   // Build the complete draft first. Publishing happens once so later phases never observe
   // partially processed deletion state.
   const preservedUsecases: PreservedUsecaseDraft[] = [];
@@ -815,9 +842,6 @@ function buildAnalysis(inventory: ImpactInventory): TopologyChangeAnalysis {
     processMarkedUsecase(mark, inventory, preservedUsecases);
   }
 
-  // Finalizing MDF decisions may remove compatible data-link marks. Do this before
-  // materializing ordinary decisions so every UseCase receives one final outcome.
-  const mdfDecisions = buildMdfDecisions(inventory);
   const markedForDeletion = sortedByUseCaseSystemId(
     inventory.ucMarkedForDeletionBySystemId.values(),
   );
@@ -842,6 +866,7 @@ function buildAnalysis(inventory: ImpactInventory): TopologyChangeAnalysis {
     transitionToIslandDecisions,
   );
 }
+
 function sortedByUseCaseSystemId<T extends {readonly usecase: UseCase}>(
   items: Iterable<T>,
 ): T[] {
@@ -892,25 +917,25 @@ function markForDeletion(
   }
 }
 
-function classifyStoredTopology(usecase: UseCase): StoredTopology {
-  // A single root and leaf identify the shape that can be safely replaced by bounded DFS.
-  // Every other shape is treated as multi-path and is never auto-reconstructed.
+/**
+ * A single root and leaf identify the committed-UC shape that can be safely replaced by
+ * bounded DFS. Every other shape (branching, isolated members, cycles) is multi-path and
+ * is never auto-reconstructed; `processMarkedUsecase` only needs this yes/no answer.
+ */
+function isMultiPathTopology(usecase: UseCase): boolean {
   const incoming = new Set<number>();
   const outgoing = new Set<number>();
   for (const pair of usecase.subgraphPairs) {
     incoming.add(pair.destSubgraphSystemId);
     outgoing.add(pair.sourceSubgraphSystemId);
   }
-  const starts = usecase.subgraphSystemIds.filter(id => !incoming.has(id));
-  const ends = usecase.subgraphSystemIds.filter(id => !outgoing.has(id));
-  if (starts.length === 1 && ends.length === 1) {
-    return {
-      kind: STORED_TOPOLOGY_KIND.SinglePath,
-      startSubgraphSystemId: starts[0],
-      endSubgraphSystemId: ends[0],
-    };
-  }
-  return {kind: STORED_TOPOLOGY_KIND.MultiPath};
+  const startCount = usecase.subgraphSystemIds.filter(
+    id => !incoming.has(id),
+  ).length;
+  const endCount = usecase.subgraphSystemIds.filter(
+    id => !outgoing.has(id),
+  ).length;
+  return startCount !== 1 || endCount !== 1;
 }
 
 function endpointsSurvive(
@@ -940,18 +965,30 @@ function hasPairSupport(
     survivingDataLinkPairKeys.has(key) || survivingControlLinkPairKeys.has(key)
   );
 }
+
+/** Public result: the raw Phase 2 inventory plus the resolved topology decisions. */
 export interface TopologyDecisionAnalysisResult {
   readonly inventory: ImpactInventory;
   readonly analysis: TopologyChangeAnalysis;
 }
 
+/**
+ * Phase 2 entry point (see the file header for the full reading order). Builds the Stage 1
+ * impact inventory from the session's graph snapshot, then resolves it into the final set of
+ * Stage 2/3 topology decisions.
+ */
 export function analyzeTopologyChanges(
   snapshot: RoutingGraphSnapshot,
-  mdfSubstitutionAnalyzer: MdfSubstitutionAnalyzer,
+  mdfExpansionAnalyzer: MdfExpansionAnalyzer,
+  mdfCollapseAnalyzer: MdfCollapseAnalyzer,
 ): TopologyDecisionAnalysisResult {
-  const inventory = buildImpactInventory(snapshot, mdfSubstitutionAnalyzer);
+  const inventory = buildImpactInventory(snapshot);
   return {
     inventory,
-    analysis: buildAnalysis(inventory),
+    analysis: buildAnalysis(
+      inventory,
+      mdfExpansionAnalyzer,
+      mdfCollapseAnalyzer,
+    ),
   };
 }

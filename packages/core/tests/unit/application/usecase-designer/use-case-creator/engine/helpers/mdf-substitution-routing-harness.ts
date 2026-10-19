@@ -74,9 +74,15 @@ export interface MdfSubstitutionScenario {
   readonly newlyStagedUsecases?: readonly CommittedUsecaseTopology[];
   readonly subgraphs: readonly RoutingSubgraph[];
   readonly committedPairs: readonly RoutingPair[];
+  /** Base-table links used by reverse MDF-collapse analysis. */
+  readonly committedDataLinks?: readonly RoutingPair[];
   readonly addedPairs: readonly RoutingPair[];
   readonly deletedPairs: readonly RoutingPair[];
   readonly deletedSubgraphSystemIds?: readonly number[];
+  /** Deleted committed MDF members used by reverse MDF-collapse analysis. */
+  readonly deletedMdfSubgraphSystemIds?: readonly number[];
+  /** Limits active routing subgraphs while committed topology remains intact. */
+  readonly activeSubgraphSystemIds?: readonly number[];
   readonly activeManualUsecaseEdits?: readonly ActiveManualUsecaseEdit[];
   readonly dfsCandidates?: readonly AutoUsecaseCandidate[];
   readonly failClassification?: boolean;
@@ -287,6 +293,7 @@ export interface NormalizedMdfDelta {
   readonly descriptorKind: 'UPDATE';
   readonly removedPairs: readonly [number, number][];
   readonly addedMembers: readonly number[];
+  readonly removedMembers: readonly number[];
   readonly addedPairs: readonly [number, number][];
   readonly emptyMdfAssignments: readonly number[];
   readonly gkv: readonly [number, number][];
@@ -340,6 +347,7 @@ export interface MdfSubstitutionRoutingHarness {
   };
   run(): Promise<ReturnType<typeof Result.ok>>;
   resolveCollision(collisionId: string): Promise<Result<SameGkvCollisionGroup>>;
+  failNextStructuralWrite(): void;
   clearRecordedWrites(): void;
 }
 
@@ -389,15 +397,18 @@ export function createMdfSubstitutionRoutingHarness(
       !deletedSubgraphIds.has(link.destSubgraphSystemId),
   );
   const allSubgraphIds = new Set<number>(
-    scenario.subgraphs.map(item => item.subgraph.systemId),
+    scenario.activeSubgraphSystemIds ??
+      scenario.subgraphs.map(item => item.subgraph.systemId),
   );
-  for (const usecase of committedUsecases) {
-    for (const systemId of usecase.subgraphSystemIds)
-      allSubgraphIds.add(systemId);
-  }
-  for (const link of allLinks) {
-    allSubgraphIds.add(link.sourceSubgraphSystemId);
-    allSubgraphIds.add(link.destSubgraphSystemId);
+  if (scenario.activeSubgraphSystemIds === undefined) {
+    for (const usecase of committedUsecases) {
+      for (const systemId of usecase.subgraphSystemIds)
+        allSubgraphIds.add(systemId);
+    }
+    for (const link of allLinks) {
+      allSubgraphIds.add(link.sourceSubgraphSystemId);
+      allSubgraphIds.add(link.destSubgraphSystemId);
+    }
   }
   const requestedSgkvsBySubgraph = scenario.requestedSgkvsBySubgraph ?? {};
   const routingSubgraphs = [...allSubgraphIds]
@@ -443,11 +454,18 @@ export function createMdfSubstitutionRoutingHarness(
       overlayDataLinks: effectiveLinks,
       overlayControlLinks: [],
       committedUsecases,
+      deletedMdfSubgraphSystemIds: [
+        ...(scenario.deletedMdfSubgraphSystemIds ?? []),
+      ],
+      committedDataLinks: (
+        scenario.committedDataLinks ?? scenario.committedPairs
+      ).map(toDataLink),
       sessionEdits: {
         ...emptyGraphEdits(),
         deletedSgs: (scenario.deletedSubgraphSystemIds ?? []).map(
           systemId => subgraph(systemId).subgraph,
         ),
+        addedDataLinks: scenario.addedPairs.map(toDataLink),
         deletedDataLinks: deletedLinks,
       },
     },
@@ -468,6 +486,7 @@ export function createMdfSubstitutionRoutingHarness(
   const records: RecordedWrite[] = [];
   const repositoryReadCounts = {graph: 0, usecase: 0, legacyEcSgkv: 0};
   let nextChangeId = 1;
+  let failNextStructuralWrite = false;
 
   const allRoutingSubgraphIds = routingSubgraphs.map(
     item => item.subgraph.systemId,
@@ -514,6 +533,10 @@ export function createMdfSubstitutionRoutingHarness(
       _referencedComponents: unknown,
       assignments: RecordedWrite['assignments'],
     ) => {
+      if (failNextStructuralWrite) {
+        failNextStructuralWrite = false;
+        throw new Error('Injected structural write failure');
+      }
       records.push({
         usecaseSystemId,
         operation: 'UPDATE',
@@ -577,7 +600,7 @@ export function createMdfSubstitutionRoutingHarness(
         ) ?? []),
       );
       for (const decision of context.topologyChangeAnalysis?.decisions ?? []) {
-        if (decision.kind === 'MDF_SUBSTITUTION')
+        if (decision.kind === 'MDF_NORMALIZATION')
           classificationTopologies.push(topologyOf(projectedUsecase(decision)));
       }
     }),
@@ -604,7 +627,7 @@ export function createMdfSubstitutionRoutingHarness(
   ) as RoutingEngine;
 
   function projectedUsecase(
-    decision: Extract<UsecaseTopologyDecision, {kind: 'MDF_SUBSTITUTION'}>,
+    decision: Extract<UsecaseTopologyDecision, {kind: 'MDF_NORMALIZATION'}>,
   ): UseCase {
     return new UseCase({
       systemId: decision.usecase.systemId,
@@ -660,6 +683,9 @@ export function createMdfSubstitutionRoutingHarness(
           pair.sourceSubgraphSystemId,
           pair.destSubgraphSystemId,
         ]),
+        removedMembers: [...(record.delta.removedSgSystemIds ?? [])].sort(
+          (left, right) => left - right,
+        ),
         addedMembers: [...(record.delta.addedSgSystemIds ?? [])].sort(
           (left, right) => left - right,
         ),
@@ -720,6 +746,9 @@ export function createMdfSubstitutionRoutingHarness(
     observed,
     run,
     resolveCollision,
+    failNextStructuralWrite: () => {
+      failNextStructuralWrite = true;
+    },
     clearRecordedWrites,
   };
 }

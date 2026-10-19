@@ -90,8 +90,8 @@ export function projectCommittedUcsWithMdfSubstitutions(
           decision,
         ): decision is Extract<
           (typeof analysis.decisions)[number],
-          {readonly kind: typeof TOPOLOGY_DECISION_KIND.MdfSubstitution}
-        > => decision.kind === TOPOLOGY_DECISION_KIND.MdfSubstitution,
+          {readonly kind: typeof TOPOLOGY_DECISION_KIND.MdfNormalization}
+        > => decision.kind === TOPOLOGY_DECISION_KIND.MdfNormalization,
       )
       .map(
         decision =>
@@ -215,7 +215,7 @@ function applyTopologyDecision(
   decision: UsecaseTopologyDecision,
 ): void {
   switch (decision.kind) {
-    case TOPOLOGY_DECISION_KIND.MdfSubstitution: {
+    case TOPOLOGY_DECISION_KIND.MdfNormalization: {
       const current = projected.get(decision.usecase.systemId);
       if (current !== undefined)
         projected.set(

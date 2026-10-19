@@ -51,6 +51,18 @@ export interface RoutingGraphSnapshot {
   readonly overlayControlLinks: readonly ControlLink[];
   readonly committedUsecases: readonly UseCase[];
   readonly sessionEdits: GraphEditSummary;
+  /**
+   * System IDs of subgraphs that were MDF members in committed state but are
+   * absent from the effective session overlay. Used by the reverse collapse
+   * analyzer; must never make a deleted SG routable.
+   */
+  readonly deletedMdfSubgraphSystemIds: readonly number[];
+  /**
+   * All NORMAL data links in committed (base-table) state for this file.
+   * Populated by RoutingGraphSnapshotBuilder via READ_MODE.Committed.
+   * Consumers derive lookup sets locally; do not mutate.
+   */
+  readonly committedDataLinks: readonly DataLink[];
 }
 
 export interface ManualTopologyPair {
@@ -198,6 +210,10 @@ function copyGraphSnapshot(
     overlayControlLinks: Object.freeze([...snapshot.overlayControlLinks]),
     committedUsecases: Object.freeze([...snapshot.committedUsecases]),
     sessionEdits: copyGraphEditSummary(snapshot.sessionEdits),
+    deletedMdfSubgraphSystemIds: Object.freeze([
+      ...(snapshot.deletedMdfSubgraphSystemIds ?? []),
+    ]),
+    committedDataLinks: Object.freeze([...(snapshot.committedDataLinks ?? [])]),
   });
 }
 

@@ -48,12 +48,10 @@ function indexUsecasesBySubgraph(
     }
   }
   return new Map(
-    [...index.entries()]
-      .sort(([left], [right]) => left - right)
-      .map(([key, values]) => [
-        key,
-        [...values].sort((left, right) => left.systemId - right.systemId),
-      ]),
+    [...index.entries()].map(([key, values]) => [
+      key,
+      [...values].sort((left, right) => left.systemId - right.systemId),
+    ]),
   );
 }
 
@@ -64,7 +62,7 @@ function indexLinksByPair(
   // Overlay links describe file-wide surviving support. Request-only exclusions are
   // deliberately absent here because they must not create a false deletion impact.
   const pairs = new Set<string>();
-  for (const link of sortedBySystemId(links)) {
+  for (const link of links) {
     if (deletedSystemIds.has(link.systemId)) continue;
     pairs.add(
       unorderedPairKey(link.sourceSubgraphSystemId, link.destSubgraphSystemId),
@@ -119,14 +117,51 @@ function indexCommittedUsecasesByDirectedPair(
     }
   }
   return new Map(
-    [...index.entries()]
-      .sort(([left], [right]) =>
-        left.localeCompare(right, undefined, {numeric: true}),
-      )
-      .map(([key, values]) => [
-        key,
-        [...values].sort((left, right) => left.systemId - right.systemId),
-      ]),
+    [...index.entries()].map(([key, values]) => [
+      key,
+      [...values].sort((left, right) => left.systemId - right.systemId),
+    ]),
+  );
+}
+
+function indexDataLinksByDirectedPair(
+  links: readonly DataLink[],
+  excludedSystemIds: ReadonlySet<number>,
+): ReadonlyMap<string, readonly DataLink[]> {
+  const index = new Map<string, DataLink[]>();
+  for (const link of sortedBySystemId(links)) {
+    if (excludedSystemIds.has(link.systemId)) continue;
+    const key = directedPairKey(
+      link.sourceSubgraphSystemId,
+      link.destSubgraphSystemId,
+    );
+    const entries = index.get(key) ?? [];
+    entries.push(link);
+    index.set(key, entries);
+  }
+  return new Map(
+    [...index.entries()].map(([key, values]) => [key, Object.freeze(values)]),
+  );
+}
+
+function indexCommittedUsecasesByMdfSubgraph(
+  usecases: readonly UseCase[],
+  deletedMdfSubgraphSystemIds: ReadonlySet<number>,
+): ReadonlyMap<number, readonly UseCase[]> {
+  const index = new Map<number, UseCase[]>();
+  for (const usecase of sortedBySystemId(usecases)) {
+    for (const subgraphSystemId of usecase.subgraphSystemIds) {
+      if (!deletedMdfSubgraphSystemIds.has(subgraphSystemId)) continue;
+      const entries = index.get(subgraphSystemId) ?? [];
+      entries.push(usecase);
+      index.set(subgraphSystemId, entries);
+    }
+  }
+  return new Map(
+    [...index.entries()].map(([key, values]) => [
+      key,
+      [...values].sort((left, right) => left.systemId - right.systemId),
+    ]),
   );
 }
 
@@ -149,6 +184,9 @@ export function buildTopologyImpactInventory(
   const deletedControlLinkSystemIds = new Set(
     snapshot.sessionEdits.deletedControlLinks.map(link => link.systemId),
   );
+  const deletedMdfSubgraphSystemIds = new Set(
+    snapshot.deletedMdfSubgraphSystemIds,
+  );
   const committedUsecasesBySubgraph = indexUsecasesBySubgraph(
     snapshot.committedUsecases,
   );
@@ -157,9 +195,10 @@ export function buildTopologyImpactInventory(
     deletedDataLinkSystemIds,
   );
   const routingSubgraphsById = new Map(
-    [...snapshot.subgraphs]
-      .sort((left, right) => left.subgraph.systemId - right.subgraph.systemId)
-      .map(item => [item.subgraph.systemId, item] as const),
+    snapshot.subgraphs.map(item => [item.subgraph.systemId, item] as const),
+  );
+  const effectiveAddedDataLinks = snapshot.sessionEdits.addedDataLinks.filter(
+    link => !deletedDataLinkSystemIds.has(link.systemId),
   );
   return {
     committedUsecasesByDirectedPair: indexCommittedUsecasesByDirectedPair(
@@ -179,10 +218,21 @@ export function buildTopologyImpactInventory(
       snapshot.overlayControlLinks,
       deletedControlLinkSystemIds,
     ),
-    routableAdjacency: new Map(
-      [...adjacency.entries()].sort(([left], [right]) => left - right),
-    ) as ReadonlyMap<number, readonly DirectedEdge[]>,
+    routableAdjacency: adjacency,
     routingSubgraphsById,
+    committedDataLinksByDirectedPair: indexDataLinksByDirectedPair(
+      snapshot.committedDataLinks,
+      new Set(),
+    ),
+    effectiveAddedDataLinksByDirectedPair: indexDataLinksByDirectedPair(
+      effectiveAddedDataLinks,
+      new Set(),
+    ),
+    deletedMdfSubgraphSystemIds,
+    committedUsecasesByMdfSubgraph: indexCommittedUsecasesByMdfSubgraph(
+      snapshot.committedUsecases,
+      deletedMdfSubgraphSystemIds,
+    ),
   };
 }
 
@@ -213,4 +263,17 @@ export interface TopologyImpactInventory {
   readonly survivingControlLinkPairKeys: ReadonlySet<string>;
   readonly routableAdjacency: ReadonlyMap<number, readonly DirectedEdge[]>;
   readonly routingSubgraphsById: ReadonlyMap<number, RoutingSubgraph>;
+  readonly committedDataLinksByDirectedPair: ReadonlyMap<
+    string,
+    readonly DataLink[]
+  >;
+  readonly effectiveAddedDataLinksByDirectedPair: ReadonlyMap<
+    string,
+    readonly DataLink[]
+  >;
+  readonly deletedMdfSubgraphSystemIds: ReadonlySet<number>;
+  readonly committedUsecasesByMdfSubgraph: ReadonlyMap<
+    number,
+    readonly UseCase[]
+  >;
 }

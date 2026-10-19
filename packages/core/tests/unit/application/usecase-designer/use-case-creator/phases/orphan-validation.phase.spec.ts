@@ -287,9 +287,9 @@ describe('OrphanValidationPhase', () => {
       affectedUsecaseSystemIds: new Set(),
       decisions: [
         {
-          kind: 'MDF_SUBSTITUTION',
+          kind: 'MDF_NORMALIZATION',
           usecase: committed,
-          substitutions: [],
+          rewrites: [],
           structuralChange: {
             addedSubgraphSystemIds: [15],
             removedSubgraphSystemIds: [],

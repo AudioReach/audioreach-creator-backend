@@ -19,7 +19,8 @@ import {SeedDetectionPhase} from '../phases/seed-detection.phase.js';
 import {DeletionReconstructionService} from '../phases/topology-change-analysis/deletion-reconstruction.service.js';
 import {ManualUsecaseDependencyValidator} from '../phases/pre-validation/manual-usecase-dependency-validator.js';
 import {ManualMdfPrecedenceService} from '../phases/topology-change-analysis/manual-mdf-precedence.service.js';
-import {MdfSubstitutionAnalyzer} from '../phases/topology-change-analysis/mdf-substitution-analyzer.js';
+import {MdfExpansionAnalyzer} from '../phases/topology-change-analysis/mdf-expansion-analyzer.js';
+import {MdfCollapseAnalyzer} from '../phases/topology-change-analysis/mdf-collapse-analyzer.js';
 
 export function createRoutingEngine(): RoutingEngine {
   const manualDependencyValidator = new ManualUsecaseDependencyValidator();
@@ -28,7 +29,8 @@ export function createRoutingEngine(): RoutingEngine {
     new TopologyChangeAnalysisPhase(
       new DeletionReconstructionService(),
       new ManualMdfPrecedenceService(),
-      new MdfSubstitutionAnalyzer(),
+      new MdfExpansionAnalyzer(),
+      new MdfCollapseAnalyzer(),
     ),
     new IslandTransitionPhase(),
     new KvResolutionPhase(),

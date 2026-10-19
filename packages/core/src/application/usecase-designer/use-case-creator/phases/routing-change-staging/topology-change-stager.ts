@@ -25,7 +25,7 @@ import {RoutingIssueFactory} from '../../issues/routing-issue-factory.js';
 import type {
   DeleteOrReconstructDecision,
   IslandTransition,
-  MdfSubstitutionDecision,
+  MdfNormalizationDecision,
   PreserveUsecaseDecision,
   TopologyChangeAnalysis,
   TransitionToIslandDecision,
@@ -48,13 +48,18 @@ interface StructuralChangeDelta {
   readonly cancelPendingDelete?: boolean;
 }
 
-function mdfStructuralDelta(
-  decision: MdfSubstitutionDecision,
+function mdfNormalizationDelta(
+  decision: MdfNormalizationDecision,
 ): StructuralChangeDelta {
   const {structuralChange} = decision;
   return {
+    ...(structuralChange.removedSubgraphSystemIds.length > 0
+      ? {removedSgSystemIds: structuralChange.removedSubgraphSystemIds}
+      : {}),
+    ...(structuralChange.addedSubgraphSystemIds.length > 0
+      ? {addedSgSystemIds: structuralChange.addedSubgraphSystemIds}
+      : {}),
     removedPairs: structuralChange.removedPairs,
-    addedSgSystemIds: structuralChange.addedSubgraphSystemIds,
     addedPairs: structuralChange.addedPairs,
     ...(structuralChange.resultingType === decision.usecase.type
       ? {}
@@ -85,8 +90,8 @@ export class TopologyChangeStager {
         decision.kind === TOPOLOGY_DECISION_KIND.TransitionToIsland,
     );
     const mdfDecisions = analysis.decisions.filter(
-      (decision): decision is MdfSubstitutionDecision =>
-        decision.kind === TOPOLOGY_DECISION_KIND.MdfSubstitution,
+      (decision): decision is MdfNormalizationDecision =>
+        decision.kind === TOPOLOGY_DECISION_KIND.MdfNormalization,
     );
 
     for (const decision of [...mdfDecisions].sort(
@@ -95,7 +100,7 @@ export class TopologyChangeStager {
       const result = await this.applyStructuralChange(
         staging,
         decision.usecase,
-        mdfStructuralDelta(decision),
+        mdfNormalizationDelta(decision),
         CHANGE_OPERATION.Update,
         decision.structuralChange.sgkvAssignments,
       );
