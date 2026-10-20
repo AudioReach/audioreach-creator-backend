@@ -105,6 +105,7 @@ import {
   ValidateFileRequestDto,
   ValidateFileResponseDto,
 } from './dto/validate-file.dto.js';
+import {ApplyFixRequestDto} from './dto/apply-fix.dto.js';
 import {ProjectType} from './enums/project-type.enum.js';
 import {SessionMode} from './enums/session-mode.enum.js';
 import {MultipartResponseHelper} from '../../../../infrastructure-wrapper/helpers/multipart-response.helper.js';
@@ -112,6 +113,7 @@ import {SessionGuard} from '../../../../guards/session-guard.js';
 import {ArcSession} from '../../../../guards/arc-session.decorator.js';
 import {AuthGuard} from '@nestjs/passport';
 import {ClientId} from '../../../../decorators/client-id.decorator.js';
+import {FixCommandDispatcher} from '../../../../infrastructure-wrapper/validation/fix-command-dispatcher.js';
 
 @Controller('arc-api/v1/projects')
 @UseGuards(AuthGuard('jwt'))
@@ -120,6 +122,7 @@ export class ProjectController {
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
     @Inject('LOGGER') private readonly logger: Logger,
+    private readonly fixCommandDispatcher: FixCommandDispatcher,
   ) {}
 
   private async projectUsecaseChanges(
@@ -851,6 +854,53 @@ export class ProjectController {
     );
 
     return toApiResult(result);
+  }
+
+  @Post('/:projectId/apply-fix')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(SessionGuard)
+  @ApiParam({name: 'projectId', description: 'Id of project', required: true})
+  @ApiBody({type: ApplyFixRequestDto})
+  @ApiOperation({
+    summary: 'Apply a validation fix',
+    description:
+      'Dispatches the fix command described by a validation issue `fixOptions` entry.\n\n' +
+      'Send the `commandType` and `commandPayload` of the chosen fix option, with any ' +
+      '`requiredClientInputs` filled in. Requires an active edit session; the fix is ' +
+      'staged like any other edit and takes effect on commit.\n\n' +
+      'Only command types that a validation rule can emit are accepted.',
+  })
+  @ApiExtraModels(ApiResult)
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description:
+      'Fix command executed; any command issues are in the envelope `issues`',
+    type: ApiResult,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Unknown `commandType`, or `commandPayload` is malformed',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'No active edit session (`SESSION_NOT_OPEN`)',
+  })
+  async applyFix(
+    @Param('projectId') _projectId: string,
+    @Body() body: ApplyFixRequestDto,
+    @ArcSession() session: ActiveSession,
+  ): Promise<ApiResult<void>> {
+    const command = this.fixCommandDispatcher.create(
+      body.commandType,
+      body.commandPayload,
+    );
+    const result = await this.commandBus.execute<Result<unknown>>(
+      command,
+      session,
+    );
+    return toApiResult(result, (): void => {
+      // Each fix command returns its own result type; only issues go on the wire.
+    });
   }
 
   @Delete('/:projectId')

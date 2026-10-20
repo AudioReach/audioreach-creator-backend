@@ -6,6 +6,8 @@
 import {Injectable} from '@nestjs/common';
 import {
   DeleteStaleManualUsecaseEditCommand,
+  InvalidInputException,
+  RemoveCkvsCommand,
   ResolveSameGkvCollisionCommand,
   type BaseCommand,
 } from '@arc/core';
@@ -23,10 +25,8 @@ import {
  * the raw JSON payload from the client into a typed command instance.
  *
  * Usage:
- *   const factory = dispatcher.resolve('DeleteDataLinkCommand');
- *   if (!factory) throw new BadRequestException('Unknown fix command type');
- *   const command = factory(payload);
- *   await commandBus.execute(command);
+ *   const command = dispatcher.create('RemoveCkvsCommand', payload);
+ *   await commandBus.execute(command, session);
  */
 @Injectable()
 export class FixCommandDispatcher {
@@ -51,6 +51,9 @@ export class FixCommandDispatcher {
     this.registry.set('ResolveSameGkvCollisionCommand', payload =>
       ResolveSameGkvCollisionCommand.fromPayload(payload),
     );
+    this.registry.set('RemoveCkvsCommand', payload =>
+      RemoveCkvsCommand.fromPayload(payload),
+    );
   }
 
   /**
@@ -61,5 +64,19 @@ export class FixCommandDispatcher {
     commandType: string,
   ): ((payload: Record<string, unknown>) => BaseCommand) | undefined {
     return this.registry.get(commandType);
+  }
+
+  /**
+   * Build the command for the given command type from a client payload.
+   * Throws InvalidInputException (HTTP 400) if the command type is not registered.
+   */
+  create(commandType: string, payload: Record<string, unknown>): BaseCommand {
+    const factory = this.resolve(commandType);
+    if (!factory) {
+      throw new InvalidInputException(
+        `Unknown fix command type: ${commandType}`,
+      );
+    }
+    return factory(payload);
   }
 }
