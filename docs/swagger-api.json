@@ -699,6 +699,55 @@
         ]
       }
     },
+    "/arc-api/v1/projects/{projectId}/apply-fix": {
+      "post": {
+        "description": "Dispatches the fix command described by a validation issue `fixOptions` entry.\n\nSend the `commandType` and `commandPayload` of the chosen fix option, with any `requiredClientInputs` filled in. Requires an active edit session; the fix is staged like any other edit and takes effect on commit.\n\nOnly command types that a validation rule can emit are accepted.",
+        "operationId": "ProjectController_applyFix",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Id of project",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyFixRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Fix command executed; any command issues are in the envelope `issues`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown `commandType`, or `commandPayload` is malformed"
+          },
+          "403": {
+            "description": "No active edit session (`SESSION_NOT_OPEN`)"
+          }
+        },
+        "summary": "Apply a validation fix",
+        "tags": [
+          "Project"
+        ]
+      }
+    },
     "/arc-api/v1/projects/{projectId}/create-usecases": {
       "post": {
         "description": "Reconciles staged changes with the database using routing logic.\n\nThis endpoint processes all staged changes and reconciles them into the database state:\n- Analyzes staged modules, links, properties, and metadata\n- Uses routing logic to discover signal paths\n- Generates usecases that represent the discovered paths\n- Creates/updates/deletes usecases to match the reconciled state\n- Persists all changes to the database\n\nThe reconciliation process ensures the database state accurately reflects the staged modifications.\n\nThis operation is idempotent - multiple invocations produce the same result.\nIf no staged changes exist, returns empty arrays with success: true.\n\nNote: warnings and errors arrays are placeholders and will be populated when the validation framework is introduced.",
@@ -9286,6 +9335,21 @@
           }
         }
       },
+      "ApplyFixRequestDto": {
+        "type": "object",
+        "properties": {
+          "commandType": {
+            "type": "string"
+          },
+          "commandPayload": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "commandType",
+          "commandPayload"
+        ]
+      },
       "UsecaseChangeDetailsDto": {
         "type": "object",
         "properties": {
@@ -9756,13 +9820,6 @@
       "CreateUsecasesRequestDto": {
         "type": "object",
         "properties": {
-          "selectedUsecaseSystemIds": {
-            "description": "System IDs of selected usecases",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
           "activeSubgraphs": {
             "description": "Active subgraphs with their selected SGKV combinations",
             "type": "array",
@@ -9770,22 +9827,22 @@
               "$ref": "#/components/schemas/SubgraphKvSelectionDto"
             }
           },
-          "excludedDataLinkSystemIds": {
-            "description": "System IDs of data links to exclude from routing",
+          "usecaseSystemIds": {
+            "description": "System IDs of usecases to update incrementally",
             "type": "array",
             "items": {
               "type": "string"
             }
           },
-          "excludedControlLinkSystemIds": {
-            "description": "System IDs of control links to exclude from routing",
+          "includedDataLinkSystemIds": {
+            "description": "System IDs of data links to include in routing",
             "type": "array",
             "items": {
               "type": "string"
             }
           },
-          "excludedSubgraphSystemIds": {
-            "description": "System IDs of subgraphs to exclude from routing",
+          "includedControlLinkSystemIds": {
+            "description": "System IDs of control links to include in routing",
             "type": "array",
             "items": {
               "type": "string"
@@ -9793,8 +9850,9 @@
           }
         },
         "required": [
-          "selectedUsecaseSystemIds",
-          "activeSubgraphs"
+          "activeSubgraphs",
+          "includedDataLinkSystemIds",
+          "includedControlLinkSystemIds"
         ]
       },
       "CreateManualUsecasesResponseDto": {
@@ -9825,13 +9883,6 @@
       "CreateManualUsecasesRequestDto": {
         "type": "object",
         "properties": {
-          "selectedUsecaseSystemIds": {
-            "description": "System IDs of usecases whose relationships and key values are eligible for manual topology discovery",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
           "activeSubgraphs": {
             "description": "Effective manual routing scope, with each subgraph and its selected SGKV combinations",
             "type": "array",
@@ -9839,22 +9890,15 @@
               "$ref": "#/components/schemas/SubgraphKvSelectionDto"
             }
           },
-          "excludedDataLinkSystemIds": {
-            "description": "System IDs of data links to exclude",
+          "includedDataLinkSystemIds": {
+            "description": "System IDs of data links to include in manual routing",
             "type": "array",
             "items": {
               "type": "string"
             }
           },
-          "excludedControlLinkSystemIds": {
-            "description": "System IDs of control links to exclude",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "excludedSubgraphSystemIds": {
-            "description": "System IDs of subgraphs to exclude",
+          "includedControlLinkSystemIds": {
+            "description": "System IDs of control links to include in manual routing",
             "type": "array",
             "items": {
               "type": "string"
@@ -9862,8 +9906,9 @@
           }
         },
         "required": [
-          "selectedUsecaseSystemIds",
-          "activeSubgraphs"
+          "activeSubgraphs",
+          "includedDataLinkSystemIds",
+          "includedControlLinkSystemIds"
         ]
       },
       "StageChangesResponseDto": {
