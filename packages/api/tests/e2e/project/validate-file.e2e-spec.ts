@@ -151,7 +151,7 @@ describe('POST /arc-api/v1/projects/:projectId/validate — ARC-MOD-005 end to e
     const issues = mixedCkvIssuesForTarget(res);
     expect(issues).toHaveLength(1);
     expect(issues[0].severity).toBe('ERROR');
-    expect(issues[0].fixOptions[0].commandType).toBe('RemoveCkvCommand');
+    expect(issues[0].fixOptions[0].commandType).toBe('RemoveCkvsCommand');
   });
 
   it('defaults to SAVE_FILE for an empty body and for no body', async () => {

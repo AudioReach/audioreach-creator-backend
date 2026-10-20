@@ -73,11 +73,10 @@ export class ZeroCkvMixRule implements ValidationRule<ModuleValidationContext> {
             systemId: 'remove-zero-ckv',
             description:
               'Remove the zero-key CKV entry from the module instance',
-            // TODO: RemoveCkvCommand does not exist yet — implement when DELETE /ckvs endpoint is built (spf-module.controller.ts removeCkvs stub).
-            commandType: 'RemoveCkvCommand',
+            commandType: 'RemoveCkvsCommand',
             commandPayload: {
-              moduleSystemId: module.systemId,
-              ckvSystemId: zeroCkv.systemId,
+              spfModuleSystemId: String(module.systemId),
+              ckvSystemIds: [String(zeroCkv.systemId)],
             },
             requiredClientInputs: [],
           },

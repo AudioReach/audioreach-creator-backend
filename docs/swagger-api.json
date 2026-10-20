@@ -639,6 +639,115 @@
         ]
       }
     },
+    "/arc-api/v1/projects/{projectId}/validate": {
+      "post": {
+        "description": "Runs the validation rules of the requested group against the project file and returns the report.\n\nThe body is optional. When `group` is omitted, `SAVE_FILE` is used.\n\nA run that finds issues is still a successful run and returns 200; use `blockedSave` and `summary` to decide what to do next.",
+        "operationId": "ProjectController_validateFile",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Id of project",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateFileRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Validation completed; run metadata and summary are in `data`, the issues in the envelope `issues`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ValidateFileResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown `group`, or `projectId` is not a valid id"
+          },
+          "404": {
+            "description": "Project or its file does not exist"
+          }
+        },
+        "summary": "Run validation on the project file",
+        "tags": [
+          "Project"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/apply-fix": {
+      "post": {
+        "description": "Dispatches the fix command described by a validation issue `fixOptions` entry.\n\nSend the `commandType` and `commandPayload` of the chosen fix option, with any `requiredClientInputs` filled in. Requires an active edit session; the fix is staged like any other edit and takes effect on commit.\n\nOnly command types that a validation rule can emit are accepted.",
+        "operationId": "ProjectController_applyFix",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Id of project",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyFixRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Fix command executed; any command issues are in the envelope `issues`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown `commandType`, or `commandPayload` is malformed"
+          },
+          "403": {
+            "description": "No active edit session (`SESSION_NOT_OPEN`)"
+          }
+        },
+        "summary": "Apply a validation fix",
+        "tags": [
+          "Project"
+        ]
+      }
+    },
     "/arc-api/v1/projects/{projectId}/create-usecases": {
       "post": {
         "description": "Reconciles staged changes with the database using routing logic.\n\nThis endpoint processes all staged changes and reconciles them into the database state:\n- Analyzes staged modules, links, properties, and metadata\n- Uses routing logic to discover signal paths\n- Generates usecases that represent the discovered paths\n- Creates/updates/deletes usecases to match the reconciled state\n- Persists all changes to the database\n\nThe reconciliation process ensures the database state accurately reflects the staged modifications.\n\nThis operation is idempotent - multiple invocations produce the same result.\nIf no staged changes exist, returns empty arrays with success: true.\n\nNote: warnings and errors arrays are placeholders and will be populated when the validation framework is introduced.",
@@ -9174,6 +9283,112 @@
           "codecInfos",
           "modifiedDate",
           "oemInfo"
+        ]
+      },
+      "ValidationRuleGroup": {
+        "type": "string",
+        "enum": [
+          "UPLOAD_FILE",
+          "SAVE_FILE"
+        ],
+        "description": "Group that was actually run (SAVE_FILE when the request omitted it)."
+      },
+      "ValidationSummaryDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number",
+            "description": "Total number of issues in the report."
+          },
+          "bySeverity": {
+            "type": "object",
+            "description": "Issue counts by effective severity.",
+            "additionalProperties": {
+              "type": "number"
+            }
+          },
+          "blocking": {
+            "type": "number",
+            "description": "Number of BLOCKING issues."
+          },
+          "nonBlocking": {
+            "type": "number",
+            "description": "Number of issues that are neither BLOCKING nor DATA_LOSS."
+          },
+          "dataLoss": {
+            "type": "number",
+            "description": "Number of DATA_LOSS issues."
+          }
+        },
+        "required": [
+          "total",
+          "bySeverity",
+          "blocking",
+          "nonBlocking",
+          "dataLoss"
+        ]
+      },
+      "ValidateFileResponseDto": {
+        "type": "object",
+        "properties": {
+          "fileSystemId": {
+            "type": "string",
+            "description": "System id of the file that was validated."
+          },
+          "runAt": {
+            "type": "string",
+            "description": "ISO 8601 timestamp of when the response was built."
+          },
+          "group": {
+            "description": "Group that was actually run (SAVE_FILE when the request omitted it).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ValidationRuleGroup"
+              }
+            ]
+          },
+          "blockedSave": {
+            "type": "boolean",
+            "description": "True when at least one issue is BLOCKING."
+          },
+          "summary": {
+            "$ref": "#/components/schemas/ValidationSummaryDto"
+          }
+        },
+        "required": [
+          "fileSystemId",
+          "runAt",
+          "group",
+          "blockedSave",
+          "summary"
+        ]
+      },
+      "ValidateFileRequestDto": {
+        "type": "object",
+        "properties": {
+          "group": {
+            "description": "Rule group to run. Defaults to SAVE_FILE when omitted.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ValidationRuleGroup"
+              }
+            ]
+          }
+        }
+      },
+      "ApplyFixRequestDto": {
+        "type": "object",
+        "properties": {
+          "commandType": {
+            "type": "string"
+          },
+          "commandPayload": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "commandType",
+          "commandPayload"
         ]
       },
       "UsecaseChangeDetailsDto": {

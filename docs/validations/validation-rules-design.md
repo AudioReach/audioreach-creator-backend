@@ -717,8 +717,8 @@ For each module in context.modules:
 ```typescript
 {
   systemId: 'remove-zero-ckv',
-  commandType: 'RemoveCkvCommand',
-  commandPayload: { moduleSystemId: module.systemId, ckvSystemId: zeroCkv.systemId },
+  commandType: 'RemoveCkvsCommand',
+  commandPayload: { spfModuleSystemId: String(module.systemId), ckvSystemIds: [String(zeroCkv.systemId)] },
   requiredClientInputs: [],
 }
 ```
@@ -1467,7 +1467,7 @@ All fix commands emitted by P1 rules. Each is dispatched by `POST /apply-fix` wi
 |---|---|---|---|
 | `DeleteDataLinkCommand` | ARC-LINK-002, ARC-LINK-003, ARC-LINK-006, ARC-LINK-008 | `dataLinkSystemId: number` | Remove a data link by systemId |
 | `DeleteControlLinkCommand` | ARC-LINK-004, ARC-LINK-005, ARC-LINK-007 | `controlLinkSystemId: number` | Remove a control link by systemId |
-| `RemoveCkvCommand` | ARC-MOD-005 | `moduleSystemId`, `ckvSystemId` | Remove a CKV entry from a module |
+| `RemoveCkvsCommand` | ARC-MOD-005 | `spfModuleSystemId: string`, `ckvSystemIds: string[]` | Remove CKV entries from a module |
 | `AddContainerPropertyWithDefaultCommand` | ARC-CON-001 | `containerSystemId`, `propertyDefinitionSystemId` | Add a missing container property with its default value |
 | `AddSubgraphPropertyWithDefaultCommand` | ARC-SG-001 | `subgraphSystemId`, `propertyDefinitionSystemId` | Add a missing subgraph property with its default value |
 | `OverwriteSubgraphPropertyWithDefaultCommand` | ARC-SG-002 | `subgraphSystemId`, `propertyDefinitionSystemId` | Overwrite a corrupt subgraph property with the definition default |

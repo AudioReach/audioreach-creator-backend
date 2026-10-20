@@ -82,10 +82,10 @@ describe('ZeroCkvMixRule', () => {
     );
     expect(issues[0].impactedEntity?.systemId).toBe(1);
     expect(issues[0].fixOptions).toHaveLength(1);
-    expect(issues[0].fixOptions![0].commandType).toBe('RemoveCkvCommand');
+    expect(issues[0].fixOptions![0].commandType).toBe('RemoveCkvsCommand');
     expect(issues[0].fixOptions![0].commandPayload).toEqual({
-      moduleSystemId: 1,
-      ckvSystemId: 10, // systemId of the zero-key CKV entry
+      spfModuleSystemId: '1',
+      ckvSystemIds: ['10'],
     });
   });
 });
