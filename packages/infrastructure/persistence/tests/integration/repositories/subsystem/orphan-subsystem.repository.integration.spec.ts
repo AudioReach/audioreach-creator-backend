@@ -206,7 +206,9 @@ function makeRepository(
       groupId: SESSION_GROUP,
     }),
   } as never;
-  return new TypeOrmSubsystemRepository(writer, manager, uow);
+  return new TypeOrmSubsystemRepository(writer, manager, uow, {
+    getNextId: async () => 999,
+  } as any);
 }
 
 describe('TypeOrmSubsystemRepository orphan subsystem lookup (integration)', () => {

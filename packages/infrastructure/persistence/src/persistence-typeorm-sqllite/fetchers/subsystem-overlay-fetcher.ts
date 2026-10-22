@@ -4,7 +4,6 @@
  */
 
 import type {EntityManager} from 'typeorm';
-import {CHANGE_OPERATION} from '@arc/core';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
 import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
@@ -23,10 +22,6 @@ export interface OverlaidSubsystem extends SubsystemBase {
   /** Effective filtered key-definition IDs for the subsystem. */
   filteredKeySystemIds: number[];
 }
-
-type FilteredKeyActionValue = {
-  keyDefinitionSystemIds?: unknown;
-};
 
 /**
  * Fetches subsystems with session overlay applied (FR-3).
@@ -133,9 +128,8 @@ export class SubsystemOverlayFetcher {
       })
       .map(r => r.effective);
 
-    filteredIdsBySubsystem = this.applyFilteredKeyActions(
-      filteredIdsBySubsystem,
-      filteredKeyActions,
+    filteredIdsBySubsystem = this.groupFilteredKeyRows(
+      this.applyFilteredKeyActions(filteredKeyRows, filteredKeyActions),
     );
 
     return this.buildResult(
@@ -156,9 +150,41 @@ export class SubsystemOverlayFetcher {
         'n',
         'n.system_id = filtered.subsystems_system_id',
       )
-      .select(['filtered.subsystemsSystemId', 'filtered.keyDefinitionSystemId'])
+      .select([
+        'filtered.systemId',
+        'filtered.subsystemsSystemId',
+        'filtered.keyDefinitionSystemId',
+      ])
       .where('n.fileSystemId = :fileSystemId', {fileSystemId})
       .getMany();
+  }
+
+  async fetchFilteredKeyRows(
+    fileSystemId: number,
+    sessionId: number | null,
+    subsystemSystemIds?: readonly number[],
+  ): Promise<SubsystemFilteredKeyRow[]> {
+    const baseRows = await this.loadFilteredKeyRows(fileSystemId);
+    const requestedIds =
+      subsystemSystemIds === undefined
+        ? undefined
+        : new Set(subsystemSystemIds);
+    const matchesRequestedSubsystem = (row: SubsystemFilteredKeyRow) =>
+      requestedIds === undefined || requestedIds.has(row.subsystemsSystemId);
+
+    if (sessionId === null) {
+      return baseRows.filter(row => matchesRequestedSubsystem(row));
+    }
+
+    const actions = await this.editActionsSvc.getByTable(
+      sessionId,
+      ENTITY_NAMES.SubsystemFilteredKey,
+    );
+    return this.overlay
+      .applyToCollection(baseRows, actions, {
+        matchesEffective: matchesRequestedSubsystem,
+      })
+      .map(result => result.effective);
   }
 
   private groupFilteredKeyRows(
@@ -174,40 +200,14 @@ export class SubsystemOverlayFetcher {
   }
 
   private applyFilteredKeyActions(
-    baseline: Map<number, number[]>,
+    baseline: readonly SubsystemFilteredKeyRow[],
     actions: Awaited<ReturnType<EditActionsQueryService['getByTable']>>,
-  ): Map<number, number[]> {
-    const result = new Map(
-      [...baseline].map(([subsystemId, keyIds]) => [subsystemId, [...keyIds]]),
-    );
-
-    for (const action of actions) {
-      if (
-        action.operation === CHANGE_OPERATION.Delete &&
-        action.fieldPath === null
-      ) {
-        result.delete(action.targetSystemId);
-        continue;
-      }
-
-      if (
-        action.operation !== CHANGE_OPERATION.Update ||
-        action.fieldPath !== null
-      ) {
-        continue;
-      }
-
-      const value = action.newValue as FilteredKeyActionValue;
-      if (!Array.isArray(value.keyDefinitionSystemIds)) continue;
-      result.set(
-        action.targetSystemId,
-        value.keyDefinitionSystemIds
-          .map(Number)
-          .filter(value => Number.isFinite(value)),
-      );
-    }
-
-    return result;
+  ): SubsystemFilteredKeyRow[] {
+    return this.overlay
+      .applyToCollection([...baseline], actions, {
+        matchesEffective: () => true,
+      })
+      .map(result => result.effective);
   }
 
   private buildResult(

@@ -4,7 +4,7 @@
  */
 
 import type {DataSource, QueryRunner} from 'typeorm';
-import {DataPort, PORT_IO_TYPE, Subsystem} from '@arc/core';
+import {CHANGE_OPERATION, DataPort, PORT_IO_TYPE, Subsystem} from '@arc/core';
 import {
   SESSION_MODE,
   SESSION_STATUS,
@@ -155,7 +155,9 @@ function makeUow(sessionId: number) {
 function makeRepo(
   manager: QueryRunner['manager'],
   sessionId: number,
+  generatedIdStart = 5000,
 ): TypeOrmSubsystemRepository {
+  let nextGeneratedId = generatedIdStart;
   return new TypeOrmSubsystemRepository(
     new PendingChangeWriter(
       new EditActionsQueryService(manager),
@@ -163,6 +165,7 @@ function makeRepo(
     ),
     manager,
     makeUow(sessionId),
+    {getNextId: async () => ++nextGeneratedId} as any,
   );
 }
 
@@ -310,6 +313,55 @@ describe('TypeOrmSubsystemRepository (integration)', () => {
     );
     expect(new Set(actions.map(action => action.linkedEntityGroupId))).toEqual(
       new Set([null]),
+    );
+  });
+
+  it('stages filtered-key relationships directly by synthetic system ID', async () => {
+    await ds.query(
+      `INSERT INTO arc_keys (system_id, name, key_id, file_system_id)
+       VALUES (101, 'K1', 1, ?), (102, 'K2', 2, ?), (103, 'K3', 3, ?)`,
+      [FILE_ID, FILE_ID, FILE_ID],
+    );
+    await ds.query(
+      `INSERT INTO subsystem_filtered_keys_key_definition
+         (system_id, subsystems_system_id, key_definition_system_id)
+       VALUES (4001, ?, 101), (4002, ?, 102)`,
+      [ROOT_SUBSYSTEM_ID, ROOT_SUBSYSTEM_ID],
+    );
+
+    const repo = makeRepo(qr.manager, sessionId, 5000);
+    await repo.setFilteredKeys(ROOT_SUBSYSTEM_ID, [102, 103]);
+
+    const actions = await getActiveActions(qr, sessionId);
+    expect(
+      actions.map(action => ({
+        operation: action.operation,
+        targetSystemId: action.targetSystemId,
+        targetTable: action.targetTable,
+        newValue: action.newValue,
+      })),
+    ).toEqual([
+      {
+        operation: CHANGE_OPERATION.Delete,
+        targetSystemId: 4001,
+        targetTable: ENTITY_NAMES.SubsystemFilteredKey,
+        newValue: {},
+      },
+      {
+        operation: CHANGE_OPERATION.Create,
+        targetSystemId: 5001,
+        targetTable: ENTITY_NAMES.SubsystemFilteredKey,
+        newValue: {
+          subsystemsSystemId: ROOT_SUBSYSTEM_ID,
+          keyDefinitionSystemId: 103,
+        },
+      },
+    ]);
+
+    await expect(
+      repo.getSubsystem(ROOT_SUBSYSTEM_ID, FILE_ID),
+    ).resolves.toEqual(
+      expect.objectContaining({filteredKeySystemIds: [102, 103]}),
     );
   });
 });

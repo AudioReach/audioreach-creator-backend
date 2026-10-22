@@ -9,6 +9,7 @@ import {
   DataPort,
   Subsystem,
   type EditOptions,
+  type IdGenerationPort,
   type PortIoType,
   type SubsystemControlPortRef,
   type SubsystemKey,
@@ -42,6 +43,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     writer: PendingChangeWriter,
     manager: EntityManager,
     uow: UnitOfWork,
+    private readonly idGeneration: IdGenerationPort,
   ) {
     this.writer = writer;
     this.manager = manager;
@@ -401,13 +403,16 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     const {session} = this.uow.getWriteContext();
     const sessionId = session.sessionId;
     const fileSystemId = session.fileSystemId;
-    const [dataPorts, controlPorts] = await Promise.all([
+    const [dataPorts, controlPorts, filteredKeys] = await Promise.all([
       this.portFetcher.fetchDataPorts(systemId, fileSystemId, sessionId),
       this.portFetcher.fetchControlPortsWithIntents(
         systemId,
         fileSystemId,
         sessionId,
       ),
+      this.subsystemFetcher.fetchFilteredKeyRows(fileSystemId, sessionId, [
+        systemId,
+      ]),
     ]);
 
     for (const port of controlPorts) {
@@ -441,6 +446,18 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
         {
           targetTable: ENTITY_NAMES.ControlPort,
           targetSystemId: port.systemId,
+          aggregateId: systemId,
+          ...options,
+        },
+        sessionId,
+        this.manager,
+      );
+    }
+    for (const filteredKey of filteredKeys) {
+      await this.writer.writeDelete(
+        {
+          targetTable: ENTITY_NAMES.SubsystemFilteredKey,
+          targetSystemId: filteredKey.systemId,
           aggregateId: systemId,
           ...options,
         },
@@ -495,17 +512,50 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     options?: EditOptions,
   ): Promise<void> {
     const {session} = this.uow.getWriteContext();
-    await this.writer.writeDelta(
-      {
-        targetTable: ENTITY_NAMES.Subsystem,
-        targetSystemId: systemId,
-        aggregateId: systemId,
-        delta: {filteredKeySystemIds: keySystemIds},
-        ...options,
-      },
+    const currentRows = await this.subsystemFetcher.fetchFilteredKeyRows(
+      session.fileSystemId,
       session.sessionId,
-      this.manager,
+      [systemId],
     );
+    const requestedIds = new Set(keySystemIds);
+    const currentByKeyId = new Map(
+      currentRows.map(row => [row.keyDefinitionSystemId, row]),
+    );
+
+    for (const row of currentRows) {
+      if (requestedIds.has(row.keyDefinitionSystemId)) continue;
+      await this.writer.writeDelete(
+        {
+          targetTable: ENTITY_NAMES.SubsystemFilteredKey,
+          targetSystemId: row.systemId,
+          aggregateId: systemId,
+          ...options,
+        },
+        session.sessionId,
+        this.manager,
+      );
+    }
+
+    for (const keyDefinitionSystemId of requestedIds) {
+      if (currentByKeyId.has(keyDefinitionSystemId)) continue;
+      const relationshipSystemId = await this.idGeneration.getNextId(
+        session.fileSystemId,
+      );
+      await this.writer.writeCreate(
+        {
+          targetTable: ENTITY_NAMES.SubsystemFilteredKey,
+          targetSystemId: relationshipSystemId,
+          aggregateId: systemId,
+          payload: {
+            subsystemsSystemId: systemId,
+            keyDefinitionSystemId,
+          },
+          ...options,
+        },
+        session.sessionId,
+        this.manager,
+      );
+    }
   }
 
   async addDataPort(

@@ -11,3 +11,5 @@ export {DomainNotImplementedException} from './not-implemented.exception.js';
 export {DomainRuleViolationException} from './domain-rule-violation.exception.js';
 export {StagedChangesExistException} from './staged-changes-exist.exception.js';
 export {ConflictException} from './conflict.exception.js';
+export {NoStagedChangesException} from './no-staged-changes.exception.js';
+export {CommitValidationFailedException} from './commit-validation-failed.exception.js';

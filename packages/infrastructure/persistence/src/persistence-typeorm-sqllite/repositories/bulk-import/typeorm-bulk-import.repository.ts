@@ -80,7 +80,9 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
   }
 
   insertSubsystems(items: readonly Subsystem[]): Promise<BulkInsertResult> {
-    return new SubsystemInserter(this.manager).insert([...items]);
+    return new SubsystemInserter(this.manager, this.idGeneration).insert([
+      ...items,
+    ]);
   }
 
   insertDataLinks(items: readonly DataLink[]): Promise<BulkInsertResult> {

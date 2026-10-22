@@ -20,7 +20,7 @@ export interface SubsystemRow extends EntityBaseRow, SubsystemBase {
   node?: NodeRow;
 }
 
-export interface SubsystemFilteredKeyRow {
+export interface SubsystemFilteredKeyRow extends EntityBaseRow {
   subsystemsSystemId: number;
   keyDefinitionSystemId: number;
 
@@ -61,15 +61,14 @@ export const SubsystemFilteredKeySchema =
     name: 'SubsystemFilteredKey',
     tableName: 'subsystem_filtered_keys_key_definition',
     columns: {
+      ...BaseColumnSchemaPart,
       subsystemsSystemId: {
         name: 'subsystems_system_id',
         type: 'integer',
-        primary: true,
       },
       keyDefinitionSystemId: {
         name: 'key_definition_system_id',
         type: 'integer',
-        primary: true,
       },
     },
     relations: {
@@ -92,4 +91,11 @@ export const SubsystemFilteredKeySchema =
         onDelete: 'CASCADE',
       },
     },
+    indices: [
+      {
+        name: 'uq_subsystem_filtered_keys_subsystem_key_definition',
+        columns: ['subsystemsSystemId', 'keyDefinitionSystemId'],
+        unique: true,
+      },
+    ],
   });

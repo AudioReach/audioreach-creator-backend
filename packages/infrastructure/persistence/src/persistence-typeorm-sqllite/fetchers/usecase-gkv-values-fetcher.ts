@@ -4,17 +4,19 @@
  */
 
 import type {EntityManager} from 'typeorm';
-import {CHANGE_OPERATION} from '@arc/core';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
 import type {EditActionRow} from '../entity-schema/edit-session/edit-action.schema.js';
 import type {UsecaseGkvValuesBase} from '../entity-schema/usecase-data/use-case.js';
+import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
 
 /**
  * Fetcher for UseCase → UsecaseGkvValues (GKV entries) relationship.
  * Owns the GKV query AND session overlay so no caller duplicates this logic.
  */
 export class UsecaseGkvValuesFetcher {
+  private readonly overlay = new OverlayMergeImpl();
+
   constructor(
     private readonly manager: EntityManager,
     private readonly editActionsSvc: EditActionsQueryService,
@@ -53,48 +55,17 @@ export class UsecaseGkvValuesFetcher {
     const baseRows = (await this.manager
       .getRepository(ENTITY_NAMES.UsecaseGkvValues)
       .createQueryBuilder('gkv')
-      .select(['gkv.usecaseSystemId', 'gkv.valueDefSystemId'])
+      .select(['gkv.systemId', 'gkv.usecaseSystemId', 'gkv.valueDefSystemId'])
       .where('gkv.usecaseSystemId IN (:...ids)', {ids: usecaseSystemIds})
       .getMany()) as UsecaseGkvValuesBase[];
 
     if (actions.length === 0) return baseRows;
 
-    // Group baseline entries per usecase (keyed by valueDefSystemId) and apply overlay
-    const entriesByUsecase = new Map<
-      number,
-      Map<number, UsecaseGkvValuesBase>
-    >();
-    for (const id of usecaseSystemIds) entriesByUsecase.set(id, new Map());
-    for (const row of baseRows) {
-      entriesByUsecase.get(row.usecaseSystemId)?.set(row.valueDefSystemId, row);
-    }
-
-    for (const action of actions) {
-      const p = action.newValue as Partial<{
-        usecaseSystemId?: number;
-        valueDefSystemId?: number;
-      }>;
-      const ucId = p.usecaseSystemId;
-      const vdId = p.valueDefSystemId;
-      if (
-        ucId === undefined ||
-        vdId === undefined ||
-        !entriesByUsecase.has(ucId)
-      )
-        continue;
-      const entries = entriesByUsecase.get(ucId)!;
-      if (action.operation === CHANGE_OPERATION.Create) {
-        if (!entries.has(vdId))
-          entries.set(vdId, {usecaseSystemId: ucId, valueDefSystemId: vdId});
-      } else if (action.operation === CHANGE_OPERATION.Delete) {
-        entries.delete(vdId);
-      }
-    }
-
-    const result: UsecaseGkvValuesBase[] = [];
-    for (const entries of entriesByUsecase.values()) {
-      result.push(...entries.values());
-    }
-    return result;
+    const requestedUsecases = new Set(usecaseSystemIds);
+    return this.overlay
+      .applyToCollection(baseRows, [...actions], {
+        matchesEffective: row => requestedUsecases.has(row.usecaseSystemId),
+      })
+      .map(result => result.effective);
   }
 }

@@ -90,7 +90,9 @@ async function seedAll(ds: DataSource) {
     [CKV_ID, VCPM_INSTANCE_ID],
   );
   await ds.query(
-    `INSERT INTO vcpm_ckv_values (vcpm_ckv_system_id, value_def_system_id) VALUES (?, ?)`,
+    `INSERT INTO vcpm_ckv_values
+       (system_id, vcpm_ckv_system_id, value_def_system_id)
+     VALUES (51, ?, ?)`,
     [CKV_ID, VALUE_DEF_ID],
   );
   await ds.query(

@@ -28,6 +28,9 @@ import {
   type DkvParameterPayloadRow,
   type DkvValuesRow,
 } from '../../../entity-schema/driver-module-data/driver-module.js';
+import type {EntityRowForInsert} from '../../../entity-schema/entity-base.js';
+
+type DkvValueInsertRow = EntityRowForInsert<DkvValuesRow>;
 
 export class DriverModuleInserter implements BulkInserter<DriverModule> {
   constructor(
@@ -156,17 +159,24 @@ export class DriverModuleInserter implements BulkInserter<DriverModule> {
       {dkv: DkvData; module: DriverModule}
     >();
 
-    const rows: DkvValuesRow[] = modules.flatMap(m =>
-      m.dkvData
-        .filter(dkv => !failedDkvIds.has(dkv.systemId))
-        .flatMap(dkv => {
-          contextByDkvSystemId.set(dkv.systemId, {dkv, module: m});
-          return dkv.valueDefinitionSystemIds.map(valueId => ({
+    const rows: DkvValueInsertRow[] = [];
+    const rowsByDkvSystemId = new Map<number, DkvValueInsertRow[]>();
+    for (const module of modules) {
+      for (const dkv of module.dkvData) {
+        if (failedDkvIds.has(dkv.systemId)) continue;
+        contextByDkvSystemId.set(dkv.systemId, {dkv, module});
+        const valueRows: DkvValueInsertRow[] = [];
+        for (const valueDefSystemId of dkv.valueDefinitionSystemIds) {
+          valueRows.push({
+            systemId: await this.idGeneration.getNextId(module.fileSystemId),
             dkvSystemId: dkv.systemId,
-            valueDefSystemId: valueId,
-          }));
-        }),
-    );
+            valueDefSystemId,
+          });
+        }
+        rowsByDkvSystemId.set(dkv.systemId, valueRows);
+        rows.push(...valueRows);
+      }
+    }
 
     if (rows.length === 0) return emptyStepResult();
 
@@ -177,6 +187,7 @@ export class DriverModuleInserter implements BulkInserter<DriverModule> {
       return this.insertDkvValuesWithFallback(
         contextByDkvSystemId,
         failedDkvIds,
+        rowsByDkvSystemId,
       );
     }
   }
@@ -184,6 +195,7 @@ export class DriverModuleInserter implements BulkInserter<DriverModule> {
   private async insertDkvValuesWithFallback(
     context: Map<number, {dkv: DkvData; module: DriverModule}>,
     failedDkvIds: Set<number>,
+    rowsByDkvSystemId: ReadonlyMap<number, DkvValueInsertRow[]>,
   ): Promise<StepResult> {
     const rawFailures: RawFailure[] = [];
     const failedEntityIds = new Set<number>();
@@ -192,9 +204,7 @@ export class DriverModuleInserter implements BulkInserter<DriverModule> {
       if (failedDkvIds.has(dkvSystemId)) continue;
       if (dkv.valueDefinitionSystemIds.length === 0) continue;
 
-      const valueRows: DkvValuesRow[] = dkv.valueDefinitionSystemIds.map(
-        valueId => ({dkvSystemId, valueDefSystemId: valueId}),
-      );
+      const valueRows = rowsByDkvSystemId.get(dkvSystemId) ?? [];
 
       try {
         await this.manager.insert(DkvValuesSchema, valueRows);

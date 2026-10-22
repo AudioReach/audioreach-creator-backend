@@ -4,6 +4,10 @@
  */
 
 import {EntitySchema} from 'typeorm';
+import {
+  BaseColumnSchemaPart,
+  type EntityBaseRow,
+} from '../../../entity-base.js';
 import type {SpfModuleDefinitionRow} from './spf-module-definition.schema.js';
 import type {ProcessorDefinitionRow} from '../../common/processor-definition.schema.js';
 
@@ -12,7 +16,7 @@ import type {ProcessorDefinitionRow} from '../../common/processor-definition.sch
  * Owns the table definition. FK constraints are enforced via many-to-one relations,
  * allowing BatchInserter to insert join rows without raw SQL.
  */
-export interface ModuleDefinitionProcessorLinkRow {
+export interface ModuleDefinitionProcessorLinkRow extends EntityBaseRow {
   moduleDefinitionSystemId: number;
   processorDefinitionSystemId: number;
   moduleDefinition?: SpfModuleDefinitionRow;
@@ -24,15 +28,14 @@ export const ModuleDefinitionProcessorLinkSchema =
     name: 'ModuleDefinitionProcessorLink',
     tableName: 'module_definition_processor_definitions',
     columns: {
+      ...BaseColumnSchemaPart,
       moduleDefinitionSystemId: {
         type: 'integer',
         name: 'module_definition_system_id',
-        primary: true,
       },
       processorDefinitionSystemId: {
         type: 'integer',
         name: 'processor_definition_system_id',
-        primary: true,
       },
     },
     relations: {
@@ -55,4 +58,11 @@ export const ModuleDefinitionProcessorLinkSchema =
         onDelete: 'CASCADE',
       },
     },
+    indices: [
+      {
+        name: 'uq_module_definition_processors_definition_processor',
+        columns: ['moduleDefinitionSystemId', 'processorDefinitionSystemId'],
+        unique: true,
+      },
+    ],
   });

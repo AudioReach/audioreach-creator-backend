@@ -89,7 +89,9 @@ async function seedDefinition(ds: DataSource): Promise<void> {
     [DEF_ID, FILE_ID],
   );
   await ds.query(
-    `INSERT INTO module_definition_container_types (module_definition_system_id, container_type_system_id) VALUES (?, ?)`,
+    `INSERT INTO module_definition_container_types
+       (system_id, module_definition_system_id, container_type_system_id)
+     VALUES (9001, ?, ?)`,
     [DEF_ID, CONTAINER_TYPE_ID],
   );
 }

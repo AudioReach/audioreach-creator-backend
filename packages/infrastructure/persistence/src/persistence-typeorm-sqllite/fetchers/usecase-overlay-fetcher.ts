@@ -293,10 +293,10 @@ export class UsecaseOverlayFetcher {
         ucIds,
         actionsFor(ENTITY_NAMES.UsecaseGkvValues),
       ),
-      this.requiredCategoryFetcher.fetchManyWithActions(
-        ucIds,
-        actionsFor(ENTITY_NAMES.UseCaseCategory),
-      ),
+      this.requiredCategoryFetcher.fetchManyWithActions(ucIds, [
+        ...actionsFor(ENTITY_NAMES.UseCaseCategory),
+        ...actionsFor(ENTITY_NAMES.UseCaseCategoryJoin),
+      ]),
       this.getSubgraphIdMap(
         ucIds,
         null,

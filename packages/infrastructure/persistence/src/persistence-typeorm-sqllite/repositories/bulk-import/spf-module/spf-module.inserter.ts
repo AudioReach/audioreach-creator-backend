@@ -57,6 +57,10 @@ import type {
   CkvValuesRow,
 } from '../../../entity-schema/usecase-data/module/spf-module-calibration-data.schema.js';
 import {CkvValuesSchema} from '../../../entity-schema/usecase-data/module/spf-module-calibration-data.schema.js';
+import type {EntityRowForInsert} from '../../../entity-schema/entity-base.js';
+
+type CkvValueInsertRow = EntityRowForInsert<CkvValuesRow>;
+type TkvValueInsertRow = EntityRowForInsert<TkvValuesRow>;
 
 export class SpfModuleInserter implements BulkInserter<SpfModule> {
   private readonly manager: EntityManager;
@@ -465,16 +469,23 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
     failedCkvIds: Set<number>,
     context: Map<number, {readonly ckv: KvData; readonly module: SpfModule}>,
   ): Promise<RawFailure[]> {
-    const allValueRows: CkvValuesRow[] = modules.flatMap(m =>
-      m.ckvs
-        .filter(ckv => !failedCkvIds.has(ckv.systemId))
-        .flatMap(ckv =>
-          ckv.valueDefinitionSystemIds.map(valueId => ({
+    const allValueRows: CkvValueInsertRow[] = [];
+    const rowsByCkvSystemId = new Map<number, CkvValueInsertRow[]>();
+    for (const module of modules) {
+      for (const ckv of module.ckvs) {
+        if (failedCkvIds.has(ckv.systemId)) continue;
+        const rows: CkvValueInsertRow[] = [];
+        for (const valueDefSystemId of ckv.valueDefinitionSystemIds) {
+          rows.push({
+            systemId: await this.idGeneration.getNextId(module.fileSystemId),
             ckvSystemId: ckv.systemId,
-            valueDefSystemId: valueId,
-          })),
-        ),
-    );
+            valueDefSystemId,
+          });
+        }
+        rowsByCkvSystemId.set(ckv.systemId, rows);
+        allValueRows.push(...rows);
+      }
+    }
 
     if (allValueRows.length === 0) return [];
 
@@ -482,22 +493,25 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       await this.manager.insert(CkvValuesSchema, allValueRows);
       return [];
     } catch {
-      return this.insertCkvValuesWithFallback(context, failedCkvIds);
+      return this.insertCkvValuesWithFallback(
+        context,
+        failedCkvIds,
+        rowsByCkvSystemId,
+      );
     }
   }
 
   private async insertCkvValuesWithFallback(
     context: Map<number, {readonly ckv: KvData; readonly module: SpfModule}>,
     failedCkvIds: Set<number>,
+    rowsByCkvSystemId: ReadonlyMap<number, CkvValueInsertRow[]>,
   ): Promise<RawFailure[]> {
     const failures: RawFailure[] = [];
     for (const [ckvSystemId, {ckv, module}] of context) {
       if (failedCkvIds.has(ckvSystemId)) continue;
       if (ckv.valueDefinitionSystemIds.length === 0) continue;
 
-      const valueRows: CkvValuesRow[] = ckv.valueDefinitionSystemIds.map(
-        valueId => ({ckvSystemId, valueDefSystemId: valueId}),
-      );
+      const valueRows = rowsByCkvSystemId.get(ckvSystemId) ?? [];
       try {
         await this.manager.insert(CkvValuesSchema, valueRows);
       } catch (error) {
@@ -596,24 +610,19 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       }
     >,
   ): Promise<RawFailure[]> {
-    const toValueRow =
-      (tkvSystemId: number) =>
-      (valueId: number): TkvValuesRow => ({
-        tkvSystemId,
-        valueDefSystemId: valueId,
-      });
-
-    const allValueRows: TkvValuesRow[] = modules.flatMap(m =>
-      m.tagDataList
-        .filter(tagData => !failedTagIds.has(tagData.systemId))
-        .flatMap(tagData =>
-          tagData.tkvs
-            .filter(tkv => !failedTkvIds.has(tkv.systemId))
-            .flatMap(tkv =>
-              tkv.valueDefinitionSystemIds.map(toValueRow(tkv.systemId)),
-            ),
-        ),
-    );
+    const allValueRows: TkvValueInsertRow[] = [];
+    const rowsByTkvSystemId = new Map<number, TkvValueInsertRow[]>();
+    for (const module of modules) {
+      for (const tagData of module.tagDataList) {
+        if (failedTagIds.has(tagData.systemId)) continue;
+        for (const tkv of tagData.tkvs) {
+          if (failedTkvIds.has(tkv.systemId)) continue;
+          const rows = await this.createTkvValueRows(tkv, module.fileSystemId);
+          rowsByTkvSystemId.set(tkv.systemId, rows);
+          allValueRows.push(...rows);
+        }
+      }
+    }
 
     if (allValueRows.length === 0) return [];
 
@@ -621,8 +630,27 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       await this.manager.insert(TkvValuesSchema, allValueRows);
       return [];
     } catch {
-      return this.insertTkvValuesWithFallback(context, failedTkvIds);
+      return this.insertTkvValuesWithFallback(
+        context,
+        failedTkvIds,
+        rowsByTkvSystemId,
+      );
     }
+  }
+
+  private async createTkvValueRows(
+    tkv: KvData,
+    fileSystemId: number,
+  ): Promise<TkvValueInsertRow[]> {
+    const rows: TkvValueInsertRow[] = [];
+    for (const valueDefSystemId of tkv.valueDefinitionSystemIds) {
+      rows.push({
+        systemId: await this.idGeneration.getNextId(fileSystemId),
+        tkvSystemId: tkv.systemId,
+        valueDefSystemId,
+      });
+    }
+    return rows;
   }
 
   private async insertTkvValuesWithFallback(
@@ -635,15 +663,14 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       }
     >,
     failedTkvIds: Set<number>,
+    rowsByTkvSystemId: ReadonlyMap<number, TkvValueInsertRow[]>,
   ): Promise<RawFailure[]> {
     const failures: RawFailure[] = [];
     for (const [tkvSystemId, {tkv, module}] of context) {
       if (failedTkvIds.has(tkvSystemId)) continue;
       if (tkv.valueDefinitionSystemIds.length === 0) continue;
 
-      const valueRows: TkvValuesRow[] = tkv.valueDefinitionSystemIds.map(
-        valueId => ({tkvSystemId, valueDefSystemId: valueId}),
-      );
+      const valueRows = rowsByTkvSystemId.get(tkvSystemId) ?? [];
       try {
         await this.manager.insert(TkvValuesSchema, valueRows);
       } catch (error) {

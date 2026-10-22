@@ -408,6 +408,7 @@ describe('TypeOrmBulkReadRepository - readSpfModuleDefinitions', () => {
       name: 'ContainerB',
     });
     await containerTypeLinkRepo.save({
+      systemId: nextId++,
       moduleDefinitionSystemId: mod.systemId,
       containerTypeSystemId: ct.systemId,
     });

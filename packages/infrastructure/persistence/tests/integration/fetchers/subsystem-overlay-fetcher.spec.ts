@@ -135,7 +135,9 @@ function makeRepository(
       groupId: 'test-group',
     }),
   } as any;
-  return new TypeOrmSubsystemRepository(writer, manager, uow);
+  return new TypeOrmSubsystemRepository(writer, manager, uow, {
+    getNextId: async () => 999,
+  } as any);
 }
 
 describe('SubsystemOverlayFetcher (integration)', () => {

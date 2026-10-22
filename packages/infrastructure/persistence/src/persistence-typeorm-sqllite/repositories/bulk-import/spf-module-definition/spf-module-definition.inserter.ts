@@ -55,6 +55,11 @@ import {
   ModuleDefinitionContainerTypeLinkSchema,
   type ModuleDefinitionContainerTypeLinkRow,
 } from '../../../entity-schema/definitions/module/spf/module-definition-container-type-link.schema.js';
+import type {EntityRowForInsert} from '../../../entity-schema/entity-base.js';
+
+type ModuleDefinitionContainerTypeLinkInsertRow =
+  EntityRowForInsert<ModuleDefinitionContainerTypeLinkRow>;
+
 type DataPortGroupDefinition = SpfModuleDefinition['dataPortGroups'][number];
 type StaticControlPortDefinition =
   SpfModuleDefinition['staticControlPorts'][number];
@@ -458,12 +463,16 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
   private async insertContainerTypeLinks(
     items: SpfModuleDefinition[],
   ): Promise<StepResult> {
-    const allRows: ModuleDefinitionContainerTypeLinkRow[] = items.flatMap(mod =>
-      [...mod.containerTypesSystemIds].map(containerTypeSystemId => ({
-        moduleDefinitionSystemId: mod.systemId,
-        containerTypeSystemId,
-      })),
-    );
+    const allRows: ModuleDefinitionContainerTypeLinkInsertRow[] = [];
+    for (const mod of items) {
+      for (const containerTypeSystemId of mod.containerTypesSystemIds) {
+        allRows.push({
+          systemId: await this.idGeneration.getNextId(mod.fileSystemId),
+          moduleDefinitionSystemId: mod.systemId,
+          containerTypeSystemId,
+        });
+      }
+    }
 
     if (allRows.length === 0) return emptyStepResult();
 

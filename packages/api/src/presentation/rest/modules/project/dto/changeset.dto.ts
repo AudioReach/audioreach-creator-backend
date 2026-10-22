@@ -64,56 +64,17 @@ export class UnstageChangesResponseDto extends ChangesetDto {
 }
 
 // Commit-specific DTOs
-export class CommitChangesRequestDto {
-  @ApiProperty({
-    description:
-      'Optional array of change IDs to commit. If not provided, all staged changes will be committed.',
-    type: [String],
-    required: false,
-  })
-  @IsArray()
-  @IsString({each: true})
-  changeIds?: string[];
-}
+// Commit always applies every staged action in the active session, so callers
+// cannot provide a selective change-ID request payload.
+export class CommitChangesRequestDto {}
 
-export class CommitChangesResponseDto extends ChangesetDto {
-  @ApiProperty({description: 'Successfully committed change IDs'})
-  declare processedChangeIds: string[];
-
-  @ApiProperty({description: 'Change IDs that failed to commit'})
-  declare failedChangeIds: string[];
-
-  @ApiProperty({
-    description: 'Change IDs that were missing required dependencies',
-    type: [String],
-    required: false,
-  })
-  missingDependencies?: string[];
-}
+// A successful commit is represented by HTTP 200 with an empty response body.
+export class CommitChangesResponseDto {}
 
 // Discard-specific DTOs
-export class DiscardChangesRequestDto {
-  @ApiProperty({
-    description:
-      'Optional array of change IDs to discard. If not provided, all changes will be discarded.',
-    type: [String],
-    required: false,
-  })
-  @IsArray()
-  @IsString({each: true})
-  changeIds?: string[];
-}
+// Discard clears every edit action in the active session, so callers cannot
+// provide a selective change-ID request payload.
+export class DiscardChangesRequestDto {}
 
-export class DiscardChangesResponseDto extends ChangesetDto {
-  @ApiProperty({description: 'Successfully discarded change IDs'})
-  declare processedChangeIds: string[];
-
-  @ApiProperty({description: 'Change IDs that failed to discard'})
-  declare failedChangeIds: string[];
-
-  @ApiProperty({
-    description: 'Change IDs that were discarded due to dependency cascade',
-    type: [String],
-  })
-  cascadedChangeIds!: string[];
-}
+// A successful discard is represented by HTTP 200 with an empty response body.
+export class DiscardChangesResponseDto {}

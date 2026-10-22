@@ -173,6 +173,29 @@ export class TypeOrmSessionRepository implements ISessionRepository {
     return result.affected ?? 0;
   }
 
+  async deleteStagedEditActionsByIds(
+    sessionId: number,
+    changeIds: readonly number[],
+  ): Promise<number> {
+    if (changeIds.length === 0) return 0;
+    const result = await this.manager
+      .createQueryBuilder()
+      .delete()
+      .from(EditActionSchema)
+      .where('sessionId = :sessionId', {sessionId})
+      .andWhere('changeStatus = :changeStatus', {
+        changeStatus: CHANGE_STATUS.Staged,
+      })
+      .andWhere('changeId IN (:...changeIds)', {changeIds})
+      .execute();
+    return result.affected ?? 0;
+  }
+
+  async deleteAllEditActionsForSession(sessionId: number): Promise<number> {
+    const result = await this.manager.delete(EditActionSchema, {sessionId});
+    return result.affected ?? 0;
+  }
+
   async countStagedChangesForSession(sessionId: number): Promise<number> {
     const result = await this.manager
       .createQueryBuilder(EditActionSchema, 'ea')

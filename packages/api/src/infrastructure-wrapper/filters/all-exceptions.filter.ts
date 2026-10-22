@@ -16,6 +16,8 @@ import {
   DomainRuleViolationException,
   StagedChangesExistException,
   ConflictException,
+  NoStagedChangesException,
+  CommitValidationFailedException,
 } from '@arc/core';
 
 /**
@@ -35,6 +37,14 @@ const DOMAIN_STATUS_MAP = new Map<DomainExceptionClass, number>([
   [DomainNotImplementedException, HttpStatus.NOT_IMPLEMENTED],
   [
     StagedChangesExistException as unknown as DomainExceptionClass,
+    HttpStatus.UNPROCESSABLE_ENTITY,
+  ],
+  [
+    NoStagedChangesException as unknown as DomainExceptionClass,
+    HttpStatus.UNPROCESSABLE_ENTITY,
+  ],
+  [
+    CommitValidationFailedException as unknown as DomainExceptionClass,
     HttpStatus.UNPROCESSABLE_ENTITY,
   ],
 ]);

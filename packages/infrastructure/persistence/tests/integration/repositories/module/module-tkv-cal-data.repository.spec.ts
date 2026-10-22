@@ -130,7 +130,11 @@ async function seedPayload(ds: DataSource) {
   );
 }
 
-function makeRepo(qr: QueryRunner, sessionId: number): TypeOrmModuleRepository {
+function makeRepo(
+  qr: QueryRunner,
+  sessionId: number,
+  generatedIdStart = PAYLOAD_ID - 1,
+): TypeOrmModuleRepository {
   const writer = new PendingChangeWriter(
     new EditActionsQueryService(qr.manager),
     new PendingChangeCache(),
@@ -151,7 +155,8 @@ function makeRepo(qr: QueryRunner, sessionId: number): TypeOrmModuleRepository {
       throw new Error('not needed');
     },
   };
-  const idGeneration = {getNextId: async () => PAYLOAD_ID};
+  let nextGeneratedId = generatedIdStart;
+  const idGeneration = {getNextId: async () => ++nextGeneratedId};
   return new TypeOrmModuleRepository(
     writer,
     qr.manager,
@@ -215,7 +220,7 @@ describe('TypeOrmModuleRepository — TKV cal data methods', () => {
     });
 
     it('returns staged TKV key values under the owning tag', async () => {
-      const repo = makeRepo(qr, sessionId);
+      const repo = makeRepo(qr, sessionId, 1000);
       await repo.createTkv(
         new KvData({
           systemId: 61,
@@ -233,6 +238,27 @@ describe('TypeOrmModuleRepository — TKV cal data methods', () => {
         moduleTagIdMapSystemId: TAG_MAP_ID,
         valueDefinitionSystemIds: [701, 702],
       });
+
+      const actions = (await ds.query(
+        `SELECT target_system_id, target_table, new_value
+         FROM edit_actions WHERE session_id = ? ORDER BY change_id`,
+        [sessionId],
+      )) as Array<{
+        target_system_id: number;
+        target_table: string;
+        new_value: string;
+      }>;
+      expect(actions.map(action => action.target_table)).toEqual([
+        ENTITY_NAMES.Tkv,
+        ENTITY_NAMES.TkvValues,
+        ENTITY_NAMES.TkvValues,
+      ]);
+      expect(actions.slice(1).map(action => action.target_system_id)).toEqual([
+        1001, 1002,
+      ]);
+      expect(JSON.parse(actions[0].new_value)).not.toHaveProperty(
+        'valueDefinitionSystemIds',
+      );
     });
 
     it('stages payload deletes under the tag aggregate before deleting a TKV', async () => {

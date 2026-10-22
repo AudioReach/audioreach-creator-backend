@@ -20,6 +20,8 @@ import {
   UseCaseCategoryJoinSchema,
   type UseCaseRow,
   type UseCaseCategoryRow,
+  type UsecaseGkvValuesRow,
+  type UseCaseCategoryJoinRow,
 } from '../../../entity-schema/usecase-data/use-case.js';
 import {
   UseCaseSubgraphSchema,
@@ -29,6 +31,10 @@ import {
   UseCaseSubgraphPairSchema,
   type UseCaseSubgraphPairBase,
 } from '../../../entity-schema/usecase-data/use-case-subgraph-pair.schema.js';
+import type {EntityRowForInsert} from '../../../entity-schema/entity-base.js';
+
+type UsecaseGkvValueInsertRow = EntityRowForInsert<UsecaseGkvValuesRow>;
+type UseCaseCategoryJoinInsertRow = EntityRowForInsert<UseCaseCategoryJoinRow>;
 
 export class UseCaseInserter {
   constructor(
@@ -104,12 +110,16 @@ export class UseCaseInserter {
   }
 
   private async insertGkvRows(items: UseCase[]): Promise<StepResult> {
-    const allRows = items.flatMap(item =>
-      item.keyVector.valueSystemIds.map(valueSystemId => ({
-        usecaseSystemId: item.systemId,
-        valueDefSystemId: valueSystemId,
-      })),
-    );
+    const allRows: UsecaseGkvValueInsertRow[] = [];
+    for (const item of items) {
+      for (const valueDefSystemId of item.keyVector.valueSystemIds) {
+        allRows.push({
+          systemId: await this.idGeneration.getNextId(item.fileSystemId),
+          usecaseSystemId: item.systemId,
+          valueDefSystemId,
+        });
+      }
+    }
 
     if (allRows.length === 0)
       return {rawFailures: [], failedEntityIds: new Set()};
@@ -253,11 +263,14 @@ export class UseCaseInserter {
     const upsertFailures: RawFailure[] = [];
     for (const name of categoryNames) {
       try {
+        const owner = items.find(item => item.categories?.includes(name));
+        if (!owner) continue;
+        const systemId = await this.idGeneration.getNextId(owner.fileSystemId);
         await this.manager
           .createQueryBuilder()
           .insert()
           .into(UseCaseCategorySchema)
-          .values({name} as Partial<UseCaseCategoryRow>)
+          .values({systemId, name} as Partial<UseCaseCategoryRow>)
           .orIgnore()
           .execute();
         const row = await this.manager.findOne<UseCaseCategoryRow>(
@@ -289,14 +302,16 @@ export class UseCaseInserter {
       const categorySystemId = categorySystemIdByName.get(categoryName);
       if (!categorySystemId) continue;
       try {
+        const row: UseCaseCategoryJoinInsertRow = {
+          systemId: await this.idGeneration.getNextId(item.fileSystemId),
+          useCaseSystemId: item.systemId,
+          categorySystemId,
+        };
         await this.manager
           .createQueryBuilder()
           .insert()
           .into(UseCaseCategoryJoinSchema)
-          .values({
-            useCaseSystemId: item.systemId,
-            categorySystemId: categorySystemId,
-          })
+          .values(row)
           .orIgnore()
           .execute();
       } catch (error: unknown) {

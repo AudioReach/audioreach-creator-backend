@@ -237,6 +237,12 @@ describe('DriverModuleInserter', () => {
       `SELECT * FROM dkv_values WHERE dkv_system_id = 2001 ORDER BY value_def_system_id`,
     );
     expect(valueRows).toHaveLength(2);
+    expect(
+      valueRows.every((row: {system_id: number}) => row.system_id > 5000),
+    ).toBe(true);
+    expect(
+      new Set(valueRows.map((row: {system_id: number}) => row.system_id)).size,
+    ).toBe(2);
     expect(valueRows[0].value_def_system_id).toBe(VALUE_DEF_ID_1);
     expect(valueRows[1].value_def_system_id).toBe(VALUE_DEF_ID_2);
 

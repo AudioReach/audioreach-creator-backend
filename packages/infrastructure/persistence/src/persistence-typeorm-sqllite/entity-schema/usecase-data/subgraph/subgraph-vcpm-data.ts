@@ -22,7 +22,13 @@ export interface VcpmInstanceBase {
 export interface VcpmCkvBase {
   systemId: number;
   vcpmInstanceSystemId: number;
-  values: {valueDefSystemId: number}[];
+  values: VcpmCkvValuesBase[];
+}
+
+export interface VcpmCkvValuesBase {
+  systemId: number;
+  vcpmCkvSystemId: number;
+  valueDefSystemId: number;
 }
 
 export interface VcpmParameterPayloadBase {
@@ -58,10 +64,7 @@ export interface VcpmParameterPayloadRow
   vcpmCkv: VcpmCkvRow;
 }
 
-export interface VcpmCkvValuesRow {
-  vcpmCkvSystemId: number;
-  valueDefSystemId: number;
-
+export interface VcpmCkvValuesRow extends EntityBaseRow, VcpmCkvValuesBase {
   vcpmCkv?: VcpmCkvRow;
   valueDef?: ValueDefinitionRow;
 }
@@ -199,15 +202,14 @@ export const VcpmCkvValuesSchema = new EntitySchema<VcpmCkvValuesRow>({
   name: 'VcpmCkvValues',
   tableName: 'vcpm_ckv_values',
   columns: {
+    ...BaseColumnSchemaPart,
     vcpmCkvSystemId: {
       name: 'vcpm_ckv_system_id',
       type: 'integer',
-      primary: true,
     },
     valueDefSystemId: {
       name: 'value_def_system_id',
       type: 'integer',
-      primary: true,
     },
   },
   relations: {
@@ -230,4 +232,11 @@ export const VcpmCkvValuesSchema = new EntitySchema<VcpmCkvValuesRow>({
       onDelete: 'RESTRICT',
     },
   },
+  indices: [
+    {
+      name: 'uq_vcpm_ckv_values_ckv_value_definition',
+      columns: ['vcpmCkvSystemId', 'valueDefSystemId'],
+      unique: true,
+    },
+  ],
 });

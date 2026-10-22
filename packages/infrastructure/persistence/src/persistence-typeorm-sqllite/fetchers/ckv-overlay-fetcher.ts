@@ -57,8 +57,7 @@ export interface OverlaidCkv extends CkvBase {
  * The aggregateId for all Ckv edit_actions is moduleSystemId (the owning
  * SpfModule's PK), not ckvSystemId.
  *
- * ckv_values uses a composite PK and is not staged independently. A CKV CREATE
- * carries valueDefinitionSystemIds so session reads can synthesize these rows.
+ * ckv_values is overlaid independently by its synthetic systemId.
  */
 export class CkvOverlayFetcher {
   private readonly overlay = new OverlayMergeImpl();
@@ -88,6 +87,9 @@ export class CkvOverlayFetcher {
     const ckvActions = aggregateActions.filter(
       action => action.targetTable === ENTITY_NAMES.Ckv,
     );
+    const valueActions = aggregateActions.filter(
+      action => action.targetTable === ENTITY_NAMES.CkvValues,
+    );
     const qb = this.manager
       .getRepository(ENTITY_NAMES.Ckv)
       .createQueryBuilder('ckv')
@@ -98,19 +100,7 @@ export class CkvOverlayFetcher {
 
     if (sessionId === null) return baseRows.map(r => this.toOverlaidCkv(r));
 
-    if (ckvActions.length === 0) {
-      const ckvs = baseRows.map(r => this.toOverlaidCkv(r));
-      return filters === undefined
-        ? ckvs
-        : ckvs.filter(ckv =>
-            matchesEntityFilters(
-              ckv as unknown as Record<string, unknown>,
-              filters,
-            ),
-          );
-    }
-
-    return this.overlay
+    const overlaidRows = this.overlay
       .applyToCollection(baseRows, ckvActions, {
         matchesEffective: row =>
           row.spfModuleSystemId === moduleSystemId &&
@@ -120,7 +110,18 @@ export class CkvOverlayFetcher {
               filters,
             )),
       })
-      .map(r => this.toOverlaidCkv(r.effective));
+      .map(result => result.effective);
+
+    return overlaidRows.map(row =>
+      this.toOverlaidCkv(
+        row,
+        this.overlayValues(
+          baseRows.find(base => base.systemId === row.systemId)?.values ?? [],
+          valueActions,
+          row.systemId,
+        ),
+      ),
+    );
   }
 
   /**
@@ -156,6 +157,9 @@ export class CkvOverlayFetcher {
       a =>
         a.targetTable === ENTITY_NAMES.Ckv && a.targetSystemId === ckvSystemId,
     );
+    const valueActions = actions.filter(
+      action => action.targetTable === ENTITY_NAMES.CkvValues,
+    );
 
     const overlaid = this.overlay.applyToSingle(baseRow, ckvActions, {
       matchesEffective: row =>
@@ -165,10 +169,10 @@ export class CkvOverlayFetcher {
 
     if (overlaid === null) return null;
 
-    return this.toOverlaidCkv({
-      ...overlaid.effective,
-      values: baseRow?.values ?? [],
-    });
+    return this.toOverlaidCkv(
+      overlaid.effective,
+      this.overlayValues(baseRow?.values ?? [], valueActions, ckvSystemId),
+    );
   }
 
   /**
@@ -207,23 +211,31 @@ export class CkvOverlayFetcher {
     );
   }
 
-  private toOverlaidCkv(row: CkvRow): OverlaidCkv {
-    const valueDefinitionSystemIds = (
-      row as CkvRow & {valueDefinitionSystemIds?: number[]}
-    ).valueDefinitionSystemIds;
+  private overlayValues(
+    baseRows: readonly CkvValuesBase[],
+    actions: Awaited<ReturnType<EditActionsQueryService['getByTable']>>,
+    ckvSystemId: number,
+  ): CkvValuesBase[] {
+    return this.overlay
+      .applyToCollection([...baseRows], [...actions], {
+        matchesEffective: row => row.ckvSystemId === ckvSystemId,
+      })
+      .map(result => result.effective);
+  }
+
+  private toOverlaidCkv(
+    row: CkvRow,
+    values: readonly CkvValuesBase[] = row.values ?? [],
+  ): OverlaidCkv {
     return {
       systemId: row.systemId,
       spfModuleSystemId: row.spfModuleSystemId,
       uiPersistence: row.uiPersistence ?? null,
-      values:
-        valueDefinitionSystemIds?.map(valueDefSystemId => ({
-          ckvSystemId: row.systemId,
-          valueDefSystemId,
-        })) ??
-        (row.values ?? []).map(v => ({
-          ckvSystemId: v.ckvSystemId,
-          valueDefSystemId: v.valueDefSystemId,
-        })),
+      values: values.map(value => ({
+        systemId: value.systemId,
+        ckvSystemId: value.ckvSystemId,
+        valueDefSystemId: value.valueDefSystemId,
+      })),
     };
   }
 }

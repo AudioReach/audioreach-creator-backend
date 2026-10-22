@@ -163,6 +163,9 @@ describe('SubgraphInserter — SGKV insertion', () => {
     );
     expect(valuesFor1001).toHaveLength(2);
     expect(
+      valuesFor1001.every((row: {system_id: number}) => row.system_id > 9000),
+    ).toBe(true);
+    expect(
       valuesFor1001.map(
         (r: {value_def_system_id: number}) => r.value_def_system_id,
       ),
@@ -172,6 +175,9 @@ describe('SubgraphInserter — SGKV insertion', () => {
       `SELECT * FROM sgkv_values WHERE sgkv_system_id = 1002 ORDER BY value_def_system_id`,
     );
     expect(valuesFor1002).toHaveLength(2);
+    expect(
+      valuesFor1002.every((row: {system_id: number}) => row.system_id > 9000),
+    ).toBe(true);
     expect(
       valuesFor1002.map(
         (r: {value_def_system_id: number}) => r.value_def_system_id,

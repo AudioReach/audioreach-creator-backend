@@ -190,6 +190,12 @@ describe('SpfModuleInserter — CKV insertion', () => {
     );
     expect(valueRows).toHaveLength(3);
     expect(
+      valueRows.every((row: {system_id: number}) => row.system_id > 9000),
+    ).toBe(true);
+    expect(
+      new Set(valueRows.map((row: {system_id: number}) => row.system_id)).size,
+    ).toBe(3);
+    expect(
       valueRows.map(
         (r: {value_def_system_id: number}) => r.value_def_system_id,
       ),

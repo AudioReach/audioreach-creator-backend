@@ -2008,7 +2008,8 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
           .leftJoinAndSelect('uc.gkvEntries', 'gkv')
           .leftJoinAndSelect('gkv.valueDef', 'vd')
           .leftJoinAndSelect('vd.keys', 'k')
-          .leftJoinAndSelect('uc.categories', 'cat')
+          .leftJoinAndSelect('uc.categoryLinks', 'categoryLink')
+          .leftJoinAndSelect('categoryLink.category', 'cat')
           .where('uc.fileSystemId = :fileSystemId', {fileSystemId})
           .getMany() as Promise<UseCaseRow[]>,
 
@@ -2085,7 +2086,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
           gkvEntries?: Array<{
             valueDef?: {keys?: {naturalId?: number}; naturalId?: number};
           }>;
-          categories?: Array<{name?: string}>;
+          categoryLinks?: Array<{category?: {name?: string}}>;
         }
       >
     ).map(uc => {
@@ -2109,8 +2110,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         type: uc.type,
         orderedKeys: uc.orderedKeys ?? undefined,
         reviewedAt: reviewedAtMap.get(`usecase:${uc.systemId}`),
-        categoryName: (uc.categories as Array<{name?: string}> | undefined)?.[0]
-          ?.name,
+        categoryName: uc.categoryLinks?.[0]?.category?.name,
       };
     });
 

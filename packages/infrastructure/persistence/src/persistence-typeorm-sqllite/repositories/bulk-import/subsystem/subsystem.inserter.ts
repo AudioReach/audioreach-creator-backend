@@ -8,6 +8,7 @@ import type {
   BulkInsertResult,
   DataPort,
   ControlPort,
+  IdGenerationPort,
   Subsystem,
 } from '@arc/core';
 import {okBulkInsert} from '@arc/core';
@@ -32,11 +33,19 @@ import type {ControlPortRow} from '../../../entity-schema/usecase-data/node/cont
 import {
   SubsystemSchema,
   SubsystemFilteredKeySchema,
+  type SubsystemFilteredKeyRow,
   type SubsystemRow,
 } from '../../../entity-schema/usecase-data/subsystem/subsystem.js';
+import type {EntityRowForInsert} from '../../../entity-schema/entity-base.js';
+
+type SubsystemFilteredKeyInsertRow =
+  EntityRowForInsert<SubsystemFilteredKeyRow>;
 
 export class SubsystemInserter implements BulkInserter<Subsystem> {
-  constructor(private readonly manager: EntityManager) {}
+  constructor(
+    private readonly manager: EntityManager,
+    private readonly idGeneration: IdGenerationPort,
+  ) {}
 
   public async insert(subsystems: Subsystem[]): Promise<BulkInsertResult> {
     if (subsystems.length === 0) return okBulkInsert();
@@ -246,14 +255,12 @@ export class SubsystemInserter implements BulkInserter<Subsystem> {
     subsystems: Subsystem[],
     failedSubsystemIds: Set<number>,
   ): Promise<StepResult> {
-    const rows: {
-      subsystemsSystemId: number;
-      keyDefinitionSystemId: number;
-    }[] = [];
+    const rows: SubsystemFilteredKeyInsertRow[] = [];
     for (const s of subsystems) {
       if (failedSubsystemIds.has(s.systemId)) continue;
       for (const keySystemId of s.filteredKeySystemIds) {
         rows.push({
+          systemId: await this.idGeneration.getNextId(s.fileSystemId),
           subsystemsSystemId: s.systemId,
           keyDefinitionSystemId: keySystemId,
         });

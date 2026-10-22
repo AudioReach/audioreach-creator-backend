@@ -7,6 +7,7 @@ import type {EntityManager} from 'typeorm';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
 import type {
   VcpmCkvRow,
+  VcpmCkvValuesRow,
   VcpmInstanceRow,
   VcpmParameterPayloadRow,
 } from '../entity-schema/usecase-data/subgraph/subgraph-vcpm-data.js';
@@ -28,9 +29,15 @@ export type EffectiveVcpmParameterPayload = Pick<
   'systemId' | 'vcpmCkvSystemId' | 'vcpmParameterSystemId' | 'payload'
 >;
 
+export type EffectiveVcpmCkvValue = Pick<
+  VcpmCkvValuesRow,
+  'systemId' | 'vcpmCkvSystemId' | 'valueDefSystemId'
+>;
+
 export interface EffectiveSubgraphVcpmData {
   instances: EffectiveVcpmInstance[];
   ckvs: EffectiveVcpmCkv[];
+  values: EffectiveVcpmCkvValue[];
   parameterPayloads: EffectiveVcpmParameterPayload[];
 }
 
@@ -93,28 +100,47 @@ export class SubgraphVcpmDataFetcher {
       .map(result => result.effective);
 
     const ckvIds = ckvs.map(ckv => ckv.systemId);
-    const [payloadBaseRows, payloadActions] = await Promise.all([
-      ckvIds.length === 0
-        ? Promise.resolve([] as EffectiveVcpmParameterPayload[])
-        : (this.manager
-            .getRepository(ENTITY_NAMES.VcpmParameterPayload)
-            .createQueryBuilder('payload')
-            .where('payload.vcpmCkvSystemId IN (:...ckvIds)', {ckvIds})
-            .getMany() as Promise<EffectiveVcpmParameterPayload[]>),
-      sessionId === null
-        ? Promise.resolve([])
-        : this.editActionsSvc.getByTable(
-            sessionId,
-            ENTITY_NAMES.VcpmParameterPayload,
-          ),
-    ]);
+    const [valueBaseRows, valueActions, payloadBaseRows, payloadActions] =
+      await Promise.all([
+        ckvIds.length === 0
+          ? Promise.resolve([] as EffectiveVcpmCkvValue[])
+          : (this.manager
+              .getRepository(ENTITY_NAMES.VcpmCkvValues)
+              .createQueryBuilder('value')
+              .where('value.vcpmCkvSystemId IN (:...ckvIds)', {ckvIds})
+              .getMany() as Promise<EffectiveVcpmCkvValue[]>),
+        sessionId === null
+          ? Promise.resolve([])
+          : this.editActionsSvc.getByTable(
+              sessionId,
+              ENTITY_NAMES.VcpmCkvValues,
+            ),
+        ckvIds.length === 0
+          ? Promise.resolve([] as EffectiveVcpmParameterPayload[])
+          : (this.manager
+              .getRepository(ENTITY_NAMES.VcpmParameterPayload)
+              .createQueryBuilder('payload')
+              .where('payload.vcpmCkvSystemId IN (:...ckvIds)', {ckvIds})
+              .getMany() as Promise<EffectiveVcpmParameterPayload[]>),
+        sessionId === null
+          ? Promise.resolve([])
+          : this.editActionsSvc.getByTable(
+              sessionId,
+              ENTITY_NAMES.VcpmParameterPayload,
+            ),
+      ]);
     const ckvIdSet = new Set(ckvIds);
+    const values = this.overlay
+      .applyToCollection(valueBaseRows, valueActions, {
+        matchesEffective: row => ckvIdSet.has(row.vcpmCkvSystemId),
+      })
+      .map(result => result.effective);
     const parameterPayloads = this.overlay
       .applyToCollection(payloadBaseRows, payloadActions, {
         matchesEffective: row => ckvIdSet.has(row.vcpmCkvSystemId),
       })
       .map(result => result.effective);
 
-    return {instances, ckvs, parameterPayloads};
+    return {instances, ckvs, values, parameterPayloads};
   }
 }

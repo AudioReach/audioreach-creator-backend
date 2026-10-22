@@ -53,13 +53,14 @@ export interface TkvParameterPayloadRow
   spfParameter?: SpfModuleParameterDefinitionRow;
 }
 
-/** Composite-PK join table scalars — no systemId, not overlaid. */
+/** TKV-to-value relationship scalars keyed by a synthetic system ID. */
 export interface TkvValuesBase {
+  systemId: number;
   tkvSystemId: number;
   valueDefSystemId: number;
 }
 
-export interface TkvValuesRow extends TkvValuesBase {
+export interface TkvValuesRow extends EntityBaseRow, TkvValuesBase {
   tkv?: TkvRow;
   valueDef?: ValueDefinitionRow;
 }
@@ -199,11 +200,11 @@ export const TkvValuesSchema = new EntitySchema<TkvValuesRow>({
   name: 'TkvValues',
   tableName: 'tkv_values',
   columns: {
-    tkvSystemId: {name: 'tkv_system_id', type: 'integer', primary: true},
+    ...BaseColumnSchemaPart,
+    tkvSystemId: {name: 'tkv_system_id', type: 'integer'},
     valueDefSystemId: {
       name: 'value_def_system_id',
       type: 'integer',
-      primary: true,
     },
   },
   relations: {
@@ -223,4 +224,11 @@ export const TkvValuesSchema = new EntitySchema<TkvValuesRow>({
       onDelete: 'RESTRICT',
     },
   },
+  indices: [
+    {
+      name: 'uq_tkv_values_tkv_value_definition',
+      columns: ['tkvSystemId', 'valueDefSystemId'],
+      unique: true,
+    },
+  ],
 });
