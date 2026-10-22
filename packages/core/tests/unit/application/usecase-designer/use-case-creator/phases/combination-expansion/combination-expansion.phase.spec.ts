@@ -23,6 +23,7 @@ import {
 import {CombinationExpansionPhase} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/combination-expansion/combination-expansion.phase.js';
 import {DATA_LINK_TYPE} from '../../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
 import type {DataLink} from '../../../../../../../src/domain/entities/usecase-data/links/data-link.js';
+import {UseCase} from '../../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
 
 const FILE_ID = 1;
 
@@ -32,7 +33,6 @@ function makeSubgraph(
   return {
     subgraph: {systemId} as never,
     requestedSgkvs: [],
-    isMdf: false,
   };
 }
 
@@ -80,6 +80,8 @@ function makeContext(
   paths: readonly DfsPath[] = [],
   links: readonly DataLink[] = [],
   mdfSubgraphSystemIds: readonly number[] = [],
+  routableControlLinks: RoutingGraphSnapshot['routableControlLinks'] = [],
+  committedUsecases: readonly UseCase[] = [],
 ): RoutingContext {
   const init = {
     fileSystemId: FILE_ID,
@@ -96,12 +98,15 @@ function makeContext(
     selectedUsecases: [],
     graphSnapshot: {
       subgraphs: subgraphSystemIds.map(makeSubgraph),
-      mdfSubgraphSystemIds: new Set(mdfSubgraphSystemIds),
+      mdf: {
+        effective: new Set(mdfSubgraphSystemIds),
+        deleted: new Set(),
+      },
       routableDataLinks: links,
-      routableControlLinks: [],
+      routableControlLinks,
       overlayDataLinks: links,
       overlayControlLinks: [],
-      committedUsecases: [],
+      committedUsecases,
       sessionEdits: emptyGraphEdits(),
     },
     activeManualUsecaseEdits: [],
@@ -160,6 +165,7 @@ describe('CombinationExpansionPhase', () => {
           {keyDefSystemId: 10, valueDefSystemId: 100},
           {keyDefSystemId: 20, valueDefSystemId: 200},
         ],
+        controlLinkPairs: [],
       },
       {
         kind: USECASE_CANDIDATE_KIND.Auto,
@@ -172,6 +178,7 @@ describe('CombinationExpansionPhase', () => {
           {keyDefSystemId: 10, valueDefSystemId: 101},
           {keyDefSystemId: 20, valueDefSystemId: 200},
         ],
+        controlLinkPairs: [],
       },
     ]);
   });
@@ -522,8 +529,87 @@ describe('CombinationExpansionPhase', () => {
           [7, makeSgkv({keyDefSystemId: 10, valueDefSystemId: 100})],
         ]),
         gkv: [{keyDefSystemId: 10, valueDefSystemId: 100}],
+        controlLinkPairs: [],
       },
     ]);
+  });
+
+  it('attaches a canonical control-link pair to every generated candidate', async () => {
+    const context = makeContext(
+      ROUTING_MODE.Auto,
+      [10, 20, 30, 40],
+      [makePath([10, 20, 30, 40])],
+      [],
+      [],
+      [
+        {
+          systemId: 7,
+          sourceSubgraphSystemId: 40,
+          destSubgraphSystemId: 20,
+        } as never,
+      ],
+    );
+    setKvResolutions(
+      context,
+      new Map([
+        [10, [makeSgkv({keyDefSystemId: 1, valueDefSystemId: 100})]],
+        [20, [makeSgkv({keyDefSystemId: 2, valueDefSystemId: 200})]],
+        [30, [makeSgkv({keyDefSystemId: 3, valueDefSystemId: 300})]],
+        [40, [makeSgkv({keyDefSystemId: 4, valueDefSystemId: 400})]],
+      ]),
+    );
+
+    const result = await service.run(context);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    for (const candidate of context.usecaseCandidates.automaticCandidates) {
+      expect(candidate.controlLinkPairs).toEqual([
+        {sourceSubgraphSystemId: 20, destSubgraphSystemId: 40},
+      ]);
+    }
+  });
+
+  it('omits a control-link pair already owned by a pre-existing UseCase', async () => {
+    const context = makeContext(
+      ROUTING_MODE.Auto,
+      [10, 20, 30, 40],
+      [makePath([10, 20, 30, 40])],
+      [],
+      [],
+      [
+        {
+          systemId: 7,
+          sourceSubgraphSystemId: 20,
+          destSubgraphSystemId: 40,
+        } as never,
+      ],
+      [
+        new UseCase({
+          systemId: 200,
+          fileSystemId: FILE_ID,
+          keyVector: {valueSystemIds: [99]},
+          subgraphSystemIds: [20, 40],
+          subgraphPairs: [
+            {sourceSubgraphSystemId: 20, destSubgraphSystemId: 40},
+          ],
+        }),
+      ],
+    );
+    setKvResolutions(
+      context,
+      new Map([
+        [10, [makeSgkv({keyDefSystemId: 1, valueDefSystemId: 100})]],
+        [20, [makeSgkv({keyDefSystemId: 2, valueDefSystemId: 200})]],
+        [30, [makeSgkv({keyDefSystemId: 3, valueDefSystemId: 300})]],
+        [40, [makeSgkv({keyDefSystemId: 4, valueDefSystemId: 400})]],
+      ]),
+    );
+
+    await service.run(context);
+
+    for (const candidate of context.usecaseCandidates.automaticCandidates) {
+      expect(candidate.controlLinkPairs).toEqual([]);
+    }
   });
 
   it('shares the immutable manual topology across every expanded GKV candidate', async () => {

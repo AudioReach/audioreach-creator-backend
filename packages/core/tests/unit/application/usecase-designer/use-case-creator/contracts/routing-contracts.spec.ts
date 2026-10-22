@@ -19,7 +19,7 @@ import {
   createControlLinkManualTopologyPair,
   createDataLinkManualTopologyPair,
   createManualRoutingInput,
-  deriveRoutingScope,
+  resolveActiveSubgraphSelection,
   emptyGraphEdits,
   type RoutingGraphSnapshot,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
@@ -70,15 +70,14 @@ function createDataLink(
 
 function createSnapshot(subgraph = createSubgraph(31)): RoutingGraphSnapshot {
   return {
-    subgraphs: [{subgraph, requestedSgkvs: [[11]], isMdf: false}],
-    mdfSubgraphSystemIds: new Set(),
+    subgraphs: [{subgraph, requestedSgkvs: [[11]]}],
+    mdf: {effective: new Set(), deleted: new Set()},
     routableDataLinks: [],
     routableControlLinks: [],
     overlayDataLinks: [],
     overlayControlLinks: [],
     committedUsecases: [],
     sessionEdits: emptyGraphEdits(),
-    deletedMdfSubgraphSystemIds: [],
     committedDataLinks: [],
   };
 }
@@ -165,7 +164,7 @@ describe('routing contracts', () => {
     const subgraph = createSubgraph(31);
     const snapshot: RoutingGraphSnapshot = {
       ...createSnapshot(subgraph),
-      subgraphs: [{subgraph, requestedSgkvs: sourceSgkvs, isMdf: false}],
+      subgraphs: [{subgraph, requestedSgkvs: sourceSgkvs}],
     };
     const input = createManualRoutingInput({
       fileSystemId: 1,
@@ -227,8 +226,8 @@ describe('routing contracts', () => {
     expect(input.activeManualUsecaseEdits).toHaveLength(1);
   });
 
-  it('derives selected and effective scope with request ordering preserved', () => {
-    const scope = deriveRoutingScope(
+  it('derives effective active subgraphs with request ordering preserved', () => {
+    const scope = resolveActiveSubgraphSelection(
       [createUsecase(21, [10, 20])],
       [
         {systemId: 10, sgkvs: []},
@@ -237,15 +236,15 @@ describe('routing contracts', () => {
       ],
       [20],
     );
-    expect(scope.selectedScopeSubgraphs).toEqual(new Set([10, 20]));
-    expect(scope.inputSubgraphs).toEqual(new Set([10, 30, 20]));
-    expect(scope.outOfSelectionSubgraphs).toEqual(new Set([30]));
-    expect(scope.effectiveRoutingScope).toEqual(new Set([10, 30]));
     expect(scope.missingSelectedScopeSubgraphs).toEqual(new Set());
+    expect(scope.effectiveActiveSubgraphs).toEqual([
+      {systemId: 10, sgkvs: []},
+      {systemId: 30, sgkvs: []},
+    ]);
   });
 
   it('reports every selected-scope subgraph missing from the input', () => {
-    const scope = deriveRoutingScope(
+    const scope = resolveActiveSubgraphSelection(
       [createUsecase(21, [10, 20, 30])],
       [{systemId: 10, sgkvs: []}],
       [30],
@@ -264,14 +263,13 @@ describe('routing contracts', () => {
   });
 
   it('does not require a selected-scope subgraph deleted in the current session', () => {
-    const scope = deriveRoutingScope(
+    const scope = resolveActiveSubgraphSelection(
       [createUsecase(21, [10, 20])],
       [{systemId: 10, sgkvs: []}],
       [],
       [20],
     );
     expect(scope.missingSelectedScopeSubgraphs).toEqual(new Set());
-    expect(scope.effectiveRoutingScope).toEqual(new Set([10]));
     expect(scope.effectiveActiveSubgraphs).toEqual([{systemId: 10, sgkvs: []}]);
   });
 
@@ -400,7 +398,7 @@ describe('routing contracts', () => {
     expect(controlPair.controlLinks.map(link => link.systemId)).toEqual([2]);
   });
 
-  it('copies deletedMdfSubgraphSystemIds and committedDataLinks through snapshot copy', () => {
+  it('copies MDF classification and committed data links through snapshot copy', () => {
     const link = createDataLink(1, 10, 20);
     const input = createAutoRoutingInput({
       fileSystemId: 1,
@@ -414,20 +412,20 @@ describe('routing contracts', () => {
       selectedUsecases: [],
       graphSnapshot: {
         subgraphs: [],
-        mdfSubgraphSystemIds: new Set(),
+        mdf: {effective: new Set([33]), deleted: new Set([11, 22])},
         routableDataLinks: [],
         routableControlLinks: [],
         overlayDataLinks: [],
         overlayControlLinks: [],
         committedUsecases: [],
         sessionEdits: emptyGraphEdits(),
-        deletedMdfSubgraphSystemIds: [11, 22],
         committedDataLinks: [link],
       },
       activeManualUsecaseEdits: [],
     });
 
-    expect(input.graphSnapshot.deletedMdfSubgraphSystemIds).toEqual([11, 22]);
+    expect(input.graphSnapshot.mdf.effective).toEqual(new Set([33]));
+    expect(input.graphSnapshot.mdf.deleted).toEqual(new Set([11, 22]));
     expect(input.graphSnapshot.committedDataLinks).toHaveLength(1);
     expect(input.graphSnapshot.committedDataLinks[0]).toBe(link);
   });

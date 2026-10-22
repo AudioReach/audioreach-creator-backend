@@ -14,7 +14,11 @@ import {
 import {SameGkvCollisionService} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/classification/same-gkv-collision.service.js';
 import {UseCase} from '../../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
 
-function candidate(path: number[], values = [100]): AutoUsecaseCandidate {
+function candidate(
+  path: number[],
+  values = [100],
+  controlLinkPairs: AutoUsecaseCandidate['controlLinkPairs'] = [],
+): AutoUsecaseCandidate {
   const gkv: KvPair[] = values.map(valueSystemId => ({
     keyDefSystemId: valueSystemId + 1000,
     valueDefSystemId: valueSystemId,
@@ -33,6 +37,7 @@ function candidate(path: number[], values = [100]): AutoUsecaseCandidate {
       ]),
     ),
     gkv,
+    controlLinkPairs,
   };
 }
 
@@ -87,6 +92,23 @@ describe('SameGkvCollisionService', () => {
   it('deduplicates identical candidate topologies', () => {
     const groups = service.buildGroups(
       [candidate([1, 2]), candidate([1, 2]), candidate([3, 4])],
+      [],
+      [],
+    );
+
+    expect(groups[0]?.alternatives).toHaveLength(2);
+  });
+
+  it('reports the control-link pair in the alternative topology', () => {
+    const groups = service.buildGroups(
+      [
+        candidate([10, 20, 30, 40], [99]),
+        candidate(
+          [10, 20, 30, 40],
+          [99],
+          [{sourceSubgraphSystemId: 20, destSubgraphSystemId: 40}],
+        ),
+      ],
       [],
       [],
     );

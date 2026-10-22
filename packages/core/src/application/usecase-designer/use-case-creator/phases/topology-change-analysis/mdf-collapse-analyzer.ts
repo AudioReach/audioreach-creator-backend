@@ -124,23 +124,36 @@ export class MdfCollapseAnalyzer {
     const survivingBoundaries = committedUsecase.subgraphSystemIds.filter(
       id => !deletedMdfSet.has(id),
     );
-    // Index the committed UC topology so each surviving boundary can discover
-    // a directed segment through deleted MDF members.
-    const pairsBySource = new Map<number, number[]>();
-    for (const currentPair of committedUsecase.subgraphPairs) {
-      const destinations =
-        pairsBySource.get(currentPair.sourceSubgraphSystemId) ?? [];
-      destinations.push(currentPair.destSubgraphSystemId);
-      pairsBySource.set(currentPair.sourceSubgraphSystemId, destinations);
-    }
-    const committedPairKeys = new Set(
-      committedUsecase.subgraphPairs.map(currentPair =>
+    // A control-link pair records a relationship, not a route. Both chain
+    // discovery and the direct-bypass gate must therefore use only committed
+    // pairs with directed data-link support.
+    const committedDataLinkPairs = committedUsecase.subgraphPairs.filter(
+      currentPair =>
+        inventory.committedDataLinksByDirectedPair.has(
+          directedPairKey(
+            currentPair.sourceSubgraphSystemId,
+            currentPair.destSubgraphSystemId,
+          ),
+        ),
+    );
+    const committedDataLinkPairKeys = new Set(
+      committedDataLinkPairs.map(currentPair =>
         directedPairKey(
           currentPair.sourceSubgraphSystemId,
           currentPair.destSubgraphSystemId,
         ),
       ),
     );
+    // Index only data-backed committed topology so each surviving boundary can
+    // discover a directed segment through deleted MDF members. Including a
+    // control-only direct pair would create a false second path.
+    const pairsBySource = new Map<number, number[]>();
+    for (const currentPair of committedDataLinkPairs) {
+      const destinations =
+        pairsBySource.get(currentPair.sourceSubgraphSystemId) ?? [];
+      destinations.push(currentPair.destSubgraphSystemId);
+      pairsBySource.set(currentPair.sourceSubgraphSystemId, destinations);
+    }
     const rewrites: MdfTopologyRewrite[] = [];
     const seenSegments = new Set<string>();
 
@@ -169,7 +182,7 @@ export class MdfCollapseAnalyzer {
       const directPair = pair(sourceId, destId);
       const directPairKey = directedPairKey(sourceId, destId);
       // A committed direct connection makes the chain redundant or ambiguous.
-      if (committedPairKeys.has(directPairKey)) continue;
+      if (committedDataLinkPairKeys.has(directPairKey)) continue;
       if (
         inventory.committedDataLinksByDirectedPair.has(directPairKey) ||
         inventory.committedDataLinksByDirectedPair.has(
@@ -225,11 +238,7 @@ export class MdfCollapseAnalyzer {
       ) {
         continue;
       }
-      if (
-        !directLinks.every(link =>
-           link.linkType === chainLinkType,
-        )
-      ) {
+      if (!directLinks.every(link => link.linkType === chainLinkType)) {
         continue;
       }
 

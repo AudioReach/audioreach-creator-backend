@@ -81,11 +81,6 @@ export function buildEffectiveGraph(
       routingSubgraph => routingSubgraph.subgraph.systemId,
     ),
   );
-  const mdfSubgraphSystemIds = new Set(
-    snapshot.subgraphs
-      .filter(routingSubgraph => routingSubgraph.isMdf)
-      .map(routingSubgraph => routingSubgraph.subgraph.systemId),
-  );
   const directedDataLinkKeys = new Set<string>();
   const controlLinkPairKeys = new Set<string>();
   const destinationsBySource = new Map<number, Set<number>>();
@@ -116,7 +111,7 @@ export function buildEffectiveGraph(
 
   return {
     scopeSubgraphSystemIds,
-    mdfSubgraphSystemIds,
+    mdfSubgraphSystemIds: snapshot.mdf.effective,
     directedDataLinkKeys,
     controlLinkPairKeys,
     dataLinkDestinationsBySource,

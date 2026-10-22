@@ -25,10 +25,12 @@ import {
   type EcBridgeUsecaseCandidate,
   type ManualUsecaseCandidate,
 } from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
+import type {SubgraphPair} from '../../../../../../../src/application/ports/persistence/repositories/shared/links-for-pair.js';
 
 function candidate(
   path: readonly number[],
   valueDefSystemId = 101,
+  controlLinkPairs: readonly SubgraphPair[] = [],
 ): AutoUsecaseCandidate {
   return {
     kind: USECASE_CANDIDATE_KIND.Auto,
@@ -42,6 +44,7 @@ function candidate(
       ...path.slice(1).map(id => [id, {keyValues: []}] as const),
     ]),
     gkv: [{keyDefSystemId: 1, valueDefSystemId}],
+    controlLinkPairs,
   };
 }
 
@@ -61,6 +64,7 @@ function manualCandidate(
   topologyPairs: readonly ManualTopologyPair[],
   valueDefSystemId = 101,
   assignedSubgraphSystemId = members[0],
+  controlLinkPairs: readonly SubgraphPair[] = [],
 ): ManualUsecaseCandidate {
   return {
     kind: USECASE_CANDIDATE_KIND.Manual,
@@ -78,6 +82,7 @@ function manualCandidate(
       ]),
     ),
     gkv: [{keyDefSystemId: 1, valueDefSystemId}],
+    controlLinkPairs,
   };
 }
 
@@ -85,8 +90,18 @@ interface ContextOptions {
   readonly memberSystemIds?: readonly number[];
   readonly manualTopologyPairs?: readonly ManualTopologyPair[];
   readonly routableDataLinks?: readonly unknown[];
+  readonly committedDataLinks?: readonly unknown[];
   readonly routableControlLinks?: readonly unknown[];
 }
+
+const defaultDataLinks = [
+  {
+    systemId: 5,
+    sourceSubgraphSystemId: 10,
+    destSubgraphSystemId: 20,
+    linkType: DATA_LINK_TYPE.Ec,
+  },
+];
 
 function context(
   mode:
@@ -108,21 +123,17 @@ function context(
       subgraphs: (options.memberSystemIds ?? []).map(systemId => ({
         subgraph: {systemId},
         requestedSgkvs: [],
-        isMdf: false,
       })),
-      mdfSubgraphSystemIds: new Set(),
-      routableDataLinks: options.routableDataLinks ?? [
-        {
-          systemId: 5,
-          sourceSubgraphSystemId: 10,
-          destSubgraphSystemId: 20,
-          linkType: DATA_LINK_TYPE.Ec,
-        },
-      ],
+      mdf: {effective: new Set(), deleted: new Set()},
+      routableDataLinks: options.routableDataLinks ?? defaultDataLinks,
       routableControlLinks: options.routableControlLinks ?? [],
       overlayDataLinks: [],
       overlayControlLinks: [],
       committedUsecases: [],
+      committedDataLinks:
+        options.committedDataLinks ??
+        options.routableDataLinks ??
+        defaultDataLinks,
       sessionEdits: {
         addedSgs: [],
         deletedSgs: [],
@@ -208,6 +219,61 @@ describe('RoutingChangeStagingPhase', () => {
         source: SOURCE.AutoRouting,
       },
     ]);
+  });
+
+  it('persists the control-link pair when creating a UseCase', async () => {
+    const routingContext = context(ROUTING_MODE.Auto, {
+      memberSystemIds: [10, 20, 30, 40],
+      routableDataLinks: [
+        {
+          systemId: 5,
+          sourceSubgraphSystemId: 10,
+          destSubgraphSystemId: 20,
+          linkType: DATA_LINK_TYPE.Normal,
+        },
+        {
+          systemId: 6,
+          sourceSubgraphSystemId: 20,
+          destSubgraphSystemId: 30,
+          linkType: DATA_LINK_TYPE.Normal,
+        },
+        {
+          systemId: 7,
+          sourceSubgraphSystemId: 30,
+          destSubgraphSystemId: 40,
+          linkType: DATA_LINK_TYPE.Normal,
+        },
+      ],
+    });
+    routingContext.classifiedUcs.push({
+      kind: 'CREATE',
+      candidate: candidate([10, 20, 30, 40], 101, [
+        {sourceSubgraphSystemId: 20, destSubgraphSystemId: 40},
+      ]),
+    } as never);
+    const create = jest.fn().mockResolvedValue({systemId: 700, changeId: 900});
+
+    const result = await new RoutingChangeStagingPhase().run(
+      routingContext,
+      {getUsecaseRepository: () => ({create})} as never,
+      {getNextId: jest.fn().mockResolvedValue(700)} as never,
+    );
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subgraphPairs: [
+          {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+          {sourceSubgraphSystemId: 20, destSubgraphSystemId: 30},
+          {sourceSubgraphSystemId: 30, destSubgraphSystemId: 40},
+          {sourceSubgraphSystemId: 20, destSubgraphSystemId: 40},
+        ],
+        type: USECASE_TYPE.Linked,
+      }),
+      expect.anything(),
+      undefined,
+      expect.anything(),
+    );
   });
 
   it('stages a logical MDF-chain Bridge candidate as EC without a direct endpoint link', async () => {
@@ -570,6 +636,75 @@ describe('RoutingChangeStagingPhase', () => {
         source: SOURCE.AutoRouting,
       },
     ]);
+  });
+
+  it('keeps a reverse stored control-link pair during an interior extension', async () => {
+    const existing = new UseCase({
+      systemId: 100,
+      fileSystemId: 1,
+      keyVector: {valueSystemIds: [101]},
+      subgraphSystemIds: [10, 20, 40],
+      subgraphPairs: [
+        {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+        {sourceSubgraphSystemId: 40, destSubgraphSystemId: 20},
+      ],
+      type: USECASE_TYPE.Linked,
+    });
+    const routingContext = context(ROUTING_MODE.Auto, {
+      memberSystemIds: [10, 20, 30, 40],
+      routableDataLinks: [
+        {
+          systemId: 5,
+          sourceSubgraphSystemId: 10,
+          destSubgraphSystemId: 20,
+          linkType: DATA_LINK_TYPE.Normal,
+        },
+        {
+          systemId: 6,
+          sourceSubgraphSystemId: 20,
+          destSubgraphSystemId: 30,
+          linkType: DATA_LINK_TYPE.Normal,
+        },
+        {
+          systemId: 7,
+          sourceSubgraphSystemId: 30,
+          destSubgraphSystemId: 40,
+          linkType: DATA_LINK_TYPE.Normal,
+        },
+      ],
+    });
+    routingContext.classifiedUcs.push({
+      kind: 'INTERIOR_EXTENSION',
+      candidate: candidate([10, 20, 30, 40], 101, [
+        {sourceSubgraphSystemId: 20, destSubgraphSystemId: 40},
+      ]),
+      existingUsecase: existing,
+      cancelPendingDelete: false,
+    } as never);
+    const applyStructuralChange = jest
+      .fn()
+      .mockResolvedValue({systemId: 100, changeId: 900});
+
+    const result = await new RoutingChangeStagingPhase().run(
+      routingContext,
+      {getUsecaseRepository: () => ({applyStructuralChange})} as never,
+      {getNextId: jest.fn()} as never,
+    );
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(applyStructuralChange).toHaveBeenCalled();
+    const delta = applyStructuralChange.mock.calls[0]?.[1] as {
+      addedPairs?: readonly SubgraphPair[];
+      removedPairs?: readonly SubgraphPair[];
+    };
+    expect(delta.removedPairs ?? []).not.toContainEqual({
+      sourceSubgraphSystemId: 40,
+      destSubgraphSystemId: 20,
+    });
+    expect(delta.addedPairs ?? []).not.toContainEqual({
+      sourceSubgraphSystemId: 20,
+      destSubgraphSystemId: 40,
+    });
   });
 
   it('stages one automatic identity-preserving MDF UPDATE', async () => {

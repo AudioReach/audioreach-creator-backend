@@ -153,10 +153,8 @@ export class RoutingGraphSnapshotBuilder {
         requestedSgkvs: Object.freeze(
           selection.sgkvs.map(values => Object.freeze([...values])),
         ),
-        isMdf: effectiveMdfIds.has(selection.systemId),
       });
     });
-    const deletedMdfSubgraphSystemIds = Object.freeze([...deletedMdfIds]);
 
     const excludedDataLinkIds = new Set(input.excludedDataLinkSystemIds);
     const excludedControlLinkIds = new Set(input.excludedControlLinkSystemIds);
@@ -170,14 +168,16 @@ export class RoutingGraphSnapshotBuilder {
     return Result.ok(
       Object.freeze({
         subgraphs: Object.freeze(routingSubgraphs),
-        mdfSubgraphSystemIds: new Set(effectiveMdfIds),
+        mdf: Object.freeze({
+          effective: new Set(effectiveMdfIds),
+          deleted: new Set(deletedMdfIds),
+        }),
         routableDataLinks: Object.freeze([...routableDataLinks]),
         routableControlLinks: Object.freeze([...routableControlLinks]),
         overlayDataLinks: Object.freeze([...overlayDataLinks]),
         overlayControlLinks: Object.freeze([...overlayControlLinks]),
         committedUsecases: Object.freeze([...committedUsecases]),
         sessionEdits: copyGraphEditSummary(input.sessionEdits),
-        deletedMdfSubgraphSystemIds,
         committedDataLinks: Object.freeze([...committedDataLinks]),
       }),
     );

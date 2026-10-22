@@ -57,7 +57,6 @@ function subgraph(systemId: number) {
       fileSystemId: 1,
     }),
     requestedSgkvs: [],
-    isMdf: false,
   };
 }
 

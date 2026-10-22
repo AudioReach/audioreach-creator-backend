@@ -124,6 +124,34 @@ function indexCommittedUsecasesByDirectedPair(
   );
 }
 
+/**
+ * Control-link direction carries no domain semantics, and a control-link pair
+ * is stored in canonical order. Control-link lookups therefore key on unordered
+ * endpoints; the directed index remains correct for data links.
+ */
+function indexCommittedUsecasesByUnorderedPair(
+  usecases: readonly UseCase[],
+): ReadonlyMap<string, readonly UseCase[]> {
+  const index = new Map<string, UseCase[]>();
+  for (const usecase of sortedBySystemId(usecases)) {
+    for (const pair of usecase.subgraphPairs) {
+      const key = unorderedPairKey(
+        pair.sourceSubgraphSystemId,
+        pair.destSubgraphSystemId,
+      );
+      const entries = index.get(key) ?? [];
+      if (!entries.includes(usecase)) entries.push(usecase);
+      index.set(key, entries);
+    }
+  }
+  return new Map(
+    [...index.entries()].map(([key, values]) => [
+      key,
+      [...values].sort((left, right) => left.systemId - right.systemId),
+    ]),
+  );
+}
+
 function indexDataLinksByDirectedPair(
   links: readonly DataLink[],
   excludedSystemIds: ReadonlySet<number>,
@@ -184,9 +212,7 @@ export function buildTopologyImpactInventory(
   const deletedControlLinkSystemIds = new Set(
     snapshot.sessionEdits.deletedControlLinks.map(link => link.systemId),
   );
-  const deletedMdfSubgraphSystemIds = new Set(
-    snapshot.deletedMdfSubgraphSystemIds,
-  );
+  const deletedMdfSubgraphSystemIds = snapshot.mdf.deleted;
   const committedUsecasesBySubgraph = indexUsecasesBySubgraph(
     snapshot.committedUsecases,
   );
@@ -202,6 +228,9 @@ export function buildTopologyImpactInventory(
   );
   return {
     committedUsecasesByDirectedPair: indexCommittedUsecasesByDirectedPair(
+      snapshot.committedUsecases,
+    ),
+    committedUsecasesByUnorderedPair: indexCommittedUsecasesByUnorderedPair(
       snapshot.committedUsecases,
     ),
     committedUsecasesBySubgraph,
@@ -220,6 +249,7 @@ export function buildTopologyImpactInventory(
     ),
     routableAdjacency: adjacency,
     routingSubgraphsById,
+    effectiveMdfSubgraphSystemIds: snapshot.mdf.effective,
     committedDataLinksByDirectedPair: indexDataLinksByDirectedPair(
       snapshot.committedDataLinks,
       new Set(),
@@ -255,6 +285,10 @@ export interface TopologyImpactInventory {
     string,
     readonly UseCase[]
   >;
+  readonly committedUsecasesByUnorderedPair: ReadonlyMap<
+    string,
+    readonly UseCase[]
+  >;
   readonly committedUsecasesBySubgraph: ReadonlyMap<number, readonly UseCase[]>;
   readonly deletedDataLinks: readonly DataLink[];
   readonly deletedControlLinks: readonly ControlLink[];
@@ -263,6 +297,7 @@ export interface TopologyImpactInventory {
   readonly survivingControlLinkPairKeys: ReadonlySet<string>;
   readonly routableAdjacency: ReadonlyMap<number, readonly DirectedEdge[]>;
   readonly routingSubgraphsById: ReadonlyMap<number, RoutingSubgraph>;
+  readonly effectiveMdfSubgraphSystemIds: ReadonlySet<number>;
   readonly committedDataLinksByDirectedPair: ReadonlyMap<
     string,
     readonly DataLink[]

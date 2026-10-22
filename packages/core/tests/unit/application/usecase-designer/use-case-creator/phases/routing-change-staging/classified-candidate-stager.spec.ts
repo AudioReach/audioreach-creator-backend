@@ -38,6 +38,7 @@ describe('ClassifiedCandidateStager', () => {
         [20, {keyValues: []}],
       ]),
       gkv: [{keyDefSystemId: 1, valueDefSystemId: 101}],
+      controlLinkPairs: [],
     };
 
     const result = await new ClassifiedCandidateStager().stage({
@@ -56,6 +57,7 @@ describe('ClassifiedCandidateStager', () => {
         activeManualUsecaseEdits: [],
         graphSnapshot: {
           subgraphs: [],
+          mdf: {effective: new Set(), deleted: new Set()},
           routableDataLinks: [
             {
               systemId: 5,

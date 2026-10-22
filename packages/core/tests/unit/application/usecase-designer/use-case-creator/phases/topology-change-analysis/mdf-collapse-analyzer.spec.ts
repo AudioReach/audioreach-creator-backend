@@ -198,6 +198,26 @@ describe('MdfCollapseAnalyzer', () => {
     ).toHaveLength(1);
   });
 
+  it('still collapses when the committed UseCase holds only a control-link pair between the boundaries', () => {
+    const committedWithControlPair = usecase(
+      6,
+      [A, MDF1, B],
+      [
+        [A, MDF1],
+        [MDF1, B],
+        [A, B],
+      ],
+    );
+
+    const rewrites = analyzer.analyze(
+      committedWithControlPair,
+      singleHopInventory(),
+    );
+
+    expect(rewrites).toHaveLength(1);
+    expect(rewrites[0]?.kind).toBe(MDF_TOPOLOGY_REWRITE_KIND.MdfToDirect);
+  });
+
   it.each([
     {
       name: 'there is no session-added direct data link',
@@ -254,7 +274,18 @@ describe('MdfCollapseAnalyzer', () => {
       ],
     );
 
-    expect(analyzer.analyze(branch, singleHopInventory())).toEqual([]);
+    expect(
+      analyzer.analyze(
+        branch,
+        singleHopInventory({
+          committedDataLinksByDirectedPair: new Map([
+            [directedKey(A, MDF1), [dataLink(101, A, MDF1)]],
+            [directedKey(MDF1, B), [dataLink(102, MDF1, B)]],
+            [directedKey(MDF1, c), [dataLink(103, MDF1, c)]],
+          ]),
+        }),
+      ),
+    ).toEqual([]);
   });
 
   it('rejects a chain whose intermediate is not a deleted MDF member', () => {

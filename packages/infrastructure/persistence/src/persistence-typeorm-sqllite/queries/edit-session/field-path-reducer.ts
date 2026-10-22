@@ -52,7 +52,7 @@ export function getFieldCoverage(
     );
   }
 
-  // Writer intents use object payloads for every field path. Keeping the
+  // Writer mutations use object payloads for every field path. Keeping the
   // scalar fallback makes this helper safe for older rows read by the overlay.
   const fields =
     fieldPath !== null && fieldPath !== '$' && !isObjectPayload(newValue)

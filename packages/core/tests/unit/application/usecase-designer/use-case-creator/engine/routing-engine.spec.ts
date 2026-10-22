@@ -38,9 +38,8 @@ const input = createAutoRoutingInput({
   },
   selectedUsecases: [],
   graphSnapshot: {
-    subgraphs: [
-      {subgraph: {systemId: 10} as never, requestedSgkvs: [], isMdf: false},
-    ],
+    subgraphs: [{subgraph: {systemId: 10} as never, requestedSgkvs: []}],
+    mdf: {effective: new Set(), deleted: new Set()},
     routableDataLinks: [],
     routableControlLinks: [],
     overlayDataLinks: [],
@@ -114,9 +113,10 @@ describe('RoutingEngine', () => {
       selectedUsecases: [],
       graphSnapshot: {
         subgraphs: [
-          {subgraph: {systemId: 1} as never, requestedSgkvs: [], isMdf: false},
-          {subgraph: {systemId: 2} as never, requestedSgkvs: [], isMdf: false},
+          {subgraph: {systemId: 1} as never, requestedSgkvs: []},
+          {subgraph: {systemId: 2} as never, requestedSgkvs: []},
         ],
+        mdf: {effective: new Set(), deleted: new Set()},
         routableDataLinks: [
           {
             systemId: 1,
@@ -416,8 +416,8 @@ describe('RoutingEngine', () => {
         subgraphs: [10, 15, 20, 30, 40].map(systemId => ({
           subgraph: {systemId} as never,
           requestedSgkvs: [],
-          isMdf: systemId === 15,
         })),
+        mdf: {effective: new Set([15]), deleted: new Set()},
         routableDataLinks: [],
         routableControlLinks: [],
         overlayDataLinks: [],
@@ -440,6 +440,7 @@ describe('RoutingEngine', () => {
         [40, {keyValues: []}],
       ]),
       gkv: [{keyDefSystemId: 1100, valueDefSystemId: 100}],
+      controlLinkPairs: [],
     };
     const projectedExisting = new UseCase({
       systemId: 101,

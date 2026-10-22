@@ -80,14 +80,16 @@ function createFixture(options?: {
       subgraphs: existingIds.map(systemId => ({
         subgraph: {systemId} as never,
         requestedSgkvs: options?.requestedSgkvsBySubgraph?.[systemId] ?? [],
-        isMdf: options?.mdfSubgraphIds?.includes(systemId) ?? false,
       })),
       routableDataLinks: dataLinks,
       routableControlLinks: controlLinks,
       overlayDataLinks: dataLinks,
       overlayControlLinks: controlLinks,
       committedUsecases: options?.committedUsecases ?? [],
-      mdfSubgraphSystemIds: new Set(options?.mdfSubgraphIds ?? []),
+      mdf: {
+        effective: new Set(options?.mdfSubgraphIds ?? []),
+        deleted: new Set(),
+      },
       sessionEdits: {
         ...emptyGraphEdits(),
         deletedDataLinks: options?.deletedDataLinks ?? [],

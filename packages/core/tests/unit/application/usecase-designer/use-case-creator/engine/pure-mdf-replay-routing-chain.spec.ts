@@ -29,6 +29,7 @@ function candidateWithCollision(
       members.map(systemId => [systemId, {keyValues: []}]),
     ),
     gkv: [{keyDefSystemId: 1, valueDefSystemId: 100}],
+    controlLinkPairs: [],
   };
 }
 

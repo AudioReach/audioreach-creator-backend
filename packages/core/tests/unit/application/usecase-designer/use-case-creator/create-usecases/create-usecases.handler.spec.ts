@@ -14,6 +14,7 @@ import {CreateUsecasesHandler} from '../../../../../../src/application/usecase-d
 function snapshot(): RoutingGraphSnapshot {
   return {
     subgraphs: [],
+    mdf: {effective: new Set(), deleted: new Set()},
     routableDataLinks: [],
     routableControlLinks: [],
     overlayDataLinks: [],

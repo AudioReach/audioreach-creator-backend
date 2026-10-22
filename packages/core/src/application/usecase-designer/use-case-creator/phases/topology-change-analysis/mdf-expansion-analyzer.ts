@@ -62,7 +62,10 @@ function canVisitCandidate(
   const nextId = candidate.destSubgraphSystemId;
   if (visitedDestinations.has(nextId) || visited.has(nextId)) return false;
   if (nextId === destinationId) return true;
-  return inventory.routingSubgraphsById.get(nextId)?.isMdf === true;
+  return (
+    inventory.routingSubgraphsById.has(nextId) &&
+    inventory.effectiveMdfSubgraphSystemIds.has(nextId)
+  );
 }
 
 function findStrictMdfPath(

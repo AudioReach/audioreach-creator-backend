@@ -15,8 +15,12 @@ import {
   type ManualUsecaseCandidate,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {ClassificationPhase} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/classification/classification.phase.js';
+import type {SubgraphPair} from '../../../../../../src/application/ports/persistence/repositories/shared/links-for-pair.js';
 
-function candidate(path: number[]): AutoUsecaseCandidate {
+function candidate(
+  path: number[],
+  controlLinkPairs: readonly SubgraphPair[] = [],
+): AutoUsecaseCandidate {
   return {
     kind: USECASE_CANDIDATE_KIND.Auto,
     path: {
@@ -26,12 +30,14 @@ function candidate(path: number[]): AutoUsecaseCandidate {
     },
     sgkvAssignment: new Map(path.map(systemId => [systemId, {keyValues: []}])),
     gkv: [{keyDefSystemId: 1, valueDefSystemId: 100}],
+    controlLinkPairs,
   };
 }
 
 function manualCandidate(
   members: number[],
   pairs: Array<[number, number]>,
+  controlLinkPairs: readonly SubgraphPair[] = [],
 ): ManualUsecaseCandidate {
   return {
     kind: USECASE_CANDIDATE_KIND.Manual,
@@ -49,6 +55,7 @@ function manualCandidate(
       members.map(systemId => [systemId, {keyValues: []}]),
     ),
     gkv: [{keyDefSystemId: 1, valueDefSystemId: 100}],
+    controlLinkPairs,
   };
 }
 
@@ -68,13 +75,13 @@ function makeContext(
     },
     graphSnapshot: {
       subgraphs: [
-        {subgraph: {systemId: 10, sgkvs: []}, requestedSgkvs: [], isMdf: false},
+        {subgraph: {systemId: 10, sgkvs: []}, requestedSgkvs: []},
         {
           subgraph: {systemId: 20, sgkvs: [{}]},
           requestedSgkvs: [],
-          isMdf: false,
         },
       ],
+      mdf: {effective: new Set(), deleted: new Set()},
       routableDataLinks: [],
       routableControlLinks: [],
       overlayDataLinks: [
@@ -173,7 +180,6 @@ describe('OrphanValidationPhase', () => {
     snapshot.subgraphs = [1, 2, 3, 4, 5, 6].map(systemId => ({
       subgraph: {systemId, sgkvs: []},
       requestedSgkvs: [],
-      isMdf: false,
     }));
     snapshot.committedUsecases = [committed];
     snapshot.overlayDataLinks = [
@@ -275,8 +281,8 @@ describe('OrphanValidationPhase', () => {
     snapshot.subgraphs = [10, 15, 20].map(systemId => ({
       subgraph: {systemId, sgkvs: []},
       requestedSgkvs: [],
-      isMdf: systemId === 15,
     }));
+    snapshot.mdf = {effective: new Set([15]), deleted: new Set()};
     snapshot.committedUsecases = [committed];
     snapshot.overlayDataLinks = [
       {systemId: 301, sourceSubgraphSystemId: 10, destSubgraphSystemId: 15},
@@ -334,8 +340,8 @@ describe('OrphanValidationPhase', () => {
     >;
     snapshot.subgraphs = [
       ...(snapshot.subgraphs as readonly unknown[]),
-      {subgraph: {systemId: 98, sgkvs: []}, requestedSgkvs: [], isMdf: false},
-      {subgraph: {systemId: 99, sgkvs: []}, requestedSgkvs: [], isMdf: false},
+      {subgraph: {systemId: 98, sgkvs: []}, requestedSgkvs: []},
+      {subgraph: {systemId: 99, sgkvs: []}, requestedSgkvs: []},
     ];
     snapshot.overlayDataLinks = [
       ...(snapshot.overlayDataLinks as readonly unknown[]),
@@ -395,7 +401,6 @@ describe('OrphanValidationPhase', () => {
     snapshot.subgraphs = [10, 20, 30].map(systemId => ({
       subgraph: {systemId, sgkvs: systemId === 30 ? [{}] : []},
       requestedSgkvs: [],
-      isMdf: false,
     }));
     snapshot.committedUsecases = [];
     snapshot.overlayDataLinks = [

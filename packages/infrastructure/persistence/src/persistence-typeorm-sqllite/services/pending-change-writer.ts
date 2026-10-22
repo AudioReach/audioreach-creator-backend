@@ -17,7 +17,7 @@ import type {EditActionsQueryService} from '../queries/edit-session/edit-actions
 import {
   editActionTargetKeyString,
   reducePendingTarget,
-  type EditActionMutationIntent,
+  type EditActionMutation,
   type EditActionMutationPlan,
   type EditActionTargetKey,
 } from './pending-target-reducer.js';
@@ -31,7 +31,7 @@ export type WriteDeltaSpec = {
   /** null / omitted = accumulator mode; string = per-slot mode. */
   fieldGroup?: string;
   linkedEntityGroupId?: string;
-  /** Defer the ordered intent until the owning UoW flushes. */
+  /** Defer the ordered mutation until the owning UoW flushes. */
   cache?: boolean;
   source?: Source;
   /** Honored only when source = DIFF_TOOL. */
@@ -90,14 +90,14 @@ export class PendingChangeWriter {
     sessionId: number,
     manager: EntityManager,
   ): Promise<number | null> {
-    const intent = this.deltaIntent(
+    const mutation = this.deltaIntent(
       spec,
       // An empty delta is a structural marker, not an empty accumulator.
       spec.fieldGroup ?? (Object.keys(spec.delta).length === 0 ? '$' : null),
     );
     return this.acceptIntent(
       this.targetKey(spec, sessionId),
-      intent,
+      mutation,
       spec.cache === true,
       manager,
     );
@@ -112,7 +112,7 @@ export class PendingChangeWriter {
       string,
       {
         target: EditActionTargetKey;
-        intents: EditActionMutationIntent[];
+        mutations: EditActionMutation[];
         cache: boolean;
       }
     >();
@@ -120,8 +120,8 @@ export class PendingChangeWriter {
     for (const spec of specs) {
       const target = this.targetKey(spec, sessionId);
       const key = editActionTargetKeyString(target);
-      const entry = grouped.get(key) ?? {target, intents: [], cache: false};
-      entry.intents.push(this.deltaIntent(spec, spec.fieldGroup ?? null));
+      const entry = grouped.get(key) ?? {target, mutations: [], cache: false};
+      entry.mutations.push(this.deltaIntent(spec, spec.fieldGroup ?? null));
       entry.cache ||=
         spec.cache === true || this.pendingChangeCache.has(target);
       grouped.set(key, entry);
@@ -135,11 +135,11 @@ export class PendingChangeWriter {
     );
     for (const entry of entries) {
       if (entry.cache) {
-        for (const intent of entry.intents) {
-          this.pendingChangeCache.enqueue(entry.target, intent);
+        for (const mutation of entry.mutations) {
+          this.pendingChangeCache.enqueue(entry.target, mutation);
         }
       } else {
-        await this.applyImmediate(entry.target, entry.intents, manager);
+        await this.applyImmediate(entry.target, entry.mutations, manager);
       }
     }
   }
@@ -212,7 +212,7 @@ export class PendingChangeWriter {
             editActionTargetKeyString(entry.target),
           ) ?? {exists: false},
         },
-        entry.intents,
+        entry.mutations,
       ),
     }));
 
@@ -245,20 +245,20 @@ export class PendingChangeWriter {
 
   private async acceptIntent(
     target: EditActionTargetKey,
-    intent: EditActionMutationIntent,
+    mutation: EditActionMutation,
     requestedCache: boolean,
     manager: EntityManager,
   ): Promise<number | null> {
     if (requestedCache || this.pendingChangeCache.has(target)) {
-      this.pendingChangeCache.enqueue(target, intent);
+      this.pendingChangeCache.enqueue(target, mutation);
       return null;
     }
-    return this.applyImmediate(target, [intent], manager);
+    return this.applyImmediate(target, [mutation], manager);
   }
 
   private async applyImmediate(
     target: EditActionTargetKey,
-    intents: readonly EditActionMutationIntent[],
+    mutations: readonly EditActionMutation[],
     manager: EntityManager,
   ): Promise<number | null> {
     const rows = await this.queryService.getAllByTargetKey(target, manager);
@@ -268,7 +268,7 @@ export class PendingChangeWriter {
     ) ?? {exists: false};
     const plan = reducePendingTarget(
       {target, committed, existingEditActionRows: rows},
-      intents,
+      mutations,
     );
     return this.executePlan(target, plan, manager);
   }
@@ -438,7 +438,7 @@ export class PendingChangeWriter {
   private deltaIntent(
     spec: WriteDeltaSpec,
     fieldPath: string | null,
-  ): Extract<EditActionMutationIntent, {kind: typeof CHANGE_OPERATION.Update}> {
+  ): Extract<EditActionMutation, {kind: typeof CHANGE_OPERATION.Update}> {
     const source = spec.source ?? SOURCE.Manual;
     return {
       kind: CHANGE_OPERATION.Update,

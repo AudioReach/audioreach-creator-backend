@@ -11,12 +11,14 @@ import {
 } from '../../../../../../src/application/usecase-designer/use-case-creator/shared/projected-usecase-topology.js';
 import {ROUTING_MODE} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
 import {
+  ROUTING_CLASSIFICATION_KIND,
   USECASE_TOPOLOGY_DECISION_KIND,
   USECASE_CANDIDATE_KIND,
   type AutoUsecaseCandidate,
   type ManualUsecaseCandidate,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {ClassificationPhase} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/classification/classification.phase.js';
+import type {SubgraphPair} from '../../../../../../src/application/ports/persistence/repositories/shared/links-for-pair.js';
 
 function input(
   committedUsecases: readonly UseCase[],
@@ -36,7 +38,7 @@ function input(
     },
     graphSnapshot: {
       subgraphs: [],
-      mdfSubgraphSystemIds: new Set(),
+      mdf: {effective: new Set(), deleted: new Set()},
       routableDataLinks: [],
       routableControlLinks: [],
       overlayDataLinks: [],
@@ -82,7 +84,10 @@ function input(
   return routingInput as never;
 }
 
-function candidate(path: number[]): AutoUsecaseCandidate {
+function candidate(
+  path: number[],
+  controlLinkPairs: readonly SubgraphPair[] = [],
+): AutoUsecaseCandidate {
   return {
     kind: USECASE_CANDIDATE_KIND.Auto,
     path: {
@@ -92,12 +97,14 @@ function candidate(path: number[]): AutoUsecaseCandidate {
     },
     sgkvAssignment: new Map(path.map(systemId => [systemId, {keyValues: []}])),
     gkv: [{keyDefSystemId: 1, valueDefSystemId: 100}],
+    controlLinkPairs,
   };
 }
 
 function manualCandidate(
   members: number[],
   pairs: Array<[number, number]>,
+  controlLinkPairs: readonly SubgraphPair[] = [],
 ): ManualUsecaseCandidate {
   return {
     kind: USECASE_CANDIDATE_KIND.Manual,
@@ -115,6 +122,7 @@ function manualCandidate(
       members.map(systemId => [systemId, {keyValues: []}]),
     ),
     gkv: [{keyDefSystemId: 1, valueDefSystemId: 100}],
+    controlLinkPairs,
   };
 }
 
@@ -217,6 +225,43 @@ describe('buildProjectedUsecaseTopology', () => {
       {sourceSubgraphSystemId: 30, destSubgraphSystemId: 10},
       {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
     ]);
+  });
+
+  it('projects an interior extension with the candidate control-link pair', () => {
+    const existing = new UseCase({
+      systemId: 100,
+      fileSystemId: 1,
+      keyVector: {valueSystemIds: [99]},
+      subgraphSystemIds: [10, 20, 30, 40],
+      subgraphPairs: [
+        {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+        {sourceSubgraphSystemId: 20, destSubgraphSystemId: 30},
+        {sourceSubgraphSystemId: 30, destSubgraphSystemId: 40},
+      ],
+    });
+    const context = new RoutingContext(input([existing]));
+    context.classifiedUcs.push({
+      kind: ROUTING_CLASSIFICATION_KIND.InteriorExtension,
+      existingUsecase: existing,
+      cancelPendingDelete: false,
+      candidate: {
+        kind: USECASE_CANDIDATE_KIND.Auto,
+        path: {
+          subgraphSystemIds: [10, 20, 30, 40],
+          termination: 'NATURAL_LEAF',
+          ecBoundaryLinkId: null,
+        },
+        sgkvAssignment: new Map(),
+        gkv: [{keyDefSystemId: 1, valueDefSystemId: 99}],
+        controlLinkPairs: [
+          {sourceSubgraphSystemId: 20, destSubgraphSystemId: 40},
+        ],
+      },
+    });
+
+    const topology = buildProjectedUsecaseTopology(context);
+
+    expect(topology.unorderedPairKeys.has('20>40')).toBe(true);
   });
 
   it.each([ROUTING_MODE.Auto, ROUTING_MODE.Manual])(

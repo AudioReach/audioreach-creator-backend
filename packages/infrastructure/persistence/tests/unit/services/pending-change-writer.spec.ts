@@ -233,7 +233,7 @@ describe('PendingChangeWriter', () => {
     );
   });
 
-  it('keeps cached intents when target loading fails', async () => {
+  it('keeps cached mutations when target loading fails', async () => {
     const cache = new PendingChangeCache();
     const queryService = makeQueryService();
     queryService.getAllByTargetKeys.mockRejectedValue(new Error('forced'));

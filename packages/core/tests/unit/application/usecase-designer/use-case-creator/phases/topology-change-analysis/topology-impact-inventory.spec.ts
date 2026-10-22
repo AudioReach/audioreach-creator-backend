@@ -42,14 +42,13 @@ function buildSnapshot(
 ) {
   return {
     subgraphs: [],
-    mdfSubgraphSystemIds: new Set<number>(),
+    mdf: {effective: new Set<number>(), deleted: new Set<number>()},
     routableDataLinks: [],
     routableControlLinks: [],
     overlayDataLinks: [],
     overlayControlLinks: [],
     committedUsecases: [],
     sessionEdits: emptyGraphEdits(),
-    deletedMdfSubgraphSystemIds: [] as number[],
     committedDataLinks: [] as never[],
     ...overrides,
   } as never;
@@ -127,7 +126,9 @@ describe('buildTopologyImpactInventory — committed evidence is independent of 
 describe('buildTopologyImpactInventory — deleted MDF SG IDs and committed UCs by MDF SG', () => {
   it('exposes deletedMdfSubgraphSystemIds from the snapshot', () => {
     const inventory = buildTopologyImpactInventory(
-      buildSnapshot({deletedMdfSubgraphSystemIds: [10, 20]}),
+      buildSnapshot({
+        mdf: {effective: new Set(), deleted: new Set([10, 20])},
+      }),
     );
 
     expect(inventory.deletedMdfSubgraphSystemIds).toEqual(new Set([10, 20]));
@@ -139,7 +140,7 @@ describe('buildTopologyImpactInventory — deleted MDF SG IDs and committed UCs 
     const inventory = buildTopologyImpactInventory(
       buildSnapshot({
         committedUsecases: [ucWithMdf, ucWithoutMdf],
-        deletedMdfSubgraphSystemIds: [10],
+        mdf: {effective: new Set(), deleted: new Set([10])},
       }),
     );
 
@@ -148,5 +149,19 @@ describe('buildTopologyImpactInventory — deleted MDF SG IDs and committed UCs 
     ]);
     expect(inventory.committedUsecasesByMdfSubgraph.get(30)).toBeUndefined();
     expect(inventory.committedUsecasesByMdfSubgraph.get(40)).toBeUndefined();
+  });
+});
+
+describe('buildTopologyImpactInventory — committed UCs by unordered pair', () => {
+  it('indexes committed UseCases by unordered pair endpoints', () => {
+    const committedUsecase = usecase(100, [20, 40], [{src: 20, dst: 40}]);
+
+    const inventory = buildTopologyImpactInventory(
+      buildSnapshot({committedUsecases: [committedUsecase]}),
+    );
+
+    expect(inventory.committedUsecasesByUnorderedPair.get('20>40')).toEqual([
+      committedUsecase,
+    ]);
   });
 });

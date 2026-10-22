@@ -22,7 +22,7 @@ import {
   type UsecaseTopologyDecision,
 } from '../contracts/routing-state.js';
 import {
-  candidateDirectedPairs,
+  candidatePairs,
   candidateSubgraphSystemIds,
   directedPairKey,
   unorderedPairKey,
@@ -163,7 +163,7 @@ function applyInteriorExtension(
     withMergedTopology(
       current,
       candidateSubgraphSystemIds(classification.candidate),
-      candidateDirectedPairs(classification.candidate),
+      candidatePairs(classification.candidate),
     ),
   );
 }
@@ -301,9 +301,14 @@ function applyFinalizedTopologyChanges(
     applyIslandTransition(projected, transition);
 }
 
-export function buildProjectedUsecaseTopology(
+/**
+ * Effective UseCases before this routing run's classifications are applied:
+ * committed UseCases, UseCases materialized from active manual edits, and
+ * finalized topology changes.
+ */
+export function preExistingUsecases(
   context: RoutingContext,
-): ProjectedUsecaseTopology {
+): readonly UseCase[] {
   const projected = new Map<number, UseCase>();
   for (const usecase of context.input.graphSnapshot.committedUsecases)
     projected.set(usecase.systemId, cloneUsecase(usecase));
@@ -314,12 +319,21 @@ export function buildProjectedUsecaseTopology(
   }
 
   applyFinalizedTopologyChanges(context, projected);
+  return [...projected.values()];
+}
+
+export function buildProjectedUsecaseTopology(
+  context: RoutingContext,
+): ProjectedUsecaseTopology {
+  const projected = new Map(
+    preExistingUsecases(context).map(usecase => [usecase.systemId, usecase]),
+  );
   for (const classification of context.classifiedUcs)
     applyClassifiedUsecase(
       projected,
       classification,
       context.input.fileSystemId,
-      candidateDirectedPairs(classification.candidate),
+      candidatePairs(classification.candidate),
     );
 
   const usecases = [...projected.values()].sort(

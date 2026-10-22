@@ -89,11 +89,18 @@ export function candidateSubgraphSystemIds(
     : candidate.path.subgraphSystemIds;
 }
 
-export function candidateDirectedPairs(
+/**
+ * Pairs backed by data links. These are the routing topology: DFS, cycle
+ * detection, route endpoints, UseCase type, MDF analysis, and EC bridge
+ * suppression all read this and never the union.
+ */
+export function candidateDataLinkPairs(
   candidate: UsecaseCandidate,
 ): readonly SubgraphPair[] {
   if (candidate.kind === USECASE_CANDIDATE_KIND.Manual) {
-    return candidate.topology.pairs.map(item => item.pair);
+    return candidate.topology.pairs
+      .filter(item => item.dataLinks.length > 0)
+      .map(item => item.pair);
   }
 
   // Routed candidates store a path of vertices; persisted UseCases store its edges.
@@ -109,6 +116,28 @@ export function candidateDirectedPairs(
     });
   }
   return pairs;
+}
+
+/**
+ * Every pair the candidate would persist: data-link pairs plus the control-link
+ * pairs no data-link pair already covers. Consumers that compare against or
+ * write `UseCase.subgraphPairs` read this, because that column is the union.
+ */
+export function candidatePairs(
+  candidate: UsecaseCandidate,
+): readonly SubgraphPair[] {
+  const dataLinkPairs = candidateDataLinkPairs(candidate);
+  const covered = new Set(dataLinkPairs.map(pair => unorderedPairKeyOf(pair)));
+  const additions: SubgraphPair[] = [];
+  for (const pair of candidate.controlLinkPairs) {
+    const key = unorderedPairKeyOf(pair);
+    if (covered.has(key)) continue;
+    covered.add(key);
+    additions.push(pair);
+  }
+  return additions.length === 0
+    ? dataLinkPairs
+    : [...dataLinkPairs, ...additions];
 }
 
 export function deriveStartEndSets(
@@ -167,7 +196,7 @@ export function exactTopologyEquals(
     canonicalNumericSetKey(candidateSubgraphSystemIds(candidate)) ===
       canonicalNumericSetKey(existingUsecase.subgraphSystemIds) &&
     sameDirectedPairs(
-      candidateDirectedPairs(candidate),
+      candidatePairs(candidate),
       existingUsecase.subgraphPairs,
     ) &&
     gkvValueIdKey(candidate.gkv) ===
@@ -191,8 +220,8 @@ export function addedInteriorSubgraphIds(
     return [];
   }
 
-  const candidatePairs = candidateDirectedPairs(candidate);
-  const candidateEnds = deriveStartEndSets(candidatePairs);
+  const candidateTopologyPairs = candidatePairs(candidate);
+  const candidateEnds = deriveStartEndSets(candidateTopologyPairs);
   const existingEnds = deriveStartEndSets(existingUsecase.subgraphPairs);
   if (
     !sameSet(candidateEnds.startSystemIds, existingEnds.startSystemIds) ||

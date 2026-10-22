@@ -50,7 +50,7 @@ export class PreValidationPhase {
   ) {}
 
   run(context: RoutingContext): Result<void> {
-    const {subgraphs, routableDataLinks} = context.input.graphSnapshot;
+    const {subgraphs, routableDataLinks, mdf} = context.input.graphSnapshot;
     const subgraphIds = new Set(subgraphs.map(item => item.subgraph.systemId));
     const integrityIssues = routableDataLinks
       .filter(
@@ -70,7 +70,7 @@ export class PreValidationPhase {
     const mdfIssues = subgraphs
       .filter(
         item =>
-          item.isMdf &&
+          mdf.effective.has(item.subgraph.systemId) &&
           item.requestedSgkvs.some(
             valueDefinitionIds => valueDefinitionIds.length > 0,
           ),
@@ -90,10 +90,7 @@ export class PreValidationPhase {
       context.input.activeManualUsecaseEdits,
     ).flatMap(usecase => {
       const ecLinks = usecaseEcLinks(usecase, context);
-      const logicalConnections = logicalEcConnections(
-        ecLinks,
-        context.input.graphSnapshot.mdfSubgraphSystemIds,
-      );
+      const logicalConnections = logicalEcConnections(ecLinks, mdf.effective);
       return logicalConnections.length <= 1
         ? []
         : [

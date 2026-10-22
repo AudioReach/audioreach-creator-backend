@@ -12,7 +12,6 @@ import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 import {
   createManualRoutingInput,
-  deriveRoutingScope,
   findDuplicateActiveSubgraphSystemIds,
 } from '../contracts/routing-input.js';
 import type {RoutingOutcome} from '../contracts/routing-outcome.js';
@@ -20,9 +19,9 @@ import {createRoutingEngine} from '../engine/create-routing-engine.js';
 import type {RoutingEngine} from '../engine/routing-engine.js';
 import {ManualPairDiscoveryService} from './manual-pair-discovery.service.js';
 import {readRoutingGraphEdits} from '../shared/read-routing-graph-edits.js';
-import {validateRoutingAdditionClosure} from '../shared/validate-routing-addition-closure.js';
 import {RoutingGraphSnapshotBuilder} from '../services/routing-graph-snapshot-builder.js';
 import {SubsystemLinkResolutionService} from '../services/subsystem-link-resolution.service.js';
+import {prepareRoutingSnapshot} from '../services/prepare-routing-snapshot.js';
 import {CreateManualUsecasesCommand} from './create-manual-usecases.command.js';
 
 /**
@@ -78,43 +77,24 @@ export class CreateManualUsecasesHandler implements CommandHandler<
           command.fileSystemId,
           selection.selectedUsecaseSystemIds,
         );
-      const scope = deriveRoutingScope(
-        selectedUsecases,
-        selection.activeSubgraphs,
-        selection.excludedSubgraphSystemIds,
-        graphEdits.deletedSgs.map(subgraph => subgraph.systemId),
-      );
-      const additionIssues = validateRoutingAdditionClosure(
-        selection,
-        graphEdits,
-      );
-      if (additionIssues.length > 0)
-        throw new DomainRuleViolationException(additionIssues);
-      if (scope.missingSelectedScopeSubgraphs.size > 0)
-        throw new DomainRuleViolationException([
-          RoutingIssueFactory.selectedScopeIncomplete(
-            scope.missingSelectedScopeSubgraphs,
-          ),
-        ]);
-      const snapshot = await this.snapshotBuilder.build(
+
+      const graphSnapshot = await prepareRoutingSnapshot(
         {
           fileSystemId: command.fileSystemId,
-          effectiveActiveSubgraphs: scope.effectiveActiveSubgraphs,
-          excludedDataLinkSystemIds: selection.excludedDataLinkSystemIds,
-          excludedControlLinkSystemIds: selection.excludedControlLinkSystemIds,
-          sessionEdits: graphEdits,
+          selection,
+          selectedUsecases,
+          graphEdits,
           activeManualUsecaseEdits,
         },
+        this.snapshotBuilder,
         this.uow,
       );
-      if (snapshot.kind === RESULT_KIND.Fail)
-        throw new DomainRuleViolationException(snapshot.issues);
       const topology = this.pairDiscovery.discover({
         selectedUsecases,
-        subgraphs: snapshot.data.subgraphs,
-        dataLinks: snapshot.data.routableDataLinks,
-        overlayDataLinks: snapshot.data.overlayDataLinks,
-        controlLinks: snapshot.data.routableControlLinks,
+        subgraphs: graphSnapshot.subgraphs,
+        dataLinks: graphSnapshot.routableDataLinks,
+        overlayDataLinks: graphSnapshot.overlayDataLinks,
+        controlLinks: graphSnapshot.routableControlLinks,
       });
       if (topology.kind === RESULT_KIND.Fail)
         throw new DomainRuleViolationException(topology.issues);
@@ -122,7 +102,7 @@ export class CreateManualUsecasesHandler implements CommandHandler<
         fileSystemId: command.fileSystemId,
         selection,
         selectedUsecases,
-        graphSnapshot: snapshot.data,
+        graphSnapshot,
         manualTopology: topology.data,
         activeManualUsecaseEdits,
       });

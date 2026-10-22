@@ -83,6 +83,7 @@ export interface UsecaseStructuralChange {
 /** Phase 2 assigns exactly one of these outcomes to each impacted committed UseCase. */
 export const USECASE_TOPOLOGY_DECISION_KIND = {
   MdfNormalization: 'MDF_NORMALIZATION',
+  ControlPairRemoval: 'CONTROL_PAIR_REMOVAL',
   Preserve: 'PRESERVE',
   TransitionToIsland: 'TRANSITION_TO_ISLAND',
   DeleteOrReconstruct: 'DELETE_OR_RECONSTRUCT',
@@ -105,6 +106,12 @@ export interface PreserveUsecaseDecision {
   readonly kind: typeof USECASE_TOPOLOGY_DECISION_KIND.Preserve;
   readonly usecase: UseCase;
   readonly droppedSubgraphSystemIds: readonly number[];
+}
+
+export interface ControlPairRemovalDecision {
+  readonly kind: typeof USECASE_TOPOLOGY_DECISION_KIND.ControlPairRemoval;
+  readonly usecase: UseCase;
+  readonly removedPairs: readonly SubgraphPair[];
 }
 
 /**
@@ -131,6 +138,7 @@ export interface DeleteOrReconstructDecision {
 
 export type UsecaseTopologyDecision =
   | MdfNormalizationDecision
+  | ControlPairRemovalDecision
   | PreserveUsecaseDecision
   | TransitionToIslandDecision
   | DeleteOrReconstructDecision;
@@ -208,6 +216,13 @@ export interface DfsPath {
 interface UsecaseCandidateBase {
   readonly sgkvAssignment: ReadonlyMap<number, SgkvInstance>;
   readonly gkv: readonly KvPair[];
+  /**
+   * Canonical pairs that exist only to record an eligible intra-usecase control
+   * link between two members. Never a routing edge: excluded from DFS, cycle
+   * detection, route endpoints, UseCase type, MDF analysis, and EC bridge
+   * suppression. Derived once in CombinationExpansionPhase.
+   */
+  readonly controlLinkPairs: readonly SubgraphPair[];
 }
 
 export const USECASE_CANDIDATE_KIND = {

@@ -22,7 +22,6 @@ const FILE_ID = 1;
 function makeSubgraph(
   systemId: number,
   requestedSgkvs: readonly (readonly number[])[],
-  isMdf = false,
 ): RoutingGraphSnapshot['subgraphs'][number] {
   return {
     subgraph: new Subgraph({
@@ -33,7 +32,6 @@ function makeSubgraph(
       fileSystemId: FILE_ID,
     }),
     requestedSgkvs,
-    isMdf,
   };
 }
 
@@ -54,6 +52,7 @@ function makeUsecase(
 function makeContext(
   subgraphs: readonly RoutingGraphSnapshot['subgraphs'][number][],
   selectedUsecases: readonly UseCase[] = [],
+  mdfSubgraphSystemIds: readonly number[] = [],
 ): RoutingContext {
   return new RoutingContext(
     createAutoRoutingInput({
@@ -73,18 +72,16 @@ function makeContext(
       selectedUsecases,
       graphSnapshot: {
         subgraphs,
-        mdfSubgraphSystemIds: new Set(
-          subgraphs
-            .filter(subgraph => subgraph.isMdf)
-            .map(subgraph => subgraph.subgraph.systemId),
-        ),
+        mdf: {
+          effective: new Set(mdfSubgraphSystemIds),
+          deleted: new Set(),
+        },
         routableDataLinks: [],
         routableControlLinks: [],
         overlayDataLinks: [],
         overlayControlLinks: [],
         committedUsecases: [],
         sessionEdits: emptyGraphEdits(),
-        deletedMdfSubgraphSystemIds: [],
         committedDataLinks: [],
       },
       activeManualUsecaseEdits: [],
@@ -255,7 +252,7 @@ describe('KvResolutionPhase', () => {
       ],
       resolved: [],
     });
-    const context = makeContext([makeSubgraph(10, [], true)]);
+    const context = makeContext([makeSubgraph(10, [])], [], [10]);
 
     const result = await new KvResolutionPhase().run(context, repository);
 
@@ -267,7 +264,7 @@ describe('KvResolutionPhase', () => {
   describe('MDF canonicalization (spec §11)', () => {
     it('MDF [[]] publishes exactly [{keyValues: []}]', async () => {
       const repository = createRepository({baseline: [], resolved: []});
-      const context = makeContext([makeSubgraph(10, [[]], true)]);
+      const context = makeContext([makeSubgraph(10, [[]])], [], [10]);
 
       const result = await new KvResolutionPhase().run(context, repository);
 
@@ -277,7 +274,7 @@ describe('KvResolutionPhase', () => {
 
     it('MDF [[], []] publishes exactly one [{keyValues: []}], not two', async () => {
       const repository = createRepository({baseline: [], resolved: []});
-      const context = makeContext([makeSubgraph(10, [[], []], true)]);
+      const context = makeContext([makeSubgraph(10, [[], []])], [], [10]);
 
       const result = await new KvResolutionPhase().run(context, repository);
 
@@ -287,9 +284,11 @@ describe('KvResolutionPhase', () => {
 
     it('MDF with five empty alternatives publishes exactly one [{keyValues: []}]', async () => {
       const repository = createRepository({baseline: [], resolved: []});
-      const context = makeContext([
-        makeSubgraph(10, [[], [], [], [], []], true),
-      ]);
+      const context = makeContext(
+        [makeSubgraph(10, [[], [], [], [], []])],
+        [],
+        [10],
+      );
 
       const result = await new KvResolutionPhase().run(context, repository);
 
@@ -300,10 +299,10 @@ describe('KvResolutionPhase', () => {
     it('MDF with non-empty values returns Ok with [{keyValues: []}] — Phase 1 owns ARC-ROUTING-MDF-01', async () => {
       // Phase 1 issues ARC-ROUTING-MDF-01 before Phase 4 runs for non-empty MDF
       // selections; Phase 4 is never called with non-empty MDF in production.
-      // This test confirms the Phase 4 isMdf branch short-circuits the value-resolution
+      // This test confirms the Phase 4 MDF branch short-circuits the value-resolution
       // loop and emits no unresolved-value issue of its own.
       const repository = createRepository({baseline: [], resolved: []});
-      const context = makeContext([makeSubgraph(10, [[101, 102]], true)]);
+      const context = makeContext([makeSubgraph(10, [[101, 102]])], [], [10]);
 
       const result = await new KvResolutionPhase().run(context, repository);
 
@@ -316,10 +315,11 @@ describe('KvResolutionPhase', () => {
         baseline: [],
         resolved: [{keyDefSystemId: 501, valueDefSystemId: 101}],
       });
-      const context = makeContext([
-        makeSubgraph(10, [[], []], true),
-        makeSubgraph(20, [[101]], false),
-      ]);
+      const context = makeContext(
+        [makeSubgraph(10, [[], []]), makeSubgraph(20, [[101]])],
+        [],
+        [10],
+      );
 
       const result = await new KvResolutionPhase().run(context, repository);
 
@@ -332,10 +332,11 @@ describe('KvResolutionPhase', () => {
 
     it('MDF [[], []] mixed with non-MDF [] both publish [{keyValues: []}] independently', async () => {
       const repository = createRepository({baseline: [], resolved: []});
-      const context = makeContext([
-        makeSubgraph(10, [[], []], true),
-        makeSubgraph(20, [], false),
-      ]);
+      const context = makeContext(
+        [makeSubgraph(10, [[], []]), makeSubgraph(20, [])],
+        [],
+        [10],
+      );
 
       const result = await new KvResolutionPhase().run(context, repository);
 

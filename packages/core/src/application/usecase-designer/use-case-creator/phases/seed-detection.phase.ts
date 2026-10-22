@@ -58,14 +58,8 @@ function addKvChangeSeeds(
   context: RoutingContext,
 ): void {
   if (context.kvResolutions === null) return;
-  const routingSubgraphsById = new Map(
-    context.input.graphSnapshot.subgraphs.map(entry => [
-      entry.subgraph.systemId,
-      entry,
-    ]),
-  );
   for (const [sgSystemId, apiInstances] of context.kvResolutions.perSg) {
-    if (routingSubgraphsById.get(sgSystemId)?.isMdf === true) continue;
+    if (context.input.graphSnapshot.mdf.effective.has(sgSystemId)) continue;
     const baselineInstances =
       context.kvResolutions.ucFilteredBaseline.get(sgSystemId) ?? [];
     const apiSet = canonicalInstanceSet(apiInstances);

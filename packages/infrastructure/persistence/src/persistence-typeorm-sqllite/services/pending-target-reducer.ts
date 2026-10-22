@@ -32,7 +32,7 @@ export type EditActionTargetKey = {
 };
 
 /** A mutation submitted by a writer before persistence planning. */
-export type EditActionMutationIntent =
+export type EditActionMutation =
   | {
       kind: typeof CHANGE_OPERATION.Create;
       aggregateId: number;
@@ -132,7 +132,7 @@ export function editActionTargetKeyString(target: EditActionTargetKey): string {
 }
 
 /**
- * Temporary reducer row while ordered intents are replayed. Existing rows
+ * Temporary reducer row while ordered mutations are applied. Existing rows
  * retain a database changeId; inserted rows receive one only when persisted.
  */
 type ReducerWorkingRow =
@@ -165,7 +165,7 @@ type ReducerWorkingRowCoverage = {
 };
 
 /**
- * Replays ordered mutation intents into a pure current-state projection.
+ * Applies ordered mutations to a pure current-state projection.
  *
  * Existing rows are never mutated. The working projection carries clones of
  * existing rows and reducer-local inserts, then diffs that projection against
@@ -175,10 +175,10 @@ export function reducePendingTarget(
   snapshot: EditActionTargetSnapshot,
   /**
    * Ordered mutations for the target in `snapshot`. Immediate writes normally
-   * provide one intent; cached and batched writes may provide several intents
-   * for the same target so they can be replayed by one reducer path.
+   * provide one mutation; cached and batched writes may provide several
+   * mutations for the same target through one reducer path.
    */
-  intents: readonly EditActionMutationIntent[],
+  mutations: readonly EditActionMutation[],
 ): EditActionMutationPlan {
   validateSnapshot(snapshot);
 
@@ -189,7 +189,7 @@ export function reducePendingTarget(
     kind: REDUCER_WORKING_ROW_KIND.Existing,
     row: cloneRow(row),
   }));
-  const replayState = replayIntents(snapshot, intents, working);
+  const replayState = applyIntents(snapshot, mutations, working);
 
   validateWorkingState(snapshot.committed.exists, working);
 
@@ -262,9 +262,9 @@ function isInsertedWorkingRow(
   return current.kind === REDUCER_WORKING_ROW_KIND.Inserted;
 }
 
-function replayIntents(
+function applyIntents(
   snapshot: EditActionTargetSnapshot,
-  intents: readonly EditActionMutationIntent[],
+  mutations: readonly EditActionMutation[],
   working: ReducerWorkingRow[],
 ): ReplayState {
   const state: ReplayState = {
@@ -272,13 +272,13 @@ function replayIntents(
     committedTargetChanged: false,
   };
 
-  for (const intent of intents) {
-    if (intent.kind === CHANGE_OPERATION.Create) {
-      applyCreateIntent(snapshot, working, intent);
-    } else if (intent.kind === CHANGE_OPERATION.Update) {
-      applyPendingUpdate(snapshot, working, intent, state);
+  for (const mutation of mutations) {
+    if (mutation.kind === CHANGE_OPERATION.Create) {
+      applyCreateIntent(snapshot, working, mutation);
+    } else if (mutation.kind === CHANGE_OPERATION.Update) {
+      applyPendingUpdate(snapshot, working, mutation, state);
     } else {
-      applyPendingDelete(snapshot, working, intent, state);
+      applyPendingDelete(snapshot, working, mutation, state);
     }
   }
 
@@ -288,10 +288,7 @@ function replayIntents(
 function applyCreateIntent(
   snapshot: EditActionTargetSnapshot,
   working: ReducerWorkingRow[],
-  intent: Extract<
-    EditActionMutationIntent,
-    {kind: typeof CHANGE_OPERATION.Create}
-  >,
+  mutation: Extract<EditActionMutation, {kind: typeof CHANGE_OPERATION.Create}>,
 ): void {
   if (snapshot.committed.exists || working.length > 0) {
     throw reducerError(
@@ -303,13 +300,13 @@ function applyCreateIntent(
   working.push({
     kind: REDUCER_WORKING_ROW_KIND.Inserted,
     row: {
-      aggregateId: intent.aggregateId,
+      aggregateId: mutation.aggregateId,
       operation: CHANGE_OPERATION.Create,
       fieldPath: '$',
-      newValue: clonePayload(intent.newValue),
-      source: intent.source,
-      changeStatus: intent.changeStatus,
-      linkedEntityGroupId: intent.linkedEntityGroupId,
+      newValue: clonePayload(mutation.newValue),
+      source: mutation.source,
+      changeStatus: mutation.changeStatus,
+      linkedEntityGroupId: mutation.linkedEntityGroupId,
     },
   });
 }
@@ -317,10 +314,7 @@ function applyCreateIntent(
 function applyPendingUpdate(
   snapshot: EditActionTargetSnapshot,
   working: ReducerWorkingRow[],
-  intent: Extract<
-    EditActionMutationIntent,
-    {kind: typeof CHANGE_OPERATION.Update}
-  >,
+  mutation: Extract<EditActionMutation, {kind: typeof CHANGE_OPERATION.Update}>,
   state: ReplayState,
 ): void {
   if (!snapshot.committed.exists && working.length === 0) {
@@ -336,20 +330,17 @@ function applyPendingUpdate(
     );
   }
   if (isSessionCreated(working)) {
-    absorbUpdateIntoCreate(working, intent);
+    absorbUpdateIntoCreate(working, mutation);
     return;
   }
 
   state.committedTargetChanged ||= snapshot.committed.exists;
-  applyUpdateIntent(working, intent);
+  applyUpdateIntent(working, mutation);
 }
 
 function absorbUpdateIntoCreate(
   working: ReducerWorkingRow[],
-  intent: Extract<
-    EditActionMutationIntent,
-    {kind: typeof CHANGE_OPERATION.Update}
-  >,
+  mutation: Extract<EditActionMutation, {kind: typeof CHANGE_OPERATION.Update}>,
 ): void {
   const create = working[0];
   if (create.row.operation !== CHANGE_OPERATION.Create) {
@@ -360,17 +351,14 @@ function absorbUpdateIntoCreate(
   }
   create.row.newValue = {
     ...asPayload(create.row.newValue),
-    ...clonePayload(intent.newValue),
+    ...clonePayload(mutation.newValue),
   };
 }
 
 function applyPendingDelete(
   snapshot: EditActionTargetSnapshot,
   working: ReducerWorkingRow[],
-  intent: Extract<
-    EditActionMutationIntent,
-    {kind: typeof CHANGE_OPERATION.Delete}
-  >,
+  mutation: Extract<EditActionMutation, {kind: typeof CHANGE_OPERATION.Delete}>,
   state: ReplayState,
 ): void {
   if (!snapshot.committed.exists && isSessionCreated(working)) {
@@ -396,13 +384,13 @@ function applyPendingDelete(
   working.push({
     kind: REDUCER_WORKING_ROW_KIND.Inserted,
     row: {
-      aggregateId: intent.aggregateId,
+      aggregateId: mutation.aggregateId,
       operation: CHANGE_OPERATION.Delete,
       fieldPath: null,
       newValue: {},
-      source: intent.source,
-      changeStatus: intent.changeStatus,
-      linkedEntityGroupId: intent.linkedEntityGroupId,
+      source: mutation.source,
+      changeStatus: mutation.changeStatus,
+      linkedEntityGroupId: mutation.linkedEntityGroupId,
     },
   });
 }
@@ -538,32 +526,26 @@ function validateDisjointCoverage(
 
 function applyUpdateIntent(
   working: ReducerWorkingRow[],
-  intent: Extract<
-    EditActionMutationIntent,
-    {kind: typeof CHANGE_OPERATION.Update}
-  >,
+  mutation: Extract<EditActionMutation, {kind: typeof CHANGE_OPERATION.Update}>,
 ): void {
-  const incomingCoverage = coverageForIntent(intent);
+  const incomingCoverage = coverageForIntent(mutation);
   if (incomingCoverage.wholeRow) {
-    applyWholeRowUpdate(working, intent, incomingCoverage.fields);
+    applyWholeRowUpdate(working, mutation, incomingCoverage.fields);
     return;
   }
 
-  applyFieldUpdate(working, intent, incomingCoverage.fields);
+  applyFieldUpdate(working, mutation, incomingCoverage.fields);
 }
 
 function applyWholeRowUpdate(
   working: ReducerWorkingRow[],
-  intent: Extract<
-    EditActionMutationIntent,
-    {kind: typeof CHANGE_OPERATION.Update}
-  >,
+  mutation: Extract<EditActionMutation, {kind: typeof CHANGE_OPERATION.Update}>,
   fields: ReadonlySet<string>,
 ): void {
   if (working.length === 0) {
     working.push({
       kind: REDUCER_WORKING_ROW_KIND.Inserted,
-      row: newUpdateRow(intent),
+      row: newUpdateRow(mutation),
     });
     return;
   }
@@ -573,7 +555,7 @@ function applyWholeRowUpdate(
     working[0].row.operation === CHANGE_OPERATION.Update &&
     working[0].row.fieldPath === '$'
   ) {
-    updateExistingRow(working[0], intent, fields);
+    updateExistingRow(working[0], mutation, fields);
     return;
   }
   throw reducerError(
@@ -584,17 +566,14 @@ function applyWholeRowUpdate(
 
 function applyFieldUpdate(
   working: ReducerWorkingRow[],
-  intent: Extract<
-    EditActionMutationIntent,
-    {kind: typeof CHANGE_OPERATION.Update}
-  >,
+  mutation: Extract<EditActionMutation, {kind: typeof CHANGE_OPERATION.Update}>,
   incomingFields: ReadonlySet<string>,
 ): void {
   const {rowsByField, unrepresented} = resolveFieldStorage(
     working,
     incomingFields,
   );
-  const declaredNamedGroup = isNamedGroupIntent(intent, incomingFields);
+  const declaredNamedGroup = isNamedGroupIntent(mutation, incomingFields);
   if (declaredNamedGroup && unrepresented.size > 0 && rowsByField.size > 0) {
     throw reducerError(
       EDIT_ACTION_REDUCER_ERROR_CODE.Conflict,
@@ -602,10 +581,10 @@ function applyFieldUpdate(
     );
   }
 
-  updateRepresentedFields(rowsByField, intent);
+  updateRepresentedFields(rowsByField, mutation);
   appendUnrepresentedFields(
     working,
-    intent,
+    mutation,
     rowsByField,
     unrepresented,
     declaredNamedGroup,
@@ -647,10 +626,7 @@ function resolveFieldStorage(
 
 function updateRepresentedFields(
   rowsByField: ReadonlyMap<string, ReducerWorkingRow>,
-  intent: Extract<
-    EditActionMutationIntent,
-    {kind: typeof CHANGE_OPERATION.Update}
-  >,
+  mutation: Extract<EditActionMutation, {kind: typeof CHANGE_OPERATION.Update}>,
 ): void {
   const groupedFields = new Map<ReducerWorkingRow, string[]>();
   for (const [field, row] of rowsByField) {
@@ -661,26 +637,23 @@ function updateRepresentedFields(
 
   for (const [row, fields] of groupedFields) {
     // A null accumulator is intentionally expandable when a normal
-    // accumulator intent introduces fields it did not previously contain.
-    updateExistingRow(row, intent, fields);
+    // accumulator mutation introduces fields it did not previously contain.
+    updateExistingRow(row, mutation, fields);
   }
 }
 
 function appendUnrepresentedFields(
   working: ReducerWorkingRow[],
-  intent: Extract<
-    EditActionMutationIntent,
-    {kind: typeof CHANGE_OPERATION.Update}
-  >,
+  mutation: Extract<EditActionMutation, {kind: typeof CHANGE_OPERATION.Update}>,
   rowsByField: ReadonlyMap<string, ReducerWorkingRow>,
   unrepresented: ReadonlySet<string>,
   declaredNamedGroup: boolean,
 ): void {
   if (unrepresented.size === 0) return;
 
-  const unrepresentedPayload = pickFields(intent.newValue, unrepresented);
+  const unrepresentedPayload = pickFields(mutation.newValue, unrepresented);
   const accumulator =
-    intent.fieldPath === null
+    mutation.fieldPath === null
       ? working.find(
           current =>
             current.row.operation === CHANGE_OPERATION.Update &&
@@ -689,7 +662,7 @@ function appendUnrepresentedFields(
       : undefined;
 
   if (accumulator !== undefined) {
-    updateExistingRow(accumulator, intent, [...unrepresented]);
+    updateExistingRow(accumulator, mutation, [...unrepresented]);
     return;
   }
 
@@ -703,7 +676,7 @@ function appendUnrepresentedFields(
   working.push({
     kind: REDUCER_WORKING_ROW_KIND.Inserted,
     row: {
-      ...newUpdateRow(intent),
+      ...newUpdateRow(mutation),
       newValue: unrepresentedPayload,
     },
   });
@@ -711,16 +684,13 @@ function appendUnrepresentedFields(
 
 function updateExistingRow(
   working: ReducerWorkingRow,
-  intent: Extract<
-    EditActionMutationIntent,
-    {kind: typeof CHANGE_OPERATION.Update}
-  >,
+  mutation: Extract<EditActionMutation, {kind: typeof CHANGE_OPERATION.Update}>,
   fields: Iterable<string>,
 ): void {
-  const payload = pickFields(intent.newValue, fields);
+  const payload = pickFields(mutation.newValue, fields);
   working.row.newValue =
-    intent.fieldPath === '$'
-      ? clonePayload(intent.newValue)
+    mutation.fieldPath === '$'
+      ? clonePayload(mutation.newValue)
       : {
           ...asPayload(working.row.newValue),
           ...payload,
@@ -730,35 +700,29 @@ function updateExistingRow(
   // preserved. UPDATE metadata keeps its slot identity/status/group while the
   // latest writer becomes the source for that slot.
   if (working.row.operation === CHANGE_OPERATION.Update) {
-    working.row.source = intent.source;
+    working.row.source = mutation.source;
   }
 }
 
 function newUpdateRow(
-  intent: Extract<
-    EditActionMutationIntent,
-    {kind: typeof CHANGE_OPERATION.Update}
-  >,
+  mutation: Extract<EditActionMutation, {kind: typeof CHANGE_OPERATION.Update}>,
 ): NewEditActionInsert {
   return {
-    aggregateId: intent.aggregateId,
+    aggregateId: mutation.aggregateId,
     operation: CHANGE_OPERATION.Update,
-    fieldPath: intent.fieldPath,
-    newValue: clonePayload(intent.newValue),
-    source: intent.source,
-    changeStatus: intent.changeStatus,
-    linkedEntityGroupId: intent.linkedEntityGroupId,
+    fieldPath: mutation.fieldPath,
+    newValue: clonePayload(mutation.newValue),
+    source: mutation.source,
+    changeStatus: mutation.changeStatus,
+    linkedEntityGroupId: mutation.linkedEntityGroupId,
   };
 }
 
 function coverageForIntent(
-  intent: Extract<
-    EditActionMutationIntent,
-    {kind: typeof CHANGE_OPERATION.Update}
-  >,
+  mutation: Extract<EditActionMutation, {kind: typeof CHANGE_OPERATION.Update}>,
 ): FieldCoverageResult {
   try {
-    return getFieldCoverage(intent.fieldPath, intent.newValue);
+    return getFieldCoverage(mutation.fieldPath, mutation.newValue);
   } catch (error) {
     throw reducerError(
       EDIT_ACTION_REDUCER_ERROR_CODE.Unsupported,
@@ -792,14 +756,11 @@ function coverageForRow(
 }
 
 function isNamedGroupIntent(
-  intent: Extract<
-    EditActionMutationIntent,
-    {kind: typeof CHANGE_OPERATION.Update}
-  >,
+  mutation: Extract<EditActionMutation, {kind: typeof CHANGE_OPERATION.Update}>,
   fields: ReadonlySet<string>,
 ): boolean {
-  if (intent.fieldPath === null || intent.fieldPath === '$') return false;
-  return fields.size !== 1 || !fields.has(intent.fieldPath);
+  if (mutation.fieldPath === null || mutation.fieldPath === '$') return false;
+  return fields.size !== 1 || !fields.has(mutation.fieldPath);
 }
 
 function hasPendingDelete(working: readonly ReducerWorkingRow[]): boolean {

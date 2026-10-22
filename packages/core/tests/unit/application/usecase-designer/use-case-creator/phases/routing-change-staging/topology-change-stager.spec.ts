@@ -94,4 +94,47 @@ describe('TopologyChangeStager', () => {
       source: SOURCE.AutoRouting,
     });
   });
+
+  it('stages control-pair removal as a structural update', async () => {
+    const applyStructuralChange = jest
+      .fn()
+      .mockResolvedValue({systemId: 301, changeId: 901});
+    const staging: StagingState = {
+      repository: {applyStructuralChange} as never,
+      options: {source: SOURCE.AutoRouting},
+      descriptors: new Map(),
+    };
+
+    const result = await new TopologyChangeStager().stage({
+      analysis: {
+        affectedUsecaseSystemIds: new Set([301]),
+        decisions: [
+          {
+            kind: 'CONTROL_PAIR_REMOVAL',
+            usecase: usecase(301),
+            removedPairs: [
+              {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+            ],
+          },
+        ],
+      } as never,
+      islandTransitions: [],
+      staging,
+    });
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(applyStructuralChange).toHaveBeenCalledWith(
+      301,
+      {removedPairs: [{sourceSubgraphSystemId: 10, destSubgraphSystemId: 20}]},
+      staging.options,
+      undefined,
+      undefined,
+    );
+    expect(staging.descriptors.get(301)).toEqual({
+      systemId: 301,
+      changeId: 901,
+      operation: CHANGE_OPERATION.Update,
+      source: SOURCE.AutoRouting,
+    });
+  });
 });

@@ -19,6 +19,7 @@ import {
   type ManualUsecaseCandidate,
   USECASE_CANDIDATE_KIND,
 } from '../../contracts/routing-state.js';
+import type {SubgraphPair} from '../../../../ports/persistence/repositories/shared/links-for-pair.js';
 import {
   RoutingIssueFactory,
   type UsecaseCandidateConflictDetails,
@@ -29,7 +30,13 @@ import {
   expandSubgraphCombinations,
   type PathExpansion,
 } from './path-combination-expander.js';
+import {
+  deriveControlLinkPairs,
+  type ControlLinkPairScope,
+} from './control-link-pairs.js';
 import {logicalEcConnections} from '../../shared/logical-ec-connections.js';
+import {preExistingUsecases} from '../../shared/projected-usecase-topology.js';
+import {unorderedPairKeyOf} from '../../shared/usecase-topology.js';
 
 /** One valid SGKV assignment paired with its aggregated GKV, ready to become a candidate. */
 type ExpandedAssignment = {
@@ -41,6 +48,31 @@ type ExpandedAssignment = {
 interface ExpansionOutcome {
   readonly conflict: UsecaseCandidateConflictDetails | null;
   readonly assignments: readonly ExpandedAssignment[];
+}
+
+function pathEdges(path: DfsPath): readonly SubgraphPair[] {
+  const pairs: SubgraphPair[] = [];
+  for (let index = 1; index < path.subgraphSystemIds.length; index += 1) {
+    pairs.push({
+      sourceSubgraphSystemId: path.subgraphSystemIds[index - 1],
+      destSubgraphSystemId: path.subgraphSystemIds[index],
+    });
+  }
+  return pairs;
+}
+
+function buildControlLinkPairScope(
+  context: RoutingContext,
+): ControlLinkPairScope {
+  const preExistingUnorderedPairKeys = new Set<string>();
+  for (const usecase of preExistingUsecases(context)) {
+    for (const pair of usecase.subgraphPairs)
+      preExistingUnorderedPairKeys.add(unorderedPairKeyOf(pair));
+  }
+  return {
+    eligibleControlLinks: context.input.graphSnapshot.routableControlLinks,
+    preExistingUnorderedPairKeys,
+  };
 }
 
 /**
@@ -76,6 +108,7 @@ function resolveExpansion(
 function expandAutomaticPaths(
   paths: readonly DfsPath[],
   perSg: KvResolutions['perSg'],
+  scope: ControlLinkPairScope,
 ) {
   const conflicts: UsecaseCandidateConflictDetails[] = [];
   const candidates: AutoUsecaseCandidate[] = [];
@@ -94,6 +127,11 @@ function expandAutomaticPaths(
         path,
         sgkvAssignment,
         gkv,
+        controlLinkPairs: deriveControlLinkPairs(
+          path.subgraphSystemIds,
+          pathEdges(path),
+          scope,
+        ),
       });
     }
   }
@@ -104,11 +142,12 @@ function expandEcBridges(
   input: AutoRoutingInput,
   paths: readonly DfsPath[],
   perSg: KvResolutions['perSg'],
+  scope: ControlLinkPairScope,
 ) {
   const connectionsById = new Map(
     logicalEcConnections(
       input.graphSnapshot.routableDataLinks,
-      input.graphSnapshot.mdfSubgraphSystemIds,
+      input.graphSnapshot.mdf.effective,
     ).map(connection => [
       connection.representativeDataLinkSystemId,
       connection,
@@ -160,6 +199,11 @@ function expandEcBridges(
         path: bridgePath,
         sgkvAssignment,
         gkv,
+        controlLinkPairs: deriveControlLinkPairs(
+          bridgePath.subgraphSystemIds,
+          pathEdges(bridgePath),
+          scope,
+        ),
       });
     }
   }
@@ -189,7 +233,12 @@ export class CombinationExpansionPhase {
     if (input.mode === ROUTING_MODE.Auto) {
       // Each DFS path expands independently; collect locally so one conflicting path
       // cannot publish the candidates already found for the other paths.
-      const pathExpansion = expandAutomaticPaths(context.dfsPaths, perSg);
+      const scope = buildControlLinkPairScope(context);
+      const pathExpansion = expandAutomaticPaths(
+        context.dfsPaths,
+        perSg,
+        scope,
+      );
       if (pathExpansion.conflicts.length > 0) {
         return Result.fail(
           ...pathExpansion.conflicts.map(details =>
@@ -197,7 +246,12 @@ export class CombinationExpansionPhase {
           ),
         );
       }
-      const bridgeExpansion = expandEcBridges(input, context.dfsPaths, perSg);
+      const bridgeExpansion = expandEcBridges(
+        input,
+        context.dfsPaths,
+        perSg,
+        scope,
+      );
       if (bridgeExpansion.issues.length > 0) {
         return Result.fail(...bridgeExpansion.issues);
       }
@@ -231,6 +285,11 @@ export class CombinationExpansionPhase {
         topology: input.manualTopology,
         sgkvAssignment,
         gkv,
+        controlLinkPairs: input.manualTopology.pairs
+          .filter(
+            item => item.dataLinks.length === 0 && item.controlLinks.length > 0,
+          )
+          .map(item => item.pair),
       }),
     );
     context.usecaseCandidates.manualCandidates.push(...manualCandidates);

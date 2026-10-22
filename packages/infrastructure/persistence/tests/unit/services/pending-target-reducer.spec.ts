@@ -10,7 +10,7 @@ import {ENTITY_NAMES} from '../../../src/persistence-typeorm-sqllite/entity-sche
 import {
   EditActionReducerError,
   reducePendingTarget,
-  type EditActionMutationIntent,
+  type EditActionMutation,
   type EditActionTargetSnapshot,
 } from '../../../src/persistence-typeorm-sqllite/services/pending-target-reducer.js';
 
@@ -104,7 +104,7 @@ function groupSlot(overrides: Partial<EditActionRow> = {}): EditActionRow {
 function manualUpdate(
   newValue: Record<string, unknown>,
   fieldPath: string | null = null,
-): EditActionMutationIntent {
+): EditActionMutation {
   return {
     kind: CHANGE_OPERATION.Update,
     aggregateId: 1,
@@ -116,11 +116,11 @@ function manualUpdate(
   };
 }
 
-function updateIntent(): EditActionMutationIntent {
+function updateIntent(): EditActionMutation {
   return manualUpdate({alias: 'new'});
 }
 
-function createIntent(): EditActionMutationIntent {
+function createIntent(): EditActionMutation {
   return {
     kind: CHANGE_OPERATION.Create,
     aggregateId: 9,
@@ -131,7 +131,7 @@ function createIntent(): EditActionMutationIntent {
   };
 }
 
-function deleteIntent(): EditActionMutationIntent {
+function deleteIntent(): EditActionMutation {
   return {
     kind: CHANGE_OPERATION.Delete,
     aggregateId: 1,
@@ -156,8 +156,8 @@ describe('reducePendingTarget', () => {
       ),
       updateIntent(),
     ],
-  ])('%s rejects without creating a row', (_name, snapshot, intent) => {
-    expect(() => reducePendingTarget(snapshot, [intent])).toThrow(
+  ])('%s rejects without creating a row', (_name, snapshot, mutation) => {
+    expect(() => reducePendingTarget(snapshot, [mutation])).toThrow(
       EditActionReducerError,
     );
   });

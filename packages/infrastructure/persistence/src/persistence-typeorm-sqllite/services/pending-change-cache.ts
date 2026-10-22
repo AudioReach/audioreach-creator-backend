@@ -5,31 +5,31 @@
 
 import {
   editActionTargetKeyString,
-  type EditActionMutationIntent,
+  type EditActionMutation,
   type EditActionTargetKey,
 } from './pending-target-reducer.js';
 
-export type PendingTargetIntents = {
+export type PendingTargetMutations = {
   target: EditActionTargetKey;
-  intents: readonly EditActionMutationIntent[];
+  mutations: readonly EditActionMutation[];
 };
 
-type MutablePendingTargetIntents = {
+type MutablePendingTargetMutations = {
   target: EditActionTargetKey;
-  intents: EditActionMutationIntent[];
+  mutations: EditActionMutation[];
 };
 
 /**
- * UoW-scoped ordered intent buffer. It deliberately does not load state,
+ * UoW-scoped ordered mutation buffer. It deliberately does not load state,
  * reduce mutations, execute SQL, or own transaction policy.
  */
 export class PendingChangeCache {
-  private readonly targets = new Map<string, MutablePendingTargetIntents>();
+  private readonly targets = new Map<string, MutablePendingTargetMutations>();
 
-  enqueue(target: EditActionTargetKey, intent: EditActionMutationIntent): void {
+  enqueue(target: EditActionTargetKey, mutation: EditActionMutation): void {
     const key = editActionTargetKeyString(target);
-    const entry = this.targets.get(key) ?? {target, intents: []};
-    entry.intents.push(intent);
+    const entry = this.targets.get(key) ?? {target, mutations: []};
+    entry.mutations.push(mutation);
     this.targets.set(key, entry);
   }
 
@@ -37,16 +37,16 @@ export class PendingChangeCache {
     return this.targets.has(editActionTargetKeyString(target));
   }
 
-  entries(): PendingTargetIntents[] {
+  entries(): PendingTargetMutations[] {
     return [...this.targets.values()].map(entry => ({
       target: entry.target,
-      intents: [...entry.intents],
+      mutations: [...entry.mutations],
     }));
   }
 
   size(): number {
     let count = 0;
-    for (const entry of this.targets.values()) count += entry.intents.length;
+    for (const entry of this.targets.values()) count += entry.mutations.length;
     return count;
   }
 

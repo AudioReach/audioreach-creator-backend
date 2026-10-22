@@ -136,7 +136,7 @@ function legacyEcBoundaries(
   // Rule C allows exactly one such crossing in a legacy EC UseCase.
   const connections = logicalEcConnections(
     ecLinks,
-    input.graphSnapshot.mdfSubgraphSystemIds,
+    input.graphSnapshot.mdf.effective,
   );
   if (connections.length !== 1) return [];
 

@@ -159,7 +159,7 @@ export class DfsRoutingPhase {
     }
     const logicalEcEdges = logicalEcConnections(
       context.input.graphSnapshot.routableDataLinks,
-      context.input.graphSnapshot.mdfSubgraphSystemIds,
+      context.input.graphSnapshot.mdf.effective,
     );
     for (const connection of logicalEcEdges) {
       addEdge(connection.leftSubgraphSystemId, {
