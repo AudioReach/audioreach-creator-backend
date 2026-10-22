@@ -19,6 +19,7 @@ import type {
   DeletedComponent,
   DeletedComponentType,
   MdfNormalizationDecision,
+  ControlPairRemovalDecision,
   MdfTopologyRewrite,
   TopologyChangeAnalysis,
   TransitionToIslandDecision,
@@ -76,12 +77,14 @@ interface IslandCandidateAccumulator {
 
 function buildTopologyChangeAnalysis(
   mdfDecisions: readonly MdfNormalizationDecision[],
+  controlPairRemovalDecisions: readonly ControlPairRemovalDecision[],
   markedForDeletion: readonly DeletionMarkDraft[],
   preservedUsecases: readonly PreservedUsecaseDraft[],
   transitionToIslandDecisions: readonly TransitionToIslandDecision[],
 ): TopologyChangeAnalysis {
   const decisions: UsecaseTopologyDecision[] = [
     ...mdfDecisions,
+    ...controlPairRemovalDecisions,
     ...markedForDeletion.map(mark => ({
       kind: USECASE_TOPOLOGY_DECISION_KIND.DeleteOrReconstruct,
       usecase: mark.usecase,
@@ -119,6 +122,13 @@ interface ImpactInventory {
   readonly islandUseCaseCandidatesBySystemId: Map<
     number,
     IslandCandidateAccumulator
+  >;
+  readonly controlPairRemovalsByUsecaseSystemId: Map<
+    number,
+    {
+      readonly usecase: UseCase;
+      readonly pairs: Map<string, SubgraphPair>;
+    }
   >;
 }
 
@@ -227,15 +237,16 @@ function classifyDeletedControlLinks(
   deletedControlLinks: readonly ControlLink[],
   survivingDataLinkPairKeys: ReadonlySet<string>,
   survivingControlLinkPairKeys: ReadonlySet<string>,
-  committedUsecasesByPair: ReadonlyMap<string, readonly UseCase[]>,
+  committedUsecasesByUnorderedPair: ReadonlyMap<string, readonly UseCase[]>,
+  islandUseCaseCandidatesBySystemId: Map<number, IslandCandidateAccumulator>,
+  controlPairRemovalsByUsecaseSystemId: Map<
+    number,
+    {readonly usecase: UseCase; readonly pairs: Map<string, SubgraphPair>}
+  >,
   ucMarkedForDeletionBySystemId: Map<number, DeletionMarkDraft>,
 ): void {
   for (const controlLink of sortedBySystemId(deletedControlLinks)) {
     const pairKey = unorderedPairKey(
-      controlLink.sourceSubgraphSystemId,
-      controlLink.destSubgraphSystemId,
-    );
-    const directedPair = directedPairKey(
       controlLink.sourceSubgraphSystemId,
       controlLink.destSubgraphSystemId,
     );
@@ -245,15 +256,40 @@ function classifyDeletedControlLinks(
     ) {
       continue;
     }
-    for (const usecase of committedUsecasesByPair.get(directedPair) ?? []) {
-      markForDeletion(
-        ucMarkedForDeletionBySystemId,
-        usecase,
-        deletedComponent(
-          DELETED_COMPONENT_TYPE.ControlLink,
-          controlLink.systemId,
-        ),
+    for (const usecase of committedUsecasesByUnorderedPair.get(pairKey) ?? []) {
+      const storedPairs = usecase.subgraphPairs.filter(
+        pair =>
+          unorderedPairKey(
+            pair.sourceSubgraphSystemId,
+            pair.destSubgraphSystemId,
+          ) === pairKey,
       );
+      if (
+        ucMarkedForDeletionBySystemId.has(usecase.systemId) ||
+        islandUseCaseCandidatesBySystemId.has(usecase.systemId)
+      ) {
+        markForDeletion(
+          ucMarkedForDeletionBySystemId,
+          usecase,
+          deletedComponent(
+            DELETED_COMPONENT_TYPE.ControlLink,
+            controlLink.systemId,
+          ),
+        );
+        continue;
+      }
+      const removal = controlPairRemovalsByUsecaseSystemId.get(
+        usecase.systemId,
+      ) ?? {usecase, pairs: new Map<string, SubgraphPair>()};
+      for (const pair of storedPairs)
+        removal.pairs.set(
+          directedPairKey(
+            pair.sourceSubgraphSystemId,
+            pair.destSubgraphSystemId,
+          ),
+          pair,
+        );
+      controlPairRemovalsByUsecaseSystemId.set(usecase.systemId, removal);
     }
   }
 }
@@ -272,8 +308,14 @@ function buildImpactInventory(
     number,
     IslandCandidateAccumulator
   >();
+  const controlPairRemovalsByUsecaseSystemId = new Map<
+    number,
+    {readonly usecase: UseCase; readonly pairs: Map<string, SubgraphPair>}
+  >();
   const committedUsecasesBySubgraph = topology.committedUsecasesBySubgraph;
   const committedUsecasesByPair = topology.committedUsecasesByDirectedPair;
+  const committedUsecasesByUnorderedPair =
+    topology.committedUsecasesByUnorderedPair;
 
   // Classify ordinary deletion impact first. MDF analysis may later replace a compatible
   // data-link deletion, but only after validating the complete affected UseCase.
@@ -294,7 +336,9 @@ function buildImpactInventory(
     sessionEdits.deletedControlLinks,
     survivingDataLinkPairKeys,
     survivingControlLinkPairKeys,
-    committedUsecasesByPair,
+    committedUsecasesByUnorderedPair,
+    islandUseCaseCandidatesBySystemId,
+    controlPairRemovalsByUsecaseSystemId,
     ucMarkedForDeletionBySystemId,
   );
 
@@ -302,6 +346,7 @@ function buildImpactInventory(
     topology,
     ucMarkedForDeletionBySystemId,
     islandUseCaseCandidatesBySystemId,
+    controlPairRemovalsByUsecaseSystemId,
   };
 }
 
@@ -635,6 +680,7 @@ function buildMdfNormalizationDecisions(
     // Gate 7: normalization must be type-neutral. A pair-support change that would flip the
     // UC between LINKED/EC/ISLAND is a different topology decision, not an MDF normalization.
     const resultingType = computeUsecaseTypeFromPairSupport(
+      [...resultingSubgraphSystemIds],
       resultingPairs,
       pair =>
         inventory.topology.routableAdjacency
@@ -852,11 +898,24 @@ function buildAnalysis(
     inventory,
     preservedUsecasesBySystemId,
   );
+  const controlPairRemovalDecisions = [
+    ...inventory.controlPairRemovalsByUsecaseSystemId.values(),
+  ]
+    .filter(
+      item =>
+        !inventory.ucMarkedForDeletionBySystemId.has(item.usecase.systemId),
+    )
+    .map(item => ({
+      kind: USECASE_TOPOLOGY_DECISION_KIND.ControlPairRemoval,
+      usecase: item.usecase,
+      removedPairs: [...item.pairs.values()].sort(comparePairs),
+    }));
   const islandUsecaseSystemIds = new Set(
     transitionToIslandDecisions.map(decision => decision.usecase.systemId),
   );
   return buildTopologyChangeAnalysis(
     mdfDecisions,
+    controlPairRemovalDecisions,
     markedForDeletion,
     sortedByUseCaseSystemId(
       preservedUsecases.filter(

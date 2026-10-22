@@ -34,6 +34,7 @@ function candidate(
       members.map(systemId => [systemId, {keyValues: []}]),
     ),
     gkv: [{keyDefSystemId: 1, valueDefSystemId: valueSystemId}],
+    controlLinkPairs: [],
   };
 }
 
@@ -229,7 +230,8 @@ function ecRightDomainMdfScenario(): PureMdfScenario {
         type: 'EC',
       }),
     ],
-    subgraphs: [subgraph(50), subgraph(55, {isMdf: true}), subgraph(60)],
+    subgraphs: [subgraph(50), subgraph(55), subgraph(60)],
+    effectiveMdfSubgraphSystemIds: [55],
     committedPairs: [oldPair],
     addedPairs: [
       pair(201, 50, 55, DATA_LINK_TYPE.Ec),

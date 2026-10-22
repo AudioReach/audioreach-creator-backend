@@ -85,11 +85,10 @@ function twoIndependentSingleHopScenario() {
         type: 'LINKED',
       }),
     ],
-    subgraphs: [
-      ...first.subgraphs,
-      subgraph(50),
-      subgraph(70, {isMdf: true}),
-      subgraph(60),
+    subgraphs: [...first.subgraphs, subgraph(50), subgraph(70), subgraph(60)],
+    effectiveMdfSubgraphSystemIds: [
+      ...(first.effectiveMdfSubgraphSystemIds ?? []),
+      70,
     ],
     committedPairs: [...first.committedPairs, secondOldPair],
     deletedPairs: [...first.deletedPairs, secondOldPair],

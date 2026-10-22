@@ -43,7 +43,8 @@ function difference(
 
 /**
  * Validates that every entity added in the current session is consistently
- * included in the requested routing scope.
+ * included in the requested routing scope. Validates input for cases like
+ * addedDataLink is included in exclusions which is incorrect
  *
  * Returns one aggregated edit-scope issue containing every conflict, or an
  * empty array when the addition side of the routing request is valid. Added

@@ -52,13 +52,13 @@ function inventory(options: InventoryOptions): TopologyImpactInventory {
       options.survivingControlLinkPairKeys ?? [],
     ),
     routableAdjacency: new Map(options.adjacency),
+    effectiveMdfSubgraphSystemIds: mdfIds,
     routingSubgraphsById: new Map(
       options.inScopeSubgraphSystemIds.map(systemId => [
         systemId,
         {
           subgraph: {systemId},
           requestedSgkvs: [],
-          isMdf: mdfIds.has(systemId),
         } as RoutingSubgraph,
       ]),
     ),

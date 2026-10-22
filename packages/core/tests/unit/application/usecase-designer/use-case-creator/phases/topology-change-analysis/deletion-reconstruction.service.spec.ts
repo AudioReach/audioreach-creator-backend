@@ -83,8 +83,8 @@ function input(
       subgraphs: subgraphIds.map(systemId => ({
         subgraph: {systemId} as never,
         requestedSgkvs: requestedSgkvs[systemId] ?? [],
-        isMdf: false,
       })),
+      mdf: {effective: new Set(), deleted: new Set()},
       routableDataLinks: [...links],
       routableControlLinks: [],
       overlayDataLinks: [...links],
@@ -120,6 +120,7 @@ function inventory(
         item => [item.subgraph.systemId, item] as const,
       ),
     ),
+    effectiveMdfSubgraphSystemIds: inputValue.graphSnapshot.mdf.effective,
   };
 }
 

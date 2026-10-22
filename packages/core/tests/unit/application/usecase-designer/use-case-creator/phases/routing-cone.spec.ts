@@ -50,13 +50,12 @@ interface ContextOptions {
   readonly controlLinks?: readonly ControlLink[];
   readonly sessionEdits?: GraphEditSummary;
   readonly excludedSubgraphSystemIds?: readonly number[];
-  readonly isMdf?: ReadonlySet<number>;
+  readonly mdfSubgraphSystemIds?: ReadonlySet<number>;
 }
 
 function makeSubgraph(
   systemId: number,
   requestedSgkvs: readonly (readonly number[])[],
-  isMdf: boolean,
 ): RoutingGraphSnapshot['subgraphs'][number] {
   return {
     subgraph: new Subgraph({
@@ -67,7 +66,6 @@ function makeSubgraph(
       fileSystemId: FILE_ID,
     }),
     requestedSgkvs,
-    isMdf,
   };
 }
 
@@ -115,16 +113,16 @@ function makeContext(options: ContextOptions): RoutingContext {
   const requestedSgkvs = options.requestedSgkvs ?? {};
   const selectedUsecases = options.selectedUsecases ?? [];
   const subgraphs = options.subgraphSystemIds.map(systemId =>
-    makeSubgraph(
-      systemId,
-      requestedSgkvs[systemId] ?? [],
-      options.isMdf?.has(systemId) ?? false,
-    ),
+    makeSubgraph(systemId, requestedSgkvs[systemId] ?? []),
   );
   const dataLinks = options.dataLinks ?? [];
   const controlLinks = options.controlLinks ?? [];
   const graphSnapshot: RoutingGraphSnapshot = {
     subgraphs,
+    mdf: {
+      effective: new Set(options.mdfSubgraphSystemIds ?? []),
+      deleted: new Set(),
+    },
     routableDataLinks: dataLinks,
     routableControlLinks: controlLinks,
     overlayDataLinks: dataLinks,
@@ -240,7 +238,7 @@ describe('Routing cone pipeline', () => {
     const context = makeContext({
       subgraphSystemIds: [10, 20],
       requestedSgkvs: {10: [], 20: []},
-      isMdf: new Set([10]),
+      mdfSubgraphSystemIds: new Set([10]),
       dataLinks: [makeDataLink(1, 10, 20)],
     });
     const repository = makeRepository({

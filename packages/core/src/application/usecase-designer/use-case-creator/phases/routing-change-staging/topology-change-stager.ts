@@ -24,6 +24,7 @@ import type {
 import {RoutingIssueFactory} from '../../issues/routing-issue-factory.js';
 import type {
   DeleteOrReconstructDecision,
+  ControlPairRemovalDecision,
   IslandTransition,
   MdfNormalizationDecision,
   PreserveUsecaseDecision,
@@ -93,6 +94,9 @@ export class TopologyChangeStager {
       (decision): decision is MdfNormalizationDecision =>
         decision.kind === TOPOLOGY_DECISION_KIND.MdfNormalization,
     );
+    const controlPairRemovalDecisions = analysis.decisions.filter(
+      decision => decision.kind === TOPOLOGY_DECISION_KIND.ControlPairRemoval,
+    );
 
     for (const decision of [...mdfDecisions].sort(
       (left, right) => left.usecase.systemId - right.usecase.systemId,
@@ -106,6 +110,13 @@ export class TopologyChangeStager {
       );
       if (result.kind === RESULT_KIND.Fail) return result;
     }
+
+    const controlPairRemovalResult = await this.stageControlPairRemovals(
+      staging,
+      controlPairRemovalDecisions,
+    );
+    if (controlPairRemovalResult.kind === RESULT_KIND.Fail)
+      return controlPairRemovalResult;
 
     for (const decision of [...deleteOrReconstructDecisions].sort(
       (left, right) => left.usecase.systemId - right.usecase.systemId,
@@ -220,6 +231,24 @@ export class TopologyChangeStager {
           ),
         );
       }
+    }
+    return Result.ok();
+  }
+
+  private async stageControlPairRemovals(
+    staging: StagingState,
+    decisions: readonly ControlPairRemovalDecision[],
+  ): Promise<Result<void>> {
+    for (const decision of [...decisions].sort(
+      (left, right) => left.usecase.systemId - right.usecase.systemId,
+    )) {
+      const result = await this.applyStructuralChange(
+        staging,
+        decision.usecase,
+        {removedPairs: decision.removedPairs},
+        CHANGE_OPERATION.Update,
+      );
+      if (result.kind === RESULT_KIND.Fail) return result;
     }
     return Result.ok();
   }

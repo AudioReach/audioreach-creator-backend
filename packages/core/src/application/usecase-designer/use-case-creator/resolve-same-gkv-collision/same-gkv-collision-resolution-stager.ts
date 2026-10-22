@@ -11,6 +11,8 @@ import type {
   UsecaseChangeRef,
 } from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
 import type {KvPair} from '../../../ports/persistence/repositories/shared/kv-pair.js';
+import type {SubgraphPair} from '../../../ports/persistence/repositories/shared/links-for-pair.js';
+import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
 import {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
 import type {AutoRoutingInput} from '../contracts/routing-input.js';
 import {
@@ -30,31 +32,51 @@ import {
   assertSgkvAssignmentsMatchGkv,
   collectUsecaseSgkvAdditions,
 } from '../shared/routing-sgkv-assignments.js';
-import {computeUsecaseType} from '../shared/usecase-type-classifier.js';
 import {
+  computeUsecaseType,
+  hasDirectedDataLinkSupport,
+} from '../shared/usecase-type-classifier.js';
+import {
+  candidatePairs,
   directedPairKey,
   directedPairKeyOf,
   unorderedPairKeyOf,
 } from '../shared/usecase-topology.js';
 
-interface Pair {
-  readonly sourceSubgraphSystemId: number;
-  readonly destSubgraphSystemId: number;
-}
-
 type AssignmentsBySubgraph = Map<number, Map<number, KvPair>>;
 
-function candidatePairs(candidate: RoutedUsecaseCandidate): Pair[] {
-  return candidate.path.subgraphSystemIds.slice(1).map((dest, index) => ({
-    sourceSubgraphSystemId: candidate.path.subgraphSystemIds[index],
-    destSubgraphSystemId: dest,
-  }));
-}
-
-function uniquePairs(pairs: readonly Pair[]): Pair[] {
-  const byKey = new Map<string, Pair>();
-  for (const pair of pairs) byKey.set(directedPairKeyOf(pair), pair);
-  return [...byKey.values()].sort(
+/**
+ * Collapses duplicates across merged alternatives. A data-supported pair keeps
+ * its direction. A pair with no data support is a control-link pair, whose
+ * direction carries no domain semantics, so the same unordered relationship is
+ * recorded once.
+ */
+function uniquePairs(
+  pairs: readonly SubgraphPair[],
+  routableDataLinks: readonly DataLink[],
+): SubgraphPair[] {
+  const byDirectedKey = new Map<string, SubgraphPair>();
+  for (const pair of pairs) byDirectedKey.set(directedPairKeyOf(pair), pair);
+  const ordered = [...byDirectedKey.values()].sort(
+    (left, right) =>
+      left.sourceSubgraphSystemId - right.sourceSubgraphSystemId ||
+      left.destSubgraphSystemId - right.destSubgraphSystemId,
+  );
+  const kept: SubgraphPair[] = [];
+  const takenUnorderedKeys = new Set<string>();
+  for (const pair of ordered) {
+    if (!hasDirectedDataLinkSupport(pair, routableDataLinks)) continue;
+    kept.push(pair);
+    takenUnorderedKeys.add(unorderedPairKeyOf(pair));
+  }
+  for (const pair of ordered) {
+    if (hasDirectedDataLinkSupport(pair, routableDataLinks)) continue;
+    const key = unorderedPairKeyOf(pair);
+    if (takenUnorderedKeys.has(key)) continue;
+    takenUnorderedKeys.add(key);
+    kept.push(pair);
+  }
+  return kept.sort(
     (left, right) =>
       left.sourceSubgraphSystemId - right.sourceSubgraphSystemId ||
       left.destSubgraphSystemId - right.destSubgraphSystemId,
@@ -100,7 +122,7 @@ function addCandidateToMerge(
   group: SameGkvCollisionGroup,
   subgraphSystemIds: Set<number>,
   assignmentBySubgraph: AssignmentsBySubgraph,
-  pairs: Pair[],
+  pairs: SubgraphPair[],
 ): void {
   assertSgkvAssignmentsMatchGkv(alternative.candidate, group.gkvValueSystemIds);
   pairs.push(...candidatePairs(alternative.candidate));
@@ -125,7 +147,7 @@ function addCandidateToMerge(
 function addExistingTopology(
   existing: ExistingCollisionAlternative | null,
   subgraphSystemIds: Set<number>,
-  pairs: Pair[],
+  pairs: SubgraphPair[],
 ): void {
   if (existing === null) return;
   for (const systemId of existing.usecase.subgraphSystemIds)
@@ -133,9 +155,12 @@ function addExistingTopology(
   pairs.push(...existing.usecase.subgraphPairs);
 }
 
-function mergeAllCandidates(group: SameGkvCollisionGroup): {
+function mergeAllCandidates(
+  group: SameGkvCollisionGroup,
+  routableDataLinks: readonly DataLink[],
+): {
   readonly candidate: RoutedUsecaseCandidate;
-  readonly pairs: readonly Pair[];
+  readonly pairs: readonly SubgraphPair[];
 } {
   const alternatives = newAlternatives(group);
   const first = alternatives[0]?.candidate;
@@ -144,7 +169,7 @@ function mergeAllCandidates(group: SameGkvCollisionGroup): {
 
   const subgraphSystemIds = new Set<number>();
   const assignmentBySubgraph: AssignmentsBySubgraph = new Map();
-  const pairs: Pair[] = [];
+  const pairs: SubgraphPair[] = [];
   for (const alternative of alternatives) {
     addCandidateToMerge(
       alternative,
@@ -180,6 +205,16 @@ function mergeAllCandidates(group: SameGkvCollisionGroup): {
         },
       ]),
   );
+  const mergedControlLinkPairs = uniquePairs(
+    alternatives.flatMap(alternative => [
+      ...alternative.candidate.controlLinkPairs,
+    ]),
+    routableDataLinks,
+  ).filter(
+    pair =>
+      subgraphSystemIds.has(pair.sourceSubgraphSystemId) &&
+      subgraphSystemIds.has(pair.destSubgraphSystemId),
+  );
   const candidate: RoutedUsecaseCandidate =
     first.kind === USECASE_CANDIDATE_KIND.Auto
       ? {
@@ -187,6 +222,7 @@ function mergeAllCandidates(group: SameGkvCollisionGroup): {
           path,
           sgkvAssignment,
           gkv: first.gkv,
+          controlLinkPairs: mergedControlLinkPairs,
         }
       : {
           kind: USECASE_CANDIDATE_KIND.EcBridge,
@@ -195,9 +231,10 @@ function mergeAllCandidates(group: SameGkvCollisionGroup): {
           path,
           sgkvAssignment,
           gkv: first.gkv,
+          controlLinkPairs: mergedControlLinkPairs,
         };
   assertSgkvAssignmentsMatchGkv(candidate, group.gkvValueSystemIds);
-  return {candidate, pairs: uniquePairs(pairs)};
+  return {candidate, pairs: uniquePairs(pairs, routableDataLinks)};
 }
 
 function asUseCase(
@@ -205,7 +242,7 @@ function asUseCase(
   fileSystemId: number,
   systemId: number,
   input: AutoRoutingInput,
-  pairs: readonly Pair[],
+  pairs: readonly SubgraphPair[],
 ): UseCase {
   return new UseCase({
     systemId,
@@ -215,14 +252,18 @@ function asUseCase(
     },
     subgraphSystemIds: [...candidate.path.subgraphSystemIds],
     subgraphPairs: [...pairs],
-    type: computeUsecaseType(pairs, input.graphSnapshot.routableDataLinks),
+    type: computeUsecaseType(
+      candidate.path.subgraphSystemIds,
+      pairs,
+      input.graphSnapshot.routableDataLinks,
+    ),
   });
 }
 
 function componentReferences(
   input: AutoRoutingInput,
   subgraphSystemIds: readonly number[],
-  pairs: readonly Pair[],
+  pairs: readonly SubgraphPair[],
 ): ReferencedComponents {
   const directedPairs = new Set(pairs.map(pair => directedPairKeyOf(pair)));
   const unorderedPairs = new Set(pairs.map(pair => unorderedPairKeyOf(pair)));
@@ -286,13 +327,16 @@ export class SameGkvCollisionResolutionStager {
     const repository = uow.getUsecaseRepository();
     const options = {source: SOURCE.Manual} as const;
     let candidate: RoutedUsecaseCandidate;
-    let selectedPairs: readonly Pair[];
+    let selectedPairs: readonly SubgraphPair[];
     if (selection.mode === COLLISION_RESOLUTION_MODE.SelectCandidate) {
       candidate = selectedCandidate(group, selection.alternativeId);
       assertSgkvAssignmentsMatchGkv(candidate, group.gkvValueSystemIds);
       selectedPairs = candidatePairs(candidate);
     } else {
-      const merged = mergeAllCandidates(group);
+      const merged = mergeAllCandidates(
+        group,
+        input.graphSnapshot.routableDataLinks,
+      );
       candidate = merged.candidate;
       selectedPairs = merged.pairs;
     }
@@ -312,16 +356,35 @@ export class SameGkvCollisionResolutionStager {
       const existingPairKeys = new Set(
         existing.subgraphPairs.map(pair => directedPairKeyOf(pair)),
       );
+      const existingUnorderedPairKeys = new Set(
+        existing.subgraphPairs.map(pair => unorderedPairKeyOf(pair)),
+      );
+      const addedPairs = selectedPairs.filter(pair => {
+        if (existingPairKeys.has(directedPairKeyOf(pair))) return false;
+        if (
+          !hasDirectedDataLinkSupport(
+            pair,
+            input.graphSnapshot.routableDataLinks,
+          ) &&
+          existingUnorderedPairKeys.has(unorderedPairKeyOf(pair))
+        )
+          return false;
+        return true;
+      });
       const ref = await repository.applyStructuralChange(
         existing.systemId,
         {
           addedSgSystemIds: candidate.path.subgraphSystemIds.filter(
             systemId => !existingSgIds.has(systemId),
           ),
-          addedPairs: selectedPairs.filter(
-            pair => !existingPairKeys.has(directedPairKeyOf(pair)),
-          ),
+          addedPairs,
           newType: computeUsecaseType(
+            [
+              ...existing.subgraphSystemIds,
+              ...candidate.path.subgraphSystemIds.filter(
+                systemId => !existingSgIds.has(systemId),
+              ),
+            ],
             selectedPairs,
             input.graphSnapshot.routableDataLinks,
           ),

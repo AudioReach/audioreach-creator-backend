@@ -10,11 +10,15 @@ import type {
   ManualUsecaseCandidate,
   SgkvInstance,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
-import {USECASE_CANDIDATE_KIND} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
+import {
+  PATH_TERMINATION,
+  USECASE_CANDIDATE_KIND,
+} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import type {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
 import {
   addedInteriorSubgraphIds,
-  candidateDirectedPairs,
+  candidateDataLinkPairs,
+  candidatePairs,
   canonicalNumericSetKey,
   deriveStartEndSets,
   directedPairKey,
@@ -49,6 +53,7 @@ function candidate(
       keyDefSystemId: valueSystemId + 1000,
       valueDefSystemId: valueSystemId,
     })),
+    controlLinkPairs: [],
   };
 }
 
@@ -64,7 +69,7 @@ function manualCandidate(
       pairs: subgraphPairs.map(
         ([sourceSubgraphSystemId, destSubgraphSystemId]) => ({
           pair: {sourceSubgraphSystemId, destSubgraphSystemId},
-          dataLinks: [],
+          dataLinks: [{systemId: 1}] as never,
           controlLinks: [],
         }),
       ),
@@ -76,6 +81,7 @@ function manualCandidate(
       keyDefSystemId: valueSystemId + 1000,
       valueDefSystemId: valueSystemId,
     })),
+    controlLinkPairs: [],
   };
 }
 
@@ -119,13 +125,12 @@ describe('usecase topology helpers', () => {
     ).toBe('10>30');
   });
 
-  it('derives starts and ends and candidate adjacent directed pairs', () => {
-    const pairs = candidateDirectedPairs(candidate([10, 20, 30], []));
-
-    expect(pairs).toEqual([
+  it('derives starts and ends', () => {
+    const pairs = [
       {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
       {sourceSubgraphSystemId: 20, destSubgraphSystemId: 30},
-    ]);
+    ];
+
     expect(deriveStartEndSets(pairs)).toEqual({
       startSystemIds: new Set([10]),
       endSystemIds: new Set([30]),
@@ -183,5 +188,161 @@ describe('usecase topology helpers', () => {
     const existing = existingUsecase([30, 10], [[10, 30]], [100]);
 
     expect(addedInteriorSubgraphIds(combination, existing)).toEqual([20]);
+  });
+});
+
+describe('candidateDataLinkPairs', () => {
+  it('converts a routed path into adjacent directed edges', () => {
+    const result = candidateDataLinkPairs({
+      kind: USECASE_CANDIDATE_KIND.Auto,
+      path: {
+        subgraphSystemIds: [10, 20, 30],
+        termination: PATH_TERMINATION.NaturalLeaf,
+        ecBoundaryLinkId: null,
+      },
+      sgkvAssignment: new Map(),
+      gkv: [],
+      controlLinkPairs: [
+        {sourceSubgraphSystemId: 20, destSubgraphSystemId: 30},
+      ],
+    });
+
+    expect(result).toEqual([
+      {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+      {sourceSubgraphSystemId: 20, destSubgraphSystemId: 30},
+    ]);
+  });
+
+  it('returns only data-supported pairs for a manual candidate', () => {
+    const dataPair = {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20};
+    const controlPair = {sourceSubgraphSystemId: 20, destSubgraphSystemId: 40};
+
+    const result = candidateDataLinkPairs({
+      kind: USECASE_CANDIDATE_KIND.Manual,
+      memberSubgraphSystemIds: [10, 20, 40],
+      topology: {
+        pairs: [
+          {
+            pair: dataPair,
+            dataLinks: [{systemId: 1}] as never,
+            controlLinks: [],
+          },
+          {
+            pair: controlPair,
+            dataLinks: [],
+            controlLinks: [{systemId: 2}] as never,
+          },
+        ],
+      },
+      sgkvAssignment: new Map(),
+      gkv: [],
+      controlLinkPairs: [controlPair],
+    });
+
+    expect(result).toEqual([dataPair]);
+  });
+});
+
+describe('candidatePairs', () => {
+  it('appends control-link pairs that no data-link pair already covers', () => {
+    const result = candidatePairs({
+      kind: USECASE_CANDIDATE_KIND.Auto,
+      path: {
+        subgraphSystemIds: [10, 20, 30, 40],
+        termination: PATH_TERMINATION.NaturalLeaf,
+        ecBoundaryLinkId: null,
+      },
+      sgkvAssignment: new Map(),
+      gkv: [],
+      controlLinkPairs: [
+        {sourceSubgraphSystemId: 20, destSubgraphSystemId: 40},
+      ],
+    });
+
+    expect(result).toEqual([
+      {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
+      {sourceSubgraphSystemId: 20, destSubgraphSystemId: 30},
+      {sourceSubgraphSystemId: 30, destSubgraphSystemId: 40},
+      {sourceSubgraphSystemId: 20, destSubgraphSystemId: 40},
+    ]);
+  });
+
+  it('drops a control-link pair whose endpoints a data-link pair already covers in reverse', () => {
+    const result = candidatePairs({
+      kind: USECASE_CANDIDATE_KIND.Auto,
+      path: {
+        subgraphSystemIds: [40, 20],
+        termination: PATH_TERMINATION.NaturalLeaf,
+        ecBoundaryLinkId: null,
+      },
+      sgkvAssignment: new Map(),
+      gkv: [],
+      controlLinkPairs: [
+        {sourceSubgraphSystemId: 20, destSubgraphSystemId: 40},
+      ],
+    });
+
+    expect(result).toEqual([
+      {sourceSubgraphSystemId: 40, destSubgraphSystemId: 20},
+    ]);
+  });
+});
+
+describe('exactTopologyEquals with control-link pairs', () => {
+  it('matches when the stored UseCase already holds the control-link pair', () => {
+    const candidateCombination = {
+      kind: USECASE_CANDIDATE_KIND.Auto,
+      path: {
+        subgraphSystemIds: [10, 20, 30, 40],
+        termination: PATH_TERMINATION.NaturalLeaf,
+        ecBoundaryLinkId: null,
+      },
+      sgkvAssignment: new Map(),
+      gkv: [{keyDefSystemId: 1, valueDefSystemId: 99}],
+      controlLinkPairs: [
+        {sourceSubgraphSystemId: 20, destSubgraphSystemId: 40},
+      ],
+    };
+
+    const existing = existingUsecase(
+      [10, 20, 30, 40],
+      [
+        [10, 20],
+        [20, 30],
+        [30, 40],
+        [20, 40],
+      ],
+      [99],
+    );
+
+    expect(exactTopologyEquals(candidateCombination, existing)).toBe(true);
+  });
+
+  it('does not match when the stored UseCase lacks the control-link pair', () => {
+    const candidateCombination = {
+      kind: USECASE_CANDIDATE_KIND.Auto,
+      path: {
+        subgraphSystemIds: [10, 20, 30, 40],
+        termination: PATH_TERMINATION.NaturalLeaf,
+        ecBoundaryLinkId: null,
+      },
+      sgkvAssignment: new Map(),
+      gkv: [{keyDefSystemId: 1, valueDefSystemId: 99}],
+      controlLinkPairs: [
+        {sourceSubgraphSystemId: 20, destSubgraphSystemId: 40},
+      ],
+    };
+
+    const existing = existingUsecase(
+      [10, 20, 30, 40],
+      [
+        [10, 20],
+        [20, 30],
+        [30, 40],
+      ],
+      [99],
+    );
+
+    expect(exactTopologyEquals(candidateCombination, existing)).toBe(false);
   });
 });

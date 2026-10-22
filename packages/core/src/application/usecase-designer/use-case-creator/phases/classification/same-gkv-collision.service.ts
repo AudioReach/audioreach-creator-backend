@@ -13,7 +13,7 @@ import {
 } from '../../contracts/same-gkv-collision.js';
 import type {RoutedUsecaseCandidate} from '../../contracts/routing-state.js';
 import {
-  candidateDirectedPairs,
+  candidatePairs,
   candidateSubgraphSystemIds,
   canonicalNumericSetKey,
   directedPairKey,
@@ -47,7 +47,7 @@ function candidateTopology(
 ): CollisionTopology {
   return {
     subgraphSystemIds: candidateSubgraphSystemIds(candidate),
-    pairKeys: candidateDirectedPairs(candidate).map(pair =>
+    pairKeys: candidatePairs(candidate).map(pair =>
       directedPairKey(pair.sourceSubgraphSystemId, pair.destSubgraphSystemId),
     ),
   };

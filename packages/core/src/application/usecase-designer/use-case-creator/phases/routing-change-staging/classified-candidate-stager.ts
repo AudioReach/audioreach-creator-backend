@@ -37,13 +37,16 @@ import {collectUsecaseSgkvAdditions} from '../../shared/routing-sgkv-assignments
 import {
   computeManualUsecaseType,
   computeUsecaseType,
+  hasDirectedDataLinkSupport,
 } from '../../shared/usecase-type-classifier.js';
 import type {StagingState} from './topology-change-stager.js';
 import type {SubgraphPair} from '../../../../ports/persistence/repositories/shared/links-for-pair.js';
 import {
-  candidateDirectedPairs,
+  candidateDataLinkPairs,
+  candidatePairs,
   candidateSubgraphSystemIds,
   directedPairKeyOf,
+  unorderedPairKeyOf,
 } from '../../shared/usecase-topology.js';
 
 export interface ClassifiedCandidateStagerInput {
@@ -68,12 +71,87 @@ interface StructuralChangeDelta {
  */
 function automaticUsecaseType(
   candidate: RoutedUsecaseCandidate,
-  pairs: readonly SubgraphPair[],
+  memberSubgraphSystemIds: readonly number[],
+  dataLinkPairs: readonly SubgraphPair[],
   routableDataLinks: readonly DataLink[],
 ): UsecaseType {
   return candidate.kind === USECASE_CANDIDATE_KIND.EcBridge
     ? USECASE_TYPE.Ec
-    : computeUsecaseType(pairs, routableDataLinks);
+    : computeUsecaseType(
+        memberSubgraphSystemIds,
+        dataLinkPairs,
+        routableDataLinks,
+      );
+}
+
+/**
+ * Computes which pairs to add and which to remove when extending an existing
+ * UseCase with a new candidate's pair set.
+ *
+ * Two types of pair live in UseCase.subgraphPairs and must be diffed differently:
+ *
+ * - Data-link pairs are directional: routing flows from source to dest, so
+ *   A → B and B → A are distinct edges. These are compared by their exact
+ *   directed key.
+ *
+ * - Control-link pairs are direction-neutral: they record a relationship
+ *   between two subgraphs, not a route, so canonical ordering is arbitrary.
+ *   The same relationship may be stored as A → B in one UseCase and as B → A
+ *   in another. A pair with no committed data-link support in its stored
+ *   direction is treated as direction-neutral and compared by unordered
+ *   endpoints, preventing a canonical re-ordering from adding a duplicate or
+ *   spuriously removing the reverse-stored original.
+ *
+ *   Committed data links (not the session overlay) are the correct reference:
+ *   the direction of a stored pair was fixed at creation time by the data link
+ *   that backed it. That fact does not change if the data link is deleted in
+ *   the current session.
+ */
+function reconcilePairs(
+  incoming: readonly SubgraphPair[],
+  current: readonly SubgraphPair[],
+  committedDataLinks: readonly DataLink[],
+): {
+  readonly addedPairs: SubgraphPair[];
+  readonly removedPairs: SubgraphPair[];
+} {
+  const isDirectionNeutral = (pair: SubgraphPair): boolean =>
+    !hasDirectedDataLinkSupport(pair, committedDataLinks);
+
+  const currentDirectedKeys = new Set(
+    current.map(pair => directedPairKeyOf(pair)),
+  );
+  const currentUnorderedKeys = new Set(
+    current.map(pair => unorderedPairKeyOf(pair)),
+  );
+  const incomingDirectedKeys = new Set(
+    incoming.map(pair => directedPairKeyOf(pair)),
+  );
+  const incomingUnorderedKeys = new Set(
+    incoming.map(pair => unorderedPairKeyOf(pair)),
+  );
+
+  const addedPairs = incoming.filter(pair => {
+    if (currentDirectedKeys.has(directedPairKeyOf(pair))) return false;
+    if (
+      isDirectionNeutral(pair) &&
+      currentUnorderedKeys.has(unorderedPairKeyOf(pair))
+    )
+      return false;
+    return true;
+  });
+
+  const removedPairs = current.filter(pair => {
+    if (incomingDirectedKeys.has(directedPairKeyOf(pair))) return false;
+    if (
+      isDirectionNeutral(pair) &&
+      incomingUnorderedKeys.has(unorderedPairKeyOf(pair))
+    )
+      return false;
+    return true;
+  });
+
+  return {addedPairs, removedPairs};
 }
 
 /** Applies exact-match, extension, and create classifications in input order. */
@@ -99,19 +177,11 @@ export class ClassifiedCandidateStager {
         const currentIds = new Set(
           classification.existingUsecase.subgraphSystemIds,
         );
-        const pairs = candidateDirectedPairs(classification.candidate);
-        const existingPairKeys = new Set(
-          classification.existingUsecase.subgraphPairs.map(pair =>
-            directedPairKeyOf(pair),
-          ),
+        const {addedPairs, removedPairs} = reconcilePairs(
+          candidatePairs(classification.candidate),
+          classification.existingUsecase.subgraphPairs,
+          graphSnapshot.committedDataLinks,
         );
-        const candidatePairKeys = new Set(
-          pairs.map(pair => directedPairKeyOf(pair)),
-        );
-        const removedPairs =
-          classification.existingUsecase.subgraphPairs.filter(
-            pair => !candidatePairKeys.has(directedPairKeyOf(pair)),
-          );
         const result = await this.applyStructuralChange(
           staging,
           classification.existingUsecase,
@@ -119,9 +189,7 @@ export class ClassifiedCandidateStager {
             addedSgSystemIds: candidateSubgraphSystemIds(
               classification.candidate,
             ).filter(systemId => !currentIds.has(systemId)),
-            addedPairs: pairs.filter(
-              pair => !existingPairKeys.has(directedPairKeyOf(pair)),
-            ),
+            addedPairs,
             ...(removedPairs.length === 0 ? {} : {removedPairs}),
             cancelPendingDelete: classification.cancelPendingDelete,
           },
@@ -139,8 +207,12 @@ export class ClassifiedCandidateStager {
         'Automatic routing cannot stage a manual UseCase candidate',
       );
       const memberSubgraphSystemIds = candidateSubgraphSystemIds(candidate);
-      const pairs = candidateDirectedPairs(candidate);
-      const pairResult = this.validatePairs(memberSubgraphSystemIds, pairs);
+      const pairsToPersist = candidatePairs(candidate);
+      const dataLinkPairs = candidateDataLinkPairs(candidate);
+      const pairResult = this.validatePairs(
+        memberSubgraphSystemIds,
+        pairsToPersist,
+      );
       if (pairResult.kind === RESULT_KIND.Fail) return pairResult;
       const ref = await staging.repository.create(
         new UseCase({
@@ -150,10 +222,11 @@ export class ClassifiedCandidateStager {
             valueSystemIds: candidate.gkv.map(pair => pair.valueDefSystemId),
           },
           subgraphSystemIds: [...memberSubgraphSystemIds],
-          subgraphPairs: [...pairs],
+          subgraphPairs: [...pairsToPersist],
           type: automaticUsecaseType(
             candidate,
-            pairs,
+            memberSubgraphSystemIds,
+            dataLinkPairs,
             graphSnapshot.routableDataLinks,
           ),
         }),
@@ -193,12 +266,12 @@ export class ClassifiedCandidateStager {
         'Manual routing cannot stage an automatic UseCase candidate',
       );
       const memberSgSystemIds = candidate.memberSubgraphSystemIds;
-      const pairs = candidateDirectedPairs(candidate);
-      const pairResult = this.validatePairs(memberSgSystemIds, pairs);
+      const pairsToPersist = candidatePairs(candidate);
+      const pairResult = this.validatePairs(memberSgSystemIds, pairsToPersist);
       if (pairResult.kind === RESULT_KIND.Fail) return pairResult;
 
       const connectedIds = new Set(
-        pairs.flatMap(pair => [
+        pairsToPersist.flatMap(pair => [
           pair.sourceSubgraphSystemId,
           pair.destSubgraphSystemId,
         ]),
@@ -232,7 +305,7 @@ export class ClassifiedCandidateStager {
             valueSystemIds: candidate.gkv.map(pair => pair.valueDefSystemId),
           },
           subgraphSystemIds: [...memberSgSystemIds],
-          subgraphPairs: [...pairs],
+          subgraphPairs: [...pairsToPersist],
           type,
         }),
         staging.options,

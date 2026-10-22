@@ -21,7 +21,7 @@ import type {RoutingSelection} from '../contracts/routing-input.js';
 import type {ActiveManualUsecaseEdit} from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
 import type {DirectedCycle} from '../shared/directed-cycle-detector.js';
 import {
-  candidateDirectedPairs,
+  candidatePairs,
   candidateSubgraphSystemIds,
 } from '../shared/usecase-topology.js';
 
@@ -88,7 +88,7 @@ function collisionAlternativeDetails(
       : alternative.usecase.subgraphSystemIds;
   const subgraphPairs =
     alternative.kind === COLLISION_ALTERNATIVE_KIND.New
-      ? candidateDirectedPairs(alternative.candidate)
+      ? candidatePairs(alternative.candidate)
       : alternative.usecase.subgraphPairs;
   return {
     alternativeId: alternative.alternativeId,
@@ -746,7 +746,7 @@ export const RoutingIssueFactory = {
     const gkvIds = sortedIds(new Set(gkvValueSystemIds));
     const impactedUsecases = sortedIds(new Set(usecaseSystemIds));
     const memberIds = sortedIds(new Set(candidateSubgraphSystemIds(candidate)));
-    const pairDescriptions = [...candidateDirectedPairs(candidate)]
+    const pairDescriptions = [...candidatePairs(candidate)]
       .sort(
         (left, right) =>
           left.sourceSubgraphSystemId - right.sourceSubgraphSystemId ||

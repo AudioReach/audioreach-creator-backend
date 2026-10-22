@@ -27,7 +27,6 @@ const FILE_ID = 1;
 
 function makeSubgraph(
   systemId: number,
-  isMdf = false,
 ): RoutingGraphSnapshot['subgraphs'][number] {
   return {
     subgraph: new Subgraph({
@@ -38,7 +37,6 @@ function makeSubgraph(
       fileSystemId: FILE_ID,
     }),
     requestedSgkvs: [],
-    isMdf,
   };
 }
 
@@ -64,9 +62,7 @@ function makeContext(
   mdfSubgraphSystemIds: readonly number[] = [],
 ): RoutingContext {
   const mdfIds = new Set(mdfSubgraphSystemIds);
-  const subgraphs = subgraphSystemIds.map(systemId =>
-    makeSubgraph(systemId, mdfIds.has(systemId)),
-  );
+  const subgraphs = subgraphSystemIds.map(makeSubgraph);
   const init = {
     fileSystemId: FILE_ID,
     selection: {
@@ -84,11 +80,7 @@ function makeContext(
     selectedUsecases,
     graphSnapshot: {
       subgraphs,
-      mdfSubgraphSystemIds: new Set(
-        subgraphs
-          .filter(subgraph => subgraph.isMdf)
-          .map(subgraph => subgraph.subgraph.systemId),
-      ),
+      mdf: {effective: mdfIds, deleted: new Set()},
       routableDataLinks: [],
       routableControlLinks: [],
       overlayDataLinks: [],

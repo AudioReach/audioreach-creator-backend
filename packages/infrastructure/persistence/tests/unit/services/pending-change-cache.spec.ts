@@ -8,7 +8,7 @@ import {CHANGE_OPERATION, CHANGE_STATUS, SOURCE} from '@arc/core';
 import {ENTITY_NAMES} from '../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {PendingChangeCache} from '../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
 import type {
-  EditActionMutationIntent,
+  EditActionMutation,
   EditActionTargetKey,
 } from '../../../src/persistence-typeorm-sqllite/services/pending-target-reducer.js';
 
@@ -24,7 +24,7 @@ const containerTarget: EditActionTargetKey = {
   targetSystemId: 100,
 };
 
-function updateIntent(alias: string): EditActionMutationIntent {
+function updateIntent(alias: string): EditActionMutation {
   return {
     kind: CHANGE_OPERATION.Update,
     aggregateId: 10,
@@ -37,7 +37,7 @@ function updateIntent(alias: string): EditActionMutationIntent {
 }
 
 describe('PendingChangeCache', () => {
-  it('groups ordered intents by canonical target key', () => {
+  it('groups ordered mutations by canonical target key', () => {
     const cache = new PendingChangeCache();
     const first = updateIntent('first');
     const second = updateIntent('second');
@@ -48,8 +48,8 @@ describe('PendingChangeCache', () => {
     cache.enqueue(containerTarget, third);
 
     expect(cache.entries()).toEqual([
-      {target: moduleTarget, intents: [first, second]},
-      {target: containerTarget, intents: [third]},
+      {target: moduleTarget, mutations: [first, second]},
+      {target: containerTarget, mutations: [third]},
     ]);
     expect(cache.size()).toBe(3);
     expect(cache.has(moduleTarget)).toBe(true);
@@ -70,7 +70,7 @@ describe('PendingChangeCache', () => {
     cache.enqueue(moduleTarget, updateIntent('value'));
 
     const entries = cache.entries();
-    expect(entries[0].intents).toHaveLength(1);
+    expect(entries[0].mutations).toHaveLength(1);
     expect(cache.size()).toBe(1);
 
     cache.clear();

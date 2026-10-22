@@ -34,7 +34,6 @@ function makeSubgraph(
   return {
     subgraph: {systemId} as never,
     requestedSgkvs: [],
-    isMdf: false,
   };
 }
 
@@ -73,7 +72,10 @@ function makeContext(
       selectedUsecases: [],
       graphSnapshot: {
         subgraphs: subgraphSystemIds.map(makeSubgraph),
-        mdfSubgraphSystemIds: new Set(mdfSubgraphSystemIds),
+        mdf: {
+          effective: new Set(mdfSubgraphSystemIds),
+          deleted: new Set(),
+        },
         routableDataLinks: links,
         routableControlLinks: [],
         overlayDataLinks: links,

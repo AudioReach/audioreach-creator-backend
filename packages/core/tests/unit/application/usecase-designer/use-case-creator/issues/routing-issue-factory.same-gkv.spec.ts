@@ -23,7 +23,10 @@ const routingSelection = {
   excludedControlLinkSystemIds: [],
 };
 
-function candidate(path: number[]): AutoUsecaseCandidate {
+function candidate(
+  path: number[],
+  controlLinkPairs: AutoUsecaseCandidate['controlLinkPairs'] = [],
+): AutoUsecaseCandidate {
   return {
     kind: USECASE_CANDIDATE_KIND.Auto,
     path: {
@@ -41,6 +44,7 @@ function candidate(path: number[]): AutoUsecaseCandidate {
       ]),
     ),
     gkv: [{keyDefSystemId: 1, valueDefSystemId: 100}],
+    controlLinkPairs,
   };
 }
 
@@ -152,13 +156,14 @@ describe('RoutingIssueFactory same-GKV groups', () => {
         pairs: [
           {
             pair: {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
-            dataLinks: [],
+            dataLinks: [{systemId: 1}] as never,
             controlLinks: [],
           },
         ],
       },
       sgkvAssignment: new Map(),
       gkv: [{keyDefSystemId: 1001, valueDefSystemId: 100}],
+      controlLinkPairs: [],
     };
 
     const issue = RoutingIssueFactory.manualGkvConflict(
@@ -172,5 +177,35 @@ describe('RoutingIssueFactory same-GKV groups', () => {
     expect(issue.message).toContain('members: [10, 20]');
     expect(issue.message).toContain('pairs: [10->20]');
     expect(issue.impactedUsecases).toEqual([3, 5]);
+  });
+
+  it('includes control-link pairs in collision alternative details', () => {
+    const group = service.createGroup({
+      gkvValueSystemIds: [100],
+      candidates: [
+        candidate(
+          [10, 20, 30, 40],
+          [{sourceSubgraphSystemId: 20, destSubgraphSystemId: 40}],
+        ),
+      ],
+      existingUsecase: null,
+      manualOverrides: [],
+    });
+
+    const issue = RoutingIssueFactory.sameGkvChoiceRequired(
+      group,
+      routingSelection,
+    );
+
+    expect(issue.fixOptions?.[0]?.commandPayload.collisionAlternatives).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'NEW',
+          subgraphPairs: expect.arrayContaining([
+            {sourceSubgraphSystemId: 20, destSubgraphSystemId: 40},
+          ]),
+        }),
+      ]),
+    );
   });
 });

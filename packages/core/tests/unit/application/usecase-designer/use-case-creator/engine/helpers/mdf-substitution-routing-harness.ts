@@ -23,7 +23,7 @@ import type {
   UsecaseTopologyDecision,
 } from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {
-  candidateDirectedPairs,
+  candidatePairs,
   candidateSubgraphSystemIds,
 } from '../../../../../../../src/application/usecase-designer/use-case-creator/shared/usecase-topology.js';
 import {RoutingEngine} from '../../../../../../../src/application/usecase-designer/use-case-creator/engine/routing-engine.js';
@@ -73,6 +73,7 @@ export interface MdfSubstitutionScenario {
   readonly committedUsecases: readonly CommittedUsecaseTopology[];
   readonly newlyStagedUsecases?: readonly CommittedUsecaseTopology[];
   readonly subgraphs: readonly RoutingSubgraph[];
+  readonly effectiveMdfSubgraphSystemIds?: readonly number[];
   readonly committedPairs: readonly RoutingPair[];
   /** Base-table links used by reverse MDF-collapse analysis. */
   readonly committedDataLinks?: readonly RoutingPair[];
@@ -107,10 +108,7 @@ export function committedUsecase(
   };
 }
 
-export function subgraph(
-  systemId: number,
-  options: {readonly isMdf?: boolean} = {},
-): RoutingSubgraph {
+export function subgraph(systemId: number): RoutingSubgraph {
   return {
     subgraph: new Subgraph({
       systemId,
@@ -120,7 +118,6 @@ export function subgraph(
       fileSystemId: 1,
     }),
     requestedSgkvs: [],
-    isMdf: options.isMdf ?? false,
   };
 }
 
@@ -196,7 +193,8 @@ export function singleHopScenario(input: {
         type: 'LINKED',
       }),
     ],
-    subgraphs: [subgraph(10), subgraph(30, {isMdf: true}), subgraph(20)],
+    subgraphs: [subgraph(10), subgraph(30), subgraph(20)],
+    effectiveMdfSubgraphSystemIds: [30],
     committedPairs: [oldPair],
     deletedPairs: [oldPair],
     addedPairs: [pair(101, 10, 30), pair(102, 30, 20)],
@@ -217,12 +215,8 @@ export function multiHopScenario(input: {
         type: 'LINKED',
       }),
     ],
-    subgraphs: [
-      subgraph(10),
-      subgraph(30, {isMdf: true}),
-      subgraph(40, {isMdf: true}),
-      subgraph(20),
-    ],
+    subgraphs: [subgraph(10), subgraph(30), subgraph(40), subgraph(20)],
+    effectiveMdfSubgraphSystemIds: [30, 40],
     committedPairs: [oldPair],
     deletedPairs: [oldPair],
     addedPairs: [pair(101, 10, 30), pair(102, 30, 40), pair(103, 40, 20)],
@@ -277,11 +271,8 @@ export function mixedImpactScenario(input: {
         type: 'LINKED',
       }),
     ],
-    subgraphs: [...memberIds].map(systemId =>
-      subgraph(systemId, {
-        isMdf: input.pureMdfReplacement.chain.slice(1, -1).includes(systemId),
-      }),
-    ),
+    subgraphs: [...memberIds].map(subgraph),
+    effectiveMdfSubgraphSystemIds: input.pureMdfReplacement.chain.slice(1, -1),
     committedPairs: [oldMdfPair, oldOrdinaryPair],
     deletedPairs: [oldMdfPair, oldOrdinaryPair],
     addedPairs: replacementPairs,
@@ -362,7 +353,9 @@ function inputSnapshot(input: RoutingInput): string {
       .map(item => ({
         systemId: item.subgraph.systemId,
         requestedSgkvs: item.requestedSgkvs,
-        isMdf: item.isMdf,
+        effectiveMdf: input.graphSnapshot.mdf.effective.has(
+          item.subgraph.systemId,
+        ),
       }))
       .sort((left, right) => left.systemId - right.systemId),
     committedUsecases: input.graphSnapshot.committedUsecases
@@ -411,6 +404,9 @@ export function createMdfSubstitutionRoutingHarness(
     }
   }
   const requestedSgkvsBySubgraph = scenario.requestedSgkvsBySubgraph ?? {};
+  const effectiveMdfSubgraphSystemIds = new Set(
+    scenario.effectiveMdfSubgraphSystemIds ?? [],
+  );
   const routingSubgraphs = [...allSubgraphIds]
     .sort((left, right) => left - right)
     .map(systemId => {
@@ -425,7 +421,7 @@ export function createMdfSubstitutionRoutingHarness(
       );
     })
     .map(item => ({
-      ...item,
+      subgraph: item.subgraph,
       requestedSgkvs:
         requestedSgkvsBySubgraph[item.subgraph.systemId] ?? item.requestedSgkvs,
     }));
@@ -444,19 +440,15 @@ export function createMdfSubstitutionRoutingHarness(
     selectedUsecases,
     graphSnapshot: {
       subgraphs: routingSubgraphs,
-      mdfSubgraphSystemIds: new Set(
-        routingSubgraphs
-          .filter(item => item.isMdf)
-          .map(item => item.subgraph.systemId),
-      ),
+      mdf: {
+        effective: effectiveMdfSubgraphSystemIds,
+        deleted: new Set(scenario.deletedMdfSubgraphSystemIds ?? []),
+      },
       routableDataLinks: effectiveLinks,
       routableControlLinks: [],
       overlayDataLinks: effectiveLinks,
       overlayControlLinks: [],
       committedUsecases,
-      deletedMdfSubgraphSystemIds: [
-        ...(scenario.deletedMdfSubgraphSystemIds ?? []),
-      ],
       committedDataLinks: (
         scenario.committedDataLinks ?? scenario.committedPairs
       ).map(toDataLink),
@@ -653,7 +645,7 @@ export function createMdfSubstitutionRoutingHarness(
         valueSystemIds: candidate.gkv.map(pair => pair.valueDefSystemId),
       },
       subgraphSystemIds: [...candidateSubgraphSystemIds(candidate)],
-      subgraphPairs: [...candidateDirectedPairs(candidate)],
+      subgraphPairs: [...candidatePairs(candidate)],
       type: 'LINKED' as never,
     });
   }

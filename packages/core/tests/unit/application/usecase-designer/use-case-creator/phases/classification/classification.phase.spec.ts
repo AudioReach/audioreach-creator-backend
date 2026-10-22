@@ -25,6 +25,7 @@ import {
 } from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {ClassificationPhase} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/classification/classification.phase.js';
 import {USECASE_TYPE} from '../../../../../../../src/domain/entities/usecase-data/usecase/usecase-type.js';
+import type {DataLink} from '../../../../../../../src/domain/entities/usecase-data/links/data-link.js';
 
 function usecase(
   systemId: number,
@@ -77,6 +78,7 @@ function combination(
       keyDefSystemId: valueSystemId + 1000,
       valueDefSystemId: valueSystemId,
     })),
+    controlLinkPairs: [],
   };
 }
 
@@ -101,6 +103,7 @@ function manualCombination(
     },
     sgkvAssignment: autoCandidate.sgkvAssignment,
     gkv: autoCandidate.gkv,
+    controlLinkPairs: [],
   };
 }
 
@@ -121,6 +124,7 @@ function context(
   activeManualUsecaseEdits: ActiveManualUsecaseEdit[] = [],
   mode: RoutingMode = ROUTING_MODE.Auto,
   manualPairs: Array<[number, number]> = [],
+  routableDataLinks: readonly DataLink[] = [],
 ): RoutingContext {
   const input = {
     fileSystemId: 1,
@@ -134,8 +138,8 @@ function context(
     selectedUsecases: [],
     graphSnapshot: {
       subgraphs: [],
-      mdfSubgraphSystemIds: new Set(),
-      routableDataLinks: [],
+      mdf: {effective: new Set(), deleted: new Set()},
+      routableDataLinks,
       routableControlLinks: [],
       overlayDataLinks: [],
       overlayControlLinks: [],
@@ -249,6 +253,52 @@ describe('ClassificationPhase', () => {
         cancelPendingDelete: true,
       }),
     );
+  });
+
+  it('does not suppress an EC bridge when the projected UseCase only adds a control-link pair', async () => {
+    const existing = usecase(
+      100,
+      [10, 20, 30, 40],
+      [
+        [10, 20],
+        [20, 30],
+        [30, 40],
+        [20, 40],
+      ],
+      [99],
+      USECASE_TYPE.Ec,
+    );
+    const routingContext = context(
+      [existing],
+      [],
+      ROUTING_MODE.Auto,
+      [],
+      [
+        {
+          systemId: 1,
+          sourceSubgraphSystemId: 10,
+          destSubgraphSystemId: 20,
+        } as DataLink,
+        {
+          systemId: 2,
+          sourceSubgraphSystemId: 20,
+          destSubgraphSystemId: 30,
+        } as DataLink,
+        {
+          systemId: 3,
+          sourceSubgraphSystemId: 30,
+          destSubgraphSystemId: 40,
+        } as DataLink,
+      ],
+    );
+    routingContext.usecaseCandidates.ecBridgeCandidates.push(
+      ecBridgeCombination([10, 20, 30, 40], [100]),
+    );
+
+    const result = await new ClassificationPhase().run(routingContext);
+
+    expect(result.kind).toBe('OK');
+    expect(routingContext.classifiedUcs).toHaveLength(1);
   });
 
   it('classifies a candidate against the finalized MDF structural change', async () => {
@@ -786,7 +836,19 @@ describe('ClassificationPhase', () => {
       [500],
       USECASE_TYPE.Ec,
     );
-    const routingContext = context([legacy]);
+    const routingContext = context(
+      [legacy],
+      [],
+      ROUTING_MODE.Auto,
+      [],
+      [
+        {
+          systemId: 1,
+          sourceSubgraphSystemId: 2,
+          destSubgraphSystemId: 3,
+        } as DataLink,
+      ],
+    );
     routingContext.seeds = {sgSystemIds: new Set(), reasons: new Map()};
     routingContext.usecaseCandidates.ecBridgeCandidates.push(
       ecBridgeCombination([2, 3], [200]),
@@ -836,7 +898,24 @@ describe('ClassificationPhase', () => {
       [500],
       USECASE_TYPE.Ec,
     );
-    const routingContext = context([coveringLegacy]);
+    const routingContext = context(
+      [coveringLegacy],
+      [],
+      ROUTING_MODE.Auto,
+      [],
+      [
+        {
+          systemId: 1,
+          sourceSubgraphSystemId: 2,
+          destSubgraphSystemId: 25,
+        } as DataLink,
+        {
+          systemId: 2,
+          sourceSubgraphSystemId: 25,
+          destSubgraphSystemId: 3,
+        } as DataLink,
+      ],
+    );
     routingContext.seeds = {sgSystemIds: new Set(), reasons: new Map()};
     routingContext.usecaseCandidates.ecBridgeCandidates.push(
       ecBridgeCombination([2, 25, 3], [200]),
@@ -886,7 +965,24 @@ describe('ClassificationPhase', () => {
       [500],
       USECASE_TYPE.Ec,
     );
-    const routingContext = context([committedLegacy]);
+    const routingContext = context(
+      [committedLegacy],
+      [],
+      ROUTING_MODE.Auto,
+      [],
+      [
+        {
+          systemId: 1,
+          sourceSubgraphSystemId: 2,
+          destSubgraphSystemId: 25,
+        } as DataLink,
+        {
+          systemId: 2,
+          sourceSubgraphSystemId: 25,
+          destSubgraphSystemId: 3,
+        } as DataLink,
+      ],
+    );
     routingContext.seeds = {sgSystemIds: new Set(), reasons: new Map()};
     routingContext.topologyChangeAnalysis = {
       affectedUsecaseSystemIds: new Set(),

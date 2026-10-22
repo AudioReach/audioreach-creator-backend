@@ -27,12 +27,14 @@ import {RoutingIssueFactory} from '../../issues/routing-issue-factory.js';
 import {
   addedInteriorSubgraphIds,
   canonicalNumericSetKey,
-  candidateDirectedPairs,
+  candidateDataLinkPairs,
+  candidatePairs,
   candidateSubgraphSystemIds,
-  directedPairKey,
+  directedPairKeyOf,
   exactTopologyEquals,
   gkvValueIdKey,
 } from '../../shared/usecase-topology.js';
+import {hasDirectedDataLinkSupport} from '../../shared/usecase-type-classifier.js';
 import {
   buildProjectedUsecaseTopology,
   projectCommittedUcsWithMdfSubstitutions,
@@ -66,17 +68,20 @@ function suppressesLegacyBridge(
   if (endpointKvChanged) return false;
   const bridgeMemberIds = new Set(candidate.path.subgraphSystemIds);
   const bridgePairKeys = new Set(
-    candidateDirectedPairs(candidate).map(pair =>
-      directedPairKey(pair.sourceSubgraphSystemId, pair.destSubgraphSystemId),
-    ),
+    candidateDataLinkPairs(candidate).map(pair => directedPairKeyOf(pair)),
   );
   return projectedSurvivingUsecases.some(usecase => {
     if (usecase.type !== USECASE_TYPE.Ec) return false;
     const projectedMemberIds = new Set(usecase.subgraphSystemIds);
     const projectedPairKeys = new Set(
-      usecase.subgraphPairs.map(pair =>
-        directedPairKey(pair.sourceSubgraphSystemId, pair.destSubgraphSystemId),
-      ),
+      usecase.subgraphPairs
+        .filter(pair =>
+          hasDirectedDataLinkSupport(
+            pair,
+            context.input.graphSnapshot.routableDataLinks,
+          ),
+        )
+        .map(pair => directedPairKeyOf(pair)),
     );
     const coversCompleteBridge =
       [...bridgeMemberIds].every(id => projectedMemberIds.has(id)) &&
@@ -373,12 +378,7 @@ function manualGkvBuckets(
     }
     const pairKey = [
       ...new Set(
-        candidateDirectedPairs(candidate).map(pair =>
-          directedPairKey(
-            pair.sourceSubgraphSystemId,
-            pair.destSubgraphSystemId,
-          ),
-        ),
+        candidatePairs(candidate).map(pair => directedPairKeyOf(pair)),
       ),
     ]
       .sort((left, right) => left.localeCompare(right))

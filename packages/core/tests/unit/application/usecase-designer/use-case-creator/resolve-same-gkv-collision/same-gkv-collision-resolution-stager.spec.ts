@@ -16,12 +16,14 @@ import {SameGkvCollisionResolutionStager} from '../../../../../../src/applicatio
 import {DATA_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
 import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
 import {USECASE_TYPE} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase-type.js';
+import type {SubgraphPair} from '../../../../../../src/application/ports/persistence/repositories/shared/links-for-pair.js';
 
 function candidate(
   path: number[],
   assignmentValues: ReadonlyMap<number, readonly number[]> = new Map([
     [path[0], [100]],
   ]),
+  controlLinkPairs: readonly SubgraphPair[] = [],
 ): AutoUsecaseCandidate {
   return {
     kind: USECASE_CANDIDATE_KIND.Auto,
@@ -42,6 +44,7 @@ function candidate(
       ]),
     ),
     gkv: [{keyDefSystemId: 1, valueDefSystemId: 100}],
+    controlLinkPairs,
   };
 }
 
@@ -62,7 +65,7 @@ function input(routableDataLinks: readonly unknown[] = []): AutoRoutingInput {
   return {
     fileSystemId: 1,
     graphSnapshot: {
-      mdfSubgraphSystemIds: new Set(),
+      mdf: {effective: new Set(), deleted: new Set()},
       routableDataLinks,
       overlayDataLinks: routableDataLinks,
       overlayControlLinks: [],
@@ -226,6 +229,113 @@ describe('SameGkvCollisionResolutionStager', () => {
         {subgraphSystemId: 30, valueDefinitionSystemIds: []},
       ],
     );
+  });
+
+  it('attaches the candidate control-link pair when merging into the existing UseCase', async () => {
+    const merging = candidate([10, 20, 30], new Map([[10, [100]]]), [
+      {sourceSubgraphSystemId: 10, destSubgraphSystemId: 30},
+    ]);
+    const group = collisionGroup([merging], existing([10, 20, 30]));
+    const applyStructuralChange = jest
+      .fn()
+      .mockResolvedValue({systemId: 55, changeId: 900});
+
+    await new SameGkvCollisionResolutionStager().stage(
+      group,
+      {mode: 'MERGE_ALL', collisionId: group.collisionId},
+      input([
+        {
+          systemId: 1,
+          sourceSubgraphSystemId: 10,
+          destSubgraphSystemId: 20,
+          linkType: DATA_LINK_TYPE.Normal,
+        },
+        {
+          systemId: 2,
+          sourceSubgraphSystemId: 20,
+          destSubgraphSystemId: 30,
+          linkType: DATA_LINK_TYPE.Normal,
+        },
+      ]),
+      {getUsecaseRepository: () => ({applyStructuralChange})} as never,
+      {getNextId: jest.fn()} as never,
+    );
+
+    expect(applyStructuralChange.mock.calls[0]?.[1]).toMatchObject({
+      addedPairs: [{sourceSubgraphSystemId: 10, destSubgraphSystemId: 30}],
+    });
+  });
+
+  it('persists the control-link pair when the user selects a candidate', async () => {
+    const selected = candidate([10, 20, 30], new Map([[10, [100]]]), [
+      {sourceSubgraphSystemId: 10, destSubgraphSystemId: 30},
+    ]);
+    const group = collisionGroup([selected]);
+    const create = jest.fn().mockResolvedValue({systemId: 700, changeId: 900});
+
+    await new SameGkvCollisionResolutionStager().stage(
+      group,
+      select(group, selected),
+      input([
+        {
+          systemId: 1,
+          sourceSubgraphSystemId: 10,
+          destSubgraphSystemId: 20,
+          linkType: DATA_LINK_TYPE.Normal,
+        },
+        {
+          systemId: 2,
+          sourceSubgraphSystemId: 20,
+          destSubgraphSystemId: 30,
+          linkType: DATA_LINK_TYPE.Normal,
+        },
+      ]),
+      {getUsecaseRepository: () => ({create})} as never,
+      {getNextId: jest.fn().mockResolvedValue(700)} as never,
+    );
+
+    expect(create.mock.calls[0]?.[0].subgraphPairs).toContainEqual({
+      sourceSubgraphSystemId: 10,
+      destSubgraphSystemId: 30,
+    });
+  });
+
+  it('does not add a control pair when the existing UseCase stores its reverse', async () => {
+    const merging = candidate([20, 30, 40], new Map([[20, [100]]]), [
+      {sourceSubgraphSystemId: 20, destSubgraphSystemId: 40},
+    ]);
+    const group = collisionGroup([merging], existing([40, 20]));
+    const applyStructuralChange = jest
+      .fn()
+      .mockResolvedValue({systemId: 55, changeId: 900});
+
+    await new SameGkvCollisionResolutionStager().stage(
+      group,
+      {mode: 'MERGE_ALL', collisionId: group.collisionId},
+      input([
+        {
+          systemId: 1,
+          sourceSubgraphSystemId: 20,
+          destSubgraphSystemId: 30,
+          linkType: DATA_LINK_TYPE.Normal,
+        },
+        {
+          systemId: 2,
+          sourceSubgraphSystemId: 30,
+          destSubgraphSystemId: 40,
+          linkType: DATA_LINK_TYPE.Normal,
+        },
+      ]),
+      {getUsecaseRepository: () => ({applyStructuralChange})} as never,
+      {getNextId: jest.fn()} as never,
+    );
+
+    expect(applyStructuralChange.mock.calls[0]?.[1]).toMatchObject({
+      addedPairs: [
+        {sourceSubgraphSystemId: 20, destSubgraphSystemId: 30},
+        {sourceSubgraphSystemId: 30, destSubgraphSystemId: 40},
+      ],
+    });
   });
 
   it('deletes an existing UC before creating the selected candidate', async () => {

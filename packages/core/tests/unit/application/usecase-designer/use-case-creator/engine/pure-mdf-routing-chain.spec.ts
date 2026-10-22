@@ -100,6 +100,9 @@ describe('pure MDF routing chain', () => {
         destSubgraphSystemId: 20,
       }),
     );
-    expect(subgraph(30, {isMdf: true}).isMdf).toBe(true);
+    expect(singleHopScenario({committedUsecaseSystemId: 700})).toHaveProperty(
+      'effectiveMdfSubgraphSystemIds',
+      [30],
+    );
   });
 });

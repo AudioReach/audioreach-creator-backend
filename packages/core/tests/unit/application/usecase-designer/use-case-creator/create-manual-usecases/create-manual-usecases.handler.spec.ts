@@ -20,9 +20,9 @@ function snapshot(): RoutingGraphSnapshot {
       {
         subgraph: {systemId: 10} as never,
         requestedSgkvs: [],
-        isMdf: false,
       },
     ],
+    mdf: {effective: new Set(), deleted: new Set()},
     routableDataLinks: [],
     routableControlLinks: [],
     overlayDataLinks: [],
@@ -86,8 +86,8 @@ function topologySnapshot(
     subgraphs: subgraphSystemIds.map(systemId => ({
       subgraph: {systemId},
       requestedSgkvs: [],
-      isMdf: false,
     })),
+    mdf: {effective: new Set(), deleted: new Set()},
     routableDataLinks,
     routableControlLinks,
     overlayDataLinks,

@@ -167,10 +167,11 @@ function createFixture(options: FixtureOptions = {}) {
       subgraphs: subgraphIds.map(systemId => ({
         subgraph: {systemId} as never,
         requestedSgkvs: options.requestedSgkvsBySubgraph?.[systemId] ?? [],
-        isMdf: mdfSubgraphIds.has(systemId),
       })),
-      mdfSubgraphSystemIds: mdfSubgraphIds,
-      deletedMdfSubgraphSystemIds: new Set(options.deletedMdfSubgraphIds ?? []),
+      mdf: {
+        effective: mdfSubgraphIds,
+        deleted: new Set(options.deletedMdfSubgraphIds ?? []),
+      },
       routableDataLinks,
       routableControlLinks,
       overlayDataLinks,
@@ -235,6 +236,30 @@ describe('TopologyChangeAnalysisPhase', () => {
         },
       ],
     });
+  });
+
+  it('removes a sole unsupported control pair without deleting the usecase', async () => {
+    const currentUsecase = usecase(
+      1,
+      [10, 20],
+      [{sourceSubgraphSystemId: 10, destSubgraphSystemId: 20}],
+    );
+    const fixture = createFixture({
+      usecases: [currentUsecase],
+      deletedControlLinks: [controlLink(201, 10, 20)],
+    });
+
+    const result = await runAnalysis(service, fixture);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(fixture.context.topologyChangeAnalysis?.decisions).toEqual([
+      {
+        kind: USECASE_TOPOLOGY_DECISION_KIND.ControlPairRemoval,
+        usecase: currentUsecase,
+        removedPairs: [{sourceSubgraphSystemId: 10, destSubgraphSystemId: 20}],
+      },
+    ]);
+    expect(fixture.context.warnings).toEqual([]);
   });
 
   it('records one analyzer result as an aggregate MDF decision for a pure deleted pair', async () => {

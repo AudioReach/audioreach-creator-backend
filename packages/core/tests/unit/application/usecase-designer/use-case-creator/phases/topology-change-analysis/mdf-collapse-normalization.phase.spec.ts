@@ -67,10 +67,11 @@ function createFixture(options: {
     subgraphs: [...allSubgraphSystemIds].map(systemId => ({
       subgraph: {systemId} as never,
       requestedSgkvs: [],
-      isMdf: false,
     })),
-    mdfSubgraphSystemIds: new Set<number>(),
-    deletedMdfSubgraphSystemIds: new Set(options.deletedMdfSubgraphSystemIds),
+    mdf: {
+      effective: new Set<number>(),
+      deleted: new Set(options.deletedMdfSubgraphSystemIds),
+    },
     committedUsecases: [...options.usecases],
     committedDataLinks: [...options.committedDataLinks],
     routableDataLinks: [...options.addedDataLinks],

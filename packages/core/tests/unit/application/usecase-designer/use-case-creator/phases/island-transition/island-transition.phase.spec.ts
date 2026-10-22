@@ -133,8 +133,11 @@ function createFixture(options: FixtureOptions = {}) {
       subgraphs: subgraphIds.map(systemId => ({
         subgraph: {systemId} as never,
         requestedSgkvs: [],
-        isMdf: options.mdfSubgraphIds?.includes(systemId) ?? false,
       })),
+      mdf: {
+        effective: new Set(options.mdfSubgraphIds ?? []),
+        deleted: new Set(),
+      },
       routableDataLinks,
       routableControlLinks,
       overlayDataLinks: [],

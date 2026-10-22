@@ -227,8 +227,8 @@ describe('RoutingGraphSnapshotBuilder', () => {
         [11],
         [12, 13],
       ]);
-      expect(result.data.subgraphs[0]!.isMdf).toBe(true);
-      expect(result.data.mdfSubgraphSystemIds).toEqual(new Set([10]));
+      expect(result.data.mdf.effective).toEqual(new Set([10]));
+      expect(result.data.mdf.deleted).toEqual(new Set());
     }
   });
 
@@ -264,7 +264,7 @@ describe('RoutingGraphSnapshotBuilder', () => {
       expect(result.data.subgraphs.map(item => item.subgraph.systemId)).toEqual(
         [10],
       );
-      expect(result.data.mdfSubgraphSystemIds).toEqual(new Set());
+      expect(result.data.mdf.effective).toEqual(new Set());
     }
   });
 
@@ -305,7 +305,7 @@ describe('RoutingGraphSnapshotBuilder', () => {
       catalog.uow,
     );
     if (result.kind === RESULT_KIND.Ok)
-      expect(result.data.mdfSubgraphSystemIds).toEqual(new Set());
+      expect(result.data.mdf.effective).toEqual(new Set());
   });
 
   it('copies and freezes session edit collections', async () => {
@@ -399,7 +399,7 @@ describe('RoutingGraphSnapshotBuilder', () => {
       );
   });
 
-  it('classifies effective-only subgraphs and deleted SGs; isMdf uses effectiveMdfIds only', async () => {
+  it('groups effective and deleted MDF classifications in the snapshot', async () => {
     const deletedSg = subgraph(20);
     const catalog = createUow({
       subgraphs: [subgraph(10)],
@@ -429,12 +429,12 @@ describe('RoutingGraphSnapshotBuilder', () => {
         7,
         catalog.uow,
       );
-      expect(result.data.subgraphs[0]!.isMdf).toBe(true);
-      expect(result.data.mdfSubgraphSystemIds).toEqual(new Set([10]));
+      expect(result.data.mdf.effective).toEqual(new Set([10]));
+      expect(result.data.mdf.deleted).toEqual(new Set([20]));
     }
   });
 
-  it('copies deletedMdfSubgraphSystemIds as a frozen array from deletedMdfIds', async () => {
+  it('copies deleted MDF IDs into the frozen MDF classification', async () => {
     const catalog = createUow({
       subgraphs: [subgraph(10)],
       dataLinks: [],
@@ -460,10 +460,8 @@ describe('RoutingGraphSnapshotBuilder', () => {
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind === RESULT_KIND.Ok) {
-      expect(result.data.deletedMdfSubgraphSystemIds).toEqual([30, 10, 20]);
-      expect(Object.isFrozen(result.data.deletedMdfSubgraphSystemIds)).toBe(
-        true,
-      );
+      expect(result.data.mdf.deleted).toEqual(new Set([30, 10, 20]));
+      expect(Object.isFrozen(result.data.mdf)).toBe(true);
     }
   });
 

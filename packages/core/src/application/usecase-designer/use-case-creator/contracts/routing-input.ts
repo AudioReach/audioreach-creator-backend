@@ -39,24 +39,29 @@ export interface GraphEditSummary {
 export interface RoutingSubgraph {
   readonly subgraph: Subgraph;
   readonly requestedSgkvs: readonly (readonly number[])[];
-  readonly isMdf: boolean;
+}
+
+/** MDF membership derived for the current routing snapshot. */
+export interface SnapshotMdfClassification {
+  /** MDF subgraphs present in the effective session overlay. */
+  readonly effective: ReadonlySet<number>;
+  /**
+   * Subgraphs that were MDF members in committed state but are absent from the
+   * effective session overlay. Used only for reverse topology analysis; these
+   * IDs must never make a deleted subgraph routable.
+   */
+  readonly deleted: ReadonlySet<number>;
 }
 
 export interface RoutingGraphSnapshot {
   readonly subgraphs: readonly RoutingSubgraph[];
-  readonly mdfSubgraphSystemIds: ReadonlySet<number>;
+  readonly mdf: SnapshotMdfClassification;
   readonly routableDataLinks: readonly DataLink[];
   readonly routableControlLinks: readonly ControlLink[];
   readonly overlayDataLinks: readonly DataLink[];
   readonly overlayControlLinks: readonly ControlLink[];
   readonly committedUsecases: readonly UseCase[];
   readonly sessionEdits: GraphEditSummary;
-  /**
-   * System IDs of subgraphs that were MDF members in committed state but are
-   * absent from the effective session overlay. Used by the reverse collapse
-   * analyzer; must never make a deleted SG routable.
-   */
-  readonly deletedMdfSubgraphSystemIds: readonly number[];
   /**
    * All NORMAL data links in committed (base-table) state for this file.
    * Populated by RoutingGraphSnapshotBuilder via READ_MODE.Committed.
@@ -103,12 +108,11 @@ export type RoutingInput = AutoRoutingInput | ManualRoutingInput;
 export interface ManualRoutingInputInit
   extends RoutingInputBase, Pick<ManualRoutingInput, 'manualTopology'> {}
 
-export interface DerivedRoutingScope {
-  readonly selectedScopeSubgraphs: ReadonlySet<number>;
-  readonly inputSubgraphs: ReadonlySet<number>;
-  readonly outOfSelectionSubgraphs: ReadonlySet<number>;
-  readonly effectiveRoutingScope: ReadonlySet<number>;
+/** Result of resolving which active subgraphs are usable for this routing request. */
+export interface ActiveSubgraphResolution {
+  /** Selected UseCase members absent from the active-subgraph list that are not excluded or deleted. */
   readonly missingSelectedScopeSubgraphs: ReadonlySet<number>;
+  /** Active subgraphs after excluded and session-deleted entries are removed, with SGKV arrays deep-copied. */
   readonly effectiveActiveSubgraphs: readonly ActiveSubgraphSelection[];
 }
 
@@ -124,12 +128,19 @@ export function findDuplicateActiveSubgraphSystemIds(
   return duplicates;
 }
 
-export function deriveRoutingScope(
+/**
+ * Resolves which active subgraphs are usable for a routing request.
+ *
+ * Validates that every selected UseCase member is present in the active-subgraph list
+ * (reporting absent members via `missingSelectedScopeSubgraphs`), then removes
+ * excluded and session-deleted subgraphs to produce `effectiveActiveSubgraphs`.
+ */
+export function resolveActiveSubgraphSelection(
   selectedUsecases: readonly UseCase[],
   activeSubgraphs: readonly ActiveSubgraphSelection[],
   excludedSubgraphSystemIds: readonly number[],
   deletedSubgraphSystemIds: readonly number[] = [],
-): DerivedRoutingScope {
+): ActiveSubgraphResolution {
   const selectedScopeSubgraphs = new Set<number>();
   for (const usecase of selectedUsecases) {
     for (const subgraphSystemId of usecase.subgraphSystemIds) {
@@ -141,23 +152,15 @@ export function deriveRoutingScope(
   );
   const excludedSubgraphs = new Set(excludedSubgraphSystemIds);
   const deletedSubgraphs = new Set(deletedSubgraphSystemIds);
+
   const isUnavailable = (id: number): boolean =>
     excludedSubgraphs.has(id) || deletedSubgraphs.has(id);
-  const outOfSelectionSubgraphs = new Set<number>();
-  for (const id of inputSubgraphs)
-    if (!selectedScopeSubgraphs.has(id)) outOfSelectionSubgraphs.add(id);
-  const effectiveRoutingScope = new Set<number>();
-  for (const id of inputSubgraphs)
-    if (!isUnavailable(id)) effectiveRoutingScope.add(id);
+
   const missingSelectedScopeSubgraphs = new Set<number>();
   for (const id of selectedScopeSubgraphs)
     if (!isUnavailable(id) && !inputSubgraphs.has(id))
       missingSelectedScopeSubgraphs.add(id);
   return {
-    selectedScopeSubgraphs,
-    inputSubgraphs,
-    outOfSelectionSubgraphs,
-    effectiveRoutingScope,
     missingSelectedScopeSubgraphs,
     effectiveActiveSubgraphs: copySelections(
       activeSubgraphs.filter(selection => !isUnavailable(selection.systemId)),
@@ -199,20 +202,19 @@ function copyGraphSnapshot(
           requestedSgkvs: Object.freeze(
             item.requestedSgkvs.map(values => Object.freeze([...values])),
           ),
-          isMdf: item.isMdf,
         }),
       ),
     ),
-    mdfSubgraphSystemIds: new Set(snapshot.mdfSubgraphSystemIds),
+    mdf: Object.freeze({
+      effective: new Set(snapshot.mdf.effective),
+      deleted: new Set(snapshot.mdf.deleted),
+    }),
     routableDataLinks: Object.freeze([...snapshot.routableDataLinks]),
     routableControlLinks: Object.freeze([...snapshot.routableControlLinks]),
     overlayDataLinks: Object.freeze([...snapshot.overlayDataLinks]),
     overlayControlLinks: Object.freeze([...snapshot.overlayControlLinks]),
     committedUsecases: Object.freeze([...snapshot.committedUsecases]),
     sessionEdits: copyGraphEditSummary(snapshot.sessionEdits),
-    deletedMdfSubgraphSystemIds: Object.freeze([
-      ...(snapshot.deletedMdfSubgraphSystemIds ?? []),
-    ]),
     committedDataLinks: Object.freeze([...(snapshot.committedDataLinks ?? [])]),
   });
 }

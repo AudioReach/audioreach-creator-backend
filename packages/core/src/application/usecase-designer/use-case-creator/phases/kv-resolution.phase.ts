@@ -27,8 +27,14 @@ function canonicalKeyValues(keyValues: readonly KvPair[]): KvPair[] {
   );
 }
 
-function shouldUseEmptySgkvInstance(routingSubgraph: RoutingSubgraph): boolean {
-  return routingSubgraph.isMdf || routingSubgraph.requestedSgkvs.length === 0;
+function shouldUseEmptySgkvInstance(
+  routingSubgraph: RoutingSubgraph,
+  effectiveMdfSubgraphSystemIds: ReadonlySet<number>,
+): boolean {
+  return (
+    effectiveMdfSubgraphSystemIds.has(routingSubgraph.subgraph.systemId) ||
+    routingSubgraph.requestedSgkvs.length === 0
+  );
 }
 
 export class KvResolutionPhase {
@@ -84,7 +90,9 @@ export class KvResolutionPhase {
     for (const routingSubgraph of graphSnapshot.subgraphs) {
       const subgraphSystemId = routingSubgraph.subgraph.systemId;
       const requestedSgkvs = routingSubgraph.requestedSgkvs;
-      if (shouldUseEmptySgkvInstance(routingSubgraph)) {
+      if (
+        shouldUseEmptySgkvInstance(routingSubgraph, graphSnapshot.mdf.effective)
+      ) {
         // spec §11: every MDF slot contributes exactly one empty routing instance
         // regardless of how many empty alternatives requestedSgkvs contains.
         // Phase 1 (ARC-ROUTING-MDF-01) blocks non-empty MDF selections before
