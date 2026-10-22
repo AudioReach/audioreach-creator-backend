@@ -121,8 +121,9 @@ async function seedProjectAndFile(dataSource: DataSource): Promise<void> {
     [USECASE_ID, 1, 'mdf-uc', USECASE_TYPE.Linked, FILE_ID],
   );
   await dataSource.query(
-    `INSERT INTO usecase_gkv_values (usecase_system_id, value_def_system_id)
-     VALUES (?, ?)`,
+    `INSERT INTO usecase_gkv_values
+       (system_id, usecase_system_id, value_def_system_id)
+     VALUES (19999, ?, ?)`,
     [USECASE_ID, 100],
   );
   await dataSource.query(

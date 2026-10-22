@@ -761,14 +761,28 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         payload: {
           spfModuleSystemId: moduleSystemId,
           uiPersistence: kvData.uiPersistence,
-          valueDefinitionSystemIds: kvData.valueDefinitionSystemIds,
-          fileSystemId: session.fileSystemId,
         },
         ...options,
       },
       session.sessionId,
       this.manager,
     );
+    for (const valueDefSystemId of kvData.valueDefinitionSystemIds) {
+      const relationshipSystemId = await this.idGeneration.getNextId(
+        session.fileSystemId,
+      );
+      await this.writer.writeCreate(
+        {
+          targetTable: ENTITY_NAMES.CkvValues,
+          targetSystemId: relationshipSystemId,
+          aggregateId: moduleSystemId,
+          payload: {ckvSystemId: kvData.systemId, valueDefSystemId},
+          ...options,
+        },
+        session.sessionId,
+        this.manager,
+      );
+    }
     for (const param of kvData.parameterPayloads) {
       await this.addParameterToCkv(
         kvData.systemId,
@@ -823,10 +837,24 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       ckvSystemId,
       moduleSystemId,
     );
+    const ckv = await this.ckvOverlayFetcher.fetchOne(
+      ckvSystemId,
+      moduleSystemId,
+      sessionId,
+    );
     for (const payload of payloads) {
       await this.writeDeleteRow(
         'CkvParameterPayload',
         payload.systemId,
+        moduleSystemId,
+        sessionId,
+        options,
+      );
+    }
+    for (const value of ckv?.values ?? []) {
+      await this.writeDeleteRow(
+        ENTITY_NAMES.CkvValues,
+        value.systemId,
         moduleSystemId,
         sessionId,
         options,
@@ -972,14 +1000,28 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         payload: {
           moduleTagIdMapSystemId: tagSystemId,
           uiPersistence: kvData.uiPersistence,
-          valueDefinitionSystemIds: kvData.valueDefinitionSystemIds,
-          fileSystemId: session.fileSystemId,
         },
         ...options,
       },
       session.sessionId,
       this.manager,
     );
+    for (const valueDefSystemId of kvData.valueDefinitionSystemIds) {
+      const relationshipSystemId = await this.idGeneration.getNextId(
+        session.fileSystemId,
+      );
+      await this.writer.writeCreate(
+        {
+          targetTable: ENTITY_NAMES.TkvValues,
+          targetSystemId: relationshipSystemId,
+          aggregateId: tagSystemId,
+          payload: {tkvSystemId: kvData.systemId, valueDefSystemId},
+          ...options,
+        },
+        session.sessionId,
+        this.manager,
+      );
+    }
     for (const param of kvData.parameterPayloads) {
       await this.addParameterToTkv(
         kvData.systemId,
@@ -1002,10 +1044,20 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       tkvSystemId,
       sessionId,
     );
+    const tkv = await this.tkvOverlayFetcher.fetchTkv(tkvSystemId, sessionId);
     for (const payload of payloads) {
       await this.writeDeleteRow(
         'TkvParameterPayload',
         payload.systemId,
+        tagSystemId,
+        sessionId,
+        options,
+      );
+    }
+    for (const value of tkv?.values ?? []) {
+      await this.writeDeleteRow(
+        ENTITY_NAMES.TkvValues,
+        value.systemId,
         tagSystemId,
         sessionId,
         options,

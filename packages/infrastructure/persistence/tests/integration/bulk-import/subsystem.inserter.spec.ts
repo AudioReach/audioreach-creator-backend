@@ -11,7 +11,7 @@ import {
   beforeEach,
 } from '@jest/globals';
 import type {DataSource, EntityManager} from 'typeorm';
-import {Subsystem} from '@arc/core';
+import {Subsystem, type IdGenerationPort} from '@arc/core';
 import {
   setupIntegrationTest,
   teardownIntegrationTest,
@@ -72,6 +72,7 @@ function buildSubsystem(
 describe('SubsystemInserter', () => {
   let dataSource: DataSource;
   let manager: EntityManager;
+  let idGeneration: IdGenerationPort;
 
   beforeAll(setupIntegrationTest);
   afterAll(teardownIntegrationTest);
@@ -80,11 +81,20 @@ describe('SubsystemInserter', () => {
     dataSource = getTestDataSource();
     manager = dataSource.manager;
     await createFkDependencies(manager);
+    let nextGeneratedId = 8000;
+    idGeneration = {
+      getNextId: async fileSystemId => {
+        expect(fileSystemId).toBe(FILE_ID);
+        return ++nextGeneratedId;
+      },
+      reserveBlock: async () => nextGeneratedId,
+      persistLastUsedId: async () => undefined,
+    };
   });
 
   it('should insert a subsystem with real name and subsystemId', async () => {
     const s = buildSubsystem(200, 'StreamRx_ULL', 0xf0100001);
-    const inserter = new SubsystemInserter(manager);
+    const inserter = new SubsystemInserter(manager, idGeneration);
     const result = await inserter.insert([s]);
     expect(result.ok).toBe(true);
     const rows = await dataSource.query(
@@ -97,20 +107,21 @@ describe('SubsystemInserter', () => {
 
   it('should insert filteredKeys join rows', async () => {
     const s = buildSubsystem(201, 'S', 0xf0100002, [KEY_SYSTEM_ID]);
-    const inserter = new SubsystemInserter(manager);
+    const inserter = new SubsystemInserter(manager, idGeneration);
     await inserter.insert([s]);
     const rows = await dataSource.query(
       `SELECT * FROM subsystem_filtered_keys_key_definition WHERE subsystems_system_id = ?`,
       [201],
     );
     expect(rows).toHaveLength(1);
+    expect(rows[0].system_id).toBe(8001);
     expect(rows[0].key_definition_system_id).toBe(KEY_SYSTEM_ID);
   });
 
   it('should insert child subsystem with parentId set', async () => {
     const parent = buildSubsystem(202, 'Parent', 0xf0100003);
     const child = buildSubsystem(203, 'Child', 0xf0100004, [], 202);
-    const inserter = new SubsystemInserter(manager);
+    const inserter = new SubsystemInserter(manager, idGeneration);
     await inserter.insert([parent, child]);
     const rows = await dataSource.query(
       `SELECT parent_id FROM nodes WHERE system_id = ?`,
@@ -121,7 +132,7 @@ describe('SubsystemInserter', () => {
 
   it('should insert a subsystem with empty name and zero subsystemId', async () => {
     const s = buildSubsystem(210, '', 0);
-    const inserter = new SubsystemInserter(manager);
+    const inserter = new SubsystemInserter(manager, idGeneration);
     await inserter.insert([s]);
     const rows = await dataSource.query(
       `SELECT name, subsystem_id FROM subsystems WHERE system_id = ?`,

@@ -16,6 +16,8 @@ export * from './application/orchestration/cqrs/errors.js';
 // Session lifecycle commands and result type (LLD1 §7b)
 export {StartSessionCommand} from './application/edit-session/start-session/start-session.command.js';
 export {EndSessionCommand} from './application/edit-session/end-session/end-session.command.js';
+export {ApplyChangesCommand} from './application/edit-session/apply-changes/apply-changes.command.js';
+export {DiscardChangesCommand} from './application/edit-session/discard-changes/discard-changes.command.js';
 export type {SessionResult} from './application/edit-session/session-types.js';
 
 // Shared errors

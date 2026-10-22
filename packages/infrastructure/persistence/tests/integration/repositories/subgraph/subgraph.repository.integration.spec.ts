@@ -110,6 +110,15 @@ async function seedVcpmData(
   subgraphSystemId: number,
 ): Promise<void> {
   await ds.query(
+    `INSERT INTO arc_keys (system_id, name, key_id, file_system_id)
+     VALUES (805, 'vcpm-key', 1, ?)`,
+    [FILE_ID],
+  );
+  await ds.query(
+    `INSERT INTO arc_values (system_id, name, value_id, keys_system_id)
+     VALUES (806, 'vcpm-value', 1, 805)`,
+  );
+  await ds.query(
     `INSERT INTO vcpm_module_definitions
        (system_id, module_definition_id, name, file_system_id)
      VALUES (800, 1, 'vcpm', ?)`,
@@ -136,11 +145,17 @@ async function seedVcpmData(
        (system_id, vcpm_parameter_system_id, vcpm_ckv_system_id, payload)
      VALUES (804, 801, 803, x'01')`,
   );
+  await ds.query(
+    `INSERT INTO vcpm_ckv_values
+       (system_id, vcpm_ckv_system_id, value_def_system_id)
+     VALUES (807, 803, 806)`,
+  );
 }
 
 function makeRepo(
   manager: QueryRunner['manager'],
   sessionId = 0,
+  generatedIdStart = 9999,
 ): TypeOrmSubgraphRepository {
   const writer = new PendingChangeWriter(
     new EditActionsQueryService(manager),
@@ -157,9 +172,8 @@ function makeRepo(
       groupId: 'test-group',
     }),
   } as any;
-  const idGeneration = {
-    getNextId: async () => 10_000,
-  } as any;
+  let nextGeneratedId = generatedIdStart;
+  const idGeneration = {getNextId: async () => ++nextGeneratedId} as any;
   return new TypeOrmSubgraphRepository(writer, manager, uow, idGeneration);
 }
 
@@ -205,7 +219,7 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
         `INSERT OR IGNORE INTO arc_values (system_id, name, value_id, keys_system_id) VALUES (10, 'V10', 1, 1)`,
       );
       await ds.query(
-        `INSERT INTO sgkv_values (sgkv_system_id, value_def_system_id) VALUES (500, 10)`,
+        `INSERT INTO sgkv_values (system_id, sgkv_system_id, value_def_system_id) VALUES (501, 500, 10)`,
       );
 
       const result = await makeRepo(qr.manager).getSgkvs(FILE_ID, [SG_A]);
@@ -214,6 +228,58 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
       expect(result[0].sgkvSystemId).toBe(500);
       expect(result[0].keyValues).toEqual([
         {keyDefSystemId: 1, valueDefSystemId: 10},
+      ]);
+    });
+
+    it('applies SGKV value actions by relationship system ID', async () => {
+      await seedSgkv(ds, 500, SG_A);
+      await ds.query(
+        `INSERT INTO arc_keys (system_id, name, key_id, file_system_id)
+         VALUES (1, 'K1', 1, ?), (2, 'K2', 2, ?)`,
+        [FILE_ID, FILE_ID],
+      );
+      await ds.query(
+        `INSERT INTO arc_values (system_id, name, value_id, keys_system_id)
+         VALUES (10, 'V1', 1, 1), (11, 'V2', 2, 2)`,
+      );
+      await ds.query(
+        `INSERT INTO sgkv_values
+           (system_id, sgkv_system_id, value_def_system_id)
+         VALUES (501, 500, 10)`,
+      );
+      const sessionId = await seedSession(ds);
+      const writer = new PendingChangeWriter(
+        new EditActionsQueryService(qr.manager),
+        new PendingChangeCache(),
+      );
+      await writer.writeDelete(
+        {
+          targetTable: ENTITY_NAMES.SgkvValues,
+          targetSystemId: 501,
+          aggregateId: SG_A,
+        },
+        sessionId,
+        qr.manager,
+      );
+      await writer.writeCreate(
+        {
+          targetTable: ENTITY_NAMES.SgkvValues,
+          targetSystemId: 502,
+          aggregateId: SG_A,
+          payload: {sgkvSystemId: 500, valueDefSystemId: 11},
+        },
+        sessionId,
+        qr.manager,
+      );
+
+      await expect(
+        makeRepo(qr.manager, sessionId).getSgkvs(FILE_ID, [SG_A]),
+      ).resolves.toEqual([
+        {
+          sgSystemId: SG_A,
+          sgkvSystemId: 500,
+          keyValues: [{keyDefSystemId: 2, valueDefSystemId: 11}],
+        },
       ]);
     });
 
@@ -562,6 +628,7 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
       expect(actions).toEqual(
         expect.arrayContaining([
           {targetSystemId: 804, targetTable: ENTITY_NAMES.VcpmParameterPayload},
+          {targetSystemId: 807, targetTable: ENTITY_NAMES.VcpmCkvValues},
           {targetSystemId: 803, targetTable: ENTITY_NAMES.VcpmCkv},
           {targetSystemId: 802, targetTable: ENTITY_NAMES.VcpmInstance},
           {targetSystemId: SG_A, targetTable: ENTITY_NAMES.Subgraph},
@@ -571,12 +638,12 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
   });
 
   describe('addVcpmModule', () => {
-    it('stages the supplied VCPM hierarchy IDs without generating new IDs', async () => {
+    it('stages supplied hierarchy IDs and generated value relationship IDs', async () => {
       const sessionId = await seedSession(ds);
-      const repo = makeRepo(qr.manager, sessionId);
+      const repo = makeRepo(qr.manager, sessionId, 10_000);
       const ckv = new KvData({
         systemId: 9002,
-        valueDefinitionSystemIds: [],
+        valueDefinitionSystemIds: [701, 702],
         uiPersistence: null,
       });
       ckv.addParameterPayload(
@@ -593,9 +660,10 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
       await repo.addVcpmModule(instance, new Map([[801, 9003]]));
 
       const actions = await ds.query<
-        Array<{targetSystemId: number; targetTable: string}>
+        Array<{targetSystemId: number; targetTable: string; newValue: string}>
       >(
-        `SELECT target_system_id AS targetSystemId, target_table AS targetTable
+        `SELECT target_system_id AS targetSystemId, target_table AS targetTable,
+                new_value AS newValue
          FROM edit_actions
          WHERE session_id = ?
          ORDER BY target_system_id`,
@@ -603,11 +671,34 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
       );
 
       expect(actions).toEqual([
-        {targetSystemId: 9001, targetTable: ENTITY_NAMES.VcpmInstance},
-        {targetSystemId: 9002, targetTable: ENTITY_NAMES.VcpmCkv},
+        expect.objectContaining({
+          targetSystemId: 9001,
+          targetTable: ENTITY_NAMES.VcpmInstance,
+        }),
+        expect.objectContaining({
+          targetSystemId: 9002,
+          targetTable: ENTITY_NAMES.VcpmCkv,
+        }),
         {
           targetSystemId: 9003,
           targetTable: ENTITY_NAMES.VcpmParameterPayload,
+          newValue: expect.any(String),
+        },
+        {
+          targetSystemId: 10001,
+          targetTable: ENTITY_NAMES.VcpmCkvValues,
+          newValue: JSON.stringify({
+            vcpmCkvSystemId: 9002,
+            valueDefSystemId: 701,
+          }),
+        },
+        {
+          targetSystemId: 10002,
+          targetTable: ENTITY_NAMES.VcpmCkvValues,
+          newValue: JSON.stringify({
+            vcpmCkvSystemId: 9002,
+            valueDefSystemId: 702,
+          }),
         },
       ]);
     });

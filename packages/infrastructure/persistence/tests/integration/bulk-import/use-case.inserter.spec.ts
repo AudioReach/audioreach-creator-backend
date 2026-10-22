@@ -93,6 +93,7 @@ function buildUseCase(
     }[];
     valueSystemIds?: number[];
     alias?: string;
+    categories?: string[];
   } = {},
 ): UseCase {
   return new UseCase({
@@ -101,6 +102,7 @@ function buildUseCase(
     aliasId: systemId,
     alias: opts.alias ?? `UseCase${systemId}`,
     keyVector: {valueSystemIds: opts.valueSystemIds ?? []},
+    categories: opts.categories,
     subgraphSystemIds: opts.subgraphSystemIds ?? [],
     subgraphPairs: opts.subgraphPairs ?? [],
   });
@@ -174,6 +176,12 @@ describe('UseCaseInserter', () => {
       `SELECT * FROM usecase_gkv_values WHERE usecase_system_id = 1001`,
     );
     expect(rows).toHaveLength(2);
+    expect(
+      rows.every((row: {system_id: number}) => row.system_id >= 10_000),
+    ).toBe(true);
+    expect(
+      new Set(rows.map((row: {system_id: number}) => row.system_id)).size,
+    ).toBe(2);
     const ids = rows
       .map((r: {value_def_system_id: number}) => r.value_def_system_id)
       .sort();
@@ -194,6 +202,28 @@ describe('UseCaseInserter', () => {
       `SELECT * FROM usecase_gkv_values WHERE usecase_system_id = 1001`,
     );
     expect(gkvRows).toHaveLength(0);
+  });
+
+  it('allocates system IDs for category rows and their usecase links', async () => {
+    const uc = buildUseCase(1001, {categories: ['voice', 'media']});
+
+    const result = await inserter.insert([uc]);
+
+    expect(result.ok).toBe(true);
+    const categories = await dataSource.query(
+      `SELECT * FROM use_case_categories_master ORDER BY name`,
+    );
+    const links = await dataSource.query(
+      `SELECT * FROM use_case_categories WHERE use_case_system_id = 1001`,
+    );
+    expect(categories).toHaveLength(2);
+    expect(links).toHaveLength(2);
+    expect(
+      categories.every((row: {system_id: number}) => row.system_id >= 10_000),
+    ).toBe(true);
+    expect(
+      links.every((row: {system_id: number}) => row.system_id >= 10_000),
+    ).toBe(true);
   });
 
   // ── Subgraph membership ────────────────────────────────────────────────────

@@ -166,8 +166,8 @@ describe('TypeOrmValidationQueryRepository.findModulesByFile', () => {
       [CKV_B_ID, MOD_B_ID],
     );
     await ds.query(
-      `INSERT INTO ckv_values (ckv_system_id, value_def_system_id) VALUES (?, ?)`,
-      [CKV_B_ID, VALUE_DEF_ID],
+      `INSERT INTO ckv_values (system_id, ckv_system_id, value_def_system_id) VALUES (?, ?, ?)`,
+      [8001, CKV_B_ID, VALUE_DEF_ID],
     );
 
     const result = await repo.findModulesByFile(FILE_ID);
@@ -195,8 +195,8 @@ describe('TypeOrmValidationQueryRepository.findModulesByFile', () => {
       [CKV_B_ID, MOD_B_ID],
     );
     await ds.query(
-      `INSERT INTO ckv_values (ckv_system_id, value_def_system_id) VALUES (?, ?)`,
-      [CKV_B_ID, VALUE_DEF_ID],
+      `INSERT INTO ckv_values (system_id, ckv_system_id, value_def_system_id) VALUES (?, ?, ?)`,
+      [8001, CKV_B_ID, VALUE_DEF_ID],
     );
     // Module C: mixed (zero-key + non-zero) — ARC-MOD-005 case
     await ds.query(
@@ -208,8 +208,8 @@ describe('TypeOrmValidationQueryRepository.findModulesByFile', () => {
       [CKV_C_NONZERO_ID, MOD_C_ID],
     );
     await ds.query(
-      `INSERT INTO ckv_values (ckv_system_id, value_def_system_id) VALUES (?, ?)`,
-      [CKV_C_NONZERO_ID, VALUE_DEF_ID + 1],
+      `INSERT INTO ckv_values (system_id, ckv_system_id, value_def_system_id) VALUES (?, ?, ?)`,
+      [8002, CKV_C_NONZERO_ID, VALUE_DEF_ID + 1],
     );
 
     const result = await repo.findModulesByFile(FILE_ID);

@@ -4,6 +4,10 @@
  */
 
 import {EntitySchema} from 'typeorm';
+import {
+  BaseColumnSchemaPart,
+  type EntityBaseRow,
+} from '../../../entity-base.js';
 import type {SpfModuleDefinitionRow} from './spf-module-definition.schema.js';
 import type {ContainerTypeRow} from '../../container/container-definition.schema.js';
 
@@ -12,7 +16,7 @@ import type {ContainerTypeRow} from '../../container/container-definition.schema
  * Owns the table definition. FK constraints are enforced via many-to-one relations,
  * allowing BatchInserter to insert join rows without raw SQL.
  */
-export interface ModuleDefinitionContainerTypeLinkRow {
+export interface ModuleDefinitionContainerTypeLinkRow extends EntityBaseRow {
   moduleDefinitionSystemId: number;
   containerTypeSystemId: number;
   moduleDefinition?: SpfModuleDefinitionRow;
@@ -24,15 +28,14 @@ export const ModuleDefinitionContainerTypeLinkSchema =
     name: 'ModuleDefinitionContainerTypeLink',
     tableName: 'module_definition_container_types',
     columns: {
+      ...BaseColumnSchemaPart,
       moduleDefinitionSystemId: {
         type: 'integer',
         name: 'module_definition_system_id',
-        primary: true,
       },
       containerTypeSystemId: {
         type: 'integer',
         name: 'container_type_system_id',
-        primary: true,
       },
     },
     relations: {
@@ -55,4 +58,11 @@ export const ModuleDefinitionContainerTypeLinkSchema =
         onDelete: 'CASCADE',
       },
     },
+    indices: [
+      {
+        name: 'uq_module_definition_container_types_definition_container',
+        columns: ['moduleDefinitionSystemId', 'containerTypeSystemId'],
+        unique: true,
+      },
+    ],
   });

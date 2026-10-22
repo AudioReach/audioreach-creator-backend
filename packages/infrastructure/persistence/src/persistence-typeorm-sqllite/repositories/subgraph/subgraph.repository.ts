@@ -135,7 +135,12 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
         targetTable: ENTITY_NAMES.VcpmParameterPayload,
         rows: vcpmData.parameterPayloads,
       },
+      {targetTable: ENTITY_NAMES.VcpmCkvValues, rows: vcpmData.values},
       {targetTable: ENTITY_NAMES.VcpmCkv, rows: vcpmData.ckvs},
+      {
+        targetTable: ENTITY_NAMES.SgkvValues,
+        rows: sgkvs.flatMap(sgkv => sgkv.values),
+      },
       {targetTable: ENTITY_NAMES.Sgkv, rows: sgkvs},
       {targetTable: ENTITY_NAMES.VcpmInstance, rows: vcpmData.instances},
     ];
@@ -488,6 +493,22 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
       this.manager,
     );
 
+    for (const valueDefSystemId of ckv.valueDefinitionSystemIds) {
+      const relationshipSystemId = await this.idGeneration.getNextId(
+        session.fileSystemId,
+      );
+      await this.writer.writeCreate(
+        {
+          targetTable: ENTITY_NAMES.VcpmCkvValues,
+          targetSystemId: relationshipSystemId,
+          aggregateId: instance.subgraphSystemId,
+          payload: {vcpmCkvSystemId: ckv.systemId, valueDefSystemId},
+        },
+        session.sessionId,
+        this.manager,
+      );
+    }
+
     for (const parameter of ckv.parameterPayloads) {
       const payloadSystemId = payloadSystemIdsByParameterSystemId.get(
         parameter.paramDefintionSystemId,
@@ -525,6 +546,7 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
         targetTable: ENTITY_NAMES.VcpmParameterPayload,
         rows: data.parameterPayloads,
       },
+      {targetTable: ENTITY_NAMES.VcpmCkvValues, rows: data.values},
       {targetTable: ENTITY_NAMES.VcpmCkv, rows: data.ckvs},
       {targetTable: ENTITY_NAMES.VcpmInstance, rows: data.instances},
     ];

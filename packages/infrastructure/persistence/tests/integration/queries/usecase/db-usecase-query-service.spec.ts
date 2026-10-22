@@ -234,7 +234,14 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
       targetSystemId: 911,
       targetTable: ENTITY_NAMES.UseCaseCategory,
       operation: CHANGE_OPERATION.Create,
-      payload: {usecaseSystemId: USECASE_ID, name: 'media'},
+      payload: {name: 'media'},
+    });
+    await seedAction({
+      groupId: 'latest-category-group',
+      targetSystemId: 913,
+      targetTable: ENTITY_NAMES.UseCaseCategoryJoin,
+      operation: CHANGE_OPERATION.Create,
+      payload: {useCaseSystemId: USECASE_ID, categorySystemId: 911},
     });
 
     const result = await service.getChangeDetails(FILE_ID, [
@@ -422,7 +429,14 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
       targetSystemId: 902,
       targetTable: ENTITY_NAMES.UseCaseCategory,
       operation: CHANGE_OPERATION.Create,
-      payload: {usecaseSystemId: USECASE_ID, name: 'voice'},
+      payload: {name: 'voice'},
+    });
+    await seedAction({
+      groupId: 'create-group',
+      targetSystemId: 912,
+      targetTable: ENTITY_NAMES.UseCaseCategoryJoin,
+      operation: CHANGE_OPERATION.Create,
+      payload: {useCaseSystemId: USECASE_ID, categorySystemId: 902},
     });
     await seedAction({
       groupId: 'create-group',

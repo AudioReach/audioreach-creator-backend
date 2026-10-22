@@ -20,13 +20,14 @@ export interface SgkvRow extends EntityBaseRow, SgkvBase {
   values?: SgkvValuesRow[];
 }
 
-/** Composite-PK join table scalars — not overlaid. */
+/** SGKV-to-value relationship scalars keyed by a synthetic system ID. */
 export interface SgkvValuesBase {
+  systemId: number;
   sgkvSystemId: number;
   valueDefSystemId: number;
 }
 
-export interface SgkvValuesRow extends SgkvValuesBase {
+export interface SgkvValuesRow extends EntityBaseRow, SgkvValuesBase {
   sgkv?: SgkvRow;
   valueDef?: ValueDefinitionRow;
 }
@@ -60,11 +61,11 @@ export const SgkvValuesSchema = new EntitySchema<SgkvValuesRow>({
   name: 'SgkvValues',
   tableName: 'sgkv_values',
   columns: {
-    sgkvSystemId: {name: 'sgkv_system_id', type: 'integer', primary: true},
+    ...BaseColumnSchemaPart,
+    sgkvSystemId: {name: 'sgkv_system_id', type: 'integer'},
     valueDefSystemId: {
       name: 'value_def_system_id',
       type: 'integer',
-      primary: true,
     },
   },
   relations: {
@@ -84,4 +85,11 @@ export const SgkvValuesSchema = new EntitySchema<SgkvValuesRow>({
       onDelete: 'RESTRICT',
     },
   },
+  indices: [
+    {
+      name: 'uq_sgkv_values_sgkv_value_definition',
+      columns: ['sgkvSystemId', 'valueDefSystemId'],
+      unique: true,
+    },
+  ],
 });

@@ -39,13 +39,14 @@ export interface CkvParameterPayloadRow
   spfParameter?: SpfModuleParameterDefinitionRow; // relation
 }
 
-/** Composite-PK join table scalars — no systemId, not overlaid. */
+/** CKV-to-value relationship scalars keyed by a synthetic system ID. */
 export interface CkvValuesBase {
+  systemId: number;
   ckvSystemId: number;
   valueDefSystemId: number;
 }
 
-export interface CkvValuesRow extends CkvValuesBase {
+export interface CkvValuesRow extends EntityBaseRow, CkvValuesBase {
   ckv?: CkvRow;
   valueDef?: ValueDefinitionRow;
 }
@@ -143,11 +144,11 @@ export const CkvValuesSchema = new EntitySchema<CkvValuesRow>({
   name: 'CkvValues',
   tableName: 'ckv_values',
   columns: {
-    ckvSystemId: {name: 'ckv_system_id', type: 'integer', primary: true},
+    ...BaseColumnSchemaPart,
+    ckvSystemId: {name: 'ckv_system_id', type: 'integer'},
     valueDefSystemId: {
       name: 'value_def_system_id',
       type: 'integer',
-      primary: true,
     },
   },
   relations: {
@@ -167,4 +168,11 @@ export const CkvValuesSchema = new EntitySchema<CkvValuesRow>({
       onDelete: 'RESTRICT',
     },
   },
+  indices: [
+    {
+      name: 'uq_ckv_values_ckv_value_definition',
+      columns: ['ckvSystemId', 'valueDefSystemId'],
+      unique: true,
+    },
+  ],
 });

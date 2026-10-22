@@ -45,6 +45,8 @@ import {
   Result,
   StartSessionCommand,
   EndSessionCommand,
+  ApplyChangesCommand,
+  DiscardChangesCommand,
   GetProjectsQuery,
   GetProjectQuery,
   UpdateProjectCommand,
@@ -1360,34 +1362,21 @@ export class ProjectController {
   }
 
   @Post('/:projectId/commit-changes')
+  @UseGuards(SessionGuard)
+  @HttpCode(HttpStatus.OK)
   @ApiParam({name: 'projectId', description: 'Id of project', required: true})
   @ApiBody({type: CommitChangesRequestDto})
   @ApiOperation({
     summary: 'Commit changes',
     description:
-      'Commit staged changes in the project based on project Id.\n\n' +
-      'Available in all session modes (TUNING, DESIGNER, DISCOVERY_WIZARD, DIFF_MERGE).\n\n' +
-      'Behavior:\n' +
-      '- If changeIds is not provided or empty, all staged changes will be committed\n' +
-      '- If changeIds is provided, only the specified changes will be committed\n' +
-      '- All dependencies of the specified changes must be staged, otherwise the commit will fail\n' +
-      '- The operation validates that all required dependencies are present before committing\n' +
-      '- Pass ?enforceValidation=true to run COMMIT-group validation rules before applying changes; validation failures return 422',
+      'Atomically applies every staged edit action in the active project session. ' +
+      'Unstaged actions remain pending. The request does not accept selective change IDs.',
   })
-  @ApiExtraModels(ApiResult, CommitChangesResponseDto)
+  @ApiExtraModels(CommitChangesResponseDto)
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Successfully committed changes',
-    schema: {
-      allOf: [
-        {$ref: getSchemaPath(ApiResult)},
-        {
-          properties: {
-            data: {$ref: getSchemaPath(CommitChangesResponseDto)},
-          },
-        },
-      ],
-    },
+    type: CommitChangesResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
@@ -1407,57 +1396,37 @@ export class ProjectController {
     },
   })
   @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Project does not exist',
-    schema: {
-      allOf: [
-        {$ref: getSchemaPath(ApiResult)},
-        {
-          properties: {
-            data: {
-              type: 'object',
-              nullable: true,
-            },
-          },
-        },
-      ],
-    },
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    description: 'No staged changes or commit validation failed',
   })
   async commitChanges(
-    @Param('projectId') _projectId: string,
+    @Param('projectId') projectId: string,
     @Body() _commitChangesRequest: CommitChangesRequestDto,
-  ): Promise<ApiResult<CommitChangesResponseDto>> {
-    await Promise.resolve();
-    throw new NotImplementedException('commitChanges is not implemented yet');
+    @ArcSession() session: ActiveSession,
+  ): Promise<CommitChangesResponseDto> {
+    await this.commandBus.execute<Result<Record<string, never>>>(
+      new ApplyChangesCommand(projectId),
+      session,
+    );
+    return {};
   }
 
   @Post('/:projectId/discard-changes')
+  @UseGuards(SessionGuard)
+  @HttpCode(HttpStatus.OK)
   @ApiParam({name: 'projectId', description: 'Id of project', required: true})
   @ApiBody({type: DiscardChangesRequestDto})
   @ApiOperation({
     summary: 'Discard changes',
     description:
-      'Discard uncommitted changes in the project based on project Id.\n\n' +
-      'Behavior:\n' +
-      '- If changeIds is not provided or empty, all changes will be discarded\n' +
-      '- If changeIds is provided, only the specified changes will be discarded\n' +
-      '- Dependent changes will be automatically discarded as well (cascade delete)\n' +
-      '- WARNING: Discarded changes cannot be recovered',
+      'Atomically removes every edit action in the active project session. ' +
+      'Permanent tables and session commit records are unchanged.',
   })
-  @ApiExtraModels(ApiResult, DiscardChangesResponseDto)
+  @ApiExtraModels(DiscardChangesResponseDto)
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Successfully discarded changes',
-    schema: {
-      allOf: [
-        {$ref: getSchemaPath(ApiResult)},
-        {
-          properties: {
-            data: {$ref: getSchemaPath(DiscardChangesResponseDto)},
-          },
-        },
-      ],
-    },
+    type: DiscardChangesResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
@@ -1494,11 +1463,15 @@ export class ProjectController {
     },
   })
   async discardChanges(
-    @Param('projectId') _projectId: string,
+    @Param('projectId') projectId: string,
     @Body() _discardChangesRequest: DiscardChangesRequestDto,
-  ): Promise<ApiResult<DiscardChangesResponseDto>> {
-    await Promise.resolve();
-    throw new NotImplementedException('discardChanges is not implemented yet');
+    @ArcSession() session: ActiveSession,
+  ): Promise<DiscardChangesResponseDto> {
+    await this.commandBus.execute<Result<Record<string, never>>>(
+      new DiscardChangesCommand(projectId),
+      session,
+    );
+    return {};
   }
 
   @Post('/:projectId/start-session')

@@ -71,22 +71,39 @@ export class SubgraphSgkvFetcher {
 
     if (sessionId === null) return baseRows.map(r => toOverlaid(r));
 
-    const actions = await this.editActionsSvc.getByTable(
-      sessionId,
-      ENTITY_NAMES.Sgkv,
-    );
-    if (actions.length === 0) return baseRows.map(r => toOverlaid(r));
+    const [sgkvActions, valueActions] = await Promise.all([
+      this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.Sgkv),
+      this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.SgkvValues),
+    ]);
     const requestedSubgraphIds =
       sgSystemIds === undefined ? undefined : new Set(sgSystemIds);
 
-    return this.overlay
-      .applyToCollection(baseRows, actions, {
+    const effectiveSgkvs = this.overlay
+      .applyToCollection(baseRows, sgkvActions, {
         matchesEffective: row =>
           requestedSubgraphIds === undefined ||
           requestedSubgraphIds.has(row.subgraphSystemId),
       })
-      .map(r =>
-        toOverlaid(r.effective as SgkvBase & {values?: SgkvValuesBase[]}),
-      );
+      .map(result => result.effective);
+    const effectiveSgkvIds = new Set(effectiveSgkvs.map(row => row.systemId));
+    const effectiveValues = this.overlay
+      .applyToCollection(
+        baseRows.flatMap(row => row.values ?? []),
+        valueActions,
+        {
+          matchesEffective: row => effectiveSgkvIds.has(row.sgkvSystemId),
+        },
+      )
+      .map(result => result.effective);
+    const valuesBySgkvId = new Map<number, SgkvValuesBase[]>();
+    for (const value of effectiveValues) {
+      const values = valuesBySgkvId.get(value.sgkvSystemId) ?? [];
+      values.push(value);
+      valuesBySgkvId.set(value.sgkvSystemId, values);
+    }
+
+    return effectiveSgkvs.map(row =>
+      toOverlaid({...row, values: valuesBySgkvId.get(row.systemId) ?? []}),
+    );
   }
 }

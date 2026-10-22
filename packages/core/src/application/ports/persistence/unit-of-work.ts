@@ -62,6 +62,12 @@ export interface UnitOfWork {
   /** Returns ISessionRepository bound to this UoW's connection. */
   getSessionRepository(): ISessionRepository;
 
+  /** Applies every staged edit action through this UoW's transaction. */
+  applyChanges(): Promise<void>;
+
+  /** Discards every edit action through this UoW's transaction. */
+  discardChanges(): Promise<void>;
+
   // ── Module write path (LLD2) ──────────────────────────────────────────────
   getModuleRepository(): ModuleRepository;
   getContainerRepository(): ContainerRepository;

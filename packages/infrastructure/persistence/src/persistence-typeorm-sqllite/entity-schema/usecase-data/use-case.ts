@@ -24,7 +24,7 @@ export interface UseCaseBase {
 export interface UseCaseRow extends EntityBaseRow, UseCaseBase {
   // Relations
   file?: ArcDbFileRow;
-  categories?: UseCaseCategoryRow[];
+  categoryLinks?: UseCaseCategoryJoinRow[];
   subgraphMemberships?: UseCaseSubgraphRow[];
   subgraphPairs?: UseCaseSubgraphPairRow[];
   gkvEntries?: UsecaseGkvValuesRow[];
@@ -34,16 +34,18 @@ export interface UseCaseCategoryRow extends EntityBaseRow {
   name: string;
 
   // Relations
-  useCases?: UseCaseRow[];
+  useCaseLinks?: UseCaseCategoryJoinRow[];
 }
 
-/** Composite-PK join table scalars — not overlaid. */
+/** Usecase-to-value relationship scalars keyed by a synthetic system ID. */
 export interface UsecaseGkvValuesBase {
+  systemId: number;
   usecaseSystemId: number;
   valueDefSystemId: number;
 }
 
-export interface UsecaseGkvValuesRow extends UsecaseGkvValuesBase {
+export interface UsecaseGkvValuesRow
+  extends EntityBaseRow, UsecaseGkvValuesBase {
   useCase?: UseCaseRow;
   valueDef?: ValueDefinitionRow;
 }
@@ -89,20 +91,10 @@ export const UseCaseSchema = new EntitySchema<UseCaseRow>({
       },
       onDelete: 'CASCADE',
     },
-    categories: {
-      type: 'many-to-many',
-      target: 'UseCaseCategory',
-      joinTable: {
-        name: 'use_case_categories',
-        joinColumn: {
-          name: 'use_case_system_id',
-          referencedColumnName: 'systemId',
-        },
-        inverseJoinColumn: {
-          name: 'category_system_id',
-          referencedColumnName: 'systemId',
-        },
-      },
+    categoryLinks: {
+      type: 'one-to-many',
+      target: 'UseCaseCategoryJoin',
+      inverseSide: 'useCase',
     },
     subgraphMemberships: {
       type: 'one-to-many',
@@ -144,10 +136,10 @@ export const UseCaseCategorySchema = new EntitySchema<UseCaseCategoryRow>({
     },
   },
   relations: {
-    useCases: {
-      type: 'many-to-many',
-      target: 'UseCase',
-      inverseSide: 'categories',
+    useCaseLinks: {
+      type: 'one-to-many',
+      target: 'UseCaseCategoryJoin',
+      inverseSide: 'category',
     },
   },
 });
@@ -156,15 +148,14 @@ export const UsecaseGkvValuesSchema = new EntitySchema<UsecaseGkvValuesRow>({
   name: 'UsecaseGkvValues',
   tableName: 'usecase_gkv_values',
   columns: {
+    ...BaseColumnSchemaPart,
     usecaseSystemId: {
       name: 'usecase_system_id',
       type: 'integer',
-      primary: true,
     },
     valueDefSystemId: {
       name: 'value_def_system_id',
       type: 'integer',
-      primary: true,
     },
   },
   relations: {
@@ -184,11 +175,20 @@ export const UsecaseGkvValuesSchema = new EntitySchema<UsecaseGkvValuesRow>({
       onDelete: 'RESTRICT',
     },
   },
+  indices: [
+    {
+      name: 'uq_usecase_gkv_values_usecase_value_definition',
+      columns: ['usecaseSystemId', 'valueDefSystemId'],
+      unique: true,
+    },
+  ],
 });
 
-export interface UseCaseCategoryJoinRow {
+export interface UseCaseCategoryJoinRow extends EntityBaseRow {
   useCaseSystemId: number;
   categorySystemId: number;
+  useCase?: UseCaseRow;
+  category?: UseCaseCategoryRow;
 }
 
 export const UseCaseCategoryJoinSchema =
@@ -196,15 +196,43 @@ export const UseCaseCategoryJoinSchema =
     name: 'UseCaseCategoryJoin',
     tableName: 'use_case_categories',
     columns: {
+      ...BaseColumnSchemaPart,
       useCaseSystemId: {
         name: 'use_case_system_id',
         type: 'integer',
-        primary: true,
       },
       categorySystemId: {
         name: 'category_system_id',
         type: 'integer',
-        primary: true,
       },
     },
+    relations: {
+      useCase: {
+        type: 'many-to-one',
+        target: 'UseCase',
+        inverseSide: 'categoryLinks',
+        joinColumn: {
+          name: 'use_case_system_id',
+          referencedColumnName: 'systemId',
+        },
+        onDelete: 'CASCADE',
+      },
+      category: {
+        type: 'many-to-one',
+        target: 'UseCaseCategory',
+        inverseSide: 'useCaseLinks',
+        joinColumn: {
+          name: 'category_system_id',
+          referencedColumnName: 'systemId',
+        },
+        onDelete: 'CASCADE',
+      },
+    },
+    indices: [
+      {
+        name: 'uq_use_case_categories_usecase_category',
+        columns: ['useCaseSystemId', 'categorySystemId'],
+        unique: true,
+      },
+    ],
   });

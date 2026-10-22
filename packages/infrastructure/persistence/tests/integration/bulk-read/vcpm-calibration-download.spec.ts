@@ -176,8 +176,8 @@ describe('TypeOrmBulkReadQueryService.readVcpmCalibrationData', () => {
 
     // Link CKV to value definition
     await dataSource.query(
-      'INSERT INTO vcpm_ckv_values (vcpm_ckv_system_id, value_def_system_id) VALUES (?, ?)',
-      [vcpmCkv.systemId, value.systemId],
+      'INSERT INTO vcpm_ckv_values (system_id, vcpm_ckv_system_id, value_def_system_id) VALUES (?, ?, ?)',
+      [nextId++, vcpmCkv.systemId, value.systemId],
     );
 
     // Create VCPM parameter payload via raw SQL (VcpmParameterPayloadSchema is a factory function)

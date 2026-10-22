@@ -44,7 +44,7 @@ export interface DkvParameterPayloadRow extends EntityBaseRow {
   driverParameter?: DriverModuleParameterDefinitionRow; // relation
 }
 
-export interface DkvValuesRow {
+export interface DkvValuesRow extends EntityBaseRow {
   dkvSystemId: number;
   valueDefSystemId: number;
 
@@ -185,15 +185,14 @@ export const DkvValuesSchema = new EntitySchema<DkvValuesRow>({
   name: 'DkvValues',
   tableName: 'dkv_values',
   columns: {
+    ...BaseColumnSchemaPart,
     dkvSystemId: {
       name: 'dkv_system_id',
       type: 'integer',
-      primary: true,
     },
     valueDefSystemId: {
       name: 'value_def_system_id',
       type: 'integer',
-      primary: true,
     },
   },
   relations: {
@@ -214,4 +213,11 @@ export const DkvValuesSchema = new EntitySchema<DkvValuesRow>({
       onDelete: 'RESTRICT',
     },
   },
+  indices: [
+    {
+      name: 'uq_dkv_values_dkv_value_definition',
+      columns: ['dkvSystemId', 'valueDefSystemId'],
+      unique: true,
+    },
+  ],
 });

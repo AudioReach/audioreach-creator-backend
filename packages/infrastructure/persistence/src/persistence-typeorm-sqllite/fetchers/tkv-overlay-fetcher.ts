@@ -65,8 +65,7 @@ export interface OverlaidModuleTagIdMap extends ModuleTagIdMapBase {
  * All three operations (CREATE/UPDATE/DELETE) are passed together to applyToCollection
  * at each level so a CREATE→UPDATE sequence is correctly applied.
  *
- * tkv_values uses a composite PK and is not staged independently. A TKV CREATE
- * carries valueDefinitionSystemIds so session reads can synthesize these rows.
+ * tkv_values is overlaid independently by its synthetic systemId.
  */
 export class TkvOverlayFetcher {
   private readonly overlay = new OverlayMergeImpl();
@@ -122,10 +121,16 @@ export class TkvOverlayFetcher {
     // tagMap actions use moduleSystemId as aggregateId.
     // tkv actions use moduleTagIdMapSystemId as aggregateId — getByTable
     // loads all TKV actions session-wide; we filter per tag map below.
-    const [tagMapActions, tkvActions] = await Promise.all([
+    const [tagMapActions, tkvActions, valueActions] = await Promise.all([
       this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.ModuleTagIdMap),
       this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.Tkv),
+      this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.TkvValues),
     ]);
+    const baseTkvBySystemId = new Map(
+      baseTagMaps.flatMap(tagMap =>
+        (tagMap.tkvs ?? []).map(tkv => [tkv.systemId, tkv] as const),
+      ),
+    );
 
     // Filter tag map actions to this module only.
     const moduleTagMapIds = new Set(baseTagMaps.map(r => r.systemId));
@@ -154,6 +159,9 @@ export class TkvOverlayFetcher {
       const mapTkvActions = tkvActions.filter(
         a => a.aggregateId === tagMap.systemId,
       );
+      const mapValueActions = valueActions.filter(
+        action => action.aggregateId === tagMap.systemId,
+      );
 
       const overlaidTkvs =
         mapTkvActions.length === 0
@@ -167,7 +175,16 @@ export class TkvOverlayFetcher {
 
       return {
         ...tagMap,
-        tkvs: overlaidTkvs.map(tkv => this.toOverlaidTkv(tkv)),
+        tkvs: overlaidTkvs.map(tkv =>
+          this.toOverlaidTkv(
+            tkv,
+            this.overlayValues(
+              baseTkvBySystemId.get(tkv.systemId)?.values ?? [],
+              mapValueActions,
+              tkv.systemId,
+            ),
+          ),
+        ),
       };
     });
   }
@@ -194,10 +211,10 @@ export class TkvOverlayFetcher {
       return baseRow ? this.toOverlaidTkv(baseRow) : null;
     }
 
-    const tkvActions = await this.editActionsSvc.getByTable(
-      sessionId,
-      ENTITY_NAMES.Tkv,
-    );
+    const [tkvActions, valueActions] = await Promise.all([
+      this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.Tkv),
+      this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.TkvValues),
+    ]);
     const relevantActions = tkvActions.filter(
       a => a.targetSystemId === tkvSystemId,
     );
@@ -210,7 +227,10 @@ export class TkvOverlayFetcher {
       matchesEffective: row => row.systemId === tkvSystemId,
     });
     return result
-      ? this.toOverlaidTkv({...result.effective, values: baseRow?.values ?? []})
+      ? this.toOverlaidTkv(
+          result.effective,
+          this.overlayValues(baseRow?.values ?? [], valueActions, tkvSystemId),
+        )
       : null;
   }
 
@@ -326,19 +346,29 @@ export class TkvOverlayFetcher {
     };
   }
 
-  private toOverlaidTkv(r: TkvRow): OverlaidTkv {
-    const valueDefinitionSystemIds = (
-      r as TkvRow & {valueDefinitionSystemIds?: number[]}
-    ).valueDefinitionSystemIds;
+  private overlayValues(
+    baseRows: readonly TkvValuesBase[],
+    actions: Awaited<ReturnType<EditActionsQueryService['getByTable']>>,
+    tkvSystemId: number,
+  ): TkvValuesBase[] {
+    return this.overlay
+      .applyToCollection([...baseRows], [...actions], {
+        matchesEffective: row => row.tkvSystemId === tkvSystemId,
+      })
+      .map(result => result.effective);
+  }
+
+  private toOverlaidTkv(
+    r: TkvRow,
+    values: readonly TkvValuesBase[] = r.values ?? [],
+  ): OverlaidTkv {
     return {
       ...r,
-      values:
-        valueDefinitionSystemIds?.map(valueDefSystemId => ({
-          tkvSystemId: r.systemId,
-          valueDefSystemId,
-        })) ??
-        r.values ??
-        [],
+      values: values.map(value => ({
+        systemId: value.systemId,
+        tkvSystemId: value.tkvSystemId,
+        valueDefSystemId: value.valueDefSystemId,
+      })),
     };
   }
 }

@@ -14,6 +14,14 @@ export * from './migration-index.js';
 export * from './services/pending-change-cache.js';
 export * from './services/pending-change-writer.js';
 export {EditActionsQueryService} from './queries/edit-session/edit-actions-query-service.js';
+export {ApplyEditActionReducer} from './services/apply-changes/apply-edit-action-reducer.js';
+export type {ReducedEditAction} from './services/apply-changes/apply-changes.types.js';
+export {
+  executeReducedEditActionsInFixedOrder,
+  executeTableOperation,
+} from './services/apply-changes/fixed-order-executor.js';
+export {TypeOrmApplyChangesService} from './services/apply-changes/typeorm-apply-changes.service.js';
+export {TypeOrmDiscardChangesService} from './services/apply-changes/typeorm-discard-changes.service.js';
 
 // Session repository
 export {TypeOrmSessionRepository} from './repositories/session/typeorm-session.repository.js';

@@ -121,7 +121,11 @@ async function seedPayload(ds: DataSource) {
   );
 }
 
-function makeRepo(qr: QueryRunner, sessionId: number): TypeOrmModuleRepository {
+function makeRepo(
+  qr: QueryRunner,
+  sessionId: number,
+  generatedIdStart = PAYLOAD_ID - 1,
+): TypeOrmModuleRepository {
   const writer = new PendingChangeWriter(
     new EditActionsQueryService(qr.manager),
     new PendingChangeCache(),
@@ -142,7 +146,8 @@ function makeRepo(qr: QueryRunner, sessionId: number): TypeOrmModuleRepository {
       throw new Error('not needed');
     },
   };
-  const idGeneration = {getNextId: async () => PAYLOAD_ID};
+  let nextGeneratedId = generatedIdStart;
+  const idGeneration = {getNextId: async () => ++nextGeneratedId};
   return new TypeOrmModuleRepository(
     writer,
     qr.manager,
@@ -206,7 +211,7 @@ describe('TypeOrmModuleRepository — CKV cal data', () => {
   });
 
   it('returns staged CKV key values in the session overlay', async () => {
-    const repo = makeRepo(qr, sessionId);
+    const repo = makeRepo(qr, sessionId, 1000);
     await repo.createCkv(
       new KvData({
         systemId: 11,
@@ -223,10 +228,31 @@ describe('TypeOrmModuleRepository — CKV cal data', () => {
       spfModuleSystemId: MODULE_ID,
       valueDefinitionSystemIds: [701, 702],
     });
+
+    const actions = (await ds.query(
+      `SELECT target_system_id, target_table, new_value
+       FROM edit_actions WHERE session_id = ? ORDER BY change_id`,
+      [sessionId],
+    )) as Array<{
+      target_system_id: number;
+      target_table: string;
+      new_value: string;
+    }>;
+    expect(actions.map(action => action.target_table)).toEqual([
+      ENTITY_NAMES.Ckv,
+      ENTITY_NAMES.CkvValues,
+      ENTITY_NAMES.CkvValues,
+    ]);
+    expect(actions.slice(1).map(action => action.target_system_id)).toEqual([
+      1001, 1002,
+    ]);
+    expect(JSON.parse(actions[0].new_value)).not.toHaveProperty(
+      'valueDefinitionSystemIds',
+    );
   });
 
   it('returns staged key values when fetching one session-created CKV', async () => {
-    const repo = makeRepo(qr, sessionId);
+    const repo = makeRepo(qr, sessionId, 1000);
     await repo.createCkv(
       new KvData({
         systemId: 11,
@@ -244,8 +270,8 @@ describe('TypeOrmModuleRepository — CKV cal data', () => {
     const ckv = await fetcher.fetchOne(11, MODULE_ID, sessionId);
 
     expect(ckv?.values).toEqual([
-      {ckvSystemId: 11, valueDefSystemId: 701},
-      {ckvSystemId: 11, valueDefSystemId: 702},
+      {systemId: 1001, ckvSystemId: 11, valueDefSystemId: 701},
+      {systemId: 1002, ckvSystemId: 11, valueDefSystemId: 702},
     ]);
   });
 

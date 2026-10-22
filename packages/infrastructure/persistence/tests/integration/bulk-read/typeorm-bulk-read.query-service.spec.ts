@@ -137,12 +137,12 @@ describe('TypeOrmBulkReadQueryService - readUsecaseData', () => {
     // Link GKV values
     const dataSource = getTestDataSource();
     await dataSource.query(
-      'INSERT INTO usecase_gkv_values (usecase_system_id, value_def_system_id) VALUES (?, ?)',
-      [usecase.systemId, value1.systemId],
+      'INSERT INTO usecase_gkv_values (system_id, usecase_system_id, value_def_system_id) VALUES (?, ?, ?)',
+      [nextId++, usecase.systemId, value1.systemId],
     );
     await dataSource.query(
-      'INSERT INTO usecase_gkv_values (usecase_system_id, value_def_system_id) VALUES (?, ?)',
-      [usecase.systemId, value2.systemId],
+      'INSERT INTO usecase_gkv_values (system_id, usecase_system_id, value_def_system_id) VALUES (?, ?, ?)',
+      [nextId++, usecase.systemId, value2.systemId],
     );
 
     // Link subgraphs
@@ -211,14 +211,21 @@ describe('TypeOrmBulkReadQueryService - readUsecaseData', () => {
 
     // Link usecase1 with 2 keys
     await dataSource.query(
-      'INSERT INTO usecase_gkv_values (usecase_system_id, value_def_system_id) VALUES (?, ?), (?, ?)',
-      [usecase1.systemId, value1.systemId, usecase1.systemId, value2.systemId],
+      'INSERT INTO usecase_gkv_values (system_id, usecase_system_id, value_def_system_id) VALUES (?, ?, ?), (?, ?, ?)',
+      [
+        nextId++,
+        usecase1.systemId,
+        value1.systemId,
+        nextId++,
+        usecase1.systemId,
+        value2.systemId,
+      ],
     );
 
     // Link usecase2 with 1 key
     await dataSource.query(
-      'INSERT INTO usecase_gkv_values (usecase_system_id, value_def_system_id) VALUES (?, ?)',
-      [usecase2.systemId, value1.systemId],
+      'INSERT INTO usecase_gkv_values (system_id, usecase_system_id, value_def_system_id) VALUES (?, ?, ?)',
+      [nextId++, usecase2.systemId, value1.systemId],
     );
 
     const result = await repository.readUsecaseData(testFileSystemId);
@@ -298,8 +305,8 @@ describe('TypeOrmBulkReadQueryService - readUsecaseData', () => {
 
     // Link GKV value
     await dataSource.query(
-      'INSERT INTO usecase_gkv_values (usecase_system_id, value_def_system_id) VALUES (?, ?)',
-      [usecase.systemId, value1.systemId],
+      'INSERT INTO usecase_gkv_values (system_id, usecase_system_id, value_def_system_id) VALUES (?, ?, ?)',
+      [nextId++, usecase.systemId, value1.systemId],
     );
 
     // Add subgraph pair

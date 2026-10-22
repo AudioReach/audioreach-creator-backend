@@ -41,6 +41,9 @@ import {
   TypeOrmUsecaseRepository,
   PendingChangeWriter,
   EditActionsQueryService,
+  ApplyEditActionReducer,
+  TypeOrmApplyChangesService,
+  TypeOrmDiscardChangesService,
 } from '@arc/persistence';
 import type {PendingChangeCache} from '@arc/persistence';
 
@@ -55,7 +58,7 @@ import type {PendingChangeCache} from '@arc/persistence';
  */
 export class TypeOrmUnitOfWork implements UnitOfWork {
   private inTransaction: boolean = false;
-  private _writeContext: WriteContext | null = null;
+  private writeContext: WriteContext | null = null;
 
   constructor(
     private readonly queryRunner: QueryRunner,
@@ -105,14 +108,14 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
   // ── LLD1: WriteContext plumbing (§8.5) ────────────────────────────────────
 
   setWriteContext(ctx: WriteContext): void {
-    this._writeContext = ctx;
+    this.writeContext = ctx;
   }
 
   getWriteContext(): WriteContext {
-    if (this._writeContext === null) {
+    if (this.writeContext === null) {
       throw new Error('WriteContext not set — is this a Case-3 command?');
     }
-    return this._writeContext;
+    return this.writeContext;
   }
 
   // ── LLD1: PendingChangeCache flush (§10.3) ────────────────────────────────
@@ -137,6 +140,24 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
       this.queryRunner.manager,
       this.getPendingChangeWriter(),
     );
+  }
+
+  async applyChanges(): Promise<void> {
+    const manager = this.queryRunner.manager;
+    await new TypeOrmApplyChangesService(
+      this.getWriteContext(),
+      manager,
+      new EditActionsQueryService(manager),
+      new ApplyEditActionReducer(manager),
+      new TypeOrmSessionRepository(manager),
+    ).apply();
+  }
+
+  async discardChanges(): Promise<void> {
+    await new TypeOrmDiscardChangesService(
+      this.getWriteContext(),
+      new TypeOrmSessionRepository(this.queryRunner.manager),
+    ).discard();
   }
 
   // ── Module write path (LLD2) ──────────────────────────────────────────────
@@ -204,6 +225,7 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
       this.getPendingChangeWriter(),
       this.queryRunner.manager,
       this,
+      this.idGeneration,
     );
   }
 

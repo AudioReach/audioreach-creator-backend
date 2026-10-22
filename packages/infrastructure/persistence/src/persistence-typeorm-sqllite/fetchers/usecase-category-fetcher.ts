@@ -4,16 +4,22 @@
  */
 
 import type {EntityManager} from 'typeorm';
-import {CHANGE_OPERATION} from '@arc/core';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
 import type {EditActionRow} from '../entity-schema/edit-session/edit-action.schema.js';
+import type {
+  UseCaseCategoryJoinRow,
+  UseCaseCategoryRow,
+} from '../entity-schema/usecase-data/use-case.js';
+import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
 
 /**
  * Fetcher for UseCase → UseCaseCategory many-to-many relationship.
  * Owns the category query AND session overlay so no caller duplicates this logic.
  */
 export class UseCaseCategoryFetcher {
+  private readonly overlay = new OverlayMergeImpl();
+
   constructor(
     private readonly manager: EntityManager,
     private readonly editActionsSvc: EditActionsQueryService,
@@ -33,13 +39,18 @@ export class UseCaseCategoryFetcher {
   ): Promise<Array<{usecaseSystemId: number; name: string}>> {
     if (usecaseSystemIds.length === 0) return [];
 
-    const actions =
-      sessionId === null
-        ? []
-        : await this.editActionsSvc.getByTable(
-            sessionId,
-            ENTITY_NAMES.UseCaseCategory,
-          );
+    if (sessionId === null) {
+      return this.fetchManyWithActions(usecaseSystemIds, []);
+    }
+
+    const actionGroups = await Promise.all([
+      this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.UseCaseCategory),
+      this.editActionsSvc.getByTable(
+        sessionId,
+        ENTITY_NAMES.UseCaseCategoryJoin,
+      ),
+    ]);
+    const actions = actionGroups.flat();
     return this.fetchManyWithActions(usecaseSystemIds, actions);
   }
 
@@ -49,41 +60,61 @@ export class UseCaseCategoryFetcher {
   ): Promise<Array<{usecaseSystemId: number; name: string}>> {
     if (usecaseSystemIds.length === 0) return [];
 
-    const baseRows = await this.manager
-      .getRepository(ENTITY_NAMES.UseCase)
-      .createQueryBuilder('uc')
-      .innerJoin('uc.categories', 'cat')
-      .select('uc.systemId', 'usecaseSystemId')
-      .addSelect('cat.name', 'name')
-      .where('uc.systemId IN (:...ids)', {ids: usecaseSystemIds})
-      .getRawMany<{usecaseSystemId: number; name: string}>();
+    const requestedUsecaseIds = new Set(usecaseSystemIds);
+    const categoryActions = actions.filter(
+      action => action.targetTable === ENTITY_NAMES.UseCaseCategory,
+    );
+    const joinActions = actions.filter(
+      action => action.targetTable === ENTITY_NAMES.UseCaseCategoryJoin,
+    );
+    const baseLinks = await this.manager
+      .getRepository<UseCaseCategoryJoinRow>(ENTITY_NAMES.UseCaseCategoryJoin)
+      .createQueryBuilder('link')
+      .where('link.useCaseSystemId IN (:...usecaseSystemIds)', {
+        usecaseSystemIds,
+      })
+      .getMany();
 
-    if (actions.length === 0) return baseRows;
-
-    // Group baseline names per usecase and apply CREATE/DELETE overlay
-    const namesByUsecase = new Map<number, Set<string>>();
-    for (const id of usecaseSystemIds) namesByUsecase.set(id, new Set());
-    for (const row of baseRows) {
-      namesByUsecase.get(row.usecaseSystemId)?.add(row.name);
+    const categorySystemIds = new Set(
+      baseLinks.map(link => link.categorySystemId),
+    );
+    for (const action of joinActions) {
+      const value = action.newValue as Partial<UseCaseCategoryJoinRow>;
+      if (value.categorySystemId !== undefined) {
+        categorySystemIds.add(Number(value.categorySystemId));
+      }
+    }
+    for (const action of categoryActions) {
+      categorySystemIds.add(action.targetSystemId);
     }
 
-    for (const action of actions) {
-      const p = action.newValue as Partial<{
-        usecaseSystemId?: number;
-        name?: string;
-      }>;
-      const ucId = p.usecaseSystemId;
-      if (ucId === undefined || !p.name || !namesByUsecase.has(ucId)) continue;
-      const names = namesByUsecase.get(ucId)!;
-      if (action.operation === CHANGE_OPERATION.Create) names.add(p.name);
-      else if (action.operation === CHANGE_OPERATION.Delete)
-        names.delete(p.name);
-    }
+    const baseCategories =
+      categorySystemIds.size === 0
+        ? []
+        : await this.manager
+            .getRepository<UseCaseCategoryRow>(ENTITY_NAMES.UseCaseCategory)
+            .createQueryBuilder('category')
+            .where('category.systemId IN (:...categorySystemIds)', {
+              categorySystemIds: [...categorySystemIds],
+            })
+            .getMany();
+    const effectiveCategories = this.overlay
+      .applyToCollection(baseCategories, categoryActions)
+      .map(result => result.effective);
+    const categoryNameById = new Map(
+      effectiveCategories.map(category => [category.systemId, category.name]),
+    );
+    const effectiveLinks = this.overlay
+      .applyToCollection(baseLinks, joinActions, {
+        matchesEffective: link => requestedUsecaseIds.has(link.useCaseSystemId),
+      })
+      .map(result => result.effective);
 
-    const result: Array<{usecaseSystemId: number; name: string}> = [];
-    for (const [ucId, names] of namesByUsecase) {
-      for (const name of names) result.push({usecaseSystemId: ucId, name});
-    }
-    return result;
+    return effectiveLinks.flatMap(link => {
+      const name = categoryNameById.get(link.categorySystemId);
+      return name === undefined
+        ? []
+        : [{usecaseSystemId: link.useCaseSystemId, name}];
+    });
   }
 }

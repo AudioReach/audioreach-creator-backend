@@ -41,6 +41,8 @@ const VCPM_INSTANCE_ID = 20;
 const CKV_ID = 30;
 const PARAM_ID = 60;
 const PAYLOAD_ID = 70;
+const VALUE_ID = 80;
+const VALUE_RELATIONSHIP_ID = 90;
 
 async function seedBase(ds: DataSource) {
   await getTestRepository(ProjectSchema).save({
@@ -73,6 +75,22 @@ async function seedBase(ds: DataSource) {
   await ds.query(
     `INSERT INTO vcpm_ckv (system_id, vcpm_instance_system_id) VALUES (?, ?)`,
     [CKV_ID, VCPM_INSTANCE_ID],
+  );
+  await ds.query(
+    `INSERT INTO arc_keys (system_id, name, key_id, file_system_id)
+     VALUES (81, 'vcpm-key', 1, ?)`,
+    [FILE_ID],
+  );
+  await ds.query(
+    `INSERT INTO arc_values (system_id, name, value_id, keys_system_id)
+     VALUES (?, 'vcpm-value', 1, 81)`,
+    [VALUE_ID],
+  );
+  await ds.query(
+    `INSERT INTO vcpm_ckv_values
+       (system_id, vcpm_ckv_system_id, value_def_system_id)
+     VALUES (?, ?, ?)`,
+    [VALUE_RELATIONSHIP_ID, CKV_ID, VALUE_ID],
   );
   await ds.query(
     `INSERT INTO vcpm_module_parameter_definitions (system_id, param_id, name, max_size, pid_type, is_persistent, elements_structure, is_read_only, vcpm_module_definition_system_id) VALUES (?, 1, 'test_param', 64, 'TYPE_A', 1, '[]', 0, ?)`,
@@ -205,6 +223,38 @@ describe('VCPM split fetchers (integration)', () => {
     expect(links).toEqual([{parameterSystemId: PARAM_ID, ckvSystemId: CKV_ID}]);
     expect(links[0]).not.toHaveProperty('systemId');
     expect(links[0]).not.toHaveProperty('payload');
+  });
+
+  it('applies VCPM CKV value actions by relationship system ID', async () => {
+    const sessionId = await seedSession(ds);
+    await seedAction(ds, {
+      sessionId,
+      targetSystemId: VALUE_RELATIONSHIP_ID,
+      targetTable: ENTITY_NAMES.VcpmCkvValues,
+      operation: CHANGE_OPERATION.Delete,
+      newValue: {},
+    });
+    await seedAction(ds, {
+      sessionId,
+      targetSystemId: VALUE_RELATIONSHIP_ID + 1,
+      targetTable: ENTITY_NAMES.VcpmCkvValues,
+      operation: CHANGE_OPERATION.Create,
+      newValue: {vcpmCkvSystemId: CKV_ID, valueDefSystemId: VALUE_ID + 1},
+    });
+
+    const rows = await ckvFetcher.fetchMany(
+      SUBGRAPH_ID,
+      FILE_ID,
+      await makeContext(ds, sessionId),
+    );
+
+    expect(rows[0].values).toEqual([
+      {
+        systemId: VALUE_RELATIONSHIP_ID + 1,
+        vcpmCkvSystemId: CKV_ID,
+        valueDefSystemId: VALUE_ID + 1,
+      },
+    ]);
   });
 
   it('excludes a payload link moved outside the effective CKV set', async () => {
