@@ -43,6 +43,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
   private readonly portFetcher: PortOverlayFetcher;
   private readonly ckvOverlayFetcher: CkvOverlayFetcher;
   private readonly tkvOverlayFetcher: TkvOverlayFetcher;
+  private readonly editActionsQs: EditActionsQueryService;
 
   constructor(
     private readonly writer: PendingChangeWriter,
@@ -51,6 +52,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     private readonly idGeneration: IdGenerationPort,
   ) {
     const editActionsQs = new EditActionsQueryService(manager);
+    this.editActionsQs = editActionsQs;
     this.spfModuleFetcher = new SpfModuleOverlayFetcher(manager, editActionsQs);
     this.spfModuleDefinitionFetcher = new SpfModuleDefinitionFetcher(
       manager,
@@ -402,6 +404,121 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         portIoType: dp.portIoType,
       })),
     };
+  }
+
+  async findModuleForControlLink(
+    moduleSystemId: number,
+    fileSystemId: number,
+  ): Promise<{
+    subgraphSystemId: number;
+    parentSystemId: number | null;
+    definitionSystemId: number;
+    controlPorts: {systemId: number; naturalId: number}[];
+  } | null> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const modules = await this.spfModuleFetcher.fetchMany(
+      fileSystemId,
+      sessionId,
+      {systemId: moduleSystemId},
+    );
+    const module = modules.at(0);
+    if (!module) return null;
+    const [nodeRows, controlPorts] = await Promise.all([
+      this.nodeFetcher.fetchMany([moduleSystemId], fileSystemId, sessionId),
+      this.portFetcher.fetchControlPortsWithIntents(
+        moduleSystemId,
+        fileSystemId,
+        sessionId,
+      ),
+    ]);
+    return {
+      subgraphSystemId: module.subgraphSystemId,
+      parentSystemId: nodeRows.at(0)?.parentSystemId ?? null,
+      definitionSystemId: module.definitionSystemId,
+      controlPorts: controlPorts.map(cp => ({
+        systemId: cp.systemId,
+        naturalId: cp.naturalId,
+      })),
+    };
+  }
+
+  async findControlPortsForLink(
+    moduleSystemId: number,
+    fileSystemId: number,
+  ): Promise<
+    | {
+        systemId: number;
+        naturalId: number;
+        allocatedIntents: readonly {naturalId: number}[];
+        totalLinksAtPort: number;
+      }[]
+    | null
+  > {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const modules = await this.spfModuleFetcher.fetchMany(
+      fileSystemId,
+      sessionId,
+      {systemId: moduleSystemId},
+    );
+    if (modules.length === 0) return null;
+    const controlPorts = await this.portFetcher.fetchControlPortsWithIntents(
+      moduleSystemId,
+      fileSystemId,
+      sessionId,
+    );
+    const countMap = await this.countControlLinksPerPort(
+      controlPorts.map(cp => cp.systemId),
+      sessionId,
+    );
+    return controlPorts.map(cp => ({
+      systemId: cp.systemId,
+      naturalId: cp.naturalId,
+      allocatedIntents: cp.intents.map(i => ({naturalId: i.naturalId})),
+      totalLinksAtPort: countMap.get(cp.systemId) ?? 0,
+    }));
+  }
+
+  private async countControlLinksPerPort(
+    portSystemIds: number[],
+    sessionId: number,
+  ): Promise<Map<number, number>> {
+    if (portSystemIds.length === 0) return new Map();
+    const rows: Array<{portSystemId: number; linkCount: string}> =
+      await this.manager
+        .getRepository(ENTITY_NAMES.ControlPort)
+        .createQueryBuilder('cp')
+        .select('cp.systemId', 'portSystemId')
+        .addSelect('COUNT(cl.systemId)', 'linkCount')
+        .leftJoin(
+          ENTITY_NAMES.ControlLink,
+          'cl',
+          'cl.nodeAPortSystemId = cp.systemId OR cl.nodeBPortSystemId = cp.systemId',
+        )
+        .where('cp.systemId IN (:...ids)', {ids: portSystemIds})
+        .groupBy('cp.systemId')
+        .getRawMany();
+    const countMap = new Map<number, number>(
+      rows.map(r => [Number(r.portSystemId), Number(r.linkCount)]),
+    );
+    const linkDrafts = await this.editActionsQs.getByTable(
+      sessionId,
+      ENTITY_NAMES.ControlLink,
+    );
+    for (const draft of linkDrafts) {
+      const p = JSON.parse(draft.newValue as string) as {
+        nodeAPortSystemId?: number;
+        nodeBPortSystemId?: number;
+      };
+      for (const portSystemId of [p.nodeAPortSystemId, p.nodeBPortSystemId]) {
+        if (!portSystemId || !portSystemIds.includes(portSystemId)) continue;
+        const current = countMap.get(portSystemId) ?? 0;
+        if (draft.operation === 'CREATE')
+          countMap.set(portSystemId, current + 1);
+        if (draft.operation === 'DELETE')
+          countMap.set(portSystemId, Math.max(0, current - 1));
+      }
+    }
+    return countMap;
   }
 
   async renameModule(

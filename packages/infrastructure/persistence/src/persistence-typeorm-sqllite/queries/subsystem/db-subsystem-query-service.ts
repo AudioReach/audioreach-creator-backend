@@ -382,6 +382,58 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
     }
   }
 
+  /**
+   * Returns all SCS rows for the file (resolved and unresolved chains).
+   * Overlay applied. Unresolved segments (no canonical link) use segment-level
+   * data with heapId=1.
+   */
+  async findAllControlLinkSegments(
+    fileSystemId: number,
+  ): Promise<Result<ControlLinkReadModel[]>> {
+    try {
+      const sessionId = await resolveActiveSessionId(
+        this.dataSource,
+        fileSystemId,
+      );
+
+      const [controlLinks, segments] = await Promise.all([
+        this.linkFetcher.loadControlLinkRows(fileSystemId, sessionId),
+        this.linkFetcher.loadSubsystemControlLinkRows(fileSystemId, sessionId),
+      ]);
+
+      const controlLinkBySystemId = new Map(
+        controlLinks.map(link => [link.systemId, link]),
+      );
+
+      const result: ControlLinkReadModel[] = segments.map(segment => {
+        const canonicalLink =
+          segment.controlLinkSystemId === null
+            ? undefined
+            : controlLinkBySystemId.get(segment.controlLinkSystemId);
+
+        return {
+          systemId: segment.systemId,
+          peerNodeASystemId: segment.peerNodeASystemId,
+          peerNodeBSystemId: segment.peerNodeBSystemId,
+          nodeAPortSystemId: segment.nodeAPortSystemId,
+          nodeBPortSystemId: segment.nodeBPortSystemId,
+          heapId: canonicalLink?.heapId ?? 1,
+          linkType: segment.linkType,
+        };
+      });
+
+      return Result.ok(result);
+    } catch (error) {
+      return Result.fail(
+        IssueFactory.dbError(
+          error instanceof Error
+            ? error.message
+            : 'Failed to load all subsystem control link segments',
+        ),
+      );
+    }
+  }
+
   private isLinkInUsecaseScope(
     link: Pick<
       DataLinkBase | ControlLinkBase,
