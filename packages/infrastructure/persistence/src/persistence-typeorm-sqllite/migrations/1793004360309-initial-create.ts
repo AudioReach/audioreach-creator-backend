@@ -5,8 +5,8 @@
 
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-export class InitialCreate1791998316476 implements MigrationInterface {
-  name = 'InitialCreate1791998316476';
+export class InitialCreate1793004360309 implements MigrationInterface {
+  name = 'InitialCreate1793004360309';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -82,10 +82,16 @@ export class InitialCreate1791998316476 implements MigrationInterface {
       `CREATE INDEX "idx_module_param_defs_spf_module_def_id" ON "spf_module_parameter_definitions" ("spf_module_definition_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "module_definition_container_types" ("module_definition_system_id" integer NOT NULL, "container_type_system_id" integer NOT NULL, PRIMARY KEY ("module_definition_system_id", "container_type_system_id"))`,
+      `CREATE TABLE "module_definition_container_types" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_definition_system_id" integer NOT NULL, "container_type_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `CREATE TABLE "module_definition_processor_definitions" ("module_definition_system_id" integer NOT NULL, "processor_definition_system_id" integer NOT NULL, PRIMARY KEY ("module_definition_system_id", "processor_definition_system_id"))`,
+      `CREATE UNIQUE INDEX "uq_module_definition_container_types_definition_container" ON "module_definition_container_types" ("module_definition_system_id", "container_type_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "module_definition_processor_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_definition_system_id" integer NOT NULL, "processor_definition_system_id" integer NOT NULL)`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_module_definition_processors_definition_processor" ON "module_definition_processor_definitions" ("module_definition_system_id", "processor_definition_system_id") `,
     );
     await queryRunner.query(
       `CREATE TABLE "static_control_port_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "port_id" integer NOT NULL, "port_name" varchar(255), "module_definition_system_id" integer NOT NULL)`,
@@ -151,7 +157,10 @@ export class InitialCreate1791998316476 implements MigrationInterface {
       `CREATE INDEX "idx_dkv_parameter_payload_dkv_system_id" ON "dkv_parameter_payload" ("dkv_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "dkv_values" ("dkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, PRIMARY KEY ("dkv_system_id", "value_def_system_id"))`,
+      `CREATE TABLE "dkv_values" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "dkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL)`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_dkv_values_dkv_value_definition" ON "dkv_values" ("dkv_system_id", "value_def_system_id") `,
     );
     await queryRunner.query(
       `CREATE TABLE "module_manager_data" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_definition_system_id" integer NOT NULL, "file_system_id" integer NOT NULL, "module_type" integer NOT NULL, "interface_type" integer NOT NULL, "interface_version" integer NOT NULL, "file_name" varchar(255) NOT NULL, "tag" varchar(100) NOT NULL)`,
@@ -259,7 +268,10 @@ export class InitialCreate1791998316476 implements MigrationInterface {
       `CREATE INDEX "idx_ckv_parameter_payload_ckv_system_id" ON "ckv_parameter_payload" ("ckv_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "ckv_values" ("ckv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, PRIMARY KEY ("ckv_system_id", "value_def_system_id"))`,
+      `CREATE TABLE "ckv_values" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "ckv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL)`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_ckv_values_ckv_value_definition" ON "ckv_values" ("ckv_system_id", "value_def_system_id") `,
     );
     await queryRunner.query(
       `CREATE TABLE "spf_module_properties_data" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_system_id" integer NOT NULL, "property_system_id" integer NOT NULL, "payload" blob NOT NULL)`,
@@ -289,7 +301,10 @@ export class InitialCreate1791998316476 implements MigrationInterface {
       `CREATE INDEX "idx_tkv_parameter_payload_tkv_system_id" ON "tkv_parameter_payload" ("tkv_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "tkv_values" ("tkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, PRIMARY KEY ("tkv_system_id", "value_def_system_id"))`,
+      `CREATE TABLE "tkv_values" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "tkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL)`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_tkv_values_tkv_value_definition" ON "tkv_values" ("tkv_system_id", "value_def_system_id") `,
     );
     await queryRunner.query(
       `CREATE TABLE "spf_modules" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "instance_id" integer NOT NULL, "alias" varchar(250), "subgraph_system_id" integer NOT NULL, "container_system_id" integer NOT NULL, "definition_system_id" integer NOT NULL, "file_system_id" integer NOT NULL, "heap_id" integer)`,
@@ -346,7 +361,10 @@ export class InitialCreate1791998316476 implements MigrationInterface {
       `CREATE UNIQUE INDEX "uk_vcpm_parameter_payload" ON "vcpm_parameter_payload" ("vcpm_parameter_system_id", "vcpm_ckv_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "vcpm_ckv_values" ("vcpm_ckv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, PRIMARY KEY ("vcpm_ckv_system_id", "value_def_system_id"))`,
+      `CREATE TABLE "vcpm_ckv_values" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "vcpm_ckv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL)`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_vcpm_ckv_values_ckv_value_definition" ON "vcpm_ckv_values" ("vcpm_ckv_system_id", "value_def_system_id") `,
     );
     await queryRunner.query(
       `CREATE TABLE "subgraphs" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(256) NOT NULL, "subgraph_id" integer NOT NULL, "is_imported" integer NOT NULL, "file_system_id" integer NOT NULL)`,
@@ -361,13 +379,19 @@ export class InitialCreate1791998316476 implements MigrationInterface {
       `CREATE TABLE "sgkv" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "subgraph_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `CREATE TABLE "sgkv_values" ("sgkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, PRIMARY KEY ("sgkv_system_id", "value_def_system_id"))`,
+      `CREATE TABLE "sgkv_values" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "sgkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL)`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_sgkv_values_sgkv_value_definition" ON "sgkv_values" ("sgkv_system_id", "value_def_system_id") `,
     );
     await queryRunner.query(
       `CREATE TABLE "subsystems" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(255) NOT NULL, "subsystem_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `CREATE TABLE "subsystem_filtered_keys_key_definition" ("subsystems_system_id" integer NOT NULL, "key_definition_system_id" integer NOT NULL, PRIMARY KEY ("subsystems_system_id", "key_definition_system_id"))`,
+      `CREATE TABLE "subsystem_filtered_keys_key_definition" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "subsystems_system_id" integer NOT NULL, "key_definition_system_id" integer NOT NULL)`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_subsystem_filtered_keys_subsystem_key_definition" ON "subsystem_filtered_keys_key_definition" ("subsystems_system_id", "key_definition_system_id") `,
     );
     await queryRunner.query(
       `CREATE TABLE "use_cases" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "alias_id" integer, "alias" varchar(255), "file_system_id" integer NOT NULL, "type" varchar CHECK( "type" IN ('EC','LINKED','ISLAND') ), "ordered_keys" text)`,
@@ -382,10 +406,16 @@ export class InitialCreate1791998316476 implements MigrationInterface {
       `CREATE TABLE "use_case_categories_master" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(255) NOT NULL, CONSTRAINT "UQ_80233ed2a392151aa4f419b079e" UNIQUE ("name"))`,
     );
     await queryRunner.query(
-      `CREATE TABLE "usecase_gkv_values" ("usecase_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, PRIMARY KEY ("usecase_system_id", "value_def_system_id"))`,
+      `CREATE TABLE "usecase_gkv_values" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "usecase_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `CREATE TABLE "use_case_categories" ("use_case_system_id" integer NOT NULL, "category_system_id" integer NOT NULL, PRIMARY KEY ("use_case_system_id", "category_system_id"))`,
+      `CREATE UNIQUE INDEX "uq_usecase_gkv_values_usecase_value_definition" ON "usecase_gkv_values" ("usecase_system_id", "value_def_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "use_case_categories" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "use_case_system_id" integer NOT NULL, "category_system_id" integer NOT NULL)`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_use_case_categories_usecase_category" ON "use_case_categories" ("use_case_system_id", "category_system_id") `,
     );
     await queryRunner.query(
       `CREATE TABLE "use_case_subgraphs" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "usecase_system_id" integer NOT NULL, "subgraph_system_id" integer NOT NULL)`,
@@ -467,12 +497,6 @@ export class InitialCreate1791998316476 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE TABLE "validation_preferences" ("file_system_id" integer PRIMARY KEY NOT NULL, "preferences" text NOT NULL DEFAULT ('{"overrides":{},"suppressions":{}}'), "updated_at" datetime NOT NULL DEFAULT (datetime('now')))`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_d5b97ccc404cecb9166a453280" ON "use_case_categories" ("use_case_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_06f2962641e6632eb9a7ac63da" ON "use_case_categories" ("category_system_id") `,
     );
     await queryRunner.query(
       `CREATE TABLE "temporary_processor_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "processor_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "file_system_id" integer NOT NULL, CONSTRAINT "FK_4105be16af5cb88804e873ad449" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
@@ -663,26 +687,38 @@ export class InitialCreate1791998316476 implements MigrationInterface {
       `CREATE INDEX "idx_module_param_defs_spf_module_def_id" ON "spf_module_parameter_definitions" ("spf_module_definition_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "temporary_module_definition_container_types" ("module_definition_system_id" integer NOT NULL, "container_type_system_id" integer NOT NULL, CONSTRAINT "FK_2251eba25dae5c3f257a28afc8a" FOREIGN KEY ("module_definition_system_id") REFERENCES "spf_module_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_f2baee0206ea8f0f46ae3077aa4" FOREIGN KEY ("container_type_system_id") REFERENCES "container_types" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, PRIMARY KEY ("module_definition_system_id", "container_type_system_id"))`,
+      `DROP INDEX "uq_module_definition_container_types_definition_container"`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_module_definition_container_types"("module_definition_system_id", "container_type_system_id") SELECT "module_definition_system_id", "container_type_system_id" FROM "module_definition_container_types"`,
+      `CREATE TABLE "temporary_module_definition_container_types" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_definition_system_id" integer NOT NULL, "container_type_system_id" integer NOT NULL, CONSTRAINT "FK_2251eba25dae5c3f257a28afc8a" FOREIGN KEY ("module_definition_system_id") REFERENCES "spf_module_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_f2baee0206ea8f0f46ae3077aa4" FOREIGN KEY ("container_type_system_id") REFERENCES "container_types" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_module_definition_container_types"("system_id", "created_at", "updated_at", "version", "module_definition_system_id", "container_type_system_id") SELECT "system_id", "created_at", "updated_at", "version", "module_definition_system_id", "container_type_system_id" FROM "module_definition_container_types"`,
     );
     await queryRunner.query(`DROP TABLE "module_definition_container_types"`);
     await queryRunner.query(
       `ALTER TABLE "temporary_module_definition_container_types" RENAME TO "module_definition_container_types"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "temporary_module_definition_processor_definitions" ("module_definition_system_id" integer NOT NULL, "processor_definition_system_id" integer NOT NULL, CONSTRAINT "FK_63cb55edb521f1ac33b38f5ed78" FOREIGN KEY ("module_definition_system_id") REFERENCES "spf_module_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_24dd3554a74f2464253b28b3dc7" FOREIGN KEY ("processor_definition_system_id") REFERENCES "processor_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, PRIMARY KEY ("module_definition_system_id", "processor_definition_system_id"))`,
+      `CREATE UNIQUE INDEX "uq_module_definition_container_types_definition_container" ON "module_definition_container_types" ("module_definition_system_id", "container_type_system_id") `,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_module_definition_processor_definitions"("module_definition_system_id", "processor_definition_system_id") SELECT "module_definition_system_id", "processor_definition_system_id" FROM "module_definition_processor_definitions"`,
+      `DROP INDEX "uq_module_definition_processors_definition_processor"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "temporary_module_definition_processor_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_definition_system_id" integer NOT NULL, "processor_definition_system_id" integer NOT NULL, CONSTRAINT "FK_63cb55edb521f1ac33b38f5ed78" FOREIGN KEY ("module_definition_system_id") REFERENCES "spf_module_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_24dd3554a74f2464253b28b3dc7" FOREIGN KEY ("processor_definition_system_id") REFERENCES "processor_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_module_definition_processor_definitions"("system_id", "created_at", "updated_at", "version", "module_definition_system_id", "processor_definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "module_definition_system_id", "processor_definition_system_id" FROM "module_definition_processor_definitions"`,
     );
     await queryRunner.query(
       `DROP TABLE "module_definition_processor_definitions"`,
     );
     await queryRunner.query(
       `ALTER TABLE "temporary_module_definition_processor_definitions" RENAME TO "module_definition_processor_definitions"`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_module_definition_processors_definition_processor" ON "module_definition_processor_definitions" ("module_definition_system_id", "processor_definition_system_id") `,
     );
     await queryRunner.query(`DROP INDEX "idx_static_ports_module_def_id"`);
     await queryRunner.query(
@@ -842,15 +878,19 @@ export class InitialCreate1791998316476 implements MigrationInterface {
     await queryRunner.query(
       `CREATE INDEX "idx_dkv_parameter_payload_dkv_system_id" ON "dkv_parameter_payload" ("dkv_system_id") `,
     );
+    await queryRunner.query(`DROP INDEX "uq_dkv_values_dkv_value_definition"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_dkv_values" ("dkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, CONSTRAINT "FK_d57bafa80990849c5ccc48c2301" FOREIGN KEY ("dkv_system_id") REFERENCES "dkv" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_1a5cedb797e44c753b295134f3e" FOREIGN KEY ("value_def_system_id") REFERENCES "arc_values" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, PRIMARY KEY ("dkv_system_id", "value_def_system_id"))`,
+      `CREATE TABLE "temporary_dkv_values" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "dkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, CONSTRAINT "FK_d57bafa80990849c5ccc48c2301" FOREIGN KEY ("dkv_system_id") REFERENCES "dkv" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_1a5cedb797e44c753b295134f3e" FOREIGN KEY ("value_def_system_id") REFERENCES "arc_values" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_dkv_values"("dkv_system_id", "value_def_system_id") SELECT "dkv_system_id", "value_def_system_id" FROM "dkv_values"`,
+      `INSERT INTO "temporary_dkv_values"("system_id", "created_at", "updated_at", "version", "dkv_system_id", "value_def_system_id") SELECT "system_id", "created_at", "updated_at", "version", "dkv_system_id", "value_def_system_id" FROM "dkv_values"`,
     );
     await queryRunner.query(`DROP TABLE "dkv_values"`);
     await queryRunner.query(
       `ALTER TABLE "temporary_dkv_values" RENAME TO "dkv_values"`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_dkv_values_dkv_value_definition" ON "dkv_values" ("dkv_system_id", "value_def_system_id") `,
     );
     await queryRunner.query(
       `DROP INDEX "uq_module_manager_data_module_definition"`,
@@ -1052,15 +1092,19 @@ export class InitialCreate1791998316476 implements MigrationInterface {
     await queryRunner.query(
       `CREATE INDEX "idx_ckv_parameter_payload_ckv_system_id" ON "ckv_parameter_payload" ("ckv_system_id") `,
     );
+    await queryRunner.query(`DROP INDEX "uq_ckv_values_ckv_value_definition"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_ckv_values" ("ckv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, CONSTRAINT "FK_99016afdc94daeada620e143123" FOREIGN KEY ("ckv_system_id") REFERENCES "ckv" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_bee185843bdbad64dd7467888c9" FOREIGN KEY ("value_def_system_id") REFERENCES "arc_values" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, PRIMARY KEY ("ckv_system_id", "value_def_system_id"))`,
+      `CREATE TABLE "temporary_ckv_values" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "ckv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, CONSTRAINT "FK_99016afdc94daeada620e143123" FOREIGN KEY ("ckv_system_id") REFERENCES "ckv" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_bee185843bdbad64dd7467888c9" FOREIGN KEY ("value_def_system_id") REFERENCES "arc_values" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_ckv_values"("ckv_system_id", "value_def_system_id") SELECT "ckv_system_id", "value_def_system_id" FROM "ckv_values"`,
+      `INSERT INTO "temporary_ckv_values"("system_id", "created_at", "updated_at", "version", "ckv_system_id", "value_def_system_id") SELECT "system_id", "created_at", "updated_at", "version", "ckv_system_id", "value_def_system_id" FROM "ckv_values"`,
     );
     await queryRunner.query(`DROP TABLE "ckv_values"`);
     await queryRunner.query(
       `ALTER TABLE "temporary_ckv_values" RENAME TO "ckv_values"`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_ckv_values_ckv_value_definition" ON "ckv_values" ("ckv_system_id", "value_def_system_id") `,
     );
     await queryRunner.query(`DROP INDEX "uk_spf_module_properties_data"`);
     await queryRunner.query(
@@ -1122,15 +1166,19 @@ export class InitialCreate1791998316476 implements MigrationInterface {
     await queryRunner.query(
       `CREATE INDEX "idx_tkv_parameter_payload_tkv_system_id" ON "tkv_parameter_payload" ("tkv_system_id") `,
     );
+    await queryRunner.query(`DROP INDEX "uq_tkv_values_tkv_value_definition"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_tkv_values" ("tkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, CONSTRAINT "FK_aff49dcb6c3d7cbbc233cf73d9e" FOREIGN KEY ("tkv_system_id") REFERENCES "tkv" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_1ab8517d5880b24522a6b710bfc" FOREIGN KEY ("value_def_system_id") REFERENCES "arc_values" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, PRIMARY KEY ("tkv_system_id", "value_def_system_id"))`,
+      `CREATE TABLE "temporary_tkv_values" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "tkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, CONSTRAINT "FK_aff49dcb6c3d7cbbc233cf73d9e" FOREIGN KEY ("tkv_system_id") REFERENCES "tkv" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_1ab8517d5880b24522a6b710bfc" FOREIGN KEY ("value_def_system_id") REFERENCES "arc_values" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_tkv_values"("tkv_system_id", "value_def_system_id") SELECT "tkv_system_id", "value_def_system_id" FROM "tkv_values"`,
+      `INSERT INTO "temporary_tkv_values"("system_id", "created_at", "updated_at", "version", "tkv_system_id", "value_def_system_id") SELECT "system_id", "created_at", "updated_at", "version", "tkv_system_id", "value_def_system_id" FROM "tkv_values"`,
     );
     await queryRunner.query(`DROP TABLE "tkv_values"`);
     await queryRunner.query(
       `ALTER TABLE "temporary_tkv_values" RENAME TO "tkv_values"`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_tkv_values_tkv_value_definition" ON "tkv_values" ("tkv_system_id", "value_def_system_id") `,
     );
     await queryRunner.query(`DROP INDEX "ix_spf_modules_subgraph_file_system"`);
     await queryRunner.query(
@@ -1265,14 +1313,20 @@ export class InitialCreate1791998316476 implements MigrationInterface {
       `CREATE UNIQUE INDEX "uk_vcpm_parameter_payload" ON "vcpm_parameter_payload" ("vcpm_parameter_system_id", "vcpm_ckv_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "temporary_vcpm_ckv_values" ("vcpm_ckv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, CONSTRAINT "FK_c7d3d4f96aebbdbd3717db2b65a" FOREIGN KEY ("vcpm_ckv_system_id") REFERENCES "vcpm_ckv" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_bec82cd4468dfccdfb07a66545a" FOREIGN KEY ("value_def_system_id") REFERENCES "arc_values" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, PRIMARY KEY ("vcpm_ckv_system_id", "value_def_system_id"))`,
+      `DROP INDEX "uq_vcpm_ckv_values_ckv_value_definition"`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_vcpm_ckv_values"("vcpm_ckv_system_id", "value_def_system_id") SELECT "vcpm_ckv_system_id", "value_def_system_id" FROM "vcpm_ckv_values"`,
+      `CREATE TABLE "temporary_vcpm_ckv_values" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "vcpm_ckv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, CONSTRAINT "FK_c7d3d4f96aebbdbd3717db2b65a" FOREIGN KEY ("vcpm_ckv_system_id") REFERENCES "vcpm_ckv" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_bec82cd4468dfccdfb07a66545a" FOREIGN KEY ("value_def_system_id") REFERENCES "arc_values" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_vcpm_ckv_values"("system_id", "created_at", "updated_at", "version", "vcpm_ckv_system_id", "value_def_system_id") SELECT "system_id", "created_at", "updated_at", "version", "vcpm_ckv_system_id", "value_def_system_id" FROM "vcpm_ckv_values"`,
     );
     await queryRunner.query(`DROP TABLE "vcpm_ckv_values"`);
     await queryRunner.query(
       `ALTER TABLE "temporary_vcpm_ckv_values" RENAME TO "vcpm_ckv_values"`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_vcpm_ckv_values_ckv_value_definition" ON "vcpm_ckv_values" ("vcpm_ckv_system_id", "value_def_system_id") `,
     );
     await queryRunner.query(`DROP INDEX "uq_subgraphs_name_file_system_id"`);
     await queryRunner.query(
@@ -1303,14 +1357,20 @@ export class InitialCreate1791998316476 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE "sgkv"`);
     await queryRunner.query(`ALTER TABLE "temporary_sgkv" RENAME TO "sgkv"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_sgkv_values" ("sgkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, CONSTRAINT "FK_f291cdb5d2c8fad59f7ee8e3233" FOREIGN KEY ("sgkv_system_id") REFERENCES "sgkv" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_1f7e53f1188c6a460743930ec67" FOREIGN KEY ("value_def_system_id") REFERENCES "arc_values" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, PRIMARY KEY ("sgkv_system_id", "value_def_system_id"))`,
+      `DROP INDEX "uq_sgkv_values_sgkv_value_definition"`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_sgkv_values"("sgkv_system_id", "value_def_system_id") SELECT "sgkv_system_id", "value_def_system_id" FROM "sgkv_values"`,
+      `CREATE TABLE "temporary_sgkv_values" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "sgkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, CONSTRAINT "FK_f291cdb5d2c8fad59f7ee8e3233" FOREIGN KEY ("sgkv_system_id") REFERENCES "sgkv" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_1f7e53f1188c6a460743930ec67" FOREIGN KEY ("value_def_system_id") REFERENCES "arc_values" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_sgkv_values"("system_id", "created_at", "updated_at", "version", "sgkv_system_id", "value_def_system_id") SELECT "system_id", "created_at", "updated_at", "version", "sgkv_system_id", "value_def_system_id" FROM "sgkv_values"`,
     );
     await queryRunner.query(`DROP TABLE "sgkv_values"`);
     await queryRunner.query(
       `ALTER TABLE "temporary_sgkv_values" RENAME TO "sgkv_values"`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_sgkv_values_sgkv_value_definition" ON "sgkv_values" ("sgkv_system_id", "value_def_system_id") `,
     );
     await queryRunner.query(
       `CREATE TABLE "temporary_subsystems" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(255) NOT NULL, "subsystem_id" integer NOT NULL, CONSTRAINT "FK_84d896fd64dc0971dd15a904809" FOREIGN KEY ("system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
@@ -1323,16 +1383,22 @@ export class InitialCreate1791998316476 implements MigrationInterface {
       `ALTER TABLE "temporary_subsystems" RENAME TO "subsystems"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "temporary_subsystem_filtered_keys_key_definition" ("subsystems_system_id" integer NOT NULL, "key_definition_system_id" integer NOT NULL, CONSTRAINT "FK_31cca7f2381e850651519aeafc3" FOREIGN KEY ("subsystems_system_id") REFERENCES "subsystems" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_d02480461bd53ac751c7de97c9c" FOREIGN KEY ("key_definition_system_id") REFERENCES "arc_keys" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, PRIMARY KEY ("subsystems_system_id", "key_definition_system_id"))`,
+      `DROP INDEX "uq_subsystem_filtered_keys_subsystem_key_definition"`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_subsystem_filtered_keys_key_definition"("subsystems_system_id", "key_definition_system_id") SELECT "subsystems_system_id", "key_definition_system_id" FROM "subsystem_filtered_keys_key_definition"`,
+      `CREATE TABLE "temporary_subsystem_filtered_keys_key_definition" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "subsystems_system_id" integer NOT NULL, "key_definition_system_id" integer NOT NULL, CONSTRAINT "FK_31cca7f2381e850651519aeafc3" FOREIGN KEY ("subsystems_system_id") REFERENCES "subsystems" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_d02480461bd53ac751c7de97c9c" FOREIGN KEY ("key_definition_system_id") REFERENCES "arc_keys" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_subsystem_filtered_keys_key_definition"("system_id", "created_at", "updated_at", "version", "subsystems_system_id", "key_definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "subsystems_system_id", "key_definition_system_id" FROM "subsystem_filtered_keys_key_definition"`,
     );
     await queryRunner.query(
       `DROP TABLE "subsystem_filtered_keys_key_definition"`,
     );
     await queryRunner.query(
       `ALTER TABLE "temporary_subsystem_filtered_keys_key_definition" RENAME TO "subsystem_filtered_keys_key_definition"`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_subsystem_filtered_keys_subsystem_key_definition" ON "subsystem_filtered_keys_key_definition" ("subsystems_system_id", "key_definition_system_id") `,
     );
     await queryRunner.query(`DROP INDEX "ix_use_case_alias"`);
     await queryRunner.query(`DROP INDEX "ix_use_case_file"`);
@@ -1353,14 +1419,36 @@ export class InitialCreate1791998316476 implements MigrationInterface {
       `CREATE INDEX "ix_use_case_file" ON "use_cases" ("file_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "temporary_usecase_gkv_values" ("usecase_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, CONSTRAINT "FK_bb0b5cc8067540689f17150532c" FOREIGN KEY ("usecase_system_id") REFERENCES "use_cases" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_f9fae77cf4fa23f24e211374643" FOREIGN KEY ("value_def_system_id") REFERENCES "arc_values" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, PRIMARY KEY ("usecase_system_id", "value_def_system_id"))`,
+      `DROP INDEX "uq_usecase_gkv_values_usecase_value_definition"`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_usecase_gkv_values"("usecase_system_id", "value_def_system_id") SELECT "usecase_system_id", "value_def_system_id" FROM "usecase_gkv_values"`,
+      `CREATE TABLE "temporary_usecase_gkv_values" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "usecase_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, CONSTRAINT "FK_bb0b5cc8067540689f17150532c" FOREIGN KEY ("usecase_system_id") REFERENCES "use_cases" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_f9fae77cf4fa23f24e211374643" FOREIGN KEY ("value_def_system_id") REFERENCES "arc_values" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_usecase_gkv_values"("system_id", "created_at", "updated_at", "version", "usecase_system_id", "value_def_system_id") SELECT "system_id", "created_at", "updated_at", "version", "usecase_system_id", "value_def_system_id" FROM "usecase_gkv_values"`,
     );
     await queryRunner.query(`DROP TABLE "usecase_gkv_values"`);
     await queryRunner.query(
       `ALTER TABLE "temporary_usecase_gkv_values" RENAME TO "usecase_gkv_values"`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_usecase_gkv_values_usecase_value_definition" ON "usecase_gkv_values" ("usecase_system_id", "value_def_system_id") `,
+    );
+    await queryRunner.query(
+      `DROP INDEX "uq_use_case_categories_usecase_category"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "temporary_use_case_categories" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "use_case_system_id" integer NOT NULL, "category_system_id" integer NOT NULL, CONSTRAINT "FK_d5b97ccc404cecb9166a4532804" FOREIGN KEY ("use_case_system_id") REFERENCES "use_cases" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_06f2962641e6632eb9a7ac63da9" FOREIGN KEY ("category_system_id") REFERENCES "use_case_categories_master" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_use_case_categories"("system_id", "created_at", "updated_at", "version", "use_case_system_id", "category_system_id") SELECT "system_id", "created_at", "updated_at", "version", "use_case_system_id", "category_system_id" FROM "use_case_categories"`,
+    );
+    await queryRunner.query(`DROP TABLE "use_case_categories"`);
+    await queryRunner.query(
+      `ALTER TABLE "temporary_use_case_categories" RENAME TO "use_case_categories"`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_use_case_categories_usecase_category" ON "use_case_categories" ("use_case_system_id", "category_system_id") `,
     );
     await queryRunner.query(`DROP INDEX "uq_use_case_subgraphs_membership"`);
     await queryRunner.query(`DROP INDEX "idx_use_case_subgraphs_subgraph"`);
@@ -1528,45 +1616,9 @@ export class InitialCreate1791998316476 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE "temporary_validation_preferences" RENAME TO "validation_preferences"`,
     );
-    await queryRunner.query(`DROP INDEX "IDX_d5b97ccc404cecb9166a453280"`);
-    await queryRunner.query(`DROP INDEX "IDX_06f2962641e6632eb9a7ac63da"`);
-    await queryRunner.query(
-      `CREATE TABLE "temporary_use_case_categories" ("use_case_system_id" integer NOT NULL, "category_system_id" integer NOT NULL, CONSTRAINT "FK_d5b97ccc404cecb9166a4532804" FOREIGN KEY ("use_case_system_id") REFERENCES "use_cases" ("system_id") ON DELETE CASCADE ON UPDATE CASCADE, CONSTRAINT "FK_06f2962641e6632eb9a7ac63da9" FOREIGN KEY ("category_system_id") REFERENCES "use_case_categories_master" ("system_id") ON DELETE CASCADE ON UPDATE CASCADE, PRIMARY KEY ("use_case_system_id", "category_system_id"))`,
-    );
-    await queryRunner.query(
-      `INSERT INTO "temporary_use_case_categories"("use_case_system_id", "category_system_id") SELECT "use_case_system_id", "category_system_id" FROM "use_case_categories"`,
-    );
-    await queryRunner.query(`DROP TABLE "use_case_categories"`);
-    await queryRunner.query(
-      `ALTER TABLE "temporary_use_case_categories" RENAME TO "use_case_categories"`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_d5b97ccc404cecb9166a453280" ON "use_case_categories" ("use_case_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_06f2962641e6632eb9a7ac63da" ON "use_case_categories" ("category_system_id") `,
-    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX "IDX_06f2962641e6632eb9a7ac63da"`);
-    await queryRunner.query(`DROP INDEX "IDX_d5b97ccc404cecb9166a453280"`);
-    await queryRunner.query(
-      `ALTER TABLE "use_case_categories" RENAME TO "temporary_use_case_categories"`,
-    );
-    await queryRunner.query(
-      `CREATE TABLE "use_case_categories" ("use_case_system_id" integer NOT NULL, "category_system_id" integer NOT NULL, PRIMARY KEY ("use_case_system_id", "category_system_id"))`,
-    );
-    await queryRunner.query(
-      `INSERT INTO "use_case_categories"("use_case_system_id", "category_system_id") SELECT "use_case_system_id", "category_system_id" FROM "temporary_use_case_categories"`,
-    );
-    await queryRunner.query(`DROP TABLE "temporary_use_case_categories"`);
-    await queryRunner.query(
-      `CREATE INDEX "IDX_06f2962641e6632eb9a7ac63da" ON "use_case_categories" ("category_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_d5b97ccc404cecb9166a453280" ON "use_case_categories" ("use_case_system_id") `,
-    );
     await queryRunner.query(
       `ALTER TABLE "validation_preferences" RENAME TO "temporary_validation_preferences"`,
     );
@@ -1734,15 +1786,37 @@ export class InitialCreate1791998316476 implements MigrationInterface {
       `CREATE UNIQUE INDEX "uq_use_case_subgraphs_membership" ON "use_case_subgraphs" ("usecase_system_id", "subgraph_system_id") `,
     );
     await queryRunner.query(
+      `DROP INDEX "uq_use_case_categories_usecase_category"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "use_case_categories" RENAME TO "temporary_use_case_categories"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "use_case_categories" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "use_case_system_id" integer NOT NULL, "category_system_id" integer NOT NULL)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "use_case_categories"("system_id", "created_at", "updated_at", "version", "use_case_system_id", "category_system_id") SELECT "system_id", "created_at", "updated_at", "version", "use_case_system_id", "category_system_id" FROM "temporary_use_case_categories"`,
+    );
+    await queryRunner.query(`DROP TABLE "temporary_use_case_categories"`);
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_use_case_categories_usecase_category" ON "use_case_categories" ("use_case_system_id", "category_system_id") `,
+    );
+    await queryRunner.query(
+      `DROP INDEX "uq_usecase_gkv_values_usecase_value_definition"`,
+    );
+    await queryRunner.query(
       `ALTER TABLE "usecase_gkv_values" RENAME TO "temporary_usecase_gkv_values"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "usecase_gkv_values" ("usecase_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, PRIMARY KEY ("usecase_system_id", "value_def_system_id"))`,
+      `CREATE TABLE "usecase_gkv_values" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "usecase_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `INSERT INTO "usecase_gkv_values"("usecase_system_id", "value_def_system_id") SELECT "usecase_system_id", "value_def_system_id" FROM "temporary_usecase_gkv_values"`,
+      `INSERT INTO "usecase_gkv_values"("system_id", "created_at", "updated_at", "version", "usecase_system_id", "value_def_system_id") SELECT "system_id", "created_at", "updated_at", "version", "usecase_system_id", "value_def_system_id" FROM "temporary_usecase_gkv_values"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_usecase_gkv_values"`);
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_usecase_gkv_values_usecase_value_definition" ON "usecase_gkv_values" ("usecase_system_id", "value_def_system_id") `,
+    );
     await queryRunner.query(`DROP INDEX "ix_use_case_file"`);
     await queryRunner.query(`DROP INDEX "ix_use_case_alias"`);
     await queryRunner.query(
@@ -1762,16 +1836,22 @@ export class InitialCreate1791998316476 implements MigrationInterface {
       `CREATE INDEX "ix_use_case_alias" ON "use_cases" ("alias_id") `,
     );
     await queryRunner.query(
+      `DROP INDEX "uq_subsystem_filtered_keys_subsystem_key_definition"`,
+    );
+    await queryRunner.query(
       `ALTER TABLE "subsystem_filtered_keys_key_definition" RENAME TO "temporary_subsystem_filtered_keys_key_definition"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "subsystem_filtered_keys_key_definition" ("subsystems_system_id" integer NOT NULL, "key_definition_system_id" integer NOT NULL, PRIMARY KEY ("subsystems_system_id", "key_definition_system_id"))`,
+      `CREATE TABLE "subsystem_filtered_keys_key_definition" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "subsystems_system_id" integer NOT NULL, "key_definition_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `INSERT INTO "subsystem_filtered_keys_key_definition"("subsystems_system_id", "key_definition_system_id") SELECT "subsystems_system_id", "key_definition_system_id" FROM "temporary_subsystem_filtered_keys_key_definition"`,
+      `INSERT INTO "subsystem_filtered_keys_key_definition"("system_id", "created_at", "updated_at", "version", "subsystems_system_id", "key_definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "subsystems_system_id", "key_definition_system_id" FROM "temporary_subsystem_filtered_keys_key_definition"`,
     );
     await queryRunner.query(
       `DROP TABLE "temporary_subsystem_filtered_keys_key_definition"`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_subsystem_filtered_keys_subsystem_key_definition" ON "subsystem_filtered_keys_key_definition" ("subsystems_system_id", "key_definition_system_id") `,
     );
     await queryRunner.query(
       `ALTER TABLE "subsystems" RENAME TO "temporary_subsystems"`,
@@ -1784,15 +1864,21 @@ export class InitialCreate1791998316476 implements MigrationInterface {
     );
     await queryRunner.query(`DROP TABLE "temporary_subsystems"`);
     await queryRunner.query(
+      `DROP INDEX "uq_sgkv_values_sgkv_value_definition"`,
+    );
+    await queryRunner.query(
       `ALTER TABLE "sgkv_values" RENAME TO "temporary_sgkv_values"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "sgkv_values" ("sgkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, PRIMARY KEY ("sgkv_system_id", "value_def_system_id"))`,
+      `CREATE TABLE "sgkv_values" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "sgkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `INSERT INTO "sgkv_values"("sgkv_system_id", "value_def_system_id") SELECT "sgkv_system_id", "value_def_system_id" FROM "temporary_sgkv_values"`,
+      `INSERT INTO "sgkv_values"("system_id", "created_at", "updated_at", "version", "sgkv_system_id", "value_def_system_id") SELECT "system_id", "created_at", "updated_at", "version", "sgkv_system_id", "value_def_system_id" FROM "temporary_sgkv_values"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_sgkv_values"`);
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_sgkv_values_sgkv_value_definition" ON "sgkv_values" ("sgkv_system_id", "value_def_system_id") `,
+    );
     await queryRunner.query(`ALTER TABLE "sgkv" RENAME TO "temporary_sgkv"`);
     await queryRunner.query(
       `CREATE TABLE "sgkv" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "subgraph_system_id" integer NOT NULL)`,
@@ -1822,15 +1908,21 @@ export class InitialCreate1791998316476 implements MigrationInterface {
       `CREATE UNIQUE INDEX "uq_subgraphs_name_file_system_id" ON "subgraphs" ("name", "file_system_id") `,
     );
     await queryRunner.query(
+      `DROP INDEX "uq_vcpm_ckv_values_ckv_value_definition"`,
+    );
+    await queryRunner.query(
       `ALTER TABLE "vcpm_ckv_values" RENAME TO "temporary_vcpm_ckv_values"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "vcpm_ckv_values" ("vcpm_ckv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, PRIMARY KEY ("vcpm_ckv_system_id", "value_def_system_id"))`,
+      `CREATE TABLE "vcpm_ckv_values" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "vcpm_ckv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `INSERT INTO "vcpm_ckv_values"("vcpm_ckv_system_id", "value_def_system_id") SELECT "vcpm_ckv_system_id", "value_def_system_id" FROM "temporary_vcpm_ckv_values"`,
+      `INSERT INTO "vcpm_ckv_values"("system_id", "created_at", "updated_at", "version", "vcpm_ckv_system_id", "value_def_system_id") SELECT "system_id", "created_at", "updated_at", "version", "vcpm_ckv_system_id", "value_def_system_id" FROM "temporary_vcpm_ckv_values"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_vcpm_ckv_values"`);
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_vcpm_ckv_values_ckv_value_definition" ON "vcpm_ckv_values" ("vcpm_ckv_system_id", "value_def_system_id") `,
+    );
     await queryRunner.query(`DROP INDEX "uk_vcpm_parameter_payload"`);
     await queryRunner.query(
       `ALTER TABLE "vcpm_parameter_payload" RENAME TO "temporary_vcpm_parameter_payload"`,
@@ -1963,16 +2055,20 @@ export class InitialCreate1791998316476 implements MigrationInterface {
     await queryRunner.query(
       `CREATE INDEX "ix_spf_modules_subgraph_file_system" ON "spf_modules" ("subgraph_system_id", "file_system_id") `,
     );
+    await queryRunner.query(`DROP INDEX "uq_tkv_values_tkv_value_definition"`);
     await queryRunner.query(
       `ALTER TABLE "tkv_values" RENAME TO "temporary_tkv_values"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "tkv_values" ("tkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, PRIMARY KEY ("tkv_system_id", "value_def_system_id"))`,
+      `CREATE TABLE "tkv_values" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "tkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `INSERT INTO "tkv_values"("tkv_system_id", "value_def_system_id") SELECT "tkv_system_id", "value_def_system_id" FROM "temporary_tkv_values"`,
+      `INSERT INTO "tkv_values"("system_id", "created_at", "updated_at", "version", "tkv_system_id", "value_def_system_id") SELECT "system_id", "created_at", "updated_at", "version", "tkv_system_id", "value_def_system_id" FROM "temporary_tkv_values"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_tkv_values"`);
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_tkv_values_tkv_value_definition" ON "tkv_values" ("tkv_system_id", "value_def_system_id") `,
+    );
     await queryRunner.query(
       `DROP INDEX "idx_tkv_parameter_payload_tkv_system_id"`,
     );
@@ -2035,16 +2131,20 @@ export class InitialCreate1791998316476 implements MigrationInterface {
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uk_spf_module_properties_data" ON "spf_module_properties_data" ("module_system_id", "property_system_id") `,
     );
+    await queryRunner.query(`DROP INDEX "uq_ckv_values_ckv_value_definition"`);
     await queryRunner.query(
       `ALTER TABLE "ckv_values" RENAME TO "temporary_ckv_values"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "ckv_values" ("ckv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, PRIMARY KEY ("ckv_system_id", "value_def_system_id"))`,
+      `CREATE TABLE "ckv_values" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "ckv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `INSERT INTO "ckv_values"("ckv_system_id", "value_def_system_id") SELECT "ckv_system_id", "value_def_system_id" FROM "temporary_ckv_values"`,
+      `INSERT INTO "ckv_values"("system_id", "created_at", "updated_at", "version", "ckv_system_id", "value_def_system_id") SELECT "system_id", "created_at", "updated_at", "version", "ckv_system_id", "value_def_system_id" FROM "temporary_ckv_values"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_ckv_values"`);
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_ckv_values_ckv_value_definition" ON "ckv_values" ("ckv_system_id", "value_def_system_id") `,
+    );
     await queryRunner.query(
       `DROP INDEX "idx_ckv_parameter_payload_ckv_system_id"`,
     );
@@ -2245,16 +2345,20 @@ export class InitialCreate1791998316476 implements MigrationInterface {
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uq_module_manager_data_module_definition" ON "module_manager_data" ("module_definition_system_id") `,
     );
+    await queryRunner.query(`DROP INDEX "uq_dkv_values_dkv_value_definition"`);
     await queryRunner.query(
       `ALTER TABLE "dkv_values" RENAME TO "temporary_dkv_values"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "dkv_values" ("dkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, PRIMARY KEY ("dkv_system_id", "value_def_system_id"))`,
+      `CREATE TABLE "dkv_values" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "dkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `INSERT INTO "dkv_values"("dkv_system_id", "value_def_system_id") SELECT "dkv_system_id", "value_def_system_id" FROM "temporary_dkv_values"`,
+      `INSERT INTO "dkv_values"("system_id", "created_at", "updated_at", "version", "dkv_system_id", "value_def_system_id") SELECT "system_id", "created_at", "updated_at", "version", "dkv_system_id", "value_def_system_id" FROM "temporary_dkv_values"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_dkv_values"`);
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_dkv_values_dkv_value_definition" ON "dkv_values" ("dkv_system_id", "value_def_system_id") `,
+    );
     await queryRunner.query(
       `DROP INDEX "idx_dkv_parameter_payload_dkv_system_id"`,
     );
@@ -2420,28 +2524,40 @@ export class InitialCreate1791998316476 implements MigrationInterface {
       `CREATE INDEX "idx_static_ports_module_def_id" ON "static_control_port_definitions" ("module_definition_system_id") `,
     );
     await queryRunner.query(
+      `DROP INDEX "uq_module_definition_processors_definition_processor"`,
+    );
+    await queryRunner.query(
       `ALTER TABLE "module_definition_processor_definitions" RENAME TO "temporary_module_definition_processor_definitions"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "module_definition_processor_definitions" ("module_definition_system_id" integer NOT NULL, "processor_definition_system_id" integer NOT NULL, PRIMARY KEY ("module_definition_system_id", "processor_definition_system_id"))`,
+      `CREATE TABLE "module_definition_processor_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_definition_system_id" integer NOT NULL, "processor_definition_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `INSERT INTO "module_definition_processor_definitions"("module_definition_system_id", "processor_definition_system_id") SELECT "module_definition_system_id", "processor_definition_system_id" FROM "temporary_module_definition_processor_definitions"`,
+      `INSERT INTO "module_definition_processor_definitions"("system_id", "created_at", "updated_at", "version", "module_definition_system_id", "processor_definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "module_definition_system_id", "processor_definition_system_id" FROM "temporary_module_definition_processor_definitions"`,
     );
     await queryRunner.query(
       `DROP TABLE "temporary_module_definition_processor_definitions"`,
     );
     await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_module_definition_processors_definition_processor" ON "module_definition_processor_definitions" ("module_definition_system_id", "processor_definition_system_id") `,
+    );
+    await queryRunner.query(
+      `DROP INDEX "uq_module_definition_container_types_definition_container"`,
+    );
+    await queryRunner.query(
       `ALTER TABLE "module_definition_container_types" RENAME TO "temporary_module_definition_container_types"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "module_definition_container_types" ("module_definition_system_id" integer NOT NULL, "container_type_system_id" integer NOT NULL, PRIMARY KEY ("module_definition_system_id", "container_type_system_id"))`,
+      `CREATE TABLE "module_definition_container_types" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_definition_system_id" integer NOT NULL, "container_type_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `INSERT INTO "module_definition_container_types"("module_definition_system_id", "container_type_system_id") SELECT "module_definition_system_id", "container_type_system_id" FROM "temporary_module_definition_container_types"`,
+      `INSERT INTO "module_definition_container_types"("system_id", "created_at", "updated_at", "version", "module_definition_system_id", "container_type_system_id") SELECT "system_id", "created_at", "updated_at", "version", "module_definition_system_id", "container_type_system_id" FROM "temporary_module_definition_container_types"`,
     );
     await queryRunner.query(
       `DROP TABLE "temporary_module_definition_container_types"`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_module_definition_container_types_definition_container" ON "module_definition_container_types" ("module_definition_system_id", "container_type_system_id") `,
     );
     await queryRunner.query(
       `DROP INDEX "idx_module_param_defs_spf_module_def_id"`,
@@ -2645,8 +2761,6 @@ export class InitialCreate1791998316476 implements MigrationInterface {
       `INSERT INTO "processor_definitions"("system_id", "created_at", "updated_at", "version", "processor_definition_id", "name", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "processor_definition_id", "name", "file_system_id" FROM "temporary_processor_definitions"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_processor_definitions"`);
-    await queryRunner.query(`DROP INDEX "IDX_06f2962641e6632eb9a7ac63da"`);
-    await queryRunner.query(`DROP INDEX "IDX_d5b97ccc404cecb9166a453280"`);
     await queryRunner.query(`DROP TABLE "validation_preferences"`);
     await queryRunner.query(`DROP INDEX "idx_session_commits_session"`);
     await queryRunner.query(`DROP TABLE "session_commits"`);
@@ -2678,16 +2792,28 @@ export class InitialCreate1791998316476 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "idx_use_case_subgraphs_subgraph"`);
     await queryRunner.query(`DROP INDEX "uq_use_case_subgraphs_membership"`);
     await queryRunner.query(`DROP TABLE "use_case_subgraphs"`);
+    await queryRunner.query(
+      `DROP INDEX "uq_use_case_categories_usecase_category"`,
+    );
     await queryRunner.query(`DROP TABLE "use_case_categories"`);
+    await queryRunner.query(
+      `DROP INDEX "uq_usecase_gkv_values_usecase_value_definition"`,
+    );
     await queryRunner.query(`DROP TABLE "usecase_gkv_values"`);
     await queryRunner.query(`DROP TABLE "use_case_categories_master"`);
     await queryRunner.query(`DROP INDEX "ix_use_case_file"`);
     await queryRunner.query(`DROP INDEX "ix_use_case_alias"`);
     await queryRunner.query(`DROP TABLE "use_cases"`);
     await queryRunner.query(
+      `DROP INDEX "uq_subsystem_filtered_keys_subsystem_key_definition"`,
+    );
+    await queryRunner.query(
       `DROP TABLE "subsystem_filtered_keys_key_definition"`,
     );
     await queryRunner.query(`DROP TABLE "subsystems"`);
+    await queryRunner.query(
+      `DROP INDEX "uq_sgkv_values_sgkv_value_definition"`,
+    );
     await queryRunner.query(`DROP TABLE "sgkv_values"`);
     await queryRunner.query(`DROP TABLE "sgkv"`);
     await queryRunner.query(
@@ -2695,6 +2821,9 @@ export class InitialCreate1791998316476 implements MigrationInterface {
     );
     await queryRunner.query(`DROP INDEX "uq_subgraphs_name_file_system_id"`);
     await queryRunner.query(`DROP TABLE "subgraphs"`);
+    await queryRunner.query(
+      `DROP INDEX "uq_vcpm_ckv_values_ckv_value_definition"`,
+    );
     await queryRunner.query(`DROP TABLE "vcpm_ckv_values"`);
     await queryRunner.query(`DROP INDEX "uk_vcpm_parameter_payload"`);
     await queryRunner.query(`DROP TABLE "vcpm_parameter_payload"`);
@@ -2722,6 +2851,7 @@ export class InitialCreate1791998316476 implements MigrationInterface {
     );
     await queryRunner.query(`DROP INDEX "ix_spf_modules_subgraph_file_system"`);
     await queryRunner.query(`DROP TABLE "spf_modules"`);
+    await queryRunner.query(`DROP INDEX "uq_tkv_values_tkv_value_definition"`);
     await queryRunner.query(`DROP TABLE "tkv_values"`);
     await queryRunner.query(
       `DROP INDEX "idx_tkv_parameter_payload_tkv_system_id"`,
@@ -2734,6 +2864,7 @@ export class InitialCreate1791998316476 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE "module_tag_id_map"`);
     await queryRunner.query(`DROP INDEX "uk_spf_module_properties_data"`);
     await queryRunner.query(`DROP TABLE "spf_module_properties_data"`);
+    await queryRunner.query(`DROP INDEX "uq_ckv_values_ckv_value_definition"`);
     await queryRunner.query(`DROP TABLE "ckv_values"`);
     await queryRunner.query(
       `DROP INDEX "idx_ckv_parameter_payload_ckv_system_id"`,
@@ -2776,6 +2907,7 @@ export class InitialCreate1791998316476 implements MigrationInterface {
       `DROP INDEX "uq_module_manager_data_module_definition"`,
     );
     await queryRunner.query(`DROP TABLE "module_manager_data"`);
+    await queryRunner.query(`DROP INDEX "uq_dkv_values_dkv_value_definition"`);
     await queryRunner.query(`DROP TABLE "dkv_values"`);
     await queryRunner.query(
       `DROP INDEX "idx_dkv_parameter_payload_dkv_system_id"`,
@@ -2809,7 +2941,13 @@ export class InitialCreate1791998316476 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "idx_static_ports_module_def_id"`);
     await queryRunner.query(`DROP TABLE "static_control_port_definitions"`);
     await queryRunner.query(
+      `DROP INDEX "uq_module_definition_processors_definition_processor"`,
+    );
+    await queryRunner.query(
       `DROP TABLE "module_definition_processor_definitions"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "uq_module_definition_container_types_definition_container"`,
     );
     await queryRunner.query(`DROP TABLE "module_definition_container_types"`);
     await queryRunner.query(
