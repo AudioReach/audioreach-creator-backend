@@ -343,12 +343,18 @@ export class ProjectController {
       this.safeUnlink(awspPath),
     ]);
 
+    const parsedProjectId = Number.parseInt(result.projectId, 10);
+    const projectDto = await this.queryBus.execute<ProjectDto>(
+      new GetProjectQuery(parsedProjectId),
+    );
+
     const projectdetails: ProjectInfoResponseDto = {
       projectId: result.projectId,
       name: result.projectName,
       description: result.projectDescription,
       projectType: ProjectType.Offline,
-      sessionMode: SessionMode.Designer,
+      sessionMode:
+        (projectDto.sessionMode as SessionMode) ?? SessionMode.ReadOnly,
     };
 
     return toApiResult(

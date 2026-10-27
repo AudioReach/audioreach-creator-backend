@@ -49,7 +49,7 @@ describe('Open File E2E (POST /arc-api/v1/projects/offline/upload-files)', () =>
     expect(response.body.data).toBeDefined();
     expect(response.body.data.projectId).toBeDefined();
     expect(response.body.data.projectType).toBe('OFFLINE');
-    expect(response.body.data.sessionMode).toBe('DESIGNER');
+    expect(response.body.data.sessionMode).toBe('READONLY');
     expect(response.body).not.toHaveProperty('issues');
     expect(response.body).not.toHaveProperty('success');
     expect(response.body).not.toHaveProperty('message');
