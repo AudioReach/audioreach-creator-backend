@@ -14,6 +14,7 @@ export class PutCkvCalDataCommand extends BaseCommand {
   static override readonly requiresSession = true;
   static override readonly allowedModes: readonly SessionMode[] = [
     SESSION_MODE.Designer,
+    SESSION_MODE.Tuning,
     SESSION_MODE.DiffMerge,
   ];
 
