@@ -28,7 +28,7 @@ const RELATIONSHIP_KEYS = {
   ],
 } as const;
 
-const MANAGED_COLUMNS = ['creationDate', 'updateDate', 'version'];
+const MANAGED_COLUMNS = ['version'];
 
 describe('relationship schemas with synthetic system IDs', () => {
   beforeAll(async () => {
