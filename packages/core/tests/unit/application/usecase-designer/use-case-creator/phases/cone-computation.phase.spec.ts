@@ -81,7 +81,10 @@ function makeContext(
   const input =
     mode === ROUTING_MODE.Auto
       ? createAutoRoutingInput(init)
-      : createManualRoutingInput({...init, manualTopology: {pairs: []}});
+      : createManualRoutingInput({
+          ...init,
+          manualTopology: {pairs: [], isolatedSubgraphSystemIds: []},
+        });
   const context = new RoutingContext(input);
   return context;
 }

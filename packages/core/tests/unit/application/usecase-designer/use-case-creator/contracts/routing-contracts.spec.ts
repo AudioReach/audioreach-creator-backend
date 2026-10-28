@@ -5,7 +5,6 @@
 
 import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
 import {Subgraph} from '../../../../../../src/domain/entities/usecase-data/subgraph/subgraph.js';
-import type {ControlLink} from '../../../../../../src/domain/entities/usecase-data/links/control-link.js';
 import {DataLink} from '../../../../../../src/domain/entities/usecase-data/links/data-link.js';
 import {RoutingIssueFactory} from '../../../../../../src/application/usecase-designer/use-case-creator/issues/routing-issue-factory.js';
 import {ISSUE_ENTITY_TYPE} from '../../../../../../src/shared/issues/impacted-entity.js';
@@ -16,13 +15,11 @@ import {
 } from '../../../../../../src/application/shared/change-vocabulary.js';
 import {
   createAutoRoutingInput,
-  createControlLinkManualTopologyPair,
-  createDataLinkManualTopologyPair,
   createManualRoutingInput,
-  resolveActiveSubgraphSelection,
   emptyGraphEdits,
   type RoutingGraphSnapshot,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
+import {assembleManualTopology} from '../../../../../../src/application/usecase-designer/use-case-creator/create-manual-usecases/manual-topology-assembler.js';
 import type {
   ActiveSubgraphSelection,
   RoutingSelection,
@@ -88,13 +85,12 @@ function createInput() {
     selection: {
       selectedUsecaseSystemIds: [21],
       activeSubgraphs: [{systemId: 31, sgkvs: [[11]]}],
-      excludedSubgraphSystemIds: [],
-      excludedDataLinkSystemIds: [],
-      excludedControlLinkSystemIds: [],
+      includedDataLinkSystemIds: [],
+      includedControlLinkSystemIds: [],
     },
     selectedUsecases: [createUsecase(21, [31])],
     graphSnapshot: createSnapshot(),
-    manualTopology: {pairs: []},
+    manualTopology: {pairs: [], isolatedSubgraphSystemIds: []},
     activeManualUsecaseEdits: [],
   });
 }
@@ -160,7 +156,8 @@ describe('routing contracts', () => {
     const sourceSgkvs = [[11], [12, 13]];
     const selectedUsecases = [createUsecase(21, [31])];
     const selectedUsecaseSystemIds = [21];
-    const excludedSubgraphSystemIds: number[] = [];
+    const includedDataLinkSystemIds = [101];
+    const includedControlLinkSystemIds = [201];
     const subgraph = createSubgraph(31);
     const snapshot: RoutingGraphSnapshot = {
       ...createSnapshot(subgraph),
@@ -171,19 +168,19 @@ describe('routing contracts', () => {
       selection: {
         selectedUsecaseSystemIds,
         activeSubgraphs: [{systemId: 31, sgkvs: sourceSgkvs}],
-        excludedSubgraphSystemIds,
-        excludedDataLinkSystemIds: [101],
-        excludedControlLinkSystemIds: [201],
+        includedDataLinkSystemIds,
+        includedControlLinkSystemIds,
       },
       selectedUsecases,
       graphSnapshot: snapshot,
-      manualTopology: {pairs: []},
+      manualTopology: {pairs: [], isolatedSubgraphSystemIds: []},
       activeManualUsecaseEdits: [],
     });
     sourceSgkvs[0]!.push(99);
     selectedUsecases.push(createUsecase(22, [32]));
     selectedUsecaseSystemIds.push(22);
-    excludedSubgraphSystemIds.push(31);
+    includedDataLinkSystemIds.push(102);
+    includedControlLinkSystemIds.push(202);
     expect(input.graphSnapshot.subgraphs[0]!.subgraph).toBe(subgraph);
     expect(input.graphSnapshot.subgraphs[0]!.requestedSgkvs).toEqual([
       [11],
@@ -191,7 +188,8 @@ describe('routing contracts', () => {
     ]);
     expect(input.selectedUsecases).toHaveLength(1);
     expect(input.selection.selectedUsecaseSystemIds).toEqual([21]);
-    expect(input.selection.excludedSubgraphSystemIds).toEqual([]);
+    expect(input.selection.includedDataLinkSystemIds).toEqual([101]);
+    expect(input.selection.includedControlLinkSystemIds).toEqual([201]);
   });
 
   it('copies automatic selection and active-manual-edit containers', () => {
@@ -204,9 +202,8 @@ describe('routing contracts', () => {
     const selection: RoutingSelection = {
       selectedUsecaseSystemIds,
       activeSubgraphs,
-      excludedSubgraphSystemIds: [],
-      excludedDataLinkSystemIds: [],
-      excludedControlLinkSystemIds: [],
+      includedDataLinkSystemIds: [],
+      includedControlLinkSystemIds: [],
     };
     const activeManualUsecaseEdits = [createActiveManualUsecaseEdit(41)];
     const input = createAutoRoutingInput({
@@ -226,53 +223,6 @@ describe('routing contracts', () => {
     expect(input.activeManualUsecaseEdits).toHaveLength(1);
   });
 
-  it('derives effective active subgraphs with request ordering preserved', () => {
-    const scope = resolveActiveSubgraphSelection(
-      [createUsecase(21, [10, 20])],
-      [
-        {systemId: 10, sgkvs: []},
-        {systemId: 30, sgkvs: []},
-        {systemId: 20, sgkvs: []},
-      ],
-      [20],
-    );
-    expect(scope.missingSelectedScopeSubgraphs).toEqual(new Set());
-    expect(scope.effectiveActiveSubgraphs).toEqual([
-      {systemId: 10, sgkvs: []},
-      {systemId: 30, sgkvs: []},
-    ]);
-  });
-
-  it('reports every selected-scope subgraph missing from the input', () => {
-    const scope = resolveActiveSubgraphSelection(
-      [createUsecase(21, [10, 20, 30])],
-      [{systemId: 10, sgkvs: []}],
-      [30],
-    );
-    expect(scope.missingSelectedScopeSubgraphs).toEqual(new Set([20]));
-    expect(
-      RoutingIssueFactory.selectedScopeIncomplete(
-        scope.missingSelectedScopeSubgraphs,
-      ),
-    ).toEqual(
-      expect.objectContaining({
-        code: 'ARC-ROUTING-PREVAL-SCOPE-INCOMPLETE',
-        message: expect.stringContaining('[20]'),
-      }),
-    );
-  });
-
-  it('does not require a selected-scope subgraph deleted in the current session', () => {
-    const scope = resolveActiveSubgraphSelection(
-      [createUsecase(21, [10, 20])],
-      [{systemId: 10, sgkvs: []}],
-      [],
-      [20],
-    );
-    expect(scope.missingSelectedScopeSubgraphs).toEqual(new Set());
-    expect(scope.effectiveActiveSubgraphs).toEqual([{systemId: 10, sgkvs: []}]);
-  });
-
   it('preserves session edits in the snapshot', () => {
     const deletedSubgraph = createSubgraph(20);
     const sessionEdits = {
@@ -287,13 +237,12 @@ describe('routing contracts', () => {
           {systemId: 10, sgkvs: []},
           {systemId: 20, sgkvs: []},
         ],
-        excludedSubgraphSystemIds: [20],
       },
       graphSnapshot: {
         ...createSnapshot(),
         sessionEdits,
       },
-      manualTopology: {pairs: []},
+      manualTopology: {pairs: [], isolatedSubgraphSystemIds: []},
     });
     sessionEdits.deletedSgs.push(createSubgraph(30));
     expect(input.graphSnapshot.sessionEdits.deletedSgs).toEqual([
@@ -321,81 +270,14 @@ describe('routing contracts', () => {
     ).toThrow('Duplicate emitted usecase systemId: 21');
   });
 
-  it('rejects empty or mixed-direction data-link support', () => {
-    expect(() =>
-      createDataLinkManualTopologyPair(
-        {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
-        [],
-      ),
-    ).toThrow('Manual data topology support must be non-empty');
-    expect(() =>
-      createDataLinkManualTopologyPair(
-        {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
-        [createDataLink(1, 10, 20), createDataLink(2, 20, 10)],
-      ),
-    ).toThrow('Manual data topology support must be non-empty');
-  });
-
-  it('rejects empty, noncanonical, or endpoint-mismatched control support', () => {
-    expect(() =>
-      createControlLinkManualTopologyPair(
-        {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
-        [],
-      ),
-    ).toThrow('Manual control topology support must be non-empty');
-    expect(() =>
-      createControlLinkManualTopologyPair(
-        {sourceSubgraphSystemId: 20, destSubgraphSystemId: 10},
-        [
-          {
-            systemId: 1,
-            sourceSubgraphSystemId: 20,
-            destSubgraphSystemId: 10,
-          } as ControlLink,
-        ],
-      ),
-    ).toThrow('canonically ordered');
-    expect(() =>
-      createControlLinkManualTopologyPair(
-        {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
-        [
-          {
-            systemId: 1,
-            sourceSubgraphSystemId: 30,
-            destSubgraphSystemId: 40,
-          } as ControlLink,
-        ],
-      ),
-    ).toThrow('peer-matched');
-  });
-
-  it('keeps factory results isolated from caller-owned support arrays', () => {
+  it('assembleManualTopology isolates pair collections from caller-owned arrays', () => {
     const dataLinks = [createDataLink(1, 10, 20)];
-    const controlLinks = [
-      {
-        systemId: 2,
-        sourceSubgraphSystemId: 10,
-        destSubgraphSystemId: 20,
-      } as ControlLink,
-    ];
-    const dataPair = createDataLinkManualTopologyPair(
-      {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
-      dataLinks,
-    );
-    const controlPair = createControlLinkManualTopologyPair(
-      {sourceSubgraphSystemId: 10, destSubgraphSystemId: 20},
-      controlLinks,
-    );
-
+    const result = assembleManualTopology(dataLinks, [], [10, 20]);
+    expect(result.kind).toBe('OK');
+    const pair = result.data.pairs[0];
+    // Mutating the original array must not affect the frozen pair.
     dataLinks.push(createDataLink(3, 10, 20));
-    controlLinks.push({
-      systemId: 4,
-      sourceSubgraphSystemId: 20,
-      destSubgraphSystemId: 10,
-    } as ControlLink);
-
-    expect(dataPair.dataLinks.map(link => link.systemId)).toEqual([1]);
-    expect(controlPair.controlLinks.map(link => link.systemId)).toEqual([2]);
+    expect(pair.dataLinks.map(link => link.systemId)).toEqual([1]);
   });
 
   it('copies MDF classification and committed data links through snapshot copy', () => {
@@ -405,9 +287,8 @@ describe('routing contracts', () => {
       selection: {
         selectedUsecaseSystemIds: [],
         activeSubgraphs: [],
-        excludedSubgraphSystemIds: [],
-        excludedDataLinkSystemIds: [],
-        excludedControlLinkSystemIds: [],
+        includedDataLinkSystemIds: [],
+        includedControlLinkSystemIds: [],
       },
       selectedUsecases: [],
       graphSnapshot: {

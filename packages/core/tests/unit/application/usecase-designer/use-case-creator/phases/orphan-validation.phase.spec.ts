@@ -4,6 +4,8 @@
  */
 
 import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
+import {CONTROL_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/control-link-type.js';
+import {DATA_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
 import {RESULT_KIND} from '../../../../../../src/application/shared/result/result.js';
 import {RoutingContext} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
 import {OrphanValidationPhase} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/orphan-validation.phase.js';
@@ -451,5 +453,93 @@ describe('OrphanValidationPhase', () => {
     expect(
       context.warnings.map(issue => issue.impactedEntity?.systemId),
     ).toEqual([30, 30, 202, 203, 302]);
+  });
+
+  it('accepts effective inter-usecase links whose endpoints are covered by classified UseCases', async () => {
+    const context = makeContext();
+    const snapshot = context.input.graphSnapshot as unknown as Record<
+      string,
+      unknown
+    >;
+    snapshot.overlayDataLinks = [
+      {
+        systemId: 500,
+        linkType: DATA_LINK_TYPE.InterUsecase,
+        sourceSubgraphSystemId: 10,
+        destSubgraphSystemId: 20,
+      },
+    ];
+    snapshot.overlayControlLinks = [
+      {
+        systemId: 600,
+        linkType: CONTROL_LINK_TYPE.InterUsecase,
+        sourceSubgraphSystemId: 20,
+        destSubgraphSystemId: 10,
+      },
+    ];
+    context.classifiedUcs.push({candidate: candidate([10, 20])} as never);
+
+    const result = await new OrphanValidationPhase().run(context, {
+      findOrphanSubsystemSystemIds: async () => [],
+    } as never);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+  });
+
+  it('fails when an effective inter-usecase link has an uncovered endpoint', async () => {
+    const context = makeContext();
+    const snapshot = context.input.graphSnapshot as unknown as Record<
+      string,
+      unknown
+    >;
+    snapshot.overlayDataLinks = [
+      {
+        systemId: 500,
+        linkType: DATA_LINK_TYPE.InterUsecase,
+        sourceSubgraphSystemId: 10,
+        destSubgraphSystemId: 20,
+      },
+    ];
+    snapshot.overlayControlLinks = [];
+    context.classifiedUcs.push({candidate: candidate([20])} as never);
+
+    const result = await new OrphanValidationPhase().run(context, {
+      findOrphanSubsystemSystemIds: async () => [],
+    } as never);
+
+    expect(result).toMatchObject({
+      kind: RESULT_KIND.Fail,
+      issues: [
+        {
+          code: 'ARC-ROUTING-INTER-USECASE-ENDPOINT-UNCOVERED',
+        },
+      ],
+    });
+  });
+
+  it('applies endpoint coverage validation to manually classified UseCases', async () => {
+    const context = makeContext(ROUTING_MODE.Manual, [[10, 20]]);
+    const snapshot = context.input.graphSnapshot as unknown as Record<
+      string,
+      unknown
+    >;
+    snapshot.overlayDataLinks = [];
+    snapshot.overlayControlLinks = [
+      {
+        systemId: 600,
+        linkType: CONTROL_LINK_TYPE.InterUsecase,
+        sourceSubgraphSystemId: 10,
+        destSubgraphSystemId: 20,
+      },
+    ];
+    context.classifiedUcs.push({
+      candidate: manualCandidate([10, 20], [[10, 20]]),
+    } as never);
+
+    const result = await new OrphanValidationPhase().run(context, {
+      findOrphanSubsystemSystemIds: async () => [],
+    } as never);
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
   });
 });

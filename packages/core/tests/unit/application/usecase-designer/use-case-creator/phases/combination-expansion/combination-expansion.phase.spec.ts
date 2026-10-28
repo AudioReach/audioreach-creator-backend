@@ -114,7 +114,13 @@ function makeContext(
   const input =
     mode === ROUTING_MODE.Auto
       ? createAutoRoutingInput(init)
-      : createManualRoutingInput({...init, manualTopology: {pairs: []}});
+      : createManualRoutingInput({
+          ...init,
+          manualTopology: {
+            pairs: [],
+            isolatedSubgraphSystemIds: subgraphSystemIds,
+          },
+        });
   const context = new RoutingContext(input);
   context.dfsPaths.push(...paths);
   return context;
@@ -524,7 +530,7 @@ describe('CombinationExpansionPhase', () => {
       {
         kind: USECASE_CANDIDATE_KIND.Manual,
         memberSubgraphSystemIds: [7],
-        topology: {pairs: []},
+        topology: {pairs: [], isolatedSubgraphSystemIds: [7]},
         sgkvAssignment: new Map([
           [7, makeSgkv({keyDefSystemId: 10, valueDefSystemId: 100})],
         ]),

@@ -60,11 +60,9 @@ export class ResolveSameGkvCollisionHandler implements CommandHandler<
     await this.uow.startTransaction();
     try {
       const fileSystemId = this.uow.getWriteContext().session.fileSystemId;
-      const input = await this.preparation.prepare(
-        {
-          fileSystemId,
-          selection: command.replayInput,
-        },
+      const input = await this.preparation.prepareFromSelection(
+        fileSystemId,
+        command.replayInput,
         this.uow,
       );
       const replay = await this.engine.resolveCollision(

@@ -97,9 +97,10 @@ function createFixture(options: {
         systemId,
         sgkvs: [],
       })),
-      excludedSubgraphSystemIds: [],
-      excludedDataLinkSystemIds: [],
-      excludedControlLinkSystemIds: [],
+      includedDataLinkSystemIds: options.addedDataLinks.map(
+        link => link.systemId,
+      ),
+      includedControlLinkSystemIds: [],
     },
     selectedUsecases: [...(options.selectedUsecases ?? [])],
     graphSnapshot,

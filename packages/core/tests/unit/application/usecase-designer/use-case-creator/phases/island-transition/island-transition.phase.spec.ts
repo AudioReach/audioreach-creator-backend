@@ -149,7 +149,10 @@ function createFixture(options: FixtureOptions = {}) {
   };
   const input =
     options.mode === ROUTING_MODE.Manual
-      ? createManualRoutingInput({...inputInit, manualTopology: {pairs: []}})
+      ? createManualRoutingInput({
+          ...inputInit,
+          manualTopology: {pairs: [], isolatedSubgraphSystemIds: []},
+        })
       : createAutoRoutingInput(inputInit);
   const context = new RoutingContext(input);
   context.topologyChangeAnalysis =

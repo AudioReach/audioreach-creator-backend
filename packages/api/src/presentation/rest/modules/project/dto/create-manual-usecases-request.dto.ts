@@ -4,20 +4,11 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {IsArray, IsOptional, IsString, ValidateNested} from 'class-validator';
+import {IsArray, IsString, ValidateNested} from 'class-validator';
 import {Type} from 'class-transformer';
 import {SubgraphKvSelectionDto} from './create-usecases-request.dto.js';
 
 export class CreateManualUsecasesRequestDto {
-  @ApiProperty({
-    description:
-      'System IDs of usecases whose relationships and key values are eligible for manual topology discovery',
-    type: [String],
-  })
-  @IsArray()
-  @IsString({each: true})
-  selectedUsecaseSystemIds!: string[];
-
   @ApiProperty({
     description:
       'Effective manual routing scope, with each subgraph and its selected SGKV combinations',
@@ -29,32 +20,18 @@ export class CreateManualUsecasesRequestDto {
   activeSubgraphs!: SubgraphKvSelectionDto[];
 
   @ApiProperty({
-    description: 'System IDs of data links to exclude',
+    description: 'System IDs of data links to include in manual routing',
     type: [String],
-    required: false,
   })
-  @IsOptional()
   @IsArray()
   @IsString({each: true})
-  excludedDataLinkSystemIds?: string[];
+  includedDataLinkSystemIds!: string[];
 
   @ApiProperty({
-    description: 'System IDs of control links to exclude',
+    description: 'System IDs of control links to include in manual routing',
     type: [String],
-    required: false,
   })
-  @IsOptional()
   @IsArray()
   @IsString({each: true})
-  excludedControlLinkSystemIds?: string[];
-
-  @ApiProperty({
-    description: 'System IDs of subgraphs to exclude',
-    type: [String],
-    required: false,
-  })
-  @IsOptional()
-  @IsArray()
-  @IsString({each: true})
-  excludedSubgraphSystemIds?: string[];
+  includedControlLinkSystemIds!: string[];
 }

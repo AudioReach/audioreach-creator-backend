@@ -8,7 +8,6 @@ import type {UseCase} from '../../../../../../../src/domain/entities/usecase-dat
 import type {ActiveManualUsecaseEdit} from '../../../../../../../src/application/ports/persistence/repositories/usecase/usecase.repository.js';
 import {
   createAutoRoutingInput,
-  createDataLinkManualTopologyPair,
   createManualRoutingInput,
   ROUTING_MODE,
 } from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
@@ -100,6 +99,7 @@ function manualCombination(
           controlLinks: [],
         }),
       ),
+      isolatedSubgraphSystemIds: [],
     },
     sgkvAssignment: autoCandidate.sgkvAssignment,
     gkv: autoCandidate.gkv,
@@ -161,20 +161,21 @@ function context(
           ...input,
           manualTopology: {
             pairs: manualPairs.map(
-              ([sourceSubgraphSystemId, destSubgraphSystemId], index) =>
-                createDataLinkManualTopologyPair(
-                  {sourceSubgraphSystemId, destSubgraphSystemId},
-                  [
-                    {
-                      systemId: 1000 + index,
-                      sourceSubgraphSystemId,
-                      destSubgraphSystemId,
-                      linkType: 'NORMAL',
-                      isEc: false,
-                    } as never,
-                  ],
-                ),
+              ([sourceSubgraphSystemId, destSubgraphSystemId], index) => ({
+                pair: {sourceSubgraphSystemId, destSubgraphSystemId},
+                dataLinks: [
+                  {
+                    systemId: 1000 + index,
+                    sourceSubgraphSystemId,
+                    destSubgraphSystemId,
+                    linkType: 'NORMAL',
+                    isEc: false,
+                  } as never,
+                ],
+                controlLinks: [],
+              }),
             ),
+            isolatedSubgraphSystemIds: [],
           },
         })
       : createAutoRoutingInput(input),

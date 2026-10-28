@@ -320,6 +320,19 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
     return rows.map(row => baseToControlLink(row));
   }
 
+  async findBySystemId(
+    systemId: number,
+    fileSystemId: number,
+  ): Promise<ControlLink | null> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const rows = await this.linkFetcher.loadControlLinkRows(
+      fileSystemId,
+      sessionId,
+      {systemId},
+    );
+    return rows.length > 0 ? baseToControlLink(rows[0]) : null;
+  }
+
   async createSubsystemControlLinks(
     subsystemControlLinks: readonly SubsystemControlLink[],
     fileSystemId: number,

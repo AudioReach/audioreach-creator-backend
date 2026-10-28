@@ -11,6 +11,7 @@ import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 import {findDuplicateActiveSubgraphSystemIds} from '../contracts/routing-input.js';
+import {parseId} from '../../shared/parse-id.js';
 import type {RoutingOutcome} from '../contracts/routing-outcome.js';
 import {createRoutingEngine} from '../engine/create-routing-engine.js';
 import type {RoutingEngine} from '../engine/routing-engine.js';
@@ -39,7 +40,9 @@ export class CreateUsecasesHandler implements CommandHandler<
     command: CreateUsecasesCommand,
   ): Promise<Result<RoutingOutcome>> {
     const duplicateSubgraphIds = findDuplicateActiveSubgraphSystemIds(
-      command.selection.activeSubgraphs,
+      command.input.activeSubgraphs.map(sg =>
+        parseId(sg.systemId, 'activeSubgraphs.systemId'),
+      ),
     );
     if (duplicateSubgraphIds.size > 0)
       throw new DomainRuleViolationException([
@@ -50,7 +53,11 @@ export class CreateUsecasesHandler implements CommandHandler<
 
     await this.uow.startTransaction();
     try {
-      const input = await this.preparation.prepare(command, this.uow);
+      const input = await this.preparation.prepareFromRawInput(
+        command.fileSystemId,
+        command.input,
+        this.uow,
+      );
       const result = await this.engine.run(input, this.uow, this.idGeneration);
       if (result.kind === RESULT_KIND.Fail)
         throw new DomainRuleViolationException(result.issues);

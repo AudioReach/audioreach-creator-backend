@@ -49,9 +49,8 @@ interface FixtureOptions {
   readonly deletedDataLinks?: readonly DataLink[];
   readonly deletedControlLinks?: readonly ControlLink[];
   readonly requestedSubgraphSystemIds?: readonly number[];
-  readonly explicitlyExcludedSubgraphSystemIds?: readonly number[];
-  readonly explicitlyExcludedDataLinkSystemIds?: readonly number[];
-  readonly explicitlyExcludedControlLinkSystemIds?: readonly number[];
+  readonly includedDataLinkSystemIds?: readonly number[];
+  readonly includedControlLinkSystemIds?: readonly number[];
   readonly requestedSgkvsBySubgraph?: Readonly<
     Record<number, readonly (readonly number[])[]>
   >;
@@ -145,6 +144,12 @@ function createFixture(options: FixtureOptions = {}) {
   const mdfSubgraphIds = new Set(options.mdfSubgraphIds ?? [3, 5]);
   const requestedSubgraphSystemIds =
     options.requestedSubgraphSystemIds ?? subgraphIds;
+  const includedDataLinkSystemIds =
+    options.includedDataLinkSystemIds ??
+    overlayDataLinks.map(link => link.systemId);
+  const includedControlLinkSystemIds =
+    options.includedControlLinkSystemIds ??
+    overlayControlLinks.map(link => link.systemId);
   const inputInit = {
     fileSystemId: 1,
     selection: {
@@ -155,12 +160,8 @@ function createFixture(options: FixtureOptions = {}) {
         systemId,
         sgkvs: options.requestedSgkvsBySubgraph?.[systemId] ?? [],
       })),
-      excludedSubgraphSystemIds:
-        options.explicitlyExcludedSubgraphSystemIds ?? [],
-      excludedDataLinkSystemIds:
-        options.explicitlyExcludedDataLinkSystemIds ?? [],
-      excludedControlLinkSystemIds:
-        options.explicitlyExcludedControlLinkSystemIds ?? [],
+      includedDataLinkSystemIds,
+      includedControlLinkSystemIds,
     },
     selectedUsecases,
     graphSnapshot: {
@@ -184,7 +185,10 @@ function createFixture(options: FixtureOptions = {}) {
   };
   const input =
     options.mode === 'MANUAL'
-      ? createManualRoutingInput({...inputInit, manualTopology: {pairs: []}})
+      ? createManualRoutingInput({
+          ...inputInit,
+          manualTopology: {pairs: [], isolatedSubgraphSystemIds: []},
+        })
       : createAutoRoutingInput(inputInit);
   const context = new RoutingContext(input);
   const findAll = jest.fn(() => {
@@ -960,7 +964,7 @@ describe('TopologyChangeAnalysisPhase', () => {
     ]);
   });
 
-  it('returns only DEL-02 before deletion-side closure conflicts', async () => {
+  it('reports deletion selection required before scope incompleteness', async () => {
     const currentUsecase = usecase(
       1,
       [10, 20],
@@ -971,7 +975,7 @@ describe('TopologyChangeAnalysisPhase', () => {
       selectedUsecases: [],
       deletedDataLinks: [dataLink(101, 10, 20)],
       requestedSubgraphSystemIds: [10],
-      explicitlyExcludedDataLinkSystemIds: [101],
+      includedDataLinkSystemIds: [],
     });
 
     const result = await runAnalysis(service, fixture);
@@ -987,7 +991,7 @@ describe('TopologyChangeAnalysisPhase', () => {
     expect(fixture.context.topologyChangeAnalysis).toBeNull();
   });
 
-  it('enforces deletion-side closure after all affected UCs are selected', async () => {
+  it('fails when a surviving subgraph of an affected usecase is absent from scope', async () => {
     const currentUsecase = usecase(
       1,
       [10, 20],
@@ -997,8 +1001,7 @@ describe('TopologyChangeAnalysisPhase', () => {
       usecases: [currentUsecase],
       deletedDataLinks: [dataLink(101, 10, 20)],
       requestedSubgraphSystemIds: [10],
-      explicitlyExcludedSubgraphSystemIds: [10],
-      explicitlyExcludedDataLinkSystemIds: [101],
+      includedDataLinkSystemIds: [],
     });
 
     const result = await runAnalysis(service, fixture);
@@ -1007,27 +1010,10 @@ describe('TopologyChangeAnalysisPhase', () => {
       kind: RESULT_KIND.Fail,
       issues: [
         expect.objectContaining({
-          code: 'ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT',
-          message: expect.stringContaining(
-            'Data links marked for deletion were explicitly excluded: [101]',
-          ),
+          code: 'ARC-ROUTING-DELETION-SCOPE-INCOMPLETE',
         }),
       ],
     });
-    expect(
-      result.kind === RESULT_KIND.Fail && result.issues[0]?.message,
-    ).toEqual(
-      expect.stringContaining(
-        'Data links marked for deletion still use subgraphs that remain in the design, but those subgraphs are missing from the selected design: [20]',
-      ),
-    );
-    expect(
-      result.kind === RESULT_KIND.Fail && result.issues[0]?.message,
-    ).toEqual(
-      expect.stringContaining(
-        'Subgraphs still needed to validate the data-link deletion were explicitly excluded: [10]',
-      ),
-    );
   });
 
   it('does not expand deletion closure from deleted control-link endpoints', async () => {
@@ -1044,44 +1030,17 @@ describe('TopologyChangeAnalysisPhase', () => {
     ).toEqual(new Set());
   });
 
-  it('reports explicitly excluded deleted SG, data-link, and control-link entities', async () => {
+  it('does not reject deleted entities when no committed usecase is affected', async () => {
     const fixture = createFixture({
       deletedSgs: [30],
       deletedDataLinks: [dataLink(101, 10, 20)],
       deletedControlLinks: [controlLink(201, 30, 40)],
       requestedSubgraphSystemIds: [10, 20, 30, 40],
-      explicitlyExcludedSubgraphSystemIds: [30],
-      explicitlyExcludedDataLinkSystemIds: [101],
-      explicitlyExcludedControlLinkSystemIds: [201],
     });
 
     const result = await runAnalysis(service, fixture);
 
-    expect(result).toEqual({
-      kind: RESULT_KIND.Fail,
-      issues: [
-        expect.objectContaining({
-          code: 'ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT',
-          message: expect.stringContaining(
-            'Subgraphs marked for deletion were explicitly excluded: [30]',
-          ),
-        }),
-      ],
-    });
-    expect(
-      result.kind === RESULT_KIND.Fail && result.issues[0]?.message,
-    ).toEqual(
-      expect.stringContaining(
-        'Data links marked for deletion were explicitly excluded: [101]',
-      ),
-    );
-    expect(
-      result.kind === RESULT_KIND.Fail && result.issues[0]?.message,
-    ).toEqual(
-      expect.stringContaining(
-        'Control links marked for deletion were explicitly excluded: [201]',
-      ),
-    );
+    expect(result.kind).toBe(RESULT_KIND.Ok);
   });
 
   it('publishes no topology decisions in manual mode', async () => {

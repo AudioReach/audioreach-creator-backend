@@ -270,15 +270,6 @@ export class ClassifiedCandidateStager {
       const pairResult = this.validatePairs(memberSgSystemIds, pairsToPersist);
       if (pairResult.kind === RESULT_KIND.Fail) return pairResult;
 
-      const connectedIds = new Set(
-        pairsToPersist.flatMap(pair => [
-          pair.sourceSubgraphSystemId,
-          pair.destSubgraphSystemId,
-        ]),
-      );
-      const isolatedSgSystemIds = memberSgSystemIds.filter(
-        systemId => !connectedIds.has(systemId),
-      );
       const referencedComponents: ReferencedComponents = {
         sgSystemIds: sortedUnique(memberSgSystemIds),
         dataLinkSystemIds: sortedUnique(
@@ -292,10 +283,7 @@ export class ClassifiedCandidateStager {
           ),
         ),
       };
-      const type = computeManualUsecaseType(
-        candidate.topology,
-        isolatedSgSystemIds,
-      );
+      const type = computeManualUsecaseType(candidate.topology);
       const systemId = await idGenerator.getNextId(input.fileSystemId);
       const ref = await staging.repository.create(
         new UseCase({

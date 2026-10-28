@@ -146,24 +146,22 @@ function manualUpdate(
 function command(
   activeSubgraphs: readonly CommandSubgraph[],
   options: {
-    readonly selectedUsecaseSystemIds?: readonly number[];
-    readonly excludedDataLinkSystemIds?: readonly number[];
-    readonly excludedControlLinkSystemIds?: readonly number[];
+    readonly usecaseSystemIds?: readonly number[];
+    readonly includedDataLinkSystemIds?: readonly number[];
+    readonly includedControlLinkSystemIds?: readonly number[];
   } = {},
 ): CreateManualUsecasesCommand {
   return new CreateManualUsecasesCommand(FILE_ID, {
-    selectedUsecaseSystemIds: (options.selectedUsecaseSystemIds ?? []).map(
-      String,
-    ),
+    usecaseSystemIds: (options.usecaseSystemIds ?? []).map(String),
     activeSubgraphs: activeSubgraphs.map(item => ({
       systemId: String(item.systemId),
       valueSystemIds: (item.sgkvs ?? []).map(values => values.map(String)),
     })),
-    excludedDataLinkSystemIds: (options.excludedDataLinkSystemIds ?? []).map(
+    includedDataLinkSystemIds: (options.includedDataLinkSystemIds ?? []).map(
       String,
     ),
-    excludedControlLinkSystemIds: (
-      options.excludedControlLinkSystemIds ?? []
+    includedControlLinkSystemIds: (
+      options.includedControlLinkSystemIds ?? []
     ).map(String),
   });
 }
@@ -311,10 +309,14 @@ function createManualRoutingFixture(seed: FixtureSeed) {
   const dataLinkRepository = {
     findChangedInSession: async () => ({added: [], deleted: []}),
     findIntraUcLinksByFile: async () => [...(seed.dataLinks ?? [])],
+    findBySystemId: async (systemId: number) =>
+      seed.dataLinks?.find(link => link.systemId === systemId) ?? null,
   };
   const controlLinkRepository = {
     findChangedInSession: async () => ({added: [], deleted: []}),
     findIntraUcLinksByFile: async () => [...(seed.controlLinks ?? [])],
+    findBySystemId: async (systemId: number) =>
+      seed.controlLinks?.find(link => link.systemId === systemId) ?? null,
   };
   const uow = {
     startTransaction: async () => {
@@ -381,7 +383,9 @@ describe('manual routing chain', () => {
       subgraphs: [subgraph(10), subgraph(20)],
       dataLinks: [dataLink(100, 10, 20)],
     });
-    const request = command([{systemId: 10, sgkvs: [[101]]}, {systemId: 20}]);
+    const request = command([{systemId: 10, sgkvs: [[101]]}, {systemId: 20}], {
+      includedDataLinkSystemIds: [100],
+    });
 
     const first = await fixture.handler.handle(request);
     const writesAfterFirst = fixture.recordedWrites();
@@ -415,7 +419,9 @@ describe('manual routing chain', () => {
     });
 
     const result = await fixture.handler.handle(
-      command([{systemId: 10, sgkvs: [[101], [102]]}, {systemId: 20}]),
+      command([{systemId: 10, sgkvs: [[101], [102]]}, {systemId: 20}], {
+        includedDataLinkSystemIds: [100],
+      }),
     );
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
@@ -456,7 +462,8 @@ describe('manual routing chain', () => {
     await expect(
       fixture.handler.handle(
         command([{systemId: 10, sgkvs: [[101]]}, {systemId: 20}], {
-          selectedUsecaseSystemIds: [700],
+          usecaseSystemIds: [700],
+          includedDataLinkSystemIds: [100],
         }),
       ),
     ).rejects.toMatchObject({
@@ -492,7 +499,7 @@ describe('manual routing chain', () => {
     await fixture.handler.handle(
       command(
         [{systemId: 10, sgkvs: [[101]]}, {systemId: 20}, {systemId: 30}],
-        {selectedUsecaseSystemIds: [700]},
+        {usecaseSystemIds: [700], includedDataLinkSystemIds: [101, 102]},
       ),
     );
 
@@ -516,7 +523,10 @@ describe('manual routing chain', () => {
     await fixture.handler.handle(
       command(
         [{systemId: 10, sgkvs: [[101]]}, {systemId: 20}, {systemId: 30}],
-        {excludedDataLinkSystemIds: [100]},
+        {
+          includedDataLinkSystemIds: [102],
+          includedControlLinkSystemIds: [201],
+        },
       ),
     );
 
@@ -567,7 +577,9 @@ describe('manual routing chain', () => {
 
     await expect(
       fixture.handler.handle(
-        command([{systemId: 10, sgkvs: [[101]]}, {systemId: 20}]),
+        command([{systemId: 10, sgkvs: [[101]]}, {systemId: 20}], {
+          includedDataLinkSystemIds: [100, 101],
+        }),
       ),
     ).rejects.toMatchObject({
       issues: [expect.objectContaining({code: 'ARC-ROUTING-MANUAL-CYCLE'})],
@@ -607,7 +619,9 @@ describe('manual routing chain', () => {
     });
 
     const result = await fixture.handler.handle(
-      command([{systemId: 10, sgkvs: [[101]]}, {systemId: 20}]),
+      command([{systemId: 10, sgkvs: [[101]]}, {systemId: 20}], {
+        includedDataLinkSystemIds: [100],
+      }),
     );
 
     expect(result.kind).toBe(RESULT_KIND.Ok);

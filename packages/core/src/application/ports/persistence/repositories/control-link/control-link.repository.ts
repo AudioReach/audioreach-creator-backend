@@ -27,6 +27,17 @@ export interface ControlLinkRepository {
   findAllLinks(fileSystemId: number): Promise<ControlLinkTopology>;
 
   /**
+   * Looks up a canonical ControlLink by system ID in the effective session overlay.
+   * Returns null when no row matches — either the ID does not exist in this file
+   * or it belongs to a subsystem segment rather than a canonical link.
+   * Subsystem segment resolution is handled separately (PR 9.5).
+   */
+  findBySystemId(
+    systemId: number,
+    fileSystemId: number,
+  ): Promise<ControlLink | null>;
+
+  /**
    * Deletes the canonical link and every currently resolved subsystem segment
    * associated with it. Unresolved segments are intentionally not included.
    */

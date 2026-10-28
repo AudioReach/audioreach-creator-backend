@@ -3,68 +3,67 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {DATA_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
-import type {DataLink} from '../../../../../../src/domain/entities/usecase-data/links/data-link.js';
-import type {Subgraph} from '../../../../../../src/domain/entities/usecase-data/subgraph/subgraph.js';
+import {describe, expect, it} from '@jest/globals';
 import {emptyGraphEdits} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
-import {validateRoutingAdditionClosure} from '../../../../../../src/application/usecase-designer/use-case-creator/shared/validate-routing-addition-closure.js';
+import {validateAutoRoutingAdditionClosure} from '../../../../../../src/application/usecase-designer/use-case-creator/shared/validate-routing-addition-closure.js';
 
-describe('validateRoutingAdditionClosure', () => {
-  it('returns every addition-side FR-API-07 conflict in one issue', () => {
-    const issues = validateRoutingAdditionClosure(
+function dataLink(systemId: number) {
+  return {systemId} as never;
+}
+
+function controlLink(systemId: number) {
+  return {systemId} as never;
+}
+
+describe('validateAutoRoutingAdditionClosure', () => {
+  it('passes when all effective session additions are declared in scope', () => {
+    const issues = validateAutoRoutingAdditionClosure(
       {
-        activeSubgraphs: [{systemId: 10, sgkvs: []}],
-        excludedSubgraphSystemIds: [20, 30],
-        excludedDataLinkSystemIds: [100],
-        excludedControlLinkSystemIds: [200],
+        activeSubgraphs: [
+          {systemId: 10, sgkvs: []},
+          {systemId: 20, sgkvs: []},
+        ],
+        includedDataLinkSystemIds: [100],
+        includedControlLinkSystemIds: [200],
       },
       {
         ...emptyGraphEdits(),
-        addedSgs: [{systemId: 20}, {systemId: 40}] as Subgraph[],
-        deletedSgs: [{systemId: 30}] as Subgraph[],
-        addedDataLinks: [
-          {
-            systemId: 100,
-            linkType: DATA_LINK_TYPE.Normal,
-            sourceSubgraphSystemId: 10,
-            destSubgraphSystemId: 30,
-          },
-        ] as DataLink[],
-        addedControlLinks: [{systemId: 200}] as never[],
+        addedDataLinks: [dataLink(100)],
+        addedControlLinks: [controlLink(200)],
       },
     );
 
-    expect(issues).toHaveLength(1);
-    expect(issues[0]).toEqual(
-      expect.objectContaining({
-        code: 'ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT',
-        message: expect.stringMatching(
-          /Subgraphs added by the request are explicitly excluded from the selected design: \[20\].*Data links added by the request are explicitly excluded from the selected design: \[100\].*Control links added by the request are explicitly excluded from the selected design: \[200\].*Subgraphs needed to include the requested additions are missing from the selected design: \[20, 40\].*Subgraphs needed to keep the selected use cases complete are missing from the selected design: \[30\].*Subgraphs needed to keep the selected use cases complete were explicitly excluded: \[30\].*A newly added link refers to subgraphs that are also being deleted: \[30\]/,
-        ),
-      }),
-    );
+    expect(issues).toHaveLength(0);
   });
 
-  it('does not require added control-link endpoints in routing scope', () => {
-    expect(
-      validateRoutingAdditionClosure(
-        {
-          activeSubgraphs: [],
-          excludedSubgraphSystemIds: [],
-          excludedDataLinkSystemIds: [],
-          excludedControlLinkSystemIds: [],
-        },
-        {
-          ...emptyGraphEdits(),
-          addedControlLinks: [
-            {
-              systemId: 200,
-              sourceSubgraphSystemId: 10,
-              destSubgraphSystemId: 20,
-            },
-          ] as never[],
-        },
-      ),
-    ).toEqual([]);
+  it('rejects a session-added data link absent from includedDataLinkSystemIds', () => {
+    const issues = validateAutoRoutingAdditionClosure(
+      {
+        activeSubgraphs: [],
+        includedDataLinkSystemIds: [],
+        includedControlLinkSystemIds: [],
+      },
+      {...emptyGraphEdits(), addedDataLinks: [dataLink(999)]},
+    );
+
+    expect(issues).toHaveLength(1);
+  });
+
+  it('ignores a link that was added then deleted in the same session', () => {
+    const link = dataLink(100);
+    const issues = validateAutoRoutingAdditionClosure(
+      {
+        activeSubgraphs: [],
+        includedDataLinkSystemIds: [],
+        includedControlLinkSystemIds: [],
+      },
+      {
+        ...emptyGraphEdits(),
+        addedDataLinks: [link],
+        deletedDataLinks: [link],
+      },
+    );
+
+    expect(issues).toHaveLength(0);
   });
 });

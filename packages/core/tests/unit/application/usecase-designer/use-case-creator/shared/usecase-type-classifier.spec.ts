@@ -124,9 +124,10 @@ describe('computeManualUsecaseType', () => {
           controlLinks: [],
         },
       ],
+      isolatedSubgraphSystemIds: [],
     };
 
-    expect(computeManualUsecaseType(topology, [])).toBe(USECASE_TYPE.Linked);
+    expect(computeManualUsecaseType(topology)).toBe(USECASE_TYPE.Linked);
   });
 
   it('classifies control support or an isolated member as ISLAND', () => {
@@ -144,6 +145,7 @@ describe('computeManualUsecaseType', () => {
           ],
         },
       ],
+      isolatedSubgraphSystemIds: [],
     };
     const dataTopology: ManualTopology = {
       pairs: [
@@ -160,14 +162,11 @@ describe('computeManualUsecaseType', () => {
           controlLinks: [],
         },
       ],
+      isolatedSubgraphSystemIds: [30],
     };
 
-    expect(computeManualUsecaseType(controlTopology, [])).toBe(
-      USECASE_TYPE.Island,
-    );
-    expect(computeManualUsecaseType(dataTopology, [30])).toBe(
-      USECASE_TYPE.Island,
-    );
+    expect(computeManualUsecaseType(controlTopology)).toBe(USECASE_TYPE.Island);
+    expect(computeManualUsecaseType(dataTopology)).toBe(USECASE_TYPE.Island);
   });
 
   it('gives EC data support precedence over control support and isolated members', () => {
@@ -197,9 +196,10 @@ describe('computeManualUsecaseType', () => {
           ],
         },
       ],
+      isolatedSubgraphSystemIds: [40],
     };
 
-    expect(computeManualUsecaseType(topology, [40])).toBe(USECASE_TYPE.Ec);
+    expect(computeManualUsecaseType(topology)).toBe(USECASE_TYPE.Ec);
   });
 });
 

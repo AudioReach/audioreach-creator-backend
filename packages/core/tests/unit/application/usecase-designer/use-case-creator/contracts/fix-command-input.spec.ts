@@ -9,9 +9,8 @@ import {parseResolveSameGkvCollisionPayload} from '../../../../../../src/applica
 const replayInput = {
   selectedUsecaseSystemIds: [],
   activeSubgraphs: [],
-  excludedSubgraphSystemIds: [],
-  excludedDataLinkSystemIds: [],
-  excludedControlLinkSystemIds: [],
+  includedDataLinkSystemIds: [],
+  includedControlLinkSystemIds: [],
 };
 
 describe('parseResolveSameGkvCollisionPayload', () => {

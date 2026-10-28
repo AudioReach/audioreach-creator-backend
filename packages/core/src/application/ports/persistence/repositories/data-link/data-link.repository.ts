@@ -39,6 +39,17 @@ export interface DataLinkRepository {
   findAllLinks(fileSystemId: number): Promise<DataLinkTopology>;
 
   /**
+   * Looks up a canonical DataLink by system ID in the effective session overlay.
+   * Returns null when no row matches — either the ID does not exist in this file
+   * or it belongs to a subsystem segment rather than a canonical link.
+   * Subsystem segment resolution is handled separately (PR 9.5).
+   */
+  findBySystemId(
+    systemId: number,
+    fileSystemId: number,
+  ): Promise<DataLink | null>;
+
+  /**
    * Deletes the canonical link and every currently resolved subsystem segment
    * associated with it. Unresolved segments are intentionally not included.
    */

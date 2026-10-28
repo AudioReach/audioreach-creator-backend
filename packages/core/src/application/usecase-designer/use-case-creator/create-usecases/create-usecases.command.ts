@@ -5,11 +5,7 @@
 
 import {BaseCommand} from '../../../../application/shared/base-command.js';
 import {SESSION_MODE} from '../../../../application/shared/change-vocabulary.js';
-import {
-  parseRoutingCommandInput,
-  type RoutingCommandInput,
-} from '../contracts/routing-command-input.js';
-import type {RoutingSelection} from '../contracts/routing-input.js';
+import type {AutoRoutingCommandInput} from '../contracts/routing-command-input.js';
 
 export class CreateUsecasesCommand extends BaseCommand {
   static override readonly requiresSession = true;
@@ -18,13 +14,10 @@ export class CreateUsecasesCommand extends BaseCommand {
     SESSION_MODE.DiffMerge,
   ] as const;
 
-  readonly selection: RoutingSelection;
-
   constructor(
     public readonly fileSystemId: number,
-    input: RoutingCommandInput,
+    public readonly input: AutoRoutingCommandInput,
   ) {
     super();
-    this.selection = parseRoutingCommandInput(input);
   }
 }

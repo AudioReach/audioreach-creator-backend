@@ -27,8 +27,8 @@ import {MdfClassificationService} from './mdf-classification.service.js';
 export interface RoutingGraphSnapshotBuildInput {
   readonly fileSystemId: number;
   readonly effectiveActiveSubgraphs: readonly ActiveSubgraphSelection[];
-  readonly excludedDataLinkSystemIds: readonly number[];
-  readonly excludedControlLinkSystemIds: readonly number[];
+  readonly includedDataLinkSystemIds: readonly number[];
+  readonly includedControlLinkSystemIds: readonly number[];
   readonly sessionEdits: GraphEditSummary;
   readonly activeManualUsecaseEdits: readonly ActiveManualUsecaseEdit[];
 }
@@ -46,9 +46,9 @@ function isInScope(
 function isRoutable(
   link: DataLink | ControlLink,
   effectiveIds: ReadonlySet<number>,
-  excludedLinkIds: ReadonlySet<number>,
+  includedLinkIds: ReadonlySet<number>,
 ): boolean {
-  return isInScope(link, effectiveIds) && !excludedLinkIds.has(link.systemId);
+  return isInScope(link, effectiveIds) && includedLinkIds.has(link.systemId);
 }
 
 /**
@@ -67,7 +67,7 @@ export class RoutingGraphSnapshotBuilder {
     uow: UnitOfWork,
   ): Promise<Result<RoutingGraphSnapshot>> {
     const duplicateSubgraphIds = findDuplicateActiveSubgraphSystemIds(
-      input.effectiveActiveSubgraphs,
+      input.effectiveActiveSubgraphs.map(sg => sg.systemId),
     );
     if (duplicateSubgraphIds.size > 0)
       return Result.fail(
@@ -156,13 +156,13 @@ export class RoutingGraphSnapshotBuilder {
       });
     });
 
-    const excludedDataLinkIds = new Set(input.excludedDataLinkSystemIds);
-    const excludedControlLinkIds = new Set(input.excludedControlLinkSystemIds);
+    const includedDataLinkIds = new Set(input.includedDataLinkSystemIds);
+    const includedControlLinkIds = new Set(input.includedControlLinkSystemIds);
     const routableDataLinks = overlayDataLinks.filter(link =>
-      isRoutable(link, effectiveIds, excludedDataLinkIds),
+      isRoutable(link, effectiveIds, includedDataLinkIds),
     );
     const routableControlLinks = overlayControlLinks.filter(link =>
-      isRoutable(link, effectiveIds, excludedControlLinkIds),
+      isRoutable(link, effectiveIds, includedControlLinkIds),
     );
 
     return Result.ok(

@@ -48,8 +48,8 @@ function buildInput(
   return {
     fileSystemId: 7,
     effectiveActiveSubgraphs,
-    excludedDataLinkSystemIds: [],
-    excludedControlLinkSystemIds: [],
+    includedDataLinkSystemIds: [],
+    includedControlLinkSystemIds: [],
     sessionEdits: emptyGraphEdits(),
     activeManualUsecaseEdits: [],
     ...overrides,
@@ -166,8 +166,8 @@ describe('RoutingGraphSnapshotBuilder', () => {
         {systemId: 20, sgkvs: [[2]]},
       ],
       {
-        excludedDataLinkSystemIds: [102],
-        excludedControlLinkSystemIds: [200],
+        includedDataLinkSystemIds: [100],
+        includedControlLinkSystemIds: [],
       },
     );
 

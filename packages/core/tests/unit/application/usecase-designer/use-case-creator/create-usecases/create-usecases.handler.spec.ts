@@ -10,6 +10,7 @@ import type {RoutingGraphSnapshot} from '../../../../../../src/application/useca
 import {createEmptyRoutingOutcome} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-outcome.js';
 import {CreateUsecasesCommand} from '../../../../../../src/application/usecase-designer/use-case-creator/create-usecases/create-usecases.command.js';
 import {CreateUsecasesHandler} from '../../../../../../src/application/usecase-designer/use-case-creator/create-usecases/create-usecases.handler.js';
+import {AutoRoutingPreparationService} from '../../../../../../src/application/usecase-designer/use-case-creator/services/auto-routing-preparation.service.js';
 
 function snapshot(): RoutingGraphSnapshot {
   return {
@@ -95,11 +96,12 @@ describe('CreateUsecasesHandler', () => {
     await expect(
       handler.handle(
         new CreateUsecasesCommand(1, {
-          selectedUsecaseSystemIds: [],
           activeSubgraphs: [
             {systemId: '7', valueSystemIds: [['70']]},
             {systemId: '7', valueSystemIds: [['71']]},
           ],
+          includedDataLinkSystemIds: [],
+          includedControlLinkSystemIds: [],
         }),
       ),
     ).rejects.toMatchObject({
@@ -116,6 +118,61 @@ describe('CreateUsecasesHandler', () => {
     expect(resolver.resolveAllChains).not.toHaveBeenCalled();
     expect(snapshotBuilder.build).not.toHaveBeenCalled();
     expect(engine.run).not.toHaveBeenCalled();
+  });
+
+  it('resolves raw routing input before preparing the snapshot', async () => {
+    const events: string[] = [];
+    const catalog = createUow(events);
+    const rawInput = {
+      activeSubgraphs: [],
+      includedDataLinkSystemIds: [],
+      includedControlLinkSystemIds: [],
+    };
+    const canonicalSelection = {
+      activeSubgraphs: [],
+      includedDataLinkSystemIds: [],
+      includedControlLinkSystemIds: [],
+    };
+    const resolve = jest.fn(async () => Result.ok(canonicalSelection));
+    const preparation = new AutoRoutingPreparationService(
+      {resolveAllChains: jest.fn(async () => Result.ok())} as never,
+      {build: jest.fn(async () => Result.ok(snapshot()))} as never,
+      resolve,
+    );
+
+    const prepared = await preparation.prepareFromRawInput(
+      1,
+      rawInput,
+      catalog.uow as never,
+    );
+
+    expect(resolve).toHaveBeenCalledWith(1, rawInput, catalog.uow);
+    expect(prepared.selection).toStrictEqual(canonicalSelection);
+  });
+
+  it('prepares a canonical selection without resolving raw routing input', async () => {
+    const events: string[] = [];
+    const catalog = createUow(events);
+    const selection = {
+      activeSubgraphs: [],
+      includedDataLinkSystemIds: [],
+      includedControlLinkSystemIds: [],
+    };
+    const resolve = jest.fn();
+    const preparation = new AutoRoutingPreparationService(
+      {resolveAllChains: jest.fn(async () => Result.ok())} as never,
+      {build: jest.fn(async () => Result.ok(snapshot()))} as never,
+      resolve,
+    );
+
+    const prepared = await preparation.prepareFromSelection(
+      1,
+      selection,
+      catalog.uow as never,
+    );
+
+    expect(resolve).not.toHaveBeenCalled();
+    expect(prepared.selection).toStrictEqual(selection);
   });
 
   it('builds one snapshot after validation and executes the engine in order', async () => {
@@ -149,8 +206,9 @@ describe('CreateUsecasesHandler', () => {
 
     await handler.handle(
       new CreateUsecasesCommand(1, {
-        selectedUsecaseSystemIds: [],
         activeSubgraphs: [],
+        includedDataLinkSystemIds: [],
+        includedControlLinkSystemIds: [],
       }),
     );
 
@@ -161,13 +219,13 @@ describe('CreateUsecasesHandler', () => {
       'edits:read',
       'edits:read',
       'edits:read',
-      'selected-usecases:read',
       'manual-usecase-edits:read',
       'snapshot:build',
       'engine:run',
       'transaction:commit',
     ]);
     expect(snapshotBuilder.build).toHaveBeenCalledTimes(1);
+    expect(catalog.findBySystemIds).not.toHaveBeenCalled();
     expect(catalog.findWithActiveManualEdits).toHaveBeenCalledWith(1);
     expect(engine.run).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -197,8 +255,9 @@ describe('CreateUsecasesHandler', () => {
     await expect(
       handler.handle(
         new CreateUsecasesCommand(1, {
-          selectedUsecaseSystemIds: [],
           activeSubgraphs: [],
+          includedDataLinkSystemIds: [],
+          includedControlLinkSystemIds: [],
         }),
       ),
     ).rejects.toMatchObject({errorCode: 'DOMAIN_RULE_VIOLATION'});
@@ -226,8 +285,9 @@ describe('CreateUsecasesHandler', () => {
     await expect(
       handler.handle(
         new CreateUsecasesCommand(1, {
-          selectedUsecaseSystemIds: [],
           activeSubgraphs: [],
+          includedDataLinkSystemIds: [],
+          includedControlLinkSystemIds: [],
         }),
       ),
     ).rejects.toMatchObject({errorCode: 'DOMAIN_RULE_VIOLATION'});

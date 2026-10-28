@@ -6,110 +6,45 @@
 import {Result} from '../../../../../application/shared/result/result.js';
 import type {ControlLink} from '../../../../../domain/entities/usecase-data/links/control-link.js';
 import type {DataLink} from '../../../../../domain/entities/usecase-data/links/data-link.js';
+import type {UseCase} from '../../../../../domain/entities/usecase-data/usecase/usecase.js';
 import {
   USECASE_TOPOLOGY_DECISION_KIND,
   type UsecaseTopologyDecision,
 } from '../../contracts/routing-state.js';
 import {RoutingIssueFactory} from '../../issues/routing-issue-factory.js';
-import {sortedIds} from './topology-impact-inventory.js';
 
-export interface AutomaticRoutingSelectionAndExclusionInput {
-  readonly selectedUsecaseSystemIds: ReadonlySet<number>;
+/**
+ * Guards automatic routing when a requested topology change affects existing UseCases.
+ *
+ * Before reconstruction or staging can proceed, the request must account for the affected
+ * UseCases' surviving topology. This prevents a partial client selection
+ * (usecase selected does not include delete impacted usecases) from silently
+ * discarding graph state needed to validate a deletion or replacement.
+ */
+export interface AutoDeletionGateInput {
+  readonly selectedUsecaseSystemIds?: ReadonlySet<number>;
   readonly affectedUsecaseSystemIds: ReadonlySet<number>;
-  readonly requestedSubgraphSystemIds: ReadonlySet<number>;
-  readonly excludedSubgraphSystemIds: ReadonlySet<number>;
-  readonly excludedDataLinkSystemIds: ReadonlySet<number>;
-  readonly excludedControlLinkSystemIds: ReadonlySet<number>;
+  readonly affectedUsecases: readonly UseCase[];
+  readonly activeSubgraphSystemIds: ReadonlySet<number>;
+  readonly includedDataLinkSystemIds: ReadonlySet<number>;
+  readonly includedControlLinkSystemIds: ReadonlySet<number>;
+  readonly overlayDataLinks: readonly DataLink[];
+  readonly overlayControlLinks: readonly ControlLink[];
+  readonly deletedDataLinkSystemIds: ReadonlySet<number>;
+  readonly deletedControlLinkSystemIds: ReadonlySet<number>;
   readonly deletedSubgraphSystemIds: ReadonlySet<number>;
-  readonly deletedDataLinks: readonly DataLink[];
-  readonly deletedControlLinks: readonly ControlLink[];
 }
 
-interface DeletionSideConflicts {
-  readonly excludedDeletedSubgraphSystemIds?: readonly number[];
-  readonly excludedDeletedDataLinkSystemIds?: readonly number[];
-  readonly excludedDeletedControlLinkSystemIds?: readonly number[];
-  readonly missingSurvivingEndpointSubgraphSystemIds?: readonly number[];
-  readonly excludedSurvivingEndpointSubgraphSystemIds?: readonly number[];
+interface MissingDeletionScope {
+  readonly subgraphSystemIds: Set<number>;
+  readonly dataLinkSystemIds: Set<number>;
+  readonly controlLinkSystemIds: Set<number>;
 }
 
-function hasAnyValues(conflicts: DeletionSideConflicts): boolean {
-  return (
-    (conflicts.excludedDeletedSubgraphSystemIds?.length ?? 0) > 0 ||
-    (conflicts.excludedDeletedDataLinkSystemIds?.length ?? 0) > 0 ||
-    (conflicts.excludedDeletedControlLinkSystemIds?.length ?? 0) > 0 ||
-    (conflicts.missingSurvivingEndpointSubgraphSystemIds?.length ?? 0) > 0 ||
-    (conflicts.excludedSurvivingEndpointSubgraphSystemIds?.length ?? 0) > 0
-  );
-}
-
-function buildDeletionSideConflicts(
-  input: AutomaticRoutingSelectionAndExclusionInput,
-): DeletionSideConflicts {
-  // Deleted control-link endpoints intentionally do not expand automatic routing scope.
-  const requiredSurvivingEndpointSubgraphSystemIds = new Set<number>();
-  for (const dataLink of input.deletedDataLinks) {
-    if (!input.deletedSubgraphSystemIds.has(dataLink.sourceSubgraphSystemId)) {
-      requiredSurvivingEndpointSubgraphSystemIds.add(
-        dataLink.sourceSubgraphSystemId,
-      );
-    }
-    if (!input.deletedSubgraphSystemIds.has(dataLink.destSubgraphSystemId)) {
-      requiredSurvivingEndpointSubgraphSystemIds.add(
-        dataLink.destSubgraphSystemId,
-      );
-    }
-  }
-
-  const deletedDataLinkSystemIds = new Set(
-    input.deletedDataLinks.map(link => link.systemId),
-  );
-  const deletedControlLinkSystemIds = new Set(
-    input.deletedControlLinks.map(link => link.systemId),
-  );
-  const excludedDeletedSubgraphSystemIds = [
-    ...input.deletedSubgraphSystemIds,
-  ].filter(systemId => input.excludedSubgraphSystemIds.has(systemId));
-  const excludedDeletedDataLinkSystemIds = [...deletedDataLinkSystemIds].filter(
-    systemId => input.excludedDataLinkSystemIds.has(systemId),
-  );
-  const excludedDeletedControlLinkSystemIds = [
-    ...deletedControlLinkSystemIds,
-  ].filter(systemId => input.excludedControlLinkSystemIds.has(systemId));
-  const missingSurvivingEndpointSubgraphSystemIds = [
-    ...requiredSurvivingEndpointSubgraphSystemIds,
-  ].filter(systemId => !input.requestedSubgraphSystemIds.has(systemId));
-  const excludedSurvivingEndpointSubgraphSystemIds = [
-    ...requiredSurvivingEndpointSubgraphSystemIds,
-  ].filter(systemId => input.excludedSubgraphSystemIds.has(systemId));
-
-  return {
-    ...(excludedDeletedSubgraphSystemIds.length > 0 && {
-      excludedDeletedSubgraphSystemIds: sortedIds(
-        excludedDeletedSubgraphSystemIds,
-      ),
-    }),
-    ...(excludedDeletedDataLinkSystemIds.length > 0 && {
-      excludedDeletedDataLinkSystemIds: sortedIds(
-        excludedDeletedDataLinkSystemIds,
-      ),
-    }),
-    ...(excludedDeletedControlLinkSystemIds.length > 0 && {
-      excludedDeletedControlLinkSystemIds: sortedIds(
-        excludedDeletedControlLinkSystemIds,
-      ),
-    }),
-    ...(missingSurvivingEndpointSubgraphSystemIds.length > 0 && {
-      missingSurvivingEndpointSubgraphSystemIds: sortedIds(
-        missingSurvivingEndpointSubgraphSystemIds,
-      ),
-    }),
-    ...(excludedSurvivingEndpointSubgraphSystemIds.length > 0 && {
-      excludedSurvivingEndpointSubgraphSystemIds: sortedIds(
-        excludedSurvivingEndpointSubgraphSystemIds,
-      ),
-    }),
-  };
+interface LinkWithEndpoints {
+  readonly systemId: number;
+  readonly sourceSubgraphSystemId: number;
+  readonly destSubgraphSystemId: number;
 }
 
 export function deriveAffectedUsecaseSystemIds(
@@ -117,6 +52,8 @@ export function deriveAffectedUsecaseSystemIds(
 ): ReadonlySet<number> {
   const affected = new Set<number>();
   for (const decision of decisions) {
+    // MDF normalization is system-owned maintenance, not a user-selected topology deletion.
+    // It must not force the client to select a UseCase solely because it is being normalized.
     if (decision.kind === USECASE_TOPOLOGY_DECISION_KIND.MdfNormalization)
       continue;
     affected.add(decision.usecase.systemId);
@@ -124,27 +61,108 @@ export function deriveAffectedUsecaseSystemIds(
   return affected;
 }
 
-export function validateAutomaticRoutingSelectionsAndExclusions(
-  input: AutomaticRoutingSelectionAndExclusionInput,
+//Checks if user input usecases inlcudes all impacted usecases
+function validateSelectedUsecases(
+  input: AutoDeletionGateInput,
 ): ReturnType<typeof Result.fail<void>> | null {
-  // Gate ordering is part of the client contract: selection is reported before scope.
+  // Selection is optional for this command. Once supplied, however, it is an explicit
+  // acknowledgement that every affected UseCase participates in the routing request.
+  if (input.selectedUsecaseSystemIds === undefined) return null;
   const missingUsecaseSystemIds = new Set(
     [...input.affectedUsecaseSystemIds].filter(
-      systemId => !input.selectedUsecaseSystemIds.has(systemId),
+      systemId => !input.selectedUsecaseSystemIds!.has(systemId),
     ),
   );
-  if (missingUsecaseSystemIds.size > 0) {
-    return Result.fail<void>(
-      RoutingIssueFactory.deletionSelectionRequired(
-        input.affectedUsecaseSystemIds,
-        missingUsecaseSystemIds,
-      ),
+  if (missingUsecaseSystemIds.size === 0) return null;
+  return Result.fail<void>(
+    RoutingIssueFactory.deletionSelectionRequired(
+      input.affectedUsecaseSystemIds,
+      missingUsecaseSystemIds,
+    ),
+  );
+}
+
+function addMissingLinks(
+  links: readonly LinkWithEndpoints[],
+  usecaseSubgraphSystemIds: ReadonlySet<number>,
+  deletedLinkSystemIds: ReadonlySet<number>,
+  includedLinkSystemIds: ReadonlySet<number>,
+  missingLinkSystemIds: Set<number>,
+): void {
+  for (const link of links) {
+    // Only links entirely inside the affected UseCase must be represented. A link is
+    // accounted for when the caller includes it or the current edit session deletes it.
+    const belongsToUsecase =
+      usecaseSubgraphSystemIds.has(link.sourceSubgraphSystemId) &&
+      usecaseSubgraphSystemIds.has(link.destSubgraphSystemId);
+    const absentFromRequest = !includedLinkSystemIds.has(link.systemId);
+    if (
+      belongsToUsecase &&
+      absentFromRequest &&
+      !deletedLinkSystemIds.has(link.systemId)
+    )
+      missingLinkSystemIds.add(link.systemId);
+  }
+}
+
+function findMissingDeletionScope(
+  input: AutoDeletionGateInput,
+): MissingDeletionScope {
+  const missing: MissingDeletionScope = {
+    subgraphSystemIds: new Set(),
+    dataLinkSystemIds: new Set(),
+    controlLinkSystemIds: new Set(),
+  };
+  for (const usecase of input.affectedUsecases) {
+    const usecaseSubgraphSystemIds = new Set(usecase.subgraphSystemIds);
+    for (const systemId of usecase.subgraphSystemIds) {
+      // Deleted members are intentional. Any surviving member must remain active in the
+      // request so topology reconstruction can validate the UseCase as a complete unit.
+      const isRetained =
+        input.deletedSubgraphSystemIds.has(systemId) ||
+        input.activeSubgraphSystemIds.has(systemId);
+      if (!isRetained) missing.subgraphSystemIds.add(systemId);
+    }
+    addMissingLinks(
+      input.overlayDataLinks,
+      usecaseSubgraphSystemIds,
+      input.deletedDataLinkSystemIds,
+      input.includedDataLinkSystemIds,
+      missing.dataLinkSystemIds,
+    );
+    addMissingLinks(
+      input.overlayControlLinks,
+      usecaseSubgraphSystemIds,
+      input.deletedControlLinkSystemIds,
+      input.includedControlLinkSystemIds,
+      missing.controlLinkSystemIds,
     );
   }
+  return missing;
+}
 
-  const conflicts = buildDeletionSideConflicts(input);
-  if (hasAnyValues(conflicts)) {
-    return Result.fail<void>(RoutingIssueFactory.editScopeConflict(conflicts));
-  }
+export function validateAutomaticDeletionGate(
+  input: AutoDeletionGateInput,
+): ReturnType<typeof Result.fail<void>> | null {
+  // Prefer the explicit-selection error before reporting incomplete graph scope. A null
+  // result is the contract that both safeguards passed and later phases may continue.
+  const selectionFailure = validateSelectedUsecases(input);
+  if (selectionFailure !== null) return selectionFailure;
+
+  const missing = findMissingDeletionScope(input);
+  if (
+    missing.subgraphSystemIds.size > 0 ||
+    missing.dataLinkSystemIds.size > 0 ||
+    missing.controlLinkSystemIds.size > 0
+  )
+    return Result.fail<void>(
+      RoutingIssueFactory.deletionScopeIncomplete(
+        input.affectedUsecaseSystemIds,
+        [...missing.subgraphSystemIds],
+        [...missing.dataLinkSystemIds],
+        [...missing.controlLinkSystemIds],
+      ),
+    );
+
   return null;
 }

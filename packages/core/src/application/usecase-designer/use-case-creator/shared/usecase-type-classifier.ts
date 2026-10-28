@@ -84,7 +84,6 @@ export function computeUsecaseType(
 
 export function computeManualUsecaseType(
   manualTopology: ManualTopology,
-  isolatedSgSystemIds: readonly number[],
 ): UsecaseType {
   if (
     manualTopology.pairs.some(item =>
@@ -94,7 +93,7 @@ export function computeManualUsecaseType(
     return USECASE_TYPE.Ec;
   }
   if (
-    isolatedSgSystemIds.length > 0 ||
+    manualTopology.isolatedSubgraphSystemIds.length > 0 ||
     manualTopology.pairs.some(item => item.controlLinks.length > 0)
   ) {
     return USECASE_TYPE.Island;
