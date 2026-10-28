@@ -433,9 +433,8 @@ export function createMdfSubstitutionRoutingHarness(
         systemId: item.subgraph.systemId,
         sgkvs: item.requestedSgkvs,
       })),
-      excludedSubgraphSystemIds: [],
-      excludedDataLinkSystemIds: [],
-      excludedControlLinkSystemIds: [],
+      includedDataLinkSystemIds: effectiveLinks.map(link => link.systemId),
+      includedControlLinkSystemIds: [],
     },
     selectedUsecases,
     graphSnapshot: {
@@ -467,7 +466,7 @@ export function createMdfSubstitutionRoutingHarness(
     scenario.mode === 'MANUAL'
       ? createManualRoutingInput({
           ...inputInit,
-          manualTopology: {pairs: []},
+          manualTopology: {pairs: [], isolatedSubgraphSystemIds: []},
         })
       : createAutoRoutingInput(inputInit);
 

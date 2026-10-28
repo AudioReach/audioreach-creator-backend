@@ -96,7 +96,10 @@ function input(
   };
   return mode === ROUTING_MODE.Auto
     ? createAutoRoutingInput(init)
-    : createManualRoutingInput({...init, manualTopology: {pairs: []}});
+    : createManualRoutingInput({
+        ...init,
+        manualTopology: {pairs: [], isolatedSubgraphSystemIds: []},
+      });
 }
 
 function inventory(

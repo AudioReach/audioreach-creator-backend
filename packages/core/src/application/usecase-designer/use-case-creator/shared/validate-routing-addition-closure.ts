@@ -9,30 +9,18 @@
  * Used by `AutoRoutingPreparationService` and `CreateManualUsecasesHandler`.
  */
 import type {Issue} from '../../../../shared/issues/issue.js';
-import {
-  RoutingIssueFactory,
-  type RoutingEditScopeConflictDetails,
-} from '../issues/routing-issue-factory.js';
+import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
 import type {
   GraphEditSummary,
   RoutingSelection,
 } from '../contracts/routing-input.js';
-import {DATA_LINK_TYPE} from '../../../../domain/entities/usecase-data/links/data-link-type.js';
 
 export type RoutingAdditionClosureInput = Pick<
   RoutingSelection,
   | 'activeSubgraphs'
-  | 'excludedSubgraphSystemIds'
-  | 'excludedDataLinkSystemIds'
-  | 'excludedControlLinkSystemIds'
+  | 'includedDataLinkSystemIds'
+  | 'includedControlLinkSystemIds'
 >;
-
-function intersection(
-  candidates: ReadonlySet<number>,
-  filter: ReadonlySet<number>,
-): number[] {
-  return [...candidates].filter(id => filter.has(id));
-}
 
 function difference(
   candidates: ReadonlySet<number>,
@@ -43,92 +31,74 @@ function difference(
 
 /**
  * Validates that every entity added in the current session is consistently
- * included in the requested routing scope. Validates input for cases like
- * addedDataLink is included in exclusions which is incorrect
+ * included in the requested routing scope.
  *
  * Returns one aggregated edit-scope issue containing every conflict, or an
  * empty array when the addition side of the routing request is valid. Added
  * data-link endpoints participate in scope closure; control-link endpoints
  * deliberately do not.
  */
-export function validateRoutingAdditionClosure(
+export function validateAutoRoutingAdditionClosure(
   input: RoutingAdditionClosureInput,
   graphEdits: GraphEditSummary,
 ): Issue[] {
-  // Normalize request and edit collections into sets for closure comparisons.
   const requestedSubgraphIds = new Set(
     input.activeSubgraphs.map(subgraph => subgraph.systemId),
   );
-  const excludedSubgraphIds = new Set(input.excludedSubgraphSystemIds);
-  const excludedDataLinkIds = new Set(input.excludedDataLinkSystemIds);
-  const excludedControlLinkIds = new Set(input.excludedControlLinkSystemIds);
+  const includedDataLinkIds = new Set(input.includedDataLinkSystemIds);
+  const includedControlLinkIds = new Set(input.includedControlLinkSystemIds);
   const deletedSubgraphIds = new Set(
-    graphEdits.deletedSgs.map(subgraph => subgraph.systemId),
+    graphEdits.deletedSgs.map(sg => sg.systemId),
   );
-  const addedSubgraphIds = new Set(
-    graphEdits.addedSgs.map(subgraph => subgraph.systemId),
+  const deletedDataLinkIds = new Set(
+    graphEdits.deletedDataLinks.map(link => link.systemId),
   );
-  const addedDataLinks = graphEdits.addedDataLinks.filter(
-    link => link.linkType === DATA_LINK_TYPE.Normal,
+  const deletedControlLinkIds = new Set(
+    graphEdits.deletedControlLinks.map(link => link.systemId),
   );
-  const addedDataLinkIds = new Set(addedDataLinks.map(link => link.systemId));
-  const addedControlLinkIds = new Set(
-    graphEdits.addedControlLinks.map(link => link.systemId),
+
+  const effectiveAddedSubgraphIds = graphEdits.addedSgs
+    .map(subgraph => subgraph.systemId)
+    .filter(id => !deletedSubgraphIds.has(id));
+  const effectiveAddedDataLinkIds = graphEdits.addedDataLinks
+    .map(link => link.systemId)
+    .filter(id => !deletedDataLinkIds.has(id));
+  const effectiveAddedControlLinkIds = graphEdits.addedControlLinks
+    .map(link => link.systemId)
+    .filter(id => !deletedControlLinkIds.has(id));
+
+  const missingAddedSubgraphSystemIds = difference(
+    new Set(effectiveAddedSubgraphIds),
+    requestedSubgraphIds,
   );
-  const requiredEndpointIds = new Set<number>();
-  // Only added intra-usecase data links require both endpoints in routing scope.
-  for (const link of addedDataLinks) {
-    requiredEndpointIds.add(link.sourceSubgraphSystemId);
-    requiredEndpointIds.add(link.destSubgraphSystemId);
+  const missingAddedDataLinkSystemIds = difference(
+    new Set(effectiveAddedDataLinkIds),
+    includedDataLinkIds,
+  );
+  const missingAddedControlLinkSystemIds = difference(
+    new Set(effectiveAddedControlLinkIds),
+    includedControlLinkIds,
+  );
+
+  if (
+    missingAddedSubgraphSystemIds.length > 0 ||
+    missingAddedDataLinkSystemIds.length > 0 ||
+    missingAddedControlLinkSystemIds.length > 0
+  ) {
+    return [
+      RoutingIssueFactory.additionScopeConflict({
+        ...(missingAddedSubgraphSystemIds.length > 0 && {
+          missingAddedSubgraphSystemIds,
+        }),
+        ...(missingAddedDataLinkSystemIds.length > 0 && {
+          missingAddedDataLinkSystemIds,
+        }),
+        ...(missingAddedControlLinkSystemIds.length > 0 && {
+          missingAddedControlLinkSystemIds,
+        }),
+      }),
+    ];
   }
 
-  const details: RoutingEditScopeConflictDetails = {};
-  const add = (
-    key: keyof RoutingEditScopeConflictDetails,
-    ids: readonly number[],
-  ): void => {
-    if (ids.length > 0)
-      (details as Record<string, readonly number[]>)[key] = ids;
-  };
-
-  // Added entities cannot also be explicitly excluded from this routing run.
-  add(
-    'excludedAddedSubgraphSystemIds',
-    intersection(addedSubgraphIds, excludedSubgraphIds),
-  );
-  add(
-    'excludedAddedDataLinkSystemIds',
-    intersection(addedDataLinkIds, excludedDataLinkIds),
-  );
-  add(
-    'excludedAddedControlLinkSystemIds',
-    intersection(addedControlLinkIds, excludedControlLinkIds),
-  );
-
-  // Every newly added subgraph must be present in the requested active scope.
-  add(
-    'missingAddedSubgraphSystemIds',
-    difference(addedSubgraphIds, requestedSubgraphIds),
-  );
-
-  // Added data-link endpoints must be requested and cannot be excluded.
-  add(
-    'missingRequiredEndpointSubgraphSystemIds',
-    difference(requiredEndpointIds, requestedSubgraphIds),
-  );
-  add(
-    'excludedRequiredEndpointSubgraphSystemIds',
-    intersection(requiredEndpointIds, excludedSubgraphIds),
-  );
-
-  // An added data link cannot depend on an endpoint deleted in the same session.
-  add(
-    'deletedAddedLinkEndpointSubgraphSystemIds',
-    intersection(requiredEndpointIds, deletedSubgraphIds),
-  );
-
-  // Report all discovered conflicts together so callers can fix them in one pass.
-  return Object.keys(details).length > 0
-    ? [RoutingIssueFactory.editScopeConflict(details)]
-    : [];
+  return [];
 }

@@ -11,16 +11,15 @@ import {
 import type {RoutingSelection} from './routing-input.js';
 
 const replayInputSchema = z.object({
-  selectedUsecaseSystemIds: z.array(z.number().int()),
   activeSubgraphs: z.array(
     z.object({
       systemId: z.number().int(),
       sgkvs: z.array(z.array(z.number().int())),
     }),
   ),
-  excludedSubgraphSystemIds: z.array(z.number().int()),
-  excludedDataLinkSystemIds: z.array(z.number().int()),
-  excludedControlLinkSystemIds: z.array(z.number().int()),
+  includedDataLinkSystemIds: z.array(z.number().int()),
+  includedControlLinkSystemIds: z.array(z.number().int()),
+  selectedUsecaseSystemIds: z.array(z.number().int()).optional(),
 });
 
 const collisionSelectionSchema = z.discriminatedUnion('mode', [

@@ -16,11 +16,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 interface ManualRequest {
-  readonly selectedUsecaseSystemIds: readonly string[];
   readonly activeSubgraphs: readonly {
     readonly systemId: string;
     readonly valueSystemIds: readonly (readonly string[])[];
   }[];
+  readonly includedDataLinkSystemIds: readonly string[];
+  readonly includedControlLinkSystemIds: readonly string[];
 }
 
 describe('POST /projects/:projectId/create-manual-usecases', () => {
@@ -92,19 +93,23 @@ describe('POST /projects/:projectId/create-manual-usecases', () => {
 
   function requestForMembers(
     memberSubgraphSystemIds: readonly string[],
+    includedDataLinkSystemIds: readonly string[] = [],
+    includedControlLinkSystemIds: readonly string[] = [],
   ): ManualRequest {
     return {
-      selectedUsecaseSystemIds: [],
       activeSubgraphs: memberSubgraphSystemIds.map(systemId => ({
         systemId,
         valueSystemIds: [[]],
       })),
+      includedDataLinkSystemIds,
+      includedControlLinkSystemIds,
     };
   }
 
   async function seedManualCycle(): Promise<{
     readonly projectId: string;
     readonly subgraphSystemIds: readonly string[];
+    readonly dataLinkSystemIds: readonly string[];
   }> {
     const ids = {
       project: 91_001,
@@ -242,6 +247,7 @@ describe('POST /projects/:projectId/create-manual-usecases', () => {
         String(ids.firstSubgraph),
         String(ids.secondSubgraph),
       ],
+      dataLinkSystemIds: [String(ids.firstLink), String(ids.secondLink)],
     };
   }
 
@@ -253,8 +259,9 @@ describe('POST /projects/:projectId/create-manual-usecases', () => {
       .post(`/arc-api/v1/projects/${projectId}/create-manual-usecases`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({
-        selectedUsecaseSystemIds: [],
         activeSubgraphs: [{systemId: '1', valueSystemIds: [[1]]}],
+        includedDataLinkSystemIds: [],
+        includedControlLinkSystemIds: [],
       })
       .expect(400);
   }, 360_000);
@@ -267,10 +274,11 @@ describe('POST /projects/:projectId/create-manual-usecases', () => {
       .post(`/arc-api/v1/projects/${projectId}/create-manual-usecases`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({
-        selectedUsecaseSystemIds: [],
         activeSubgraphs: [
           {systemId: '1', valueSystemIds: [[{not: 'a-system-id'}]]},
         ],
+        includedDataLinkSystemIds: [],
+        includedControlLinkSystemIds: [],
       })
       .expect(400);
   }, 360_000);
@@ -318,7 +326,8 @@ describe('POST /projects/:projectId/create-manual-usecases', () => {
   }, 360_000);
 
   it('returns 422 with the manual-cycle issue for a data-derived cycle', async () => {
-    const {projectId, subgraphSystemIds} = await seedManualCycle();
+    const {projectId, subgraphSystemIds, dataLinkSystemIds} =
+      await seedManualCycle();
     const dataSource = await app
       .get<DataSourceProvider>(DataSourceProvider)
       .getDataSource();
@@ -329,7 +338,7 @@ describe('POST /projects/:projectId/create-manual-usecases', () => {
     const response = await request(httpServer as Parameters<typeof request>[0])
       .post(`/arc-api/v1/projects/${projectId}/create-manual-usecases`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send(requestForMembers(subgraphSystemIds))
+      .send(requestForMembers(subgraphSystemIds, dataLinkSystemIds))
       .expect(422);
 
     expect(response.body.issues).toEqual(

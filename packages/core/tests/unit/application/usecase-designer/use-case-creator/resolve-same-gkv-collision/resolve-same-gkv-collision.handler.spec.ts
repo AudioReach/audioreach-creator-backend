@@ -71,7 +71,7 @@ describe('ResolveSameGkvCollisionHandler', () => {
   it('replays the complete group, stages the selection, and commits', async () => {
     const {uow} = makeUow();
     const preparation = {
-      prepare: jest.fn(
+      prepareFromSelection: jest.fn(
         async () => ({fileSystemId: 1}) as unknown as AutoRoutingInput,
       ),
     };
@@ -92,6 +92,11 @@ describe('ResolveSameGkvCollisionHandler', () => {
     const result = await handler.handle(command());
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(preparation.prepareFromSelection).toHaveBeenCalledWith(
+      1,
+      replayInput,
+      uow,
+    );
     expect(engine.resolveCollision).toHaveBeenCalledWith(
       expect.anything(),
       uow,
@@ -113,7 +118,9 @@ describe('ResolveSameGkvCollisionHandler', () => {
     const handler = new ResolveSameGkvCollisionHandler(
       uow as never,
       {} as never,
-      {prepare: jest.fn(async () => ({}) as AutoRoutingInput)} as never,
+      {
+        prepareFromSelection: jest.fn(async () => ({}) as AutoRoutingInput),
+      } as never,
       {
         resolveCollision: jest.fn(async () =>
           Result.fail({
@@ -145,7 +152,9 @@ describe('ResolveSameGkvCollisionHandler', () => {
     const handler = new ResolveSameGkvCollisionHandler(
       uow as never,
       {} as never,
-      {prepare: jest.fn(async () => ({}) as AutoRoutingInput)} as never,
+      {
+        prepareFromSelection: jest.fn(async () => ({}) as AutoRoutingInput),
+      } as never,
       {resolveCollision: jest.fn(async () => Result.ok(group))} as never,
       stager as never,
     );
@@ -171,7 +180,9 @@ describe('ResolveSameGkvCollisionHandler', () => {
     const handler = new ResolveSameGkvCollisionHandler(
       uow as never,
       {} as never,
-      {prepare: jest.fn(async () => ({}) as AutoRoutingInput)} as never,
+      {
+        prepareFromSelection: jest.fn(async () => ({}) as AutoRoutingInput),
+      } as never,
       {resolveCollision: jest.fn(async () => Result.ok(group))} as never,
       stager as never,
     );

@@ -495,7 +495,7 @@ describe('DfsRoutingPhase', () => {
     const manualInput = {
       ...context.input,
       mode: ROUTING_MODE.Manual,
-      manualTopology: {pairs: []},
+      manualTopology: {pairs: [], isolatedSubgraphSystemIds: []},
     } as never;
     const manualContext = new RoutingContext(manualInput);
     manualContext.dfsPaths.push(naturalLeaf([9, 10]));

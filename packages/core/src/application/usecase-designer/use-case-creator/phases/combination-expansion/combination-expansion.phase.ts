@@ -265,10 +265,18 @@ export class CombinationExpansionPhase {
     }
 
     // Manual mode has exactly one topology spanning every member subgraph — a single
-    // expansion, not a per-path loop.
-    const memberSubgraphSystemIds = input.graphSnapshot.subgraphs.map(
-      routingSubgraph => routingSubgraph.subgraph.systemId,
-    );
+    // expansion, not a per-path loop. Members are the union of all pair endpoints and
+    // any isolated subgraphs declared in the topology.
+    const pairedSgIds = input.manualTopology.pairs.flatMap(p => [
+      p.pair.sourceSubgraphSystemId,
+      p.pair.destSubgraphSystemId,
+    ]);
+    const memberSubgraphSystemIds = [
+      ...new Set([
+        ...pairedSgIds,
+        ...input.manualTopology.isolatedSubgraphSystemIds,
+      ]),
+    ];
     const outcome = resolveExpansion(
       expandSubgraphCombinations(memberSubgraphSystemIds, perSg),
       memberSubgraphSystemIds,

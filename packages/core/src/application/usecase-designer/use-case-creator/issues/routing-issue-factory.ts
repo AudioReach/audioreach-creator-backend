@@ -39,19 +39,10 @@ export interface ManualUsecaseDependencyMissing {
   readonly controlLinkSystemIds: readonly number[];
 }
 
-export interface RoutingEditScopeConflictDetails {
-  readonly excludedAddedSubgraphSystemIds?: readonly number[];
-  readonly excludedAddedDataLinkSystemIds?: readonly number[];
-  readonly excludedAddedControlLinkSystemIds?: readonly number[];
+export interface RoutingAdditionScopeConflictDetails {
   readonly missingAddedSubgraphSystemIds?: readonly number[];
-  readonly missingRequiredEndpointSubgraphSystemIds?: readonly number[];
-  readonly excludedRequiredEndpointSubgraphSystemIds?: readonly number[];
-  readonly deletedAddedLinkEndpointSubgraphSystemIds?: readonly number[];
-  readonly excludedDeletedSubgraphSystemIds?: readonly number[];
-  readonly excludedDeletedDataLinkSystemIds?: readonly number[];
-  readonly excludedDeletedControlLinkSystemIds?: readonly number[];
-  readonly missingSurvivingEndpointSubgraphSystemIds?: readonly number[];
-  readonly excludedSurvivingEndpointSubgraphSystemIds?: readonly number[];
+  readonly missingAddedDataLinkSystemIds?: readonly number[];
+  readonly missingAddedControlLinkSystemIds?: readonly number[];
 }
 
 export interface UsecaseCandidateConflict {
@@ -275,26 +266,8 @@ export const RoutingIssueFactory = {
     };
   },
 
-  editScopeConflict(details: RoutingEditScopeConflictDetails): Issue {
+  additionScopeConflict(details: RoutingAdditionScopeConflictDetails): Issue {
     const conflictMessages = [
-      describeConflict(
-        details.excludedAddedSubgraphSystemIds,
-        ids =>
-          `Subgraphs added by the request are explicitly excluded from the selected design: ${ids}. ` +
-          'Include them in the selection, or remove those additions.',
-      ),
-      describeConflict(
-        details.excludedAddedDataLinkSystemIds,
-        ids =>
-          `Data links added by the request are explicitly excluded from the selected design: ${ids}. ` +
-          'Remove them from the exclusions, or remove those additions.',
-      ),
-      describeConflict(
-        details.excludedAddedControlLinkSystemIds,
-        ids =>
-          `Control links added by the request are explicitly excluded from the selected design: ${ids}. ` +
-          'Remove them from the exclusions, or remove those additions.',
-      ),
       describeConflict(
         details.missingAddedSubgraphSystemIds,
         ids =>
@@ -302,52 +275,16 @@ export const RoutingIssueFactory = {
           'Include them in the selection, or remove the related additions.',
       ),
       describeConflict(
-        details.missingRequiredEndpointSubgraphSystemIds,
+        details.missingAddedDataLinkSystemIds,
         ids =>
-          `Subgraphs needed to keep the selected use cases complete are missing from the selected design: ${ids}. ` +
-          'Include them in the selection.',
+          `Data links added by the request are missing from the included routing links: ${ids}. ` +
+          'Include them in the routing input, or remove those additions.',
       ),
       describeConflict(
-        details.excludedRequiredEndpointSubgraphSystemIds,
+        details.missingAddedControlLinkSystemIds,
         ids =>
-          `Subgraphs needed to keep the selected use cases complete were explicitly excluded: ${ids}. ` +
-          'Remove them from the exclusions.',
-      ),
-      describeConflict(
-        details.deletedAddedLinkEndpointSubgraphSystemIds,
-        ids =>
-          `A newly added link refers to subgraphs that are also being deleted: ${ids}. ` +
-          'Remove the new link, or stop deleting those subgraphs.',
-      ),
-      describeConflict(
-        details.excludedDeletedSubgraphSystemIds,
-        ids =>
-          `Subgraphs marked for deletion were explicitly excluded: ${ids}. ` +
-          'Remove them from the exclusions, or cancel their deletion.',
-      ),
-      describeConflict(
-        details.excludedDeletedDataLinkSystemIds,
-        ids =>
-          `Data links marked for deletion were explicitly excluded: ${ids}. ` +
-          'Remove them from the exclusions, or cancel their deletion.',
-      ),
-      describeConflict(
-        details.excludedDeletedControlLinkSystemIds,
-        ids =>
-          `Control links marked for deletion were explicitly excluded: ${ids}. ` +
-          'Remove them from the exclusions, or cancel their deletion.',
-      ),
-      describeConflict(
-        details.missingSurvivingEndpointSubgraphSystemIds,
-        ids =>
-          `Data links marked for deletion still use subgraphs that remain in the design, but those subgraphs are missing from the selected design: ${ids}. ` +
-          'Include them in the selection.',
-      ),
-      describeConflict(
-        details.excludedSurvivingEndpointSubgraphSystemIds,
-        ids =>
-          `Subgraphs still needed to validate the data-link deletion were explicitly excluded: ${ids}. ` +
-          'Remove them from the exclusions.',
+          `Control links added by the request are missing from the included routing links: ${ids}. ` +
+          'Include them in the routing input, or remove those additions.',
       ),
     ].filter((message): message is string => message !== undefined);
 
@@ -358,7 +295,7 @@ export const RoutingIssueFactory = {
     ].join(' ');
 
     return {
-      code: ISSUE_CODE.ROUTING_PREVAL_EDIT_SCOPE_CONFLICT,
+      code: ISSUE_CODE.ROUTING_PREVAL_ADDITION_SCOPE_CONFLICT,
       message,
       severity: IssueSeverity.Error,
     };
@@ -605,6 +542,29 @@ export const RoutingIssueFactory = {
     };
   },
 
+  deletionScopeIncomplete(
+    affectedUsecaseSystemIds: ReadonlySet<number>,
+    missingSubgraphSystemIds: readonly number[],
+    missingDataLinkSystemIds: readonly number[],
+    missingControlLinkSystemIds: readonly number[],
+  ): Issue {
+    const affectedIds = sortedIds(affectedUsecaseSystemIds);
+    const missingSubgraphIds = sortedIds(missingSubgraphSystemIds);
+    const missingDataLinkIds = sortedIds(missingDataLinkSystemIds);
+    const missingControlLinkIds = sortedIds(missingControlLinkSystemIds);
+    return {
+      code: ISSUE_CODE.ROUTING_DELETION_SCOPE_INCOMPLETE,
+      message:
+        'The routing input does not include the complete surviving topology for the affected use cases. ' +
+        `Affected use case IDs: [${affectedIds.join(', ')}]. ` +
+        `Missing subgraph IDs: [${missingSubgraphIds.join(', ')}]. ` +
+        `Missing data link IDs: [${missingDataLinkIds.join(', ')}]. ` +
+        `Missing control link IDs: [${missingControlLinkIds.join(', ')}].`,
+      severity: IssueSeverity.Error,
+      impactedUsecases: affectedIds,
+    };
+  },
+
   usecaseAutoIsland(
     usecaseSystemId: number,
     dataLinkLossPairs: readonly DataLinkLossPair[],
@@ -819,6 +779,19 @@ export const RoutingIssueFactory = {
       message: `Control link ${systemId} is not covered by any projected UseCase pair.`,
       severity: IssueSeverity.Warning,
       impactedEntity: {entityType: ISSUE_ENTITY_TYPE.ControlLink, systemId},
+    };
+  },
+
+  interUsecaseEndpointUncovered(
+    linkSystemId: number,
+    subgraphSystemId: number,
+  ): Issue {
+    return {
+      code: ISSUE_CODE.ROUTING_INTER_USECASE_ENDPOINT_UNCOVERED,
+      message:
+        `Inter-usecase link ${linkSystemId} has an endpoint that is not covered by a classified or preserved UseCase ` +
+        `(subgraphSystemId: ${subgraphSystemId}).`,
+      severity: IssueSeverity.Error,
     };
   },
 

@@ -24,7 +24,7 @@ import {MdfCollapseAnalyzer} from './mdf-collapse-analyzer.js';
 import {analyzeTopologyChanges} from './topology-decision-analysis.js';
 import {
   deriveAffectedUsecaseSystemIds,
-  validateAutomaticRoutingSelectionsAndExclusions,
+  validateAutomaticDeletionGate,
 } from './topology-gate-validator.js';
 
 function appendAutomaticIslandWarnings(
@@ -84,24 +84,30 @@ export class TopologyChangeAnalysisPhase {
       draft.decisions,
     );
     const {selection} = context.input;
-    const gateFailure = validateAutomaticRoutingSelectionsAndExclusions({
-      selectedUsecaseSystemIds: new Set(
-        context.input.selectedUsecases.map(usecase => usecase.systemId),
-      ),
+    const gateFailure = validateAutomaticDeletionGate({
+      ...(selection.selectedUsecaseSystemIds !== undefined && {
+        selectedUsecaseSystemIds: new Set(selection.selectedUsecaseSystemIds),
+      }),
       affectedUsecaseSystemIds,
-      requestedSubgraphSystemIds: new Set(
+      affectedUsecases: context.input.graphSnapshot.committedUsecases.filter(
+        usecase => affectedUsecaseSystemIds.has(usecase.systemId),
+      ),
+      activeSubgraphSystemIds: new Set(
         selection.activeSubgraphs.map(subgraph => subgraph.systemId),
       ),
-      excludedSubgraphSystemIds: new Set(selection.excludedSubgraphSystemIds),
-      excludedDataLinkSystemIds: new Set(selection.excludedDataLinkSystemIds),
-      excludedControlLinkSystemIds: new Set(
-        selection.excludedControlLinkSystemIds,
+      includedDataLinkSystemIds: new Set(selection.includedDataLinkSystemIds),
+      includedControlLinkSystemIds: new Set(
+        selection.includedControlLinkSystemIds,
+      ),
+      overlayDataLinks: context.input.graphSnapshot.overlayDataLinks,
+      overlayControlLinks: context.input.graphSnapshot.overlayControlLinks,
+      deletedDataLinkSystemIds: new Set(
+        inventory.topology.deletedDataLinks.map(link => link.systemId),
+      ),
+      deletedControlLinkSystemIds: new Set(
+        inventory.topology.deletedControlLinks.map(link => link.systemId),
       ),
       deletedSubgraphSystemIds: inventory.topology.deletedSubgraphSystemIds,
-      deletedDataLinks:
-        context.input.graphSnapshot.sessionEdits.deletedDataLinks,
-      deletedControlLinks:
-        context.input.graphSnapshot.sessionEdits.deletedControlLinks,
     });
     if (gateFailure) return gateFailure;
 

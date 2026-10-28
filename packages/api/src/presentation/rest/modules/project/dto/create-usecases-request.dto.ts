@@ -56,14 +56,6 @@ export class SubgraphKvSelectionDto {
 
 export class CreateUsecasesRequestDto {
   @ApiProperty({
-    description: 'System IDs of selected usecases',
-    type: [String],
-  })
-  @IsArray()
-  @IsString({each: true})
-  selectedUsecaseSystemIds!: string[];
-
-  @ApiProperty({
     description: 'Active subgraphs with their selected SGKV combinations',
     type: [SubgraphKvSelectionDto],
   })
@@ -73,32 +65,28 @@ export class CreateUsecasesRequestDto {
   activeSubgraphs!: SubgraphKvSelectionDto[];
 
   @ApiProperty({
-    description: 'System IDs of data links to exclude from routing',
+    description: 'System IDs of usecases to update incrementally',
     type: [String],
     required: false,
   })
   @IsOptional()
   @IsArray()
   @IsString({each: true})
-  excludedDataLinkSystemIds?: string[];
+  usecaseSystemIds?: string[];
 
   @ApiProperty({
-    description: 'System IDs of control links to exclude from routing',
+    description: 'System IDs of data links to include in routing',
     type: [String],
-    required: false,
   })
-  @IsOptional()
   @IsArray()
   @IsString({each: true})
-  excludedControlLinkSystemIds?: string[];
+  includedDataLinkSystemIds!: string[];
 
   @ApiProperty({
-    description: 'System IDs of subgraphs to exclude from routing',
+    description: 'System IDs of control links to include in routing',
     type: [String],
-    required: false,
   })
-  @IsOptional()
   @IsArray()
   @IsString({each: true})
-  excludedSubgraphSystemIds?: string[];
+  includedControlLinkSystemIds!: string[];
 }

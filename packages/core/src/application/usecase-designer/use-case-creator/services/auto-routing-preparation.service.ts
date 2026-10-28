@@ -12,15 +12,12 @@ import {
   type AutoRoutingInput,
   type RoutingSelection,
 } from '../contracts/routing-input.js';
+import type {AutoRoutingCommandInput} from '../contracts/routing-command-input.js';
 import {readRoutingGraphEdits} from '../shared/read-routing-graph-edits.js';
 import {SubsystemLinkResolutionService} from './subsystem-link-resolution.service.js';
 import {RoutingGraphSnapshotBuilder} from './routing-graph-snapshot-builder.js';
 import {prepareRoutingSnapshot} from './prepare-routing-snapshot.js';
-
-export interface AutoRoutingPreparationInput {
-  readonly fileSystemId: number;
-  readonly selection: RoutingSelection;
-}
+import {resolveRoutingLinkSelection} from './routing-link-selection-resolver.js';
 
 /**
  * Prepares the immutable input consumed by the automatic routing pipeline.
@@ -31,49 +28,86 @@ export class AutoRoutingPreparationService {
   constructor(
     private readonly subsystemLinkResolutionService: SubsystemLinkResolutionService = new SubsystemLinkResolutionService(),
     private readonly snapshotBuilder: RoutingGraphSnapshotBuilder = new RoutingGraphSnapshotBuilder(),
+    private readonly resolveRoutingSelection = resolveRoutingLinkSelection,
   ) {}
 
-  async prepare(
-    command: AutoRoutingPreparationInput,
+  /** Resolves raw request IDs before preparing the current routing snapshot. */
+  async prepareFromRawInput(
+    fileSystemId: number,
+    input: AutoRoutingCommandInput,
     uow: UnitOfWork,
   ): Promise<AutoRoutingInput> {
-    const {selection} = command;
+    await this.resolveSubsystemChains(uow);
+    const selectionResult = await this.resolveRoutingSelection(
+      fileSystemId,
+      input,
+      uow,
+    );
+    if (selectionResult.kind === RESULT_KIND.Fail)
+      throw new DomainRuleViolationException(selectionResult.issues);
+    return this.prepareCanonicalSelection(
+      fileSystemId,
+      selectionResult.data,
+      uow,
+    );
+  }
+
+  /** Prepares a canonical selection persisted for same-GKV collision replay. */
+  async prepareFromSelection(
+    fileSystemId: number,
+    selection: RoutingSelection,
+    uow: UnitOfWork,
+  ): Promise<AutoRoutingInput> {
+    await this.resolveSubsystemChains(uow);
+    return this.prepareCanonicalSelection(fileSystemId, selection, uow);
+  }
+
+  private async resolveSubsystemChains(uow: UnitOfWork): Promise<void> {
     const resolution =
       await this.subsystemLinkResolutionService.resolveAllChains(uow);
     if (resolution.kind === RESULT_KIND.Fail)
       throw new DomainRuleViolationException(resolution.issues);
+  }
 
+  private async prepareCanonicalSelection(
+    fileSystemId: number,
+    selection: RoutingSelection,
+    uow: UnitOfWork,
+  ): Promise<AutoRoutingInput> {
     const session = uow.getWriteContext().session;
     await uow
       .getSessionRepository()
       .deleteEditActionsBySource(session.sessionId, SOURCE.AutoRouting);
 
-    const graphEdits = await readRoutingGraphEdits(uow, command.fileSystemId);
+    const graphEdits = await readRoutingGraphEdits(uow, fileSystemId);
 
     const usecaseRepository = uow.getUsecaseRepository();
-    const selectedUsecases = await usecaseRepository.findBySystemIds(
-      command.fileSystemId,
-      selection.selectedUsecaseSystemIds,
-    );
+    const selectedUsecases = selection.selectedUsecaseSystemIds?.length
+      ? await usecaseRepository.findBySystemIds(
+          fileSystemId,
+          selection.selectedUsecaseSystemIds,
+        )
+      : [];
 
     // `target_table='UseCase'` and `source='MANUAL'`
     const activeManualUsecaseEdits =
-      await usecaseRepository.findWithActiveManualEdits(command.fileSystemId);
+      await usecaseRepository.findWithActiveManualEdits(fileSystemId);
 
     const graphSnapshot = await prepareRoutingSnapshot(
       {
-        fileSystemId: command.fileSystemId,
+        fileSystemId,
         selection,
         selectedUsecases,
         graphEdits,
         activeManualUsecaseEdits,
+        isManual: false,
       },
       this.snapshotBuilder,
       uow,
     );
 
     return createAutoRoutingInput({
-      fileSystemId: command.fileSystemId,
+      fileSystemId,
       selectedUsecases,
       graphSnapshot,
       selection,

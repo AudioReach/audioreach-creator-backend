@@ -317,6 +317,19 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     return rows.map(row => baseToDataLink(row));
   }
 
+  async findBySystemId(
+    systemId: number,
+    fileSystemId: number,
+  ): Promise<DataLink | null> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const rows = await this.linkFetcher.loadDataLinkRows(
+      fileSystemId,
+      sessionId,
+      {systemId},
+    );
+    return rows.length > 0 ? baseToDataLink(rows[0]) : null;
+  }
+
   async createSubsystemDataLinks(
     subsystemDataLinks: readonly SubsystemDataLink[],
     fileSystemId: number,

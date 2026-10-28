@@ -28,14 +28,12 @@ const outcome = {
 };
 
 const manualRequest = {
-  selectedUsecaseSystemIds: ['11'],
   activeSubgraphs: [
     {systemId: '21', valueSystemIds: [['31'], []]},
     {systemId: '22', valueSystemIds: [['32']]},
   ],
-  excludedDataLinkSystemIds: ['41'],
-  excludedControlLinkSystemIds: ['42'],
-  excludedSubgraphSystemIds: ['23'],
+  includedDataLinkSystemIds: ['41'],
+  includedControlLinkSystemIds: ['42'],
 };
 
 function createController(queryResults = [Result.ok([])]) {
@@ -53,7 +51,7 @@ function createController(queryResults = [Result.ok([])]) {
 }
 
 describe('ProjectController create usecases', () => {
-  it('dispatches manual selections and returns the projected rich response', async () => {
+  it('dispatches raw manual input and returns the projected rich response', async () => {
     const {controller, commandBus, queryBus} = createController();
 
     const response = await controller.createManualUsecases(
@@ -67,15 +65,13 @@ describe('ProjectController create usecases', () => {
     expect(command).toBeInstanceOf(CreateManualUsecasesCommand);
     expect(command).toMatchObject({
       fileSystemId: 10,
-      selection: {
-        selectedUsecaseSystemIds: [11],
+      input: {
         activeSubgraphs: [
-          {systemId: 21, sgkvs: [[31], []]},
-          {systemId: 22, sgkvs: [[32]]},
+          {systemId: '21', valueSystemIds: [['31'], []]},
+          {systemId: '22', valueSystemIds: [['32']]},
         ],
-        excludedDataLinkSystemIds: [41],
-        excludedControlLinkSystemIds: [42],
-        excludedSubgraphSystemIds: [23],
+        includedDataLinkSystemIds: ['41'],
+        includedControlLinkSystemIds: ['42'],
       },
     });
     expect(commandSession).toBe(session);
@@ -133,7 +129,12 @@ describe('ProjectController create usecases', () => {
 
     await controller.createUsecases(
       '1',
-      {selectedUsecaseSystemIds: [], activeSubgraphs: []},
+      {
+        usecaseSystemIds: [],
+        activeSubgraphs: [],
+        includedDataLinkSystemIds: [],
+        includedControlLinkSystemIds: [],
+      },
       'client-1',
       session,
     );
@@ -155,7 +156,12 @@ describe('ProjectController create usecases', () => {
     await expect(
       controller.createUsecases(
         '1',
-        {selectedUsecaseSystemIds: [], activeSubgraphs: []},
+        {
+          usecaseSystemIds: [],
+          activeSubgraphs: [],
+          includedDataLinkSystemIds: [],
+          includedControlLinkSystemIds: [],
+        },
         'client-1',
         session,
       ),
@@ -174,7 +180,12 @@ describe('ProjectController create usecases', () => {
     await expect(
       controller.createUsecases(
         '1',
-        {selectedUsecaseSystemIds: [], activeSubgraphs: []},
+        {
+          usecaseSystemIds: [],
+          activeSubgraphs: [],
+          includedDataLinkSystemIds: [],
+          includedControlLinkSystemIds: [],
+        },
         'client-1',
         session,
       ),
@@ -202,7 +213,12 @@ describe('ProjectController create usecases', () => {
     await expect(
       controller.createUsecases(
         '1',
-        {selectedUsecaseSystemIds: [], activeSubgraphs: []},
+        {
+          usecaseSystemIds: [],
+          activeSubgraphs: [],
+          includedDataLinkSystemIds: [],
+          includedControlLinkSystemIds: [],
+        },
         'client-1',
         session,
       ),

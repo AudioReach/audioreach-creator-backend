@@ -6,11 +6,7 @@
 import {describe, expect, it} from '@jest/globals';
 import {ControlLink} from '../../../../../../src/domain/entities/usecase-data/links/control-link.js';
 import {DataLink} from '../../../../../../src/domain/entities/usecase-data/links/data-link.js';
-import {
-  createControlLinkManualTopologyPair,
-  createDataLinkManualTopologyPair,
-  type ManualTopologyPair,
-} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
+import {type ManualTopologyPair} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
 import {RoutingIssueFactory} from '../../../../../../src/application/usecase-designer/use-case-creator/issues/routing-issue-factory.js';
 import {DirectedCycleDetector} from '../../../../../../src/application/usecase-designer/use-case-creator/shared/directed-cycle-detector.js';
 import {ISSUE_CODE} from '../../../../../../src/shared/issues/operational-codes.js';
@@ -58,12 +54,13 @@ function dataPair(
   destSubgraphSystemId: number,
   systemIds: readonly number[],
 ): ManualTopologyPair {
-  return createDataLinkManualTopologyPair(
-    {sourceSubgraphSystemId, destSubgraphSystemId},
-    systemIds.map(systemId =>
-      dataLink(systemId, sourceSubgraphSystemId, destSubgraphSystemId),
+  return {
+    pair: {sourceSubgraphSystemId, destSubgraphSystemId},
+    dataLinks: systemIds.map(id =>
+      dataLink(id, sourceSubgraphSystemId, destSubgraphSystemId),
     ),
-  );
+    controlLinks: [],
+  };
 }
 
 function controlPair(
@@ -71,21 +68,15 @@ function controlPair(
   destSubgraphSystemId: number,
   systemIds: readonly number[],
 ): ManualTopologyPair {
-  return createControlLinkManualTopologyPair(
-    {
-      sourceSubgraphSystemId: Math.min(
-        sourceSubgraphSystemId,
-        destSubgraphSystemId,
-      ),
-      destSubgraphSystemId: Math.max(
-        sourceSubgraphSystemId,
-        destSubgraphSystemId,
-      ),
-    },
-    systemIds.map(systemId =>
-      controlLink(systemId, sourceSubgraphSystemId, destSubgraphSystemId),
+  const src = Math.min(sourceSubgraphSystemId, destSubgraphSystemId);
+  const dst = Math.max(sourceSubgraphSystemId, destSubgraphSystemId);
+  return {
+    pair: {sourceSubgraphSystemId: src, destSubgraphSystemId: dst},
+    dataLinks: [],
+    controlLinks: systemIds.map(id =>
+      controlLink(id, sourceSubgraphSystemId, destSubgraphSystemId),
     ),
-  );
+  };
 }
 
 describe('DirectedCycleDetector', () => {

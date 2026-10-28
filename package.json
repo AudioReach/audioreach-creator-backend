@@ -26,7 +26,7 @@
     "coverage:cleanup": "shx rm -rf temp-coverage",
     "coverage:clean": "shx rm -rf coverage && turbo run coverage:clean",
     "clean": "pnpm -r run clean",
-    "format": "pnpm -r run format",
+    "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

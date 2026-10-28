@@ -9,13 +9,11 @@ import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/use
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {ActiveManualUsecaseEdit} from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
 import {
-  resolveActiveSubgraphSelection,
   type GraphEditSummary,
   type RoutingGraphSnapshot,
   type RoutingSelection,
 } from '../contracts/routing-input.js';
-import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
-import {validateRoutingAdditionClosure} from '../shared/validate-routing-addition-closure.js';
+import {validateAutoRoutingAdditionClosure} from '../shared/validate-routing-addition-closure.js';
 import {RoutingGraphSnapshotBuilder} from './routing-graph-snapshot-builder.js';
 
 export interface PrepareRoutingSnapshotParams {
@@ -24,13 +22,14 @@ export interface PrepareRoutingSnapshotParams {
   readonly selectedUsecases: readonly UseCase[];
   readonly graphEdits: GraphEditSummary;
   readonly activeManualUsecaseEdits: readonly ActiveManualUsecaseEdit[];
+  readonly isManual: boolean;
 }
 
 /**
  * Shared preparation step used by both automatic and manual routing paths.
  *
- * 1. Resolves the effective active-subgraph selection, reporting missing members.
- * 2. Validates that added graph entities are closed under the requested scope.
+ * 1. Removes subgraphs deleted in the current session from the active selection.
+ * 2. Validates automatic-routing additions are closed under the requested scope.
  * 3. Builds and returns the immutable routing graph snapshot.
  *
  * Throws `DomainRuleViolationException` on any validation failure.
@@ -40,34 +39,29 @@ export async function prepareRoutingSnapshot(
   snapshotBuilder: RoutingGraphSnapshotBuilder,
   uow: UnitOfWork,
 ): Promise<RoutingGraphSnapshot> {
-  const resolution = resolveActiveSubgraphSelection(
-    params.selectedUsecases,
-    params.selection.activeSubgraphs,
-    params.selection.excludedSubgraphSystemIds,
-    params.graphEdits.deletedSgs.map(sg => sg.systemId),
+  const deletedSubgraphIds = new Set(
+    params.graphEdits.deletedSgs.map(subgraph => subgraph.systemId),
+  );
+  const effectiveActiveSubgraphs = params.selection.activeSubgraphs.filter(
+    subgraph => !deletedSubgraphIds.has(subgraph.systemId),
   );
 
-  const additionIssues = validateRoutingAdditionClosure(
-    params.selection,
-    params.graphEdits,
-  );
-  if (additionIssues.length > 0)
-    throw new DomainRuleViolationException(additionIssues);
-
-  if (resolution.missingSelectedScopeSubgraphs.size > 0)
-    throw new DomainRuleViolationException([
-      RoutingIssueFactory.selectedScopeIncomplete(
-        resolution.missingSelectedScopeSubgraphs,
-      ),
-    ]);
+  if (!params.isManual) {
+    const additionIssues = validateAutoRoutingAdditionClosure(
+      params.selection,
+      params.graphEdits,
+    );
+    if (additionIssues.length > 0)
+      throw new DomainRuleViolationException(additionIssues);
+  }
 
   const snapshot = await snapshotBuilder.build(
     {
       fileSystemId: params.fileSystemId,
-      effectiveActiveSubgraphs: resolution.effectiveActiveSubgraphs,
-      excludedDataLinkSystemIds: params.selection.excludedDataLinkSystemIds,
-      excludedControlLinkSystemIds:
-        params.selection.excludedControlLinkSystemIds,
+      effectiveActiveSubgraphs,
+      includedDataLinkSystemIds: params.selection.includedDataLinkSystemIds,
+      includedControlLinkSystemIds:
+        params.selection.includedControlLinkSystemIds,
       sessionEdits: params.graphEdits,
       activeManualUsecaseEdits: params.activeManualUsecaseEdits,
     },

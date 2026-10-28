@@ -66,10 +66,17 @@ function manualCandidate(
   assignedSubgraphSystemId = members[0],
   controlLinkPairs: readonly SubgraphPair[] = [],
 ): ManualUsecaseCandidate {
+  const pairedIds = new Set(
+    topologyPairs.flatMap(p => [
+      p.pair.sourceSubgraphSystemId,
+      p.pair.destSubgraphSystemId,
+    ]),
+  );
+  const isolatedSubgraphSystemIds = members.filter(id => !pairedIds.has(id));
   return {
     kind: USECASE_CANDIDATE_KIND.Manual,
     memberSubgraphSystemIds: members,
-    topology: {pairs: topologyPairs},
+    topology: {pairs: topologyPairs, isolatedSubgraphSystemIds},
     sgkvAssignment: new Map(
       members.map(systemId => [
         systemId,
@@ -152,7 +159,12 @@ function context(
     },
     activeManualUsecaseEdits: [],
     ...(mode === ROUTING_MODE.Manual
-      ? {manualTopology: {pairs: options.manualTopologyPairs ?? []}}
+      ? {
+          manualTopology: {
+            pairs: options.manualTopologyPairs ?? [],
+            isolatedSubgraphSystemIds: [],
+          },
+        }
       : {}),
   } as never);
   routingContext.topologyChangeAnalysis = {

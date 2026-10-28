@@ -4,12 +4,16 @@
  */
 
 import {Result} from '../../../../application/shared/result/result.js';
+import {CONTROL_LINK_TYPE} from '../../../../domain/entities/usecase-data/links/control-link-type.js';
+import {DATA_LINK_TYPE} from '../../../../domain/entities/usecase-data/links/data-link-type.js';
 import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
 import {buildProjectedUsecaseTopology} from '../shared/projected-usecase-topology.js';
+import {candidateSubgraphSystemIds} from '../shared/usecase-topology.js';
 import type {RoutingContext} from '../contracts/routing-context.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
 import {
   ORPHAN_KIND,
+  USECASE_TOPOLOGY_DECISION_KIND,
   USECASE_CANDIDATE_KIND,
   type KvResolutions,
   type ManualUsecaseCandidate,
@@ -21,6 +25,12 @@ interface LocalOrphan {
   readonly candidate: OrphanCandidate;
   readonly issues: readonly Issue[];
   readonly order: number;
+}
+
+interface LinkWithEndpoints {
+  readonly systemId: number;
+  readonly sourceSubgraphSystemId: number;
+  readonly destSubgraphSystemId: number;
 }
 
 function manualIsolatedSubgraphSystemIds(
@@ -75,11 +85,68 @@ function subgraphOrphans(
   return local;
 }
 
+function coveredSubgraphSystemIds(
+  context: RoutingContext,
+): ReadonlySet<number> {
+  const covered = new Set<number>();
+  for (const classification of context.classifiedUcs) {
+    for (const systemId of candidateSubgraphSystemIds(classification.candidate))
+      covered.add(systemId);
+  }
+  for (const decision of context.topologyChangeAnalysis?.decisions ?? []) {
+    const preservesUsecase =
+      decision.kind === USECASE_TOPOLOGY_DECISION_KIND.Preserve ||
+      decision.kind === USECASE_TOPOLOGY_DECISION_KIND.MdfNormalization;
+    if (!preservesUsecase) continue;
+    for (const systemId of decision.usecase.subgraphSystemIds)
+      covered.add(systemId);
+  }
+  return covered;
+}
+
+function uncoveredInterUsecaseEndpointIssues(
+  links: readonly LinkWithEndpoints[],
+  coveredSubgraphIds: ReadonlySet<number>,
+): readonly Issue[] {
+  const issues: Issue[] = [];
+  for (const link of links) {
+    if (!coveredSubgraphIds.has(link.sourceSubgraphSystemId))
+      issues.push(
+        RoutingIssueFactory.interUsecaseEndpointUncovered(
+          link.systemId,
+          link.sourceSubgraphSystemId,
+        ),
+      );
+    if (!coveredSubgraphIds.has(link.destSubgraphSystemId))
+      issues.push(
+        RoutingIssueFactory.interUsecaseEndpointUncovered(
+          link.systemId,
+          link.destSubgraphSystemId,
+        ),
+      );
+  }
+  return issues;
+}
+
+function interUsecaseEndpointIssues(context: RoutingContext): readonly Issue[] {
+  const covered = coveredSubgraphSystemIds(context);
+  const dataLinks = context.input.graphSnapshot.overlayDataLinks.filter(
+    link => link.linkType === DATA_LINK_TYPE.InterUsecase,
+  );
+  const controlLinks = context.input.graphSnapshot.overlayControlLinks.filter(
+    link => link.linkType === CONTROL_LINK_TYPE.InterUsecase,
+  );
+  return [
+    ...uncoveredInterUsecaseEndpointIssues(dataLinks, covered),
+    ...uncoveredInterUsecaseEndpointIssues(controlLinks, covered),
+  ];
+}
+
 export class OrphanValidationPhase {
   async run(
     context: RoutingContext,
     subsystemRepository: SubsystemRepository,
-  ): Promise<ReturnType<typeof Result.ok<void>>> {
+  ): Promise<Result<void>> {
     if (context.kvResolutions === null)
       throw new Error('OrphanValidationPhase requires Phase 4 kvResolutions');
     const topology = buildProjectedUsecaseTopology(context);
@@ -120,6 +187,10 @@ export class OrphanValidationPhase {
         order: 3,
       });
     }
+
+    const uncoveredEndpoints = interUsecaseEndpointIssues(context);
+    if (uncoveredEndpoints.length > 0)
+      return Result.fail(...uncoveredEndpoints);
 
     local.sort(
       (left, right) =>

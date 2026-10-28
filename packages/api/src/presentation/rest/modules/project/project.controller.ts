@@ -1074,11 +1074,10 @@ export class ProjectController {
     @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<CreateUsecasesResponseDto>> {
     const command = new CreateUsecasesCommand(session.fileSystemId, {
-      selectedUsecaseSystemIds: body.selectedUsecaseSystemIds,
       activeSubgraphs: body.activeSubgraphs,
-      excludedDataLinkSystemIds: body.excludedDataLinkSystemIds,
-      excludedControlLinkSystemIds: body.excludedControlLinkSystemIds,
-      excludedSubgraphSystemIds: body.excludedSubgraphSystemIds,
+      usecaseSystemIds: body.usecaseSystemIds,
+      includedDataLinkSystemIds: body.includedDataLinkSystemIds,
+      includedControlLinkSystemIds: body.includedControlLinkSystemIds,
     });
     const outcomeResult = await this.commandBus.execute<Result<RoutingOutcome>>(
       command,
@@ -1219,11 +1218,9 @@ export class ProjectController {
     @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<CreateManualUsecasesResponseDto>> {
     const command = new CreateManualUsecasesCommand(session.fileSystemId, {
-      selectedUsecaseSystemIds: body.selectedUsecaseSystemIds,
       activeSubgraphs: body.activeSubgraphs,
-      excludedDataLinkSystemIds: body.excludedDataLinkSystemIds,
-      excludedControlLinkSystemIds: body.excludedControlLinkSystemIds,
-      excludedSubgraphSystemIds: body.excludedSubgraphSystemIds,
+      includedDataLinkSystemIds: body.includedDataLinkSystemIds,
+      includedControlLinkSystemIds: body.includedControlLinkSystemIds,
     });
     const outcomeResult = await this.commandBus.execute<Result<RoutingOutcome>>(
       command,

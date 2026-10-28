@@ -54,7 +54,11 @@ describe('Create usecases endpoint E2E', () => {
     const response = await request(httpServer as Parameters<typeof request>[0])
       .post(`/arc-api/v1/projects/${projectId}/create-usecases`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({selectedUsecaseSystemIds: [], activeSubgraphs: []})
+      .send({
+        activeSubgraphs: [],
+        includedDataLinkSystemIds: [],
+        includedControlLinkSystemIds: [],
+      })
       .expect(201);
 
     expect(response.body.data).toEqual(
