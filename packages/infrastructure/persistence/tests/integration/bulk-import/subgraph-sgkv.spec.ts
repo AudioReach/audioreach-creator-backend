@@ -5,7 +5,7 @@
 
 import type {DataSource, EntityManager} from 'typeorm';
 import type {IdGenerationPort} from '@arc/core';
-import {Subgraph, Sgkv} from '@arc/core';
+import {KvData, Subgraph, Sgkv, VcpmInstance} from '@arc/core';
 import {
   setupIntegrationTest,
   teardownIntegrationTest,
@@ -183,6 +183,76 @@ describe('SubgraphInserter — SGKV insertion', () => {
         (r: {value_def_system_id: number}) => r.value_def_system_id,
       ),
     ).toEqual([VALUE_DEF_ID_2, VALUE_DEF_ID_3]);
+  });
+
+  it('inserts more than 1000 SGKV value links without exceeding SQLite expression depth', async () => {
+    const subgraphs = Array.from(
+      {length: 1001},
+      (_, index) =>
+        new Subgraph({
+          systemId: 10_000 + index,
+          naturalId: 20_000 + index,
+          name: `Subgraph-${index}`,
+          isImported: false,
+          fileSystemId: FILE_ID,
+          sgkvs: [
+            new Sgkv({
+              systemId: 30_000 + index,
+              valueDefinitionSystemIds: [VALUE_DEF_ID_1],
+            }),
+          ],
+        }),
+    );
+
+    const result = await inserter.insert(subgraphs);
+
+    expect(result.ok).toBe(true);
+    const valueRows = await dataSource.query(
+      `SELECT * FROM sgkv_values WHERE sgkv_system_id >= 30000`,
+    );
+    expect(valueRows).toHaveLength(1001);
+  });
+
+  it('inserts more than 1000 VCPM CKV value links without exceeding SQLite expression depth', async () => {
+    await manager.insert('VcpmModuleDefinition', {
+      systemId: 500,
+      naturalId: 1,
+      name: 'Test VCPM Definition',
+      fileSystemId: FILE_ID,
+      version: 1,
+    });
+
+    const subgraphs = Array.from({length: 1001}, (_, index) => {
+      const subgraph = new Subgraph({
+        systemId: 10_000 + index,
+        naturalId: 20_000 + index,
+        name: `VcpmSubgraph-${index}`,
+        isImported: false,
+        fileSystemId: FILE_ID,
+      });
+      const instance = new VcpmInstance({
+        systemId: 30_000 + index,
+        subgraphSystemId: subgraph.systemId,
+        vcpmModuleDefinitionSystemId: 500,
+      });
+      instance.addCkv(
+        new KvData({
+          systemId: 40_000 + index,
+          valueDefinitionSystemIds: [VALUE_DEF_ID_1],
+          uiPersistence: null,
+        }),
+      );
+      subgraph.setVcpmDataInstance(instance);
+      return subgraph;
+    });
+
+    const result = await inserter.insert(subgraphs);
+
+    expect(result.ok).toBe(true);
+    const valueRows = await dataSource.query(
+      `SELECT * FROM vcpm_ckv_values WHERE vcpm_ckv_system_id >= 40000`,
+    );
+    expect(valueRows).toHaveLength(1001);
   });
 
   // ── Test 3: failure reported under subgraph natural ID ───────────────────

@@ -5,7 +5,7 @@
 
 import type {DataSource, EntityManager} from 'typeorm';
 import type {IdGenerationPort} from '@arc/core';
-import {SpfModule, KvData, ControlPort} from '@arc/core';
+import {SpfModule, KvData, ControlPort, TagData} from '@arc/core';
 import {
   setupIntegrationTest,
   teardownIntegrationTest,
@@ -22,6 +22,7 @@ const CONTAINER_ID = 20;
 const DEFINITION_ID = 30;
 const PROCESSOR_DEF_ID = 5;
 const KEY_DEF_ID = 40;
+const TAG_DEF_ID = 50;
 const VALUE_DEF_ID_1 = 201;
 const VALUE_DEF_ID_2 = 202;
 const VALUE_DEF_ID_3 = 203;
@@ -87,6 +88,15 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
     fileSystemId: FILE_ID,
     naturalId: 1,
     name: 'TestKey',
+    version: 1,
+  });
+
+  await manager.insert('TagDefinition', {
+    systemId: TAG_DEF_ID,
+    fileSystemId: FILE_ID,
+    naturalId: 1,
+    name: 'Test Tag',
+    isVoice: 0,
     version: 1,
   });
 
@@ -320,5 +330,51 @@ describe('SpfModuleInserter — CKV insertion', () => {
       `SELECT * FROM ckv_values WHERE ckv_system_id = 231`,
     );
     expect(badValueRows).toHaveLength(0);
+  });
+
+  it('inserts more than 1000 CKV value links without exceeding SQLite expression depth', async () => {
+    const modules = Array.from({length: 1001}, (_, index) =>
+      buildModule(10_000 + index, [
+        {
+          id: 30_000 + index,
+          values: [VALUE_DEF_ID_1],
+        },
+      ]),
+    );
+
+    const result = await inserter.insert(modules);
+
+    expect(result.ok).toBe(true);
+    const valueRows = await dataSource.query(
+      `SELECT * FROM ckv_values WHERE ckv_system_id >= 30000`,
+    );
+    expect(valueRows).toHaveLength(1001);
+  });
+
+  it('inserts more than 1000 TKV value links without exceeding SQLite expression depth', async () => {
+    const modules = Array.from({length: 1001}, (_, index) => {
+      const module = buildModule(10_000 + index, []);
+      const tagData = new TagData({
+        systemId: 20_000 + index,
+        tagDefinitionSystemId: TAG_DEF_ID,
+      });
+      tagData.addTkv(
+        new KvData({
+          systemId: 30_000 + index,
+          valueDefinitionSystemIds: [VALUE_DEF_ID_1],
+          uiPersistence: null,
+        }),
+      );
+      module.addTagData(tagData);
+      return module;
+    });
+
+    const result = await inserter.insert(modules);
+
+    expect(result.ok).toBe(true);
+    const valueRows = await dataSource.query(
+      `SELECT * FROM tkv_values WHERE tkv_system_id >= 30000`,
+    );
+    expect(valueRows).toHaveLength(1001);
   });
 });

@@ -476,34 +476,27 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
 
     if (allRows.length === 0) return emptyStepResult();
 
-    const rawFailures: RawFailure[] = [];
-
-    try {
-      await this.manager.insert(
+    const {failedEntities} =
+      await BatchInserter.insert<ModuleDefinitionContainerTypeLinkRow>(
+        this.manager,
         ModuleDefinitionContainerTypeLinkSchema,
         allRows,
       );
-    } catch {
-      for (const row of allRows) {
-        try {
-          await this.manager.insert(
-            ModuleDefinitionContainerTypeLinkSchema,
-            row,
-          );
-        } catch (rowError: unknown) {
-          const mod = items.find(
-            m => m.systemId === row.moduleDefinitionSystemId,
-          )!;
-          rawFailures.push({
-            systemId: mod.systemId,
-            entityLabel: 'ModuleDefinitionContainerTypeLink',
-            failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(mod.naturalId)}) Row: ${JSON.stringify(row)}`,
-            dbError:
-              rowError instanceof Error ? rowError.message : String(rowError),
-          });
-        }
-      }
-    }
+    const rowBySystemId = new Map(
+      allRows.map(row => [row.systemId, row] as const),
+    );
+    const rawFailures: RawFailure[] = failedEntities.map(failure => {
+      const row = rowBySystemId.get(failure.systemId)!;
+      const mod = items.find(
+        item => item.systemId === row.moduleDefinitionSystemId,
+      )!;
+      return {
+        systemId: mod.systemId,
+        entityLabel: 'ModuleDefinitionContainerTypeLink',
+        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(mod.naturalId)}) Row: ${JSON.stringify(row)}`,
+        dbError: failure.message,
+      };
+    });
 
     return {
       rawFailures,

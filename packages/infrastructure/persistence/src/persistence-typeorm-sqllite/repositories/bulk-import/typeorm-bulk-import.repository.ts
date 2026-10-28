@@ -49,6 +49,10 @@ import {ControlLinkInserter} from './control-link/control-link.inserter.js';
 import {UseCaseInserter} from './use-case/use-case.inserter.js';
 import {ModuleManagerDataInserter} from './module-manager-data/module-manager-data.inserter.js';
 import {EntityReviewedAtInserter} from './entity-reviewed-at/entity-reviewed-at.inserter.js';
+import {
+  registerBatchInsertDiagnostics,
+  type BatchInsertDiagnostics,
+} from './batch-inserter.js';
 
 /**
  * TypeORM implementation of BulkImportRepository.
@@ -63,7 +67,10 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
   constructor(
     private readonly manager: EntityManager,
     private readonly idGeneration: IdGenerationPort,
-  ) {}
+    diagnostics?: BatchInsertDiagnostics,
+  ) {
+    registerBatchInsertDiagnostics(manager, diagnostics);
+  }
 
   insertSpfModules(items: SpfModule[]): Promise<BulkInsertResult> {
     return new SpfModuleInserter(this.manager, this.idGeneration).insert(items);

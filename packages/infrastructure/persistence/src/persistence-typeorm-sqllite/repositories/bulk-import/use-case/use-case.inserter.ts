@@ -124,26 +124,24 @@ export class UseCaseInserter {
     if (allRows.length === 0)
       return {rawFailures: [], failedEntityIds: new Set()};
 
-    const rawFailures: RawFailure[] = [];
-
-    try {
-      await this.manager.insert(UsecaseGkvValuesSchema, allRows);
-    } catch {
-      for (const row of allRows) {
-        try {
-          await this.manager.insert(UsecaseGkvValuesSchema, row);
-        } catch (rowError: unknown) {
-          const item = items.find(i => i.systemId === row.usecaseSystemId)!;
-          rawFailures.push({
-            systemId: item.systemId,
-            entityLabel: 'UsecaseGkvValues',
-            failedRowJson: `(systemId=${item.systemId}) Row: ${JSON.stringify(row)}`,
-            dbError:
-              rowError instanceof Error ? rowError.message : String(rowError),
-          });
-        }
-      }
-    }
+    const {failedEntities} = await BatchInserter.insert<UsecaseGkvValuesRow>(
+      this.manager,
+      UsecaseGkvValuesSchema,
+      allRows,
+    );
+    const rowBySystemId = new Map(
+      allRows.map(row => [row.systemId, row] as const),
+    );
+    const rawFailures: RawFailure[] = failedEntities.map(failure => {
+      const row = rowBySystemId.get(failure.systemId)!;
+      const item = items.find(i => i.systemId === row.usecaseSystemId)!;
+      return {
+        systemId: item.systemId,
+        entityLabel: 'UsecaseGkvValues',
+        failedRowJson: `(systemId=${item.systemId}) Row: ${JSON.stringify(row)}`,
+        dbError: failure.message,
+      };
+    });
 
     return {rawFailures, failedEntityIds: new Set()};
   }
