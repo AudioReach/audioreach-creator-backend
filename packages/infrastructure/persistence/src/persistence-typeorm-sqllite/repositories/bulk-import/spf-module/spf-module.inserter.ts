@@ -57,10 +57,30 @@ import type {
   CkvValuesRow,
 } from '../../../entity-schema/usecase-data/module/spf-module-calibration-data.schema.js';
 import {CkvValuesSchema} from '../../../entity-schema/usecase-data/module/spf-module-calibration-data.schema.js';
-import type {EntityRowForInsert} from '../../../entity-schema/entity-base.js';
 
-type CkvValueInsertRow = EntityRowForInsert<CkvValuesRow>;
-type TkvValueInsertRow = EntityRowForInsert<TkvValuesRow>;
+const CKV_VALUE_INSERT_CHUNK_SIZE = 800;
+
+type CkvValueInsertRow = CkvValuesRow;
+type TkvValueInsertRow = TkvValuesRow;
+
+/** All value-association rows owned by one CKV. */
+type CkvValueGroup = {
+  readonly ckvSystemId: number;
+  readonly rows: CkvValueInsertRow[];
+};
+
+/** A bounded direct-insert batch, optionally representing an oversized CKV. */
+type CkvValueChunk = {
+  readonly groups: CkvValueGroup[];
+  readonly rows: CkvValueInsertRow[];
+  readonly isOversizedGroupChunk: boolean;
+};
+
+/** CKV value failures and parent CKVs that later steps must skip. */
+type CkvValueInsertResult = {
+  readonly rawFailures: RawFailure[];
+  readonly failedCkvIds: Set<number>;
+};
 
 export class SpfModuleInserter implements BulkInserter<SpfModule> {
   private readonly manager: EntityManager;
@@ -452,25 +472,88 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
     });
 
     const failedCkvIds = new Set(failedEntities.map(e => e.systemId));
-    const valueFailures = await this.insertCkvValues(
+    const valueResult = await this.insertCkvValues(
       modules,
       failedCkvIds,
       contextByCkvSystemId,
     );
+    for (const failedCkvId of valueResult.failedCkvIds) {
+      failedCkvIds.add(failedCkvId);
+    }
 
     return {
-      rawFailures: [...rawFailures, ...valueFailures],
+      rawFailures: [...rawFailures, ...valueResult.rawFailures],
       failedEntityIds: failedCkvIds,
     };
   }
 
+  /**
+   * Inserts CKV-to-value associations in bounded direct TypeORM chunks.
+   * A failed chunk is retried per CKV so valid sibling CKVs can still persist.
+   */
   private async insertCkvValues(
     modules: SpfModule[],
     failedCkvIds: Set<number>,
     context: Map<number, {readonly ckv: KvData; readonly module: SpfModule}>,
-  ): Promise<RawFailure[]> {
-    const allValueRows: CkvValueInsertRow[] = [];
-    const rowsByCkvSystemId = new Map<number, CkvValueInsertRow[]>();
+  ): Promise<CkvValueInsertResult> {
+    const groups = await this.createCkvValueGroups(modules, failedCkvIds);
+
+    if (groups.length === 0) {
+      return {rawFailures: [], failedCkvIds: new Set()};
+    }
+
+    const chunks = this.createCkvValueChunks(groups);
+    const valueFailures: RawFailure[] = [];
+    let valueFailedCkvIds = new Set<number>();
+
+    for (const chunk of chunks) {
+      const activeGroups = chunk.groups.filter(
+        group => !valueFailedCkvIds.has(group.ckvSystemId),
+      );
+      if (activeGroups.length === 0) continue;
+
+      const activeRows = chunk.isOversizedGroupChunk
+        ? chunk.rows
+        : activeGroups.flatMap(group => group.rows);
+      try {
+        await this.manager.insert(CkvValuesSchema, activeRows);
+      } catch (error) {
+        if (chunk.isOversizedGroupChunk) {
+          const ckvSystemId = activeGroups[0].ckvSystemId;
+          const failure = await this.removeFailedCkvValueGroup(
+            context,
+            ckvSystemId,
+            activeGroups[0].rows,
+            error,
+          );
+          valueFailures.push(failure);
+          valueFailedCkvIds.add(ckvSystemId);
+        } else {
+          const fallbackResult = await this.insertCkvValueGroupsWithFallback(
+            context,
+            activeGroups,
+          );
+          valueFailures.push(...fallbackResult.rawFailures);
+          valueFailedCkvIds = new Set([
+            ...valueFailedCkvIds,
+            ...fallbackResult.failedCkvIds,
+          ]);
+        }
+      }
+    }
+
+    return {
+      rawFailures: valueFailures,
+      failedCkvIds: valueFailedCkvIds,
+    };
+  }
+
+  /** Creates the CKV-owned rows needed before direct chunk insertion. */
+  private async createCkvValueGroups(
+    modules: SpfModule[],
+    failedCkvIds: ReadonlySet<number>,
+  ): Promise<CkvValueGroup[]> {
+    const groups: CkvValueGroup[] = [];
     for (const module of modules) {
       for (const ckv of module.ckvs) {
         if (failedCkvIds.has(ckv.systemId)) continue;
@@ -482,49 +565,114 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
             valueDefSystemId,
           });
         }
-        rowsByCkvSystemId.set(ckv.systemId, rows);
-        allValueRows.push(...rows);
+        if (rows.length > 0) {
+          groups.push({ckvSystemId: ckv.systemId, rows});
+        }
       }
     }
-
-    if (allValueRows.length === 0) return [];
-
-    try {
-      await this.manager.insert(CkvValuesSchema, allValueRows);
-      return [];
-    } catch {
-      return this.insertCkvValuesWithFallback(
-        context,
-        failedCkvIds,
-        rowsByCkvSystemId,
-      );
-    }
+    return groups;
   }
 
-  private async insertCkvValuesWithFallback(
-    context: Map<number, {readonly ckv: KvData; readonly module: SpfModule}>,
-    failedCkvIds: Set<number>,
-    rowsByCkvSystemId: ReadonlyMap<number, CkvValueInsertRow[]>,
-  ): Promise<RawFailure[]> {
-    const failures: RawFailure[] = [];
-    for (const [ckvSystemId, {ckv, module}] of context) {
-      if (failedCkvIds.has(ckvSystemId)) continue;
-      if (ckv.valueDefinitionSystemIds.length === 0) continue;
+  /**
+   * Packs complete CKV groups into configured-size chunks. Oversized CKVs are
+   * split into their own chunks so no single SQL insert grows without bound.
+   */
+  private createCkvValueChunks(
+    groups: readonly CkvValueGroup[],
+  ): CkvValueChunk[] {
+    const chunks: CkvValueChunk[] = [];
+    let currentGroups: CkvValueGroup[] = [];
+    let currentRows: CkvValueInsertRow[] = [];
 
-      const valueRows = rowsByCkvSystemId.get(ckvSystemId) ?? [];
+    const flushCurrentChunk = () => {
+      if (currentRows.length === 0) return;
+      chunks.push({
+        groups: currentGroups,
+        rows: currentRows,
+        isOversizedGroupChunk: false,
+      });
+      currentGroups = [];
+      currentRows = [];
+    };
+
+    for (const group of groups) {
+      if (group.rows.length > CKV_VALUE_INSERT_CHUNK_SIZE) {
+        flushCurrentChunk();
+        for (
+          let start = 0;
+          start < group.rows.length;
+          start += CKV_VALUE_INSERT_CHUNK_SIZE
+        ) {
+          chunks.push({
+            groups: [group],
+            rows: group.rows.slice(start, start + CKV_VALUE_INSERT_CHUNK_SIZE),
+            isOversizedGroupChunk: true,
+          });
+        }
+        continue;
+      }
+
+      if (
+        currentRows.length > 0 &&
+        currentRows.length + group.rows.length > CKV_VALUE_INSERT_CHUNK_SIZE
+      ) {
+        flushCurrentChunk();
+      }
+
+      currentGroups.push(group);
+      currentRows.push(...group.rows);
+    }
+
+    flushCurrentChunk();
+    return chunks;
+  }
+
+  /**
+   * Retries each CKV group from a failed shared chunk independently to isolate
+   * the invalid CKV without discarding valid sibling groups.
+   */
+  private async insertCkvValueGroupsWithFallback(
+    context: Map<number, {readonly ckv: KvData; readonly module: SpfModule}>,
+    groups: readonly CkvValueGroup[],
+  ): Promise<CkvValueInsertResult> {
+    const rawFailures: RawFailure[] = [];
+    const failedCkvIds = new Set<number>();
+    for (const group of groups) {
       try {
-        await this.manager.insert(CkvValuesSchema, valueRows);
+        await this.manager.insert(CkvValuesSchema, group.rows);
       } catch (error) {
-        await this.manager.delete('Ckv', {systemId: ckvSystemId});
-        failures.push({
-          systemId: module.systemId,
-          entityLabel: 'CKV',
-          failedRowJson: JSON.stringify({ckvSystemId, valueRows}),
-          dbError: error instanceof Error ? error.message : String(error),
-        });
+        rawFailures.push(
+          await this.removeFailedCkvValueGroup(
+            context,
+            group.ckvSystemId,
+            group.rows,
+            error,
+          ),
+        );
+        failedCkvIds.add(group.ckvSystemId);
       }
     }
-    return failures;
+    return {rawFailures, failedCkvIds};
+  }
+
+  /**
+   * Removes a CKV whose value insert failed. The FK cascade deletes any value
+   * rows inserted by earlier chunks before returning the aggregate failure.
+   */
+  private async removeFailedCkvValueGroup(
+    context: Map<number, {readonly ckv: KvData; readonly module: SpfModule}>,
+    ckvSystemId: number,
+    valueRows: readonly CkvValueInsertRow[],
+    error: unknown,
+  ): Promise<RawFailure> {
+    const {module} = context.get(ckvSystemId)!;
+    await this.manager.delete('Ckv', {systemId: ckvSystemId});
+    return {
+      systemId: module.systemId,
+      entityLabel: 'CKV',
+      failedRowJson: JSON.stringify({ckvSystemId, valueRows}),
+      dbError: error instanceof Error ? error.message : String(error),
+    };
   }
 
   // ─── TKV ─────────────────────────────────────────────────────────────────────

@@ -5,13 +5,12 @@
 
 import type {EntitySchemaColumnOptions} from 'typeorm';
 
-export interface EntityBaseRow {
+export interface SystemIdRow {
   // arc specific id, should be treated as primary key for the entity whenever possible
   systemId: number;
-  // stores the entity creation date
-  creationDate: Date;
-  // stores entity update date
-  updateDate: Date;
+}
+
+export interface EntityBaseRow extends SystemIdRow {
   // version for optimistic locking
   version: number;
 }
@@ -23,9 +22,7 @@ export interface EntityBaseRow {
  * `systemId` is NOT omitted — it must be provided by the caller via the ID
  * generator service before insertion (the database no longer auto-increments it).
  *
- * Auto-managed fields (still omitted):
- * - creationDate: Set by TypeORM on insert
- * - updateDate: Set by TypeORM on update
+ * Auto-managed field (still omitted):
  * - version: Managed by TypeORM for optimistic locking
  *
  * @example
@@ -40,39 +37,31 @@ export interface EntityBaseRow {
  * }
  * ```
  */
-export type EntityRowForInsert<T extends EntityBaseRow> = Omit<
-  T,
-  'creationDate' | 'updateDate' | 'version'
->;
+export type EntityRowForInsert<T extends EntityBaseRow> = Omit<T, 'version'>;
 
 /**
  * Insert type for entities with auto-generated systemId (projects, files).
+ * `version` is omitted because TypeORM manages optimistic locking.
  * systemId is omitted — the DB assigns it on INSERT via AUTOINCREMENT.
  */
 export type EntityRowForAutoInsert<T extends EntityBaseRow> = Omit<
   T,
-  'systemId' | 'creationDate' | 'updateDate' | 'version'
+  'systemId' | 'version'
 >;
 
-export const BaseColumnSchemaPart: Record<string, EntitySchemaColumnOptions> = {
+export const JunctionColumnSchemaPart: Record<
+  string,
+  EntitySchemaColumnOptions
+> = {
   systemId: {
     name: 'system_id',
     type: 'integer',
     primary: true,
   },
+};
 
-  creationDate: {
-    name: 'created_at',
-    type: 'datetime',
-    createDate: true,
-  },
-
-  updateDate: {
-    name: 'updated_at',
-    type: 'datetime',
-    updateDate: true,
-  },
-
+export const BaseColumnSchemaPart: Record<string, EntitySchemaColumnOptions> = {
+  ...JunctionColumnSchemaPart,
   version: {
     name: 'version',
     type: 'integer',

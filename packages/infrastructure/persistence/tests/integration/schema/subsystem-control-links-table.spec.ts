@@ -123,8 +123,6 @@ describe('subsystem_control_links table (spec §11.3)', () => {
     expect(byName.file_system_id.notnull).toBe(1);
     expect(byName.version.notnull).toBe(1);
     expect(byName.version.dflt_value).toBe('1');
-    expect(byName.created_at).toBeDefined();
-    expect(byName.updated_at).toBeDefined();
   });
 
   it('all four spec-required indices are present', async () => {

@@ -55,10 +55,8 @@ import {
   ModuleDefinitionContainerTypeLinkSchema,
   type ModuleDefinitionContainerTypeLinkRow,
 } from '../../../entity-schema/definitions/module/spf/module-definition-container-type-link.schema.js';
-import type {EntityRowForInsert} from '../../../entity-schema/entity-base.js';
-
 type ModuleDefinitionContainerTypeLinkInsertRow =
-  EntityRowForInsert<ModuleDefinitionContainerTypeLinkRow>;
+  ModuleDefinitionContainerTypeLinkRow;
 
 type DataPortGroupDefinition = SpfModuleDefinition['dataPortGroups'][number];
 type StaticControlPortDefinition =
