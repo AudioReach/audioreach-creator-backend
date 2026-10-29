@@ -4,7 +4,12 @@
  */
 
 import type {KeyDefinitionRow} from '../../definitions/key-value/key-definition.schema.js';
-import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
+import {
+  BaseColumnSchemaPart,
+  JunctionColumnSchemaPart,
+  type EntityBaseRow,
+  type SystemIdRow,
+} from '../../entity-base.js';
 import {EntitySchema} from 'typeorm';
 import type {NodeRow} from '../node/node.schema.js';
 
@@ -20,7 +25,7 @@ export interface SubsystemRow extends EntityBaseRow, SubsystemBase {
   node?: NodeRow;
 }
 
-export interface SubsystemFilteredKeyRow extends EntityBaseRow {
+export interface SubsystemFilteredKeyRow extends SystemIdRow {
   subsystemsSystemId: number;
   keyDefinitionSystemId: number;
 
@@ -61,7 +66,7 @@ export const SubsystemFilteredKeySchema =
     name: 'SubsystemFilteredKey',
     tableName: 'subsystem_filtered_keys_key_definition',
     columns: {
-      ...BaseColumnSchemaPart,
+      ...JunctionColumnSchemaPart,
       subsystemsSystemId: {
         name: 'subsystems_system_id',
         type: 'integer',

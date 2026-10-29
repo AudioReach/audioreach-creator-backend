@@ -31,10 +31,8 @@ import {
   UseCaseSubgraphPairSchema,
   type UseCaseSubgraphPairBase,
 } from '../../../entity-schema/usecase-data/use-case-subgraph-pair.schema.js';
-import type {EntityRowForInsert} from '../../../entity-schema/entity-base.js';
-
-type UsecaseGkvValueInsertRow = EntityRowForInsert<UsecaseGkvValuesRow>;
-type UseCaseCategoryJoinInsertRow = EntityRowForInsert<UseCaseCategoryJoinRow>;
+type UsecaseGkvValueInsertRow = UsecaseGkvValuesRow;
+type UseCaseCategoryJoinInsertRow = UseCaseCategoryJoinRow;
 
 export class UseCaseInserter {
   constructor(

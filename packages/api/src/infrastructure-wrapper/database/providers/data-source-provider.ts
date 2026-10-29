@@ -49,6 +49,8 @@ export class DataSourceProvider implements OnModuleInit, OnModuleDestroy {
       type: 'sqlite',
       database: getDatabasePath('database.db'),
       ...base,
+      logger: 'advanced-console',
+      logging: ['error'],
       extra: {
         connectionLimit: 10,
         acquireTimeout: 60_000,

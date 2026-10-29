@@ -36,10 +36,7 @@ import {
   type SubsystemFilteredKeyRow,
   type SubsystemRow,
 } from '../../../entity-schema/usecase-data/subsystem/subsystem.js';
-import type {EntityRowForInsert} from '../../../entity-schema/entity-base.js';
-
-type SubsystemFilteredKeyInsertRow =
-  EntityRowForInsert<SubsystemFilteredKeyRow>;
+type SubsystemFilteredKeyInsertRow = SubsystemFilteredKeyRow;
 
 export class SubsystemInserter implements BulkInserter<Subsystem> {
   constructor(

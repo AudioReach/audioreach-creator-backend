@@ -5,8 +5,8 @@
 
 import {EntitySchema} from 'typeorm';
 import {
-  BaseColumnSchemaPart,
-  type EntityBaseRow,
+  JunctionColumnSchemaPart,
+  type SystemIdRow,
 } from '../../../entity-base.js';
 import type {SpfModuleDefinitionRow} from './spf-module-definition.schema.js';
 import type {ContainerTypeRow} from '../../container/container-definition.schema.js';
@@ -16,7 +16,7 @@ import type {ContainerTypeRow} from '../../container/container-definition.schema
  * Owns the table definition. FK constraints are enforced via many-to-one relations,
  * allowing BatchInserter to insert join rows without raw SQL.
  */
-export interface ModuleDefinitionContainerTypeLinkRow extends EntityBaseRow {
+export interface ModuleDefinitionContainerTypeLinkRow extends SystemIdRow {
   moduleDefinitionSystemId: number;
   containerTypeSystemId: number;
   moduleDefinition?: SpfModuleDefinitionRow;
@@ -28,7 +28,7 @@ export const ModuleDefinitionContainerTypeLinkSchema =
     name: 'ModuleDefinitionContainerTypeLink',
     tableName: 'module_definition_container_types',
     columns: {
-      ...BaseColumnSchemaPart,
+      ...JunctionColumnSchemaPart,
       moduleDefinitionSystemId: {
         type: 'integer',
         name: 'module_definition_system_id',

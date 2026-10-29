@@ -5,7 +5,12 @@
 
 import type {DriverModuleDefinitionRow} from '../definitions/module/driver/driver-module-definition.schema.js';
 import type {DriverModuleParameterDefinitionRow} from '../definitions/module/driver/driver-module-parameter-definition.schema.js';
-import {BaseColumnSchemaPart, type EntityBaseRow} from '../entity-base.js';
+import {
+  BaseColumnSchemaPart,
+  JunctionColumnSchemaPart,
+  type EntityBaseRow,
+  type SystemIdRow,
+} from '../entity-base.js';
 import type {BlobBytesConverter} from '../usecase-data/module/helper/blob-unit8array.converter.js';
 import {DbTypeToBytesTransformer} from '../usecase-data/module/helper/bytes-transformer.js';
 import type {ValueDefinitionRow} from '../definitions/key-value/value-definition.schema.js';
@@ -44,7 +49,7 @@ export interface DkvParameterPayloadRow extends EntityBaseRow {
   driverParameter?: DriverModuleParameterDefinitionRow; // relation
 }
 
-export interface DkvValuesRow extends EntityBaseRow {
+export interface DkvValuesRow extends SystemIdRow {
   dkvSystemId: number;
   valueDefSystemId: number;
 
@@ -185,7 +190,7 @@ export const DkvValuesSchema = new EntitySchema<DkvValuesRow>({
   name: 'DkvValues',
   tableName: 'dkv_values',
   columns: {
-    ...BaseColumnSchemaPart,
+    ...JunctionColumnSchemaPart,
     dkvSystemId: {
       name: 'dkv_system_id',
       type: 'integer',

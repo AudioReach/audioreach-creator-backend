@@ -348,7 +348,11 @@ export {ValidationPreferencesSchema} from './validation/validation-preferences.s
 
 // ===== HELPER TYPES =====
 export type {BlobBytesConverter} from './usecase-data/module/helper/blob-unit8array.converter.js';
-export type {EntityBaseRow, EntityRowForInsert} from './entity-base.js';
+export type {
+  EntityBaseRow,
+  EntityRowForInsert,
+  SystemIdRow,
+} from './entity-base.js';
 
 // ===== SCHEMA FACTORY HELPER =====
 /**

@@ -28,9 +28,7 @@ import {
   type DkvParameterPayloadRow,
   type DkvValuesRow,
 } from '../../../entity-schema/driver-module-data/driver-module.js';
-import type {EntityRowForInsert} from '../../../entity-schema/entity-base.js';
-
-type DkvValueInsertRow = EntityRowForInsert<DkvValuesRow>;
+type DkvValueInsertRow = DkvValuesRow;
 
 export class DriverModuleInserter implements BulkInserter<DriverModule> {
   constructor(

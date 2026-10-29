@@ -3,8 +3,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {BaseColumnSchemaPart} from '../../entity-base.js';
-import type {EntityBaseRow} from '../../entity-base.js';
+import {
+  BaseColumnSchemaPart,
+  JunctionColumnSchemaPart,
+} from '../../entity-base.js';
+import type {EntityBaseRow, SystemIdRow} from '../../entity-base.js';
 import type {BlobBytesConverter} from './helper/blob-unit8array.converter.js';
 import {DbTypeToBytesTransformer} from './helper/bytes-transformer.js';
 import type {SpfModuleRow} from './spf-module.schema.js';
@@ -46,7 +49,7 @@ export interface CkvValuesBase {
   valueDefSystemId: number;
 }
 
-export interface CkvValuesRow extends EntityBaseRow, CkvValuesBase {
+export interface CkvValuesRow extends SystemIdRow, CkvValuesBase {
   ckv?: CkvRow;
   valueDef?: ValueDefinitionRow;
 }
@@ -144,7 +147,7 @@ export const CkvValuesSchema = new EntitySchema<CkvValuesRow>({
   name: 'CkvValues',
   tableName: 'ckv_values',
   columns: {
-    ...BaseColumnSchemaPart,
+    ...JunctionColumnSchemaPart,
     ckvSystemId: {name: 'ckv_system_id', type: 'integer'},
     valueDefSystemId: {
       name: 'value_def_system_id',

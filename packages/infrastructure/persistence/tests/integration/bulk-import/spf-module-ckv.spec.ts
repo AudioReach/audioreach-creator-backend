@@ -5,6 +5,7 @@
 
 import type {DataSource, EntityManager} from 'typeorm';
 import type {IdGenerationPort} from '@arc/core';
+import {jest} from '@jest/globals';
 import {SpfModule, KvData, ControlPort} from '@arc/core';
 import {
   setupIntegrationTest,
@@ -13,6 +14,7 @@ import {
   getTestDataSource,
 } from '../helpers/test-database-setup.js';
 import {SpfModuleInserter} from '../../../src/persistence-typeorm-sqllite/repositories/bulk-import/spf-module/spf-module.inserter.js';
+import {CkvValuesSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/usecase-data/module/spf-module-calibration-data.schema.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -259,6 +261,42 @@ describe('SpfModuleInserter — CKV insertion', () => {
     expect(valuesForCkv211).toHaveLength(2);
   });
 
+  it('inserts more than 1,000 ckv_values rows in direct chunks without a version reload', async () => {
+    const valueDefSystemIds = Array.from(
+      {length: 1001},
+      (_, index) => 20_000 + index,
+    );
+
+    for (let index = 0; index < valueDefSystemIds.length; index += 500) {
+      await manager.insert(
+        'ValueDefinition',
+        valueDefSystemIds.slice(index, index + 500).map((systemId, offset) => ({
+          systemId,
+          keySystemId: KEY_DEF_ID,
+          naturalId: 10_000 + index + offset,
+          name: `large-value-${index + offset}`,
+          version: 1,
+        })),
+      );
+    }
+
+    const insertSpy = jest.spyOn(manager, 'insert');
+    const result = await inserter.insert([
+      buildModule(1005, [{id: 240, values: valueDefSystemIds}]),
+    ]);
+
+    expect(result.ok).toBe(true);
+    const ckvValueInsertSizes = insertSpy.mock.calls
+      .filter(([target]) => target === CkvValuesSchema)
+      .map(([, values]) => (Array.isArray(values) ? values.length : 1));
+    expect(ckvValueInsertSizes).toEqual([800, 201]);
+    expect(
+      await dataSource.query(
+        `SELECT system_id FROM ckv_values WHERE ckv_system_id = 240`,
+      ),
+    ).toHaveLength(valueDefSystemIds.length);
+  });
+
   it('rolls back ckv row and reports failure when a value FK does not exist', async () => {
     const NON_EXISTENT_VALUE_ID = 9999;
     const module = buildModule(1002, [
@@ -286,10 +324,28 @@ describe('SpfModuleInserter — CKV insertion', () => {
     expect(valueRows).toHaveLength(0);
   });
 
-  it('isolates failure — good CKV survives when sibling CKV has bad value FK', async () => {
+  it('isolates failure — good CKV survives a mixed 800-row chunk with a bad value FK', async () => {
     const NON_EXISTENT_VALUE_ID = 9999;
+    const validValueDefIds = Array.from(
+      {length: 799},
+      (_, index) => 30_000 + index,
+    );
+
+    for (let index = 0; index < validValueDefIds.length; index += 500) {
+      await manager.insert(
+        'ValueDefinition',
+        validValueDefIds.slice(index, index + 500).map((systemId, offset) => ({
+          systemId,
+          keySystemId: KEY_DEF_ID,
+          naturalId: 20_000 + index + offset,
+          name: `fallback-value-${index + offset}`,
+          version: 1,
+        })),
+      );
+    }
+
     const module = buildModule(1003, [
-      {id: 230, values: [VALUE_DEF_ID_1]}, // valid
+      {id: 230, values: validValueDefIds}, // valid
       {id: 231, values: [NON_EXISTENT_VALUE_ID]}, // bad FK
     ]);
 
@@ -308,7 +364,7 @@ describe('SpfModuleInserter — CKV insertion', () => {
     const validValueRows = await dataSource.query(
       `SELECT * FROM ckv_values WHERE ckv_system_id = 230`,
     );
-    expect(validValueRows).toHaveLength(1);
+    expect(validValueRows).toHaveLength(validValueDefIds.length);
 
     // CKV 231 (bad) must be rolled back
     const badCkvRows = await dataSource.query(

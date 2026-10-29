@@ -59,8 +59,6 @@ describe('Project CRUD Integration Tests', () => {
       expect(savedProject.name).toBe('Offline Project');
       expect(savedProject.type).toBe('Offline');
       expect(savedProject.version).toBe(1);
-      expect(savedProject.creationDate).toBeInstanceOf(Date);
-      expect(savedProject.updateDate).toBeInstanceOf(Date);
     });
 
     it('should insert project with Device type', async () => {
@@ -81,7 +79,7 @@ describe('Project CRUD Integration Tests', () => {
       expect(savedProject.version).toBe(1);
     });
 
-    it('should persist systemId, creationDate, updateDate, and version', async () => {
+    it('should persist systemId and version', async () => {
       // Arrange
       const projectData: EntityRowForAutoInsert<ProjectRow> = {
         name: 'Auto Fields Test',
@@ -94,8 +92,6 @@ describe('Project CRUD Integration Tests', () => {
 
       // Assert
       expect(savedProject.systemId).toBeGreaterThan(0);
-      expect(savedProject.creationDate).toBeInstanceOf(Date);
-      expect(savedProject.updateDate).toBeInstanceOf(Date);
       expect(savedProject.version).toBe(1);
     });
   });

@@ -5,8 +5,8 @@
 
 import {EntitySchema} from 'typeorm';
 import {
-  BaseColumnSchemaPart,
-  type EntityBaseRow,
+  JunctionColumnSchemaPart,
+  type SystemIdRow,
 } from '../../../entity-base.js';
 import type {SpfModuleDefinitionRow} from './spf-module-definition.schema.js';
 import type {ProcessorDefinitionRow} from '../../common/processor-definition.schema.js';
@@ -16,7 +16,7 @@ import type {ProcessorDefinitionRow} from '../../common/processor-definition.sch
  * Owns the table definition. FK constraints are enforced via many-to-one relations,
  * allowing BatchInserter to insert join rows without raw SQL.
  */
-export interface ModuleDefinitionProcessorLinkRow extends EntityBaseRow {
+export interface ModuleDefinitionProcessorLinkRow extends SystemIdRow {
   moduleDefinitionSystemId: number;
   processorDefinitionSystemId: number;
   moduleDefinition?: SpfModuleDefinitionRow;
@@ -28,7 +28,7 @@ export const ModuleDefinitionProcessorLinkSchema =
     name: 'ModuleDefinitionProcessorLink',
     tableName: 'module_definition_processor_definitions',
     columns: {
-      ...BaseColumnSchemaPart,
+      ...JunctionColumnSchemaPart,
       moduleDefinitionSystemId: {
         type: 'integer',
         name: 'module_definition_system_id',

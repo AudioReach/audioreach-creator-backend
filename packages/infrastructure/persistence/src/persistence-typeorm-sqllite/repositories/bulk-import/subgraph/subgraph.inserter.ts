@@ -41,10 +41,8 @@ import {
   type SgkvRow,
   type SgkvValuesRow,
 } from '../../../entity-schema/usecase-data/subgraph/subgraph-sgkv-data.js';
-import type {EntityRowForInsert} from '../../../entity-schema/entity-base.js';
-
-type SgkvValueInsertRow = EntityRowForInsert<SgkvValuesRow>;
-type VcpmCkvValueInsertRow = EntityRowForInsert<VcpmCkvValuesRow>;
+type SgkvValueInsertRow = SgkvValuesRow;
+type VcpmCkvValueInsertRow = VcpmCkvValuesRow;
 
 export class SubgraphInserter implements BulkInserter<Subgraph> {
   constructor(
