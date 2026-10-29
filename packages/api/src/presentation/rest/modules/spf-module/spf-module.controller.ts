@@ -102,6 +102,7 @@ import {
   AddCkvParametersResponseDto,
   CkvParameterRemovalResponseDto,
   CkvParametersResponseDto,
+  RemoveCkvsResponseDto,
   RemoveSpfModuleResponseDto,
   TkvParameterItem,
   TkvParameterRemovalResponseDto,
@@ -151,6 +152,7 @@ import {
   TkvParameterItem,
   AddCkvsResponseDto,
   AddCkvParametersResponseDto,
+  RemoveCkvsResponseDto,
   RemoveSpfModuleResponseDto,
 )
 export class SpfModuleController extends BaseController {
@@ -939,12 +941,12 @@ export class SpfModuleController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'CKVs removed successfully',
-        dto: [CkvResponseDto],
+        dto: RemoveCkvsResponseDto,
       },
       {
         status: HttpStatus.MULTI_STATUS,
         description: 'Partial success - some CKVs were not removed',
-        dto: [CkvResponseDto],
+        dto: RemoveCkvsResponseDto,
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -958,20 +960,47 @@ export class SpfModuleController extends BaseController {
   })
   @UseGuards(SessionGuard)
   async removeCkvs(
-    @Param('projectId') _projectId: string,
+    @Param('projectId', ParseIntPipe) projectId: number,
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Body() request: DeleteCkvsRequestDto,
     @ArcSession() session: ActiveSession,
-  ): Promise<ApiResult<string[]>> {
+    @ClientId() clientId: string,
+  ): Promise<ApiResult<RemoveCkvsResponseDto>> {
     const command = new RemoveCkvsCommand(
       spfModuleSystemId,
       request.ckvSystemIds,
     );
-    const result = await this.commandBus.execute<Result<RemoveCkvsResult>>(
+    const cmdResult = await this.commandBus.execute<Result<RemoveCkvsResult>>(
       command,
       session,
     );
-    return toApiResult(result, data => data.removedCkvSystemIds.map(String));
+    if (cmdResult.kind === RESULT_KIND.Fail) return toApiResult(cmdResult);
+
+    const {addedZeroCkvSystemId} = cmdResult.data;
+    const removedCkvSystemIds = cmdResult.data.removedCkvSystemIds.map(String);
+
+    if (addedZeroCkvSystemId === undefined) {
+      return toApiResult(cmdResult, () => ({
+        removedCkvSystemIds,
+        addedCkvs: [],
+      }));
+    }
+
+    const query = new SpfModuleQuery(
+      [Number(spfModuleSystemId)],
+      projectId,
+      true,
+      false,
+      clientId,
+    );
+    const readResult =
+      await this.queryBus.execute<Result<SpfModuleDto[]>>(query);
+    return toApiResult(readResult, data => ({
+      removedCkvSystemIds,
+      addedCkvs: (data[0]?.ckvs ?? []).filter(
+        c => c.systemId === String(addedZeroCkvSystemId),
+      ),
+    }));
   }
 
   /**

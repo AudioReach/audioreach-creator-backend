@@ -139,13 +139,14 @@ describe('RemoveCkvsHandler', () => {
   it('creates zero CKV when last non-zero CKV is removed', async () => {
     const moduleRepo = makeModuleRepo();
     const uow = makeUow(moduleRepo, makeDefRepo());
-    await new RemoveCkvsHandler(uow, makeIdGen()).handle(
+    const result = await new RemoveCkvsHandler(uow, makeIdGen()).handle(
       new RemoveCkvsCommand(String(MODULE_ID), [String(CKV_ID)]),
     );
     expect(moduleRepo.createCkv).toHaveBeenCalledTimes(1);
     const kvDataArg = (moduleRepo.createCkv as jest.MockedFunction<any>).mock
       .calls[0][0];
     expect(kvDataArg.valueDefinitionSystemIds).toHaveLength(0);
+    expect(result.data?.addedZeroCkvSystemId).toBeDefined();
   });
 
   it('does not create zero CKV when other non-zero CKVs remain', async () => {
@@ -164,9 +165,10 @@ describe('RemoveCkvsHandler', () => {
       ]),
     });
     const uow = makeUow(moduleRepo, makeDefRepo());
-    await new RemoveCkvsHandler(uow, makeIdGen()).handle(
+    const result = await new RemoveCkvsHandler(uow, makeIdGen()).handle(
       new RemoveCkvsCommand(String(MODULE_ID), [String(CKV_ID)]),
     );
     expect(moduleRepo.createCkv).not.toHaveBeenCalled();
+    expect(result.data?.addedZeroCkvSystemId).toBeUndefined();
   });
 });

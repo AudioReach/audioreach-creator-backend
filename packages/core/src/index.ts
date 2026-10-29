@@ -270,6 +270,7 @@ export * from './application/usecase-designer/spf-module/query/query-spf-modules
 export * from './application/usecase-designer/spf-module/query/query-spf-modules.handler.js';
 export {
   SpfModuleDtoSchema,
+  SpfModuleSummaryDtoSchema,
   CkvDtoSchema,
   TkvDtoSchema,
   TagInfoDtoSchema,
@@ -294,6 +295,7 @@ export type {
 export * from './application/ports/persistence/query-services/vcpm/vcpm-read-model.js';
 export type {
   SpfModuleDto,
+  SpfModuleSummaryDto,
   CkvDto,
   TkvDto,
   TagInfoDto,

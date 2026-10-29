@@ -143,6 +143,27 @@ export class AddCkvsResponseDto {
 }
 
 /**
+ * Response DTO for removing CKVs from an SPF module.
+ * Returns the removed CKV system IDs and any CKVs added as a domain side effect
+ * (e.g. the zero placeholder CKV is created when the last non-zero CKV is removed).
+ */
+export class RemoveCkvsResponseDto {
+  @ApiProperty({
+    description: 'System IDs of the removed CKVs',
+    type: [String],
+  })
+  removedCkvSystemIds!: string[];
+
+  @ApiProperty({
+    description:
+      'CKVs implicitly added as a side effect. The zero placeholder CKV is created ' +
+      'when the last non-zero CKV is removed. Empty if no CKVs were auto-created.',
+    type: [CkvResponseDto],
+  })
+  addedCkvs!: CkvResponseDto[];
+}
+
+/**
  * Response DTO for DELETE /spf-modules/:id.
  *
  * deleted.spfModules: always exactly one entry — the deleted module.

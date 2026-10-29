@@ -90,7 +90,7 @@ export async function createZeroCkv(
   moduleRepo: ModuleRepository,
   defRepo: ModuleDefinitionRepository,
   idGeneration: IdGenerationPort,
-): Promise<void> {
+): Promise<number> {
   const allDefs = await defRepo.getParameterDefinitions(definitionSystemId);
   const calibrationDefs = allDefs.filter(
     d => d.toolPolicy === TOOL_POLICY.Calibration,
@@ -103,4 +103,5 @@ export async function createZeroCkv(
   });
   buildDefaultPayloads(kvData, calibrationDefs);
   await moduleRepo.createCkv(kvData, moduleSystemId);
+  return zeroCkvSystemId;
 }

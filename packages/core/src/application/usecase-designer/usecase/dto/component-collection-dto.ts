@@ -5,7 +5,8 @@
 
 import {z} from 'zod';
 import {
-  SpfModuleDtoSchema,
+  SpfModuleSummaryDtoSchema,
+  type SpfModuleSummaryDto,
   mapDataPort,
   mapControlPort,
 } from '../../spf-module/query/spf-module-dto.js';
@@ -65,7 +66,7 @@ export type SubsystemDataLinkDto = z.infer<typeof SubsystemDataLinkDtoSchema>;
 
 export const ComponentCollectionDtoSchema = z.object({
   spfModules: z
-    .array(SpfModuleDtoSchema.omit({properties: true}))
+    .array(SpfModuleSummaryDtoSchema)
     .describe('SPF modules in the collection'),
   dataLinks: z.array(DataLinkDtoSchema).describe('Data links'),
   controlLinks: z.array(ControlLinkDtoSchema).describe('Control links'),
@@ -90,7 +91,7 @@ export type SubsystemComponentsDto = {
   naturalId: number;
   name: string;
   dataPorts: z.infer<typeof SubsystemDataPortDtoSchema>[];
-  controlPorts: z.infer<typeof SpfModuleDtoSchema>['controlPorts'];
+  controlPorts: z.infer<typeof SpfModuleSummaryDtoSchema>['controlPorts'];
   filteredKeys: z.infer<typeof FilteredKeyDtoSchema>[];
   children: ComponentCollectionWithSubsystemsDto;
 };
@@ -108,7 +109,7 @@ export const SubsystemComponentsDtoSchema: z.ZodType<SubsystemComponentsDto> =
       dataPorts: z
         .array(SubsystemDataPortDtoSchema)
         .describe('Subsystem data ports'),
-      controlPorts: SpfModuleDtoSchema.shape.controlPorts.describe(
+      controlPorts: SpfModuleSummaryDtoSchema.shape.controlPorts.describe(
         'Subsystem control ports',
       ),
       filteredKeys: z
@@ -131,7 +132,7 @@ export const ComponentCollectionWithSubsystemsDtoSchema: z.ZodType<ComponentColl
 
 export function mapSpfModuleForCollection(
   m: SpfModuleReadModel,
-): Omit<z.infer<typeof SpfModuleDtoSchema>, 'properties'> {
+): SpfModuleSummaryDto {
   return {
     systemId: String(m.systemId),
     naturalId: m.naturalId,

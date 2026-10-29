@@ -16,6 +16,7 @@ import {getModuleWriteContext} from '../shared/module-handler-helpers.js';
 export interface RemoveCkvsResult {
   groupId: string;
   removedCkvSystemIds: number[];
+  addedZeroCkvSystemId?: number;
 }
 
 export class RemoveCkvsHandler implements CommandHandler<
@@ -65,8 +66,9 @@ export class RemoveCkvsHandler implements CommandHandler<
           c.valueDefinitionSystemIds.length === 0 &&
           !toRemove.some(removed => removed.systemId === c.systemId),
       );
+      let addedZeroCkvSystemId: number | undefined;
       if (toRemove.length > 0 && remaining.length === 0 && !zeroCkvRemains) {
-        await createZeroCkv(
+        addedZeroCkvSystemId = await createZeroCkv(
           spfModule.definitionSystemId,
           fileSystemId,
           command.spfModuleSystemId,
@@ -76,7 +78,11 @@ export class RemoveCkvsHandler implements CommandHandler<
         );
       }
 
-      const data: RemoveCkvsResult = {groupId, removedCkvSystemIds};
+      const data: RemoveCkvsResult = {
+        groupId,
+        removedCkvSystemIds,
+        addedZeroCkvSystemId,
+      };
       return issues.length > 0 ? Result.partial(data, issues) : Result.ok(data);
     });
   }
