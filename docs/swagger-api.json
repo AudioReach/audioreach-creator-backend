@@ -5136,10 +5136,7 @@
                     {
                       "properties": {
                         "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/CkvResponseDto"
-                          }
+                          "$ref": "#/components/schemas/RemoveCkvsResponseDto"
                         }
                       }
                     }
@@ -5160,10 +5157,7 @@
                     {
                       "properties": {
                         "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/CkvResponseDto"
-                          }
+                          "$ref": "#/components/schemas/RemoveCkvsResponseDto"
                         }
                       }
                     }
@@ -12075,43 +12069,200 @@
           "filteredKeys"
         ]
       },
-      "KeyValueInfoDto": {
+      "SpfModuleSummaryDto": {
         "type": "object",
         "properties": {
-          "key": {
-            "description": "Key information",
-            "$ref": "#/components/schemas/KeyInfoDto"
+          "systemId": {
+            "type": "string",
+            "description": "SPF module system ID"
           },
-          "value": {
-            "description": "Value information",
-            "$ref": "#/components/schemas/ValueInfoDto"
-          }
-        },
-        "required": [
-          "key",
-          "value"
-        ]
-      },
-      "ValueInfoDto": {
-        "type": "object",
-        "properties": {
           "naturalId": {
-            "type": "number",
-            "description": "Value id"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Module instance ID"
+          },
+          "moduleDefinitionSystemId": {
+            "type": "string",
+            "description": "Module definition system ID"
           },
           "name": {
             "type": "string",
-            "description": "Value name"
+            "description": "Module name"
           },
-          "systemId": {
+          "alias": {
+            "description": "Module alias (user-defined label)",
+            "type": "string"
+          },
+          "parentSystemId": {
+            "description": "Parent subsystem system ID (for hierarchical modules)",
+            "type": "string"
+          },
+          "subgraphSystemId": {
             "type": "string",
-            "description": "Value system identifier"
+            "description": "Subgraph this module belongs to"
+          },
+          "containerSystemId": {
+            "type": "string",
+            "description": "Container this module belongs to"
+          },
+          "maxInputPortsSupported": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Maximum input data ports"
+          },
+          "maxOutputPortsSupported": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Maximum output data ports"
+          },
+          "maxControlPortsSupported": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Maximum control ports"
+          },
+          "dataPorts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "systemId": {
+                  "type": "string",
+                  "description": "Port system ID"
+                },
+                "naturalId": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Port definition natural ID"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Port name",
+                  "nullable": true
+                },
+                "portIoType": {
+                  "type": "string",
+                  "enum": [
+                    "Input",
+                    "Output"
+                  ],
+                  "description": "Port IO type"
+                },
+                "portType": {
+                  "type": "string",
+                  "enum": [
+                    "Static",
+                    "Dynamic"
+                  ],
+                  "description": "Port type"
+                },
+                "totalLinksAtPort": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Number of active data links at this port"
+                }
+              },
+              "required": [
+                "systemId",
+                "naturalId",
+                "name",
+                "portIoType",
+                "portType",
+                "totalLinksAtPort"
+              ]
+            },
+            "description": "Data port list"
+          },
+          "controlPorts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "systemId": {
+                  "type": "string",
+                  "description": "Control port system ID"
+                },
+                "naturalId": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Control port definition natural ID"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Component name",
+                  "nullable": true
+                },
+                "portType": {
+                  "type": "string",
+                  "enum": [
+                    "Static",
+                    "Dynamic"
+                  ],
+                  "description": "Port type"
+                },
+                "controlPortName": {
+                  "description": "Control port name",
+                  "type": "string"
+                },
+                "totalLinksAtPort": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Number of active control links at this port"
+                },
+                "intents": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "naturalId": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "description": "Intent natural ID"
+                      },
+                      "name": {
+                        "description": "Intent name",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "naturalId"
+                    ]
+                  },
+                  "description": "Control port intents"
+                }
+              },
+              "required": [
+                "systemId",
+                "naturalId",
+                "name",
+                "portType",
+                "totalLinksAtPort",
+                "intents"
+              ]
+            },
+            "description": "Control port list"
           }
         },
         "required": [
+          "systemId",
           "naturalId",
+          "moduleDefinitionSystemId",
           "name",
-          "systemId"
+          "subgraphSystemId",
+          "containerSystemId",
+          "maxInputPortsSupported",
+          "maxOutputPortsSupported",
+          "maxControlPortsSupported",
+          "dataPorts",
+          "controlPorts"
         ]
       },
       "ComponentsResponseDto": {
@@ -12120,339 +12271,7 @@
           "spfModules": {
             "type": "array",
             "items": {
-              "type": "object",
-              "properties": {
-                "systemId": {
-                  "type": "string",
-                  "description": "SPF module system ID"
-                },
-                "naturalId": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Module instance ID"
-                },
-                "moduleDefinitionSystemId": {
-                  "type": "string",
-                  "description": "Module definition system ID"
-                },
-                "name": {
-                  "type": "string",
-                  "description": "Module name"
-                },
-                "alias": {
-                  "description": "Module alias (user-defined label)",
-                  "type": "string"
-                },
-                "parentSystemId": {
-                  "description": "Parent subsystem system ID (for hierarchical modules)",
-                  "type": "string"
-                },
-                "subgraphSystemId": {
-                  "type": "string",
-                  "description": "Subgraph this module belongs to"
-                },
-                "containerSystemId": {
-                  "type": "string",
-                  "description": "Container this module belongs to"
-                },
-                "maxInputPortsSupported": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Maximum input data ports"
-                },
-                "maxOutputPortsSupported": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Maximum output data ports"
-                },
-                "maxControlPortsSupported": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Maximum control ports"
-                },
-                "dataPorts": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "systemId": {
-                        "type": "string",
-                        "description": "Port system ID"
-                      },
-                      "naturalId": {
-                        "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991,
-                        "description": "Port definition natural ID"
-                      },
-                      "name": {
-                        "type": "string",
-                        "description": "Port name",
-                        "nullable": true
-                      },
-                      "portIoType": {
-                        "type": "string",
-                        "enum": [
-                          "Input",
-                          "Output"
-                        ],
-                        "description": "Port IO type"
-                      },
-                      "portType": {
-                        "type": "string",
-                        "enum": [
-                          "Static",
-                          "Dynamic"
-                        ],
-                        "description": "Port type"
-                      },
-                      "totalLinksAtPort": {
-                        "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991,
-                        "description": "Number of active data links at this port"
-                      }
-                    },
-                    "required": [
-                      "systemId",
-                      "naturalId",
-                      "name",
-                      "portIoType",
-                      "portType",
-                      "totalLinksAtPort"
-                    ]
-                  },
-                  "description": "Data port list"
-                },
-                "controlPorts": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "systemId": {
-                        "type": "string",
-                        "description": "Control port system ID"
-                      },
-                      "naturalId": {
-                        "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991,
-                        "description": "Control port definition natural ID"
-                      },
-                      "name": {
-                        "type": "string",
-                        "description": "Component name",
-                        "nullable": true
-                      },
-                      "portType": {
-                        "type": "string",
-                        "enum": [
-                          "Static",
-                          "Dynamic"
-                        ],
-                        "description": "Port type"
-                      },
-                      "controlPortName": {
-                        "description": "Control port name",
-                        "type": "string"
-                      },
-                      "totalLinksAtPort": {
-                        "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991,
-                        "description": "Number of active control links at this port"
-                      },
-                      "intents": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "naturalId": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991,
-                              "description": "Intent natural ID"
-                            },
-                            "name": {
-                              "description": "Intent name",
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "naturalId"
-                          ]
-                        },
-                        "description": "Control port intents"
-                      }
-                    },
-                    "required": [
-                      "systemId",
-                      "naturalId",
-                      "name",
-                      "portType",
-                      "totalLinksAtPort",
-                      "intents"
-                    ]
-                  },
-                  "description": "Control port list"
-                },
-                "ckvs": {
-                  "description": "Calibration key-values (present when include=ckvs)",
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "keyValuePairs": {
-                        "type": "array",
-                        "items": {
-                          "$ref": "#/components/schemas/KeyValueInfoDto"
-                        },
-                        "description": "Collection of key-value pairs"
-                      },
-                      "systemId": {
-                        "type": "string",
-                        "description": "CKV system ID"
-                      },
-                      "supportedParameters": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "naturalId": {
-                              "type": "number",
-                              "description": "Parameter ID"
-                            },
-                            "systemId": {
-                              "type": "string",
-                              "description": "Parameter system ID"
-                            },
-                            "name": {
-                              "type": "string",
-                              "description": "Parameter name"
-                            },
-                            "description": {
-                              "type": "string",
-                              "description": "Parameter description"
-                            }
-                          },
-                          "required": [
-                            "naturalId",
-                            "systemId",
-                            "name",
-                            "description"
-                          ]
-                        },
-                        "description": "Supported parameters for this CKV"
-                      }
-                    },
-                    "required": [
-                      "keyValuePairs",
-                      "systemId",
-                      "supportedParameters"
-                    ]
-                  }
-                },
-                "tags": {
-                  "description": "Tag info (present when include=tags)",
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "systemId": {
-                        "type": "string",
-                        "description": "Tag system ID"
-                      },
-                      "naturalId": {
-                        "type": "number",
-                        "description": "Tag ID"
-                      },
-                      "tagName": {
-                        "type": "string",
-                        "description": "Tag name"
-                      },
-                      "tkvs": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "keyValuePairs": {
-                              "type": "array",
-                              "items": {
-                                "$ref": "#/components/schemas/KeyValueInfoDto"
-                              },
-                              "description": "Collection of key-value pairs"
-                            },
-                            "systemId": {
-                              "type": "string",
-                              "description": "TKV system ID"
-                            },
-                            "supportedParameters": {
-                              "type": "array",
-                              "items": {
-                                "type": "object",
-                                "properties": {
-                                  "naturalId": {
-                                    "type": "number",
-                                    "description": "Parameter ID"
-                                  },
-                                  "systemId": {
-                                    "type": "string",
-                                    "description": "Parameter system ID"
-                                  },
-                                  "name": {
-                                    "type": "string",
-                                    "description": "Parameter name"
-                                  },
-                                  "description": {
-                                    "type": "string",
-                                    "description": "Parameter description"
-                                  }
-                                },
-                                "required": [
-                                  "naturalId",
-                                  "systemId",
-                                  "name",
-                                  "description"
-                                ]
-                              },
-                              "description": "Supported parameters for this TKV"
-                            }
-                          },
-                          "required": [
-                            "keyValuePairs",
-                            "systemId",
-                            "supportedParameters"
-                          ]
-                        },
-                        "description": "Tag key-values configuration"
-                      }
-                    },
-                    "required": [
-                      "systemId",
-                      "naturalId",
-                      "tagName",
-                      "tkvs"
-                    ]
-                  }
-                }
-              },
-              "required": [
-                "systemId",
-                "naturalId",
-                "moduleDefinitionSystemId",
-                "name",
-                "subgraphSystemId",
-                "containerSystemId",
-                "maxInputPortsSupported",
-                "maxOutputPortsSupported",
-                "maxControlPortsSupported",
-                "dataPorts",
-                "controlPorts"
-              ]
+              "$ref": "#/components/schemas/SpfModuleSummaryDto"
             },
             "description": "SPF modules in the collection"
           },
@@ -12558,339 +12377,7 @@
           "spfModules": {
             "type": "array",
             "items": {
-              "type": "object",
-              "properties": {
-                "systemId": {
-                  "type": "string",
-                  "description": "SPF module system ID"
-                },
-                "naturalId": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Module instance ID"
-                },
-                "moduleDefinitionSystemId": {
-                  "type": "string",
-                  "description": "Module definition system ID"
-                },
-                "name": {
-                  "type": "string",
-                  "description": "Module name"
-                },
-                "alias": {
-                  "description": "Module alias (user-defined label)",
-                  "type": "string"
-                },
-                "parentSystemId": {
-                  "description": "Parent subsystem system ID (for hierarchical modules)",
-                  "type": "string"
-                },
-                "subgraphSystemId": {
-                  "type": "string",
-                  "description": "Subgraph this module belongs to"
-                },
-                "containerSystemId": {
-                  "type": "string",
-                  "description": "Container this module belongs to"
-                },
-                "maxInputPortsSupported": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Maximum input data ports"
-                },
-                "maxOutputPortsSupported": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Maximum output data ports"
-                },
-                "maxControlPortsSupported": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Maximum control ports"
-                },
-                "dataPorts": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "systemId": {
-                        "type": "string",
-                        "description": "Port system ID"
-                      },
-                      "naturalId": {
-                        "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991,
-                        "description": "Port definition natural ID"
-                      },
-                      "name": {
-                        "type": "string",
-                        "description": "Port name",
-                        "nullable": true
-                      },
-                      "portIoType": {
-                        "type": "string",
-                        "enum": [
-                          "Input",
-                          "Output"
-                        ],
-                        "description": "Port IO type"
-                      },
-                      "portType": {
-                        "type": "string",
-                        "enum": [
-                          "Static",
-                          "Dynamic"
-                        ],
-                        "description": "Port type"
-                      },
-                      "totalLinksAtPort": {
-                        "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991,
-                        "description": "Number of active data links at this port"
-                      }
-                    },
-                    "required": [
-                      "systemId",
-                      "naturalId",
-                      "name",
-                      "portIoType",
-                      "portType",
-                      "totalLinksAtPort"
-                    ]
-                  },
-                  "description": "Data port list"
-                },
-                "controlPorts": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "systemId": {
-                        "type": "string",
-                        "description": "Control port system ID"
-                      },
-                      "naturalId": {
-                        "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991,
-                        "description": "Control port definition natural ID"
-                      },
-                      "name": {
-                        "type": "string",
-                        "description": "Component name",
-                        "nullable": true
-                      },
-                      "portType": {
-                        "type": "string",
-                        "enum": [
-                          "Static",
-                          "Dynamic"
-                        ],
-                        "description": "Port type"
-                      },
-                      "controlPortName": {
-                        "description": "Control port name",
-                        "type": "string"
-                      },
-                      "totalLinksAtPort": {
-                        "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991,
-                        "description": "Number of active control links at this port"
-                      },
-                      "intents": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "naturalId": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991,
-                              "description": "Intent natural ID"
-                            },
-                            "name": {
-                              "description": "Intent name",
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "naturalId"
-                          ]
-                        },
-                        "description": "Control port intents"
-                      }
-                    },
-                    "required": [
-                      "systemId",
-                      "naturalId",
-                      "name",
-                      "portType",
-                      "totalLinksAtPort",
-                      "intents"
-                    ]
-                  },
-                  "description": "Control port list"
-                },
-                "ckvs": {
-                  "description": "Calibration key-values (present when include=ckvs)",
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "keyValuePairs": {
-                        "type": "array",
-                        "items": {
-                          "$ref": "#/components/schemas/KeyValueInfoDto"
-                        },
-                        "description": "Collection of key-value pairs"
-                      },
-                      "systemId": {
-                        "type": "string",
-                        "description": "CKV system ID"
-                      },
-                      "supportedParameters": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "naturalId": {
-                              "type": "number",
-                              "description": "Parameter ID"
-                            },
-                            "systemId": {
-                              "type": "string",
-                              "description": "Parameter system ID"
-                            },
-                            "name": {
-                              "type": "string",
-                              "description": "Parameter name"
-                            },
-                            "description": {
-                              "type": "string",
-                              "description": "Parameter description"
-                            }
-                          },
-                          "required": [
-                            "naturalId",
-                            "systemId",
-                            "name",
-                            "description"
-                          ]
-                        },
-                        "description": "Supported parameters for this CKV"
-                      }
-                    },
-                    "required": [
-                      "keyValuePairs",
-                      "systemId",
-                      "supportedParameters"
-                    ]
-                  }
-                },
-                "tags": {
-                  "description": "Tag info (present when include=tags)",
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "systemId": {
-                        "type": "string",
-                        "description": "Tag system ID"
-                      },
-                      "naturalId": {
-                        "type": "number",
-                        "description": "Tag ID"
-                      },
-                      "tagName": {
-                        "type": "string",
-                        "description": "Tag name"
-                      },
-                      "tkvs": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "keyValuePairs": {
-                              "type": "array",
-                              "items": {
-                                "$ref": "#/components/schemas/KeyValueInfoDto"
-                              },
-                              "description": "Collection of key-value pairs"
-                            },
-                            "systemId": {
-                              "type": "string",
-                              "description": "TKV system ID"
-                            },
-                            "supportedParameters": {
-                              "type": "array",
-                              "items": {
-                                "type": "object",
-                                "properties": {
-                                  "naturalId": {
-                                    "type": "number",
-                                    "description": "Parameter ID"
-                                  },
-                                  "systemId": {
-                                    "type": "string",
-                                    "description": "Parameter system ID"
-                                  },
-                                  "name": {
-                                    "type": "string",
-                                    "description": "Parameter name"
-                                  },
-                                  "description": {
-                                    "type": "string",
-                                    "description": "Parameter description"
-                                  }
-                                },
-                                "required": [
-                                  "naturalId",
-                                  "systemId",
-                                  "name",
-                                  "description"
-                                ]
-                              },
-                              "description": "Supported parameters for this TKV"
-                            }
-                          },
-                          "required": [
-                            "keyValuePairs",
-                            "systemId",
-                            "supportedParameters"
-                          ]
-                        },
-                        "description": "Tag key-values configuration"
-                      }
-                    },
-                    "required": [
-                      "systemId",
-                      "naturalId",
-                      "tagName",
-                      "tkvs"
-                    ]
-                  }
-                }
-              },
-              "required": [
-                "systemId",
-                "naturalId",
-                "moduleDefinitionSystemId",
-                "name",
-                "subgraphSystemId",
-                "containerSystemId",
-                "maxInputPortsSupported",
-                "maxOutputPortsSupported",
-                "maxControlPortsSupported",
-                "dataPorts",
-                "controlPorts"
-              ]
+              "$ref": "#/components/schemas/SpfModuleSummaryDto"
             },
             "description": "SPF modules in the collection"
           },
@@ -12991,351 +12478,7 @@
               "spfModules": {
                 "type": "array",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "systemId": {
-                      "type": "string",
-                      "description": "SPF module system ID"
-                    },
-                    "naturalId": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991,
-                      "description": "Module instance ID"
-                    },
-                    "moduleDefinitionSystemId": {
-                      "type": "string",
-                      "description": "Module definition system ID"
-                    },
-                    "name": {
-                      "type": "string",
-                      "description": "Module name"
-                    },
-                    "alias": {
-                      "description": "Module alias (user-defined label)",
-                      "type": "string"
-                    },
-                    "parentSystemId": {
-                      "description": "Parent subsystem system ID (for hierarchical modules)",
-                      "type": "string"
-                    },
-                    "subgraphSystemId": {
-                      "type": "string",
-                      "description": "Subgraph this module belongs to"
-                    },
-                    "containerSystemId": {
-                      "type": "string",
-                      "description": "Container this module belongs to"
-                    },
-                    "maxInputPortsSupported": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991,
-                      "description": "Maximum input data ports"
-                    },
-                    "maxOutputPortsSupported": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991,
-                      "description": "Maximum output data ports"
-                    },
-                    "maxControlPortsSupported": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991,
-                      "description": "Maximum control ports"
-                    },
-                    "dataPorts": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "systemId": {
-                            "type": "string",
-                            "description": "Port system ID"
-                          },
-                          "naturalId": {
-                            "type": "integer",
-                            "minimum": -9007199254740991,
-                            "maximum": 9007199254740991,
-                            "description": "Port definition natural ID"
-                          },
-                          "name": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ],
-                            "description": "Port name"
-                          },
-                          "portIoType": {
-                            "type": "string",
-                            "enum": [
-                              "Input",
-                              "Output"
-                            ],
-                            "description": "Port IO type"
-                          },
-                          "portType": {
-                            "type": "string",
-                            "enum": [
-                              "Static",
-                              "Dynamic"
-                            ],
-                            "description": "Port type"
-                          },
-                          "totalLinksAtPort": {
-                            "type": "integer",
-                            "minimum": -9007199254740991,
-                            "maximum": 9007199254740991,
-                            "description": "Number of active data links at this port"
-                          }
-                        },
-                        "required": [
-                          "systemId",
-                          "naturalId",
-                          "name",
-                          "portIoType",
-                          "portType",
-                          "totalLinksAtPort"
-                        ]
-                      },
-                      "description": "Data port list"
-                    },
-                    "controlPorts": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "systemId": {
-                            "type": "string",
-                            "description": "Control port system ID"
-                          },
-                          "naturalId": {
-                            "type": "integer",
-                            "minimum": -9007199254740991,
-                            "maximum": 9007199254740991,
-                            "description": "Control port definition natural ID"
-                          },
-                          "name": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ],
-                            "description": "Component name"
-                          },
-                          "portType": {
-                            "type": "string",
-                            "enum": [
-                              "Static",
-                              "Dynamic"
-                            ],
-                            "description": "Port type"
-                          },
-                          "controlPortName": {
-                            "description": "Control port name",
-                            "type": "string"
-                          },
-                          "totalLinksAtPort": {
-                            "type": "integer",
-                            "minimum": -9007199254740991,
-                            "maximum": 9007199254740991,
-                            "description": "Number of active control links at this port"
-                          },
-                          "intents": {
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "properties": {
-                                "naturalId": {
-                                  "type": "integer",
-                                  "minimum": -9007199254740991,
-                                  "maximum": 9007199254740991,
-                                  "description": "Intent natural ID"
-                                },
-                                "name": {
-                                  "description": "Intent name",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "naturalId"
-                              ]
-                            },
-                            "description": "Control port intents"
-                          }
-                        },
-                        "required": [
-                          "systemId",
-                          "naturalId",
-                          "name",
-                          "portType",
-                          "totalLinksAtPort",
-                          "intents"
-                        ]
-                      },
-                      "description": "Control port list"
-                    },
-                    "ckvs": {
-                      "description": "Calibration key-values (present when include=ckvs)",
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "keyValuePairs": {
-                            "type": "array",
-                            "items": {
-                              "$ref": "#/$defs/KeyValueInfoDto"
-                            },
-                            "description": "Collection of key-value pairs"
-                          },
-                          "systemId": {
-                            "type": "string",
-                            "description": "CKV system ID"
-                          },
-                          "supportedParameters": {
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "properties": {
-                                "naturalId": {
-                                  "type": "number",
-                                  "description": "Parameter ID"
-                                },
-                                "systemId": {
-                                  "type": "string",
-                                  "description": "Parameter system ID"
-                                },
-                                "name": {
-                                  "type": "string",
-                                  "description": "Parameter name"
-                                },
-                                "description": {
-                                  "type": "string",
-                                  "description": "Parameter description"
-                                }
-                              },
-                              "required": [
-                                "naturalId",
-                                "systemId",
-                                "name",
-                                "description"
-                              ]
-                            },
-                            "description": "Supported parameters for this CKV"
-                          }
-                        },
-                        "required": [
-                          "keyValuePairs",
-                          "systemId",
-                          "supportedParameters"
-                        ]
-                      }
-                    },
-                    "tags": {
-                      "description": "Tag info (present when include=tags)",
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "systemId": {
-                            "type": "string",
-                            "description": "Tag system ID"
-                          },
-                          "naturalId": {
-                            "type": "number",
-                            "description": "Tag ID"
-                          },
-                          "tagName": {
-                            "type": "string",
-                            "description": "Tag name"
-                          },
-                          "tkvs": {
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "properties": {
-                                "keyValuePairs": {
-                                  "type": "array",
-                                  "items": {
-                                    "$ref": "#/$defs/KeyValueInfoDto"
-                                  },
-                                  "description": "Collection of key-value pairs"
-                                },
-                                "systemId": {
-                                  "type": "string",
-                                  "description": "TKV system ID"
-                                },
-                                "supportedParameters": {
-                                  "type": "array",
-                                  "items": {
-                                    "type": "object",
-                                    "properties": {
-                                      "naturalId": {
-                                        "type": "number",
-                                        "description": "Parameter ID"
-                                      },
-                                      "systemId": {
-                                        "type": "string",
-                                        "description": "Parameter system ID"
-                                      },
-                                      "name": {
-                                        "type": "string",
-                                        "description": "Parameter name"
-                                      },
-                                      "description": {
-                                        "type": "string",
-                                        "description": "Parameter description"
-                                      }
-                                    },
-                                    "required": [
-                                      "naturalId",
-                                      "systemId",
-                                      "name",
-                                      "description"
-                                    ]
-                                  },
-                                  "description": "Supported parameters for this TKV"
-                                }
-                              },
-                              "required": [
-                                "keyValuePairs",
-                                "systemId",
-                                "supportedParameters"
-                              ]
-                            },
-                            "description": "Tag key-values configuration"
-                          }
-                        },
-                        "required": [
-                          "systemId",
-                          "naturalId",
-                          "tagName",
-                          "tkvs"
-                        ]
-                      }
-                    }
-                  },
-                  "required": [
-                    "systemId",
-                    "naturalId",
-                    "moduleDefinitionSystemId",
-                    "name",
-                    "subgraphSystemId",
-                    "containerSystemId",
-                    "maxInputPortsSupported",
-                    "maxOutputPortsSupported",
-                    "maxControlPortsSupported",
-                    "dataPorts",
-                    "controlPorts"
-                  ]
+                  "$ref": "#/$defs/SpfModuleSummaryDto"
                 },
                 "description": "SPF modules in the collection"
               },
@@ -13632,6 +12775,45 @@
         },
         "required": [
           "systemIds"
+        ]
+      },
+      "ValueInfoDto": {
+        "type": "object",
+        "properties": {
+          "naturalId": {
+            "type": "number",
+            "description": "Value id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Value name"
+          },
+          "systemId": {
+            "type": "string",
+            "description": "Value system identifier"
+          }
+        },
+        "required": [
+          "naturalId",
+          "name",
+          "systemId"
+        ]
+      },
+      "KeyValueInfoDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key information",
+            "$ref": "#/components/schemas/KeyInfoDto"
+          },
+          "value": {
+            "description": "Value information",
+            "$ref": "#/components/schemas/ValueInfoDto"
+          }
+        },
+        "required": [
+          "key",
+          "value"
         ]
       },
       "UsecaseAliasDto": {
@@ -16732,6 +15914,29 @@
         },
         "required": [
           "affectedCkvSystemIds"
+        ]
+      },
+      "RemoveCkvsResponseDto": {
+        "type": "object",
+        "properties": {
+          "removedCkvSystemIds": {
+            "description": "System IDs of the removed CKVs",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "addedCkvs": {
+            "description": "CKVs implicitly added as a side effect. The zero placeholder CKV is created when the last non-zero CKV is removed. Empty if no CKVs were auto-created.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CkvResponseDto"
+            }
+          }
+        },
+        "required": [
+          "removedCkvSystemIds",
+          "addedCkvs"
         ]
       },
       "RemoveSpfModuleResponseDto": {

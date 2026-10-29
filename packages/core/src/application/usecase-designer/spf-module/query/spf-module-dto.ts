@@ -109,26 +109,41 @@ export const ControlPortDtoSchema = z.object({
     .describe('Control port intents'),
 });
 
-export const SpfModuleDtoSchema = z.object({
-  systemId: z.string().describe('SPF module system ID'),
-  naturalId: z.number().int().describe('Module instance ID'),
-  moduleDefinitionSystemId: z.string().describe('Module definition system ID'),
-  name: z.string().describe('Module name'),
-  alias: z.string().optional().describe('Module alias (user-defined label)'),
-  parentSystemId: z
-    .string()
-    .optional()
-    .describe('Parent subsystem system ID (for hierarchical modules)'),
-  subgraphSystemId: z.string().describe('Subgraph this module belongs to'),
-  containerSystemId: z.string().describe('Container this module belongs to'),
-  maxInputPortsSupported: z.number().int().describe('Maximum input data ports'),
-  maxOutputPortsSupported: z
-    .number()
-    .int()
-    .describe('Maximum output data ports'),
-  maxControlPortsSupported: z.number().int().describe('Maximum control ports'),
-  dataPorts: z.array(ModuleDataPortDtoSchema).describe('Data port list'),
-  controlPorts: z.array(ControlPortDtoSchema).describe('Control port list'),
+export const SpfModuleSummaryDtoSchema = z
+  .object({
+    systemId: z.string().describe('SPF module system ID'),
+    naturalId: z.number().int().describe('Module instance ID'),
+    moduleDefinitionSystemId: z
+      .string()
+      .describe('Module definition system ID'),
+    name: z.string().describe('Module name'),
+    alias: z.string().optional().describe('Module alias (user-defined label)'),
+    parentSystemId: z
+      .string()
+      .optional()
+      .describe('Parent subsystem system ID (for hierarchical modules)'),
+    subgraphSystemId: z.string().describe('Subgraph this module belongs to'),
+    containerSystemId: z.string().describe('Container this module belongs to'),
+    maxInputPortsSupported: z
+      .number()
+      .int()
+      .describe('Maximum input data ports'),
+    maxOutputPortsSupported: z
+      .number()
+      .int()
+      .describe('Maximum output data ports'),
+    maxControlPortsSupported: z
+      .number()
+      .int()
+      .describe('Maximum control ports'),
+    dataPorts: z.array(ModuleDataPortDtoSchema).describe('Data port list'),
+    controlPorts: z.array(ControlPortDtoSchema).describe('Control port list'),
+  })
+  .meta({id: 'SpfModuleSummaryDto'});
+
+export type SpfModuleSummaryDto = z.infer<typeof SpfModuleSummaryDtoSchema>;
+
+export const SpfModuleDtoSchema = SpfModuleSummaryDtoSchema.extend({
   ckvs: z
     .array(CkvDtoSchema)
     .optional()
@@ -141,7 +156,7 @@ export const SpfModuleDtoSchema = z.object({
     .array(PropertyDtoSchema)
     .optional()
     .describe('Module instance properties'),
-});
+}).meta({id: 'SpfModuleDto'});
 
 export type SpfModuleDto = z.infer<typeof SpfModuleDtoSchema>;
 export type CkvDto = z.infer<typeof CkvDtoSchema>;
