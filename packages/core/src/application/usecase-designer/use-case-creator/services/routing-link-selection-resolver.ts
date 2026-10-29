@@ -15,11 +15,8 @@ import type {
 import type {RoutingSelection} from '../contracts/routing-input.js';
 
 /**
- * Phase 0: parses raw string IDs and looks up each canonical link by system ID.
- *
- * Subsystem segment resolution (mapping a segment ID to its canonical parent)
- * is deferred to PR 9.5. Until then, an ID not found as a canonical link via
- * findBySystemId returns a not-found failure.
+ * Phase 0: parses request IDs and normalizes canonical and subsystem-segment
+ * IDs to their effective canonical links.
  */
 export async function resolveRoutingLinkSelection(
   fileSystemId: number,
@@ -70,6 +67,8 @@ async function resolveLinks(
   kind: 'data' | 'control',
   uow: UnitOfWork,
 ): Promise<Result<readonly number[]>> {
+  if (rawIds.length === 0) return Result.ok([]);
+
   const canonical = new Set<number>();
   const repository =
     kind === 'data'
@@ -80,16 +79,23 @@ async function resolveLinks(
       ? ISSUE_ENTITY_TYPE.DataLink
       : ISSUE_ENTITY_TYPE.ControlLink;
 
-  for (const rawId of rawIds) {
-    const id = parseId(
+  const parsedIds = rawIds.map(rawId =>
+    parseId(
       rawId,
       `included${kind === 'data' ? 'Data' : 'Control'}LinkSystemIds`,
-    );
-    // TODO PR 9.5: if findBySystemId returns null, also check subsystem segments table.
-    const link = await repository.findBySystemId(id, fileSystemId);
-    if (link === null)
-      return Result.fail(IssueFactory.notFound(entityType, id));
-    canonical.add(id);
+    ),
+  );
+  const resolutions = await repository.findCanonicalLinksByAnySystemIds(
+    parsedIds,
+    fileSystemId,
+  );
+  for (const resolution of resolutions) {
+    if (resolution.canonicalLink === null) {
+      return Result.fail(
+        IssueFactory.notFound(entityType, resolution.requestedSystemId),
+      );
+    }
+    canonical.add(resolution.canonicalLink.systemId);
   }
 
   return Result.ok([...canonical]);

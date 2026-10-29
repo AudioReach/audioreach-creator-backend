@@ -16,6 +16,21 @@ export interface DataLinkTopology {
   unresolvedSubsystemDataLinks: SubsystemDataLink[];
 }
 
+/**
+ * Result shape for batched Phase-0 request-ID normalization.
+ * One entry per requested system ID, in input order.
+ */
+export interface DataLinkIdResolution {
+  requestedSystemId: number;
+  /** True when the supplied ID identifies a SubsystemDataLink segment. */
+  isSegment: boolean;
+  /**
+   * Null when the ID is unknown, the segment is unresolved, or its canonical
+   * parent is absent from the effective overlay.
+   */
+  canonicalLink: DataLink | null;
+}
+
 export interface BoundaryPortPayload {
   portSystemId: number;
   nodeSystemId: number;
@@ -48,6 +63,25 @@ export interface DataLinkRepository {
     systemId: number,
     fileSystemId: number,
   ): Promise<DataLink | null>;
+
+  /**
+   * Resolves canonical DataLink IDs and SubsystemDataLink segment IDs to their
+   * effective canonical links. Empty input returns [] without querying.
+   */
+  findCanonicalLinksByAnySystemIds(
+    systemIds: readonly number[],
+    fileSystemId: number,
+  ): Promise<DataLinkIdResolution[]>;
+
+  /**
+   * Resolves existing unresolved subsystem segments by setting their canonical
+   * DataLink ID in the current session overlay. Empty input is a no-op.
+   */
+  resolveSubsystemDataLinks(
+    subsystemDataLinks: readonly SubsystemDataLink[],
+    dataLinkSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
 
   /**
    * Deletes the canonical link and every currently resolved subsystem segment

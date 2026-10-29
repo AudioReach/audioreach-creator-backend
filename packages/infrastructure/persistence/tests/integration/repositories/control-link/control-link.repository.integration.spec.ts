@@ -489,4 +489,128 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
       )?.newValue,
     ).toMatchObject({controlLinkSystemId: null});
   });
+
+  describe('Phase-0 subsystem-link resolution', () => {
+    it('normalizes canonical and segment IDs in request order', async () => {
+      await seedControlLink(ds, 800, PORT_CP_A, PORT_CP_B);
+      await seedSubsystemControlLink(ds, 801, 800);
+
+      const resolutions = await makeRepo(
+        qr,
+        sessionId,
+      ).findCanonicalLinksByAnySystemIds([800, 801, 999], FILE_ID);
+
+      expect(
+        resolutions.map(resolution => resolution.requestedSystemId),
+      ).toEqual([800, 801, 999]);
+      expect(resolutions[0]).toMatchObject({
+        isSegment: false,
+        canonicalLink: {systemId: 800},
+      });
+      expect(resolutions[1]).toMatchObject({
+        isSegment: true,
+        canonicalLink: {systemId: 800},
+      });
+      expect(resolutions[2]).toMatchObject({
+        isSegment: false,
+        canonicalLink: null,
+      });
+    });
+
+    it('identifies an unresolved session-created segment without a canonical parent', async () => {
+      await seedUnresolvedSubsystemControlLink(qr, sessionId, 803);
+
+      const [resolution] = await makeRepo(
+        qr,
+        sessionId,
+      ).findCanonicalLinksByAnySystemIds([803], FILE_ID);
+
+      expect(resolution).toMatchObject({
+        requestedSystemId: 803,
+        isSegment: true,
+        canonicalLink: null,
+      });
+    });
+
+    it('short-circuits canonical-ID normalization for empty input', async () => {
+      await expect(
+        makeRepo(qr, sessionId).findCanonicalLinksByAnySystemIds([], FILE_ID),
+      ).resolves.toEqual([]);
+    });
+
+    it('writes an UPDATE delta for a committed segment and exposes its new parent in the overlay', async () => {
+      await seedControlLink(ds, 800, PORT_CP_A, PORT_CP_B);
+      await seedControlLink(ds, 900, PORT_SEGMENT_A, PORT_SEGMENT_B);
+      await seedSubsystemControlLink(ds, 801, 800);
+      const repo = makeRepo(qr, sessionId);
+      const segment = (await repo.findAllLinks(FILE_ID)).controlLinks[0]
+        ?.subsystemControlLinks[0];
+
+      await repo.resolveSubsystemControlLinks([segment!], 900, {
+        source: SOURCE.Manual,
+        linkedEntityGroupId: 'group-A',
+      });
+
+      const [action] = (await getActiveActions(qr, sessionId)).filter(
+        candidate =>
+          candidate.targetTable === ENTITY_NAMES.SubsystemControlLink &&
+          candidate.targetSystemId === 801,
+      );
+      expect(action).toMatchObject({
+        operation: CHANGE_OPERATION.Update,
+        source: SOURCE.Manual,
+        changeStatus: CHANGE_STATUS.Staged,
+        linkedEntityGroupId: 'group-A',
+        newValue: {controlLinkSystemId: 900},
+      });
+      expect(
+        (await repo.findAllLinks(FILE_ID)).controlLinks
+          .find(link => link.systemId === 900)
+          ?.subsystemControlLinks.map(link => link.systemId),
+      ).toEqual([801]);
+    });
+
+    it('absorbs resolution into a session-created segment payload and keeps CREATE metadata', async () => {
+      await seedControlLink(ds, 800, PORT_CP_A, PORT_CP_B);
+      await seedUnresolvedSubsystemControlLink(qr, sessionId, 803);
+      const repo = makeRepo(qr, sessionId);
+      const segment = (await repo.findAllLinks(FILE_ID))
+        .unresolvedSubsystemControlLinks[0];
+
+      await repo.resolveSubsystemControlLinks([segment], 800, {
+        source: SOURCE.Manual,
+        linkedEntityGroupId: 'group-A',
+      });
+
+      const [action] = (await getActiveActions(qr, sessionId)).filter(
+        candidate =>
+          candidate.targetTable === ENTITY_NAMES.SubsystemControlLink &&
+          candidate.targetSystemId === 803,
+      );
+      expect(action).toMatchObject({
+        operation: CHANGE_OPERATION.Create,
+        source: SOURCE.Manual,
+        changeStatus: CHANGE_STATUS.Staged,
+        linkedEntityGroupId: null,
+        newValue: {controlLinkSystemId: 800},
+      });
+      const topology = await repo.findAllLinks(FILE_ID);
+      expect(topology.unresolvedSubsystemControlLinks).toEqual([]);
+      expect(
+        topology.controlLinks[0]?.subsystemControlLinks.map(
+          link => link.systemId,
+        ),
+      ).toEqual([803]);
+    });
+
+    it('does not write when there are no subsystem segments to resolve', async () => {
+      const repo = makeRepo(qr, sessionId);
+
+      await repo.resolveSubsystemControlLinks([], 800, {
+        source: SOURCE.Manual,
+      });
+
+      await expect(getActiveActions(qr, sessionId)).resolves.toEqual([]);
+    });
+  });
 });

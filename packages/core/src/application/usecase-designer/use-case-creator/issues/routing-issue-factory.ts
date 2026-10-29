@@ -807,4 +807,35 @@ export const RoutingIssueFactory = {
       severity: IssueSeverity.Error,
     };
   },
+
+  incompleteDataChain(
+    ssLinkSystemIds: readonly number[],
+    startModuleSystemId: number,
+    lastReachableNodeSystemId: number,
+  ): Issue {
+    return {
+      code: ISSUE_CODE.ROUTING_PHASE0_INCOMPLETE_DATA_CHAIN,
+      message:
+        `Subsystem data-link chain starting at module ${startModuleSystemId} is incomplete ` +
+        `(last reachable node: ${lastReachableNodeSystemId}; ` +
+        `segment IDs: [${ssLinkSystemIds.join(', ')}]). ` +
+        'Complete or delete the chain before routing.',
+      severity: IssueSeverity.Error,
+    };
+  },
+
+  incompleteControlChain(
+    ssLinksSystemIds: readonly number[],
+    reachableNodeIds: readonly number[],
+  ): Issue {
+    return {
+      code: ISSUE_CODE.ROUTING_PHASE0_INCOMPLETE_CONTROL_CHAIN,
+      message:
+        'Subsystem control-link chain is incomplete ' +
+        `(reachable nodes: [${reachableNodeIds.join(', ')}]; ` +
+        `segment IDs: [${ssLinksSystemIds.join(', ')}]). ` +
+        'Complete or delete the chain before routing.',
+      severity: IssueSeverity.Error,
+    };
+  },
 } as const;

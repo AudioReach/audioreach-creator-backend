@@ -80,11 +80,13 @@ export type {ParameterDefinitionBase} from './application/ports/persistence/repo
 export type {
   DataLinkRepository,
   DataLinkTopology,
+  DataLinkIdResolution,
   BoundaryPortPayload,
 } from './application/ports/persistence/repositories/data-link/data-link.repository.js';
 export type {
   ControlLinkRepository,
   ControlLinkTopology,
+  ControlLinkIdResolution,
 } from './application/ports/persistence/repositories/control-link/control-link.repository.js';
 export type {SubgraphRepository} from './application/ports/persistence/repositories/subgraph/subgraph.repository.js';
 export {VcpmInstance} from './domain/entities/usecase-data/subgraph/entities/vcpm-module-instance.js';

@@ -12,6 +12,7 @@ import {
 import {createEmptyRoutingOutcome} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-outcome.js';
 import {CreateManualUsecasesCommand} from '../../../../../../src/application/usecase-designer/use-case-creator/create-manual-usecases/create-manual-usecases.command.js';
 import {CreateManualUsecasesHandler} from '../../../../../../src/application/usecase-designer/use-case-creator/create-manual-usecases/create-manual-usecases.handler.js';
+import {RoutingIssueFactory} from '../../../../../../src/application/usecase-designer/use-case-creator/issues/routing-issue-factory.js';
 
 const idGeneration = {getNextId: jest.fn(async () => 100)} as never;
 
@@ -54,14 +55,24 @@ function createUow(events: string[]) {
       findChangedInSession: jest.fn(async () => ({added: [], deleted: []})),
     }),
     getDataLinkRepository: () => ({
-      findBySystemId: jest.fn(async (systemId: number) => {
+      findCanonicalLinksByAnySystemIds: jest.fn(async (systemIds: number[]) => {
         events.push('data-link:resolve');
-        return systemId === 801 ? dataLink : null;
+        return systemIds.map(requestedSystemId => ({
+          requestedSystemId,
+          isSegment: false,
+          canonicalLink: requestedSystemId === 801 ? dataLink : null,
+        }));
       }),
       findChangedInSession: jest.fn(async () => ({added: [], deleted: []})),
     }),
     getControlLinkRepository: () => ({
-      findBySystemId: jest.fn(async () => null),
+      findCanonicalLinksByAnySystemIds: jest.fn(async (systemIds: number[]) =>
+        systemIds.map(requestedSystemId => ({
+          requestedSystemId,
+          isSegment: false,
+          canonicalLink: null,
+        })),
+      ),
       findChangedInSession: jest.fn(async () => ({added: [], deleted: []})),
     }),
     getUsecaseRepository: () => ({
@@ -160,5 +171,37 @@ describe('CreateManualUsecasesHandler', () => {
       uow,
       idGeneration,
     );
+  });
+
+  it('rolls back without executing the engine when chain resolution fails', async () => {
+    const events: string[] = [];
+    const uow = createUow(events);
+    const engine = {run: jest.fn()};
+    const resolver = {
+      resolveAllChains: jest.fn(async () =>
+        Result.fail(RoutingIssueFactory.incompleteDataChain([1], 10, 20)),
+      ),
+    };
+    const handler = new CreateManualUsecasesHandler(
+      uow as never,
+      idGeneration,
+      resolver as never,
+      engine as never,
+      {build: jest.fn()} as never,
+    );
+
+    await expect(
+      handler.handle(
+        new CreateManualUsecasesCommand(1, {
+          activeSubgraphs: [],
+          includedDataLinkSystemIds: [],
+          includedControlLinkSystemIds: [],
+        }),
+      ),
+    ).rejects.toMatchObject({errorCode: 'DOMAIN_RULE_VIOLATION'});
+
+    expect(resolver.resolveAllChains).toHaveBeenCalledWith(uow, idGeneration);
+    expect(uow.rollback).toHaveBeenCalledTimes(1);
+    expect(engine.run).not.toHaveBeenCalled();
   });
 });
