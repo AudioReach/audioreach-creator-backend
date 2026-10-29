@@ -64,7 +64,10 @@ export class CreateManualUsecasesHandler implements CommandHandler<
     await this.uow.startTransaction();
     try {
       const resolution =
-        await this.subsystemLinkResolutionService.resolveAllChains(this.uow);
+        await this.subsystemLinkResolutionService.resolveAllChains(
+          this.uow,
+          this.idGeneration,
+        );
       if (resolution.kind === RESULT_KIND.Fail)
         throw new DomainRuleViolationException(resolution.issues);
       const selectionResult = await resolveRoutingLinkSelection(

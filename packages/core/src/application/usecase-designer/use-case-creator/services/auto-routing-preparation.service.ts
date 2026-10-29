@@ -6,6 +6,7 @@
 import {DomainRuleViolationException} from '../../../../shared/exceptions/domain-rule-violation.exception.js';
 import {SOURCE} from '../../../shared/change-vocabulary.js';
 import {RESULT_KIND} from '../../../shared/result/result.js';
+import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {
   createAutoRoutingInput,
@@ -36,8 +37,9 @@ export class AutoRoutingPreparationService {
     fileSystemId: number,
     input: AutoRoutingCommandInput,
     uow: UnitOfWork,
+    idGeneration: IdGenerationPort,
   ): Promise<AutoRoutingInput> {
-    await this.resolveSubsystemChains(uow);
+    await this.resolveSubsystemChains(uow, idGeneration);
     const selectionResult = await this.resolveRoutingSelection(
       fileSystemId,
       input,
@@ -57,14 +59,21 @@ export class AutoRoutingPreparationService {
     fileSystemId: number,
     selection: RoutingSelection,
     uow: UnitOfWork,
+    idGeneration: IdGenerationPort,
   ): Promise<AutoRoutingInput> {
-    await this.resolveSubsystemChains(uow);
+    await this.resolveSubsystemChains(uow, idGeneration);
     return this.prepareCanonicalSelection(fileSystemId, selection, uow);
   }
 
-  private async resolveSubsystemChains(uow: UnitOfWork): Promise<void> {
+  private async resolveSubsystemChains(
+    uow: UnitOfWork,
+    idGeneration: IdGenerationPort,
+  ): Promise<void> {
     const resolution =
-      await this.subsystemLinkResolutionService.resolveAllChains(uow);
+      await this.subsystemLinkResolutionService.resolveAllChains(
+        uow,
+        idGeneration,
+      );
     if (resolution.kind === RESULT_KIND.Fail)
       throw new DomainRuleViolationException(resolution.issues);
   }

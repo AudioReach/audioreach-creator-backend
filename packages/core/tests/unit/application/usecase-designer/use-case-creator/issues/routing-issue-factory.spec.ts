@@ -4,6 +4,8 @@
  */
 
 import {RoutingIssueFactory} from '../../../../../../src/application/usecase-designer/use-case-creator/issues/routing-issue-factory.js';
+import {ISSUE_CODE} from '../../../../../../src/shared/issues/operational-codes.js';
+import {IssueSeverity} from '../../../../../../src/shared/issues/severity.js';
 
 describe('RoutingIssueFactory', () => {
   it('creates the MDF requested-KV issue', () => {
@@ -67,5 +69,25 @@ describe('RoutingIssueFactory', () => {
         'Missing data link IDs: [501]. ' +
         'Missing control link IDs: [601].',
     );
+  });
+
+  it('creates an error issue for an incomplete data-link chain', () => {
+    const issue = RoutingIssueFactory.incompleteDataChain([10, 11, 12], 10, 99);
+
+    expect(issue.severity).toBe(IssueSeverity.Error);
+    expect(issue.code).toBe(ISSUE_CODE.ROUTING_PHASE0_INCOMPLETE_DATA_CHAIN);
+    expect(issue.message).toContain('10');
+    expect(issue.message).toContain('99');
+  });
+
+  it('creates an error issue for an incomplete control-link chain', () => {
+    const issue = RoutingIssueFactory.incompleteControlChain(
+      [20, 21],
+      [20, 30, 40],
+    );
+
+    expect(issue.severity).toBe(IssueSeverity.Error);
+    expect(issue.code).toBe(ISSUE_CODE.ROUTING_PHASE0_INCOMPLETE_CONTROL_CHAIN);
+    expect(issue.message).toContain('30');
   });
 });

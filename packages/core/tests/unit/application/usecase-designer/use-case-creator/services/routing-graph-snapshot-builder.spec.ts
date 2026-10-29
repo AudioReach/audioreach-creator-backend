@@ -499,4 +499,35 @@ describe('RoutingGraphSnapshotBuilder', () => {
       });
     }
   });
+
+  it('includes a session-created resolved data link in the routable snapshot', async () => {
+    const resolvedLink = dataLink(99, 10, 20);
+    const catalog = createUow({
+      subgraphs: [subgraph(10), subgraph(20)],
+      dataLinks: [resolvedLink],
+      controlLinks: [],
+    });
+    const builder = new RoutingGraphSnapshotBuilder({
+      classifyMdfSubgraphs: jest.fn(async () => ({
+        effectiveMdfIds: new Set<number>(),
+        deletedMdfIds: new Set<number>(),
+      })),
+    } as never);
+
+    const result = await builder.build(
+      buildInput(
+        [
+          {systemId: 10, sgkvs: []},
+          {systemId: 20, sgkvs: []},
+        ],
+        {includedDataLinkSystemIds: [99]},
+      ),
+      catalog.uow as never,
+    );
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    if (result.kind === RESULT_KIND.Ok) {
+      expect(result.data.routableDataLinks).toEqual([resolvedLink]);
+    }
+  });
 });

@@ -64,6 +64,7 @@ export class ResolveSameGkvCollisionHandler implements CommandHandler<
         fileSystemId,
         command.replayInput,
         this.uow,
+        this.idGeneration,
       );
       const replay = await this.engine.resolveCollision(
         input,

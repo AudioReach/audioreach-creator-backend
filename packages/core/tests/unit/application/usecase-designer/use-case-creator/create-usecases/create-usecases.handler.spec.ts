@@ -10,7 +10,9 @@ import type {RoutingGraphSnapshot} from '../../../../../../src/application/useca
 import {createEmptyRoutingOutcome} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-outcome.js';
 import {CreateUsecasesCommand} from '../../../../../../src/application/usecase-designer/use-case-creator/create-usecases/create-usecases.command.js';
 import {CreateUsecasesHandler} from '../../../../../../src/application/usecase-designer/use-case-creator/create-usecases/create-usecases.handler.js';
+import {RoutingIssueFactory} from '../../../../../../src/application/usecase-designer/use-case-creator/issues/routing-issue-factory.js';
 import {AutoRoutingPreparationService} from '../../../../../../src/application/usecase-designer/use-case-creator/services/auto-routing-preparation.service.js';
+import {DomainRuleViolationException} from '../../../../../../src/shared/exceptions/domain-rule-violation.exception.js';
 
 function snapshot(): RoutingGraphSnapshot {
   return {
@@ -144,6 +146,7 @@ describe('CreateUsecasesHandler', () => {
       1,
       rawInput,
       catalog.uow as never,
+      idGeneration,
     );
 
     expect(resolve).toHaveBeenCalledWith(1, rawInput, catalog.uow);
@@ -169,6 +172,7 @@ describe('CreateUsecasesHandler', () => {
       1,
       selection,
       catalog.uow as never,
+      idGeneration,
     );
 
     expect(resolve).not.toHaveBeenCalled();
@@ -294,5 +298,45 @@ describe('CreateUsecasesHandler', () => {
 
     expect(catalog.uow.rollback).toHaveBeenCalledTimes(1);
     expect(catalog.uow.commit).not.toHaveBeenCalled();
+  });
+
+  it('rolls back and rethrows a preparation failure without running the engine', async () => {
+    const events: string[] = [];
+    const catalog = createUow(events);
+    const engine = {run: jest.fn()};
+    const preparation = {
+      prepareFromRawInput: jest.fn(async () => {
+        throw new DomainRuleViolationException([
+          RoutingIssueFactory.incompleteDataChain([1], 10, 20),
+        ]);
+      }),
+    };
+    const handler = new CreateUsecasesHandler(
+      catalog.uow as never,
+      idGeneration,
+      {} as never,
+      engine as never,
+      {} as never,
+      preparation as never,
+    );
+
+    await expect(
+      handler.handle(
+        new CreateUsecasesCommand(1, {
+          activeSubgraphs: [],
+          includedDataLinkSystemIds: [],
+          includedControlLinkSystemIds: [],
+        }),
+      ),
+    ).rejects.toBeInstanceOf(DomainRuleViolationException);
+
+    expect(preparation.prepareFromRawInput).toHaveBeenCalledWith(
+      1,
+      expect.anything(),
+      catalog.uow,
+      idGeneration,
+    );
+    expect(catalog.uow.rollback).toHaveBeenCalledTimes(1);
+    expect(engine.run).not.toHaveBeenCalled();
   });
 });

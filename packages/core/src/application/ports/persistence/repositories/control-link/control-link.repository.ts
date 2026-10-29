@@ -13,6 +13,21 @@ export interface ControlLinkTopology {
   unresolvedSubsystemControlLinks: SubsystemControlLink[];
 }
 
+/**
+ * Result shape for batched Phase-0 request-ID normalization.
+ * One entry per requested system ID, in input order.
+ */
+export interface ControlLinkIdResolution {
+  requestedSystemId: number;
+  /** True when the supplied ID identifies a SubsystemControlLink segment. */
+  isSegment: boolean;
+  /**
+   * Null when the ID is unknown, the segment is unresolved, or its canonical
+   * parent is absent from the effective overlay.
+   */
+  canonicalLink: ControlLink | null;
+}
+
 export interface ControlLinkRepository {
   findLinksConnectedToModule(
     moduleSystemId: number,
@@ -36,6 +51,25 @@ export interface ControlLinkRepository {
     systemId: number,
     fileSystemId: number,
   ): Promise<ControlLink | null>;
+
+  /**
+   * Resolves canonical ControlLink IDs and SubsystemControlLink segment IDs to
+   * their effective canonical links. Empty input returns [] without querying.
+   */
+  findCanonicalLinksByAnySystemIds(
+    systemIds: readonly number[],
+    fileSystemId: number,
+  ): Promise<ControlLinkIdResolution[]>;
+
+  /**
+   * Resolves existing unresolved subsystem segments by setting their canonical
+   * ControlLink ID in the current session overlay. Empty input is a no-op.
+   */
+  resolveSubsystemControlLinks(
+    subsystemControlLinks: readonly SubsystemControlLink[],
+    controlLinkSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
 
   /**
    * Deletes the canonical link and every currently resolved subsystem segment

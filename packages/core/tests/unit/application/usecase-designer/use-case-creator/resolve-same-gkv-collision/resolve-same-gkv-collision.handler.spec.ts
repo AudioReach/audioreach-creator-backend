@@ -96,6 +96,7 @@ describe('ResolveSameGkvCollisionHandler', () => {
       1,
       replayInput,
       uow,
+      expect.anything(),
     );
     expect(engine.resolveCollision).toHaveBeenCalledWith(
       expect.anything(),

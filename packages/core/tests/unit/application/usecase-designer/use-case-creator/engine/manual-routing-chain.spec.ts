@@ -307,12 +307,34 @@ function createManualRoutingFixture(seed: FixtureSeed) {
       })),
   };
   const dataLinkRepository = {
+    findAllLinks: async () => ({
+      dataLinks: [...(seed.dataLinks ?? [])],
+      unresolvedSubsystemDataLinks: [],
+    }),
+    findCanonicalLinksByAnySystemIds: async (systemIds: readonly number[]) =>
+      systemIds.map(systemId => ({
+        requestedSystemId: systemId,
+        isSegment: false,
+        canonicalLink:
+          seed.dataLinks?.find(link => link.systemId === systemId) ?? null,
+      })),
     findChangedInSession: async () => ({added: [], deleted: []}),
     findIntraUcLinksByFile: async () => [...(seed.dataLinks ?? [])],
     findBySystemId: async (systemId: number) =>
       seed.dataLinks?.find(link => link.systemId === systemId) ?? null,
   };
   const controlLinkRepository = {
+    findAllLinks: async () => ({
+      controlLinks: [...(seed.controlLinks ?? [])],
+      unresolvedSubsystemControlLinks: [],
+    }),
+    findCanonicalLinksByAnySystemIds: async (systemIds: readonly number[]) =>
+      systemIds.map(systemId => ({
+        requestedSystemId: systemId,
+        isSegment: false,
+        canonicalLink:
+          seed.controlLinks?.find(link => link.systemId === systemId) ?? null,
+      })),
     findChangedInSession: async () => ({added: [], deleted: []}),
     findIntraUcLinksByFile: async () => [...(seed.controlLinks ?? [])],
     findBySystemId: async (systemId: number) =>
@@ -335,7 +357,10 @@ function createManualRoutingFixture(seed: FixtureSeed) {
       rollbacks += 1;
     },
     isInTransaction: () => inTransaction,
-    getWriteContext: () => ({groupId: 'manual-routing-group'}),
+    getWriteContext: () => ({
+      session: {fileSystemId: FILE_ID},
+      groupId: 'manual-routing-group',
+    }),
     getSubgraphRepository: () => subgraphRepository,
     getDataLinkRepository: () => dataLinkRepository,
     getControlLinkRepository: () => controlLinkRepository,
@@ -344,6 +369,7 @@ function createManualRoutingFixture(seed: FixtureSeed) {
     getModuleDefinitionRepository: () => ({findBySystemIds: async () => []}),
     getSubsystemRepository: () => ({
       findOrphanSubsystemSystemIds: async () => [],
+      getAllNodesWithParents: async () => [],
     }),
   };
   const idGeneration = {

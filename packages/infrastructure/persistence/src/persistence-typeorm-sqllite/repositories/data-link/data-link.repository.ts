@@ -12,6 +12,7 @@ import type {
   SessionChanged,
   EditOptions,
   DataLinkTopology,
+  DataLinkIdResolution,
   BoundaryPortPayload,
   ReadOptions,
 } from '@arc/core';
@@ -81,10 +82,6 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     const editActions = new EditActionsQueryService(this.manager);
     this.editActionsQueryService = editActions;
     this.linkFetcher = new LinkOverlayFetcher(this.manager, editActions);
-  }
-
-  private getWriter(): PendingChangeWriter {
-    return this.writer;
   }
 
   async findLinksConnectedToModule(
@@ -202,7 +199,7 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
       sessionId,
       {dataLinkSystemId},
     );
-    await this.getWriter().writeDelete(
+    await this.writer.writeDelete(
       {
         targetTable: ENTITY_NAMES.DataLink,
         targetSystemId: dataLinkSystemId,
@@ -213,7 +210,7 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
       this.manager,
     );
     for (const segment of resolvedSegments) {
-      await this.getWriter().writeDelete(
+      await this.writer.writeDelete(
         {
           targetTable: ENTITY_NAMES.SubsystemDataLink,
           targetSystemId: segment.systemId,
@@ -328,6 +325,95 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
       {systemId},
     );
     return rows.length > 0 ? baseToDataLink(rows[0]) : null;
+  }
+
+  async findCanonicalLinksByAnySystemIds(
+    systemIds: readonly number[],
+    fileSystemId: number,
+  ): Promise<DataLinkIdResolution[]> {
+    if (systemIds.length === 0) return [];
+
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const requestedIds = [...systemIds];
+    const [canonicalRows, segmentRows] = await Promise.all([
+      this.linkFetcher.loadDataLinkRows(fileSystemId, sessionId, {
+        systemId: requestedIds,
+      }),
+      this.linkFetcher.loadSubsystemDataLinkRows(fileSystemId, sessionId, {
+        systemId: requestedIds,
+      }),
+    ]);
+    const canonicalBySystemId = new Map(
+      canonicalRows.map(row => [row.systemId, row]),
+    );
+    const segmentBySystemId = new Map(
+      segmentRows.map(row => [row.systemId, row]),
+    );
+    const missingParentIds = [
+      ...new Set(
+        segmentRows
+          .map(segment => segment.dataLinkSystemId)
+          .filter(
+            (systemId): systemId is number =>
+              systemId !== null && !canonicalBySystemId.has(systemId),
+          ),
+      ),
+    ];
+    if (missingParentIds.length > 0) {
+      const parentRows = await this.linkFetcher.loadDataLinkRows(
+        fileSystemId,
+        sessionId,
+        {systemId: missingParentIds},
+      );
+      for (const row of parentRows) {
+        canonicalBySystemId.set(row.systemId, row);
+      }
+    }
+
+    return systemIds.map(requestedSystemId => {
+      const canonical = canonicalBySystemId.get(requestedSystemId);
+      if (canonical) {
+        return {
+          requestedSystemId,
+          isSegment: false,
+          canonicalLink: baseToDataLink(canonical),
+        };
+      }
+      const segment = segmentBySystemId.get(requestedSystemId);
+      if (!segment) {
+        return {requestedSystemId, isSegment: false, canonicalLink: null};
+      }
+      const parent =
+        segment.dataLinkSystemId === null
+          ? undefined
+          : canonicalBySystemId.get(segment.dataLinkSystemId);
+      return {
+        requestedSystemId,
+        isSegment: true,
+        canonicalLink: parent ? baseToDataLink(parent) : null,
+      };
+    });
+  }
+
+  async resolveSubsystemDataLinks(
+    subsystemDataLinks: readonly SubsystemDataLink[],
+    dataLinkSystemId: number,
+    options?: EditOptions,
+  ): Promise<void> {
+    if (subsystemDataLinks.length === 0) return;
+
+    const {session} = this.uow.getWriteContext();
+    await this.writer.writeDeltaBatch(
+      subsystemDataLinks.map(segment => ({
+        targetTable: ENTITY_NAMES.SubsystemDataLink,
+        targetSystemId: segment.systemId,
+        aggregateId: dataLinkSystemId,
+        delta: {dataLinkSystemId},
+        ...options,
+      })),
+      session.sessionId,
+      this.manager,
+    );
   }
 
   async createSubsystemDataLinks(

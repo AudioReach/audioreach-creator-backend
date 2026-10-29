@@ -11,16 +11,35 @@ import type {
 import {RESULT_KIND} from '../../../../../../src/application/shared/result/result.js';
 import {resolveRoutingLinkSelection} from '../../../../../../src/application/usecase-designer/use-case-creator/services/routing-link-selection-resolver.js';
 
+type LinkResolution<TLink> = {
+  isSegment: boolean;
+  canonicalLink: TLink | null;
+};
+
 function makeUow(
-  dataLinks: Map<number, DataLink | null>,
-  controlLinks: Map<number, ControlLink | null>,
+  dataLinks: Map<number, LinkResolution<DataLink>>,
+  controlLinks: Map<number, LinkResolution<ControlLink>>,
 ) {
   return {
     getDataLinkRepository: () => ({
-      findBySystemId: async (id: number) => dataLinks.get(id) ?? null,
+      findCanonicalLinksByAnySystemIds: async (ids: readonly number[]) =>
+        ids.map(requestedSystemId => ({
+          requestedSystemId,
+          ...(dataLinks.get(requestedSystemId) ?? {
+            isSegment: false,
+            canonicalLink: null,
+          }),
+        })),
     }),
     getControlLinkRepository: () => ({
-      findBySystemId: async (id: number) => controlLinks.get(id) ?? null,
+      findCanonicalLinksByAnySystemIds: async (ids: readonly number[]) =>
+        ids.map(requestedSystemId => ({
+          requestedSystemId,
+          ...(controlLinks.get(requestedSystemId) ?? {
+            isSegment: false,
+            canonicalLink: null,
+          }),
+        })),
     }),
   } as never;
 }
@@ -33,6 +52,10 @@ function canonicalControlLink(id: number): ControlLink {
   return {systemId: id, fileSystemId: 1} as ControlLink;
 }
 
+function canonicalResolution<TLink>(link: TLink): LinkResolution<TLink> {
+  return {isSegment: false, canonicalLink: link};
+}
+
 describe('resolveRoutingLinkSelection', () => {
   it('parses string IDs and returns a canonical RoutingSelection', async () => {
     const result = await resolveRoutingLinkSelection(
@@ -43,8 +66,8 @@ describe('resolveRoutingLinkSelection', () => {
         includedControlLinkSystemIds: ['901'],
       },
       makeUow(
-        new Map([[801, canonicalDataLink(801)]]),
-        new Map([[901, canonicalControlLink(901)]]),
+        new Map([[801, canonicalResolution(canonicalDataLink(801))]]),
+        new Map([[901, canonicalResolution(canonicalControlLink(901))]]),
       ),
     );
 
@@ -63,7 +86,10 @@ describe('resolveRoutingLinkSelection', () => {
         includedDataLinkSystemIds: ['801', '801'],
         includedControlLinkSystemIds: [],
       },
-      makeUow(new Map([[801, canonicalDataLink(801)]]), new Map()),
+      makeUow(
+        new Map([[801, canonicalResolution(canonicalDataLink(801))]]),
+        new Map(),
+      ),
     );
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
@@ -71,7 +97,51 @@ describe('resolveRoutingLinkSelection', () => {
     expect(result.data.includedDataLinkSystemIds).toEqual([801]);
   });
 
-  it('fails when an ID is not found as a canonical link', async () => {
+  it('maps a data-link segment ID to its canonical parent', async () => {
+    const result = await resolveRoutingLinkSelection(
+      1,
+      {
+        activeSubgraphs: [],
+        includedDataLinkSystemIds: ['802'],
+        includedControlLinkSystemIds: [],
+      },
+      makeUow(
+        new Map([
+          [802, {isSegment: true, canonicalLink: canonicalDataLink(801)}],
+        ]),
+        new Map(),
+      ),
+    );
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    if (result.kind === RESULT_KIND.Fail) throw new Error('Expected success');
+    expect(result.data.includedDataLinkSystemIds).toEqual([801]);
+  });
+
+  it('deduplicates canonical and segment IDs resolving to one data link', async () => {
+    const canonical = canonicalDataLink(801);
+    const result = await resolveRoutingLinkSelection(
+      1,
+      {
+        activeSubgraphs: [],
+        includedDataLinkSystemIds: ['801', '802'],
+        includedControlLinkSystemIds: [],
+      },
+      makeUow(
+        new Map([
+          [801, canonicalResolution(canonical)],
+          [802, {isSegment: true, canonicalLink: canonical}],
+        ]),
+        new Map(),
+      ),
+    );
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    if (result.kind === RESULT_KIND.Fail) throw new Error('Expected success');
+    expect(result.data.includedDataLinkSystemIds).toEqual([801]);
+  });
+
+  it('fails when an ID is not a canonical link or a resolved segment', async () => {
     const result = await resolveRoutingLinkSelection(
       1,
       {
@@ -79,7 +149,27 @@ describe('resolveRoutingLinkSelection', () => {
         includedDataLinkSystemIds: ['555'],
         includedControlLinkSystemIds: [],
       },
-      makeUow(new Map([[555, null]]), new Map()),
+      makeUow(
+        new Map([[555, {isSegment: false, canonicalLink: null}]]),
+        new Map(),
+      ),
+    );
+
+    expect(result.kind).toBe(RESULT_KIND.Fail);
+  });
+
+  it('fails when a supplied segment is unresolved', async () => {
+    const result = await resolveRoutingLinkSelection(
+      1,
+      {
+        activeSubgraphs: [],
+        includedDataLinkSystemIds: ['802'],
+        includedControlLinkSystemIds: [],
+      },
+      makeUow(
+        new Map([[802, {isSegment: true, canonicalLink: null}]]),
+        new Map(),
+      ),
     );
 
     expect(result.kind).toBe(RESULT_KIND.Fail);

@@ -57,6 +57,7 @@ export class CreateUsecasesHandler implements CommandHandler<
         command.fileSystemId,
         command.input,
         this.uow,
+        this.idGeneration,
       );
       const result = await this.engine.run(input, this.uow, this.idGeneration);
       if (result.kind === RESULT_KIND.Fail)
