@@ -370,6 +370,25 @@ describe('DriverModuleInserter', () => {
     expect(result.errors[0].details).toContain('DKV Values');
   });
 
+  it('inserts more than 1000 DKV value links without exceeding SQLite expression depth', async () => {
+    const module = buildDriverModule(
+      1010,
+      Array.from({length: 1001}, (_, index) => ({
+        id: 30_000 + index,
+        values: [VALUE_DEF_ID_1],
+        params: [],
+      })),
+    );
+
+    const result = await inserter.insert([module]);
+
+    expect(result.ok).toBe(true);
+    const valueRows = await dataSource.query(
+      `SELECT * FROM dkv_values WHERE dkv_system_id >= 30000`,
+    );
+    expect(valueRows).toHaveLength(1001);
+  });
+
   // ── Test 6: parameter payload failure ─────────────────────────────────────
 
   it('reports failure when dkv_parameter_payload insert fails', async () => {

@@ -1,6 +1,8 @@
 // Export all persistence implementations
 export * from './persistence-typeorm-sqllite/index.js';
 export * from './persistence-typeorm-sqllite/repositories/bulk-import/typeorm-bulk-import.repository.js';
+export {DEFAULT_SLOW_BATCH_DURATION_MS} from './persistence-typeorm-sqllite/repositories/bulk-import/batch-inserter.js';
+export type {BatchInsertDiagnostics} from './persistence-typeorm-sqllite/repositories/bulk-import/batch-inserter.js';
 export * from './persistence-typeorm-sqllite/queries/bulk-read/typeorm-bulk-read-query-service.js';
 export * from './persistence-typeorm-sqllite/repositories/validation/typeorm-validation-preferences.repository.js';
 export * from './persistence-typeorm-sqllite/repositories/validation/typeorm-validation-query.repository.js';

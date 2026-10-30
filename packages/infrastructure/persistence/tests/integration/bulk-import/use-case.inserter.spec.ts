@@ -188,6 +188,21 @@ describe('UseCaseInserter', () => {
     expect(ids).toEqual([6001, 6002]);
   });
 
+  it('inserts more than 1000 GKV value links without exceeding SQLite expression depth', async () => {
+    await createGkvDependencies(manager);
+    const useCases = Array.from({length: 1001}, (_, index) =>
+      buildUseCase(10_000 + index, {valueSystemIds: [6001]}),
+    );
+
+    const result = await inserter.insert(useCases);
+
+    expect(result.ok).toBe(true);
+    const rows = await dataSource.query(
+      `SELECT * FROM usecase_gkv_values WHERE usecase_system_id >= 10000`,
+    );
+    expect(rows).toHaveLength(1001);
+  });
+
   it('inserts root row with no gkv values when keyVector is empty', async () => {
     const uc = buildUseCase(1001, {valueSystemIds: []});
 

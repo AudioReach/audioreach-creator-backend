@@ -599,9 +599,9 @@ export class UploadFileOrchestrator {
       description: `Insertion errors for ${entityType}: ${insertResult.errors.length} failures`,
       component: 'UploadFileOrchestrator',
       tag: 'database-persistence',
-      error: insertResult.errors
-        .map(e => `${e.message}: ${e.details}`)
-        .join('\n'),
+      error: new Error(
+        `${insertResult.errors.length} ${entityType} insertion failures recorded. See the bulk insert failure logs for details.`,
+      ),
     });
   }
 
@@ -1283,16 +1283,16 @@ export class UploadFileOrchestrator {
           tag: 'database-persistence',
         });
       } else {
+        const failureSample = insertResult.errors
+          .slice(0, 5)
+          .map(error => error.message)
+          .join('; ');
         this.logger?.logError({
           msg: 'spf_modules_insertion_failed',
           description: `Failed to insert some SPF modules: ${insertResult.errors.length} insertion failures out of ${this.builtSpfModules.length} entities`,
           component: 'UploadFileOrchestrator',
           tag: 'database-persistence',
-          error:
-            '\t' +
-            insertResult.errors
-              .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
-              .join('\n\t'),
+          error: `Failure sample (first ${Math.min(insertResult.errors.length, 5)}): ${failureSample}`,
         });
       }
     }

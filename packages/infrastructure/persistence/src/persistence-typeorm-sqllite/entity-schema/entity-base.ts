@@ -8,10 +8,6 @@ import type {EntitySchemaColumnOptions} from 'typeorm';
 export interface EntityBaseRow {
   // arc specific id, should be treated as primary key for the entity whenever possible
   systemId: number;
-  // stores the entity creation date
-  creationDate: Date;
-  // stores entity update date
-  updateDate: Date;
   // version for optimistic locking
   version: number;
 }
@@ -24,8 +20,6 @@ export interface EntityBaseRow {
  * generator service before insertion (the database no longer auto-increments it).
  *
  * Auto-managed fields (still omitted):
- * - creationDate: Set by TypeORM on insert
- * - updateDate: Set by TypeORM on update
  * - version: Managed by TypeORM for optimistic locking
  *
  * @example
@@ -40,10 +34,7 @@ export interface EntityBaseRow {
  * }
  * ```
  */
-export type EntityRowForInsert<T extends EntityBaseRow> = Omit<
-  T,
-  'creationDate' | 'updateDate' | 'version'
->;
+export type EntityRowForInsert<T extends EntityBaseRow> = Omit<T, 'version'>;
 
 /**
  * Insert type for entities with auto-generated systemId (projects, files).
@@ -51,7 +42,7 @@ export type EntityRowForInsert<T extends EntityBaseRow> = Omit<
  */
 export type EntityRowForAutoInsert<T extends EntityBaseRow> = Omit<
   T,
-  'systemId' | 'creationDate' | 'updateDate' | 'version'
+  'systemId' | 'version'
 >;
 
 export const BaseColumnSchemaPart: Record<string, EntitySchemaColumnOptions> = {
@@ -59,18 +50,6 @@ export const BaseColumnSchemaPart: Record<string, EntitySchemaColumnOptions> = {
     name: 'system_id',
     type: 'integer',
     primary: true,
-  },
-
-  creationDate: {
-    name: 'created_at',
-    type: 'datetime',
-    createDate: true,
-  },
-
-  updateDate: {
-    name: 'updated_at',
-    type: 'datetime',
-    updateDate: true,
   },
 
   version: {

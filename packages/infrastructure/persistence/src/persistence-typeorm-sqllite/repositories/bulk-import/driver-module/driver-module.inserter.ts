@@ -180,44 +180,36 @@ export class DriverModuleInserter implements BulkInserter<DriverModule> {
 
     if (rows.length === 0) return emptyStepResult();
 
-    try {
-      await this.manager.insert(DkvValuesSchema, rows);
-      return emptyStepResult();
-    } catch {
-      return this.insertDkvValuesWithFallback(
-        contextByDkvSystemId,
-        failedDkvIds,
-        rowsByDkvSystemId,
-      );
-    }
-  }
+    const {failedEntities} = await BatchInserter.insert<DkvValuesRow>(
+      this.manager,
+      DkvValuesSchema,
+      rows,
+    );
+    const valueRowBySystemId = new Map(
+      rows.map(row => [row.systemId, row] as const),
+    );
+    const failureByDkvSystemId = new Map<number, string>();
 
-  private async insertDkvValuesWithFallback(
-    context: Map<number, {dkv: DkvData; module: DriverModule}>,
-    failedDkvIds: Set<number>,
-    rowsByDkvSystemId: ReadonlyMap<number, DkvValueInsertRow[]>,
-  ): Promise<StepResult> {
+    for (const failure of failedEntities) {
+      const row = valueRowBySystemId.get(failure.systemId);
+      if (row !== undefined) {
+        failureByDkvSystemId.set(row.dkvSystemId, failure.message);
+      }
+    }
+
     const rawFailures: RawFailure[] = [];
     const failedEntityIds = new Set<number>();
 
-    for (const [dkvSystemId, {dkv, module}] of context) {
-      if (failedDkvIds.has(dkvSystemId)) continue;
-      if (dkv.valueDefinitionSystemIds.length === 0) continue;
-
-      const valueRows = rowsByDkvSystemId.get(dkvSystemId) ?? [];
-
-      try {
-        await this.manager.insert(DkvValuesSchema, valueRows);
-      } catch (error) {
-        await this.manager.delete('Dkv', {systemId: dkvSystemId});
-        failedEntityIds.add(dkvSystemId);
-        rawFailures.push({
-          systemId: module.systemId,
-          entityLabel: 'DKV Values',
-          failedRowJson: `(definitionSystemId=${BinaryUtils.toHexString(module.definitionSystemId)}, dkvSystemId=${dkvSystemId}) Rows: ${JSON.stringify(valueRows)}`,
-          dbError: error instanceof Error ? error.message : String(error),
-        });
-      }
+    for (const [dkvSystemId, dbError] of failureByDkvSystemId) {
+      const {module} = contextByDkvSystemId.get(dkvSystemId)!;
+      await this.manager.delete('Dkv', {systemId: dkvSystemId});
+      failedEntityIds.add(dkvSystemId);
+      rawFailures.push({
+        systemId: module.systemId,
+        entityLabel: 'DKV Values',
+        failedRowJson: `(definitionSystemId=${BinaryUtils.toHexString(module.definitionSystemId)}, dkvSystemId=${dkvSystemId}) Rows: ${JSON.stringify(rowsByDkvSystemId.get(dkvSystemId) ?? [])}`,
+        dbError,
+      });
     }
 
     return {rawFailures, failedEntityIds};
