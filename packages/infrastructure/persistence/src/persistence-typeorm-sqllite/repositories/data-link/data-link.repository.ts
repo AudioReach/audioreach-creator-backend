@@ -595,9 +595,9 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
 
   /**
    * Writes CREATE edit_action rows for boundary DataPorts and SubsystemDataLink
-   * segments only — used on the soft-delete re-activation path (FR-DL-07a)
-   * where `reactivateDataLink()` has already written the DataLink CREATE row
-   * itself, so it must not be re-issued here.
+   * segments only — used on the soft-delete cancellation path (FR-DL-07a)
+   * after `cancelDeleteDataLink()` has restored the baseline DataLink row;
+   * must not re-issue a CREATE for the DataLink itself.
    */
   async attachTraversalEntities(
     dataLinkSystemId: number,
@@ -750,15 +750,10 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     return null;
   }
 
-  async reactivateDataLink(
-    systemId: number,
-    _aggregateId: number,
-    _payload: Record<string, unknown>,
-    _options?: EditOptions,
-  ): Promise<void> {
+  async cancelDeleteDataLink(systemId: number): Promise<void> {
     const {session} = this.uow.getWriteContext();
-    // A committed link is reactivated by cancelling its pending DELETE; it is
-    // not a new entity and therefore must not produce a CREATE projection.
+    // A committed link is restored by cancelling its pending DELETE; it is not
+    // a new entity and therefore must not produce a CREATE projection.
     await this.manager.delete(EditActionSchema, {
       sessionId: session.sessionId,
       targetTable: ENTITY_NAMES.DataLink,

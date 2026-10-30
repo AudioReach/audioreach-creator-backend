@@ -185,9 +185,9 @@ export interface DataLinkRepository {
   /**
    * Writes CREATE edit_action rows for boundary DataPorts and SubsystemDataLink
    * segments only, attaching them to an already-persisted DataLink identified
-   * by `dataLinkSystemId`. Used on the soft-delete re-activation path
-   * (FR-DL-07a) after `reactivateDataLink()` has already written the DataLink
-   * CREATE row itself — this method must not re-issue that row.
+   * by `dataLinkSystemId`. Used on the soft-delete cancellation path
+   * (FR-DL-07a) after `cancelDeleteDataLink()` has restored the baseline
+   * DataLink row — this method must not re-issue a CREATE for the DataLink itself.
    */
   attachTraversalEntities(
     dataLinkSystemId: number,
@@ -213,16 +213,8 @@ export interface DataLinkRepository {
     payload: Record<string, unknown>;
   } | null>;
 
-  /**
-   * Re-activates a soft-deleted DataLink (FR-DL-07a).
-   * Supersedes the existing DELETE edit_action row, then inserts a new CREATE row.
-   */
-  reactivateDataLink(
-    systemId: number,
-    aggregateId: number,
-    payload: Record<string, unknown>,
-    options?: EditOptions,
-  ): Promise<void>;
+  /** Cancels the pending DELETE edit_action (FR-DL-07a), restoring the baseline DataLink. */
+  cancelDeleteDataLink(systemId: number): Promise<void>;
 
   /**
    * Writes a single unresolved SLS (dataLinkSystemId = null) CREATE row to

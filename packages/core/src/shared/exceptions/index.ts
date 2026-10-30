@@ -13,3 +13,4 @@ export {StagedChangesExistException} from './staged-changes-exist.exception.js';
 export {ConflictException} from './conflict.exception.js';
 export {NoStagedChangesException} from './no-staged-changes.exception.js';
 export {CommitValidationFailedException} from './commit-validation-failed.exception.js';
+export {DuplicateLinkException} from './duplicate-link.exception.js';

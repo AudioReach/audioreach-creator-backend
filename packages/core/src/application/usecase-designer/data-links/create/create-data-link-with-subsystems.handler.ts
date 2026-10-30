@@ -189,20 +189,7 @@ export class CreateDataLinkWithSubsystemsHandler implements CommandHandler<
     });
 
     if (existing !== null && existing.isDeleted) {
-      await dlEditRepo.reactivateDataLink(
-        existing.systemId,
-        existing.systemId,
-        {
-          sourceNodeSystemId: srcNodeId,
-          destinationNodeSystemId: dstNodeId,
-          sourcePortSystemId: srcPortId,
-          destinationPortSystemId: dstPortId,
-          linkType,
-          sourceSubgraphSystemId: srcSubgraphId,
-          destSubgraphSystemId: dstSubgraphId,
-          fileSystemId,
-        },
-      );
+      await dlEditRepo.cancelDeleteDataLink(existing.systemId);
       const {boundaryPortPayloads, slsSegments} = await buildTraversalEntities(
         segments,
         srcPortId,
@@ -214,9 +201,6 @@ export class CreateDataLinkWithSubsystemsHandler implements CommandHandler<
         nodeParentMap,
       );
       if (slsSegments.length > 0) {
-        // reactivateDataLink() already wrote the DataLink CREATE row above;
-        // only attach the freshly-derived SLS/boundary-port rows here to
-        // avoid a duplicate active CREATE for the same DataLink systemId.
         await dlEditRepo.attachTraversalEntities(
           existing.systemId,
           slsSegments,

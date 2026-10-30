@@ -7,15 +7,24 @@ import type {EntityManager} from 'typeorm';
 import type {
   ControlLinkRepository,
   ControlLinkTopology,
-  ControlLinkIdResolution,
   UnitOfWork,
   SessionChanged,
   EditOptions,
+  ControlLinkIdResolution,
 } from '@arc/core';
-import {ControlLink, CONTROL_LINK_TYPE, SubsystemControlLink} from '@arc/core';
+import {
+  ControlLink,
+  CONTROL_LINK_TYPE,
+  SubsystemControlLink,
+  CHANGE_OPERATION,
+} from '@arc/core';
+import {EditActionSchema} from '../../entity-schema/edit-session/edit-action.schema.js';
 import type {ControlLinkBase} from '../../entity-schema/usecase-data/Links/control-link.js';
-import type {EffectiveSubsystemControlLinkRow} from '../../fetchers/link-overlay-fetcher.js';
+import type {ControlPortRow} from '../../entity-schema/usecase-data/node/control-port.js';
 import {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
+import type {EffectiveSubsystemControlLinkRow} from '../../fetchers/link-overlay-fetcher.js';
+import {IntentFetcher} from '../../fetchers/intent-fetcher.js';
+import {NodeOverlayFetcher} from '../../fetchers/node-overlay-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
@@ -57,20 +66,19 @@ function baseToControlLink(
 
 export class TypeOrmControlLinkRepository implements ControlLinkRepository {
   private readonly linkFetcher: LinkOverlayFetcher;
-  private readonly writer: PendingChangeWriter;
-  private readonly manager: EntityManager;
-  private readonly uow: UnitOfWork;
+  private readonly nodeFetcher: NodeOverlayFetcher;
+  private readonly editActionsQs: EditActionsQueryService;
+  private readonly intentFetcher: IntentFetcher;
 
   constructor(
-    writer: PendingChangeWriter,
-    manager: EntityManager,
-    uow: UnitOfWork,
+    private readonly writer: PendingChangeWriter,
+    private readonly manager: EntityManager,
+    private readonly uow: UnitOfWork,
   ) {
-    this.writer = writer;
-    this.manager = manager;
-    this.uow = uow;
-    const editActions = new EditActionsQueryService(this.manager);
-    this.linkFetcher = new LinkOverlayFetcher(this.manager, editActions);
+    this.editActionsQs = new EditActionsQueryService(manager);
+    this.linkFetcher = new LinkOverlayFetcher(manager, this.editActionsQs);
+    this.nodeFetcher = new NodeOverlayFetcher(manager, this.editActionsQs);
+    this.intentFetcher = new IntentFetcher(manager, this.editActionsQs);
   }
 
   async findLinksConnectedToModule(
@@ -173,6 +181,33 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
         baseToControlLink(row, segmentsByLinkId.get(row.systemId) ?? []),
       ),
       unresolvedSubsystemControlLinks,
+    };
+  }
+
+  private sessionId(): number | null {
+    return this.uow.getWriteContext().session.sessionId;
+  }
+
+  async findSubsystemControlRouteContext(fileSystemId: number) {
+    const rows = await this.linkFetcher.loadSubsystemControlLinkRows(
+      fileSystemId,
+      this.sessionId(),
+    );
+    const nodeIds = [
+      ...new Set(
+        rows.flatMap(row => [row.peerNodeASystemId, row.peerNodeBSystemId]),
+      ),
+    ];
+    const nodes = await this.nodeFetcher.fetchMany(
+      nodeIds,
+      fileSystemId,
+      this.sessionId(),
+    );
+    return {
+      subsystemControlLinks: rows.map(row => baseToSubsystemControlLink(row)),
+      nodeTypeBySystemId: new Map(
+        nodes.map(node => [node.systemId, node.type]),
+      ),
     };
   }
 
@@ -543,5 +578,275 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
       added: changed.added.map(row => baseToControlLink(row)),
       deleted: changed.deleted.map(row => baseToControlLink(row)),
     };
+  }
+
+  async findBySystemIds(
+    systemIds: number[],
+    fileSystemId: number,
+  ): Promise<ControlLink[]> {
+    if (systemIds.length === 0) return [];
+    const rows = await this.linkFetcher.loadControlLinkRows(
+      fileSystemId,
+      this.sessionId(),
+      {systemId: systemIds},
+    );
+    const segments = await this.linkFetcher.loadSubsystemControlLinkRows(
+      fileSystemId,
+      this.sessionId(),
+      {controlLinkSystemId: systemIds},
+    );
+    const segmentsByLink = new Map<number, SubsystemControlLink[]>();
+    for (const segment of segments) {
+      if (segment.controlLinkSystemId === null) continue;
+      const values = segmentsByLink.get(segment.controlLinkSystemId) ?? [];
+      values.push(baseToSubsystemControlLink(segment));
+      segmentsByLink.set(segment.controlLinkSystemId, values);
+    }
+    return rows.map(row =>
+      baseToControlLink(row, segmentsByLink.get(row.systemId) ?? []),
+    );
+  }
+
+  async findByPortPair(
+    portA: number,
+    portB: number,
+    fileSystemId: number,
+  ): Promise<{
+    systemId: number;
+    isDeleted: boolean;
+    payload: Record<string, unknown>;
+  } | null> {
+    const {session} = this.uow.getWriteContext();
+    const filter = {nodeAPortSystemId: portA, nodeBPortSystemId: portB};
+
+    const baseRows = await this.linkFetcher.loadControlLinkRows(
+      fileSystemId,
+      null,
+      filter,
+    );
+    if (baseRows.length > 0) {
+      const row = baseRows[0];
+      const actions = await this.editActionsQs.getByAggregateId(
+        session.sessionId,
+        row.systemId,
+      );
+      const isDeleted = actions.some(
+        a =>
+          a.targetTable === ENTITY_NAMES.ControlLink &&
+          a.targetSystemId === row.systemId &&
+          a.operation === 'DELETE',
+      );
+      return {systemId: row.systemId, isDeleted, payload: {...row}};
+    }
+
+    const sessionRows = await this.linkFetcher.loadControlLinkRows(
+      fileSystemId,
+      this.sessionId(),
+      filter,
+    );
+    if (sessionRows.length > 0) {
+      const row = sessionRows[0];
+      return {systemId: row.systemId, isDeleted: false, payload: {...row}};
+    }
+
+    return null;
+  }
+
+  async createControlLink(link: ControlLink): Promise<void> {
+    const {session} = this.uow.getWriteContext();
+    await this.writer.writeCreate(
+      {
+        targetTable: ENTITY_NAMES.ControlLink,
+        targetSystemId: link.systemId,
+        aggregateId: link.systemId,
+        payload: {...link, subsystemControlLinks: undefined},
+      },
+      session.sessionId,
+      this.manager,
+    );
+    for (const segment of link.subsystemControlLinks)
+      await this.createSubsystemControlLink(segment);
+  }
+
+  async cancelDeleteControlLink(systemId: number): Promise<void> {
+    const {session} = this.uow.getWriteContext();
+    // A committed link is restored by cancelling its pending DELETE; it is not
+    // a new entity and therefore must not produce a CREATE projection.
+    await this.manager.delete(EditActionSchema, {
+      sessionId: session.sessionId,
+      targetTable: ENTITY_NAMES.ControlLink,
+      targetSystemId: systemId,
+      operation: CHANGE_OPERATION.Delete,
+    });
+  }
+
+  async updateHeapId(systemId: number, heapId: number): Promise<void> {
+    const {session} = this.uow.getWriteContext();
+    await this.writer.writeDelta(
+      {
+        targetTable: ENTITY_NAMES.ControlLink,
+        targetSystemId: systemId,
+        aggregateId: systemId,
+        delta: {heapId},
+      },
+      session.sessionId,
+      this.manager,
+    );
+  }
+
+  async createSubsystemControlLink(link: SubsystemControlLink): Promise<void> {
+    const {session} = this.uow.getWriteContext();
+    await this.writer.writeCreate(
+      {
+        targetTable: ENTITY_NAMES.SubsystemControlLink,
+        targetSystemId: link.systemId,
+        aggregateId: link.controlLinkSystemId ?? link.systemId,
+        payload: {
+          peerNodeASystemId: link.peerNodeASystemId,
+          peerNodeBSystemId: link.peerNodeBSystemId,
+          nodeAPortSystemId: link.nodeAPortSystemId,
+          nodeBPortSystemId: link.nodeBPortSystemId,
+          controlLinkSystemId: link.controlLinkSystemId,
+          fileSystemId: link.fileSystemId,
+        },
+      },
+      session.sessionId,
+      this.manager,
+    );
+  }
+
+  async associateSubsystemControlLinks(
+    subsystemLinkSystemIds: number[],
+    controlLinkSystemId: number,
+  ): Promise<void> {
+    const {session} = this.uow.getWriteContext();
+    for (const systemId of subsystemLinkSystemIds) {
+      await this.writer.writeDelta(
+        {
+          targetTable: ENTITY_NAMES.SubsystemControlLink,
+          targetSystemId: systemId,
+          aggregateId: systemId,
+          delta: {controlLinkSystemId},
+        },
+        session.sessionId,
+        this.manager,
+      );
+    }
+  }
+
+  async getAllSubsystemControlLinks(
+    fileSystemId: number,
+  ): Promise<SubsystemControlLink[]> {
+    const rows = await this.linkFetcher.loadSubsystemControlLinkRows(
+      fileSystemId,
+      this.sessionId(),
+    );
+    return rows.map(row => baseToSubsystemControlLink(row));
+  }
+
+  async getAllControlLinks(fileSystemId: number): Promise<ControlLink[]> {
+    const rows = await this.linkFetcher.loadControlLinkRows(
+      fileSystemId,
+      this.sessionId(),
+    );
+    return rows.map(row => baseToControlLink(row));
+  }
+
+  async getAllocatedIntentIds(
+    portSystemId: number,
+    fileSystemId: number,
+  ): Promise<{intentSystemId: number; intentId: number}[]> {
+    const nodeSystemId = await this.getPortOwner(portSystemId, fileSystemId);
+    const rows = await this.intentFetcher.fetchMany(
+      [portSystemId],
+      nodeSystemId,
+      this.sessionId(),
+    );
+    return rows.map(row => ({
+      intentSystemId: row.systemId,
+      intentId: row.naturalId,
+    }));
+  }
+
+  async createIntents(
+    intents: {
+      systemId: number;
+      controlPortSystemId: number;
+      intentId: number;
+    }[],
+  ): Promise<void> {
+    const {session} = this.uow.getWriteContext();
+    for (const intent of intents) {
+      const nodeSystemId = await this.getPortOwner(
+        intent.controlPortSystemId,
+        session.fileSystemId,
+      );
+      await this.writer.writeCreate(
+        {
+          targetTable: ENTITY_NAMES.Intent,
+          targetSystemId: intent.systemId,
+          aggregateId: nodeSystemId,
+          payload: {
+            systemId: intent.systemId,
+            controlPortSystemId: intent.controlPortSystemId,
+            naturalId: intent.intentId,
+          },
+        },
+        session.sessionId,
+        this.manager,
+      );
+    }
+  }
+
+  async deleteIntents(
+    ids: number[],
+    controlPortSystemId: number,
+  ): Promise<void> {
+    const {session} = this.uow.getWriteContext();
+    const nodeSystemId = await this.getPortOwner(
+      controlPortSystemId,
+      session.fileSystemId,
+    );
+    for (const systemId of ids)
+      await this.writer.writeDelete(
+        {
+          targetTable: ENTITY_NAMES.Intent,
+          targetSystemId: systemId,
+          aggregateId: nodeSystemId,
+        },
+        session.sessionId,
+        this.manager,
+      );
+  }
+
+  private async getPortOwner(
+    portSystemId: number,
+    fileSystemId: number,
+  ): Promise<number> {
+    const port = (await this.manager
+      .getRepository(ENTITY_NAMES.ControlPort)
+      .createQueryBuilder('port')
+      .innerJoin('port.node', 'node')
+      .where('port.systemId = :portSystemId', {portSystemId})
+      .andWhere('node.fileSystemId = :fileSystemId', {fileSystemId})
+      .getOne()) as ControlPortRow | null;
+    if (port !== null) return port.nodeSystemId;
+
+    const sessionId = this.sessionId();
+    if (sessionId !== null) {
+      const actions = await this.editActionsQs.getByTable(
+        sessionId,
+        ENTITY_NAMES.ControlPort,
+      );
+      const created = actions.find(
+        action =>
+          action.targetSystemId === portSystemId &&
+          action.operation === 'CREATE',
+      );
+      if (created !== undefined) return created.aggregateId;
+    }
+    throw new Error(
+      `Control port ${portSystemId} not found in file ${fileSystemId}`,
+    );
   }
 }

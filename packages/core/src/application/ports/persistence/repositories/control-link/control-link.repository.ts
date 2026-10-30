@@ -162,4 +162,89 @@ export interface ControlLinkRepository {
   findChangedInSession(
     fileSystemId: number,
   ): Promise<SessionChanged<ControlLink>>;
+
+  /** Returns a non-deleted ControlLink by systemId, or null if not found. */
+  findBySystemId(
+    systemId: number,
+    fileSystemId: number,
+  ): Promise<ControlLink | null>;
+
+  /** Returns all non-deleted ControlLinks matching the given systemIds. */
+  findBySystemIds(
+    systemIds: number[],
+    fileSystemId: number,
+  ): Promise<ControlLink[]>;
+
+  /**
+   * Unified port-pair lookup. Returns `{ systemId, isDeleted, payload }` for
+   * any matching link — active or soft-deleted — or `null` if none exists.
+   * `payload` carries at minimum `{ linkType }`.
+   */
+  findByPortPair(
+    portASystemId: number,
+    portBSystemId: number,
+    fileSystemId: number,
+  ): Promise<{
+    systemId: number;
+    isDeleted: boolean;
+    payload: Record<string, unknown>;
+  } | null>;
+
+  /** Stages a CREATE edit-action for the given ControlLink. */
+  createControlLink(link: ControlLink): Promise<void>;
+
+  /** Cancels the pending DELETE edit_action, restoring the baseline ControlLink. */
+  cancelDeleteControlLink(systemId: number): Promise<void>;
+
+  /** Stages an UPDATE edit-action to change the heapId on a ControlLink. */
+  updateHeapId(systemId: number, heapId: number): Promise<void>;
+
+  /** Stages a CREATE edit-action for a SubsystemControlLink segment. */
+  createSubsystemControlLink(scl: SubsystemControlLink): Promise<void>;
+
+  /** Associates unresolved subsystem segments with their canonical link. */
+  associateSubsystemControlLinks(
+    subsystemLinkSystemIds: number[],
+    controlLinkSystemId: number,
+  ): Promise<void>;
+
+  /**
+   * Returns all SubsystemControlLink segments for the given fileSystemId (with overlay).
+   * Used by ControlChainResolutionService and ControlIntentPropagationService.
+   */
+  getAllSubsystemControlLinks(
+    fileSystemId: number,
+  ): Promise<SubsystemControlLink[]>;
+
+  /** Returns all effective canonical control links in the file. */
+  getAllControlLinks(fileSystemId: number): Promise<ControlLink[]>;
+
+  /**
+   * Returns the allocated intent IDs for the given control port, with overlay applied.
+   * Returns an empty array if the port has no allocated intents.
+   */
+  getAllocatedIntentIds(
+    portSystemId: number,
+    fileSystemId: number,
+  ): Promise<{intentSystemId: number; intentId: number}[]>;
+
+  /**
+   * Stages CREATE edit-actions for the given intents on a control port.
+   * Each intent row: (intentSystemId, controlPortSystemId, intentId).
+   */
+  createIntents(
+    intents: {
+      systemId: number;
+      controlPortSystemId: number;
+      intentId: number;
+    }[],
+  ): Promise<void>;
+
+  /**
+   * Stages DELETE edit-actions for the given intent system IDs on a control port.
+   */
+  deleteIntents(
+    intentSystemIds: number[],
+    controlPortSystemId: number,
+  ): Promise<void>;
 }
