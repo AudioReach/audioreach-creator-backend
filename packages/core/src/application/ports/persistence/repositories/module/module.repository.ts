@@ -60,7 +60,7 @@ export interface ModuleRepository {
   findModuleById(
     systemId: number,
     fileSystemId: number,
-  ): Promise<SpfModuleBase | null>;
+  ): Promise<SpfModule | null>;
 
   findModulesByContainerId(
     containerSystemId: number,
@@ -106,22 +106,6 @@ export interface ModuleRepository {
   ): Promise<{
     subgraphSystemId: number;
     ports: {systemId: number; portIoType: PortIoType}[];
-  } | null>;
-
-  /**
-   * Lightweight read for control-link creation. Returns fields needed by
-   * ControlLinkCreationHandler: subgraphSystemId, parentSystemId,
-   * definitionSystemId, and control-port identifiers (systemId + naturalId).
-   * Session overlay applied. Returns null when the node is not a module.
-   */
-  findModuleForControlLink(
-    moduleSystemId: number,
-    fileSystemId: number,
-  ): Promise<{
-    subgraphSystemId: number;
-    parentSystemId: number | null;
-    definitionSystemId: number;
-    controlPorts: {systemId: number; naturalId: number}[];
   } | null>;
 
   /**

@@ -15,7 +15,7 @@ const LINK_ID = 10;
 
 function createFixture(dataLinks: object[] = []) {
   const repository = {
-    findAllLinks: jest.fn().mockResolvedValue({
+    getAllLinks: jest.fn().mockResolvedValue({
       dataLinks,
       unresolvedSubsystemDataLinks: [],
     }),
@@ -59,7 +59,7 @@ describe('DeleteDataLinkHandler', () => {
         subsystemDataLinks: [],
       },
     });
-    expect(repository.findAllLinks).toHaveBeenCalledWith(FILE_ID);
+    expect(repository.getAllLinks).toHaveBeenCalledWith(FILE_ID);
     expect(repository.deleteAggregate).toHaveBeenCalledWith(LINK_ID, FILE_ID);
     expect(uow.commit).toHaveBeenCalledTimes(1);
   });

@@ -545,7 +545,7 @@ async function rebuildUnresolvedDataChains(
   parentAfter: Map<number, number | null>,
   movedNodeIds: ReadonlySet<number>,
   nodeTypeBySystemId: ReadonlyMap<number, NodeType>,
-  routeContext: Awaited<ReturnType<DataLinkRepository['findAllLinks']>>,
+  routeContext: Awaited<ReturnType<DataLinkRepository['getAllLinks']>>,
   subsystemStates: Map<number, SubsystemState>,
   changes: Map<number, SubsystemPortChange>,
   dependencies: MoveImpactDependencies,
@@ -785,7 +785,7 @@ async function rebuildUnresolvedControlChains(
   parentAfter: Map<number, number | null>,
   movedNodeIds: ReadonlySet<number>,
   nodeTypeBySystemId: ReadonlyMap<number, NodeType>,
-  routeContext: Awaited<ReturnType<ControlLinkRepository['findAllLinks']>>,
+  routeContext: Awaited<ReturnType<ControlLinkRepository['getAllLinks']>>,
   subsystemStates: Map<number, SubsystemState>,
   changes: Map<number, SubsystemPortChange>,
   dependencies: MoveImpactDependencies,
@@ -970,8 +970,8 @@ export async function rebuildMoveSubsystemImpact(
   const dataRoutes: DataRouteChange[] = [];
   const controlRoutes: ControlRouteChange[] = [];
   const [dataRouteContext, controlRouteContext] = await Promise.all([
-    dependencies.dataLinkRepository.findAllLinks(fileSystemId),
-    dependencies.controlLinkRepository.findAllLinks(fileSystemId),
+    dependencies.dataLinkRepository.getAllLinks(fileSystemId),
+    dependencies.controlLinkRepository.getAllLinks(fileSystemId),
   ]);
   const {dataLinks} = dataRouteContext;
   const {controlLinks} = controlRouteContext;

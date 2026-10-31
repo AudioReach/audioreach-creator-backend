@@ -126,38 +126,6 @@ export class CreateDataLinkHandler implements CommandHandler<
         nodeParentMap,
       });
 
-      if (existing !== null && existing.isDeleted) {
-        await dlEditRepo.cancelDeleteDataLink(existing.systemId);
-        const {boundaryPortPayloads, slsSegments} =
-          await buildTraversalEntities(
-            segments,
-            srcPortId,
-            dstPortId,
-            existing.systemId,
-            linkType,
-            fileSystemId,
-            this.idGeneration,
-            nodeParentMap,
-          );
-        if (slsSegments.length > 0) {
-          await dlEditRepo.attachTraversalEntities(
-            existing.systemId,
-            slsSegments,
-            boundaryPortPayloads,
-            fileSystemId,
-          );
-        }
-        await uow.commit();
-        return this.buildDto(
-          existing.systemId,
-          srcModuleId,
-          dstModuleId,
-          srcPortId,
-          dstPortId,
-          linkType,
-        );
-      }
-
       const dataLinkSystemId = await this.idGeneration.getNextId(fileSystemId);
       const {boundaryPortPayloads, slsSegments} = await buildTraversalEntities(
         segments,

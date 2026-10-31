@@ -60,8 +60,8 @@ export class PatchControlLinkPropertiesHandler implements CommandHandler<
     const repo = this.uow.getControlLinkRepository();
 
     // FR-PCL-02: link existence
-    const controlLink = await repo.findBySystemId(
-      command.controlLinkSystemId,
+    const [controlLink = null] = await repo.findBySystemIds(
+      [command.controlLinkSystemId],
       fileSystemId,
     );
     if (controlLink === null) {
@@ -129,20 +129,17 @@ export class PatchControlLinkPropertiesHandler implements CommandHandler<
         portId,
         fileSystemId,
       );
-      if (existingIntents.length > 0) {
-        await repo.deleteIntents(
-          existingIntents.map(e => e.intentSystemId),
-          portId,
-        );
-      }
       const newIntentRows = await Promise.all(
         newIntentIds.map(async intentId => ({
           systemId: await this.idGeneration.getNextId(fileSystemId),
-          controlPortSystemId: portId,
           intentId,
         })),
       );
-      await repo.createIntents(newIntentRows);
+      await repo.updateIntents(
+        portId,
+        newIntentRows,
+        existingIntents.map(e => e.intentSystemId),
+      );
     }
   }
 
@@ -155,7 +152,12 @@ export class PatchControlLinkPropertiesHandler implements CommandHandler<
     portOwners: Map<number, number>;
   }> {
     const repo = this.uow.getControlLinkRepository();
-    const allSegments = await repo.getAllSubsystemControlLinks(fileSystemId);
+    const {controlLinks: allControlLinks, unresolvedSubsystemControlLinks} =
+      await repo.getAllLinks(fileSystemId);
+    const allSegments = [
+      ...unresolvedSubsystemControlLinks,
+      ...allControlLinks.flatMap(cl => cl.subsystemControlLinks),
+    ];
     const portPeers = new Map<number, number[]>();
     const portOwners = new Map<number, number>([
       [controlLink.nodeAPortSystemId, controlLink.peerNodeASystemId],
@@ -188,18 +190,24 @@ export class PatchControlLinkPropertiesHandler implements CommandHandler<
       fileSystemId,
     );
 
-    for (const segment of allSegments) {
-      if (
-        segment.controlLinkSystemId === null ||
-        (!ports.has(segment.nodeAPortSystemId) &&
-          !ports.has(segment.nodeBPortSystemId))
-      )
-        continue;
-      const link = await repo.findBySystemId(
-        segment.controlLinkSystemId,
+    const segmentParentIds = [
+      ...new Set(
+        allSegments
+          .filter(
+            s =>
+              s.controlLinkSystemId !== null &&
+              (ports.has(s.nodeAPortSystemId) ||
+                ports.has(s.nodeBPortSystemId)),
+          )
+          .map(s => s.controlLinkSystemId as number),
+      ),
+    ];
+    if (segmentParentIds.length > 0) {
+      const parentLinks = await repo.findBySystemIds(
+        segmentParentIds,
         fileSystemId,
       );
-      if (link !== null) links.set(link.systemId, link);
+      for (const link of parentLinks) links.set(link.systemId, link);
     }
     return {ports, links, portOwners};
   }
@@ -243,9 +251,10 @@ export class PatchControlLinkPropertiesHandler implements CommandHandler<
       [currentPort],
       fileSystemId,
     );
-    for (const linkId of new Set(entries.map(entry => entry.linkSystemId))) {
-      const link = await repo.findBySystemId(linkId, fileSystemId);
-      if (link === null) continue;
+    const linkIds = [...new Set(entries.map(entry => entry.linkSystemId))];
+    if (linkIds.length === 0) return;
+    const foundLinks = await repo.findBySystemIds(linkIds, fileSystemId);
+    for (const link of foundLinks) {
       links.set(link.systemId, link);
       portOwners.set(link.nodeAPortSystemId, link.peerNodeASystemId);
       portOwners.set(link.nodeBPortSystemId, link.peerNodeBSystemId);
@@ -269,7 +278,7 @@ export class PatchControlLinkPropertiesHandler implements CommandHandler<
     for (const {nodeId, portId} of endpoints.values()) {
       const module = await this.uow
         .getModuleRepository()
-        .findModuleForControlLink(nodeId, fileSystemId);
+        .findModuleById(nodeId, fileSystemId);
       if (!module) continue;
       const port = module.controlPorts.find(
         candidate => candidate.systemId === portId,

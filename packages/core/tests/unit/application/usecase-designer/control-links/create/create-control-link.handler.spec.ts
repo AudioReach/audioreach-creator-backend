@@ -54,9 +54,6 @@ function makeQueryServices(): QueryServices {
         },
       }),
     },
-    useCaseQueryService: {
-      findUsecaseIdsBySubgraphIds: jest.fn().mockResolvedValue(new Map()),
-    },
     nodeQueryService: {
       getControlPorts: jest.fn().mockImplementation((id: number) =>
         Promise.resolve({
@@ -81,13 +78,13 @@ function makeRepository(
   return {
     findByPortPair: jest.fn().mockResolvedValue(null),
     createControlLink: jest.fn().mockResolvedValue(undefined),
-    reactivateControlLink: jest.fn().mockResolvedValue(undefined),
     createSubsystemControlLink: jest.fn().mockResolvedValue(undefined),
-    getAllControlLinks: jest.fn().mockResolvedValue([]),
-    getAllSubsystemControlLinks: jest.fn().mockResolvedValue([]),
+    getAllLinks: jest.fn().mockResolvedValue({
+      controlLinks: [],
+      unresolvedSubsystemControlLinks: [],
+    }),
     getAllocatedIntentIds: jest.fn().mockResolvedValue([]),
-    deleteIntents: jest.fn().mockResolvedValue(undefined),
-    createIntents: jest.fn().mockResolvedValue(undefined),
+    updateIntents: jest.fn().mockResolvedValue(undefined),
     ...overrides,
   } as ControlLinkRepository;
 }
@@ -121,7 +118,7 @@ function makeUow(
         } as unknown as SubsystemRepository),
     ),
     getModuleRepository: jest.fn().mockReturnValue({
-      findModuleForControlLink: jest.fn().mockImplementation((id: number) =>
+      findModuleById: jest.fn().mockImplementation((id: number) =>
         Promise.resolve({
           subgraphSystemId: 100,
           parentSystemId: null,
@@ -183,20 +180,51 @@ describe('CreateControlLinkFlatHandler', () => {
     const result = await handler.handle(command());
 
     expect(repo.createControlLink).toHaveBeenCalledTimes(1);
-    expect(repo.createIntents).toHaveBeenCalledTimes(2);
-    expect(repo.createIntents).toHaveBeenNthCalledWith(1, [
-      expect.objectContaining({controlPortSystemId: 11, intentId: 7}),
-    ]);
-    expect(repo.createIntents).toHaveBeenNthCalledWith(2, [
-      expect.objectContaining({controlPortSystemId: 22, intentId: 7}),
-    ]);
+    expect(repo.updateIntents).toHaveBeenCalledTimes(2);
+    expect(repo.updateIntents).toHaveBeenNthCalledWith(
+      1,
+      11,
+      [expect.objectContaining({intentId: 7})],
+      [],
+    );
+    expect(repo.updateIntents).toHaveBeenNthCalledWith(
+      2,
+      22,
+      [expect.objectContaining({intentId: 7})],
+      [],
+    );
     expect(uow.commit).toHaveBeenCalledTimes(1);
     expect(result.controlLinks).toHaveLength(1);
   });
 
+  it('creates a new ControlLink with a fresh systemId when a soft-deleted link exists', async () => {
+    const OLD_SYSTEM_ID = 555;
+    const repo = makeRepository({
+      findByPortPair: jest.fn().mockResolvedValue({
+        systemId: OLD_SYSTEM_ID,
+        isDeleted: true,
+        payload: {linkType: CONTROL_LINK_TYPE.Normal},
+      }),
+    });
+    const uow = makeUow(repo);
+    const handler = new CreateControlLinkFlatHandler(
+      uow,
+      makeIdGeneration(),
+      makeQueryServices(),
+    );
+
+    await handler.handle(command());
+
+    expect(repo.createControlLink).toHaveBeenCalledTimes(1);
+    const createdLink = (repo.createControlLink as ReturnType<typeof jest.fn>)
+      .mock.calls[0][0] as {systemId: number};
+    expect(createdLink.systemId).not.toBe(OLD_SYSTEM_ID);
+    expect(uow.commit).toHaveBeenCalledTimes(1);
+  });
+
   it('rolls back when intent edit-action staging fails', async () => {
     const repo = makeRepository({
-      createIntents: jest
+      updateIntents: jest
         .fn()
         .mockRejectedValue(new Error('intent write failed')),
     });
@@ -224,7 +252,7 @@ describe('CreateControlLinkFlatHandler', () => {
       getSubsystems: jest.fn().mockResolvedValue([]),
     });
     (uow.getModuleRepository as jest.Mock).mockReturnValue({
-      findModuleForControlLink: jest.fn().mockImplementation((id: number) =>
+      findModuleById: jest.fn().mockImplementation((id: number) =>
         Promise.resolve({
           subgraphSystemId: 100,
           parentSystemId: null,
@@ -245,7 +273,7 @@ describe('CreateControlLinkFlatHandler', () => {
   it('returns 404 semantics when a supplied port does not exist', async () => {
     const uow = makeUow(makeRepository());
     (uow.getModuleRepository as jest.Mock).mockReturnValue({
-      findModuleForControlLink: jest.fn().mockImplementation((id: number) =>
+      findModuleById: jest.fn().mockImplementation((id: number) =>
         Promise.resolve({
           subgraphSystemId: 100,
           parentSystemId: null,
@@ -262,15 +290,18 @@ describe('CreateControlLinkFlatHandler', () => {
 
   it('rejects a second same-side connection on a subsystem port', async () => {
     const repo = makeRepository({
-      getAllSubsystemControlLinks: jest.fn().mockResolvedValue([
-        {
-          systemId: 601,
-          peerNodeASystemId: 1,
-          peerNodeBSystemId: 10,
-          nodeAPortSystemId: 11,
-          nodeBPortSystemId: 101,
-        },
-      ]),
+      getAllLinks: jest.fn().mockResolvedValue({
+        controlLinks: [],
+        unresolvedSubsystemControlLinks: [
+          {
+            systemId: 601,
+            peerNodeASystemId: 1,
+            peerNodeBSystemId: 10,
+            nodeAPortSystemId: 11,
+            nodeBPortSystemId: 101,
+          },
+        ],
+      }),
     });
     const uow = makeUow(repo);
     (uow.getSubsystemRepository as jest.Mock).mockReturnValue({
@@ -306,17 +337,63 @@ describe('CreateControlLinkFlatHandler', () => {
     ).rejects.toThrow('already has an outer connection');
   });
 
+  it('rejects a connection when it would reduce committed intents of a port with existing links to a subset', async () => {
+    const uow = makeUow(makeRepository());
+    (uow.getModuleRepository as jest.Mock).mockReturnValue({
+      findModuleById: jest.fn().mockImplementation((id: number) =>
+        Promise.resolve({
+          subgraphSystemId: 100,
+          parentSystemId: null,
+          definitionSystemId: 900,
+          controlPorts: [{systemId: id === 1 ? 11 : 22, naturalId: 1}],
+        }),
+      ),
+      findControlPortsForLink: jest.fn().mockImplementation((id: number) =>
+        Promise.resolve(
+          id === 1
+            ? [
+                {
+                  systemId: 11,
+                  naturalId: 1,
+                  allocatedIntents: [{naturalId: 7}, {naturalId: 8}],
+                  totalLinksAtPort: 1,
+                },
+              ]
+            : [
+                {
+                  systemId: 22,
+                  naturalId: 1,
+                  allocatedIntents: [],
+                  totalLinksAtPort: 0,
+                },
+              ],
+        ),
+      ),
+    });
+    const handler = new CreateControlLinkFlatHandler(
+      uow,
+      makeIdGeneration(),
+      makeQueryServices(),
+    );
+
+    await expect(handler.handle(command())).rejects.toThrow('subset');
+    expect(uow.rollback).toHaveBeenCalledTimes(1);
+  });
+
   it('allows one inner and one outer connection on the same subsystem port', async () => {
     const repo = makeRepository({
-      getAllSubsystemControlLinks: jest.fn().mockResolvedValue([
-        {
-          systemId: 601,
-          peerNodeASystemId: 1,
-          peerNodeBSystemId: 10,
-          nodeAPortSystemId: 11,
-          nodeBPortSystemId: 101,
-        },
-      ]),
+      getAllLinks: jest.fn().mockResolvedValue({
+        controlLinks: [],
+        unresolvedSubsystemControlLinks: [
+          {
+            systemId: 601,
+            peerNodeASystemId: 1,
+            peerNodeBSystemId: 10,
+            nodeAPortSystemId: 11,
+            nodeBPortSystemId: 101,
+          },
+        ],
+      }),
     });
     const uow = makeUow(repo);
     (uow.getSubsystemRepository as jest.Mock).mockReturnValue({

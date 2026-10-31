@@ -269,13 +269,13 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
     ]);
   });
 
-  it('loads all effective canonical links for connected-route traversal', async () => {
+  it('loads all effective canonical links via getAllLinks', async () => {
     await seedControlLink(ds, 889, PORT_CP_A, PORT_CP_B);
 
-    const result = await makeRepo(qr, sessionId).getAllControlLinks(FILE_ID);
+    const {controlLinks} = await makeRepo(qr, sessionId).getAllLinks(FILE_ID);
 
-    expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({
+    expect(controlLinks).toHaveLength(1);
+    expect(controlLinks[0]).toMatchObject({
       systemId: 889,
       nodeAPortSystemId: PORT_CP_A,
       nodeBPortSystemId: PORT_CP_B,
@@ -285,9 +285,7 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
   it('stages and reads allocated intent rows through the session overlay', async () => {
     const repo = makeRepo(qr, sessionId);
 
-    await repo.createIntents([
-      {systemId: 910, controlPortSystemId: PORT_CP_A, intentId: 7},
-    ]);
+    await repo.updateIntents(PORT_CP_A, [{systemId: 910, intentId: 7}], []);
 
     const actions = await getActiveActions(qr, sessionId);
     expect(actions).toEqual(
@@ -314,7 +312,7 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
     await seedSubsystemControlLink(ds, 801, 800);
     await seedUnresolvedSubsystemControlLink(qr, sessionId, 803);
 
-    const result = await makeRepo(qr, sessionId).findAllLinks(FILE_ID);
+    const result = await makeRepo(qr, sessionId).getAllLinks(FILE_ID);
 
     expect(result.controlLinks.map(link => link.systemId)).toEqual([800]);
     expect(result.controlLinks[0]?.subsystemControlLinks).toHaveLength(1);
@@ -400,7 +398,7 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
     await seedUnresolvedSubsystemControlLink(qr, sessionId, 803);
 
     const repo = makeRepo(qr, sessionId);
-    const segment = (await repo.findAllLinks(FILE_ID))
+    const segment = (await repo.getAllLinks(FILE_ID))
       .unresolvedSubsystemControlLinks[0];
     await repo.deleteSubsystemControlLinks([segment], FILE_ID);
 
@@ -427,7 +425,7 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
     await seedSubsystemControlLink(ds, 802, 800);
 
     const repo = makeRepo(qr, sessionId);
-    const segment = (await repo.findAllLinks(FILE_ID)).controlLinks[0]
+    const segment = (await repo.getAllLinks(FILE_ID)).controlLinks[0]
       ?.subsystemControlLinks[0];
     await repo.deleteSubsystemControlLinks([segment!], FILE_ID);
 
@@ -482,7 +480,7 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
 
     const repo = makeRepo(qr, sessionId);
     const segments = (
-      await repo.findAllLinks(FILE_ID)
+      await repo.getAllLinks(FILE_ID)
     ).controlLinks[0]?.subsystemControlLinks.filter(segment =>
       [801, 802].includes(segment.systemId),
     );
@@ -578,10 +576,10 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
       await seedControlLink(ds, 900, PORT_SEGMENT_A, PORT_SEGMENT_B);
       await seedSubsystemControlLink(ds, 801, 800);
       const repo = makeRepo(qr, sessionId);
-      const segment = (await repo.findAllLinks(FILE_ID)).controlLinks[0]
+      const segment = (await repo.getAllLinks(FILE_ID)).controlLinks[0]
         ?.subsystemControlLinks[0];
 
-      await repo.resolveSubsystemControlLinks([segment!], 900, {
+      await repo.resolveSubsystemControlLinks([segment!.systemId], 900, {
         source: SOURCE.Manual,
         linkedEntityGroupId: 'group-A',
       });
@@ -599,7 +597,7 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
         newValue: {controlLinkSystemId: 900},
       });
       expect(
-        (await repo.findAllLinks(FILE_ID)).controlLinks
+        (await repo.getAllLinks(FILE_ID)).controlLinks
           .find(link => link.systemId === 900)
           ?.subsystemControlLinks.map(link => link.systemId),
       ).toEqual([801]);
@@ -609,10 +607,10 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
       await seedControlLink(ds, 800, PORT_CP_A, PORT_CP_B);
       await seedUnresolvedSubsystemControlLink(qr, sessionId, 803);
       const repo = makeRepo(qr, sessionId);
-      const segment = (await repo.findAllLinks(FILE_ID))
+      const segment = (await repo.getAllLinks(FILE_ID))
         .unresolvedSubsystemControlLinks[0];
 
-      await repo.resolveSubsystemControlLinks([segment], 800, {
+      await repo.resolveSubsystemControlLinks([segment.systemId], 800, {
         source: SOURCE.Manual,
         linkedEntityGroupId: 'group-A',
       });
@@ -629,7 +627,7 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
         linkedEntityGroupId: null,
         newValue: {controlLinkSystemId: 800},
       });
-      const topology = await repo.findAllLinks(FILE_ID);
+      const topology = await repo.getAllLinks(FILE_ID);
       expect(topology.unresolvedSubsystemControlLinks).toEqual([]);
       expect(
         topology.controlLinks[0]?.subsystemControlLinks.map(

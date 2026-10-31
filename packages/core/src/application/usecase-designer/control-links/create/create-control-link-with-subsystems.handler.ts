@@ -40,7 +40,7 @@ export class CreateControlLinkWithSubsystemsHandler
   ): Promise<ControlLinkNode> {
     const module = await this.uow
       .getModuleRepository()
-      .findModuleForControlLink(systemId, fileSystemId);
+      .findModuleById(systemId, fileSystemId);
     if (module)
       return {
         type: NodeType.Module,
@@ -82,9 +82,13 @@ export class CreateControlLinkWithSubsystemsHandler
     const parentById = new Map(
       topologyRows.map(n => [n.systemId, n.parentSystemId]),
     );
-    const segments = await this.uow
+    const {controlLinks, unresolvedSubsystemControlLinks} = await this.uow
       .getControlLinkRepository()
-      .getAllSubsystemControlLinks(fileSystemId);
+      .getAllLinks(fileSystemId);
+    const segments = [
+      ...unresolvedSubsystemControlLinks,
+      ...controlLinks.flatMap(cl => cl.subsystemControlLinks),
+    ];
     const isInside = (owner: number, other: number): boolean => {
       let current = other;
       const visited = new Set<number>();
@@ -175,22 +179,18 @@ export class CreateControlLinkWithSubsystemsHandler
       command.linkType,
       DEFAULT_CONTAINER_HEAP_ID,
     );
-    const [allSegments, routeTopology] = await Promise.all([
-      repository.getAllSubsystemControlLinks(context.fileSystemId),
-      this.uow
-        .getSubsystemRepository()
-        .getAllNodesWithParents(context.fileSystemId),
-    ]);
+    const [{unresolvedSubsystemControlLinks}, routeTopology] =
+      await Promise.all([
+        repository.getAllLinks(context.fileSystemId),
+        this.uow
+          .getSubsystemRepository()
+          .getAllNodesWithParents(context.fileSystemId),
+      ]);
     const nodeTypes = new Map(routeTopology.map(n => [n.systemId, n.type]));
     nodeTypes.set(command.peerNodeASystemId, context.nodeA.type);
     nodeTypes.set(command.peerNodeBSystemId, context.nodeB.type);
     const resolution = ControlChainResolutionService.resolve({
-      unresolvedSubsystemlinks: [
-        ...allSegments.filter(
-          (link: SubsystemControlLink) => link.controlLinkSystemId === null,
-        ),
-        segment,
-      ],
+      unresolvedSubsystemlinks: [...unresolvedSubsystemControlLinks, segment],
       nodeTypeMap: nodeTypes,
     });
     const completed = resolution.completeChains.find(chain =>
@@ -253,7 +253,7 @@ export class CreateControlLinkWithSubsystemsHandler
     );
     segment.controlLinkSystemId = Number(link.systemId);
     await repository.createSubsystemControlLink(segment);
-    await repository.associateSubsystemControlLinks(
+    await repository.resolveSubsystemControlLinks(
       completed.ssLinksSystemIds.filter(id => id !== segmentId),
       Number(link.systemId),
     );

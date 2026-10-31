@@ -51,7 +51,7 @@ export interface DataLinkRepository {
     fileSystemId: number,
   ): Promise<SubsystemDataLink[]>;
 
-  findAllLinks(fileSystemId: number): Promise<DataLinkTopology>;
+  getAllLinks(fileSystemId: number): Promise<DataLinkTopology>;
 
   /**
    * Looks up a canonical DataLink by system ID in the effective session overlay.
@@ -183,21 +183,6 @@ export interface DataLinkRepository {
   ): Promise<void>;
 
   /**
-   * Writes CREATE edit_action rows for boundary DataPorts and SubsystemDataLink
-   * segments only, attaching them to an already-persisted DataLink identified
-   * by `dataLinkSystemId`. Used on the soft-delete cancellation path
-   * (FR-DL-07a) after `cancelDeleteDataLink()` has restored the baseline
-   * DataLink row — this method must not re-issue a CREATE for the DataLink itself.
-   */
-  attachTraversalEntities(
-    dataLinkSystemId: number,
-    subsystemDataLinks: SubsystemDataLink[],
-    boundaryPortPayloads: BoundaryPortPayload[],
-    fileSystemId: number,
-    options?: EditOptions,
-  ): Promise<void>;
-
-  /**
    * Looks up a DataLink by (sourcePortSystemId, destinationPortSystemId) in the
    * session overlay (base data_links table + active edit_actions).
    *
@@ -212,9 +197,6 @@ export interface DataLinkRepository {
     isDeleted: boolean;
     payload: Record<string, unknown>;
   } | null>;
-
-  /** Cancels the pending DELETE edit_action (FR-DL-07a), restoring the baseline DataLink. */
-  cancelDeleteDataLink(systemId: number): Promise<void>;
 
   /**
    * Writes a single unresolved SLS (dataLinkSystemId = null) CREATE row to

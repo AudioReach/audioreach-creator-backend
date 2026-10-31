@@ -79,7 +79,7 @@ function makeDataLinkRepository(
 ): DataLinkRepository {
   return {
     getLinksByPortSystemIds: jest.fn().mockResolvedValue([]),
-    findAllLinks: jest.fn().mockResolvedValue({
+    getAllLinks: jest.fn().mockResolvedValue({
       dataLinks: [],
       unresolvedSubsystemDataLinks: [],
     }),
@@ -96,7 +96,7 @@ function makeControlLinkRepository(
 ): ControlLinkRepository {
   return {
     getLinksByPortSystemIds: jest.fn().mockResolvedValue([]),
-    findAllLinks: jest.fn().mockResolvedValue({
+    getAllLinks: jest.fn().mockResolvedValue({
       controlLinks: [],
       unresolvedSubsystemControlLinks: [],
     }),
@@ -617,7 +617,7 @@ describe('MoveSubsystemComponentsHandler', () => {
       getSubsystem: jest.fn().mockResolvedValue(targetSubsystem),
     });
     const dataLinks = makeDataLinkRepository({
-      findAllLinks: jest.fn().mockResolvedValue({
+      getAllLinks: jest.fn().mockResolvedValue({
         dataLinks: [dataLink],
         unresolvedSubsystemDataLinks: [],
       }),
@@ -818,7 +818,7 @@ describe('MoveSubsystemComponentsHandler', () => {
       }),
     });
     const dataLinks = makeDataLinkRepository({
-      findAllLinks: jest.fn().mockResolvedValue({
+      getAllLinks: jest.fn().mockResolvedValue({
         dataLinks: [movedConnection],
         unresolvedSubsystemDataLinks: [],
       }),
@@ -964,7 +964,7 @@ describe('MoveSubsystemComponentsHandler', () => {
       }),
     });
     const dataLinks = makeDataLinkRepository({
-      findAllLinks: jest.fn().mockResolvedValue({
+      getAllLinks: jest.fn().mockResolvedValue({
         dataLinks: [],
         unresolvedSubsystemDataLinks: unresolvedSegments,
       }),

@@ -37,10 +37,10 @@ describe('PatchControlLinkPropertiesHandler', () => {
       1,
     );
     const repo = {
-      findBySystemId: jest
+      findBySystemIds: jest
         .fn()
-        .mockImplementation((id: number) =>
-          Promise.resolve(id === 1 ? target : connected),
+        .mockImplementation((ids: number[]) =>
+          Promise.resolve(ids.map(id => (id === 1 ? target : connected))),
         ),
       findSubsystemControlRouteContext: jest.fn().mockResolvedValue({
         subsystemControlLinks: [],

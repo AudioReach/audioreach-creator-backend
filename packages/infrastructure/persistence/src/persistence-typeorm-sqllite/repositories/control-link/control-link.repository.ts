@@ -12,13 +12,7 @@ import type {
   EditOptions,
   ControlLinkIdResolution,
 } from '@arc/core';
-import {
-  ControlLink,
-  CONTROL_LINK_TYPE,
-  SubsystemControlLink,
-  CHANGE_OPERATION,
-} from '@arc/core';
-import {EditActionSchema} from '../../entity-schema/edit-session/edit-action.schema.js';
+import {ControlLink, CONTROL_LINK_TYPE, SubsystemControlLink} from '@arc/core';
 import type {ControlLinkBase} from '../../entity-schema/usecase-data/Links/control-link.js';
 import type {ControlPortRow} from '../../entity-schema/usecase-data/node/control-port.js';
 import {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
@@ -157,7 +151,7 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
       .map(row => baseToSubsystemControlLink(row));
   }
 
-  async findAllLinks(fileSystemId: number): Promise<ControlLinkTopology> {
+  async getAllLinks(fileSystemId: number): Promise<ControlLinkTopology> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
     const [rows, controlLinkRows] = await Promise.all([
       this.linkFetcher.loadSubsystemControlLinkRows(fileSystemId, sessionId),
@@ -352,19 +346,6 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
     return rows.map(row => baseToControlLink(row));
   }
 
-  async findBySystemId(
-    systemId: number,
-    fileSystemId: number,
-  ): Promise<ControlLink | null> {
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-    const rows = await this.linkFetcher.loadControlLinkRows(
-      fileSystemId,
-      sessionId,
-      {systemId},
-    );
-    return rows.length > 0 ? baseToControlLink(rows[0]) : null;
-  }
-
   async findCanonicalLinksByAnySystemIds(
     systemIds: readonly number[],
     fileSystemId: number,
@@ -434,17 +415,17 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
   }
 
   async resolveSubsystemControlLinks(
-    subsystemControlLinks: readonly SubsystemControlLink[],
+    subsystemLinkSystemIds: readonly number[],
     controlLinkSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
-    if (subsystemControlLinks.length === 0) return;
+    if (subsystemLinkSystemIds.length === 0) return;
 
     const {session} = this.uow.getWriteContext();
     await this.writer.writeDeltaBatch(
-      subsystemControlLinks.map(segment => ({
+      subsystemLinkSystemIds.map(systemId => ({
         targetTable: ENTITY_NAMES.SubsystemControlLink,
-        targetSystemId: segment.systemId,
+        targetSystemId: systemId,
         aggregateId: controlLinkSystemId,
         delta: {controlLinkSystemId},
         ...options,
@@ -668,18 +649,6 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
       await this.createSubsystemControlLink(segment);
   }
 
-  async cancelDeleteControlLink(systemId: number): Promise<void> {
-    const {session} = this.uow.getWriteContext();
-    // A committed link is restored by cancelling its pending DELETE; it is not
-    // a new entity and therefore must not produce a CREATE projection.
-    await this.manager.delete(EditActionSchema, {
-      sessionId: session.sessionId,
-      targetTable: ENTITY_NAMES.ControlLink,
-      targetSystemId: systemId,
-      operation: CHANGE_OPERATION.Delete,
-    });
-  }
-
   async updateHeapId(systemId: number, heapId: number): Promise<void> {
     const {session} = this.uow.getWriteContext();
     await this.writer.writeDelta(
@@ -715,43 +684,6 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
     );
   }
 
-  async associateSubsystemControlLinks(
-    subsystemLinkSystemIds: number[],
-    controlLinkSystemId: number,
-  ): Promise<void> {
-    const {session} = this.uow.getWriteContext();
-    for (const systemId of subsystemLinkSystemIds) {
-      await this.writer.writeDelta(
-        {
-          targetTable: ENTITY_NAMES.SubsystemControlLink,
-          targetSystemId: systemId,
-          aggregateId: systemId,
-          delta: {controlLinkSystemId},
-        },
-        session.sessionId,
-        this.manager,
-      );
-    }
-  }
-
-  async getAllSubsystemControlLinks(
-    fileSystemId: number,
-  ): Promise<SubsystemControlLink[]> {
-    const rows = await this.linkFetcher.loadSubsystemControlLinkRows(
-      fileSystemId,
-      this.sessionId(),
-    );
-    return rows.map(row => baseToSubsystemControlLink(row));
-  }
-
-  async getAllControlLinks(fileSystemId: number): Promise<ControlLink[]> {
-    const rows = await this.linkFetcher.loadControlLinkRows(
-      fileSystemId,
-      this.sessionId(),
-    );
-    return rows.map(row => baseToControlLink(row));
-  }
-
   async getAllocatedIntentIds(
     portSystemId: number,
     fileSystemId: number,
@@ -768,19 +700,28 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
     }));
   }
 
-  async createIntents(
-    intents: {
-      systemId: number;
-      controlPortSystemId: number;
-      intentId: number;
-    }[],
+  async updateIntents(
+    controlPortSystemId: number,
+    toCreate: {systemId: number; intentId: number}[],
+    toDelete: number[],
   ): Promise<void> {
+    if (toCreate.length === 0 && toDelete.length === 0) return;
     const {session} = this.uow.getWriteContext();
-    for (const intent of intents) {
-      const nodeSystemId = await this.getPortOwner(
-        intent.controlPortSystemId,
-        session.fileSystemId,
+    const nodeSystemId = await this.getPortOwner(
+      controlPortSystemId,
+      session.fileSystemId,
+    );
+    for (const systemId of toDelete)
+      await this.writer.writeDelete(
+        {
+          targetTable: ENTITY_NAMES.Intent,
+          targetSystemId: systemId,
+          aggregateId: nodeSystemId,
+        },
+        session.sessionId,
+        this.manager,
       );
+    for (const intent of toCreate)
       await this.writer.writeCreate(
         {
           targetTable: ENTITY_NAMES.Intent,
@@ -788,31 +729,9 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
           aggregateId: nodeSystemId,
           payload: {
             systemId: intent.systemId,
-            controlPortSystemId: intent.controlPortSystemId,
+            controlPortSystemId,
             naturalId: intent.intentId,
           },
-        },
-        session.sessionId,
-        this.manager,
-      );
-    }
-  }
-
-  async deleteIntents(
-    ids: number[],
-    controlPortSystemId: number,
-  ): Promise<void> {
-    const {session} = this.uow.getWriteContext();
-    const nodeSystemId = await this.getPortOwner(
-      controlPortSystemId,
-      session.fileSystemId,
-    );
-    for (const systemId of ids)
-      await this.writer.writeDelete(
-        {
-          targetTable: ENTITY_NAMES.Intent,
-          targetSystemId: systemId,
-          aggregateId: nodeSystemId,
         },
         session.sessionId,
         this.manager,

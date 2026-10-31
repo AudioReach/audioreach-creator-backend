@@ -29,7 +29,6 @@ import {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
-import {EditActionSchema} from '../../entity-schema/edit-session/edit-action.schema.js';
 
 function baseToSubsystemDataLink(
   r: EffectiveSubsystemDataLinkRow,
@@ -160,7 +159,7 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
       .map(row => baseToSubsystemDataLink(row));
   }
 
-  async findAllLinks(fileSystemId: number): Promise<DataLinkTopology> {
+  async getAllLinks(fileSystemId: number): Promise<DataLinkTopology> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
     const [rows, dataLinkRows] = await Promise.all([
       this.linkFetcher.loadSubsystemDataLinkRows(fileSystemId, sessionId),
@@ -593,40 +592,6 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     );
   }
 
-  /**
-   * Writes CREATE edit_action rows for boundary DataPorts and SubsystemDataLink
-   * segments only — used on the soft-delete cancellation path (FR-DL-07a)
-   * after `cancelDeleteDataLink()` has restored the baseline DataLink row;
-   * must not re-issue a CREATE for the DataLink itself.
-   */
-  async attachTraversalEntities(
-    dataLinkSystemId: number,
-    subsystemDataLinks: SubsystemDataLink[],
-    boundaryPortPayloads: BoundaryPortPayload[],
-    fileSystemId: number,
-    options?: EditOptions,
-  ): Promise<void> {
-    const {session} = this.uow.getWriteContext();
-    const writer = this.requireWriter();
-
-    await this.writeBoundaryPortCreates(
-      boundaryPortPayloads,
-      dataLinkSystemId,
-      session.sessionId,
-      writer,
-      options,
-    );
-
-    await this.writeSubsystemDataLinkCreates(
-      subsystemDataLinks,
-      dataLinkSystemId,
-      fileSystemId,
-      session.sessionId,
-      writer,
-      options,
-    );
-  }
-
   private async writeBoundaryPortCreates(
     boundaryPortPayloads: BoundaryPortPayload[],
     aggregateId: number,
@@ -748,18 +713,6 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     }
 
     return null;
-  }
-
-  async cancelDeleteDataLink(systemId: number): Promise<void> {
-    const {session} = this.uow.getWriteContext();
-    // A committed link is restored by cancelling its pending DELETE; it is not
-    // a new entity and therefore must not produce a CREATE projection.
-    await this.manager.delete(EditActionSchema, {
-      sessionId: session.sessionId,
-      targetTable: ENTITY_NAMES.DataLink,
-      targetSystemId: systemId,
-      operation: CHANGE_OPERATION.Delete,
-    });
   }
 
   async createSubsystemDataLink(

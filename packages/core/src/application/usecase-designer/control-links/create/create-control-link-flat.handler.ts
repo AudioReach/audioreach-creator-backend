@@ -32,7 +32,7 @@ export class CreateControlLinkFlatHandler
   ): Promise<ControlLinkNode> {
     const module = await this.uow
       .getModuleRepository()
-      .findModuleForControlLink(systemId, fileSystemId);
+      .findModuleById(systemId, fileSystemId);
     if (module)
       return {
         type: NodeType.Module,

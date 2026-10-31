@@ -81,14 +81,8 @@ export class TypeOrmModuleRepository implements ModuleRepository {
   async findModuleById(
     systemId: number,
     fileSystemId: number,
-  ): Promise<SpfModuleBase | null> {
-    const rows = await this.spfModuleFetcher.fetchMany(
-      fileSystemId,
-      this.uow.getWriteContext().session.sessionId,
-      {systemId},
-    );
-    const row = rows.at(0);
-    return row ? this.toModuleBase(row) : null;
+  ): Promise<SpfModule | null> {
+    return this.findModuleForPatch(systemId, fileSystemId);
   }
 
   async findModulesByContainerId(
@@ -330,18 +324,13 @@ export class TypeOrmModuleRepository implements ModuleRepository {
   ): Promise<SpfModule | null> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
     const [spfRows, nodeRows] = await Promise.all([
-      this.spfModuleFetcher.fetchMany(fileSystemId, sessionId, {
-        systemId: systemId,
-      }),
+      this.spfModuleFetcher.fetchMany(fileSystemId, sessionId, {systemId}),
       this.nodeFetcher.fetchMany([systemId], fileSystemId, sessionId),
     ]);
-    const nodeMap = new Map(nodeRows.map(n => [n.systemId, n]));
     const spf = spfRows.at(0);
     if (spf === undefined) return null;
-    const moduleNode = {
-      ...spf,
-      parentSystemId: nodeMap.get(spf.systemId)?.parentSystemId ?? null,
-    };
+    const nodeMap = new Map(nodeRows.map(n => [n.systemId, n]));
+    const parentSystemId = nodeMap.get(spf.systemId)?.parentSystemId ?? null;
     const dataPorts = await this.portFetcher.fetchDataPorts(
       systemId,
       fileSystemId,
@@ -355,12 +344,12 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     return new SpfModule({
       systemId,
       fileSystemId,
-      naturalId: moduleNode.naturalId,
-      definitionSystemId: moduleNode.definitionSystemId,
-      containerSystemId: moduleNode.containerSystemId,
-      subgraphSystemId: moduleNode.subgraphSystemId,
-      alias: moduleNode.alias ?? undefined,
-      parentSystemId: moduleNode.parentSystemId ?? undefined,
+      naturalId: spf.naturalId,
+      definitionSystemId: spf.definitionSystemId,
+      containerSystemId: spf.containerSystemId,
+      subgraphSystemId: spf.subgraphSystemId,
+      alias: spf.alias ?? undefined,
+      parentSystemId: parentSystemId ?? undefined,
       dataPorts: dataPorts.map(
         dp =>
           new DataPort({
@@ -411,42 +400,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       ports: dataPorts.map(dp => ({
         systemId: dp.systemId,
         portIoType: dp.portIoType,
-      })),
-    };
-  }
-
-  async findModuleForControlLink(
-    moduleSystemId: number,
-    fileSystemId: number,
-  ): Promise<{
-    subgraphSystemId: number;
-    parentSystemId: number | null;
-    definitionSystemId: number;
-    controlPorts: {systemId: number; naturalId: number}[];
-  } | null> {
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-    const modules = await this.spfModuleFetcher.fetchMany(
-      fileSystemId,
-      sessionId,
-      {systemId: moduleSystemId},
-    );
-    const module = modules.at(0);
-    if (!module) return null;
-    const [nodeRows, controlPorts] = await Promise.all([
-      this.nodeFetcher.fetchMany([moduleSystemId], fileSystemId, sessionId),
-      this.portFetcher.fetchControlPortsWithIntents(
-        moduleSystemId,
-        fileSystemId,
-        sessionId,
-      ),
-    ]);
-    return {
-      subgraphSystemId: module.subgraphSystemId,
-      parentSystemId: nodeRows.at(0)?.parentSystemId ?? null,
-      definitionSystemId: module.definitionSystemId,
-      controlPorts: controlPorts.map(cp => ({
-        systemId: cp.systemId,
-        naturalId: cp.naturalId,
       })),
     };
   }

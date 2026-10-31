@@ -198,18 +198,7 @@ export abstract class ControlLinkCreationHandler<
     }
   > {
     const repository = this.uow.getControlLinkRepository();
-    const existing = await repository.findByPortPair(
-      context.canonicalPortA,
-      context.canonicalPortB,
-      context.fileSystemId,
-    );
-    const deleted = existing?.isDeleted ? existing : null;
-    const systemId =
-      deleted?.systemId ??
-      (await this.idGeneration.getNextId(context.fileSystemId));
-    const effectiveLinkType =
-      (deleted?.payload?.linkType as typeof command.linkType) ??
-      command.linkType;
+    const systemId = await this.idGeneration.getNextId(context.fileSystemId);
     const link = new ControlLink(
       systemId,
       context.fileSystemId,
@@ -218,7 +207,7 @@ export abstract class ControlLinkCreationHandler<
       context.canonicalPortA,
       context.canonicalPortB,
       command.heapId,
-      effectiveLinkType,
+      command.linkType,
       context.nodeA.subgraphId,
       context.nodeB.subgraphId,
     );
@@ -228,7 +217,7 @@ export abstract class ControlLinkCreationHandler<
           command.nodeAPortSystemId,
           command.nodeBPortSystemId,
           systemId,
-          effectiveLinkType,
+          command.linkType,
           context.fileSystemId,
           this.idGeneration,
           await this.getBoundaryNaturalIdStarts(
@@ -245,13 +234,7 @@ export abstract class ControlLinkCreationHandler<
         .getSubsystemRepository()
         .createControlPorts(traversalEntities.controlPorts);
     }
-    if (deleted) {
-      await repository.cancelDeleteControlLink(link.systemId);
-      if (traversalEntities) {
-        for (const segment of traversalEntities.subsystemControlLinks)
-          await repository.createSubsystemControlLink(segment);
-      }
-    } else await repository.createControlLink(link);
+    await repository.createControlLink(link);
     if (intents.length > 0)
       await this.propagateIntents(
         context.canonicalPortA,
@@ -552,18 +535,19 @@ export abstract class ControlLinkCreationHandler<
         ),
       ]);
     }
-    if (a.length === 0 && b.length === 0) {
-      if (
-        nodeA.type === NodeType.Subsystem &&
-        nodeB.type === NodeType.Subsystem
-      )
-        return [];
+    if (
+      a.length === 0 &&
+      b.length === 0 &&
+      nodeA.type === NodeType.Subsystem &&
+      nodeB.type === NodeType.Subsystem
+    )
+      return [];
+    if (a.length === 0 && b.length === 0)
       throw new DomainRuleViolationException([
         IssueFactory.clTopologyViolation(
           'No intents can be resolved for the control link',
         ),
       ]);
-    }
     if (a.length === 0) return b;
     if (b.length === 0) return a;
     const bSet = new Set(b);
@@ -572,6 +556,18 @@ export abstract class ControlLinkCreationHandler<
       throw new DomainRuleViolationException([
         IssueFactory.clTopologyViolation(
           'The control-port intent intersection is empty',
+        ),
+      ]);
+    if (portA.totalLinksAtPort > 0 && intersection.length < a.length)
+      throw new DomainRuleViolationException([
+        IssueFactory.clTopologyViolation(
+          `Port ${command.nodeAPortSystemId} has existing links; connecting would reduce its committed intents to a subset`,
+        ),
+      ]);
+    if (portB.totalLinksAtPort > 0 && intersection.length < b.length)
+      throw new DomainRuleViolationException([
+        IssueFactory.clTopologyViolation(
+          `Port ${command.nodeBPortSystemId} has existing links; connecting would reduce its committed intents to a subset`,
         ),
       ]);
     return intersection;
@@ -592,7 +588,7 @@ export abstract class ControlLinkCreationHandler<
     if (nodeType === NodeType.Subsystem) return [];
     const module = await this.uow
       .getModuleRepository()
-      .findModuleForControlLink(nodeId, fileSystemId);
+      .findModuleById(nodeId, fileSystemId);
     if (!module) return [];
     const definition = await this.uow
       .getModuleDefinitionRepository()
@@ -613,10 +609,12 @@ export abstract class ControlLinkCreationHandler<
   ): Promise<void> {
     if (intentIds.length === 0) return;
     const repository = this.uow.getControlLinkRepository();
-    const [controlLinks, segments] = await Promise.all([
-      repository.getAllControlLinks(fileSystemId),
-      repository.getAllSubsystemControlLinks(fileSystemId),
-    ]);
+    const {controlLinks, unresolvedSubsystemControlLinks} =
+      await repository.getAllLinks(fileSystemId);
+    const segments = [
+      ...unresolvedSubsystemControlLinks,
+      ...controlLinks.flatMap(cl => cl.subsystemControlLinks),
+    ];
     const portToNode = new Map<number, number>();
     const segmentPeers = new Map<number, number[]>();
     const add = (
@@ -651,7 +649,7 @@ export abstract class ControlLinkCreationHandler<
     for (const {nodeId, portId} of moduleEndpoints.values()) {
       const module = await this.uow
         .getModuleRepository()
-        .findModuleForControlLink(nodeId, fileSystemId);
+        .findModuleById(nodeId, fileSystemId);
       if (!module) continue;
       const port = module.controlPorts.find(
         candidate => candidate.systemId === portId,
@@ -689,7 +687,7 @@ export abstract class ControlLinkCreationHandler<
       if (nodeId === undefined) continue;
       const module = await this.uow
         .getModuleRepository()
-        .findModuleForControlLink(nodeId, fileSystemId);
+        .findModuleById(nodeId, fileSystemId);
       if (module) moduleEndpoints.set(`${nodeId}:${portId}`, {nodeId, portId});
       const neighbors = segmentPeers.get(portId) ?? [];
       for (const neighbor of neighbors) {
@@ -711,19 +709,15 @@ export abstract class ControlLinkCreationHandler<
       portSystemId,
       fileSystemId,
     );
-    if (existing.length > 0)
-      await repository.deleteIntents(
-        existing.map(intent => intent.intentSystemId),
-        portSystemId,
-      );
-    await repository.createIntents(
+    await repository.updateIntents(
+      portSystemId,
       await Promise.all(
         intentIds.map(async intentId => ({
           systemId: await this.idGeneration.getNextId(fileSystemId),
-          controlPortSystemId: portSystemId,
           intentId,
         })),
       ),
+      existing.map(intent => intent.intentSystemId),
     );
   }
 
@@ -739,11 +733,13 @@ export abstract class ControlLinkCreationHandler<
     additionalSegments: SubsystemControlLink[] = [],
   ): Promise<void> {
     const repository = this.uow.getControlLinkRepository();
-    const [controlLinks, subsystemLinks] = await Promise.all([
-      repository.getAllControlLinks(fileSystemId),
-      repository.getAllSubsystemControlLinks(fileSystemId),
-    ]);
-    const segments = [...subsystemLinks, ...additionalSegments];
+    const {controlLinks, unresolvedSubsystemControlLinks} =
+      await repository.getAllLinks(fileSystemId);
+    const segments = [
+      ...unresolvedSubsystemControlLinks,
+      ...controlLinks.flatMap(cl => cl.subsystemControlLinks),
+      ...additionalSegments,
+    ];
     const allEdges = [
       ...controlLinks.map(link => ({
         peerNodeASystemId: link.peerNodeASystemId,

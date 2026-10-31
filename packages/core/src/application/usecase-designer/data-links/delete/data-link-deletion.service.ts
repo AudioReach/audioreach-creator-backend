@@ -38,7 +38,7 @@ export class DataLinkDeletionService {
     fileSystemId: number,
   ): Promise<DeleteDataLinkResult | null> {
     const repository = this.uow.getDataLinkRepository();
-    const graph = await repository.findAllLinks(fileSystemId);
+    const graph = await repository.getAllLinks(fileSystemId);
     const canonical = graph.dataLinks.find(link => link.systemId === systemId);
     if (canonical) {
       await this.deleteResolvedSegments(
@@ -88,7 +88,7 @@ export class DataLinkDeletionService {
           moduleSystemId,
           fileSystemId,
         ),
-        repository.findAllLinks(fileSystemId),
+        repository.getAllLinks(fileSystemId),
         this.uow.getSubsystemRepository().getAllNodesWithParents(fileSystemId),
       ],
     );

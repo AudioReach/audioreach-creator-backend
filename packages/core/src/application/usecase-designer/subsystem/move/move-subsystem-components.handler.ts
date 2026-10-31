@@ -213,8 +213,8 @@ export class MoveSubsystemComponentsHandler implements CommandHandler<
         movedSubsystems,
       );
       const [dataRouteContext, controlRouteContext] = await Promise.all([
-        this.uow.getDataLinkRepository().findAllLinks(command.fileSystemId),
-        this.uow.getControlLinkRepository().findAllLinks(command.fileSystemId),
+        this.uow.getDataLinkRepository().getAllLinks(command.fileSystemId),
+        this.uow.getControlLinkRepository().getAllLinks(command.fileSystemId),
       ]);
       ensureNoMovedPartialConnections(
         movedNodeIds,

@@ -307,7 +307,7 @@ function createManualRoutingFixture(seed: FixtureSeed) {
       })),
   };
   const dataLinkRepository = {
-    findAllLinks: async () => ({
+    getAllLinks: async () => ({
       dataLinks: [...(seed.dataLinks ?? [])],
       unresolvedSubsystemDataLinks: [],
     }),
@@ -324,7 +324,7 @@ function createManualRoutingFixture(seed: FixtureSeed) {
       seed.dataLinks?.find(link => link.systemId === systemId) ?? null,
   };
   const controlLinkRepository = {
-    findAllLinks: async () => ({
+    getAllLinks: async () => ({
       controlLinks: [...(seed.controlLinks ?? [])],
       unresolvedSubsystemControlLinks: [],
     }),

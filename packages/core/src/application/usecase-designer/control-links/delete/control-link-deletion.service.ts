@@ -45,7 +45,7 @@ export class ControlLinkDeletionService {
     fileSystemId: number,
   ): Promise<DeleteControlLinkResult | null> {
     const repository = this.uow.getControlLinkRepository();
-    const graph = await repository.findAllLinks(fileSystemId);
+    const graph = await repository.getAllLinks(fileSystemId);
     const allSegments = this.allSegments(graph);
     const canonical = graph.controlLinks.find(
       link => link.systemId === systemId,
@@ -117,7 +117,7 @@ export class ControlLinkDeletionService {
           moduleSystemId,
           fileSystemId,
         ),
-        repository.findAllLinks(fileSystemId),
+        repository.getAllLinks(fileSystemId),
         this.uow.getSubsystemRepository().getAllNodesWithParents(fileSystemId),
       ],
     );

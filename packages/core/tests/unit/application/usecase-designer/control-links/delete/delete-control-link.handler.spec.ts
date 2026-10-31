@@ -15,7 +15,7 @@ const LINK_ID = 10;
 
 function createFixture(controlLinks: object[] = []) {
   const repository = {
-    findAllLinks: jest.fn().mockResolvedValue({
+    getAllLinks: jest.fn().mockResolvedValue({
       controlLinks,
       unresolvedSubsystemControlLinks: [],
     }),
