@@ -7,6 +7,7 @@ import {
   CHANGE_OPERATION,
   CHANGE_STATUS,
   SOURCE,
+  type ChangeStatus,
   type ISessionRepository,
   type ProjectSession,
   type SessionMode,
@@ -234,5 +235,40 @@ export class TypeOrmSessionRepository implements ISessionRepository {
       })
       .where('sessionId = :sessionId', {sessionId})
       .execute();
+  }
+
+  async updateChangeStatusByEntitySystemIds(
+    sessionId: number,
+    targetTable: string,
+    systemIds: readonly number[],
+    status: ChangeStatus,
+  ): Promise<readonly number[]> {
+    if (systemIds.length === 0) return [];
+
+    const ids = [...systemIds];
+
+    const found = await this.manager
+      .createQueryBuilder(EditActionSchema, 'ea')
+      .select('ea.targetSystemId', 'targetSystemId')
+      .distinct(true)
+      .where('ea.sessionId = :sessionId', {sessionId})
+      .andWhere('ea.targetTable = :targetTable', {targetTable})
+      .andWhere('ea.targetSystemId IN (:...ids)', {ids})
+      .getRawMany<{targetSystemId: number}>();
+
+    const foundIds = found.map(r => Number(r.targetSystemId));
+
+    if (foundIds.length > 0) {
+      await this.manager
+        .createQueryBuilder()
+        .update(EditActionSchema)
+        .set({changeStatus: status})
+        .where('sessionId = :sessionId', {sessionId})
+        .andWhere('targetTable = :targetTable', {targetTable})
+        .andWhere('targetSystemId IN (:...foundIds)', {foundIds})
+        .execute();
+    }
+
+    return foundIds;
   }
 }

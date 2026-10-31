@@ -72,6 +72,10 @@ import {ApplyChangesCommand} from '../../../edit-session/apply-changes/apply-cha
 import {ApplyChangesHandler} from '../../../edit-session/apply-changes/apply-changes.handler.js';
 import {DiscardChangesCommand} from '../../../edit-session/discard-changes/discard-changes.command.js';
 import {DiscardChangesHandler} from '../../../edit-session/discard-changes/discard-changes.handler.js';
+import {StageUsecasesCommand} from '../../../edit-session/stage-usecases/stage-usecases.command.js';
+import {StageUsecasesHandler} from '../../../edit-session/stage-usecases/stage-usecases.handler.js';
+import {UnstageUsecasesCommand} from '../../../edit-session/unstage-usecases/unstage-usecases.command.js';
+import {UnstageUsecasesHandler} from '../../../edit-session/unstage-usecases/unstage-usecases.handler.js';
 import {PatchSpfModuleCommand} from '../../../usecase-designer/spf-module/patch/patch-spf-module.command.js';
 import {PatchSpfModuleHandler} from '../../../usecase-designer/spf-module/patch/patch-spf-module.handler.js';
 import {CreateModuleCommand} from '../../../usecase-designer/spf-module/create-module/create-module.command.js';
@@ -278,6 +282,14 @@ export class CommandHandlerRegistry {
 
     this.commandHandlerFactories.set(DiscardChangesCommand, {
       create: deps => new DiscardChangesHandler(deps.uow),
+    });
+
+    this.commandHandlerFactories.set(StageUsecasesCommand, {
+      create: deps => new StageUsecasesHandler(deps.uow),
+    });
+
+    this.commandHandlerFactories.set(UnstageUsecasesCommand, {
+      create: deps => new UnstageUsecasesHandler(deps.uow),
     });
 
     this.commandHandlerFactories.set(PatchSpfModuleCommand, {
