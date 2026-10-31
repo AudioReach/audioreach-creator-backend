@@ -12,7 +12,6 @@ import {
   HttpCode,
   HttpStatus,
   InternalServerErrorException,
-  NotImplementedException,
   Param,
   Patch,
   Post,
@@ -47,6 +46,9 @@ import {
   EndSessionCommand,
   ApplyChangesCommand,
   DiscardChangesCommand,
+  StageUsecasesCommand,
+  UnstageUsecasesCommand,
+  type UsecaseChangesetResult,
   GetProjectsQuery,
   GetProjectQuery,
   UpdateProjectCommand,
@@ -57,20 +59,18 @@ import {
   RESULT_KIND,
   ISSUE_CODE,
   IssueSeverity,
-} from '@arc/core';
-import type {
-  PathRef,
-  Logger,
-  DownloadFileResult,
-  ProjectFilePropertiesResult,
-  ValidateFileResult,
-  UploadFileResult,
-  SessionResult,
-  ActiveSession,
-  SessionMode as CoreSessionMode,
-  ProjectDto,
-  RoutingOutcome,
-  UsecaseChangeDetails,
+  type PathRef,
+  type Logger,
+  type DownloadFileResult,
+  type ProjectFilePropertiesResult,
+  type ValidateFileResult,
+  type UploadFileResult,
+  type SessionResult,
+  type ActiveSession,
+  type SessionMode as CoreSessionMode,
+  type ProjectDto,
+  type RoutingOutcome,
+  type UsecaseChangeDetails,
 } from '@arc/core';
 import {promises as fsPromises} from 'node:fs';
 
@@ -83,10 +83,10 @@ import {ProjectInfoResponseDto} from './dto/project-info-response.dto.js';
 import {ProjectInfoUpdateDto} from './dto/project-info-update.dto.js';
 import {ProjectFilePropertiesResponseDto} from './dto/project-file-properties.dto.js';
 import {
-  StageChangesRequestDto,
-  StageChangesResponseDto,
-  UnstageChangesRequestDto,
-  UnstageChangesResponseDto,
+  StageUsecasesRequestDto,
+  StageUsecasesResponseDto,
+  UnstageUsecasesRequestDto,
+  UnstageUsecasesResponseDto,
   CommitChangesRequestDto,
   CommitChangesResponseDto,
   DiscardChangesRequestDto,
@@ -1288,23 +1288,23 @@ export class ProjectController {
     );
   }
 
-  @Post('/:projectId/stage-changes')
+  @Post('/:projectId/stage-usecases')
   @ApiParam({name: 'projectId', description: 'Id of project', required: true})
-  @ApiBody({type: StageChangesRequestDto})
+  @ApiBody({type: StageUsecasesRequestDto})
   @ApiOperation({
-    summary: 'Stage changes',
-    description: 'Stage changes in the project based on project Id.',
+    summary: 'Stage usecases',
+    description: 'Stage usecase changes in the project based on project Id.',
   })
-  @ApiExtraModels(ApiResult, StageChangesResponseDto)
+  @ApiExtraModels(ApiResult, StageUsecasesResponseDto)
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Successfully staged changes',
+    description: 'Successfully staged usecases',
     schema: {
       allOf: [
         {$ref: getSchemaPath(ApiResult)},
         {
           properties: {
-            data: {$ref: getSchemaPath(StageChangesResponseDto)},
+            data: {$ref: getSchemaPath(StageUsecasesResponseDto)},
           },
         },
       ],
@@ -1344,30 +1344,41 @@ export class ProjectController {
       ],
     },
   })
-  stageChanges(
+  @UseGuards(SessionGuard)
+  @HttpCode(HttpStatus.OK)
+  async stageUsecases(
     @Param('projectId') _projectId: string,
-    @Body() _stageChangesRequest: StageChangesRequestDto,
-  ): ApiResult<StageChangesResponseDto> {
-    throw new NotImplementedException('stageChanges is not implemented yet');
+    @Body() body: StageUsecasesRequestDto,
+    @ArcSession() session: ActiveSession,
+  ): Promise<StageUsecasesResponseDto> {
+    const systemIds = body.systemIds.map(Number);
+    const result = await this.commandBus.execute<
+      Result<UsecaseChangesetResult>
+    >(new StageUsecasesCommand(systemIds), session);
+    if (result.kind === RESULT_KIND.Fail)
+      throw new InternalServerErrorException(
+        'Stage usecases failed unexpectedly',
+      );
+    return result.data;
   }
 
-  @Post('/:projectId/unstage-changes')
+  @Post('/:projectId/unstage-usecases')
   @ApiParam({name: 'projectId', description: 'Id of project', required: true})
-  @ApiBody({type: UnstageChangesRequestDto})
+  @ApiBody({type: UnstageUsecasesRequestDto})
   @ApiOperation({
-    summary: 'Unstage changes',
-    description: 'Unstage changes in the project based on project Id.',
+    summary: 'Unstage usecases',
+    description: 'Unstage usecase changes in the project based on project Id.',
   })
-  @ApiExtraModels(ApiResult, UnstageChangesResponseDto)
+  @ApiExtraModels(ApiResult, UnstageUsecasesResponseDto)
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Successfully unstaged changes',
+    description: 'Successfully unstaged usecases',
     schema: {
       allOf: [
         {$ref: getSchemaPath(ApiResult)},
         {
           properties: {
-            data: {$ref: getSchemaPath(UnstageChangesResponseDto)},
+            data: {$ref: getSchemaPath(UnstageUsecasesResponseDto)},
           },
         },
       ],
@@ -1407,11 +1418,22 @@ export class ProjectController {
       ],
     },
   })
-  unstageChanges(
+  @UseGuards(SessionGuard)
+  @HttpCode(HttpStatus.OK)
+  async unstageUsecases(
     @Param('projectId') _projectId: string,
-    @Body() _unstageChangesRequest: UnstageChangesRequestDto,
-  ): ApiResult<UnstageChangesResponseDto> {
-    throw new NotImplementedException('unstageChanges is not implemented yet');
+    @Body() body: UnstageUsecasesRequestDto,
+    @ArcSession() session: ActiveSession,
+  ): Promise<UnstageUsecasesResponseDto> {
+    const systemIds = body.systemIds.map(Number);
+    const result = await this.commandBus.execute<
+      Result<UsecaseChangesetResult>
+    >(new UnstageUsecasesCommand(systemIds), session);
+    if (result.kind === RESULT_KIND.Fail)
+      throw new InternalServerErrorException(
+        'Unstage usecases failed unexpectedly',
+      );
+    return result.data;
   }
 
   @Post('/:projectId/commit-changes')

@@ -4,6 +4,7 @@
  */
 
 import type {
+  ChangeStatus,
   SessionMode,
   Source,
 } from '../../../../shared/change-vocabulary.js';
@@ -106,4 +107,17 @@ export interface ISessionRepository {
    * Used by EndSessionHandler to guard against ending a session with uncommitted staged changes.
    */
   countStagedChangesForSession(sessionId: number): Promise<number>;
+
+  /**
+   * Sets change_status for all edit_actions rows in the session belonging to
+   * the given target table and system IDs. Returns the distinct system IDs
+   * that had at least one matching row — the caller compares against the input
+   * to detect which IDs had no pending changes.
+   */
+  updateChangeStatusByEntitySystemIds(
+    sessionId: number,
+    targetTable: string,
+    systemIds: readonly number[],
+    status: ChangeStatus,
+  ): Promise<readonly number[]>;
 }

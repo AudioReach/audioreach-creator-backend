@@ -18,6 +18,10 @@ export {StartSessionCommand} from './application/edit-session/start-session/star
 export {EndSessionCommand} from './application/edit-session/end-session/end-session.command.js';
 export {ApplyChangesCommand} from './application/edit-session/apply-changes/apply-changes.command.js';
 export {DiscardChangesCommand} from './application/edit-session/discard-changes/discard-changes.command.js';
+export {StageUsecasesCommand} from './application/edit-session/stage-usecases/stage-usecases.command.js';
+export {UsecaseChangesetResultSchema} from './application/edit-session/stage-usecases/stage-usecases-result.dto.js';
+export type {UsecaseChangesetResult} from './application/edit-session/stage-usecases/stage-usecases-result.dto.js';
+export {UnstageUsecasesCommand} from './application/edit-session/unstage-usecases/unstage-usecases.command.js';
 export type {SessionResult} from './application/edit-session/session-types.js';
 
 // Shared errors

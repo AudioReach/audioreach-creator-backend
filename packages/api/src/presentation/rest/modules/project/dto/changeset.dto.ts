@@ -4,64 +4,34 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {IsArray, ArrayNotEmpty, IsString} from 'class-validator';
+import {IsArray, ArrayNotEmpty} from 'class-validator';
+import {createZodDto} from 'nestjs-zod';
+import {UsecaseChangesetResultSchema} from '@arc/core';
 
 // Base DTOs
 export class ChangesetRequestDto {
-  @ApiProperty({description: 'Array of change IDs to process', type: [String]})
+  @ApiProperty({
+    description: 'System IDs of the entities to stage/unstage',
+    type: [String],
+  })
   @IsArray()
   @ArrayNotEmpty()
-  @IsString({each: true})
-  changeIds!: string[];
-}
-
-export class ChangesetDto {
-  @ApiProperty({description: 'Overall operation success status'})
-  success!: boolean;
-
-  @ApiProperty({
-    description: 'Successfully processed change IDs',
-    type: [String],
-  })
-  processedChangeIds!: string[];
-
-  @ApiProperty({
-    description: 'Change IDs that failed to process',
-    type: [String],
-  })
-  failedChangeIds!: string[];
-
-  @ApiProperty({description: 'Descriptive message about the operation'})
-  message!: string;
+  systemIds!: string[];
 }
 
 // Stage-specific DTOs
-export class StageChangesRequestDto extends ChangesetRequestDto {
-  @ApiProperty({description: 'Array of change IDs to stage'})
-  declare changeIds: string[];
-}
+export class StageUsecasesRequestDto extends ChangesetRequestDto {}
 
-export class StageChangesResponseDto extends ChangesetDto {
-  @ApiProperty({description: 'Successfully staged change IDs'})
-  declare processedChangeIds: string[];
-
-  @ApiProperty({description: 'Change IDs that failed to stage'})
-  declare failedChangeIds: string[];
-}
+export class StageUsecasesResponseDto extends createZodDto(
+  UsecaseChangesetResultSchema,
+) {}
 
 // Unstage-specific DTOs
-export class UnstageChangesRequestDto extends ChangesetRequestDto {
-  @ApiProperty({description: 'Array of change IDs to unstage'})
-  declare changeIds: string[];
-}
+export class UnstageUsecasesRequestDto extends ChangesetRequestDto {}
 
-export class UnstageChangesResponseDto extends ChangesetDto {
-  @ApiProperty({description: 'Successfully unstaged change IDs'})
-  declare processedChangeIds: string[];
-
-  @ApiProperty({description: 'Change IDs that failed to unstage'})
-  declare failedChangeIds: string[];
-}
+export class UnstageUsecasesResponseDto extends createZodDto(
+  UsecaseChangesetResultSchema,
+) {}
 
 // Commit-specific DTOs
 // Commit always applies every staged action in the active session, so callers

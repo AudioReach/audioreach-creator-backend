@@ -1010,10 +1010,10 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/stage-changes": {
+    "/arc-api/v1/projects/{projectId}/stage-usecases": {
       "post": {
-        "description": "Stage changes in the project based on project Id.",
-        "operationId": "ProjectController_stageChanges",
+        "description": "Stage usecase changes in the project based on project Id.",
+        "operationId": "ProjectController_stageUsecases",
         "parameters": [
           {
             "name": "projectId",
@@ -1030,14 +1030,14 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/StageChangesRequestDto"
+                "$ref": "#/components/schemas/StageUsecasesRequestDto"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Successfully staged changes",
+            "description": "Successfully staged usecases",
             "content": {
               "application/json": {
                 "schema": {
@@ -1048,7 +1048,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/StageChangesResponseDto"
+                          "$ref": "#/components/schemas/StageUsecasesResponseDto"
                         }
                       }
                     }
@@ -1102,16 +1102,16 @@
             }
           }
         },
-        "summary": "Stage changes",
+        "summary": "Stage usecases",
         "tags": [
           "Project"
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/unstage-changes": {
+    "/arc-api/v1/projects/{projectId}/unstage-usecases": {
       "post": {
-        "description": "Unstage changes in the project based on project Id.",
-        "operationId": "ProjectController_unstageChanges",
+        "description": "Unstage usecase changes in the project based on project Id.",
+        "operationId": "ProjectController_unstageUsecases",
         "parameters": [
           {
             "name": "projectId",
@@ -1128,14 +1128,14 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UnstageChangesRequestDto"
+                "$ref": "#/components/schemas/UnstageUsecasesRequestDto"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Successfully unstaged changes",
+            "description": "Successfully unstaged usecases",
             "content": {
               "application/json": {
                 "schema": {
@@ -1146,7 +1146,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/UnstageChangesResponseDto"
+                          "$ref": "#/components/schemas/UnstageUsecasesResponseDto"
                         }
                       }
                     }
@@ -1200,7 +1200,7 @@
             }
           }
         },
-        "summary": "Unstage changes",
+        "summary": "Unstage usecases",
         "tags": [
           "Project"
         ]
@@ -9905,44 +9905,40 @@
           "includedControlLinkSystemIds"
         ]
       },
-      "StageChangesResponseDto": {
+      "StageUsecasesResponseDto": {
         "type": "object",
         "properties": {
           "success": {
-            "type": "boolean",
-            "description": "Overall operation success status"
+            "type": "boolean"
           },
-          "processedChangeIds": {
-            "description": "Successfully staged change IDs",
+          "processedSystemIds": {
             "type": "array",
             "items": {
               "type": "string"
             }
           },
-          "failedChangeIds": {
-            "description": "Change IDs that failed to stage",
+          "failedSystemIds": {
             "type": "array",
             "items": {
               "type": "string"
             }
           },
           "message": {
-            "type": "string",
-            "description": "Descriptive message about the operation"
+            "type": "string"
           }
         },
         "required": [
           "success",
-          "processedChangeIds",
-          "failedChangeIds",
+          "processedSystemIds",
+          "failedSystemIds",
           "message"
         ]
       },
-      "StageChangesRequestDto": {
+      "StageUsecasesRequestDto": {
         "type": "object",
         "properties": {
-          "changeIds": {
-            "description": "Array of change IDs to stage",
+          "systemIds": {
+            "description": "System IDs of the entities to stage/unstage",
             "type": "array",
             "items": {
               "type": "string"
@@ -9950,47 +9946,43 @@
           }
         },
         "required": [
-          "changeIds"
+          "systemIds"
         ]
       },
-      "UnstageChangesResponseDto": {
+      "UnstageUsecasesResponseDto": {
         "type": "object",
         "properties": {
           "success": {
-            "type": "boolean",
-            "description": "Overall operation success status"
+            "type": "boolean"
           },
-          "processedChangeIds": {
-            "description": "Successfully unstaged change IDs",
+          "processedSystemIds": {
             "type": "array",
             "items": {
               "type": "string"
             }
           },
-          "failedChangeIds": {
-            "description": "Change IDs that failed to unstage",
+          "failedSystemIds": {
             "type": "array",
             "items": {
               "type": "string"
             }
           },
           "message": {
-            "type": "string",
-            "description": "Descriptive message about the operation"
+            "type": "string"
           }
         },
         "required": [
           "success",
-          "processedChangeIds",
-          "failedChangeIds",
+          "processedSystemIds",
+          "failedSystemIds",
           "message"
         ]
       },
-      "UnstageChangesRequestDto": {
+      "UnstageUsecasesRequestDto": {
         "type": "object",
         "properties": {
-          "changeIds": {
-            "description": "Array of change IDs to unstage",
+          "systemIds": {
+            "description": "System IDs of the entities to stage/unstage",
             "type": "array",
             "items": {
               "type": "string"
@@ -9998,7 +9990,7 @@
           }
         },
         "required": [
-          "changeIds"
+          "systemIds"
         ]
       },
       "CommitChangesResponseDto": {
