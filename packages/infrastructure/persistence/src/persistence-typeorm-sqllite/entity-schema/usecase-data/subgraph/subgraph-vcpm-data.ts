@@ -5,8 +5,11 @@
 
 import type {VcpmModuleDefinitionRow} from '../../definitions/subgraph/vcpm/vcpm-module-definition.schema.js';
 import type {VcpmModuleParameterDefinitionRow} from '../../definitions/subgraph/vcpm/vcpm-module-parameter-definition.schema.js';
-import {BaseColumnSchemaPart} from '../../entity-base.js';
-import type {EntityBaseRow} from '../../entity-base.js';
+import {
+  BaseColumnSchemaPart,
+  JunctionColumnSchemaPart,
+} from '../../entity-base.js';
+import type {EntityBaseRow, SystemIdRow} from '../../entity-base.js';
 import type {SubgraphRow} from './subgraph.schema.js';
 import type {BlobBytesConverter} from '../module/helper/blob-unit8array.converter.js';
 import {DbTypeToBytesTransformer} from '../module/helper/bytes-transformer.js';
@@ -64,7 +67,7 @@ export interface VcpmParameterPayloadRow
   vcpmCkv: VcpmCkvRow;
 }
 
-export interface VcpmCkvValuesRow extends EntityBaseRow, VcpmCkvValuesBase {
+export interface VcpmCkvValuesRow extends SystemIdRow, VcpmCkvValuesBase {
   vcpmCkv?: VcpmCkvRow;
   valueDef?: ValueDefinitionRow;
 }
@@ -202,7 +205,7 @@ export const VcpmCkvValuesSchema = new EntitySchema<VcpmCkvValuesRow>({
   name: 'VcpmCkvValues',
   tableName: 'vcpm_ckv_values',
   columns: {
-    ...BaseColumnSchemaPart,
+    ...JunctionColumnSchemaPart,
     vcpmCkvSystemId: {
       name: 'vcpm_ckv_system_id',
       type: 'integer',

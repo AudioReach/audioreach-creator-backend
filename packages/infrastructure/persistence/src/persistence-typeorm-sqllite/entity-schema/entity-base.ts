@@ -5,9 +5,12 @@
 
 import type {EntitySchemaColumnOptions} from 'typeorm';
 
-export interface EntityBaseRow {
+export interface SystemIdRow {
   // arc specific id, should be treated as primary key for the entity whenever possible
   systemId: number;
+}
+
+export interface EntityBaseRow extends SystemIdRow {
   // version for optimistic locking
   version: number;
 }
@@ -45,13 +48,19 @@ export type EntityRowForAutoInsert<T extends EntityBaseRow> = Omit<
   'systemId' | 'version'
 >;
 
-export const BaseColumnSchemaPart: Record<string, EntitySchemaColumnOptions> = {
+export const JunctionColumnSchemaPart: Record<
+  string,
+  EntitySchemaColumnOptions
+> = {
   systemId: {
     name: 'system_id',
     type: 'integer',
     primary: true,
   },
+};
 
+export const BaseColumnSchemaPart: Record<string, EntitySchemaColumnOptions> = {
+  ...JunctionColumnSchemaPart,
   version: {
     name: 'version',
     type: 'integer',

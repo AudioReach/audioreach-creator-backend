@@ -4,8 +4,11 @@
  */
 
 import {EntitySchema} from 'typeorm';
-import {BaseColumnSchemaPart} from '../../entity-base.js';
-import type {EntityBaseRow} from '../../entity-base.js';
+import {
+  BaseColumnSchemaPart,
+  JunctionColumnSchemaPart,
+} from '../../entity-base.js';
+import type {EntityBaseRow, SystemIdRow} from '../../entity-base.js';
 import type {SubgraphRow} from './subgraph.schema.js';
 import type {ValueDefinitionRow} from '../../definitions/key-value/value-definition.schema.js';
 
@@ -27,7 +30,7 @@ export interface SgkvValuesBase {
   valueDefSystemId: number;
 }
 
-export interface SgkvValuesRow extends EntityBaseRow, SgkvValuesBase {
+export interface SgkvValuesRow extends SystemIdRow, SgkvValuesBase {
   sgkv?: SgkvRow;
   valueDef?: ValueDefinitionRow;
 }
@@ -61,7 +64,7 @@ export const SgkvValuesSchema = new EntitySchema<SgkvValuesRow>({
   name: 'SgkvValues',
   tableName: 'sgkv_values',
   columns: {
-    ...BaseColumnSchemaPart,
+    ...JunctionColumnSchemaPart,
     sgkvSystemId: {name: 'sgkv_system_id', type: 'integer'},
     valueDefSystemId: {
       name: 'value_def_system_id',

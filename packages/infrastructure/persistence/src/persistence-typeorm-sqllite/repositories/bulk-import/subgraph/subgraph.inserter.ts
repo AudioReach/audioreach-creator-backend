@@ -15,9 +15,11 @@ import {okBulkInsert, BinaryUtils} from '@arc/core';
 import type {BulkInserter} from '../common/bulk-inserter.interface.js';
 import {
   BatchInserter,
+  BatchInserterWithoutRetry,
+  insertWithoutEntityUpdate,
   type InsertRow,
   type RawFailure,
-} from '../batch-inserter.js';
+} from '../common/batch-inserter.js';
 import {groupRawFailures} from '../common/group-raw-failures.js';
 import {emptyStepResult} from '../common/step-result.js';
 import type {StepResult} from '../common/step-result.js';
@@ -41,10 +43,6 @@ import {
   type SgkvRow,
   type SgkvValuesRow,
 } from '../../../entity-schema/usecase-data/subgraph/subgraph-sgkv-data.js';
-import type {EntityRowForInsert} from '../../../entity-schema/entity-base.js';
-
-type SgkvValueInsertRow = EntityRowForInsert<SgkvValuesRow>;
-type VcpmCkvValueInsertRow = EntityRowForInsert<VcpmCkvValuesRow>;
 
 export class SubgraphInserter implements BulkInserter<Subgraph> {
   constructor(
@@ -75,6 +73,8 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
     const vcpmParamStep = await this.insertVcpmParameterPayloads(
       activeSubgraphs,
       vcpmInstanceStep.failedEntityIds,
+      // vcpmCkvStep.failedEntityIds: VcpmCkv system IDs (row failures + value failures).
+      // Used to skip parameter payload inserts for VcpmCkvs that were deleted.
       vcpmCkvStep.failedEntityIds,
     );
 
@@ -283,28 +283,28 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
     });
 
     const failedCkvIds = new Set(failedEntities.map(e => e.systemId));
-    const valueFailures = await this.insertVcpmCkvValues(
-      ckvEntries,
-      failedCkvIds,
-    );
+    const valueStep = await this.insertVcpmCkvValues(ckvEntries, failedCkvIds);
 
     return {
-      rawFailures: [...rawFailures, ...valueFailures],
-      failedEntityIds: failedCkvIds,
+      rawFailures: [...rawFailures, ...valueStep.rawFailures],
+      // failedEntityIds: VcpmCkv system IDs (row failures + value failures from retryVcpmCkvValueRows).
+      // Consumed by insertVcpmParameterPayloads to skip payload inserts for deleted VcpmCkvs.
+      failedEntityIds: new Set([
+        ...failedCkvIds, // VcpmCkv system IDs that failed to insert as entities
+        ...valueStep.failedEntityIds, // VcpmCkv system IDs whose value rows failed
+      ]),
     };
   }
 
   private async insertVcpmCkvValues(
     ckvEntries: {ckv: KvData; vcpmSystemId: number; subgraph: Subgraph}[],
     failedIds: Set<number>,
-  ): Promise<RawFailure[]> {
-    const allValueRows: VcpmCkvValueInsertRow[] = [];
-    const rowsByCkvSystemId = new Map<number, VcpmCkvValueInsertRow[]>();
+  ): Promise<StepResult> {
+    const allValueRows: VcpmCkvValuesRow[] = [];
     for (const entry of ckvEntries) {
       if (failedIds.has(entry.ckv.systemId)) continue;
-      const valueRows: VcpmCkvValueInsertRow[] = [];
       for (const valueDefSystemId of entry.ckv.valueDefinitionSystemIds) {
-        valueRows.push({
+        allValueRows.push({
           systemId: await this.idGeneration.getNextId(
             entry.subgraph.fileSystemId,
           ),
@@ -312,48 +312,71 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
           valueDefSystemId,
         });
       }
-      rowsByCkvSystemId.set(entry.ckv.systemId, valueRows);
-      allValueRows.push(...valueRows);
     }
 
-    if (allValueRows.length === 0) return [];
+    if (allValueRows.length === 0) return emptyStepResult();
 
-    const {failedEntities} = await BatchInserter.insert<VcpmCkvValuesRow>(
+    const {failedRows} = await BatchInserterWithoutRetry.insert(
       this.manager,
       VcpmCkvValuesSchema,
       allValueRows,
     );
-    const valueRowBySystemId = new Map(
-      allValueRows.map(row => [row.systemId, row] as const),
-    );
-    const failureByCkvSystemId = new Map<number, string>();
+    if (failedRows.length === 0) return emptyStepResult();
 
-    for (const failure of failedEntities) {
-      const row = valueRowBySystemId.get(failure.systemId);
-      if (row !== undefined) {
-        failureByCkvSystemId.set(row.vcpmCkvSystemId, failure.message);
+    const context = new Map(
+      ckvEntries.map(entry => [entry.ckv.systemId, entry]),
+    );
+    return this.retryVcpmCkvValueRows(context, failedRows);
+  }
+
+  private async retryVcpmCkvValueRows(
+    context: ReadonlyMap<
+      number,
+      {ckv: KvData; vcpmSystemId: number; subgraph: Subgraph}
+    >,
+    uninsertedRows: readonly VcpmCkvValuesRow[],
+  ): Promise<StepResult> {
+    const rawFailures: RawFailure[] = [];
+    const failedEntityIds = new Set<number>();
+
+    const rowsByCkvSystemId = new Map<number, VcpmCkvValuesRow[]>();
+    for (const row of uninsertedRows) {
+      const ckvRows = rowsByCkvSystemId.get(row.vcpmCkvSystemId) ?? [];
+      ckvRows.push(row);
+      rowsByCkvSystemId.set(row.vcpmCkvSystemId, ckvRows);
+    }
+
+    for (const [vcpmCkvSystemId, ckvRows] of rowsByCkvSystemId) {
+      for (const row of ckvRows) {
+        try {
+          await insertWithoutEntityUpdate(
+            this.manager,
+            VcpmCkvValuesSchema,
+            row,
+          );
+        } catch (error) {
+          const entry = context.get(vcpmCkvSystemId)!;
+          // failedEntityIds carries VcpmCkv system IDs — the direct parent of vcpm_ckv_values rows.
+          // Merged into insertVcpmCkvs.failedEntityIds and forwarded to insertVcpmParameterPayloads
+          // to skip payload inserts for any VcpmCkv whose values could not be persisted.
+          failedEntityIds.add(vcpmCkvSystemId);
+          try {
+            await this.manager.delete('VcpmCkv', {systemId: vcpmCkvSystemId});
+          } catch {
+            // best-effort cleanup; VcpmCkv is already considered failed
+          }
+          rawFailures.push({
+            systemId: entry.subgraph.systemId,
+            entityLabel: 'VcpmCkv',
+            failedRowJson: JSON.stringify({vcpmCkvSystemId, ckvRows}),
+            dbError: error instanceof Error ? error.message : String(error),
+          });
+          break;
+        }
       }
     }
 
-    const entryByCkvSystemId = new Map(
-      ckvEntries.map(entry => [entry.ckv.systemId, entry] as const),
-    );
-    const failures: RawFailure[] = [];
-    for (const [ckvSystemId, dbError] of failureByCkvSystemId) {
-      const entry = entryByCkvSystemId.get(ckvSystemId)!;
-      failedIds.add(ckvSystemId);
-      await this.manager.delete('VcpmCkv', {systemId: ckvSystemId});
-      failures.push({
-        systemId: entry.subgraph.systemId,
-        entityLabel: 'VcpmCkv',
-        failedRowJson: JSON.stringify({
-          vcpmCkvSystemId: ckvSystemId,
-          valueRows: rowsByCkvSystemId.get(ckvSystemId) ?? [],
-        }),
-        dbError,
-      });
-    }
-    return failures;
+    return {rawFailures, failedEntityIds};
   }
 
   // ─── VcpmParameterPayload ─────────────────────────────────────────────────────
@@ -491,12 +514,10 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
         .map(sgkv => ({sgkv, subgraph: s})),
     );
 
-    const allValueRows: SgkvValueInsertRow[] = [];
-    const rowsBySgkvSystemId = new Map<number, SgkvValueInsertRow[]>();
+    const allValueRows: SgkvValuesRow[] = [];
     for (const entry of sgkvEntries) {
-      const valueRows: SgkvValueInsertRow[] = [];
       for (const valueDefSystemId of entry.sgkv.valueDefinitionSystemIds) {
-        valueRows.push({
+        allValueRows.push({
           systemId: await this.idGeneration.getNextId(
             entry.subgraph.fileSystemId,
           ),
@@ -504,45 +525,61 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
           valueDefSystemId,
         });
       }
-      rowsBySgkvSystemId.set(entry.sgkv.systemId, valueRows);
-      allValueRows.push(...valueRows);
     }
 
     if (allValueRows.length === 0) return emptyStepResult();
 
-    const {failedEntities} = await BatchInserter.insert<SgkvValuesRow>(
+    const {failedRows} = await BatchInserterWithoutRetry.insert(
       this.manager,
       SgkvValuesSchema,
       allValueRows,
     );
-    const valueRowBySystemId = new Map(
-      allValueRows.map(row => [row.systemId, row] as const),
-    );
-    const failureBySgkvSystemId = new Map<number, string>();
+    if (failedRows.length === 0) return emptyStepResult();
 
-    for (const failure of failedEntities) {
-      const row = valueRowBySystemId.get(failure.systemId);
-      if (row !== undefined) {
-        failureBySgkvSystemId.set(row.sgkvSystemId, failure.message);
-      }
-    }
-
-    const entryBySgkvSystemId = new Map(
-      sgkvEntries.map(entry => [entry.sgkv.systemId, entry] as const),
+    const context = new Map(
+      sgkvEntries.map(entry => [entry.sgkv.systemId, entry]),
     );
+    return this.retrySgkvValueRows(context, failedRows);
+  }
+
+  private async retrySgkvValueRows(
+    context: ReadonlyMap<number, {sgkv: Sgkv; subgraph: Subgraph}>,
+    uninsertedRows: readonly SgkvValuesRow[],
+  ): Promise<StepResult> {
     const rawFailures: RawFailure[] = [];
     const failedEntityIds = new Set<number>();
 
-    for (const [sgkvSystemId, dbError] of failureBySgkvSystemId) {
-      const entry = entryBySgkvSystemId.get(sgkvSystemId)!;
-      await this.manager.delete('Sgkv', {systemId: sgkvSystemId});
-      failedEntityIds.add(sgkvSystemId);
-      rawFailures.push({
-        systemId: entry.subgraph.systemId,
-        entityLabel: 'SgkvValues',
-        failedRowJson: `(subgraphId=${BinaryUtils.toHexString(entry.subgraph.naturalId)}, sgkvSystemId=${BinaryUtils.toHexString(sgkvSystemId)}) Row: ${JSON.stringify(rowsBySgkvSystemId.get(sgkvSystemId) ?? [])}`,
-        dbError,
-      });
+    const rowsBySgkvSystemId = new Map<number, SgkvValuesRow[]>();
+    for (const row of uninsertedRows) {
+      const sgkvRows = rowsBySgkvSystemId.get(row.sgkvSystemId) ?? [];
+      sgkvRows.push(row);
+      rowsBySgkvSystemId.set(row.sgkvSystemId, sgkvRows);
+    }
+
+    for (const [sgkvSystemId, sgkvRows] of rowsBySgkvSystemId) {
+      for (const row of sgkvRows) {
+        try {
+          await insertWithoutEntityUpdate(this.manager, SgkvValuesSchema, row);
+        } catch (error) {
+          const entry = context.get(sgkvSystemId)!;
+          // failedEntityIds carries Sgkv system IDs — the direct parent of sgkv_values rows.
+          // Sgkv has no parameter payload step; these IDs are collected for completeness
+          // but are not forwarded to any downstream guard.
+          failedEntityIds.add(sgkvSystemId);
+          try {
+            await this.manager.delete('Sgkv', {systemId: sgkvSystemId});
+          } catch {
+            // best-effort cleanup; Sgkv is already considered failed
+          }
+          rawFailures.push({
+            systemId: entry.subgraph.systemId,
+            entityLabel: 'SgkvValues',
+            failedRowJson: `(subgraphId=${BinaryUtils.toHexString(entry.subgraph.naturalId)}, sgkvSystemId=${BinaryUtils.toHexString(sgkvSystemId)}) Rows: ${JSON.stringify(sgkvRows)}`,
+            dbError: error instanceof Error ? error.message : String(error),
+          });
+          break;
+        }
+      }
     }
 
     return {rawFailures, failedEntityIds};
