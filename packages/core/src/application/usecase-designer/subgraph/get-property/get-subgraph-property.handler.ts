@@ -79,7 +79,7 @@ export class GetSubgraphPropertyHandler implements QueryHandler<
         : [];
 
     return Result.ok({
-      systemId: parameterPayload.systemId,
+      systemId: query.propertySystemId,
       naturalId: definition.naturalId,
       propertyName: definition.name,
       elements,
