@@ -53,9 +53,7 @@ export function mapParameterCalibrationToDto(
     isHidden: p.isHidden,
     isReadOnly: p.isReadOnly,
     pidType: p.pidType as string | undefined,
-    elements: p.parsedData
-      ? (mapElements(p.parsedData) as ParameterDto['elements'])
-      : [],
+    elements: p.parsedData ? mapElements(p.parsedData) : [],
   };
 }
 

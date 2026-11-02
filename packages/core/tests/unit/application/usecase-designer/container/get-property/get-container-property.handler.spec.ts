@@ -136,7 +136,7 @@ describe('GetContainerPropertyHandler', () => {
     const result = await handler.handle(makeQuery());
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
-    expect(result.data!.systemId).toBe(200);
+    expect(result.data!.systemId).toBe(100);
     expect(result.data!.naturalId).toBe(42);
     expect(result.data!.propertyName).toBe('volume');
     expect(result.data!.elements).not.toHaveLength(0);

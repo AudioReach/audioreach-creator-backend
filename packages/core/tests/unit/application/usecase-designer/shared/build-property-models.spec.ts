@@ -43,7 +43,7 @@ describe('buildPropertyModels', () => {
     expect(result.data).toEqual([]);
   });
 
-  it('maps systemId and naturalId from payload and definition', () => {
+  it('maps systemId and naturalId from the definition', () => {
     const payload: PropertyPayloadReadModel = {
       systemId: 42,
       propertySystemId: 1,
@@ -56,7 +56,7 @@ describe('buildPropertyModels', () => {
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     const [model] = result.data!;
-    expect(model.systemId).toBe(42);
+    expect(model.systemId).toBe(1);
     expect(model.naturalId).toBe(100);
     expect(model.propertyName).toBe('volume');
   });

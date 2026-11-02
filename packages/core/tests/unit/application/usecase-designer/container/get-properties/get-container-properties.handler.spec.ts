@@ -94,7 +94,7 @@ describe('GetContainerPropertiesHandler', () => {
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     expect(result.data!.properties).toHaveLength(1);
-    expect(result.data!.properties[0].systemId).toBe('200');
+    expect(result.data!.properties[0].systemId).toBe('100');
     expect(result.data!.properties[0].naturalId).toBe(42);
     expect(result.data!.properties[0].propertyName).toBe('volume');
     expect(result.data!.properties[0].elements).not.toHaveLength(0);

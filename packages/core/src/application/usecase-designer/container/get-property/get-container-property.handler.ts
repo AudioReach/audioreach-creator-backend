@@ -74,7 +74,7 @@ export class GetContainerPropertyHandler implements QueryHandler<
         : [];
 
     return Result.ok({
-      systemId: payload.systemId,
+      systemId: query.propertySystemId,
       naturalId: def.naturalId,
       propertyName: def.name,
       elements,

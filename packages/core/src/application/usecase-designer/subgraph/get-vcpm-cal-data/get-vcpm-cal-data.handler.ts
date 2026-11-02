@@ -79,9 +79,9 @@ export class GetVcpmCalDataHandler implements QueryHandler<
         );
       }
       const elements: ParameterDto['elements'] = payload.payload
-        ? (mapElements(
+        ? mapElements(
             parseParameterData(payload.payload, definition.elementsStructure),
-          ) as ParameterDto['elements'])
+          )
         : [];
       return {
         systemId: String(payload.systemId),
