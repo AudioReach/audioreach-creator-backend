@@ -287,7 +287,7 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
     await seedSubsystemDataLink(ds, 701, 500);
     await seedUnresolvedSubsystemDataLink(qr, sessionId, 703);
 
-    const result = await makeRepo(qr, sessionId).findAllLinks(FILE_ID);
+    const result = await makeRepo(qr, sessionId).getAllLinks(FILE_ID);
 
     expect(result.dataLinks.map(link => link.systemId)).toEqual([500]);
     expect(
@@ -341,7 +341,7 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
     await seedUnresolvedSubsystemDataLink(qr, sessionId, 703);
 
     const repo = makeRepo(qr, sessionId);
-    const segment = (await repo.findAllLinks(FILE_ID))
+    const segment = (await repo.getAllLinks(FILE_ID))
       .unresolvedSubsystemDataLinks[0];
     await repo.deleteSubsystemDataLinks([segment], FILE_ID);
 
@@ -511,7 +511,7 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
       await seedDataLink(ds, 501, PORT_SEGMENT_SRC, PORT_SEGMENT_DST);
       await seedSubsystemDataLink(ds, 701, 500);
       const repo = makeRepo(qr, sessionId);
-      const segment = (await repo.findAllLinks(FILE_ID)).dataLinks[0]
+      const segment = (await repo.getAllLinks(FILE_ID)).dataLinks[0]
         ?.subsystemDataLinks[0];
 
       await repo.resolveSubsystemDataLinks([segment!], 501, {
@@ -532,7 +532,7 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
         newValue: {dataLinkSystemId: 501},
       });
       expect(
-        (await repo.findAllLinks(FILE_ID)).dataLinks
+        (await repo.getAllLinks(FILE_ID)).dataLinks
           .find(link => link.systemId === 501)
           ?.subsystemDataLinks.map(link => link.systemId),
       ).toEqual([701]);
@@ -542,7 +542,7 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
       await seedDataLink(ds, 500, PORT_SRC, PORT_DST);
       await seedUnresolvedSubsystemDataLink(qr, sessionId, 703);
       const repo = makeRepo(qr, sessionId);
-      const segment = (await repo.findAllLinks(FILE_ID))
+      const segment = (await repo.getAllLinks(FILE_ID))
         .unresolvedSubsystemDataLinks[0];
 
       await repo.resolveSubsystemDataLinks([segment], 500, {
@@ -562,7 +562,7 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
         linkedEntityGroupId: 'existing-group',
         newValue: {dataLinkSystemId: 500},
       });
-      const topology = await repo.findAllLinks(FILE_ID);
+      const topology = await repo.getAllLinks(FILE_ID);
       expect(topology.unresolvedSubsystemDataLinks).toEqual([]);
       expect(
         topology.dataLinks[0]?.subsystemDataLinks.map(link => link.systemId),
@@ -574,7 +574,7 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
       await seedDataLink(ds, 501, PORT_SEGMENT_SRC, PORT_SEGMENT_DST);
       await seedSubsystemDataLink(ds, 701, 500);
       const repo = makeRepo(qr, sessionId);
-      const segment = (await repo.findAllLinks(FILE_ID)).dataLinks[0]
+      const segment = (await repo.getAllLinks(FILE_ID)).dataLinks[0]
         ?.subsystemDataLinks[0];
 
       await qr.startTransaction();

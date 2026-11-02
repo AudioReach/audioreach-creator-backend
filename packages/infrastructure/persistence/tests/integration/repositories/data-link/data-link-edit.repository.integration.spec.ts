@@ -179,23 +179,4 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
     expect(result!.isDeleted).toBe(true);
     expect(result!.systemId).toBe(DATA_LINK_ID);
   });
-
-  it('reactivateDataLink cancels the pending DELETE', async () => {
-    await seedDeletedDataLink(ds, sessionId, 'grp1');
-    await qr.startTransaction();
-    const repo = makeRepo(qr, sessionId);
-    const payload = {
-      sourcePortSystemId: PORT_SRC,
-      destinationPortSystemId: PORT_DST,
-      fileSystemId: FILE_ID,
-    };
-    await repo.reactivateDataLink(DATA_LINK_ID, DATA_LINK_ID, payload);
-    await qr.commitTransaction();
-
-    const rows: Array<Record<string, unknown>> = await ds.query(
-      `SELECT * FROM edit_actions WHERE session_id = ? AND target_system_id = ? AND target_table = 'DataLink' ORDER BY change_id`,
-      [sessionId, DATA_LINK_ID],
-    );
-    expect(rows).toEqual([]);
-  });
 });

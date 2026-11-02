@@ -37,7 +37,6 @@ function makeDataLinkEditRepo(
   return {
     createDataLink: jest.fn().mockResolvedValue(undefined),
     findByPortPair: jest.fn().mockResolvedValue(findResult),
-    reactivateDataLink: jest.fn().mockResolvedValue(undefined),
     createSubsystemDataLink: jest.fn().mockResolvedValue(undefined),
   } as unknown as DataLinkRepository;
 }
@@ -188,20 +187,16 @@ describe('CreateDataLinkHandler', () => {
     ).rejects.toThrow('already exists');
   });
 
-  it('calls reactivateDataLink and not createDataLink when a soft-deleted link exists (FR-DL-07a)', async () => {
+  it('creates a new DataLink with a fresh systemId when a soft-deleted link exists', async () => {
     const dlRepo = makeDataLinkEditRepo({
       systemId: 888,
       isDeleted: true,
-      payload: {
-        sourcePortSystemId: 301,
-        destinationPortSystemId: 302,
-        fileSystemId: FILE_ID,
-      },
+      payload: {},
     });
     const uow = makeUow({dlEditRepo: dlRepo});
     const handler = new CreateDataLinkHandler(uow, makeIdGen());
 
-    await handler.handle(
+    const result = await handler.handle(
       new CreateDataLinkCommand(
         DATA_LINK_TYPE.Normal,
         SRC_MODULE,
@@ -211,7 +206,11 @@ describe('CreateDataLinkHandler', () => {
       ),
     );
 
-    expect(dlRepo.reactivateDataLink).toHaveBeenCalledTimes(1);
+    expect(dlRepo.createDataLink).toHaveBeenCalledTimes(1);
+    const createdLink = (dlRepo.createDataLink as ReturnType<typeof jest.fn>)
+      .mock.calls[0][0] as {systemId: number};
+    expect(createdLink.systemId).not.toBe(888);
+    expect(result.dataLinks).toHaveLength(1);
   });
 
   it('throws DomainRuleViolationException (422) when source === destination module (self-loop, FR-DL-06)', async () => {

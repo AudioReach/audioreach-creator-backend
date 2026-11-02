@@ -99,7 +99,7 @@ function createFixture(options?: {
     findUnresolvedSubsystemLinksFromModule: jest
       .fn()
       .mockResolvedValue(options?.unresolvedDataLinks ?? []),
-    findAllLinks: jest.fn().mockResolvedValue({
+    getAllLinks: jest.fn().mockResolvedValue({
       dataLinks: [],
       unresolvedSubsystemDataLinks: [],
     }),
@@ -113,7 +113,7 @@ function createFixture(options?: {
     findUnresolvedSubsystemLinksFromModule: jest
       .fn()
       .mockResolvedValue(options?.unresolvedControlLinks ?? []),
-    findAllLinks: jest.fn().mockResolvedValue({
+    getAllLinks: jest.fn().mockResolvedValue({
       controlLinks: [],
       unresolvedSubsystemControlLinks: [],
     }),

@@ -107,7 +107,7 @@ describe('rebuildMoveSubsystemImpact', () => {
           removeControlPort: jest.fn(),
         } as never,
         dataLinkRepository: {
-          findAllLinks: jest.fn().mockResolvedValue({
+          getAllLinks: jest.fn().mockResolvedValue({
             dataLinks: [link],
             unresolvedSubsystemDataLinks: [],
           }),
@@ -121,7 +121,7 @@ describe('rebuildMoveSubsystemImpact', () => {
           deleteAggregate,
         } as never,
         controlLinkRepository: {
-          findAllLinks: jest.fn().mockResolvedValue({
+          getAllLinks: jest.fn().mockResolvedValue({
             controlLinks: [] as ControlLink[],
             unresolvedSubsystemControlLinks: [],
           }),
@@ -216,7 +216,7 @@ describe('rebuildMoveSubsystemImpact', () => {
           removeControlPort: jest.fn(),
         } as never,
         dataLinkRepository: {
-          findAllLinks: jest.fn().mockResolvedValue({
+          getAllLinks: jest.fn().mockResolvedValue({
             dataLinks: [],
             unresolvedSubsystemDataLinks: [],
           }),
@@ -224,7 +224,7 @@ describe('rebuildMoveSubsystemImpact', () => {
           deleteSubsystemDataLinks: jest.fn(),
         } as never,
         controlLinkRepository: {
-          findAllLinks: jest.fn().mockResolvedValue({
+          getAllLinks: jest.fn().mockResolvedValue({
             controlLinks: [link],
             unresolvedSubsystemControlLinks: [],
           }),
@@ -326,7 +326,7 @@ describe('rebuildMoveSubsystemImpact', () => {
         302,
         10,
         20,
-        3,
+        2,
         4,
         null,
         7,
@@ -337,7 +337,7 @@ describe('rebuildMoveSubsystemImpact', () => {
         303,
         20,
         40,
-        5,
+        4,
         6,
         null,
         7,
@@ -426,7 +426,7 @@ describe('rebuildMoveSubsystemImpact', () => {
           removeControlPort: jest.fn(),
         } as never,
         dataLinkRepository: {
-          findAllLinks: jest.fn().mockResolvedValue({
+          getAllLinks: jest.fn().mockResolvedValue({
             dataLinks: [],
             unresolvedSubsystemDataLinks: unresolvedData,
           }),
@@ -434,7 +434,7 @@ describe('rebuildMoveSubsystemImpact', () => {
           deleteSubsystemDataLinks: removeDataLinks,
         } as never,
         controlLinkRepository: {
-          findAllLinks: jest.fn().mockResolvedValue({
+          getAllLinks: jest.fn().mockResolvedValue({
             controlLinks: [] as ControlLink[],
             unresolvedSubsystemControlLinks: unresolvedControl,
           }),

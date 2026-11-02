@@ -29,7 +29,6 @@ function makeDlEditRepo(): DataLinkRepository {
   return {
     createDataLink: jest.fn().mockResolvedValue(undefined),
     findByPortPair: jest.fn().mockResolvedValue(null),
-    reactivateDataLink: jest.fn().mockResolvedValue(undefined),
     createSubsystemDataLink: jest.fn().mockResolvedValue(undefined),
   } as unknown as DataLinkRepository;
 }

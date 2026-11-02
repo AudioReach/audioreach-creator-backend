@@ -4,53 +4,165 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {IsEnum, IsNotEmpty, IsOptional, IsString} from 'class-validator';
-import {CONTROL_LINK_TYPE, type ControlLinkType} from '@arc/core';
+import {
+  IsArray,
+  IsBoolean,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Min,
+  ValidateNested,
+} from 'class-validator';
+import {Type} from 'class-transformer';
+import {DEFAULT_CONTAINER_HEAP_ID} from '@arc/core';
 
 /**
- * DTO for creating a new control link
+ * DTO for creating a new control link (flat view — module nodes only)
  */
-export class CreateControlLinkRequest {
+export class CreateControlLinkFlatRequest {
+  @ApiProperty({description: 'System ID of the start module node'})
+  @IsNotEmpty()
+  @IsString()
+  startModuleSystemId!: string;
+
   @ApiProperty({
-    description: 'System ID of the start component',
+    description: 'System ID of the control port on the start module',
+  })
+  @IsNotEmpty()
+  @IsString()
+  startPortSystemId!: string;
+
+  @ApiProperty({description: 'System ID of the end module node'})
+  @IsNotEmpty()
+  @IsString()
+  endModuleSystemId!: string;
+
+  @ApiProperty({description: 'System ID of the control port on the end module'})
+  @IsNotEmpty()
+  @IsString()
+  endPortSystemId!: string;
+
+  @ApiProperty({
+    description: 'Whether the link crosses usecase boundaries',
+    default: false,
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isInterUsecase?: boolean;
+
+  @ApiProperty({
+    description:
+      'Heap ID for memory allocation. Defaults to the standard container heap.',
+    default: DEFAULT_CONTAINER_HEAP_ID,
+    required: false,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  heapId?: number;
+}
+
+/**
+ * DTO for creating a control link (hierarchical view — modules and subsystem nodes accepted)
+ */
+export class CreateControlLinkWithSubsystemsRequest {
+  @ApiProperty({
+    description: 'System ID of the start component node (module or subsystem)',
   })
   @IsNotEmpty()
   @IsString()
   startComponentSystemId!: string;
 
   @ApiProperty({
-    description: 'System ID of the start port',
+    description: 'System ID of the control port on the start component',
   })
   @IsNotEmpty()
   @IsString()
   startPortSystemId!: string;
 
   @ApiProperty({
-    description: 'System ID of the end component',
+    description: 'System ID of the end component node (module or subsystem)',
   })
   @IsNotEmpty()
   @IsString()
   endComponentSystemId!: string;
 
   @ApiProperty({
-    description: 'System ID of the end port',
+    description: 'System ID of the control port on the end component',
   })
   @IsNotEmpty()
   @IsString()
   endPortSystemId!: string;
 
   @ApiProperty({
-    description: 'System ID of the parent component',
+    description: 'Whether the link crosses usecase boundaries',
+    default: false,
     required: false,
   })
   @IsOptional()
+  @IsBoolean()
+  isInterUsecase?: boolean;
+}
+
+export class IntentDto {
+  @ApiProperty({description: 'Intent numeric ID'})
+  @IsInt()
+  naturalId!: number;
+
+  @ApiProperty({description: 'Intent name'})
   @IsString()
-  parentSystemId?: string;
+  name!: string;
+}
+
+export class AllocatedIntentsDto {
+  @ApiProperty({description: 'Array of allocated intents', type: [IntentDto]})
+  @IsArray()
+  @ValidateNested({each: true})
+  @Type(() => IntentDto)
+  intents!: IntentDto[];
+}
+
+export class HeapIdValueDto {
+  @ApiProperty({description: 'Heap ID value'})
+  @IsInt()
+  @Min(1)
+  value!: number;
+}
+
+/**
+ * DTO for patching control link properties (intents or heapId)
+ */
+export class PatchControlLinkPropertiesRequest {
+  @ApiProperty({
+    description:
+      'New allocated intents to apply to all ports in the connected chain',
+    required: false,
+    type: AllocatedIntentsDto,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AllocatedIntentsDto)
+  AllocatedIntents?: AllocatedIntentsDto;
 
   @ApiProperty({
-    description: 'Topology classification of the link',
-    enum: CONTROL_LINK_TYPE,
+    description: 'New heap ID value',
+    required: false,
+    type: HeapIdValueDto,
   })
-  @IsEnum(CONTROL_LINK_TYPE)
-  linkType!: ControlLinkType;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => HeapIdValueDto)
+  HeapId?: HeapIdValueDto;
+}
+
+/**
+ * DTO for querying control links by system IDs
+ */
+export class QueryControlLinksRequest {
+  @ApiProperty({description: 'Control link system IDs', type: [String]})
+  @IsArray()
+  @IsString({each: true})
+  systemIds!: string[];
 }

@@ -40,9 +40,16 @@ export interface SubsystemQueryService {
   ): Promise<Result<ControlLinkReadModel[]>>;
 
   /**
-   * Returns virtual data-link segments (subsystem_data_links) for the given usecases.
-   * Same scoping and overlay pattern as findControlLinkSegmentsByUsecaseIds.
+   * Returns only the SCS segments that belong to the newly created link chain.
+   * linkSystemId is either a canonical ControlLink systemId (resolved
+   * chain, filter by controlLinkSystemId) or a SubsystemControlLink segment
+   * systemId (unresolved chain, filter by segment systemId).
    */
+  findControlLinkSegments(
+    fileSystemId: number,
+    linkSystemId: number,
+  ): Promise<Result<ControlLinkReadModel[]>>;
+
   findDataLinkSegmentsByUsecaseIds(
     usecaseSystemIds: number[],
     fileSystemId: number,

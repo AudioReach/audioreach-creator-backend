@@ -80,6 +80,10 @@ import {GetVcpmCkvQuery} from '../../../usecase-designer/subgraph/get-vcpm-ckv/g
 import {GetVcpmCkvHandler} from '../../../usecase-designer/subgraph/get-vcpm-ckv/get-vcpm-ckv.handler.js';
 import {GetVcpmCalDataQuery} from '../../../usecase-designer/subgraph/get-vcpm-cal-data/get-vcpm-cal-data.query.js';
 import {GetVcpmCalDataHandler} from '../../../usecase-designer/subgraph/get-vcpm-cal-data/get-vcpm-cal-data.handler.js';
+import {GetControlLinkPropertiesQuery} from '../../../usecase-designer/control-links/queries/get-control-link-properties.query.js';
+import {GetControlLinkPropertiesHandler} from '../../../usecase-designer/control-links/queries/get-control-link-properties.handler.js';
+import {GetControlLinksQuery} from '../../../usecase-designer/control-links/queries/get-control-links.query.js';
+import {GetControlLinksHandler} from '../../../usecase-designer/control-links/queries/get-control-links.handler.js';
 import {GetProjectsQuery} from '../../../project/get-all/get-projects.query.js';
 import {GetProjectsHandler} from '../../../project/get-all/get-projects.handler.js';
 import {GetProjectQuery} from '../../../project/get/get-project.query.js';
@@ -96,6 +100,8 @@ import {GetSubgraphLinksQuery} from '../../../usecase-designer/subgraph-links/ge
 import {GetSubgraphLinksHandler} from '../../../usecase-designer/subgraph-links/get/get-subgraph-links.handler.js';
 import {GetSubgraphPropertyQuery} from '../../../usecase-designer/subgraph/get-property/get-subgraph-property.query.js';
 import {GetSubgraphPropertyHandler} from '../../../usecase-designer/subgraph/get-property/get-subgraph-property.handler.js';
+import {GetControlLinksWithSubsystemsQuery} from '../../../usecase-designer/control-links/get-with-subsystems/get-control-links-with-subsystems.query.js';
+import {GetControlLinksWithSubsystemsHandler} from '../../../usecase-designer/control-links/get-with-subsystems/get-control-links-with-subsystems.handler.js';
 
 export interface QueryHandlerDependencies {
   queryServices: QueryServices;
@@ -326,6 +332,16 @@ export class QueryHandlerRegistry {
         new GetVcpmCalDataHandler(deps.queryServices),
     });
 
+    this.queryHandlerFactories.set(GetControlLinkPropertiesQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetControlLinkPropertiesHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetControlLinksQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetControlLinksHandler(deps.queryServices),
+    });
+
     this.queryHandlerFactories.set(GetProjectsQuery, {
       create: (deps: QueryHandlerDependencies) =>
         new GetProjectsHandler(deps.queryServices),
@@ -364,6 +380,11 @@ export class QueryHandlerRegistry {
     this.queryHandlerFactories.set(GetSubgraphPropertyQuery, {
       create: (deps: QueryHandlerDependencies) =>
         new GetSubgraphPropertyHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetControlLinksWithSubsystemsQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetControlLinksWithSubsystemsHandler(deps.queryServices),
     });
   }
 }

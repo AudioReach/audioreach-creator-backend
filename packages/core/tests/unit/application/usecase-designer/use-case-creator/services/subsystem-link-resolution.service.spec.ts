@@ -73,7 +73,7 @@ function makeUow(
   } = {},
 ) {
   const dataLinkRepository = {
-    findAllLinks: jest.fn().mockResolvedValue({
+    getAllLinks: jest.fn().mockResolvedValue({
       dataLinks: [],
       unresolvedSubsystemDataLinks: options.dataSegments ?? [],
     }),
@@ -81,7 +81,7 @@ function makeUow(
     resolveSubsystemDataLinks: jest.fn().mockResolvedValue(undefined),
   };
   const controlLinkRepository = {
-    findAllLinks: jest.fn().mockResolvedValue({
+    getAllLinks: jest.fn().mockResolvedValue({
       controlLinks: [],
       unresolvedSubsystemControlLinks: options.controlSegments ?? [],
     }),
@@ -242,7 +242,7 @@ describe('SubsystemLinkResolutionService.resolveAllChains', () => {
   it('creates one ControlLink and resolves segments for a complete control chain', async () => {
     const segments = [
       controlSegment(1, 50, 60, 100, 200),
-      controlSegment(2, 60, 70, 201, 300),
+      controlSegment(2, 60, 70, 200, 300),
     ];
     const {uow, controlLinkRepository} = makeUow({
       controlSegments: segments,
@@ -265,7 +265,11 @@ describe('SubsystemLinkResolutionService.resolveAllChains', () => {
     expect(createOptions).toMatchObject({source: SOURCE.Manual});
     expect(
       controlLinkRepository.resolveSubsystemControlLinks,
-    ).toHaveBeenCalledWith(segments, 99, createOptions);
+    ).toHaveBeenCalledWith(
+      segments.map(s => s.systemId),
+      99,
+      createOptions,
+    );
   });
 
   it('deduplicates a direct control chain discovered from both directions', async () => {

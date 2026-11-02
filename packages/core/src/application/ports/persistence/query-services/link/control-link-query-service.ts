@@ -55,4 +55,19 @@ export interface ControlLinkQueryService {
     filter: SubgraphPeerLinkFilter,
     fileSystemId: number,
   ): Promise<Result<ControlLinkWithUsecaseIdsReadModel[]>>;
+
+  /**
+   * Returns control links matching the given system IDs, with overlay applied.
+   * Empty input returns [] immediately.
+   */
+  findBySystemIds(
+    systemIds: number[],
+    fileSystemId: number,
+  ): Promise<Result<ControlLinkReadModel[]>>;
+
+  /** Returns the virtual subsystem segments associated with a control link. */
+  findSubsystemSegments(
+    controlLinkSystemId: number,
+    fileSystemId: number,
+  ): Promise<Result<ControlLinkReadModel[]>>;
 }

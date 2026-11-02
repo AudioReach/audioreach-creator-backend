@@ -60,7 +60,7 @@ export interface ModuleRepository {
   findModuleById(
     systemId: number,
     fileSystemId: number,
-  ): Promise<SpfModuleBase | null>;
+  ): Promise<SpfModule | null>;
 
   findModulesByContainerId(
     containerSystemId: number,
@@ -107,6 +107,24 @@ export interface ModuleRepository {
     subgraphSystemId: number;
     ports: {systemId: number; portIoType: PortIoType}[];
   } | null>;
+
+  /**
+   * Returns control ports for a module node enriched with intent and link-count
+   * data needed for the intent-resolution path during control-link creation.
+   * Session overlay applied. Returns null when the module does not exist.
+   */
+  findControlPortsForLink(
+    moduleSystemId: number,
+    fileSystemId: number,
+  ): Promise<
+    | {
+        systemId: number;
+        naturalId: number;
+        allocatedIntents: readonly {naturalId: number}[];
+        totalLinksAtPort: number;
+      }[]
+    | null
+  >;
 
   renameModule(
     moduleSystemId: number,

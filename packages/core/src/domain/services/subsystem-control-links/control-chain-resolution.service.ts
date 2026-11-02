@@ -121,6 +121,7 @@ export const ControlChainResolutionService = {
               neighborPort: firstEdge.portOnNeighbor,
             },
           ],
+          firstEdge.portOnNeighbor,
           new Set([nodeId, firstEdge.neighborSystemId]),
           [nodeId, firstEdge.neighborSystemId],
           firstEdge.subsystemControlLinkSystemId,
@@ -215,6 +216,7 @@ function traverse(
   startPort: number,
   currentNode: number,
   steps: Step[],
+  currentPort: number,
   visited: Set<number>,
   reachable: number[],
   incomingLinkId: number,
@@ -236,7 +238,9 @@ function traverse(
   }
 
   const candidates = (ctx.adjacency.get(currentNode) ?? []).filter(
-    e => e.subsystemControlLinkSystemId !== incomingLinkId,
+    edge =>
+      edge.subsystemControlLinkSystemId !== incomingLinkId &&
+      edge.portOnThis === currentPort,
   );
 
   if (candidates.length === 0) {
@@ -267,6 +271,7 @@ function traverse(
       startPort,
       edge.neighborSystemId,
       steps,
+      edge.portOnNeighbor,
       visited,
       reachable,
       edge.subsystemControlLinkSystemId,

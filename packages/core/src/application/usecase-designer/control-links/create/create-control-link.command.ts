@@ -6,7 +6,7 @@
 import {BaseCommand} from '../../../shared/base-command.js';
 import type {ControlLinkType} from '../../../../domain/entities/usecase-data/links/control-link-type.js';
 
-export class CreateControlLinkCommand extends BaseCommand {
+export class CreateControlLinkFlatCommand extends BaseCommand {
   constructor(
     public readonly linkType: ControlLinkType,
     public readonly peerNodeASystemId: number,

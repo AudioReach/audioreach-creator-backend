@@ -18,6 +18,7 @@ import type {TagDefinitionQueryService} from './tag-definition/tag-definition-qu
 import type {DataLinkQueryService} from './link/data-link-query-service.js';
 import type {ControlLinkQueryService} from './link/control-link-query-service.js';
 import type {SubsystemQueryService} from './subsystem/subsystem-query-service.js';
+import type {NodeQueryService} from './node/node-query-service.js';
 import type {ContainerPropertyDefQueryService} from './container-property-definition/container-property-def-query-service.js';
 import type {SubgraphPropertyDefQueryService} from './subgraph-property-definition/subgraph-property-def-query-service.js';
 import type {LogQueryService} from './logging/log-query-service.js';
@@ -37,6 +38,7 @@ export interface QueryServices {
   readonly dataLinkQueryService: DataLinkQueryService;
   readonly controlLinkQueryService: ControlLinkQueryService;
   readonly subsystemQueryService: SubsystemQueryService;
+  readonly nodeQueryService: NodeQueryService;
   readonly containerPropertyDefQueryService: ContainerPropertyDefQueryService;
   readonly subgraphQueryService: SubgraphQueryService;
   readonly subgraphPropertyDefQueryService: SubgraphPropertyDefQueryService;

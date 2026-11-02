@@ -39,18 +39,7 @@ export interface ControlLinkRepository {
     fileSystemId: number,
   ): Promise<SubsystemControlLink[]>;
 
-  findAllLinks(fileSystemId: number): Promise<ControlLinkTopology>;
-
-  /**
-   * Looks up a canonical ControlLink by system ID in the effective session overlay.
-   * Returns null when no row matches — either the ID does not exist in this file
-   * or it belongs to a subsystem segment rather than a canonical link.
-   * Subsystem segment resolution is handled separately (PR 9.5).
-   */
-  findBySystemId(
-    systemId: number,
-    fileSystemId: number,
-  ): Promise<ControlLink | null>;
+  getAllLinks(fileSystemId: number): Promise<ControlLinkTopology>;
 
   /**
    * Resolves canonical ControlLink IDs and SubsystemControlLink segment IDs to
@@ -66,7 +55,7 @@ export interface ControlLinkRepository {
    * ControlLink ID in the current session overlay. Empty input is a no-op.
    */
   resolveSubsystemControlLinks(
-    subsystemControlLinks: readonly SubsystemControlLink[],
+    subsystemLinkSystemIds: readonly number[],
     controlLinkSystemId: number,
     options?: EditOptions,
   ): Promise<void>;
@@ -162,4 +151,54 @@ export interface ControlLinkRepository {
   findChangedInSession(
     fileSystemId: number,
   ): Promise<SessionChanged<ControlLink>>;
+
+  /** Returns all non-deleted ControlLinks matching the given systemIds. */
+  findBySystemIds(
+    systemIds: number[],
+    fileSystemId: number,
+  ): Promise<ControlLink[]>;
+
+  /**
+   * Unified port-pair lookup. Returns `{ systemId, isDeleted, payload }` for
+   * any matching link — active or soft-deleted — or `null` if none exists.
+   * `payload` carries at minimum `{ linkType }`.
+   */
+  findByPortPair(
+    portASystemId: number,
+    portBSystemId: number,
+    fileSystemId: number,
+  ): Promise<{
+    systemId: number;
+    isDeleted: boolean;
+    payload: Record<string, unknown>;
+  } | null>;
+
+  /** Stages a CREATE edit-action for the given ControlLink. */
+  createControlLink(link: ControlLink): Promise<void>;
+
+  /** Stages an UPDATE edit-action to change the heapId on a ControlLink. */
+  updateHeapId(systemId: number, heapId: number): Promise<void>;
+
+  /** Stages a CREATE edit-action for a SubsystemControlLink segment. */
+  createSubsystemControlLink(scl: SubsystemControlLink): Promise<void>;
+
+  /**
+   * Returns the allocated intent IDs for the given control port, with overlay applied.
+   * Returns an empty array if the port has no allocated intents.
+   */
+  getAllocatedIntentIds(
+    portSystemId: number,
+    fileSystemId: number,
+  ): Promise<{intentSystemId: number; intentId: number}[]>;
+
+  /**
+   * Atomically replaces the intent allocation on a control port:
+   * stages DELETE edit-actions for toDelete system IDs first, then
+   * CREATE edit-actions for toCreate rows.
+   */
+  updateIntents(
+    controlPortSystemId: number,
+    toCreate: {systemId: number; intentId: number}[],
+    toDelete: number[],
+  ): Promise<void>;
 }

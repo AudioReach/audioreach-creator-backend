@@ -34,8 +34,8 @@ export class SubsystemLinkResolutionService {
     const controlLinkRepository = uow.getControlLinkRepository();
     const subsystemRepository = uow.getSubsystemRepository();
     const [dataTopology, controlTopology, nodeTopology] = await Promise.all([
-      dataLinkRepository.findAllLinks(fileSystemId),
-      controlLinkRepository.findAllLinks(fileSystemId),
+      dataLinkRepository.getAllLinks(fileSystemId),
+      controlLinkRepository.getAllLinks(fileSystemId),
       subsystemRepository.getAllNodesWithParents(fileSystemId),
     ]);
 
@@ -189,12 +189,11 @@ export class SubsystemLinkResolutionService {
         fileSystemId,
         options,
       );
-      const segments = chain.ssLinksSystemIds.flatMap(segmentSystemId => {
-        const segment = controlSegmentBySystemId.get(segmentSystemId);
-        return segment === undefined ? [] : [segment];
-      });
+      const segmentIds = chain.ssLinksSystemIds.filter(id =>
+        controlSegmentBySystemId.has(id),
+      );
       await controlLinkRepository.resolveSubsystemControlLinks(
-        segments,
+        segmentIds,
         systemId,
         options,
       );

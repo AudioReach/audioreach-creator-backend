@@ -45,7 +45,7 @@ function createFixture(options?: {
     findUnresolvedSubsystemLinksFromModule: jest
       .fn()
       .mockResolvedValue(options?.reachableUnresolved ?? []),
-    findAllLinks: jest.fn().mockResolvedValue({
+    getAllLinks: jest.fn().mockResolvedValue({
       controlLinks: options?.controlLinks ?? [],
       unresolvedSubsystemControlLinks: options?.routeSegments ?? [],
     }),
@@ -250,7 +250,10 @@ describe('ControlLinkDeletionService', () => {
   it('deletes only the module-incident segment of a complete unresolved chain in segmentOnly mode', async () => {
     const unresolved = [
       segment(201, MODULE_A, SUBSYSTEM_A),
-      segment(202, SUBSYSTEM_A, MODULE_B),
+      {
+        ...segment(202, SUBSYSTEM_A, MODULE_B),
+        nodeAPortSystemId: 2011,
+      },
     ];
     const {service, controlLinkRepository} = createFixture({
       reachableUnresolved: unresolved,
