@@ -10,7 +10,7 @@ import {
   BatchInserter,
   type InsertRow,
   type RawFailure,
-} from '../batch-inserter.js';
+} from '../common/batch-inserter.js';
 import {groupRawFailures} from '../common/group-raw-failures.js';
 import {emptyStepResult} from '../common/step-result.js';
 import type {StepResult} from '../common/step-result.js';
