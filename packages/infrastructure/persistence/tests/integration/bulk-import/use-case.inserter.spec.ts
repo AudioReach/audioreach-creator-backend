@@ -4,6 +4,7 @@
  */
 
 import type {DataSource, EntityManager} from 'typeorm';
+import {jest} from '@jest/globals';
 import {UseCase, type IdGenerationPort} from '@arc/core';
 import {
   setupIntegrationTest,
@@ -188,19 +189,42 @@ describe('UseCaseInserter', () => {
     expect(ids).toEqual([6001, 6002]);
   });
 
-  it('inserts more than 1000 GKV value links without exceeding SQLite expression depth', async () => {
-    await createGkvDependencies(manager);
-    const useCases = Array.from({length: 1001}, (_, index) =>
-      buildUseCase(10_000 + index, {valueSystemIds: [6001]}),
+  it('inserts more than 1,000 GKV rows in SQLite-safe batches', async () => {
+    await manager.insert('KeyDefinition', {
+      systemId: 5001,
+      fileSystemId: FILE_ID,
+      naturalId: 1,
+      name: 'TestKey',
+      version: 1,
+    });
+    const valueSystemIds = Array.from(
+      {length: 1001},
+      (_, index) => 20_000 + index,
     );
 
-    const result = await inserter.insert(useCases);
+    for (let start = 0; start < valueSystemIds.length; start += 100) {
+      await manager.insert(
+        'ValueDefinition',
+        valueSystemIds.slice(start, start + 100).map((systemId, offset) => ({
+          systemId,
+          keySystemId: 5001,
+          naturalId: 10_000 + start + offset,
+          name: `large-value-${start + offset}`,
+          version: 1,
+        })),
+      );
+    }
+
+    const result = await inserter.insert([
+      buildUseCase(1001, {valueSystemIds}),
+    ]);
 
     expect(result.ok).toBe(true);
-    const rows = await dataSource.query(
-      `SELECT * FROM usecase_gkv_values WHERE usecase_system_id >= 10000`,
-    );
-    expect(rows).toHaveLength(1001);
+    expect(
+      await dataSource.query(
+        `SELECT system_id FROM usecase_gkv_values WHERE usecase_system_id = 1001`,
+      ),
+    ).toHaveLength(valueSystemIds.length);
   });
 
   it('inserts root row with no gkv values when keyVector is empty', async () => {
@@ -239,6 +263,19 @@ describe('UseCaseInserter', () => {
     expect(
       links.every((row: {system_id: number}) => row.system_id >= 10_000),
     ).toBe(true);
+  });
+
+  it('ignores duplicate category links', async () => {
+    const result = await inserter.insert([
+      buildUseCase(1001, {categories: ['voice', 'voice']}),
+    ]);
+
+    expect(result.ok).toBe(true);
+    expect(
+      await dataSource.query(
+        `SELECT * FROM use_case_categories WHERE use_case_system_id = 1001`,
+      ),
+    ).toHaveLength(1);
   });
 
   // ── Subgraph membership ────────────────────────────────────────────────────
@@ -502,19 +539,27 @@ describe('UseCaseInserter', () => {
   it('gkv fallback: valid value inserted when batch fails due to invalid sibling', async () => {
     // Provide only one valid value definition; 9999 does not exist (FK fail).
     // The bulk insert of both rows fails; fallback retries individually.
-    // The valid row (6001) is committed; the invalid row (9999) records a failure.
+    // The fallback must use the no-reload query-builder path rather than
+    // EntityManager.insert, while preserving the valid sibling.
     await createGkvDependencies(manager);
     const uc = buildUseCase(1001, {valueSystemIds: [6001, 9999]});
+    const managerInsert = jest
+      .spyOn(manager, 'insert')
+      .mockRejectedValue(new Error('reload-enabled insert path used'));
 
-    const result = await inserter.insert([uc]);
+    try {
+      const result = await inserter.insert([uc]);
 
-    expect(result.ok).toBe(false);
+      expect(result.ok).toBe(false);
 
-    const gkvRows = await dataSource.query(
-      `SELECT * FROM usecase_gkv_values WHERE usecase_system_id = 1001`,
-    );
-    expect(gkvRows).toHaveLength(1);
-    expect(gkvRows[0].value_def_system_id).toBe(6001);
+      const gkvRows = await dataSource.query(
+        `SELECT * FROM usecase_gkv_values WHERE usecase_system_id = 1001`,
+      );
+      expect(gkvRows).toHaveLength(1);
+      expect(gkvRows[0].value_def_system_id).toBe(6001);
+    } finally {
+      managerInsert.mockRestore();
+    }
   });
 
   it('subgraph fallback: valid subgraph inserted when batch fails due to invalid sibling', async () => {

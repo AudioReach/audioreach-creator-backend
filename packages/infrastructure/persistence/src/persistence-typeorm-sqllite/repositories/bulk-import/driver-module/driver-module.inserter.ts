@@ -14,9 +14,10 @@ import {okBulkInsert, BinaryUtils} from '@arc/core';
 import type {BulkInserter} from '../common/bulk-inserter.interface.js';
 import {
   BatchInserter,
+  BatchInserterWithoutRetry,
   type InsertRow,
   type RawFailure,
-} from '../batch-inserter.js';
+} from '../common/batch-inserter.js';
 import {groupRawFailures} from '../common/group-raw-failures.js';
 import {emptyStepResult} from '../common/step-result.js';
 import type {StepResult} from '../common/step-result.js';
@@ -28,9 +29,6 @@ import {
   type DkvParameterPayloadRow,
   type DkvValuesRow,
 } from '../../../entity-schema/driver-module-data/driver-module.js';
-import type {EntityRowForInsert} from '../../../entity-schema/entity-base.js';
-
-type DkvValueInsertRow = EntityRowForInsert<DkvValuesRow>;
 
 export class DriverModuleInserter implements BulkInserter<DriverModule> {
   constructor(
@@ -57,8 +55,8 @@ export class DriverModuleInserter implements BulkInserter<DriverModule> {
     const paramStep = await this.insertDkvParameterPayloads(
       activeModules,
       new Set([
-        ...dkvRowStep.failedEntityIds,
-        ...dkvValuesStep.failedEntityIds,
+        ...dkvRowStep.failedEntityIds, // DKV system IDs that failed to insert as entities
+        ...dkvValuesStep.failedEntityIds, // DKV system IDs whose value rows failed (from retryDkvValueRows)
       ]),
     );
 
@@ -159,57 +157,71 @@ export class DriverModuleInserter implements BulkInserter<DriverModule> {
       {dkv: DkvData; module: DriverModule}
     >();
 
-    const rows: DkvValueInsertRow[] = [];
-    const rowsByDkvSystemId = new Map<number, DkvValueInsertRow[]>();
+    const rows: DkvValuesRow[] = [];
     for (const module of modules) {
       for (const dkv of module.dkvData) {
         if (failedDkvIds.has(dkv.systemId)) continue;
         contextByDkvSystemId.set(dkv.systemId, {dkv, module});
-        const valueRows: DkvValueInsertRow[] = [];
         for (const valueDefSystemId of dkv.valueDefinitionSystemIds) {
-          valueRows.push({
+          rows.push({
             systemId: await this.idGeneration.getNextId(module.fileSystemId),
             dkvSystemId: dkv.systemId,
             valueDefSystemId,
           });
         }
-        rowsByDkvSystemId.set(dkv.systemId, valueRows);
-        rows.push(...valueRows);
       }
     }
 
     if (rows.length === 0) return emptyStepResult();
 
-    const {failedEntities} = await BatchInserter.insert<DkvValuesRow>(
+    const {failedRows} = await BatchInserterWithoutRetry.insert(
       this.manager,
       DkvValuesSchema,
       rows,
     );
-    const valueRowBySystemId = new Map(
-      rows.map(row => [row.systemId, row] as const),
-    );
-    const failureByDkvSystemId = new Map<number, string>();
+    if (failedRows.length === 0) return emptyStepResult();
 
-    for (const failure of failedEntities) {
-      const row = valueRowBySystemId.get(failure.systemId);
-      if (row !== undefined) {
-        failureByDkvSystemId.set(row.dkvSystemId, failure.message);
-      }
-    }
+    return this.retryDkvValueRows(contextByDkvSystemId, failedRows);
+  }
 
+  private async retryDkvValueRows(
+    context: Map<number, {dkv: DkvData; module: DriverModule}>,
+    uninsertedRows: readonly DkvValuesRow[],
+  ): Promise<StepResult> {
     const rawFailures: RawFailure[] = [];
     const failedEntityIds = new Set<number>();
 
-    for (const [dkvSystemId, dbError] of failureByDkvSystemId) {
-      const {module} = contextByDkvSystemId.get(dkvSystemId)!;
-      await this.manager.delete('Dkv', {systemId: dkvSystemId});
-      failedEntityIds.add(dkvSystemId);
-      rawFailures.push({
-        systemId: module.systemId,
-        entityLabel: 'DKV Values',
-        failedRowJson: `(definitionSystemId=${BinaryUtils.toHexString(module.definitionSystemId)}, dkvSystemId=${dkvSystemId}) Rows: ${JSON.stringify(rowsByDkvSystemId.get(dkvSystemId) ?? [])}`,
-        dbError,
-      });
+    const rowsByDkvSystemId = new Map<number, DkvValuesRow[]>();
+    for (const row of uninsertedRows) {
+      const dkvRows = rowsByDkvSystemId.get(row.dkvSystemId) ?? [];
+      dkvRows.push(row);
+      rowsByDkvSystemId.set(row.dkvSystemId, dkvRows);
+    }
+
+    for (const [dkvSystemId, dkvRows] of rowsByDkvSystemId) {
+      for (const row of dkvRows) {
+        try {
+          await this.manager.insert(DkvValuesSchema, row);
+        } catch (error) {
+          const {dkv, module} = context.get(dkvSystemId)!;
+          // failedEntityIds carries DKV system IDs — the direct parent of dkv_values rows.
+          // Merged with dkvRowStep.failedEntityIds in the orchestrator and forwarded to
+          // insertDkvParameterPayloads to skip payload inserts for deleted DKVs.
+          failedEntityIds.add(dkvSystemId);
+          try {
+            await this.manager.delete('Dkv', {systemId: dkvSystemId});
+          } catch {
+            // best-effort cleanup; DKV is already considered failed
+          }
+          rawFailures.push({
+            systemId: module.systemId,
+            entityLabel: 'DKV Values',
+            failedRowJson: `(definitionSystemId=${BinaryUtils.toHexString(module.definitionSystemId)}, dkvSystemId=${dkv.systemId}) Rows: ${JSON.stringify(dkvRows)}`,
+            dbError: error instanceof Error ? error.message : String(error),
+          });
+          break;
+        }
+      }
     }
 
     return {rawFailures, failedEntityIds};

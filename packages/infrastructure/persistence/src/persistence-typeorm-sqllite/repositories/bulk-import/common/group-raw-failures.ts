@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {RawFailure} from '../batch-inserter.js';
+import type {RawFailure} from './batch-inserter.js';
 import {okBulkInsert, errBulkInsert} from '@arc/core';
 import type {BulkInsertResult} from '@arc/core';
 

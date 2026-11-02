@@ -118,6 +118,24 @@ describe('SubsystemInserter', () => {
     expect(rows[0].key_definition_system_id).toBe(KEY_SYSTEM_ID);
   });
 
+  it('ignores duplicate filtered-key links', async () => {
+    const subsystem = buildSubsystem(204, 'S', 0xf0100005, [
+      KEY_SYSTEM_ID,
+      KEY_SYSTEM_ID,
+    ]);
+    const inserter = new SubsystemInserter(manager, idGeneration);
+
+    const result = await inserter.insert([subsystem]);
+
+    expect(result.ok).toBe(true);
+    expect(
+      await dataSource.query(
+        `SELECT * FROM subsystem_filtered_keys_key_definition WHERE subsystems_system_id = ?`,
+        [204],
+      ),
+    ).toHaveLength(1);
+  });
+
   it('should insert child subsystem with parentId set', async () => {
     const parent = buildSubsystem(202, 'Parent', 0xf0100003);
     const child = buildSubsystem(203, 'Child', 0xf0100004, [], 202);
