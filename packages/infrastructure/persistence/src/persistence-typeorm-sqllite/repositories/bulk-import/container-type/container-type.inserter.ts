@@ -11,7 +11,7 @@ import {
   BatchInserter,
   type InsertRow,
   type RawFailure,
-} from '../batch-inserter.js';
+} from '../common/batch-inserter.js';
 import {
   ContainerTypeSchema,
   type ContainerTypeRow,

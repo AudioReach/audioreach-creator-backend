@@ -3,8 +3,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {BaseColumnSchemaPart} from '../entity-base.js';
-import type {EntityBaseRow} from '../entity-base.js';
+import {
+  BaseColumnSchemaPart,
+  JunctionColumnSchemaPart,
+} from '../entity-base.js';
+import type {EntityBaseRow, SystemIdRow} from '../entity-base.js';
 import type {ArcDbFileRow} from '../project-data/arc-db-file.schema.js';
 import type {UseCaseSubgraphRow} from './use-case-subgraph.schema.js';
 import type {UseCaseSubgraphPairRow} from './use-case-subgraph-pair.schema.js';
@@ -44,8 +47,7 @@ export interface UsecaseGkvValuesBase {
   valueDefSystemId: number;
 }
 
-export interface UsecaseGkvValuesRow
-  extends EntityBaseRow, UsecaseGkvValuesBase {
+export interface UsecaseGkvValuesRow extends SystemIdRow, UsecaseGkvValuesBase {
   useCase?: UseCaseRow;
   valueDef?: ValueDefinitionRow;
 }
@@ -148,7 +150,7 @@ export const UsecaseGkvValuesSchema = new EntitySchema<UsecaseGkvValuesRow>({
   name: 'UsecaseGkvValues',
   tableName: 'usecase_gkv_values',
   columns: {
-    ...BaseColumnSchemaPart,
+    ...JunctionColumnSchemaPart,
     usecaseSystemId: {
       name: 'usecase_system_id',
       type: 'integer',
@@ -184,7 +186,7 @@ export const UsecaseGkvValuesSchema = new EntitySchema<UsecaseGkvValuesRow>({
   ],
 });
 
-export interface UseCaseCategoryJoinRow extends EntityBaseRow {
+export interface UseCaseCategoryJoinRow extends SystemIdRow {
   useCaseSystemId: number;
   categorySystemId: number;
   useCase?: UseCaseRow;
@@ -196,7 +198,7 @@ export const UseCaseCategoryJoinSchema =
     name: 'UseCaseCategoryJoin',
     tableName: 'use_case_categories',
     columns: {
-      ...BaseColumnSchemaPart,
+      ...JunctionColumnSchemaPart,
       useCaseSystemId: {
         name: 'use_case_system_id',
         type: 'integer',

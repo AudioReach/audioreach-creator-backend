@@ -18,9 +18,11 @@ import {okBulkInsert} from '@arc/core';
 import type {BulkInserter} from '../common/bulk-inserter.interface.js';
 import {
   BatchInserter,
+  BatchInserterWithoutRetry,
+  insertWithoutEntityUpdate,
   type InsertRow,
   type RawFailure,
-} from '../batch-inserter.js';
+} from '../common/batch-inserter.js';
 import {groupRawFailures} from '../common/group-raw-failures.js';
 import {emptyStepResult} from '../common/step-result.js';
 import type {StepResult} from '../common/step-result.js';
@@ -57,10 +59,23 @@ import type {
   CkvValuesRow,
 } from '../../../entity-schema/usecase-data/module/spf-module-calibration-data.schema.js';
 import {CkvValuesSchema} from '../../../entity-schema/usecase-data/module/spf-module-calibration-data.schema.js';
-import type {EntityRowForInsert} from '../../../entity-schema/entity-base.js';
 
-type CkvValueInsertRow = EntityRowForInsert<CkvValuesRow>;
-type TkvValueInsertRow = EntityRowForInsert<TkvValuesRow>;
+type CkvParameterPayloadInsertRow = InsertRow<CkvParameterPayloadRow> & {
+  readonly ckvSystemId: number;
+};
+
+type CkvContext = {readonly ckv: KvData; readonly module: SpfModule};
+
+type CkvRemovalResult = {
+  readonly ckvSystemId: number;
+  readonly rawFailure: RawFailure;
+};
+
+/** CKV value failures and parent CKVs that later steps must skip. */
+type CkvValueInsertResult = {
+  readonly rawFailures: RawFailure[];
+  readonly failedCkvIds: Set<number>;
+};
 
 export class SpfModuleInserter implements BulkInserter<SpfModule> {
   private readonly manager: EntityManager;
@@ -452,29 +467,68 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
     });
 
     const failedCkvIds = new Set(failedEntities.map(e => e.systemId));
-    const valueFailures = await this.insertCkvValues(
+    const valueResult = await this.insertCkvValues(
       modules,
       failedCkvIds,
       contextByCkvSystemId,
     );
+    // valueResult.failedCkvIds — CKV system IDs whose value inserts failed and whose
+    // parent CKV was deleted. Merged here so the combined skip-set covers both CKV row
+    // failures and CKV value failures before being passed to insertCkvParameterPayloads.
+    for (const failedCkvId of valueResult.failedCkvIds) {
+      failedCkvIds.add(failedCkvId);
+    }
 
     return {
-      rawFailures: [...rawFailures, ...valueFailures],
+      rawFailures: [...rawFailures, ...valueResult.rawFailures],
+      // failedEntityIds: CKV system IDs (row failures + value failures). Consumed by
+      // insertCkvParameterPayloads to skip payload inserts for deleted CKVs.
       failedEntityIds: failedCkvIds,
     };
   }
 
+  /**
+   * Inserts all CKV-to-value associations in SQLite-safe batches derived from
+   * TypeORM metadata. The shared inserter reports only successful batches, so
+   * this method derives the uninserted rows from the original row references.
+   *
+   * The caller-owned recovery path retries each uninserted value row
+   * individually. Its first database error deletes the parent CKV once, so
+   * its FK cascade removes values that succeeded in earlier batches while
+   * valid sibling CKVs remain persisted.
+   */
   private async insertCkvValues(
     modules: SpfModule[],
     failedCkvIds: Set<number>,
-    context: Map<number, {readonly ckv: KvData; readonly module: SpfModule}>,
-  ): Promise<RawFailure[]> {
-    const allValueRows: CkvValueInsertRow[] = [];
-    const rowsByCkvSystemId = new Map<number, CkvValueInsertRow[]>();
+    context: Map<number, CkvContext>,
+  ): Promise<CkvValueInsertResult> {
+    const rows = await this.createCkvValueRows(modules, failedCkvIds);
+
+    if (rows.length === 0) {
+      return {rawFailures: [], failedCkvIds: new Set()};
+    }
+
+    const {failedRows} = await BatchInserterWithoutRetry.insert(
+      this.manager,
+      CkvValuesSchema,
+      rows,
+    );
+    if (failedRows.length === 0) {
+      return {rawFailures: [], failedCkvIds: new Set()};
+    }
+
+    return this.retryCkvValueRows(context, failedRows);
+  }
+
+  /** Creates CKV-owned association rows for the first-pass batch insert. */
+  private async createCkvValueRows(
+    modules: SpfModule[],
+    failedCkvIds: ReadonlySet<number>,
+  ): Promise<CkvValuesRow[]> {
+    const rows: CkvValuesRow[] = [];
     for (const module of modules) {
       for (const ckv of module.ckvs) {
         if (failedCkvIds.has(ckv.systemId)) continue;
-        const rows: CkvValueInsertRow[] = [];
         for (const valueDefSystemId of ckv.valueDefinitionSystemIds) {
           rows.push({
             systemId: await this.idGeneration.getNextId(module.fileSystemId),
@@ -482,47 +536,86 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
             valueDefSystemId,
           });
         }
-        rowsByCkvSystemId.set(ckv.systemId, rows);
-        allValueRows.push(...rows);
       }
     }
+    return rows;
+  }
 
-    if (allValueRows.length === 0) return [];
-
-    const {failedEntities} = await BatchInserter.insert<CkvValuesRow>(
-      this.manager,
-      CkvValuesSchema,
-      allValueRows,
-    );
-    const valueRowBySystemId = new Map(
-      allValueRows.map(row => [row.systemId, row] as const),
-    );
-    const failureByCkvSystemId = new Map<number, string>();
-
-    for (const failure of failedEntities) {
-      const row = valueRowBySystemId.get(failure.systemId);
-      if (row !== undefined) {
-        failureByCkvSystemId.set(row.ckvSystemId, failure.message);
+  /**
+   * Recovers rows not present in first-pass results one CKV at a time. Each
+   * child row is retried individually to capture the actual database error.
+   */
+  private async retryCkvValueRows(
+    context: Map<number, CkvContext>,
+    uninsertedRows: readonly CkvValuesRow[],
+  ): Promise<CkvValueInsertResult> {
+    const rawFailures: RawFailure[] = [];
+    const failedCkvIds = new Set<number>();
+    const rowsByCkvSystemId = this.groupRowsByCkvSystemId(uninsertedRows);
+    for (const [ckvSystemId, ckvRows] of rowsByCkvSystemId) {
+      for (const row of ckvRows) {
+        try {
+          await insertWithoutEntityUpdate(this.manager, CkvValuesSchema, row);
+        } catch (error) {
+          const {ckvSystemId: failedId, rawFailure} =
+            await this.removeFailedCkv(
+              context,
+              ckvSystemId,
+              {ckvSystemId, valueRows: ckvRows},
+              error,
+            );
+          rawFailures.push(rawFailure);
+          // failedCkvIds carries CKV system IDs — the direct parent of ckv_values rows.
+          // Collected by insertCkvs and forwarded to insertCkvParameterPayloads to skip
+          // payload inserts for any CKV whose values could not be persisted.
+          failedCkvIds.add(failedId);
+          break;
+        }
       }
     }
+    return {rawFailures, failedCkvIds};
+  }
 
-    const failures: RawFailure[] = [];
-    for (const [ckvSystemId, dbError] of failureByCkvSystemId) {
-      const {module} = context.get(ckvSystemId)!;
-      failedCkvIds.add(ckvSystemId);
+  /**
+   * Removes a CKV after a child-row fallback failed and returns the CKV system
+   * ID alongside the failure record so callers can reliably propagate it to the
+   * next step's skip-set. The FK cascade cleans up values and payloads that may
+   * have been inserted in earlier batches. The delete is best-effort: if it
+   * throws the CKV is still returned as failed so downstream steps skip it.
+   */
+  private async removeFailedCkv(
+    context: Map<number, CkvContext>,
+    ckvSystemId: number,
+    failedRow: unknown,
+    error: unknown,
+  ): Promise<CkvRemovalResult> {
+    const {module} = context.get(ckvSystemId)!;
+    try {
       await this.manager.delete('Ckv', {systemId: ckvSystemId});
-      failures.push({
+    } catch {
+      // best-effort cleanup; CKV is already considered failed
+    }
+    return {
+      ckvSystemId,
+      rawFailure: {
         systemId: module.systemId,
         entityLabel: 'CKV',
-        failedRowJson: JSON.stringify({
-          ckvSystemId,
-          valueRows: rowsByCkvSystemId.get(ckvSystemId) ?? [],
-        }),
-        dbError,
-      });
-    }
+        failedRowJson: JSON.stringify(failedRow),
+        dbError: error instanceof Error ? error.message : String(error),
+      },
+    };
+  }
 
-    return failures;
+  private groupRowsByCkvSystemId<TRow extends {readonly ckvSystemId: number}>(
+    rows: readonly TRow[],
+  ): Map<number, TRow[]> {
+    const rowsByCkvSystemId = new Map<number, TRow[]>();
+    for (const row of rows) {
+      const ckvRows = rowsByCkvSystemId.get(row.ckvSystemId) ?? [];
+      ckvRows.push(row);
+      rowsByCkvSystemId.set(row.ckvSystemId, ckvRows);
+    }
+    return rowsByCkvSystemId;
   }
 
   // ─── TKV ─────────────────────────────────────────────────────────────────────
@@ -582,7 +675,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
     });
 
     const failedTkvIds = new Set(failedEntities.map(e => e.systemId));
-    const valueFailures = await this.insertTkvValues(
+    const valueStep = await this.collectTkvValueRows(
       modules,
       failedTkvIds,
       failedTagIds,
@@ -590,40 +683,14 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
     );
 
     return {
-      rawFailures: [...rawFailures, ...valueFailures],
-      failedEntityIds: failedTkvIds,
+      rawFailures: [...rawFailures, ...valueStep.rawFailures],
+      // failedEntityIds: TKV system IDs (row failures + value failures from retryTkvValueRows).
+      // Consumed by insertTkvParameterPayloads to skip payload inserts for deleted TKVs.
+      failedEntityIds: new Set([...failedTkvIds, ...valueStep.failedEntityIds]),
     };
   }
 
   private async collectTkvValueRows(
-    modules: SpfModule[],
-    failedTkvIds: Set<number>,
-    failedTagIds: Set<number>,
-  ): Promise<{
-    allValueRows: TkvValueInsertRow[];
-    rowsByTkvSystemId: Map<number, TkvValueInsertRow[]>;
-  }> {
-    // Keep the rows grouped by TKV so failed value inserts can be mapped back
-    // to their owning TKV during cleanup.
-    const allValueRows: TkvValueInsertRow[] = [];
-    const rowsByTkvSystemId = new Map<number, TkvValueInsertRow[]>();
-
-    for (const module of modules) {
-      for (const tagData of module.tagDataList) {
-        if (failedTagIds.has(tagData.systemId)) continue;
-        for (const tkv of tagData.tkvs) {
-          if (failedTkvIds.has(tkv.systemId)) continue;
-          const rows = await this.createTkvValueRows(tkv, module.fileSystemId);
-          rowsByTkvSystemId.set(tkv.systemId, rows);
-          allValueRows.push(...rows);
-        }
-      }
-    }
-
-    return {allValueRows, rowsByTkvSystemId};
-  }
-
-  private async insertTkvValues(
     modules: SpfModule[],
     failedTkvIds: Set<number>,
     failedTagIds: Set<number>,
@@ -635,56 +702,36 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
         readonly module: SpfModule;
       }
     >,
-  ): Promise<RawFailure[]> {
-    const {allValueRows, rowsByTkvSystemId} = await this.collectTkvValueRows(
-      modules,
-      failedTkvIds,
-      failedTagIds,
-    );
+  ): Promise<StepResult> {
+    const allValueRows: TkvValuesRow[] = [];
+    for (const module of modules) {
+      for (const tagData of module.tagDataList) {
+        if (failedTagIds.has(tagData.systemId)) continue;
+        for (const tkv of tagData.tkvs) {
+          if (failedTkvIds.has(tkv.systemId)) continue;
+          const rows = await this.createTkvValueRows(tkv, module.fileSystemId);
+          allValueRows.push(...rows);
+        }
+      }
+    }
 
-    if (allValueRows.length === 0) return [];
+    if (allValueRows.length === 0) return emptyStepResult();
 
-    const {failedEntities} = await BatchInserter.insert<TkvValuesRow>(
+    const {failedRows} = await BatchInserterWithoutRetry.insert(
       this.manager,
       TkvValuesSchema,
       allValueRows,
     );
-    const valueRowBySystemId = new Map(
-      allValueRows.map(row => [row.systemId, row] as const),
-    );
-    const failureByTkvSystemId = new Map<number, string>();
+    if (failedRows.length === 0) return emptyStepResult();
 
-    for (const failure of failedEntities) {
-      const row = valueRowBySystemId.get(failure.systemId);
-      if (row !== undefined) {
-        failureByTkvSystemId.set(row.tkvSystemId, failure.message);
-      }
-    }
-
-    const failures: RawFailure[] = [];
-    for (const [tkvSystemId, dbError] of failureByTkvSystemId) {
-      const {module} = context.get(tkvSystemId)!;
-      failedTkvIds.add(tkvSystemId);
-      await this.manager.delete('Tkv', {systemId: tkvSystemId});
-      failures.push({
-        systemId: module.systemId,
-        entityLabel: 'TKV',
-        failedRowJson: JSON.stringify({
-          tkvSystemId,
-          valueRows: rowsByTkvSystemId.get(tkvSystemId) ?? [],
-        }),
-        dbError,
-      });
-    }
-
-    return failures;
+    return this.retryTkvValueRows(context, failedRows);
   }
 
   private async createTkvValueRows(
     tkv: KvData,
     fileSystemId: number,
-  ): Promise<TkvValueInsertRow[]> {
-    const rows: TkvValueInsertRow[] = [];
+  ): Promise<TkvValuesRow[]> {
+    const rows: TkvValuesRow[] = [];
     for (const valueDefSystemId of tkv.valueDefinitionSystemIds) {
       rows.push({
         systemId: await this.idGeneration.getNextId(fileSystemId),
@@ -693,6 +740,56 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       });
     }
     return rows;
+  }
+
+  private async retryTkvValueRows(
+    context: Map<
+      number,
+      {
+        readonly tkv: KvData;
+        readonly tagData: TagData;
+        readonly module: SpfModule;
+      }
+    >,
+    uninsertedRows: readonly TkvValuesRow[],
+  ): Promise<StepResult> {
+    const rawFailures: RawFailure[] = [];
+    const failedEntityIds = new Set<number>();
+
+    const rowsByTkvSystemId = new Map<number, TkvValuesRow[]>();
+    for (const row of uninsertedRows) {
+      const tkvRows = rowsByTkvSystemId.get(row.tkvSystemId) ?? [];
+      tkvRows.push(row);
+      rowsByTkvSystemId.set(row.tkvSystemId, tkvRows);
+    }
+
+    for (const [tkvSystemId, tkvRows] of rowsByTkvSystemId) {
+      for (const row of tkvRows) {
+        try {
+          await insertWithoutEntityUpdate(this.manager, TkvValuesSchema, row);
+        } catch (error) {
+          const {module} = context.get(tkvSystemId)!;
+          // failedEntityIds carries TKV system IDs — the direct parent of tkv_values rows.
+          // Merged into insertTkvs.failedEntityIds and forwarded to insertTkvParameterPayloads
+          // to skip payload inserts for any TKV whose values could not be persisted.
+          failedEntityIds.add(tkvSystemId);
+          try {
+            await this.manager.delete('Tkv', {systemId: tkvSystemId});
+          } catch {
+            // best-effort cleanup; TKV is already considered failed
+          }
+          rawFailures.push({
+            systemId: module.systemId,
+            entityLabel: 'TKV',
+            failedRowJson: JSON.stringify({tkvSystemId, tkvRows}),
+            dbError: error instanceof Error ? error.message : String(error),
+          });
+          break;
+        }
+      }
+    }
+
+    return {rawFailures, failedEntityIds};
   }
 
   // ─── CKV Parameter ───────────────────────────────────────────────────────────
@@ -712,52 +809,67 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
     if (paramEntries.length === 0) return emptyStepResult();
 
     const fileId = modules[0].fileSystemId;
-    const rows: InsertRow<CkvParameterPayloadRow>[] = [];
-    const contextBySystemId = new Map<
-      number,
-      {readonly ckv: KvData; readonly module: SpfModule}
-    >();
+    const rows: CkvParameterPayloadInsertRow[] = [];
+    const contextByCkvSystemId = new Map<number, CkvContext>();
 
     for (const entry of paramEntries) {
       const systemId = await this.idGeneration.getNextId(fileId);
-      rows.push({
+      const row: CkvParameterPayloadInsertRow = {
         systemId,
         parameterSystemId: entry.param.paramDefintionSystemId,
         ckvSystemId: entry.ckv.systemId,
         payload: entry.param.getPayloadCopy(),
+      };
+      rows.push(row);
+      contextByCkvSystemId.set(entry.ckv.systemId, {
+        ckv: entry.ckv,
+        module: entry.module,
       });
-      contextBySystemId.set(systemId, {ckv: entry.ckv, module: entry.module});
     }
 
-    const ckvBySystemId = new Map<number, KvData>(
-      modules.flatMap(m => m.ckvs.map(ckv => [ckv.systemId, ckv] as const)),
-    );
-
-    const {failedEntities} = await BatchInserter.insert<CkvParameterPayloadRow>(
+    const {failedRows} = await BatchInserterWithoutRetry.insert(
       this.manager,
       'CkvParameterPayload',
       rows,
     );
+    if (failedRows.length === 0) return emptyStepResult();
 
-    const rawFailures: RawFailure[] = failedEntities.map(error => {
-      const ctx = contextBySystemId.get(error.systemId)!;
-      const failedRow = rows.find(r => r.systemId === error.systemId);
-      const parentCkv =
-        failedRow && typeof failedRow.ckvSystemId === 'number'
-          ? ckvBySystemId.get(failedRow.ckvSystemId)
-          : undefined;
-      return {
-        systemId: ctx.module.systemId,
-        entityLabel: 'CKV Parameter',
-        failedRowJson: `Ckv parameter row: ${JSON.stringify(failedRow)}\nParent Ckv:${JSON.stringify(parentCkv)}`,
-        dbError: error.message,
-      };
-    });
+    return this.retryCkvPayloadRows(contextByCkvSystemId, failedRows);
+  }
 
-    return {
-      rawFailures,
-      failedEntityIds: new Set(failedEntities.map(e => e.systemId)),
-    };
+  /** Retries each uninserted CKV parameter payload row independently. */
+  private async retryCkvPayloadRows(
+    context: Map<number, CkvContext>,
+    uninsertedRows: readonly CkvParameterPayloadInsertRow[],
+  ): Promise<StepResult> {
+    const rawFailures: RawFailure[] = [];
+    const failedCkvIds = new Set<number>();
+    const rowsByCkvSystemId = this.groupRowsByCkvSystemId(uninsertedRows);
+    for (const [ckvSystemId, ckvRows] of rowsByCkvSystemId) {
+      for (const row of ckvRows) {
+        try {
+          await insertWithoutEntityUpdate(
+            this.manager,
+            'CkvParameterPayload',
+            row,
+          );
+        } catch (error) {
+          const {ckvSystemId: failedId, rawFailure} =
+            await this.removeFailedCkv(
+              context,
+              ckvSystemId,
+              {ckvSystemId, payloadRows: ckvRows},
+              error,
+            );
+          rawFailures.push(rawFailure);
+          // failedCkvIds carries CKV system IDs — the direct parent of ckv_parameter_payload rows.
+          // Returned as failedEntityIds so callers can extend the CKV skip-set if needed.
+          failedCkvIds.add(failedId);
+          break;
+        }
+      }
+    }
+    return {rawFailures, failedEntityIds: failedCkvIds};
   }
 
   // ─── TKV Parameter ───────────────────────────────────────────────────────────

@@ -58,7 +58,7 @@ import {
   registerBatchInsertDiagnostics,
   type BatchInsertDiagnostics,
   type InsertRow,
-} from './batch-inserter.js';
+} from './common/batch-inserter.js';
 
 /**
  * TypeORM implementation of BulkImportRepository.

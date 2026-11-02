@@ -3,8 +3,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {BaseColumnSchemaPart} from '../../entity-base.js';
-import type {EntityBaseRow} from '../../entity-base.js';
+import {
+  BaseColumnSchemaPart,
+  JunctionColumnSchemaPart,
+} from '../../entity-base.js';
+import type {EntityBaseRow, SystemIdRow} from '../../entity-base.js';
 import type {BlobBytesConverter} from './helper/blob-unit8array.converter.js';
 import {DbTypeToBytesTransformer} from './helper/bytes-transformer.js';
 import type {SpfModuleRow} from './spf-module.schema.js';
@@ -60,7 +63,7 @@ export interface TkvValuesBase {
   valueDefSystemId: number;
 }
 
-export interface TkvValuesRow extends EntityBaseRow, TkvValuesBase {
+export interface TkvValuesRow extends SystemIdRow, TkvValuesBase {
   tkv?: TkvRow;
   valueDef?: ValueDefinitionRow;
 }
@@ -200,7 +203,7 @@ export const TkvValuesSchema = new EntitySchema<TkvValuesRow>({
   name: 'TkvValues',
   tableName: 'tkv_values',
   columns: {
-    ...BaseColumnSchemaPart,
+    ...JunctionColumnSchemaPart,
     tkvSystemId: {name: 'tkv_system_id', type: 'integer'},
     valueDefSystemId: {
       name: 'value_def_system_id',
