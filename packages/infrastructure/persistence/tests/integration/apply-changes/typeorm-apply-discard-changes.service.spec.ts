@@ -196,7 +196,7 @@ describe('TypeOrm apply/discard changes services', () => {
     expect(await manager.getRepository(SessionCommitSchema).count()).toBe(0);
   });
 
-  it('rejects an empty staged selection and discard clears every status', async () => {
+  it('returns false for an empty staged selection and discard clears every status', async () => {
     const {dataSource, session} = await seedSession();
     const manager = dataSource.manager;
     const context = {
@@ -216,9 +216,7 @@ describe('TypeOrm apply/discard changes services', () => {
       new ApplyEditActionReducer(manager),
       sessionRepository,
     );
-    await expect(apply.apply()).rejects.toMatchObject({
-      errorCode: 'NO_STAGED_CHANGES',
-    });
+    await expect(apply.apply()).resolves.toBe(false);
 
     await manager.getRepository(EditActionSchema).insert({
       sessionId: session.sessionId,

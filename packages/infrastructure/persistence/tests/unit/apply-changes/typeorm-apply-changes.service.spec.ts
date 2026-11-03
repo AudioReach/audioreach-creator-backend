@@ -57,7 +57,7 @@ describe('TypeOrmApplyChangesService', () => {
       execute,
     );
 
-    await expect(service.apply()).resolves.toBeUndefined();
+    await expect(service.apply()).resolves.toBe(true);
     expect(query).toHaveBeenCalledWith({
       sessionId: 9,
       changeStatus: CHANGE_STATUS.Staged,
@@ -66,7 +66,7 @@ describe('TypeOrmApplyChangesService', () => {
     expect(deleteStagedEditActionsByIds).toHaveBeenCalledWith(9, [4]);
   });
 
-  it('rejects an empty staged selection without attempting cleanup', async () => {
+  it('returns false when no staged changes exist, without attempting cleanup', async () => {
     const deleteStagedEditActionsByIds = jest.fn();
     const service = new TypeOrmApplyChangesService(
       {session: {sessionId: 9}} as never,
@@ -80,9 +80,7 @@ describe('TypeOrmApplyChangesService', () => {
       jest.fn(),
     );
 
-    await expect(service.apply()).rejects.toMatchObject({
-      errorCode: 'NO_STAGED_CHANGES',
-    });
+    await expect(service.apply()).resolves.toBe(false);
     expect(deleteStagedEditActionsByIds).not.toHaveBeenCalled();
   });
 

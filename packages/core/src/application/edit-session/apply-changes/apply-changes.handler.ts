@@ -6,6 +6,7 @@
 import type {CommandHandler} from '../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../ports/persistence/unit-of-work.js';
 import {Result} from '../../shared/result/result.js';
+import {IssueFactory} from '../../../shared/issues/factories.js';
 import type {ApplyChangesCommand} from './apply-changes.command.js';
 
 export class ApplyChangesHandler implements CommandHandler<
@@ -19,8 +20,9 @@ export class ApplyChangesHandler implements CommandHandler<
   ): Promise<Result<Record<string, never>>> {
     await this.uow.startTransaction();
     try {
-      await this.uow.applyChanges();
+      const applied = await this.uow.applyChanges();
       await this.uow.commit();
+      if (!applied) return Result.ok({}, [IssueFactory.noStagedChanges()]);
       return Result.ok({});
     } catch (error) {
       if (this.uow.isInTransaction()) await this.uow.rollback();

@@ -3,11 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {
-  CHANGE_STATUS,
-  CommitValidationFailedException,
-  NoStagedChangesException,
-} from '@arc/core';
+import {CHANGE_STATUS, CommitValidationFailedException} from '@arc/core';
 import type {WriteContext} from '@arc/core';
 import type {EntityManager} from 'typeorm';
 import type {EditActionRow} from '../../entity-schema/edit-session/edit-action.schema.js';
@@ -43,14 +39,14 @@ export class TypeOrmApplyChangesService {
     private readonly execute: FixedExecutor = executeReducedEditActionsInFixedOrder,
   ) {}
 
-  async apply(): Promise<void> {
+  async apply(): Promise<boolean> {
     const sessionId = this.writeContext.session.sessionId;
     const rows = await this.editActions.query({
       sessionId,
       changeStatus: CHANGE_STATUS.Staged,
     });
     if (rows.length === 0) {
-      throw new NoStagedChangesException();
+      return false;
     }
 
     const selectedChangeIds = [...new Set(rows.map(row => row.changeId))].sort(
@@ -83,6 +79,7 @@ export class TypeOrmApplyChangesService {
         `Commit cleanup is incomplete: ${remaining} staged edit action(s) remain.`,
       );
     }
+    return true;
   }
 }
 
