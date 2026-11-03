@@ -4,7 +4,6 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {IsArray, IsString} from 'class-validator';
 import {createZodDto} from 'nestjs-zod';
 import {
   ParameterSummaryDtoSchema,
@@ -14,15 +13,6 @@ import {
 export class ParameterSummaryDto extends createZodDto(
   ParameterSummaryDtoSchema,
 ) {
-  // class-validator decorators are required so that the global ValidationPipe
-  // (whitelist: true, forbidNonWhitelisted: true) treats these fields as
-  // whitelisted. createZodDto alone does not generate class-validator metadata.
-  @IsString()
-  systemId!: string;
-
-  @IsString()
-  name!: string;
-
   @ApiProperty({
     description: 'Elements to write',
     type: 'array',
@@ -34,6 +24,5 @@ export class ParameterSummaryDto extends createZodDto(
       ],
     },
   })
-  @IsArray()
   elements!: ParameterElementSummaryDto[];
 }
