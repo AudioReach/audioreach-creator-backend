@@ -40,7 +40,7 @@ describe('E2E: apply and discard changes', () => {
     return response.body.data.projectId as string;
   }
 
-  it('returns the approved empty-commit error and allows empty discard', async () => {
+  it('returns a warning when there are no staged changes, and allows empty discard', async () => {
     const projectId = await uploadProject();
     await request(httpServer as Parameters<typeof request>[0])
       .post(`/arc-api/v1/projects/${projectId}/start-session`)
@@ -52,8 +52,10 @@ describe('E2E: apply and discard changes', () => {
       .post(`/arc-api/v1/projects/${projectId}/commit-changes`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({})
-      .expect(422);
-    expect(commit.body.errorCode).toBe('NO_STAGED_CHANGES');
+      .expect(200);
+    expect(commit.body.data).toEqual({});
+    expect(commit.body.issues).toHaveLength(1);
+    expect(commit.body.issues[0].code).toBe('NO_STAGED_CHANGES');
 
     const discard = await request(httpServer as Parameters<typeof request>[0])
       .post(`/arc-api/v1/projects/${projectId}/discard-changes`)

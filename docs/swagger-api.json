@@ -1265,7 +1265,7 @@
             }
           },
           "422": {
-            "description": "No staged changes or commit validation failed"
+            "description": "Commit validation failed"
           }
         },
         "summary": "Commit changes",
@@ -8388,7 +8388,7 @@
         ]
       },
       "post": {
-        "description": "Creates a control link between two modules. Stores all segments in DB. Returns flat ComponentsResponseDto with the created link.",
+        "description": "Creates a control link between two module nodes. Returns flat ComponentsResponseDto with the created link.",
         "operationId": "ControlLinkController_createControlLink",
         "parameters": [
           {
@@ -8404,11 +8404,11 @@
         ],
         "requestBody": {
           "required": true,
-          "description": "Request body parameter type: CreateControlLinkRequest",
+          "description": "Request body parameter type: CreateControlLinkFlatRequest",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateControlLinkRequest"
+                "$ref": "#/components/schemas/CreateControlLinkFlatRequest"
               }
             }
           }
@@ -8439,10 +8439,13 @@
             "description": "Invalid request data"
           },
           "404": {
-            "description": "Project not found, or source or destination module not found"
+            "description": "Module or port not found"
           },
-          "500": {
-            "description": "Failed to create control link"
+          "409": {
+            "description": "A control link already exists with the same port pair"
+          },
+          "422": {
+            "description": "Business rule violation (self-loop, empty intent intersection, etc.)"
           }
         },
         "summary": "Create a new control link (flat view)",
@@ -8453,7 +8456,7 @@
     },
     "/arc-api/v1/projects/{projectId}/control-links/with-subsystems": {
       "post": {
-        "description": "Creates a control link — SAME DB write as POST /control-links. Returns ComponentsWithSubsystemsResponseDto with the created link and subsystem structure.",
+        "description": "Creates a control link — accepts module and subsystem node IDs. Returns ComponentsWithSubsystemsResponseDto with the created link and subsystem structure.",
         "operationId": "ControlLinkController_createControlLinkWithSubsystems",
         "parameters": [
           {
@@ -8469,11 +8472,11 @@
         ],
         "requestBody": {
           "required": true,
-          "description": "Request body parameter type: CreateControlLinkRequest",
+          "description": "Request body parameter type: CreateControlLinkWithSubsystemsRequest",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateControlLinkRequest"
+                "$ref": "#/components/schemas/CreateControlLinkWithSubsystemsRequest"
               }
             }
           }
@@ -8504,10 +8507,13 @@
             "description": "Invalid request data"
           },
           "404": {
-            "description": "Project not found, or source or destination module not found"
+            "description": "Node or port not found"
           },
-          "500": {
-            "description": "Failed to create control link"
+          "409": {
+            "description": "A control link already exists with the same port pair"
+          },
+          "422": {
+            "description": "Business rule violation"
           }
         },
         "summary": "Create a new control link (full view with subsystem hierarchy)",
@@ -8525,7 +8531,7 @@
             "required": true,
             "in": "path",
             "schema": {
-              "type": "string"
+              "type": "number"
             }
           },
           {
@@ -8541,11 +8547,11 @@
         ],
         "requestBody": {
           "required": true,
-          "description": "Request body parameter type: ControlLinkPropertiesResponseDto",
+          "description": "Request body parameter type: PatchControlLinkPropertiesRequest",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ControlLinkPropertiesResponseDto"
+                "$ref": "#/components/schemas/PatchControlLinkPropertiesRequest"
               }
             }
           }
@@ -8640,6 +8646,41 @@
           }
         },
         "summary": "Get all property data for a control link",
+        "tags": [
+          "control-links"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/control-links/query": {
+      "post": {
+        "operationId": "ControlLinkController_queryControlLinks",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryControlLinksRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
         "tags": [
           "control-links"
         ]
@@ -17865,61 +17906,139 @@
         ],
         "description": "Control link with usecases"
       },
-      "CreateControlLinkRequest": {
+      "CreateControlLinkFlatRequest": {
+        "type": "object",
+        "properties": {
+          "startModuleSystemId": {
+            "type": "string",
+            "description": "System ID of the start module node"
+          },
+          "startPortSystemId": {
+            "type": "string",
+            "description": "System ID of the control port on the start module"
+          },
+          "endModuleSystemId": {
+            "type": "string",
+            "description": "System ID of the end module node"
+          },
+          "endPortSystemId": {
+            "type": "string",
+            "description": "System ID of the control port on the end module"
+          },
+          "isInterUsecase": {
+            "type": "boolean",
+            "description": "Whether the link crosses usecase boundaries",
+            "default": false
+          },
+          "heapId": {
+            "type": "number",
+            "description": "Heap ID for memory allocation. Defaults to the standard container heap.",
+            "default": 1
+          }
+        },
+        "required": [
+          "startModuleSystemId",
+          "startPortSystemId",
+          "endModuleSystemId",
+          "endPortSystemId"
+        ]
+      },
+      "CreateControlLinkWithSubsystemsRequest": {
         "type": "object",
         "properties": {
           "startComponentSystemId": {
             "type": "string",
-            "description": "System ID of the start component"
+            "description": "System ID of the start component node (module or subsystem)"
           },
           "startPortSystemId": {
             "type": "string",
-            "description": "System ID of the start port"
+            "description": "System ID of the control port on the start component"
           },
           "endComponentSystemId": {
             "type": "string",
-            "description": "System ID of the end component"
+            "description": "System ID of the end component node (module or subsystem)"
           },
           "endPortSystemId": {
             "type": "string",
-            "description": "System ID of the end port"
+            "description": "System ID of the control port on the end component"
           },
-          "parentSystemId": {
-            "type": "string",
-            "description": "System ID of the parent component"
-          },
-          "linkType": {
-            "type": "string",
-            "description": "Topology classification of the link",
-            "enum": [
-              "NORMAL",
-              "INTER_USECASE"
-            ]
+          "isInterUsecase": {
+            "type": "boolean",
+            "description": "Whether the link crosses usecase boundaries",
+            "default": false
           }
         },
         "required": [
           "startComponentSystemId",
           "startPortSystemId",
           "endComponentSystemId",
-          "endPortSystemId",
-          "linkType"
+          "endPortSystemId"
         ]
       },
-      "ControlLinkPropertiesResponseDto": {
+      "IntentDto": {
         "type": "object",
         "properties": {
-          "properties": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PropertyDto"
-            },
-            "description": "Array of control link properties"
+          "naturalId": {
+            "type": "number",
+            "description": "Intent numeric ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "Intent name"
           }
         },
         "required": [
-          "properties"
-        ],
-        "description": "Control link property data"
+          "naturalId",
+          "name"
+        ]
+      },
+      "AllocatedIntentsDto": {
+        "type": "object",
+        "properties": {
+          "intents": {
+            "description": "Array of allocated intents",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IntentDto"
+            }
+          }
+        },
+        "required": [
+          "intents"
+        ]
+      },
+      "HeapIdValueDto": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "number",
+            "description": "Heap ID value"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      },
+      "PatchControlLinkPropertiesRequest": {
+        "type": "object",
+        "properties": {
+          "AllocatedIntents": {
+            "description": "New allocated intents to apply to all ports in the connected chain",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AllocatedIntentsDto"
+              }
+            ]
+          },
+          "HeapId": {
+            "description": "New heap ID value",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HeapIdValueDto"
+              }
+            ]
+          }
+        }
       },
       "ControlLinkResponseDto": {
         "type": "object",
@@ -17963,6 +18082,146 @@
           "destinationSystemId",
           "destinationPortSystemId",
           "linkType"
+        ]
+      },
+      "ControlLinkPropertiesResponseDto": {
+        "type": "object",
+        "properties": {
+          "AllocatedIntents": {
+            "type": "object",
+            "properties": {
+              "propNaturalId": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Property ID (0x08001062)"
+              },
+              "propName": {
+                "type": "string",
+                "description": "Property name"
+              },
+              "intents": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "naturalId": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "Intent numeric ID"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Intent name"
+                    }
+                  },
+                  "required": [
+                    "naturalId",
+                    "name"
+                  ]
+                },
+                "description": "Allocated intent IDs on the port"
+              }
+            },
+            "required": [
+              "propNaturalId",
+              "propName",
+              "intents"
+            ],
+            "description": "Allocated intents on the link's ports"
+          },
+          "SupportedIntents": {
+            "description": "Supported intents — present only when at least one module endpoint exists in the path",
+            "type": "object",
+            "properties": {
+              "propNaturalId": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Property ID (0x08001062)"
+              },
+              "propName": {
+                "type": "string",
+                "description": "Property name"
+              },
+              "intents": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "naturalId": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "Intent numeric ID"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Intent name"
+                    }
+                  },
+                  "required": [
+                    "naturalId",
+                    "name"
+                  ]
+                },
+                "description": "Union of supported intents from all module endpoints in chain"
+              }
+            },
+            "required": [
+              "propNaturalId",
+              "propName",
+              "intents"
+            ]
+          },
+          "HeapId": {
+            "type": "object",
+            "properties": {
+              "propNaturalId": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Property ID (0x0800136f)"
+              },
+              "propName": {
+                "type": "string",
+                "description": "Property name"
+              },
+              "heapId": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Current heap ID value"
+              }
+            },
+            "required": [
+              "propNaturalId",
+              "propName",
+              "heapId"
+            ],
+            "description": "Heap ID property"
+          }
+        },
+        "required": [
+          "AllocatedIntents",
+          "HeapId"
+        ],
+        "description": "Control link property data"
+      },
+      "QueryControlLinksRequest": {
+        "type": "object",
+        "properties": {
+          "systemIds": {
+            "description": "Control link system IDs",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "systemIds"
         ]
       },
       "DeleteControlLinkResponseDto": {

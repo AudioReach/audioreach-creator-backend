@@ -142,9 +142,9 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
     );
   }
 
-  async applyChanges(): Promise<void> {
+  async applyChanges(): Promise<boolean> {
     const manager = this.queryRunner.manager;
-    await new TypeOrmApplyChangesService(
+    return new TypeOrmApplyChangesService(
       this.getWriteContext(),
       manager,
       new EditActionsQueryService(manager),

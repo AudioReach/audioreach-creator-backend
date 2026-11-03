@@ -1472,18 +1472,18 @@ export class ProjectController {
   })
   @ApiResponse({
     status: HttpStatus.UNPROCESSABLE_ENTITY,
-    description: 'No staged changes or commit validation failed',
+    description: 'Commit validation failed',
   })
   async commitChanges(
     @Param('projectId') projectId: string,
     @Body() _commitChangesRequest: CommitChangesRequestDto,
     @ArcSession() session: ActiveSession,
-  ): Promise<CommitChangesResponseDto> {
-    await this.commandBus.execute<Result<Record<string, never>>>(
+  ): Promise<ApiResult<CommitChangesResponseDto>> {
+    const result = await this.commandBus.execute<Result<Record<string, never>>>(
       new ApplyChangesCommand(projectId),
       session,
     );
-    return {};
+    return toApiResult(result);
   }
 
   @Post('/:projectId/discard-changes')

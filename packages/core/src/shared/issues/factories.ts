@@ -330,4 +330,12 @@ export const IssueFactory = {
       severity: IssueSeverity.Error,
     };
   },
+
+  noStagedChanges(): Issue {
+    return {
+      code: ISSUE_CODE.NO_STAGED_CHANGES,
+      message: 'No staged changes are available to commit.',
+      severity: IssueSeverity.Warning,
+    };
+  },
 } as const;
