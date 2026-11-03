@@ -396,6 +396,8 @@ export {ParameterDtoSchema} from './application/usecase-designer/spf-module/dto/
 export type {ParameterDto} from './application/usecase-designer/spf-module/dto/parameter-dto.js';
 export {ParameterSummaryDtoSchema} from './application/usecase-designer/spf-module/dto/parameter-dto.js';
 export type {ParameterSummaryDto} from './application/usecase-designer/spf-module/dto/parameter-dto.js';
+export {UpdatePropertyRequestDtoSchema} from './application/usecase-designer/spf-module/dto/parameter-dto.js';
+export type {UpdatePropertyRequestDto} from './application/usecase-designer/spf-module/dto/parameter-dto.js';
 export {PropertySummaryDtoSchema} from './application/usecase-designer/spf-module/dto/parameter-dto.js';
 export type {PropertySummaryDto} from './application/usecase-designer/spf-module/dto/parameter-dto.js';
 export {
