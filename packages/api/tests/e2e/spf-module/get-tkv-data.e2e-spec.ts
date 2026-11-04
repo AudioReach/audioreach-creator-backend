@@ -241,7 +241,7 @@ describe('GET tag-data for VOLUME_CONTROL module (moduleId=0x0700101B)', () => {
       );
     }
 
-    // First fetch all parameters to get a valid payload systemId
+    // GET exposes only the parameter-definition identity.
     const allResponse = await request(httpServer)
       .get(
         `/arc-api/v1/projects/${projectId}/spf-modules/${volumeControlSystemId}/tag-data/${tagSystemId}/${tkvSystemId}`,
@@ -254,8 +254,10 @@ describe('GET tag-data for VOLUME_CONTROL module (moduleId=0x0700101B)', () => {
     expect(allParams.length).toBeGreaterThan(0);
 
     const firstParamSystemId = allParams[0].systemId;
+    expect(firstParamSystemId).toBeDefined();
+    expect(allParams[0]).not.toHaveProperty('parameterSystemId');
 
-    // Now fetch with the single payload PK as filter
+    // GET accepts the parameter-definition ID, as supplied by module definitions.
     const filteredResponse = await request(httpServer)
       .get(
         `/arc-api/v1/projects/${projectId}/spf-modules/${volumeControlSystemId}/tag-data/${tagSystemId}/${tkvSystemId}?param-system-ids=${firstParamSystemId}`,
@@ -267,5 +269,7 @@ describe('GET tag-data for VOLUME_CONTROL module (moduleId=0x0700101B)', () => {
     const filteredParams: any[] = filteredResponse.body.data?.parameters ?? [];
     expect(filteredParams).toHaveLength(1);
     expect(filteredParams[0].systemId).toBe(firstParamSystemId);
+    expect(filteredParams[0]).not.toHaveProperty('parameterSystemId');
+    expect(filteredResponse.body.issues ?? []).toHaveLength(0);
   });
 });

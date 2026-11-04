@@ -23,7 +23,7 @@ const mockTkv: TkvReadModel = {
 };
 
 const mockParam: ParameterCalibrationReadModel = {
-  systemId: 20,
+  systemId: 30,
   naturalId: 42,
   name: 'gain',
   description: 'Gain param',
@@ -50,6 +50,8 @@ describe('mapTkvCalDataDto', () => {
     expect(dto.Tkv[0].key.name).toBe('ch');
     expect(dto.Tkv[0].value.name).toBe('stereo');
     expect(dto.parameters).toHaveLength(1);
+    expect(dto.parameters[0].systemId).toBe('30');
+    expect(dto.parameters[0]).not.toHaveProperty('parameterSystemId');
     expect(dto.parameters[0].name).toBe('gain');
   });
 

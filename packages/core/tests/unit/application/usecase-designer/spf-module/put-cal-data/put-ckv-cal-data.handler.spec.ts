@@ -33,9 +33,7 @@ function makeModuleRepo(
       containerSystemId: 4,
     }),
     ckvExists: jest.fn().mockResolvedValue(true),
-    getCkvPayloadEntries: jest
-      .fn()
-      .mockResolvedValue([{systemId: 100, parameterSystemId: 200}]),
+    getCkvPayloadEntries: jest.fn().mockResolvedValue([{systemId: 200}]),
     setCkvData: jest.fn().mockResolvedValue(undefined),
     findModuleForPatch: jest.fn(),
     renameModule: jest.fn(),
@@ -88,7 +86,7 @@ function makeUow(
 }
 
 function makeCommand(
-  paramSystemId = '100',
+  paramSystemId = '200',
   value = '42',
 ): PutCkvCalDataCommand {
   return new PutCkvCalDataCommand(
@@ -171,7 +169,7 @@ describe('PutCkvCalDataHandler', () => {
     const uow = makeUow(makeModuleRepo(), makeDefRepo());
     const handler = new PutCkvCalDataHandler(uow);
     // Int16 max is 32767 — 99999 should fail
-    await expect(handler.handle(makeCommand('100', '99999'))).rejects.toThrow(
+    await expect(handler.handle(makeCommand('200', '99999'))).rejects.toThrow(
       InvalidInputException,
     );
   });
@@ -181,12 +179,14 @@ describe('PutCkvCalDataHandler', () => {
     const uow = makeUow(moduleRepo, makeDefRepo());
     const handler = new PutCkvCalDataHandler(uow);
     const result = await handler.handle(makeCommand());
-    expect(result.data.succeededParamSystemIds).toEqual([100]);
+    expect(result.data.succeededParamSystemIds).toEqual([200]);
     expect(result.data.groupId).toBe('group-abc');
     expect(moduleRepo.setCkvData).toHaveBeenCalledWith(
       MODULE_ID,
       CKV_ID,
-      expect.arrayContaining([expect.objectContaining({payloadSystemId: 100})]),
+      expect.arrayContaining([
+        expect.objectContaining({parameterSystemId: 200}),
+      ]),
       undefined,
     );
   });
@@ -211,7 +211,7 @@ describe('PutCkvCalDataHandler', () => {
       String(CKV_ID),
       [
         {
-          systemId: '100',
+          systemId: '200',
           elements: [
             {
               type: 'ConfigElement',

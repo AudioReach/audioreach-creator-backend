@@ -204,6 +204,25 @@ describe('PUT /arc-api/v1/projects/:projectId/spf-modules/:spfModuleSystemId/cal
 
   // ── 403: no active session ────────────────────────────────────────────────
 
+  it('GET filters and identifies parameters by definition ID', async () => {
+    const original = parameters[0];
+    expect(original.systemId).toBeDefined();
+    expect(original).not.toHaveProperty('parameterSystemId');
+    const res = await request(httpServer as Parameters<typeof request>[0])
+      .get(
+        `/arc-api/v1/projects/${projectId}/spf-modules/${spfModuleSystemId}/cal-data/${ckvSystemId}?param-system-ids=${original.systemId}`,
+      )
+      .set('Authorization', `Bearer ${authToken}`)
+      .timeout(30_000);
+    expect(res.status).toBe(200);
+    expect(res.body.issues ?? []).toHaveLength(0);
+    expect(res.body.data.parameters).toHaveLength(1);
+    expect(res.body.data.parameters[0]).toMatchObject({
+      systemId: original.systemId,
+      naturalId: original.naturalId,
+    });
+  }, 60_000);
+
   it('returns 403 when no active session exists for the project', async () => {
     await endSession(httpServer, authToken, projectId);
     const res = await request(httpServer as Parameters<typeof request>[0])

@@ -16,6 +16,11 @@ import {DbKeyValueDefQueryService} from '../../../../src/persistence-typeorm-sql
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 import {
+  ProjectSessionSchema,
+  SESSION_MODE,
+  SESSION_STATUS,
+} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
+import {
   describe,
   it,
   expect,
@@ -128,21 +133,50 @@ describe('DbTkvCalibrationQueryService', () => {
       const svc = makeService(ds);
       const payloads = await svc.getTkvPayloads(FILE_ID, MODULE_ID, TKV_ID);
       expect(payloads).toHaveLength(1);
-      expect(payloads[0].systemId).toBe(PAYLOAD_ID);
-      expect(payloads[0].parameterSystemId).toBe(PARAM_DEF_ID);
+      expect(payloads[0].systemId).toBe(PARAM_DEF_ID);
+      expect(payloads[0]).not.toHaveProperty('parameterSystemId');
       expect(payloads[0].payload).toBeInstanceOf(Uint8Array);
     });
 
-    it('filters to requested paramSystemIds (payload PKs)', async () => {
-      const ds = getTestDataSource();
-      await seedAll(ds);
-      const svc = makeService(ds);
-      const payloads = await svc.getTkvPayloads(FILE_ID, MODULE_ID, TKV_ID, [
-        PAYLOAD_ID,
-      ]);
-      expect(payloads).toHaveLength(1);
-      expect(payloads[0].systemId).toBe(PAYLOAD_ID);
-    });
+    it.each([false, true])(
+      'filters definition IDs within the selected TKV (active session: %s)',
+      async activeSession => {
+        const ds = getTestDataSource();
+        await seedAll(ds);
+        await ds.query(
+          `INSERT INTO spf_module_parameter_definitions (system_id, param_id, name, max_size, is_persistent, elements_structure, is_read_only, pid_type, spf_module_definition_system_id) VALUES (26, 2, 'other', 4, 1, '[]', 0, 'NONE', ${DEF_SYSTEM_ID})`,
+        );
+        await ds.query(
+          `INSERT INTO tkv (system_id, module_tag_id_map_system_id) VALUES (91, ${TAG_MAP_ID})`,
+        );
+        await ds.query(
+          `INSERT INTO tkv_parameter_payload (system_id, tkv_system_id, parameter_system_id, payload) VALUES (36, ${TKV_ID}, 26, X'01000000'), (37, 91, ${PARAM_DEF_ID}, X'00000000')`,
+        );
+        if (activeSession) {
+          await getTestRepository(ProjectSessionSchema).save({
+            fileSystemId: FILE_ID,
+            userId: 'u',
+            clientId: 'c',
+            sessionMode: SESSION_MODE.Designer,
+            status: SESSION_STATUS.Active,
+            endedAt: null,
+          });
+        }
+        const svc = makeService(ds);
+        const payloads = await svc.getTkvPayloads(FILE_ID, MODULE_ID, TKV_ID, [
+          PARAM_DEF_ID,
+        ]);
+        expect(payloads).toHaveLength(1);
+        expect(payloads[0].systemId).toBe(PARAM_DEF_ID);
+        expect(payloads[0]).not.toHaveProperty('parameterSystemId');
+        expect(
+          await svc.getTkvPayloads(FILE_ID, MODULE_ID, TKV_ID, [PAYLOAD_ID]),
+        ).toEqual([]);
+        expect(
+          await svc.getTkvPayloads(FILE_ID, MODULE_ID, TKV_ID),
+        ).toHaveLength(2);
+      },
+    );
 
     it('returns empty array when paramSystemIds has no matches', async () => {
       const ds = getTestDataSource();

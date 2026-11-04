@@ -24,8 +24,7 @@ const mockCkv: CkvReadModel = {
 };
 
 const mockPayload: ParameterPayloadReadModel = {
-  systemId: 20,
-  parameterSystemId: 100,
+  systemId: 100,
   payload: new Uint8Array([0x05, 0x00, 0x00, 0x00]),
 };
 
@@ -89,6 +88,33 @@ import {
 } from '../../../../../../src/application/shared/result/result.js';
 
 describe('GetCkvCalibrationDataHandler', () => {
+  it('returns the definition systemId without exposing payload identity', async () => {
+    const handler = new GetCkvCalibrationDataHandler(makeServices());
+    const result = await handler.handle(
+      new GetCkvCalibrationDataQuery('1', '2', '10', 'client-id', '100'),
+    );
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(result.data?.parameters).toEqual([
+      expect.objectContaining({systemId: '100'}),
+    ]);
+    const parsed = CkvCalDataDtoSchema.parse(result.data);
+    expect(parsed.parameters[0]).not.toHaveProperty('parameterSystemId');
+  });
+
+  it('reports only definition IDs whose payloads are missing', async () => {
+    const handler = new GetCkvCalibrationDataHandler(makeServices());
+    const result = await handler.handle(
+      new GetCkvCalibrationDataQuery('1', '2', '10', 'client-id', '100,101'),
+    );
+    expect(result.kind).toBe(RESULT_KIND.Partial);
+    expect(result.issues).toEqual([
+      expect.objectContaining({
+        code: 'PARAM_PAYLOAD_NOT_FOUND',
+        message: expect.stringContaining('Parameter 101:'),
+      }),
+    ]);
+  });
+
   it('returns Result<CkvCalDataDto> with parsed parameters', async () => {
     const handler = new GetCkvCalibrationDataHandler(makeServices());
     const query = new GetCkvCalibrationDataQuery('1', '2', '10', 'client-id');
@@ -137,12 +163,12 @@ describe('GetCkvCalibrationDataHandler', () => {
     ).rejects.toThrow(ParameterDefinitionMissingError);
   });
 
-  it('joins payloads to definitions by parameterSystemId → systemId', async () => {
+  it('joins payloads to definitions by definition systemId', async () => {
     const handler = new GetCkvCalibrationDataHandler(makeServices());
     const result = await handler.handle(
       new GetCkvCalibrationDataQuery('1', '2', '10', 'client-id'),
     );
-    // mockPayload.parameterSystemId = 100, mockDef.systemId = 100 → should match
+    // Both persistence and definitions identify the parameter as 100.
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind !== RESULT_KIND.Ok) return;
     expect(result.data.parameters[0].naturalId).toBe('42');

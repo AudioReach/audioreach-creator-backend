@@ -39,7 +39,6 @@ function makeModuleRepo(
     ]),
     getCkvPayloadsForParameters: jest.fn().mockResolvedValue([
       {
-        systemId: PAYLOAD_ID,
         ckvSystemId: CKV_ID,
         parameterSystemId: PARAM_ID,
       },
@@ -125,7 +124,7 @@ describe('RemoveCkvParametersHandler', () => {
       new RemoveCkvParametersCommand(String(MODULE_ID), [String(PARAM_ID)]),
     );
     expect(moduleRepo.deleteParameterFromCkv).toHaveBeenCalledWith(
-      PAYLOAD_ID,
+      PARAM_ID,
       CKV_ID,
       MODULE_ID,
     );

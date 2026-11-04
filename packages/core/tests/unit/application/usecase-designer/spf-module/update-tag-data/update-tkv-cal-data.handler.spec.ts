@@ -35,9 +35,7 @@ function makeModuleRepo(
     }),
     tagExists: jest.fn().mockResolvedValue(true),
     tkvExists: jest.fn().mockResolvedValue(true),
-    getTkvPayloadEntries: jest
-      .fn()
-      .mockResolvedValue([{systemId: 100, parameterSystemId: 200}]),
+    getTkvPayloadEntries: jest.fn().mockResolvedValue([{systemId: 200}]),
     setTkvData: jest.fn().mockResolvedValue(undefined),
     ckvExists: jest.fn(),
     getCkvPayloadEntries: jest.fn(),
@@ -93,7 +91,7 @@ function makeUow(
 }
 
 function makeCommand(
-  paramSystemId = '100',
+  paramSystemId = '200',
   value = '42',
 ): UpdateTkvCalDataCommand {
   return new UpdateTkvCalDataCommand(
@@ -187,22 +185,24 @@ describe('UpdateTkvCalDataHandler', () => {
   it('throws InvalidInputException on serialization failure (value out of range)', async () => {
     const uow = makeUow(makeModuleRepo(), makeDefRepo());
     const handler = new UpdateTkvCalDataHandler(uow);
-    await expect(handler.handle(makeCommand('100', '99999'))).rejects.toThrow(
+    await expect(handler.handle(makeCommand('200', '99999'))).rejects.toThrow(
       InvalidInputException,
     );
   });
 
-  it('calls setTkvData and returns groupId on success', async () => {
+  it('keeps definition IDs across persistence writes and GET readback', async () => {
     const moduleRepo = makeModuleRepo();
     const uow = makeUow(moduleRepo, makeDefRepo());
     const handler = new UpdateTkvCalDataHandler(uow);
     const result = await handler.handle(makeCommand());
-    expect(result.data.succeededParamSystemIds).toEqual([100]);
+    expect(result.data.succeededParamSystemIds).toEqual([200]);
     expect(result.data.groupId).toBe('group-abc');
     expect(moduleRepo.setTkvData).toHaveBeenCalledWith(
       TAG_MAP_ID,
       TKV_ID,
-      expect.arrayContaining([expect.objectContaining({payloadSystemId: 100})]),
+      expect.arrayContaining([
+        expect.objectContaining({parameterSystemId: 200}),
+      ]),
       undefined,
     );
   });
@@ -228,7 +228,7 @@ describe('UpdateTkvCalDataHandler', () => {
       String(TKV_ID),
       [
         {
-          systemId: '100',
+          systemId: '200',
           elements: [
             {
               type: 'ConfigElement',

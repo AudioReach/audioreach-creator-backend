@@ -29,9 +29,7 @@ function makeModuleRepo(
       moduleTagIdMapSystemId: 50,
       valueDefinitionSystemIds: [],
     }),
-    getTkvPayloadEntries: jest
-      .fn()
-      .mockResolvedValue([{systemId: PAYLOAD_ID, parameterSystemId: PARAM_ID}]),
+    getTkvPayloadEntries: jest.fn().mockResolvedValue([{systemId: PARAM_ID}]),
     deleteParameterFromTkv: jest.fn().mockResolvedValue(undefined),
     findModuleForPatch: jest.fn(),
     renameModule: jest.fn(),
@@ -86,7 +84,7 @@ describe('RemoveTkvParametersHandler', () => {
       ]),
     );
     expect(moduleRepo.deleteParameterFromTkv).toHaveBeenCalledWith(
-      PAYLOAD_ID,
+      PARAM_ID,
       TKV_ID,
       50,
     );

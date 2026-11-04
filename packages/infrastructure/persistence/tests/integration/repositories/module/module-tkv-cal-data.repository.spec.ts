@@ -21,6 +21,8 @@ import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqlli
 import {PendingChangeWriter} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
 import {PendingChangeCache} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
 import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
+import {TkvOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/tkv-overlay-fetcher.js';
+import {TkvParameterPayloadFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/tkv-parameter-payload-fetcher.js';
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 import {ProjectSessionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
@@ -287,8 +289,7 @@ describe('TypeOrmModuleRepository — TKV cal data methods', () => {
       const repo = makeRepo(qr, sessionId);
       const rows = await repo.getTkvPayloadEntries(TAG_MAP_ID, TKV_ID);
       expect(rows).toHaveLength(1);
-      expect(rows[0].systemId).toBe(PAYLOAD_ID);
-      expect(rows[0].parameterSystemId).toBe(PARAM_DEF_ID);
+      expect(rows[0]).toEqual({systemId: PARAM_DEF_ID});
     });
 
     it('returns empty array when no payload rows exist', async () => {
@@ -309,7 +310,7 @@ describe('TypeOrmModuleRepository — TKV cal data methods', () => {
         1,
       );
 
-      await repo.deleteParameterFromTkv(PAYLOAD_ID, TKV_ID, TAG_MAP_ID);
+      await repo.deleteParameterFromTkv(PARAM_DEF_ID, TKV_ID, TAG_MAP_ID);
 
       expect(await repo.getTkvPayloadEntries(TAG_MAP_ID, TKV_ID)).toEqual([]);
     });
@@ -318,10 +319,18 @@ describe('TypeOrmModuleRepository — TKV cal data methods', () => {
   describe('setTkvData', () => {
     it('writes edit_actions with aggregateId=moduleTagIdMapSystemId and correct base64 payload', async () => {
       await seedPayload(ds);
+      await ds.query(
+        'INSERT INTO tkv (system_id, module_tag_id_map_system_id) VALUES (?, ?)',
+        [TKV_ID + 1, TAG_MAP_ID],
+      );
+      await ds.query(
+        'INSERT INTO tkv_parameter_payload (system_id, parameter_system_id, tkv_system_id, payload) VALUES (?, ?, ?, ?)',
+        [PAYLOAD_ID + 1, PARAM_DEF_ID, TKV_ID + 1, Buffer.alloc(0)],
+      );
       const repo = makeRepo(qr, sessionId);
       const payload = new Uint8Array([0xde, 0xad, 0xbe, 0xef]);
       await repo.setTkvData(TAG_MAP_ID, TKV_ID, [
-        {payloadSystemId: PAYLOAD_ID, payload},
+        {parameterSystemId: PARAM_DEF_ID, payload},
       ]);
       const rows: Array<{
         target_table: string;
@@ -343,6 +352,32 @@ describe('TypeOrmModuleRepository — TKV cal data methods', () => {
       expect(Buffer.from(delta.payload.__blob, 'base64')).toEqual(
         Buffer.from(payload),
       );
+    });
+
+    it('resolves a session-created payload by definition ID for updates', async () => {
+      const repo = makeRepo(qr, sessionId);
+      await repo.addParameterToTkv(
+        TKV_ID,
+        TAG_MAP_ID,
+        PARAM_DEF_ID,
+        new Uint8Array([1]),
+      );
+      await repo.setTkvData(TAG_MAP_ID, TKV_ID, [
+        {parameterSystemId: PARAM_DEF_ID, payload: new Uint8Array([2])},
+      ]);
+      expect(await repo.getTkvPayloadEntries(TAG_MAP_ID, TKV_ID)).toEqual([
+        {systemId: PARAM_DEF_ID},
+      ]);
+      const editSvc = new EditActionsQueryService(qr.manager);
+      const fetcher = new TkvOverlayFetcher(
+        qr.manager,
+        editSvc,
+        new TkvParameterPayloadFetcher(qr.manager, editSvc),
+      );
+      const rows = await fetcher.fetchPayloads(TKV_ID, sessionId);
+      expect(rows).toHaveLength(1);
+      expect(rows[0].systemId).toBe(PAYLOAD_ID);
+      expect(Array.from(rows[0].payload ?? [])).toEqual([2]);
     });
 
     it('writes uiPersistence edit_action on Tkv row when provided', async () => {

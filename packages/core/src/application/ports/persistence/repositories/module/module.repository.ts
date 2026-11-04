@@ -17,18 +17,16 @@ import type {ReadOptions} from '../shared/read-options.js';
 export type {SpfModuleBase} from '../../../../../domain/entities/usecase-data/module/spf-module.js';
 
 export interface PayloadEntry {
-  systemId: number; // PK of CkvParameterPayload — matches param.systemId from client
-  parameterSystemId: number; // FK → SpfModuleParameterDefinition.systemId
+  systemId: number; // Parameter-definition system ID.
 }
 
 export interface CkvPayloadEntry {
-  systemId: number;
   ckvSystemId: number;
   parameterSystemId: number;
 }
 
 export interface PayloadUpdate {
-  payloadSystemId: number; // PK of CkvParameterPayload — used as targetSystemId in edit_actions
+  parameterSystemId: number;
   payload: Uint8Array;
 }
 
@@ -276,7 +274,7 @@ export interface ModuleRepository {
     options?: EditOptions,
   ): Promise<void>;
   deleteParameterFromCkv(
-    payloadSystemId: number,
+    parameterSystemId: number,
     ckvSystemId: number,
     moduleSystemId: number,
     options?: EditOptions,
@@ -291,7 +289,7 @@ export interface ModuleRepository {
     options?: EditOptions,
   ): Promise<void>;
   deleteParameterFromTkv(
-    payloadSystemId: number,
+    parameterSystemId: number,
     tkvSystemId: number,
     tagSystemId: number,
     options?: EditOptions,

@@ -137,7 +137,7 @@ export class RemoveCkvParametersHandler implements CommandHandler<
         );
         if (!payloadRow) continue;
         await moduleRepo.deleteParameterFromCkv(
-          payloadRow.systemId,
+          payloadRow.parameterSystemId,
           ckv.systemId,
           command.spfModuleSystemId,
         );

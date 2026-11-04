@@ -10,6 +10,7 @@ import {
   DataPort,
   ControlPort,
   READ_MODE,
+  ResourceNotFoundException,
   type ModuleRepository,
   type UnitOfWork,
   type EditOptions,
@@ -37,6 +38,11 @@ import {CkvParameterPayloadFetcher} from '../../fetchers/ckv-parameter-payload-f
 import {TkvOverlayFetcher} from '../../fetchers/tkv-overlay-fetcher.js';
 import {TkvParameterPayloadFetcher} from '../../fetchers/tkv-parameter-payload-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
+
+interface ParameterPayloadRowIdentity {
+  systemId: number;
+  parameterSystemId: number;
+}
 
 export class TypeOrmModuleRepository implements ModuleRepository {
   private readonly spfModuleFetcher: SpfModuleOverlayFetcher;
@@ -722,8 +728,12 @@ export class TypeOrmModuleRepository implements ModuleRepository {
   async getCkvPayloadEntries(
     spfModuleSystemId: number,
     ckvSystemId: number,
-  ): Promise<{systemId: number; parameterSystemId: number}[]> {
-    return this.fetchCkvPayloadEntries(ckvSystemId, spfModuleSystemId);
+  ): Promise<PayloadEntry[]> {
+    const rows = await this.fetchCkvPayloadEntries(
+      ckvSystemId,
+      spfModuleSystemId,
+    );
+    return rows.map(row => ({systemId: row.parameterSystemId}));
   }
 
   async setCkvData(
@@ -734,8 +744,13 @@ export class TypeOrmModuleRepository implements ModuleRepository {
   ): Promise<void> {
     const {session} = this.uow.getWriteContext();
     if (payloadUpdates.length > 0) {
+      const rows = await this.fetchCkvPayloadEntries(
+        ckvSystemId,
+        spfModuleSystemId,
+      );
+      const resolvedUpdates = this.resolvePayloadUpdates(rows, payloadUpdates);
       await this.writer.writeDeltaBatch(
-        payloadUpdates.map(u => ({
+        resolvedUpdates.map(u => ({
           targetTable: ENTITY_NAMES.CkvParameterPayload,
           targetSystemId: u.payloadSystemId,
           aggregateId: spfModuleSystemId,
@@ -780,7 +795,14 @@ export class TypeOrmModuleRepository implements ModuleRepository {
   async getTkvPayloadEntries(
     _moduleTagIdMapSystemId: number,
     tkvSystemId: number,
-  ): Promise<{systemId: number; parameterSystemId: number}[]> {
+  ): Promise<PayloadEntry[]> {
+    const rows = await this.fetchTkvPayloadEntries(tkvSystemId);
+    return rows.map(row => ({systemId: row.parameterSystemId}));
+  }
+
+  private async fetchTkvPayloadEntries(
+    tkvSystemId: number,
+  ): Promise<ParameterPayloadRowIdentity[]> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
     const rows = await this.tkvOverlayFetcher.fetchPayloads(
       tkvSystemId,
@@ -800,8 +822,10 @@ export class TypeOrmModuleRepository implements ModuleRepository {
   ): Promise<void> {
     const {session} = this.uow.getWriteContext();
     if (payloadUpdates.length > 0) {
+      const rows = await this.fetchTkvPayloadEntries(tkvSystemId);
+      const resolvedUpdates = this.resolvePayloadUpdates(rows, payloadUpdates);
       await this.writer.writeDeltaBatch(
-        payloadUpdates.map(u => ({
+        resolvedUpdates.map(u => ({
           targetTable: ENTITY_NAMES.TkvParameterPayload,
           targetSystemId: u.payloadSystemId,
           aggregateId: moduleTagIdMapSystemId,
@@ -892,7 +916,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
   private async fetchCkvPayloadEntries(
     ckvSystemId: number,
     spfModuleSystemId: number,
-  ): Promise<PayloadEntry[]> {
+  ): Promise<ParameterPayloadRowIdentity[]> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
     const rows = await this.ckvOverlayFetcher.fetchPayloads(
       ckvSystemId,
@@ -903,6 +927,24 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       systemId: r.systemId,
       parameterSystemId: r.parameterSystemId,
     }));
+  }
+
+  private resolvePayloadUpdates(
+    rows: ParameterPayloadRowIdentity[],
+    updates: PayloadUpdate[],
+  ): Array<{payloadSystemId: number; payload: Uint8Array}> {
+    const payloadIds = new Map(
+      rows.map(row => [row.parameterSystemId, row.systemId]),
+    );
+    return updates.map(update => {
+      const payloadSystemId = payloadIds.get(update.parameterSystemId);
+      if (payloadSystemId === undefined) {
+        throw new ResourceNotFoundException(
+          `Parameter payload not found: parameterSystemId=${update.parameterSystemId}`,
+        );
+      }
+      return {payloadSystemId, payload: update.payload};
+    });
   }
 
   async deleteCkv(
@@ -1171,7 +1213,6 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       for (const r of rows) {
         if (paramSet.has(r.parameterSystemId)) {
           result.push({
-            systemId: r.systemId,
             ckvSystemId,
             parameterSystemId: r.parameterSystemId,
           });
@@ -1227,15 +1268,20 @@ export class TypeOrmModuleRepository implements ModuleRepository {
   }
 
   async deleteParameterFromCkv(
-    payloadSystemId: number,
-    _ckvSystemId: number,
+    parameterSystemId: number,
+    ckvSystemId: number,
     moduleSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
     const {session} = this.uow.getWriteContext();
+    const rows = await this.fetchCkvPayloadEntries(ckvSystemId, moduleSystemId);
+    const row = rows.find(
+      payload => payload.parameterSystemId === parameterSystemId,
+    );
+    if (!row) return;
     await this.writeDeleteRow(
       'CkvParameterPayload',
-      payloadSystemId,
+      row.systemId,
       moduleSystemId,
       session.sessionId,
       options,
@@ -1272,15 +1318,20 @@ export class TypeOrmModuleRepository implements ModuleRepository {
   }
 
   async deleteParameterFromTkv(
-    payloadSystemId: number,
-    _tkvSystemId: number,
+    parameterSystemId: number,
+    tkvSystemId: number,
     tagSystemId: number,
     options?: EditOptions,
   ): Promise<void> {
     const {session} = this.uow.getWriteContext();
+    const rows = await this.fetchTkvPayloadEntries(tkvSystemId);
+    const row = rows.find(
+      payload => payload.parameterSystemId === parameterSystemId,
+    );
+    if (!row) return;
     await this.writeDeleteRow(
       'TkvParameterPayload',
-      payloadSystemId,
+      row.systemId,
       tagSystemId,
       session.sessionId,
       options,

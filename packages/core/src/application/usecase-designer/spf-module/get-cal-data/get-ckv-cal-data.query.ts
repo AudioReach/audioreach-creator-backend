@@ -23,7 +23,7 @@ export class GetCkvCalibrationDataQuery extends BaseQuery {
   public readonly spfModuleSystemId: number;
   /** System ID of the CKV to retrieve calibration data for. */
   public readonly ckvSystemId: number;
-  /** Filter: only return data for these parameter system IDs; empty means all. */
+  /** Filter by parameter-definition system IDs; empty means all parameters. */
   public readonly paramSystemIds: number[];
 
   constructor(

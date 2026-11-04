@@ -59,7 +59,7 @@ export class GetTkvCalibrationDataHandler implements QueryHandler<
     ]);
 
     const relevantParamSystemIds = payloads.map(
-      (p: ParameterPayloadReadModel) => p.parameterSystemId,
+      (p: ParameterPayloadReadModel) => p.systemId,
     );
     const parameterDefinitions =
       await this.queryServices.spfModuleDefinitionQueryService.queryParameterDefinitions(

@@ -5,5 +5,6 @@
 
 export interface PutCkvCalDataResult {
   groupId: string;
+  /** Definition IDs used to retrieve the updated calibration parameters. */
   succeededParamSystemIds: number[];
 }
