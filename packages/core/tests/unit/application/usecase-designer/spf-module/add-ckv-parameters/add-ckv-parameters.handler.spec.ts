@@ -122,7 +122,7 @@ describe('AddCkvParametersHandler', () => {
       getCkvPayloadsForParameters: jest
         .fn()
         .mockResolvedValue([
-          {systemId: 999, ckvSystemId: CKV_ID, parameterSystemId: PARAM_ID},
+          {ckvSystemId: CKV_ID, parameterSystemId: PARAM_ID},
         ]),
     });
     const uow = makeUow(moduleRepo, makeDefRepo());

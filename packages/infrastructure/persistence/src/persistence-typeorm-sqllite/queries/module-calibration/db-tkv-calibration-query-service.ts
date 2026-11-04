@@ -77,7 +77,7 @@ export class DbTkvCalibrationQueryService implements TkvQueryService {
     const all = await this.tkvFetcher.fetchPayloads(tkvSystemId, sessionId);
     const filtered =
       paramSystemIds && paramSystemIds.length > 0
-        ? all.filter(p => paramSystemIds.includes(p.systemId))
+        ? all.filter(p => paramSystemIds.includes(p.parameterSystemId))
         : all;
     return filtered.map(p => this.toParameterPayloadReadModel(p));
   }
@@ -108,8 +108,7 @@ export class DbTkvCalibrationQueryService implements TkvQueryService {
     row: TkvParameterPayloadBase,
   ): ParameterPayloadReadModel {
     return {
-      systemId: row.systemId,
-      parameterSystemId: row.parameterSystemId,
+      systemId: row.parameterSystemId,
       payload: row.payload ?? null,
     };
   }

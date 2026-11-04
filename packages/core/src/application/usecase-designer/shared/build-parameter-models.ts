@@ -22,10 +22,10 @@ export function buildParameterModels(
 ): ParameterCalibrationReadModel[] {
   const defMap = new Map(definitions.map(d => [d.systemId, d]));
   return payloads.map(p => {
-    if (p.payload === null) throw new NullPayloadError(p.parameterSystemId);
-    const def = defMap.get(p.parameterSystemId);
+    if (p.payload === null) throw new NullPayloadError(p.systemId);
+    const def = defMap.get(p.systemId);
     if (def === undefined)
-      throw new ParameterDefinitionMissingError(p.parameterSystemId);
+      throw new ParameterDefinitionMissingError(p.systemId);
     const parsedData: ElementData[] = parseParameterData(
       p.payload,
       def.elementsStructure ?? '',

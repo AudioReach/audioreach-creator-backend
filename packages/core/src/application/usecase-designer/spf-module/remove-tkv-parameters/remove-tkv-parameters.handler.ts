@@ -50,9 +50,7 @@ export class RemoveTkvParametersHandler implements CommandHandler<
           tkv.moduleTagIdMapSystemId,
           tkvSystemId,
         );
-        const payloadMap = new Map(
-          existingPayloads.map(p => [p.parameterSystemId, p]),
-        );
+        const payloadMap = new Map(existingPayloads.map(p => [p.systemId, p]));
 
         const removedParameterSystemIds: number[] = [];
         for (const parameterSystemId of new Set(parameterSystemIds)) {

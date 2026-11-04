@@ -78,7 +78,7 @@ export class AddTkvParametersHandler implements CommandHandler<
       tkvSystemId,
     );
     const existingParameterIds = new Set(
-      existingPayloads.map(payload => payload.parameterSystemId),
+      existingPayloads.map(payload => payload.systemId),
     );
     const issues: Issue[] = [];
     for (const parameterSystemId of new Set(parameterSystemIds)) {

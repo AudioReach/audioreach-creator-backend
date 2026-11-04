@@ -36,7 +36,7 @@ export async function getParamDefinitionsForKv(
   }
 
   const payloads = await getPayloads(inheritFromSystemId);
-  const parameterSystemIds = payloads.map(payload => payload.parameterSystemId);
+  const parameterSystemIds = payloads.map(payload => payload.systemId);
   if (parameterSystemIds.length === 0) return [];
 
   const definitions = await defRepo.getParameterDefinitions(

@@ -16,7 +16,10 @@ import {serializeParameterData} from '../../shared/serialize-elements.js';
 import {mapDtoToParameterCalibration} from '../get-cal-data/ckv-cal-data-dto.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import {Result} from '../../../shared/result/result.js';
-import type {PayloadEntry} from '../../../ports/persistence/repositories/module/module.repository.js';
+import type {
+  PayloadEntry,
+  PayloadUpdate,
+} from '../../../ports/persistence/repositories/module/module.repository.js';
 import type {ModuleParameterDefinition} from '../../../ports/persistence/repositories/module/module-definition.repository.js';
 import type {ParameterElementDto} from '../dto/element-dto.js';
 
@@ -55,7 +58,7 @@ export class PutCkvCalDataHandler implements CommandHandler<
       command.spfModuleSystemId,
       command.ckvSystemId,
     );
-    const relevantParamSystemIds = payloadEntries.map(p => p.parameterSystemId);
+    const relevantParamSystemIds = payloadEntries.map(p => p.systemId);
     const definitions = await this.uow
       .getModuleDefinitionRepository()
       .getParameterDefinitions(
@@ -67,16 +70,12 @@ export class PutCkvCalDataHandler implements CommandHandler<
     const entryMap = new Map(payloadEntries.map(p => [p.systemId, p]));
     const defMap = new Map(definitions.map(d => [d.systemId, d]));
     const succeededParamSystemIds: number[] = [];
-    const writeBatch: Array<{payloadSystemId: number; payload: Uint8Array}> =
-      [];
+    const writeBatch: PayloadUpdate[] = [];
 
     for (const param of command.parameters) {
       const processed = this.processParam(param, entryMap, defMap);
-      succeededParamSystemIds.push(processed.payloadSystemId);
-      writeBatch.push({
-        payloadSystemId: processed.payloadSystemId,
-        payload: processed.payload,
-      });
+      succeededParamSystemIds.push(processed.parameterSystemId);
+      writeBatch.push(processed);
     }
 
     // Step 5: write
@@ -104,17 +103,17 @@ export class PutCkvCalDataHandler implements CommandHandler<
     param: {systemId: number; elements: ParameterElementDto[]},
     entryMap: Map<number, PayloadEntry>,
     defMap: Map<number, ModuleParameterDefinition>,
-  ): {payloadSystemId: number; paramSystemId: number; payload: Uint8Array} {
+  ): PayloadUpdate {
     const entry = entryMap.get(param.systemId);
     if (!entry) {
       throw new ResourceNotFoundException(
         `Parameter payload not found: systemId=${param.systemId}`,
       );
     }
-    const def = defMap.get(entry.parameterSystemId);
+    const def = defMap.get(entry.systemId);
     if (!def) {
       throw new Error(
-        `ParameterDefinition missing for parameterSystemId=${entry.parameterSystemId} — DB integrity violation`,
+        `ParameterDefinition missing for parameterSystemId=${entry.systemId} — DB integrity violation`,
       );
     }
     if (def.isReadOnly) {
@@ -133,8 +132,7 @@ export class PutCkvCalDataHandler implements CommandHandler<
       );
     }
     return {
-      payloadSystemId: param.systemId,
-      paramSystemId: entry.parameterSystemId,
+      parameterSystemId: param.systemId,
       payload: serialized.value,
     };
   }

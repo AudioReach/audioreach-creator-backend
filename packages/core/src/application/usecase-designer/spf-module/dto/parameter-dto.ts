@@ -8,7 +8,7 @@ import {ParameterElementDtoSchema} from './element-dto.js';
 import {ParameterElementSummaryDtoSchema} from '../../shared/dto/parameter-element-summary.dto.js';
 
 export const ParameterDtoSchema = z.object({
-  systemId: z.string().describe('System identifier'),
+  systemId: z.string().describe('Parameter-definition system identifier'),
   naturalId: z.string().describe('Parameter ID (PID)'),
   name: z.string().describe('Parameter name'),
   description: z.string().optional().describe('Parameter description'),

@@ -371,7 +371,7 @@ export class SpfModuleController extends BaseController {
     required: false,
     type: String,
     description:
-      'Optional comma-separated list of parameter system IDs. Example: ?param-system-ids=1,2,3 or omit for all parameter IDs under the SPF module.',
+      'Optional comma-separated list of parameter-definition system IDs. systemId identifies the parameter definition in both GET responses and PUT updates.',
     example: '1,2,3',
   })
   @ApiDocumentationWithExample({
@@ -386,12 +386,12 @@ export class SpfModuleController extends BaseController {
       '**Required Parameters:**\n' +
       '- `ckvSystemId`: CKV system ID for calibration data (path parameter)\n\n' +
       '**Optional Parameters:**\n' +
-      '- `param-system-ids`: Comma-separated list of parameter system IDs\n\n' +
+      '- `param-system-ids`: Comma-separated list of parameter-definition system IDs\n\n' +
       '**Parameter Filtering Logic:**\n' +
-      '- If `param-system-ids` are provided: Only return data for the specified parameter system IDs\n' +
+      '- If `param-system-ids` are provided: Only return data for the specified parameter-definition system IDs\n' +
       '- If `param-system-ids` are not provided: Return all parameter data under the SPF module\n\n' +
       '**Response Format:**\n' +
-      'JSON format including all configElements with name, value, type, ranges etc.\n\n' +
+      'JSON format including configElements with name, value, type, ranges etc. Each parameter exposes `systemId` (payload ID for updates) and `parameterSystemId` (definition ID for GET filters).\n\n' +
       '**isActive Flag:**\n' +
       '- Default: `false` (for RTGM - Real-Time Graph Manager)\n' +
       '- Set to `true` only in RTC (Real-Time Control) context',
@@ -568,7 +568,7 @@ export class SpfModuleController extends BaseController {
     required: false,
     type: String,
     description:
-      'Optional comma-separated list of parameter system IDs. Example: ?param-system-ids=1,2,3 or omit for all parameter IDs under the SPF module.',
+      'Optional comma-separated list of parameter-definition system IDs. systemId identifies the parameter definition in both GET responses and PUT updates.',
     example: '1,2,3',
   })
   @ApiDocumentationWithExample({
@@ -584,9 +584,9 @@ export class SpfModuleController extends BaseController {
       '- `tagSystemId`: Tag system ID for tag data (path parameter)\n' +
       '- `tkvSystemId`: TKV system ID for tag data (path parameter)\n\n' +
       '**Optional Parameters:**\n' +
-      '- `param-system-ids`: Comma-separated list of parameter system IDs\n\n' +
+      '- `param-system-ids`: Comma-separated list of parameter-definition system IDs\n\n' +
       '**Parameter Filtering Logic:**\n' +
-      '- If `param-system-ids` are provided: Only return data for the specified parameter system IDs\n' +
+      '- If `param-system-ids` are provided: Only return data for the specified parameter-definition system IDs\n' +
       '- If `param-system-ids` are not provided: Return all parameter data under the SPF module\n\n' +
       '**Response Format:**\n' +
       'JSON format including tagSystemId, tkvSystemId, and array of PID data with configElements.\n\n' +

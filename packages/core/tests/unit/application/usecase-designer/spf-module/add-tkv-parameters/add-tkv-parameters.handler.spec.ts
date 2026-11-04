@@ -120,9 +120,7 @@ describe('AddTkvParametersHandler', () => {
 
   it('does not add a parameter already present on the TKV', async () => {
     const moduleRepo = makeModuleRepo({
-      getTkvPayloadEntries: jest
-        .fn()
-        .mockResolvedValue([{systemId: 300, parameterSystemId: PARAM_ID}]),
+      getTkvPayloadEntries: jest.fn().mockResolvedValue([{systemId: PARAM_ID}]),
     });
     const uow = makeUow(moduleRepo, makeDefRepo());
     await new AddTkvParametersHandler(uow, makeIdGen()).handle(

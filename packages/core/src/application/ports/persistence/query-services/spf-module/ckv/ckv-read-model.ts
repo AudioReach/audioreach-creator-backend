@@ -4,12 +4,10 @@
  */
 
 /**
- * Binary payload row for a single parameter under a CKV.
- * parameterSystemId is the FK to SpfModuleParameterDefinition.systemId — used as join key
- * when merging with ParameterDefinitionReadModel to produce ParameterCalibrationReadModel.
+ * Binary parameter data identified by its definition system ID.
+ * Payload row identities remain inside persistence.
  */
 export interface ParameterPayloadReadModel {
   readonly systemId: number;
-  readonly parameterSystemId: number;
   readonly payload: Uint8Array | null;
 }

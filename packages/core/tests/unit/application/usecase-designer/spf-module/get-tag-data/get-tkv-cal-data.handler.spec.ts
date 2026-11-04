@@ -28,8 +28,7 @@ const mockTkv: TkvReadModel = {
 };
 
 const mockPayload: ParameterPayloadReadModel = {
-  systemId: 20,
-  parameterSystemId: 100,
+  systemId: 100,
   payload: new Uint8Array([0x05, 0x00, 0x00, 0x00]),
 };
 
@@ -101,6 +100,20 @@ function makeQuery(
 }
 
 describe('GetTkvCalibrationDataHandler', () => {
+  it('uses the definition systemId for filtering and returned data', async () => {
+    const services = makeServices();
+    const handler = new GetTkvCalibrationDataHandler(services);
+    const result = await handler.handle(makeQuery({paramSystemIds: '100'}));
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    if (result.kind !== RESULT_KIND.Ok) return;
+    expect(result.data.parameters[0]).toMatchObject({
+      systemId: '100',
+    });
+    expect(
+      services.spfModuleQueryService.tkvQueryService.getTkvPayloads,
+    ).toHaveBeenCalledWith(5, 2, 10, [100]);
+  });
+
   it('returns Result<TkvCalDataDto> with parsed parameters', async () => {
     const handler = new GetTkvCalibrationDataHandler(makeServices());
     const result = await handler.handle(makeQuery());
@@ -151,7 +164,7 @@ describe('GetTkvCalibrationDataHandler', () => {
     );
   });
 
-  it('joins payloads to definitions by parameterSystemId → systemId', async () => {
+  it('joins payloads to definitions by definition systemId', async () => {
     const handler = new GetTkvCalibrationDataHandler(makeServices());
     const result = await handler.handle(makeQuery());
     expect(result.kind).toBe(RESULT_KIND.Ok);
@@ -161,11 +174,11 @@ describe('GetTkvCalibrationDataHandler', () => {
 
   it('returns Result.partial when requested paramSystemIds are missing from payloads', async () => {
     const handler = new GetTkvCalibrationDataHandler(makeServices());
-    // paramSystemId 999 doesn't exist in mockPayload (systemId=20)
-    const result = await handler.handle(makeQuery({paramSystemIds: '20,999'}));
+    const result = await handler.handle(makeQuery({paramSystemIds: '100,999'}));
     expect(result.kind).toBe(RESULT_KIND.Partial);
     if (result.kind !== RESULT_KIND.Partial) return;
-    expect(result.issues.some(i => i.message.includes('999'))).toBe(true);
+    expect(result.issues).toHaveLength(1);
+    expect(result.issues[0].message).toContain('999');
   });
 
   it('throws ResourceNotFoundException when getSpfModule returns Result.fail', async () => {

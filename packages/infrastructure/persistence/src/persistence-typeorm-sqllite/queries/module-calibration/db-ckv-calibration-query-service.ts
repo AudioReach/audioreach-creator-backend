@@ -94,7 +94,7 @@ export class DbCkvCalibrationQueryService implements CkvQueryService {
       moduleSystemId,
       sessionId,
       paramSystemIds && paramSystemIds.length > 0
-        ? {systemId: paramSystemIds}
+        ? {parameterSystemId: paramSystemIds}
         : undefined,
     );
     return overlaid.map(p => this.toParameterPayloadReadModel(p));
@@ -134,8 +134,7 @@ export class DbCkvCalibrationQueryService implements CkvQueryService {
     row: CkvParameterPayloadBase,
   ): ParameterPayloadReadModel {
     return {
-      systemId: row.systemId,
-      parameterSystemId: row.parameterSystemId,
+      systemId: row.parameterSystemId,
       payload: row.payload ?? null,
     };
   }

@@ -20,7 +20,7 @@ export class GetTkvCalibrationDataQuery extends BaseQuery {
   /** moduleTagIdMapSystemId — PK of the module_tag_id_map row that owns this TKV. */
   public readonly tagSystemId: number;
   public readonly tkvSystemId: number;
-  /** PKs of tkv_parameter_payload rows to return. Empty = all payloads. */
+  /** Parameter-definition system IDs to return. Empty = all payloads. */
   public readonly paramSystemIds: number[];
 
   constructor(

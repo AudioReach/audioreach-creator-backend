@@ -22,6 +22,7 @@ import {PendingChangeWriter} from '../../../../src/persistence-typeorm-sqllite/s
 import {PendingChangeCache} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
 import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {CkvOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/ckv-overlay-fetcher.js';
+import {CkvParameterPayloadFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/ckv-parameter-payload-fetcher.js';
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 import {ProjectSessionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
@@ -291,21 +292,28 @@ describe('TypeOrmModuleRepository — CKV cal data', () => {
     ]);
   });
 
-  it('getCkvPayloadEntries returns rows with systemId and parameterSystemId', async () => {
+  it('getCkvPayloadEntries returns definition IDs without payload row IDs', async () => {
     await seedPayload(ds);
     const repo = makeRepo(qr, sessionId);
     const results = await repo.getCkvPayloadEntries(MODULE_ID, CKV_ID);
     expect(results).toHaveLength(1);
-    expect(results[0].systemId).toBe(PAYLOAD_ID);
-    expect(results[0].parameterSystemId).toBe(PARAM_DEF_ID);
+    expect(results[0]).toEqual({systemId: PARAM_DEF_ID});
   });
 
   it('setCkvData writes edit_actions with aggregateId=spfModuleSystemId and correct base64 payload', async () => {
     await seedPayload(ds);
+    await ds.query(
+      'INSERT INTO ckv (system_id, spf_module_system_id) VALUES (?, ?)',
+      [CKV_ID + 1, MODULE_ID],
+    );
+    await ds.query(
+      'INSERT INTO ckv_parameter_payload (system_id, parameter_system_id, ckv_system_id, payload) VALUES (?, ?, ?, ?)',
+      [PAYLOAD_ID + 1, PARAM_DEF_ID, CKV_ID + 1, Buffer.alloc(0)],
+    );
     const repo = makeRepo(qr, sessionId);
     const payload = new Uint8Array([0xde, 0xad, 0xbe, 0xef]);
     await repo.setCkvData(MODULE_ID, CKV_ID, [
-      {payloadSystemId: PAYLOAD_ID, payload},
+      {parameterSystemId: PARAM_DEF_ID, payload},
     ]);
     const rows: Array<{
       target_table: string;
@@ -327,6 +335,33 @@ describe('TypeOrmModuleRepository — CKV cal data', () => {
     expect(Buffer.from(delta.payload.__blob, 'base64')).toEqual(
       Buffer.from(payload),
     );
+  });
+
+  it('resolves a session-created payload by definition ID for updates', async () => {
+    const repo = makeRepo(qr, sessionId);
+    await repo.addParameterToCkv(
+      CKV_ID,
+      MODULE_ID,
+      PARAM_DEF_ID,
+      new Uint8Array([1]),
+    );
+    const payload = new Uint8Array([2]);
+    await repo.setCkvData(MODULE_ID, CKV_ID, [
+      {parameterSystemId: PARAM_DEF_ID, payload},
+    ]);
+    expect(await repo.getCkvPayloadEntries(MODULE_ID, CKV_ID)).toEqual([
+      {systemId: PARAM_DEF_ID},
+    ]);
+    const editSvc = new EditActionsQueryService(qr.manager);
+    const fetcher = new CkvOverlayFetcher(
+      qr.manager,
+      editSvc,
+      new CkvParameterPayloadFetcher(qr.manager, editSvc),
+    );
+    const rows = await fetcher.fetchPayloads(CKV_ID, MODULE_ID, sessionId);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].systemId).toBe(PAYLOAD_ID);
+    expect(Array.from(rows[0].payload ?? [])).toEqual([2]);
   });
 
   it('setCkvData writes uiPersistence edit_action on Ckv row when provided', async () => {

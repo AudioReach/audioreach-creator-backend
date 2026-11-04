@@ -180,9 +180,7 @@ describe('AddCkvsHandler', () => {
     };
     const moduleRepo = makeModuleRepo({
       getAllCkvsForModule: jest.fn().mockResolvedValue([zeroCkv]),
-      getCkvPayloadEntries: jest
-        .fn()
-        .mockResolvedValue([{systemId: 300, parameterSystemId: 200}]),
+      getCkvPayloadEntries: jest.fn().mockResolvedValue([{systemId: 200}]),
     });
     const uow = makeUow(moduleRepo, makeDefRepo());
     await new AddCkvsHandler(uow, makeIdGen()).handle(
@@ -201,10 +199,9 @@ describe('AddCkvsHandler', () => {
           valueDefinitionSystemIds: [1],
         },
       ]),
-      getCkvPayloadEntries: jest.fn().mockResolvedValue([
-        {systemId: 300, parameterSystemId: 200},
-        {systemId: 301, parameterSystemId: 201},
-      ]),
+      getCkvPayloadEntries: jest
+        .fn()
+        .mockResolvedValue([{systemId: 200}, {systemId: 201}]),
     });
     const uow = makeUow(moduleRepo, makeDefRepo());
 
