@@ -65,12 +65,12 @@ export class KeyDefinition {
     this.naturalId = initParam.naturalId;
     this.fileSystemId = initParam.fileSystemId;
     this.name = initParam.name;
-    this.description = initParam.description ?? '';
-    this.isCalibrationKey = initParam.isCalibrationKey ?? false;
-    this.isGraphKey = initParam.isGraphKey ?? false;
+    this.description = initParam.description;
+    this.isCalibrationKey = initParam.isCalibrationKey;
+    this.isGraphKey = initParam.isGraphKey;
     this.isSpfKey = initParam.isSpfKey;
-    this.isVoice = initParam.isVoice ?? false;
-    this.isDynamic = initParam.isDynamic ?? false;
+    this.isVoice = initParam.isVoice;
+    this.isDynamic = initParam.isDynamic;
     this.specialityKeyValue = initParam.specialityKeyValue;
     this.cHeaderAttributes = initParam.cHeaderAttributes;
     for (const value of initParam.values ?? []) {
@@ -80,10 +80,8 @@ export class KeyDefinition {
   }
 
   checkInvariants() {
-    invariant(
-      this.isGraphKey || this.isCalibrationKey,
-      `Key :${BinaryUtils.toHexString(this.naturalId)} has to be either a graph or calibration`,
-    );
+    // Keys are not required to be graph or calibration — GKV/dimensional keys used as
+    // tag vector dimensions are valid key definitions without either classification.
   }
 
   private AddValue(valueDefinition: ValueDefinition): void {

@@ -6,6 +6,14 @@
 import {BasePropertyDefinition} from './base-property-definition.js';
 import {SpfPropertyDefinitionSchema} from './spf-property-definition.schema.js';
 
+/** APM firmware spec: fixed categoryId per categoryName. */
+export const CATEGORY_ID_BY_NAME: Record<string, number> = {
+  CONTAINTER_CFG: 0x08_00_10_00,
+  SG_CFG: 0x08_00_10_01,
+  MODULE_PROP: 0x08_00_10_03,
+  CONNECTION: 0x08_00_10_15,
+};
+
 /**
  * Represents an SPF property definition with category and module instance information.
  * Extends BasePropertyDefinition with additional SPF-specific properties.
@@ -42,9 +50,9 @@ export class SpfPropertyDefinition extends BasePropertyDefinition {
   toJSON(): Record<string, unknown> {
     return {
       ...this.serializeBasePropertyFields(),
-      categoryId: this.categoryId,
+      categoryId: `0x${this.categoryId.toString(16).toUpperCase().padStart(8, '0')}`,
       categoryName: this.categoryName,
-      apmModuleInstanceId: this.apmModuleInstanceId,
+      apmModuleInstanceId: `0x${this.apmModuleInstanceId.toString(16).toUpperCase()}`,
       isVoice: this.isVoice,
     };
   }

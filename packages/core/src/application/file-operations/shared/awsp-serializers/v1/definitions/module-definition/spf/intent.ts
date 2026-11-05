@@ -17,7 +17,7 @@ export class AwspIntent extends BaseDefinition {
   name?: string;
 
   /** Maximum number of ports (required) */
-  maxports!: number;
+  maxPortCount!: number;
 
   /**
    * Parse JSON data into AwspIntent instance
@@ -36,9 +36,9 @@ export class AwspIntent extends BaseDefinition {
    */
   toJSON(): Record<string, unknown> {
     return {
-      id: this.id,
+      id: `0x${this.id.toString(16).toUpperCase().padStart(8, '0')}`,
       name: this.name,
-      maxports: this.maxports,
+      maxPortCount: this.maxPortCount,
     };
   }
 }

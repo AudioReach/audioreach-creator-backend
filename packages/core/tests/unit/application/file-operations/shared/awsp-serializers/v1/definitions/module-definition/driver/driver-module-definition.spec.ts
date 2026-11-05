@@ -68,7 +68,7 @@ describe('DriverModuleDefinition', () => {
       const instance = DriverModuleDefinition.fromJSON(testData);
       const json = instance.toJSON();
 
-      expect(json.id).toBe(1);
+      expect(json.id).toBe('0x00000001');
       expect(json.name).toBe('TestDriverModule');
       expect(json.displayName).toBe('Test Driver Module');
       expect(json.stubbed).toBe(true);

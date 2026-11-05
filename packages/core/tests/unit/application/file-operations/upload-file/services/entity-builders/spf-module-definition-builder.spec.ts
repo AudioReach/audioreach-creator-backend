@@ -461,8 +461,8 @@ describe('SpfModuleDefinitionBuilder', () => {
               {id: 2, name: 'Static Port 2', intents: []},
             ],
             dynamicIntents: [
-              {id: 10, name: 'Intent 1', maxports: 5},
-              {id: 20, name: 'Intent 2', maxports: 10},
+              {id: 10, name: 'Intent 1', maxPortCount: 5},
+              {id: 20, name: 'Intent 2', maxPortCount: 10},
             ],
           },
           processors: [],
@@ -506,7 +506,7 @@ describe('SpfModuleDefinitionBuilder', () => {
           outputPort: {maxPortCount: 2, ports: [{id: 2, name: 'Out 1'}]},
           controlPort: {
             staticPorts: [{id: 3, name: 'Static 1', intents: []}],
-            dynamicIntents: [{id: 10, name: 'Intent 1', maxports: 5}],
+            dynamicIntents: [{id: 10, name: 'Intent 1', maxPortCount: 5}],
           },
           processors: [1, 2, 3],
           containerTypes: [10, 20, 30],
@@ -813,8 +813,8 @@ describe('SpfModuleDefinitionBuilder', () => {
           controlPort: {
             staticPorts: [],
             dynamicIntents: [
-              {id: 10, name: 'Intent 1', maxports: 5},
-              {id: 20, name: 'Intent 2', maxports: 10},
+              {id: 10, name: 'Intent 1', maxPortCount: 5},
+              {id: 20, name: 'Intent 2', maxPortCount: 10},
             ],
           },
           processors: [],

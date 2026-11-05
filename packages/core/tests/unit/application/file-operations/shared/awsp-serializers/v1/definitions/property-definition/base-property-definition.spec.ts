@@ -61,7 +61,7 @@ describe('BasePropertyDefinition', () => {
       const instance = SpfPropertyDefinition.fromJSON(testData);
       const json = instance.toJSON();
 
-      expect(json.id).toBe(1);
+      expect(json.id).toBe('0x00000001');
       expect(json.name).toBe('TestProperty');
       expect(json.description).toBe('Test description');
       expect(json.maxSize).toBe(100);

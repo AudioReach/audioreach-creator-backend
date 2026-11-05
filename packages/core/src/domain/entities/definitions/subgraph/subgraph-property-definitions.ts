@@ -53,12 +53,15 @@ export class SubgraphPropertyDefinitions {
 
 export interface SubgraphPropertyDefinitionInit extends PropertyDefinitionInit {
   isVoice: boolean;
+  categoryName?: string;
 }
 
 export class SubgraphPropertyDefinition extends PropertyDefinition {
   isVoice: boolean;
+  categoryName?: string;
   constructor(initParam: SubgraphPropertyDefinitionInit) {
     super(initParam);
     this.isVoice = initParam.isVoice;
+    this.categoryName = initParam.categoryName;
   }
 }

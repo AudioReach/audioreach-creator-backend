@@ -62,10 +62,7 @@ export const ValidationDiagnosticEntrySchema = z.object({
 });
 
 export const ValidationConfigSchema = z.object({
-  diagnosticOverrides: z
-    .array(ValidationDiagnosticEntrySchema)
-    .optional()
-    .default([]),
+  diagnosticOverrides: z.array(ValidationDiagnosticEntrySchema).optional(),
 });
 
 // ─── AlsaMetaData schemas ─────────────────────────────────────────────────────
@@ -109,10 +106,18 @@ export const AlsaTagDataSchema = z.object({
   subgraphs: z.array(AlsaSubgraphTagDataSchema).optional().default([]),
 });
 
+// ─── Version schema ───────────────────────────────────────────────────────────
+
+export const VersionSchema = z.object({
+  major: z.number().int(),
+  minor: z.number().int(),
+});
+
 // ─── Root configuration schemas ───────────────────────────────────────────────
 
 // Parses wire format; field-level coercions only, no structural transform
 export const ConfigurationSchema = z.object({
+  version: VersionSchema,
   portStrategy: PortStrategySchema,
   defaultProcessorDomain: ProcessorDomainIdSchema,
   rtc: RtcConfigSchema,
@@ -124,6 +129,7 @@ export const ConfigurationSchema = z.object({
 
 // Validates the normalized shape (output of ConfigurationSchema or class roundtrips)
 export const ConfigurationDataSchema = z.object({
+  version: VersionSchema,
   portStrategy: z.enum([
     MODULE_PORT_STRATEGIES.INPUT_EVEN_OUTPUT_ODD,
     MODULE_PORT_STRATEGIES.SEQUENTIAL,
@@ -153,3 +159,4 @@ export type AlsaTagKeyValue = z.infer<typeof AlsaTagKeyValueSchema>;
 export type AlsaSubgraphTagData = z.infer<typeof AlsaSubgraphTagDataSchema>;
 export type AlsaTagData = z.infer<typeof AlsaTagDataSchema>;
 export type ConfigurationData = z.infer<typeof ConfigurationDataSchema>;
+export type Version = z.infer<typeof VersionSchema>;

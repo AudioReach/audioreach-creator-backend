@@ -46,6 +46,7 @@ describe('AwspFileOrchestrator', () => {
     it('should hydrate configuration to ConfigurationData class instance', async () => {
       // Mock configuration.json content
       const configJson = {
+        version: {major: 1, minor: 0},
         portStrategy: {strategy: 'INPUT_EVEN_OUTPUT_ODD'},
         defaultProcessorDomain: {id: '0x2'},
         rtc: {
@@ -148,6 +149,7 @@ describe('AwspFileOrchestrator', () => {
 
     it('should call parsedAwsp.setUiMetadata when ui-metadata.json exists', async () => {
       const configJson = {
+        version: {major: 1, minor: 0},
         portStrategy: {strategy: 'INPUT_EVEN_OUTPUT_ODD'},
         defaultProcessorDomain: {id: '0x2'},
         rtc: {processors: []},
@@ -212,6 +214,7 @@ describe('AwspFileOrchestrator', () => {
 
     it('should throw when ui-metadata.json is absent', async () => {
       const configJson = {
+        version: {major: 1, minor: 0},
         portStrategy: {strategy: 'INPUT_EVEN_OUTPUT_ODD'},
         defaultProcessorDomain: {id: '0x2'},
         rtc: {processors: []},
@@ -263,6 +266,7 @@ describe('AwspFileOrchestrator', () => {
 
     it('should throw when ui-metadata.json contains invalid JSON', async () => {
       const configJson = {
+        version: {major: 1, minor: 0},
         portStrategy: {strategy: 'INPUT_EVEN_OUTPUT_ODD'},
         defaultProcessorDomain: {id: '0x2'},
         rtc: {processors: []},

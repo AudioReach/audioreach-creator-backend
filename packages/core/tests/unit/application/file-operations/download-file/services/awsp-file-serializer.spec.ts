@@ -261,7 +261,7 @@ describe('AwspFileSerializer', () => {
       const mod = (
         definitions[DEFINITION_BLOCK_NAMES.SPF_MODULE_DEFINITIONS] as unknown[]
       )[0] as Record<string, unknown>;
-      expect(mod['id']).toBe(0x100);
+      expect(mod['id']).toBe('0x00000100');
       expect(mod['name']).toBe('TestMod');
     });
 
@@ -312,7 +312,7 @@ describe('AwspFileSerializer', () => {
           DEFINITION_BLOCK_NAMES.DRIVER_MODULE_DEFINITIONS
         ] as unknown[]
       )[0] as Record<string, unknown>;
-      expect(mod['id']).toBe(0xd100);
+      expect(mod['id']).toBe('0x0000D100');
     });
 
     it('should serialize spfPropertyDefinitions from entities into definitions.json', async () => {
@@ -364,7 +364,7 @@ describe('AwspFileSerializer', () => {
           DEFINITION_BLOCK_NAMES.SPF_PROPERTY_DEFINITIONS
         ] as unknown[]
       )[0] as Record<string, unknown>;
-      expect(prop['id']).toBe(1001);
+      expect(prop['id']).toBe('0x000003E9');
     });
 
     it('should serialize driverPropertyDefinitions from entities into definitions.json', async () => {
@@ -415,7 +415,7 @@ describe('AwspFileSerializer', () => {
           DEFINITION_BLOCK_NAMES.DRIVER_PROPERTY_DEFINITIONS
         ] as unknown[]
       )[0] as Record<string, unknown>;
-      expect(prop['id']).toBe(3001);
+      expect(prop['id']).toBe('0x00000BB9');
     });
   });
 });

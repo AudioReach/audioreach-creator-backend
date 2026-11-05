@@ -18,6 +18,8 @@ export interface ModuleDefinitionInit {
   displayName: string;
   description?: string;
   groupName?: string;
+  replacedBy?: number;
+  builtIn?: boolean;
   parameters?: ParamDefinition[];
   attributes?: Array<{name: string; value: string}>;
 }
@@ -30,6 +32,8 @@ export abstract class ModuleDefinition {
   displayName: string;
   description?: string;
   groupName?: string;
+  replacedBy?: number;
+  builtIn?: boolean;
   readonly parameters: ParamDefinition[] = [];
   readonly attributes: Map<string, string> = new Map<string, string>();
   private readonly paramIds = new Set<string>();
@@ -42,6 +46,8 @@ export abstract class ModuleDefinition {
     this.displayName = initParam.displayName;
     this.description = initParam.description;
     this.groupName = initParam.groupName;
+    this.replacedBy = initParam.replacedBy;
+    this.builtIn = initParam.builtIn;
     for (const param of initParam.parameters ?? []) {
       this.AddParameter(param);
     }

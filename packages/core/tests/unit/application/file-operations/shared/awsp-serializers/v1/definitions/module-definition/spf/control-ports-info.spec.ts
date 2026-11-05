@@ -18,12 +18,12 @@ describe('AwspControlPortsInfo - Nested Object Hydration', () => {
           {
             id: 10,
             name: 'Intent1',
-            maxports: 2,
+            maxPortCount: 2,
           },
           {
             id: 11,
             name: 'Intent2',
-            maxports: 4,
+            maxPortCount: 4,
           },
         ],
       },
@@ -34,7 +34,7 @@ describe('AwspControlPortsInfo - Nested Object Hydration', () => {
           {
             id: 12,
             name: 'Intent3',
-            maxports: 1,
+            maxPortCount: 1,
           },
         ],
       },
@@ -43,12 +43,12 @@ describe('AwspControlPortsInfo - Nested Object Hydration', () => {
       {
         id: 20,
         name: 'DynamicIntent1',
-        maxports: 8,
+        maxPortCount: 8,
       },
       {
         id: 21,
         name: 'DynamicIntent2',
-        maxports: 16,
+        maxPortCount: 16,
       },
     ],
   };
@@ -106,7 +106,7 @@ describe('AwspControlPortsInfo - Nested Object Hydration', () => {
           {
             id: 20,
             name: 'DynamicIntent1',
-            maxports: 8,
+            maxPortCount: 8,
           },
         ],
       };
@@ -129,7 +129,7 @@ describe('AwspControlPortsInfo - Nested Object Hydration', () => {
               {
                 id: 10,
                 name: 'Intent1',
-                maxports: 2,
+                maxPortCount: 2,
               },
             ],
           },

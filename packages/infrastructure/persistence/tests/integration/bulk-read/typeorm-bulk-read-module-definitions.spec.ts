@@ -74,10 +74,6 @@ import {
   ContainerPropertyDefinitionSchema,
   type ContainerPropertyRow,
 } from '../../../src/persistence-typeorm-sqllite/entity-schema/definitions/container/container-property-definition.schema.js';
-import {
-  ModulePropertyDefinitionSchema,
-  type ModulePropertyRow,
-} from '../../../src/persistence-typeorm-sqllite/entity-schema/definitions/module/spf/module-property-definition.schema.js';
 import type {ArcDbFileRow} from '../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 import type {ProjectRow} from '../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 
@@ -730,7 +726,7 @@ describe('TypeOrmBulkReadRepository - readDriverPropertyDefinitions', () => {
   let repository: TypeOrmBulkReadQueryService;
   let projectRepo: Repository<ProjectRow>;
   let fileRepo: Repository<ArcDbFileRow>;
-  let modulePropRepo: Repository<ModulePropertyRow>;
+  let modulePropRepo: Repository<SubgraphPropertyRow>;
   let fileSystemId: number;
   let nextId: number;
 
@@ -740,8 +736,8 @@ describe('TypeOrmBulkReadRepository - readDriverPropertyDefinitions', () => {
     repository = new TypeOrmBulkReadQueryService(ds);
     projectRepo = getTestRepository<ProjectRow>(ProjectSchema);
     fileRepo = getTestRepository<ArcDbFileRow>(ArcDbFileSchema);
-    modulePropRepo = getTestRepository<ModulePropertyRow>(
-      ModulePropertyDefinitionSchema,
+    modulePropRepo = getTestRepository<SubgraphPropertyRow>(
+      SubgraphPropertyDefinitionSchema,
     );
   });
 
@@ -768,7 +764,9 @@ describe('TypeOrmBulkReadRepository - readDriverPropertyDefinitions', () => {
       name: 'ModProp1',
       description: 'A module property',
       maxSize: 128,
-      propertyStructure: JSON.stringify([{type: 'uint8', count: 128}]),
+      propertyType: 'DRIVER' as any,
+      elementsStructure: JSON.stringify([{type: 'uint8', count: 128}]),
+      isVoice: false,
     });
 
     const result = await repository.readDriverPropertyDefinitions(fileSystemId);
@@ -790,7 +788,9 @@ describe('TypeOrmBulkReadRepository - readDriverPropertyDefinitions', () => {
       naturalId: 3001,
       name: 'GlobalModProp',
       maxSize: 4,
-      propertyStructure: '[]',
+      propertyType: 'DRIVER' as any,
+      elementsStructure: '[]',
+      isVoice: false,
     });
     const file2SystemId = await createFileFixture(projectRepo, fileRepo);
 

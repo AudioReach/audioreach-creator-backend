@@ -19,6 +19,7 @@ export interface SubgraphPropertyBase {
   propertyType: PropertyType;
   elementsStructure: string; // JSON
   isVoice: boolean;
+  categoryName?: string | null;
 }
 
 export interface SubgraphPropertyRow
@@ -69,6 +70,12 @@ export const SubgraphPropertyDefinitionSchema =
       isVoice: {
         type: 'boolean',
         name: 'is_voice',
+      },
+      categoryName: {
+        type: 'varchar',
+        length: 50,
+        nullable: true,
+        name: 'category_name',
       },
     },
     relations: {

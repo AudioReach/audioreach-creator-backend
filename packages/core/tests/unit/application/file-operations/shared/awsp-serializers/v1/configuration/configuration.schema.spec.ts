@@ -14,6 +14,7 @@ import {
 } from '../../../../../../../../src/application/file-operations/shared/awsp-serializers/v1/configuration/configuration.schema.js';
 
 const VALID_CONFIGURATION = {
+  version: {major: 1, minor: 0},
   portStrategy: {strategy: 'SEQUENTIAL'},
   defaultProcessorDomain: {id: '0x2'},
   rtc: {

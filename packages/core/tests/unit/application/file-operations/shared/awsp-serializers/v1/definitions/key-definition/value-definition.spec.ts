@@ -46,7 +46,7 @@ describe('AwspValueDefinition serialization', () => {
 
       const json = value.toJSON();
 
-      expect(json.id).toBe(1);
+      expect(json.id).toBe('0x00000001');
       expect(json.name).toBe('TestValue');
       expect(json.description).toBe('Test');
     });
@@ -78,7 +78,7 @@ describe('AwspValueDefinition serialization', () => {
       const value = AwspValueDefinition.fromJSON(original);
       const serialized = value.toJSON();
 
-      expect(serialized).toEqual(original);
+      expect(serialized).toEqual({...original, id: '0x00000001'});
     });
   });
 });

@@ -7,17 +7,30 @@ import {INestApplication, ValidationPipe} from '@nestjs/common';
 import {Test, TestingModule} from '@nestjs/testing';
 import {AppModule} from '../../../src/app.module.js';
 import {DataSource} from 'typeorm';
+import {Writable} from 'node:stream';
 import {NodeWorkerPoolSingleton} from '@arc/fs';
 import {DataSourceProvider} from '../../../src/infrastructure-wrapper/database/providers/data-source-provider.js';
 import {LoggingDataSourceProvider} from '../../../src/infrastructure-wrapper/database/providers/logging-data-source-provider.js';
 import {getOrmBase} from '@arc/persistence';
-import {getLoggingOrmBase} from '@arc/logger';
+import {getLoggingOrmBase, ConsoleTransport} from '@arc/logger';
+import type {TransportConfig, PinoTransportConfig} from '@arc/logger';
 import {NodeBlobBytesConverter} from '../../../src/infrastructure-wrapper/database/node-blob-converter.js';
 import {AllExceptionsFilter} from '../../../src/infrastructure-wrapper/filters/all-exceptions.filter.js';
 import {ValidationExceptionFilter} from '../../../src/infrastructure-wrapper/filters/validation-exception.filter.js';
 import {SessionRequiredFilter} from '../../../src/filters/session-required.filter.js';
 import {SessionModeNotAllowedFilter} from '../../../src/filters/session-mode-not-allowed.filter.js';
 import type {Logger} from '@arc/core';
+
+class SilentConsoleTransport extends ConsoleTransport {
+  override create(config: TransportConfig): PinoTransportConfig {
+    const sink = new Writable({
+      write(_chunk, _enc, cb) {
+        cb();
+      },
+    });
+    return {level: config.level, stream: sink};
+  }
+}
 
 /**
  * Create a proxy app that connects to an external running server
@@ -138,9 +151,11 @@ export async function createTestApp(): Promise<INestApplication> {
     .useClass(TestDataSourceProvider)
     .overrideProvider(LoggingDataSourceProvider)
     .useClass(TestLoggingDataSourceProvider)
+    .overrideProvider(ConsoleTransport)
+    .useClass(SilentConsoleTransport)
     .compile();
 
-  const app = moduleFixture.createNestApplication();
+  const app = moduleFixture.createNestApplication({logger: false});
 
   // Apply same configuration as main.ts
   app.useGlobalPipes(

@@ -109,6 +109,7 @@ describe('Configuration Classes - Nested Object Hydration', () => {
 
   describe('ConfigurationData', () => {
     const testData = {
+      version: {major: 1, minor: 0},
       portStrategy: 'INPUT_EVEN_OUTPUT_ODD',
       defaultProcessorDomain: 2,
       rtc: {
@@ -152,6 +153,7 @@ describe('Configuration Classes - Nested Object Hydration', () => {
 
   describe('Configuration', () => {
     const testData = {
+      version: {major: 1, minor: 0},
       portStrategy: {strategy: 'INPUT_EVEN_OUTPUT_ODD'},
       defaultProcessorDomain: {id: '0x2'},
       rtc: {

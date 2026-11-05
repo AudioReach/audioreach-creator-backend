@@ -206,7 +206,9 @@ export class UsecaseDataChunkSerializer {
 
   /**
    * Build source→destinations map from reverse-ordered subgraph list.
-   * Only includes sources that have at least one destination.
+   * All subgraphs are included — sinks (no outgoing connections) get an empty
+   * destinations array so they are written to the payload with destCount = 0,
+   * matching the original ACDB format.
    *
    * @param reverseOrder - Subgraphs in reverse topological order
    * @param sgPairList - List of subgraph connection pairs
@@ -219,13 +221,9 @@ export class UsecaseDataChunkSerializer {
     const pairMap = new Map<number, number[]>();
 
     for (const srcId of reverseOrder) {
-      // Find all pairs where this subgraph is the source
       const pairs = sgPairList.filter(pair => pair.source === srcId);
-
-      if (pairs.length > 0) {
-        const destinations = pairs.map(pair => pair.destination);
-        pairMap.set(srcId, destinations);
-      }
+      const destinations = pairs.map(pair => pair.destination);
+      pairMap.set(srcId, destinations);
     }
 
     return pairMap;
@@ -549,15 +547,10 @@ export class UsecaseDataChunkSerializer {
 
       // Write each property
       for (const prop of container.properties) {
-        // Write PropertyID
         BinaryUtils.writeUint32(payloadView, pos, prop.propertyNaturalId);
         pos += BinaryUtils.SIZEOF_UINT32;
-
-        // Write PropertyDataLength
         BinaryUtils.writeUint32(payloadView, pos, prop.payload.length);
         pos += BinaryUtils.SIZEOF_UINT32;
-
-        // Write PropertyData
         payload.set(prop.payload, pos);
         pos += prop.payload.length;
       }
@@ -1156,7 +1149,10 @@ export class UsecaseDataChunkSerializer {
   private serializeSpfProperties(
     subgraph: {
       naturalId: number;
-      properties: readonly {propertyNaturalId: number; payload: Uint8Array}[];
+      spfProperties: readonly {
+        propertyNaturalId: number;
+        payload: Uint8Array;
+      }[];
       modules: readonly {
         instanceNaturalId: number;
         moduleNaturalId: number;
@@ -1196,7 +1192,7 @@ export class UsecaseDataChunkSerializer {
     // 1. Add subgraph config
     const sgConfig = this.serializeSubgraphConfig(
       subgraph.naturalId,
-      subgraph.properties,
+      subgraph.spfProperties,
     );
     if (sgConfig.length > 0) {
       parts.push(sgConfig);
@@ -1244,7 +1240,10 @@ export class UsecaseDataChunkSerializer {
 
     // 7. Add voice config if voice subgraph
     //TODO:
-    if (isVoiceSubgraph(subgraph.properties) && subgraph.voiceTags.length > 0) {
+    if (
+      isVoiceSubgraph(subgraph.spfProperties) &&
+      subgraph.voiceTags.length > 0
+    ) {
       const voiceConfig = this.serializeVoiceConfig(subgraph.voiceTags);
       if (voiceConfig.length > 0) {
         parts.push(voiceConfig);
@@ -1288,7 +1287,10 @@ export class UsecaseDataChunkSerializer {
   private serializeSubgraphPropertyPayload(
     subgraphs: readonly {
       naturalId: number;
-      properties: readonly {propertyNaturalId: number; payload: Uint8Array}[];
+      spfProperties: readonly {
+        propertyNaturalId: number;
+        payload: Uint8Array;
+      }[];
       modules: readonly {
         instanceNaturalId: number;
         moduleNaturalId: number;
@@ -1320,6 +1322,10 @@ export class UsecaseDataChunkSerializer {
         tagNaturalId: number;
         moduleInstanceNaturalId: number;
       }[];
+      driverProperties: readonly {
+        propertyNaturalId: number;
+        payload: Uint8Array;
+      }[];
     }[],
     containerMap: Map<number, ContainerDownloadModel>,
   ): Uint8Array {
@@ -1335,7 +1341,7 @@ export class UsecaseDataChunkSerializer {
     for (const subgraph of subgraphs) {
       const driverData = this.serializeDriverProperties(
         subgraph.naturalId,
-        subgraph.properties,
+        subgraph.driverProperties,
       );
       const orchestratorData = this.serializeSpfProperties(
         subgraph,

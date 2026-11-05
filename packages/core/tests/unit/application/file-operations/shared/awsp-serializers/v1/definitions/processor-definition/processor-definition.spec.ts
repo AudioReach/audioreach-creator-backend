@@ -30,7 +30,7 @@ describe('ProcessorDefinition serialization', () => {
 
       const json = processor.toJSON();
 
-      expect(json.id).toBe(1);
+      expect(json.id).toBe('0x1');
       expect(json.name).toBe('TestProcessor');
     });
   });
@@ -45,7 +45,7 @@ describe('ProcessorDefinition serialization', () => {
       const processor = ProcessorDefinition.fromJSON(original);
       const serialized = processor.toJSON();
 
-      expect(serialized).toEqual(original);
+      expect(serialized).toEqual({...original, id: '0x1'});
     });
   });
 });

@@ -191,6 +191,36 @@ export class SpfModuleBuilder {
   }
 
   /**
+   * Create a dynamic data port, assign its system ID, attach it to the module,
+   * and register it in the foreignKeyMapper. Used when a port referenced by an
+   * SCLU data link was not created from the module's portInfo (e.g. because the
+   * portInfo maxInputPorts is lower than the port index required by the link).
+   */
+  async addDynamicDataPort(
+    module: SpfModule,
+    portNaturalId: number,
+    portIoType: PortIoType,
+    fileSystemId: number,
+  ): Promise<void> {
+    const portLabel = portIoType === PORT_IO_TYPE.Input ? 'Input' : 'Output';
+    const port = new DataPort({
+      systemId: 0,
+      naturalId: portNaturalId,
+      portIoType,
+      isStatic: false,
+      name: `${portLabel}_${portNaturalId}`,
+    });
+    port.systemId = await this.idGenerator.getNextId(fileSystemId);
+    module.dataPorts.push(port);
+    this.foreignKeyMapper.addDataPortMapping(
+      asSystemId(module.systemId),
+      asNaturalId(portNaturalId),
+      asSystemId(port.systemId),
+      portIoType,
+    );
+  }
+
+  /**
    * Assign system IDs to data ports and store mappings
    * Mutates the port objects directly
    */
@@ -773,11 +803,21 @@ export class SpfModuleBuilder {
       return [];
     }
 
-    // Get static ports from module definition
-    const staticInputPorts = moduleDefinition?.inputPort?.ports ?? [];
-    const staticOutputPorts = moduleDefinition?.outputPort?.ports ?? [];
+    // Get static ports from module definition, capped to portInfo limits.
+    // portInfo.maxInputPorts is the actual active port count from the ACDB — the
+    // module definition may define more static ports than an instance uses.
+    const allStaticInputPorts = moduleDefinition?.inputPort?.ports ?? [];
+    const allStaticOutputPorts = moduleDefinition?.outputPort?.ports ?? [];
+    const staticInputPorts = allStaticInputPorts.slice(
+      0,
+      portInfo.maxInputPorts,
+    );
+    const staticOutputPorts = allStaticOutputPorts.slice(
+      0,
+      portInfo.maxOutputPorts,
+    );
 
-    // Calculate dynamic port counts
+    // Calculate dynamic port counts (always >= 0 after capping)
     const dynamicInputPortCount =
       portInfo.maxInputPorts - staticInputPorts.length;
     const dynamicOutputPortCount =

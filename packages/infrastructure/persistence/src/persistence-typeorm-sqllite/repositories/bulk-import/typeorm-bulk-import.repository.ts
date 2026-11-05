@@ -14,6 +14,7 @@ import type {
   DataLink,
   DriverModule,
   DriverModuleDefinition,
+  DriverPropertyDefinitionData,
   EntityReviewedAt,
   IdGenerationPort,
   KeyDefinition,
@@ -44,14 +45,19 @@ import {TagDefinitionInserter} from './tag-definition/tag-definition.inserter.js
 import {VcpmModuleDefinitionInserter} from './vcpm-module-definition/vcpm-module-definition.inserter.js';
 import {SubgraphPropertyDefinitionInserter} from './subgraph-property-definition/subgraph-property-definition.inserter.js';
 import {ContainerPropertyDefinitionInserter} from './container-property-definition/container-property-definition.inserter.js';
+import {DriverPropertyDefinitionInserter} from './driver-property-definition/driver-property-definition.inserter.js';
 import {DataLinkInserter} from './data-link/data-link.inserter.js';
 import {ControlLinkInserter} from './control-link/control-link.inserter.js';
+import {IntentSchema} from '../../entity-schema/usecase-data/node/control-port.js';
+import type {IntentRow} from '../../entity-schema/usecase-data/node/control-port.js';
 import {UseCaseInserter} from './use-case/use-case.inserter.js';
 import {ModuleManagerDataInserter} from './module-manager-data/module-manager-data.inserter.js';
 import {EntityReviewedAtInserter} from './entity-reviewed-at/entity-reviewed-at.inserter.js';
 import {
+  BatchInserter,
   registerBatchInsertDiagnostics,
   type BatchInsertDiagnostics,
+  type InsertRow,
 } from './batch-inserter.js';
 
 /**
@@ -98,6 +104,31 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
 
   insertControlLinks(items: readonly ControlLink[]): Promise<BulkInsertResult> {
     return new ControlLinkInserter(this.manager).insert([...items]);
+  }
+
+  async insertControlLinkIntents(
+    portIntents: Map<number, number[]>,
+    fileSystemId: number,
+  ): Promise<void> {
+    if (portIntents.size === 0) return;
+
+    const rows: InsertRow<IntentRow>[] = [];
+
+    for (const [portSystemId, intentIds] of portIntents) {
+      for (const intentNaturalId of intentIds) {
+        rows.push({
+          systemId: await this.idGeneration.getNextId(fileSystemId),
+          naturalId: intentNaturalId,
+          controlPortSystemId: portSystemId,
+        });
+      }
+    }
+
+    if (rows.length === 0) return;
+
+    // Silently ignore unique constraint violations: SPF module inserter may
+    // have already inserted some of these (port, intentId) pairs.
+    await BatchInserter.insert<IntentRow>(this.manager, IntentSchema, rows);
   }
 
   insertUseCases(items: readonly UseCase[]): Promise<BulkInsertResult> {
@@ -180,6 +211,14 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
     ]);
   }
 
+  insertDriverPropertyDefinitions(
+    items: readonly DriverPropertyDefinitionData[],
+  ): Promise<BulkInsertResult> {
+    return new DriverPropertyDefinitionInserter(this.manager).insert([
+      ...items,
+    ]);
+  }
+
   insertModuleManagerData(
     items: readonly ModuleManagerData[],
   ): Promise<BulkInsertResult> {
@@ -213,6 +252,7 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
         data.alsaTagData != null
           ? JSON.stringify(data.alsaTagData.map(d => d.toJSON()))
           : null,
+      versionConfig: JSON.stringify(data.version),
     });
   }
 

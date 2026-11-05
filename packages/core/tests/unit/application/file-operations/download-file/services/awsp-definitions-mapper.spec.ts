@@ -162,8 +162,8 @@ describe('AwspDefinitionsMapper', () => {
 
       expect(result.id).toBe(500);
       expect(result.name).toBe('TagX');
-      expect(result.isVoice).toBe(false);
-      expect(result.keys).toEqual([]);
+      expect(result.isVoice).toBeUndefined();
+      expect(result.keys).toBeUndefined();
     });
 
     it('should map all optional tag fields', () => {
@@ -288,7 +288,7 @@ describe('AwspDefinitionsMapper', () => {
       expect(result.parameters![0].pidType).toBe('Shared');
       expect(result.parameters![0].elements).toEqual(elements);
       expect(result.parameters![0].toolPolicies).toEqual(['Calibration']);
-      expect(result.parameters![0].isReadOnly).toBe(false);
+      expect(result.parameters![0].isReadOnly).toBeUndefined();
     });
 
     it('should map input and output port groups', () => {
@@ -373,7 +373,7 @@ describe('AwspDefinitionsMapper', () => {
       expect(result.controlPort).toBeDefined();
       expect(result.controlPort!.dynamicIntents).toHaveLength(1);
       expect(result.controlPort!.dynamicIntents![0].id).toBe(200);
-      expect(result.controlPort!.dynamicIntents![0].maxports).toBe(8);
+      expect(result.controlPort!.dynamicIntents![0].maxPortCount).toBe(8);
     });
 
     it('should not set controlPortsInfo when no static ports or dynamic intents', () => {
@@ -500,7 +500,7 @@ describe('AwspDefinitionsMapper', () => {
       expect(result.elements).toEqual(elements);
       expect(result.categoryName).toBe('SG_CFG');
       expect(result.isVoice).toBe(true);
-      expect(result.categoryId).toBe(1);
+      expect(result.categoryId).toBe(0x08001001);
       expect(result.apmModuleInstanceId).toBe(1);
     });
 

@@ -19,6 +19,7 @@ export interface VcpmModuleParameterDefinitionRow extends EntityBaseRow {
   pidType: string;
   isPersistent: boolean;
   isReadOnly: boolean;
+  deprecated?: boolean | null;
   toolPolicies?: string;
   elementsStructure: string; // JSON
   copySrcParamNaturalId?: number;
@@ -67,6 +68,11 @@ export const VcpmModuleParameterDefinitionSchema =
       isReadOnly: {
         type: 'boolean',
         name: 'is_read_only',
+      },
+      deprecated: {
+        type: 'boolean',
+        nullable: true,
+        name: 'is_deprecated',
       },
       toolPolicies: {
         type: 'text',

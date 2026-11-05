@@ -277,7 +277,7 @@ export function mapSpfModuleDefinition(
       naturalId: p.naturalId,
       name: p.name ?? '',
       description: p.description ?? '',
-      isHidden: p.isHidden,
+      isHidden: p.isHidden ?? false,
       isReadOnly: p.isReadOnly ?? false,
       deprecated: p.deprecated,
       toolPolicy: parseFirstToolPolicy(p.toolPolicies),

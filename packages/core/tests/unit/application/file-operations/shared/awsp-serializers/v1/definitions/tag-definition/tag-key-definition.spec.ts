@@ -30,7 +30,7 @@ describe('AwspTagKeyDefinition serialization', () => {
 
       const json = key.toJSON();
 
-      expect(json.id).toBe(1);
+      expect(json.id).toBe('0x1');
       expect(json.name).toBe('TestKey');
     });
   });
@@ -45,7 +45,11 @@ describe('AwspTagKeyDefinition serialization', () => {
       const key = AwspTagKeyDefinition.fromJSON(original);
       const serialized = key.toJSON();
 
-      expect(serialized).toEqual(original);
+      expect(serialized).toEqual({
+        ...original,
+        id: '0x1',
+        enumMember: undefined,
+      });
     });
   });
 });

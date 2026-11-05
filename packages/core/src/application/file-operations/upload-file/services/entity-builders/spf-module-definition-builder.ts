@@ -26,6 +26,7 @@ import {PORT_IO_TYPE} from '../../../../../domain/entities/common/enums/port-io-
 import {DataPortGroupDefinition} from '../../../../../domain/entities/definitions/spf-module/value-objects/data-port-group-definition.js';
 import {DataPortDefinition} from '../../../../../domain/entities/definitions/spf-module/value-objects/data-port-definition.js';
 import {StaticControlPortDefinition} from '../../../../../domain/entities/definitions/spf-module/value-objects/static-control-port-definition.js';
+import {StaticIntentDefinition} from '../../../../../domain/entities/definitions/spf-module/value-objects/static-intent-definition.js';
 import {DynamicIntentDefinition} from '../../../../../domain/entities/definitions/spf-module/value-objects/dynamic-intent-definition.js';
 import type {BuildResult} from '../../types/issue-collection.js';
 import type {Issue} from '../../../../../shared/issues/index.js';
@@ -497,7 +498,9 @@ export class SpfModuleDefinitionBuilder {
       type: this.PID_TYPE_MAPPING[awspParam.pidType],
       elementsStructure: JSON.stringify(awspParam.elements),
       isPersistent: false,
-      isReadOnly: false,
+      isReadOnly: awspParam.isReadOnly ?? false,
+      isHidden: awspParam.isHidden,
+      deprecated: awspParam.deprecated,
       copySrcParamNaturalId: awspParam.copySrcParamId,
     });
   }
@@ -668,9 +671,14 @@ export class SpfModuleDefinitionBuilder {
           name: awsp.name,
           displayName: awsp.displayName || awsp.name,
           description: awsp.description,
+          groupName: awsp.groupName,
+          replacedBy: awsp.replacedBy,
+          builtIn: awsp.builtIn,
+          isOffloadable: awsp.isOffloadable,
+          modSearchKeys: awsp.searchKeys,
           parameters,
           dataPortGroups: [inputDataPortsGroup, outputDataPortsGroup],
-          stackSize: 0 /* ToDo Fill correct value from awsp*/,
+          stackSize: awsp.stackSize ?? 0,
           staticControlPorts,
           dynamicIntents,
           processorSystemId: procId, // Natural ID — will be mapped to system ID in assignSystemIds()
@@ -753,6 +761,16 @@ export class SpfModuleDefinitionBuilder {
           naturalId: awspPort.id,
           portName: awspPort.name || `Port_${awspPort.id}`,
         });
+        for (const awspIntent of awspPort.intents ?? []) {
+          staticPort.AddStaticIntent(
+            new StaticIntentDefinition({
+              systemId: 0,
+              naturalId: awspIntent.id,
+              name: awspIntent.name || `Intent_${awspIntent.id}`,
+              maxPortCount: awspIntent.maxPortCount,
+            }),
+          );
+        }
         staticControlPorts.push(staticPort);
       } catch (error) {
         throw new Error(
@@ -778,7 +796,7 @@ export class SpfModuleDefinitionBuilder {
           new DynamicIntentDefinition({
             naturalId: awspIntent.id,
             name: awspIntent.name || `Intent_${awspIntent.id}`,
-            maxPort: awspIntent.maxports,
+            maxPort: awspIntent.maxPortCount,
           }),
         );
       } catch (error) {

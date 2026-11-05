@@ -79,7 +79,7 @@ describe('AwspParamDefinition serialization', () => {
 
       const json = param.toJSON();
 
-      expect(json.id).toBe(1);
+      expect(json.id).toBe('0x00000001');
       expect(json.name).toBe('TestParam');
       expect(json.toolPolicies).toEqual(['Calibration']);
       expect(json.pidType).toBe('None');
@@ -145,7 +145,9 @@ describe('AwspParamDefinition serialization', () => {
       // toolPolicies are normalized from C# casing (Rtc) to TS casing (RTC)
       expect(serialized).toEqual({
         ...original,
+        id: '0x00000001',
         toolPolicies: ['Calibration', 'RTC'],
+        copySrcParamId: undefined,
       });
     });
   });
