@@ -38,13 +38,16 @@ export abstract class BaseModuleDefinition extends BaseDefinition {
    */
   protected serializeBaseModuleFields(): Record<string, unknown> {
     return {
-      id: this.id,
+      id: `0x${this.id.toString(16).toUpperCase().padStart(8, '0')}`,
       name: this.name,
       parameters: this.serializeField(this.parameters),
-      displayName: this.displayName,
-      description: this.description,
-      replacedBy: this.replacedBy,
-      deprecated: this.deprecated,
+      displayName: this.displayName ?? undefined,
+      description: this.description ?? undefined,
+      replacedBy:
+        this.replacedBy !== undefined
+          ? `0x${this.replacedBy.toString(16).toUpperCase().padStart(8, '0')}`
+          : undefined,
+      deprecated: this.deprecated ?? undefined,
     };
   }
 }

@@ -144,8 +144,9 @@ export class AwspFileSerializer {
     const config = entities.configurationData;
     if (!config) return '{}';
 
-    const hexId = `0x${config.defaultProcessorDomain.toString(16).toUpperCase().padStart(8, '0')}`;
+    const hexId = `0x${config.defaultProcessorDomain.toString(16).toUpperCase()}`;
     const configJson: Record<string, unknown> = {
+      version: JSON.parse(config.versionConfig) as unknown,
       portStrategy: {strategy: config.portStrategy},
       defaultProcessorDomain: {id: hexId},
       rtc: JSON.parse(config.rtcConfig) as Record<string, unknown>,

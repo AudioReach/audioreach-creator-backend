@@ -42,6 +42,7 @@ import type {
   UiSubsystemDownloadModel,
   UiDataLinkDownloadModel,
   UiFileExtrasDownloadModel,
+  SubgraphPairDownloadModel,
   Logger,
 } from '@arc/core';
 import {
@@ -50,6 +51,7 @@ import {
   CONTROL_LINK_TYPE,
   PORT_IO_TYPE,
   SPF_VCPM_MODULE_ID,
+  PROPERTY_TYPE,
 } from '@arc/core';
 import type {DataSource, SelectQueryBuilder, ObjectLiteral} from 'typeorm';
 import {DbFileQuery} from '../db-file-query.js';
@@ -99,7 +101,6 @@ import type {VcpmModuleDefinitionRow} from '../../entity-schema/definitions/subg
 import type {VcpmModuleParameterDefinitionRow} from '../../entity-schema/definitions/subgraph/vcpm/vcpm-module-parameter-definition.schema.js';
 import type {SubgraphPropertyRow} from '../../entity-schema/definitions/subgraph/subgraph-property-definition.schema.js';
 import type {ContainerPropertyRow} from '../../entity-schema/definitions/container/container-property-definition.schema.js';
-import type {ModulePropertyRow} from '../../entity-schema/definitions/module/spf/module-property-definition.schema.js';
 import type {ProcessorDefinitionRow} from '../../entity-schema/definitions/common/processor-definition.schema.js';
 import type {ContainerTypeRow} from '../../entity-schema/definitions/container/container-definition.schema.js';
 import type {ConfigurationRow} from '../../entity-schema/project-data/configuration.schema.js';
@@ -168,6 +169,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       processorDefinitions,
       containerTypeDefinitions,
       uiMetadataResult,
+      subgraphPairLinksResult,
     ] = await Promise.all([
       timed('readFileProperties', this.readFileProperties(fileSystemId)),
       timed('readUsecaseData', this.readUsecaseData(fileSystemId)),
@@ -217,6 +219,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         this.readContainerTypeDefinitions(fileSystemId),
       ),
       timed('readUiMetadata', this.readUiMetadata(fileSystemId)),
+      timed('readSubgraphPairLinks', this.readSubgraphPairLinks(fileSystemId)),
     ]);
 
     return {
@@ -240,6 +243,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       driverPropertyDefinitions,
       processorDefinitions,
       containerTypeDefinitions,
+      subgraphPairs: subgraphPairLinksResult,
       ...uiMetadataResult,
     };
   }
@@ -399,7 +403,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       this.queryVoiceTags(fileSystemId),
     ]);
 
-    const propertyMap = this.buildPropertyMap(propertyRows);
+    const {spfMap, driverMap} = this.buildPropertyMaps(propertyRows);
     const moduleMap = this.buildModuleMap(moduleRows);
     const dataLinkMap = this.buildDataLinkMap(dataLinkRows);
     const controlLinkMap = this.buildControlLinkMap(controlLinkRows);
@@ -407,12 +411,128 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
 
     return subgraphRows.map(sg => ({
       naturalId: sg.naturalId,
-      properties: propertyMap.get(sg.naturalId) ?? [],
+      spfProperties: spfMap.get(sg.naturalId) ?? [],
+      driverProperties: driverMap.get(sg.naturalId) ?? [],
       modules: moduleMap.get(sg.naturalId) ?? [],
       dataLinks: dataLinkMap.get(sg.naturalId) ?? [],
       controlLinks: controlLinkMap.get(sg.naturalId) ?? [],
       voiceTags: voiceTagMap.get(sg.naturalId) ?? [],
     }));
+  }
+
+  async readSubgraphPairLinks(
+    fileSystemId: number,
+  ): Promise<SubgraphPairDownloadModel[]> {
+    const [dataLinkRows, controlLinkRows] = await Promise.all([
+      this.querySubgraphPairDataLinks(fileSystemId),
+      this.querySubgraphPairControlLinks(fileSystemId),
+    ]);
+
+    const mergedMap = new Map<string, SubgraphPairDownloadModel>();
+
+    for (const dl of dataLinkRows) {
+      const srcSgId = dl.sourceSubgraph!.naturalId;
+      const dstSgId = dl.destSubgraph!.naturalId;
+      const key = `${srcSgId}:${dstSgId}`;
+      if (!mergedMap.has(key)) {
+        mergedMap.set(key, {
+          srcSubgraphNaturalId: srcSgId,
+          dstSubgraphNaturalId: dstSgId,
+          dataLinks: [],
+          controlLinks: [],
+        });
+      }
+      mergedMap.get(key)!.dataLinks.push({
+        sourceInstanceNaturalId: dl.sourceNode!.spfModule!.naturalId,
+        sourcePortNaturalId: dl.sourcePort!.naturalId,
+        destinationInstanceNaturalId: dl.destinationNode!.spfModule!.naturalId,
+        destinationPortNaturalId: dl.destinationPort!.naturalId,
+        isInterGraph: false,
+      });
+    }
+
+    for (const cl of controlLinkRows) {
+      const srcSgId = cl.sourceSubgraph!.naturalId;
+      const dstSgId = cl.destSubgraph!.naturalId;
+      const key = `${srcSgId}:${dstSgId}`;
+      if (!mergedMap.has(key)) {
+        mergedMap.set(key, {
+          srcSubgraphNaturalId: srcSgId,
+          dstSubgraphNaturalId: dstSgId,
+          dataLinks: [],
+          controlLinks: [],
+        });
+      }
+      const intentIds = [
+        ...(cl.nodeAPort?.allocatedIntents ?? []),
+        ...(cl.nodeBPort?.allocatedIntents ?? []),
+      ]
+        .map(i => i.naturalId)
+        .filter((v, idx, arr) => arr.indexOf(v) === idx);
+      mergedMap.get(key)!.controlLinks.push({
+        peer1InstanceNaturalId: cl.peerNodeA!.spfModule!.naturalId,
+        peer1PortNaturalId: cl.nodeAPort!.naturalId,
+        peer2InstanceNaturalId: cl.peerNodeB!.spfModule!.naturalId,
+        peer2PortNaturalId: cl.nodeBPort!.naturalId,
+        isInterGraph: false,
+        heapId: cl.heapId ?? undefined,
+        intentIds,
+      });
+    }
+
+    return [...mergedMap.values()];
+  }
+
+  private async querySubgraphPairDataLinks(
+    fileSystemId: number,
+  ): Promise<DataLinkRow[]> {
+    // SCLU links: cross-subgraph data links that are not InterUsecase type.
+    // InterUsecase links cross subgraphs but belong to the per-subgraph SubgraphDataChunk.
+    return this.dataSource
+      .getRepository(ENTITY_NAMES.DataLink)
+      .createQueryBuilder('dl')
+      .leftJoinAndSelect('dl.sourceSubgraph', 'sg')
+      .leftJoinAndSelect('dl.destSubgraph', 'dest_sg')
+      .leftJoinAndSelect('dl.sourceNode', 'src_node')
+      .leftJoinAndSelect('src_node.spfModule', 'src_mod')
+      .leftJoinAndSelect('dl.sourcePort', 'src_port')
+      .leftJoinAndSelect('dl.destinationNode', 'dest_node')
+      .leftJoinAndSelect('dest_node.spfModule', 'dest_mod')
+      .leftJoinAndSelect('dl.destinationPort', 'dest_port')
+      .where('dl.fileSystemId = :fileSystemId', {fileSystemId})
+      .andWhere('dl.sourceSubgraphSystemId != dl.destSubgraphSystemId')
+      .andWhere('dl.linkType != :iuType', {iuType: DATA_LINK_TYPE.InterUsecase})
+      .orderBy('sg.naturalId', 'ASC')
+      .addOrderBy('dest_sg.naturalId', 'ASC')
+      .getMany() as Promise<DataLinkRow[]>;
+  }
+
+  private async querySubgraphPairControlLinks(
+    fileSystemId: number,
+  ): Promise<ControlLinkRow[]> {
+    // SCLU links: cross-subgraph control links that are not InterUsecase type.
+    // InterUsecase links cross subgraphs but belong to the per-subgraph SubgraphDataChunk.
+    return this.dataSource
+      .getRepository(ENTITY_NAMES.ControlLink)
+      .createQueryBuilder('cl')
+      .leftJoinAndSelect('cl.sourceSubgraph', 'sg')
+      .leftJoinAndSelect('cl.destSubgraph', 'dest_sg')
+      .leftJoinAndSelect('cl.peerNodeA', 'peer1_node')
+      .leftJoinAndSelect('peer1_node.spfModule', 'peer1_mod')
+      .leftJoinAndSelect('cl.nodeAPort', 'peer1_port')
+      .leftJoinAndSelect('peer1_port.allocatedIntents', 'i1')
+      .leftJoinAndSelect('cl.peerNodeB', 'peer2_node')
+      .leftJoinAndSelect('peer2_node.spfModule', 'peer2_mod')
+      .leftJoinAndSelect('cl.nodeBPort', 'peer2_port')
+      .leftJoinAndSelect('peer2_port.allocatedIntents', 'i2')
+      .where('cl.fileSystemId = :fileSystemId', {fileSystemId})
+      .andWhere('cl.sourceSubgraphSystemId != cl.destSubgraphSystemId')
+      .andWhere('cl.linkType != :iuType', {
+        iuType: CONTROL_LINK_TYPE.InterUsecase,
+      })
+      .orderBy('sg.naturalId', 'ASC')
+      .addOrderBy('dest_sg.naturalId', 'ASC')
+      .getMany() as Promise<ControlLinkRow[]>;
   }
 
   private async querySubgraphs(fileSystemId: number): Promise<SubgraphRow[]> {
@@ -460,6 +580,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       .getRepository(ENTITY_NAMES.DataLink)
       .createQueryBuilder('dl')
       .leftJoinAndSelect('dl.sourceSubgraph', 'sg')
+      .leftJoinAndSelect('dl.destSubgraph', 'dest_sg')
       .leftJoinAndSelect('dl.sourceNode', 'src_node')
       .leftJoinAndSelect('src_node.spfModule', 'src_mod')
       .leftJoinAndSelect('dl.sourcePort', 'src_port')
@@ -518,23 +639,39 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
 
   // ─── Subgraph build helpers ───────────────────────────────────────────────
 
-  private buildPropertyMap(
-    rows: SubgraphPropertyDataRow[],
-  ): Map<number, Array<{propertyNaturalId: number; payload: Uint8Array}>> {
-    const map = new Map<
+  private buildPropertyMaps(rows: SubgraphPropertyDataRow[]): {
+    spfMap: Map<
+      number,
+      Array<{propertyNaturalId: number; payload: Uint8Array}>
+    >;
+    driverMap: Map<
+      number,
+      Array<{propertyNaturalId: number; payload: Uint8Array}>
+    >;
+  } {
+    const spfMap = new Map<
       number,
       Array<{propertyNaturalId: number; payload: Uint8Array}>
     >();
+    const driverMap = new Map<
+      number,
+      Array<{propertyNaturalId: number; payload: Uint8Array}>
+    >();
+
     for (const row of rows) {
       if (row.subgraph == null || row.payload == null) continue;
       const sgId = row.subgraph.naturalId;
-      if (!map.has(sgId)) map.set(sgId, []);
-      map.get(sgId)!.push({
+      const isDriver =
+        row.subgraphPropertyDefinition.propertyType === PROPERTY_TYPE.Driver;
+      const target = isDriver ? driverMap : spfMap;
+      if (!target.has(sgId)) target.set(sgId, []);
+      target.get(sgId)!.push({
         propertyNaturalId: row.subgraphPropertyDefinition.naturalId,
         payload: row.payload,
       });
     }
-    return map;
+
+    return {spfMap, driverMap};
   }
 
   private buildModuleMap(rows: SpfModuleRow[]): Map<
@@ -607,15 +744,31 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
     >();
 
     for (const dl of rows) {
-      const sgId = dl.sourceSubgraph!.naturalId;
-      if (!map.has(sgId)) map.set(sgId, []);
-      map.get(sgId)!.push({
+      // SCLU links (cross-subgraph, non-InterUsecase) belong to SubgraphPairDataChunk, not per-subgraph blocks
+      if (
+        dl.sourceSubgraphSystemId !== dl.destSubgraphSystemId &&
+        dl.linkType !== DATA_LINK_TYPE.InterUsecase
+      )
+        continue;
+      const isInterGraph = dl.linkType === DATA_LINK_TYPE.InterUsecase;
+      const srcSgId = dl.sourceSubgraph!.naturalId;
+      if (!map.has(srcSgId)) map.set(srcSgId, []);
+      const entry = {
         sourceInstanceNaturalId: dl.sourceNode!.spfModule!.naturalId,
         sourcePortNaturalId: dl.sourcePort!.naturalId,
         destinationInstanceNaturalId: dl.destinationNode!.spfModule!.naturalId,
         destinationPortNaturalId: dl.destinationPort!.naturalId,
-        isInterGraph: dl.linkType === DATA_LINK_TYPE.InterUsecase,
-      });
+        isInterGraph,
+      };
+      map.get(srcSgId)!.push(entry);
+
+      // Cross-subgraph links appear in both source and destination subgraph blocks
+      // in the original ACDB. Emit in the dest block as well when they differ.
+      const destSgId = dl.destSubgraph?.naturalId;
+      if (destSgId !== undefined && destSgId !== srcSgId) {
+        if (!map.has(destSgId)) map.set(destSgId, []);
+        map.get(destSgId)!.push(entry);
+      }
     }
     return map;
   }
@@ -646,24 +799,25 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
     >();
 
     for (const cl of rows) {
+      // All cross-subgraph control links belong to SubgraphPairDataChunk, not per-subgraph blocks
+      if (cl.sourceSubgraphSystemId !== cl.destSubgraphSystemId) continue;
+
       const sgId = cl.sourceSubgraph!.naturalId;
       if (!map.has(sgId)) map.set(sgId, []);
 
-      // Collect intent IDs from both ports, dedup, sort numerically
-      const allIntents = [
+      const intentIds = [
         ...(cl.nodeAPort?.allocatedIntents ?? []),
         ...(cl.nodeBPort?.allocatedIntents ?? []),
-      ];
-      const intentIds = [...new Set(allIntents.map(i => i.naturalId))].sort(
-        (a, b) => a - b,
-      );
+      ]
+        .map(i => i.naturalId)
+        .filter((v, idx, arr) => arr.indexOf(v) === idx);
 
       map.get(sgId)!.push({
         peer1InstanceNaturalId: cl.peerNodeA!.spfModule!.naturalId,
         peer1PortNaturalId: cl.nodeAPort!.naturalId,
         peer2InstanceNaturalId: cl.peerNodeB!.spfModule!.naturalId,
         peer2PortNaturalId: cl.nodeBPort!.naturalId,
-        isInterGraph: cl.linkType === CONTROL_LINK_TYPE.InterUsecase,
+        isInterGraph: false,
         heapId: cl.heapId ?? undefined,
         intentIds,
       });
@@ -1650,6 +1804,9 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       displayName: row.displayName ?? undefined,
       description: row.description ?? undefined,
       groupName: row.groupName ?? undefined,
+      replacedBy: row.replacedBy ?? undefined,
+      builtIn: row.builtIn === true ? true : undefined,
+      isOffloadable: row.isOffloadable ?? undefined,
       searchKeys: row.modSearchKeys ?? undefined,
       stackSize: row.stackSize,
       params: paramsMap.get(row.systemId) ?? [],
@@ -1677,6 +1834,8 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         pidType: row.pidType,
         elementsStructure: row.elementsStructure ?? '[]',
         isReadOnly: Boolean(row.isReadOnly),
+        isHidden: row.isHidden === true ? true : undefined,
+        deprecated: row.deprecated ?? undefined,
         toolPolicies: row.toolPolicies ?? undefined,
         copySrcParamNaturalId: row.copySrcParamNaturalId ?? undefined,
       });
@@ -1726,6 +1885,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       map.get(row.staticControlPortDefinitionSystemId)!.push({
         intentNaturalId: row.naturalId,
         name: row.name,
+        maxPortCount: row.maxPortCount ?? undefined,
       });
     }
     return map;
@@ -1847,14 +2007,20 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         name: row.name ?? undefined,
         description: row.description ?? undefined,
         maxSize: row.maxSize,
+        pidType: row.pidType,
         paramStructure: row.elementsStructure,
+        toolPolicies: row.toolPolicies ?? undefined,
+        deprecated: row.deprecated ?? undefined,
+        isReadOnly: row.isReadOnly,
       });
     }
 
     return moduleRows.map(row => ({
       naturalId: row.naturalId,
       name: row.name,
+      displayName: row.displayName ?? undefined,
       description: row.description ?? undefined,
+      replacedBy: row.replacedBy ?? undefined,
       params: paramsMap.get(row.systemId) ?? [],
     }));
   }
@@ -1867,6 +2033,9 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .getRepository(ENTITY_NAMES.SubgraphPropertyDefinition)
         .createQueryBuilder('sp')
         .where('sp.fileSystemId = :fileSystemId', {fileSystemId})
+        .andWhere('sp.propertyType = :propertyType', {
+          propertyType: PROPERTY_TYPE.Spf,
+        })
         .orderBy('sp.naturalId', 'ASC')
         .getMany() as Promise<SubgraphPropertyRow[]>,
       this.dataSource
@@ -1884,7 +2053,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         description: row.description ?? undefined,
         maxSize: row.maxSize,
         elementsStructure: row.elementsStructure ?? '[]',
-        categoryName: 'SG_CFG',
+        categoryName: row.categoryName ?? 'SG_CFG',
         isVoice: Boolean(row.isVoice),
       })),
       ...containerRows.map(row => ({
@@ -1904,18 +2073,21 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
     fileSystemId: number,
   ): Promise<DriverPropertyDefinitionDownloadModel[]> {
     const rows = (await this.dataSource
-      .getRepository(ENTITY_NAMES.ModulePropertyDefinition)
-      .createQueryBuilder('prop')
-      .where('prop.fileSystemId = :fileSystemId', {fileSystemId})
-      .orderBy('prop.naturalId', 'ASC')
-      .getMany()) as ModulePropertyRow[];
+      .getRepository(ENTITY_NAMES.SubgraphPropertyDefinition)
+      .createQueryBuilder('sp')
+      .where('sp.fileSystemId = :fileSystemId', {fileSystemId})
+      .andWhere('sp.propertyType = :propertyType', {
+        propertyType: PROPERTY_TYPE.Driver,
+      })
+      .orderBy('sp.naturalId', 'ASC')
+      .getMany()) as SubgraphPropertyRow[];
 
     return rows.map(row => ({
       propertyNaturalId: row.naturalId,
       name: row.name,
       description: row.description ?? undefined,
       maxSize: row.maxSize,
-      propertyStructure: row.propertyStructure,
+      propertyStructure: row.elementsStructure ?? '[]',
     }));
   }
 
@@ -1933,6 +2105,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         'c.validationConfig',
         'c.alsaMetaData',
         'c.alsaTagData',
+        'c.versionConfig',
       ])
       .where('c.fileSystemId = :fileSystemId', {fileSystemId})
       .getOne()) as ConfigurationRow | null;
@@ -1947,6 +2120,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       validationConfig: row.validationConfig ?? null,
       alsaMetaData: row.alsaMetaData ?? null,
       alsaTagData: row.alsaTagData ?? null,
+      versionConfig: row.versionConfig,
     };
   }
 

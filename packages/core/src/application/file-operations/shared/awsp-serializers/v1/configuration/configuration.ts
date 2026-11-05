@@ -19,6 +19,7 @@ import {
   AlsaTagDataSchema,
   ConfigurationDataSchema,
   ConfigurationSchema,
+  type Version,
 } from './configuration.schema.js';
 import {BaseDefinition} from '../definitions/common/base-definition.js';
 
@@ -37,7 +38,7 @@ export class ProcessorConfig extends BaseDefinition {
   toJSON(): Record<string, unknown> {
     return {
       name: this.name,
-      id: this.id,
+      id: `0x${this.id.toString(16).toUpperCase()}`,
       pidSize: this.pidSize,
       rtcSize: this.rtcSize,
       isEnabled: this.isEnabled,
@@ -113,7 +114,7 @@ export class ValidationDiagnosticEntry extends BaseDefinition {
 }
 
 export class ValidationConfig extends BaseDefinition {
-  diagnosticOverrides!: ValidationDiagnosticEntry[];
+  diagnosticOverrides?: ValidationDiagnosticEntry[];
 
   static fromJSON(data: unknown): ValidationConfig {
     const validated = ValidationConfigSchema.parse(data);
@@ -131,9 +132,13 @@ export class ValidationConfig extends BaseDefinition {
   }
 
   toJSON(): Record<string, unknown> {
-    return {
-      diagnosticOverrides: this.serializeField(this.diagnosticOverrides),
-    };
+    const result: Record<string, unknown> = {};
+    if (this.diagnosticOverrides !== undefined) {
+      result.diagnosticOverrides = this.serializeField(
+        this.diagnosticOverrides,
+      );
+    }
+    return result;
   }
 }
 
@@ -284,6 +289,7 @@ export class AlsaTagData extends BaseDefinition {
 // ─── Root configuration classes ───────────────────────────────────────────────
 
 export class ConfigurationData extends BaseDefinition {
+  version!: Version;
   portStrategy!: ModulePortStrategy;
   defaultProcessorDomain!: number;
   rtc!: RtcConfig;

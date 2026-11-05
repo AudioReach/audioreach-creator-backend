@@ -12,7 +12,7 @@ import {HexIdSchema} from '../../common/hex-id.schema.js';
 export const AwspIntentSchema = z.object({
   id: HexIdSchema,
   name: z.string().optional(),
-  maxports: z.number().optional(),
+  maxPortCount: z.number().optional(),
 });
 
 export type AwspIntent = z.infer<typeof AwspIntentSchema>;

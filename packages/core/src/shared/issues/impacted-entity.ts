@@ -37,6 +37,7 @@ export const ISSUE_ENTITY_TYPE = {
   ModuleManagerData: 'ModuleManagerData',
   SubgraphPropertyDefinition: 'SubgraphPropertyDefinition',
   ContainerPropertyDefinition: 'ContainerPropertyDefinition',
+  DriverPropertyDefinition: 'DriverPropertyDefinition',
   Ckv: 'Ckv',
   Tag: 'Tag',
   Tkv: 'Tkv',

@@ -11,6 +11,7 @@ import {MODULE_PORT_STRATEGIES, type ModulePortStrategy} from '@arc/core';
 
 export interface ConfigurationRow extends EntityBaseRow {
   fileSystemId: number;
+  versionConfig: string;
   portStrategy: ModulePortStrategy;
   defaultProcessorDomain: number;
   rtcConfig: string;
@@ -30,6 +31,11 @@ export const ConfigurationSchema = new EntitySchema<ConfigurationRow>({
     fileSystemId: {
       name: 'file_system_id',
       type: 'integer',
+      nullable: false,
+    },
+    versionConfig: {
+      name: 'version_config',
+      type: 'text',
       nullable: false,
     },
     portStrategy: {

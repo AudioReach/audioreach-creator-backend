@@ -16,6 +16,7 @@ import {BinaryUtils} from '../../../../shared/utilities/binary-utils.js';
 export interface SpfModuleDefinitionInit extends ModuleDefinitionInit {
   modSearchKeys?: string;
   stackSize: number;
+  isOffloadable?: boolean;
   dataPortGroups: DataPortGroupDefinition[];
   staticControlPorts: StaticControlPortDefinition[];
   dynamicIntents?: DynamicIntentDefinition[];
@@ -29,6 +30,7 @@ export class SpfModuleDefinition extends ModuleDefinition {
   metadata?: string;
   modSearchKeys?: string;
   stackSize: number;
+  isOffloadable?: boolean;
   readonly dataPortGroups: DataPortGroupDefinition[] = [];
   readonly staticControlPorts: StaticControlPortDefinition[] = [];
   readonly dynamicIntents: DynamicIntentDefinition[] = [];
@@ -45,6 +47,7 @@ export class SpfModuleDefinition extends ModuleDefinition {
     this.metadata = initParam.metaData;
     this.modSearchKeys = initParam.modSearchKeys;
     this.stackSize = initParam.stackSize;
+    this.isOffloadable = initParam.isOffloadable;
     this.processorSystemId = initParam.processorSystemId;
     for (const port of initParam.staticControlPorts) {
       this.AddStaticControlPort(port);

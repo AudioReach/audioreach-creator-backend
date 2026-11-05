@@ -31,6 +31,8 @@ import {TagDataChunkSerializer} from './chunk-serializers/tag-data-chunk-seriali
 import {TagKeysChunkSerializer} from './chunk-serializers/tag-keys-chunk-serializer.js';
 import {TaggedModuleMapChunkSerializer} from './chunk-serializers/tagged-module-map-chunk-serializer.js';
 import {GkvAliasChunkSerializer} from './chunk-serializers/gkv-alias-chunk-serializer.js';
+import {SubgraphPairDataChunkSerializer} from './chunk-serializers/subgraph-pair-data-chunk-serializer.js';
+import {buildSubgraphPairDataChunk} from './chunk-builders/subgraph-pair-data-chunk-builder.js';
 import {DatapoolChunk} from '../../shared/acdb-chunks/datapool-chunk.js';
 import {DatapoolChunkSerializer} from './chunk-serializers/datapool-chunk-serializer.js';
 import {BinaryUtils} from '../../../../shared/utilities/binary-utils.js';
@@ -221,7 +223,7 @@ export class AcdbFileSerializer {
     voice: CalibrationDataDownloadModel[];
   } {
     const propsBySubgraph = new Map(
-      subgraphData.map(sg => [sg.naturalId, sg.properties]),
+      subgraphData.map(sg => [sg.naturalId, sg.spfProperties]),
     );
 
     const audio: CalibrationDataDownloadModel[] = [];
@@ -292,6 +294,49 @@ export class AcdbFileSerializer {
   }
 
   /**
+   * Serialize subgraph pair data chunks (SCLU/SCDE/SCDO).
+   */
+  private serializeSubgraphPairDataChunks(
+    entities: DownloadEntities,
+    chunkList: Array<{id: string; data: Uint8Array}>,
+    datapool: DatapoolChunk,
+  ): void {
+    if (!entities.usecaseData) return;
+
+    const chunk = buildSubgraphPairDataChunk(
+      entities.usecaseData,
+      entities.subgraphPairs ?? [],
+    );
+    if (chunk.subgraphPairs.length === 0) return;
+
+    const result = new SubgraphPairDataChunkSerializer().serialize(
+      chunk,
+      datapool,
+    );
+    if (result.sclu.length > 0) {
+      this.addChunk(
+        chunkList,
+        ACDB_RAW_CHUNK_TYPES.SUBGRAPH_CONNECTION_LUT,
+        result.sclu,
+      );
+    }
+    if (result.scde.length > 0) {
+      this.addChunk(
+        chunkList,
+        ACDB_RAW_CHUNK_TYPES.SUBGRAPH_CONNECTION_DEF,
+        result.scde,
+      );
+    }
+    if (result.scdo.length > 0) {
+      this.addChunk(
+        chunkList,
+        ACDB_RAW_CHUNK_TYPES.SUBGRAPH_CONNECTION_DOT,
+        result.scdo,
+      );
+    }
+  }
+
+  /**
    * Serialize GKV alias chunk (GALS) from usecase data.
    * Only emits the chunk when at least one usecase has aliasId defined.
    */
@@ -327,6 +372,7 @@ export class AcdbFileSerializer {
 
       this.profiler?.start(PROFILER_OPERATIONS.ACDB_SERIALIZE_USECASE);
       await this.serializeUsecaseChunks(entities, chunkList, datapool);
+      this.serializeSubgraphPairDataChunks(entities, chunkList, datapool);
       this.serializeGkvAliasChunk(
         entities.usecaseData ?? [],
         chunkList,

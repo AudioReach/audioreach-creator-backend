@@ -122,6 +122,7 @@ export class VcpmModuleDefinitionBuilder {
       name: awspDef.name,
       displayName: awspDef.displayName ?? awspDef.name,
       description: awspDef.description,
+      replacedBy: awspDef.replacedBy,
       parameters: [],
     });
 
@@ -162,6 +163,7 @@ export class VcpmModuleDefinitionBuilder {
           elementsStructure: JSON.stringify(awspParam.elements),
           isPersistent: false,
           isReadOnly: awspParam.isReadOnly ?? false,
+          deprecated: awspParam.deprecated,
           copySrcParamNaturalId: awspParam.copySrcParamId,
         });
 

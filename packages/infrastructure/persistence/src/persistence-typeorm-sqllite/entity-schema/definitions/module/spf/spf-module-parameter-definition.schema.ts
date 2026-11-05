@@ -23,6 +23,8 @@ export interface SpfModuleParameterDefinitionBase {
   isPersistent: boolean;
   elementsStructure: string;
   isReadOnly: boolean;
+  isHidden?: boolean | null;
+  deprecated?: boolean | null;
   toolPolicies?: string;
   copySrcParamNaturalId?: number;
 
@@ -79,6 +81,16 @@ export const SpfModuleParameterDefinitionSchema =
       isReadOnly: {
         type: 'boolean',
         name: 'is_read_only',
+      },
+      isHidden: {
+        type: 'boolean',
+        name: 'is_hidden',
+        nullable: true,
+      },
+      deprecated: {
+        type: 'boolean',
+        name: 'is_deprecated',
+        nullable: true,
       },
       toolPolicies: {
         type: 'text',
