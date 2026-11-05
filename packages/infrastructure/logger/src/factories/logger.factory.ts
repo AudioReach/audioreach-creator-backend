@@ -5,7 +5,18 @@
 
 import {pino, multistream} from 'pino';
 import type {Logger} from 'pino';
+import {LogLevel} from '@arc/core';
 import type {LoggerConfig} from '../interfaces/logger-config.interface.js';
+
+/** Writes each record's `level` as the matching `LogLevel`. */
+const LOG_LEVEL_BY_PINO_LABEL: Readonly<Record<string, LogLevel>> = {
+  trace: LogLevel.Verbose,
+  debug: LogLevel.Debug,
+  info: LogLevel.Info,
+  warn: LogLevel.Warn,
+  error: LogLevel.Error,
+  fatal: LogLevel.Critical,
+};
 
 export class LoggerFactory {
   createLogger(config: LoggerConfig): Logger {
@@ -26,11 +37,7 @@ export class LoggerFactory {
         },
         formatters: {
           level(label: string): {level: string} {
-            const map: Record<string, string> = {
-              trace: 'verbose',
-              fatal: 'critical',
-            };
-            return {level: map[label] ?? label};
+            return {level: LOG_LEVEL_BY_PINO_LABEL[label] ?? label};
           },
         },
       },

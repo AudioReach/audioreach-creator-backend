@@ -108,10 +108,13 @@ Stack traces SHALL be included in error responses ONLY when `NODE_ENV !== 'produ
 The `AllExceptionsFilter` SHALL be registered globally via NestJS's `APP_FILTER` provider and SHALL catch ALL uncaught exceptions from any layer.
 
 #### FR-EH-10: Three-Category Exception Mapping
-The filter SHALL handle three categories of exceptions:
+The filter SHALL handle four categories of exceptions:
 1. **DomainException** (from `@arc/core`) — mapped to HTTP status via `DOMAIN_STATUS_MAP`
 2. **NestJS HttpException** (from `@nestjs/common`) — uses `getStatus()` directly
-3. **Unknown errors** — mapped to 500 Internal Server Error
+3. **Exposed client `http-errors`** (raised by Express middleware such as the JSON body parser, for example 413 when the body exceeds the size limit) — a 4xx `status` with `expose: true` is kept; `errorCode` is the error's `name`
+4. **Unknown errors** — mapped to 500 Internal Server Error
+
+`ValidationExceptionFilter` handles `BadRequestException` before `AllExceptionsFilter` and returns the same structure; for `ValidationPipe` failures, `message` joins the failed constraints with `; ` and `details` lists them.
 
 #### FR-EH-11: Differentiated Logging
 Client errors (4xx) SHALL be logged at WARNING level. Server errors (5xx) SHALL be logged at ERROR level. Log context SHALL include: `error.message`, `error.stack`, `req.path`, `req.method`, `statusCode`, `timestamp`.

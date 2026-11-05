@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import {AsyncResource} from 'node:async_hooks';
 import {Worker} from 'node:worker_threads';
 import * as os from 'node:os';
 import type {WorkerPoolPort, WorkerTask, WorkerResult, Logger} from '@arc/core';
-import {LogSource} from '@arc/core';
 
 // Default worker pool size: CPU count - 1 (leave one for main thread)
 const DEFAULT_WORKER_POOL_SIZE = Math.max(1, os.cpus().length - 1);
@@ -18,6 +18,12 @@ interface QueuedTask<TInput = unknown, TContext = unknown, TData = unknown> {
   task: WorkerTask<TInput, TContext>;
   resolve: (result: WorkerResult<TData>) => void;
   reject: (error: Error) => void;
+  /**
+   * Async context of the `executeTask` call. Result, error, and timeout
+   * handlers run in it, so their logs carry the submitting request's context
+   * even when another task's completion dispatches this one from the queue.
+   */
+  scope: AsyncResource;
 }
 
 /**
@@ -55,6 +61,7 @@ export class NodeWorkerPoolAdapter implements WorkerPoolPort {
         task,
         resolve: resolve as (result: WorkerResult<unknown>) => void,
         reject,
+        scope: new AsyncResource('NodeWorkerPoolTask'),
       });
       this.processQueue();
     });
@@ -144,7 +151,7 @@ export class NodeWorkerPoolAdapter implements WorkerPoolPort {
   private processQueue(): void {
     while (this.taskQueue.length > 0 && this.availableWorkers.length > 0) {
       const worker = this.availableWorkers.pop()!;
-      const {task, resolve, reject} = this.taskQueue.shift()!;
+      const {task, resolve, reject, scope} = this.taskQueue.shift()!;
 
       let timeoutId: NodeJS.Timeout | null = null;
       let completed = false;
@@ -160,7 +167,7 @@ export class NodeWorkerPoolAdapter implements WorkerPoolPort {
         completed = true;
       };
 
-      const messageHandler = (result: WorkerResult) => {
+      const messageHandler = scope.bind((result: WorkerResult) => {
         if (completed) return; // Already handled (timeout or error)
         cleanup();
 
@@ -178,9 +185,6 @@ export class NodeWorkerPoolAdapter implements WorkerPoolPort {
             tag: 'worker-task',
             msg: 'worker_task_error',
             description: `Worker task failed: ${result.error ?? 'Unknown error'}`,
-            source:
-              (errorDetails.context?.clientId as string | undefined) ??
-              LogSource.Server,
             error: workerError,
             projectId: errorDetails.context?.projectId as string | undefined,
           });
@@ -189,9 +193,9 @@ export class NodeWorkerPoolAdapter implements WorkerPoolPort {
         this.availableWorkers.push(worker);
         resolve(result);
         this.processQueue();
-      };
+      });
 
-      const errorHandler = (error: Error) => {
+      const errorHandler = scope.bind((error: Error) => {
         if (completed) return; // Already handled (timeout or message)
         cleanup();
 
@@ -209,32 +213,35 @@ export class NodeWorkerPoolAdapter implements WorkerPoolPort {
         this.availableWorkers.push(worker);
         reject(error);
         this.processQueue();
-      };
+      });
 
       // Set timeout to prevent indefinite hangs
-      timeoutId = setTimeout(() => {
-        if (completed) return; // Already handled (message or error)
-        cleanup();
+      timeoutId = setTimeout(
+        scope.bind(() => {
+          if (completed) return; // Already handled (message or error)
+          cleanup();
 
-        const timeoutError = new Error(
-          `Worker task timeout after ${this.taskTimeoutMs}ms. Task may be stuck or taking too long.`,
-        );
+          const timeoutError = new Error(
+            `Worker task timeout after ${this.taskTimeoutMs}ms. Task may be stuck or taking too long.`,
+          );
 
-        // Log task timeout
-        if (this.logger) {
-          this.logger.logError({
-            component: 'WorkerPool',
-            tag: 'worker-task',
-            msg: 'task_timeout',
-            description: `Task timeout for handler: ${task.handlerKey}`,
-            error: timeoutError,
-          });
-        }
+          // Log task timeout
+          if (this.logger) {
+            this.logger.logError({
+              component: 'WorkerPool',
+              tag: 'worker-task',
+              msg: 'task_timeout',
+              description: `Task timeout for handler: ${task.handlerKey}`,
+              error: timeoutError,
+            });
+          }
 
-        this.availableWorkers.push(worker);
-        reject(timeoutError);
-        this.processQueue();
-      }, this.taskTimeoutMs);
+          this.availableWorkers.push(worker);
+          reject(timeoutError);
+          this.processQueue();
+        }),
+        this.taskTimeoutMs,
+      );
 
       worker.once('message', messageHandler);
       worker.once('error', errorHandler);

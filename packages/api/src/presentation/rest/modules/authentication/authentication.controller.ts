@@ -21,7 +21,6 @@ export class AuthenticationController {
   @ApiDocumentationWithExample({
     summary: 'Register client',
     requestDto: RegisterDto,
-    requestRequired: false,
     requestDtoExample: {
       className: 'RegisterDtoExample',
     },
@@ -37,11 +36,11 @@ export class AuthenticationController {
       },
       {
         status: HttpStatus.BAD_REQUEST,
-        description: 'Failed to register client',
+        description: 'clientName is missing or invalid',
       },
     ],
   })
-  register(@Body() request?: RegisterDto): ApiResult<RegisterResponseDto> {
+  register(@Body() request: RegisterDto): ApiResult<RegisterResponseDto> {
     const data = this.authService.register(request);
     return toApiResult(Result.ok(data));
   }

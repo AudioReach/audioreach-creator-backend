@@ -12,13 +12,8 @@ interface ValidationExceptionResponse {
   message: string | string[];
   error?: string;
   statusCode?: number;
-}
-
-type HeaderValue = string | string[] | undefined;
-
-interface SanitizedHeaders {
-  [key: string]: HeaderValue;
-  authorization?: string;
+  errorCode?: string;
+  details?: unknown;
 }
 
 interface RequestWithLogContext extends Request {
@@ -38,13 +33,20 @@ export class ValidationExceptionFilter implements ExceptionFilter {
       : 'unknown';
 
     // Extract validation errors if available
-    const exceptionResponse =
-      exception.getResponse() as ValidationExceptionResponse;
+    const exceptionResponse = exception.getResponse() as
+      | ValidationExceptionResponse
+      | string;
     const validationErrors: string | string[] =
-      exceptionResponse.message || 'Validation failed';
+      (typeof exceptionResponse === 'object'
+        ? exceptionResponse.message
+        : exceptionResponse) || 'Validation failed';
 
-    // Log detailed information about the validation error
-    this.logger.logError({
+    // A validation failure is a client error, so it is logged as a warning
+    // (FR-EH-11). Only the failed rules are logged: class-validator's messages
+    // name the property and the rule, not the submitted value. The request
+    // body, query, and parameters are never logged; they can hold passwords
+    // and tokens.
+    this.logger.logWarn({
       component: 'ValidationFilter',
       msg: 'validationFailed',
       description: 'Request validation failed',
@@ -52,44 +54,42 @@ export class ValidationExceptionFilter implements ExceptionFilter {
       error: `Validation errors: ${JSON.stringify(validationErrors, null, 2)}`,
     });
 
-    // Log the request body and query parameters
-    this.logger.logDebug({
-      component: 'ValidationFilter',
-      msg: 'requestDetails',
-      description: 'Request details for failed validation',
-      tag: `request-${requestId}`,
-      error: JSON.stringify(
-        {
-          body: request.body as Record<string, unknown>,
-          query: request.query,
-          params: request.params,
-          files: request.files as unknown,
-          headers: this.sanitizeHeaders(
-            request.headers as Record<string, string | string[] | undefined>,
-          ),
-          contentType: request.headers['content-type'],
-        },
-        null,
-        2,
-      ),
-    });
-
-    response.status(HttpStatus.BAD_REQUEST).json({
-      statusCode: HttpStatus.BAD_REQUEST,
-      timestamp: new Date().toISOString(),
-      path: request.url,
-      message: exception.message,
-    });
+    response
+      .status(HttpStatus.BAD_REQUEST)
+      .json(this.toErrorResponse(exception, exceptionResponse, request.url));
   }
 
-  // Remove sensitive information from headers
-  private sanitizeHeaders(
-    headers: Record<string, string | string[] | undefined>,
-  ): SanitizedHeaders {
-    const sanitized: SanitizedHeaders = {...headers};
-    if (sanitized.authorization) {
-      sanitized.authorization = 'Bearer [REDACTED]';
+  /**
+   * Builds the API error response (FR-EH-06). ValidationPipe puts one message
+   * per failed constraint in an array; those go into `message`, so a client
+   * can see which field failed, and into `details` for programmatic use.
+   */
+  private toErrorResponse(
+    exception: BadRequestException,
+    exceptionResponse: ValidationExceptionResponse | string,
+    path: string,
+  ): Record<string, unknown> {
+    const body =
+      typeof exceptionResponse === 'object' ? exceptionResponse : undefined;
+    const messages = Array.isArray(body?.message) ? body.message : undefined;
+
+    const errorResponse: Record<string, unknown> = {
+      statusCode: HttpStatus.BAD_REQUEST,
+      errorCode: body?.errorCode ?? exception.name,
+      message: messages ? messages.join('; ') : exception.message,
+      timestamp: new Date().toISOString(),
+      path,
+    };
+
+    const details = messages ?? body?.details;
+    if (details !== undefined) {
+      errorResponse.details = details;
     }
-    return sanitized;
+
+    if (process.env.NODE_ENV !== 'production') {
+      errorResponse.stack = exception.stack;
+    }
+
+    return errorResponse;
   }
 }

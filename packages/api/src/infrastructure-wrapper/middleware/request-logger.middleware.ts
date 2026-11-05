@@ -7,13 +7,10 @@ import {Injectable, Inject} from '@nestjs/common';
 import type {NestMiddleware} from '@nestjs/common';
 import type {Request, Response, NextFunction} from 'express';
 import type {Logger} from '@arc/core';
+import type {ActiveLogContextProvider} from '@arc/logger';
 import {randomUUID} from 'node:crypto';
-
-interface JwtPayload {
-  clientId?: string;
-  sub?: string;
-  [key: string]: unknown;
-}
+import {LOG_CONTEXT} from '../logging.module.js';
+import {readClientInstanceId} from '../../decorators/client-instance-id.decorator.js';
 
 interface RequestWithLogContext extends Request {
   requestId?: string;
@@ -21,9 +18,36 @@ interface RequestWithLogContext extends Request {
 
 @Injectable()
 export class RequestLoggerMiddleware implements NestMiddleware {
-  constructor(@Inject('LOGGER') private readonly logger: Logger) {}
+  constructor(
+    @Inject('LOGGER') private readonly logger: Logger,
+    @Inject(LOG_CONTEXT) private readonly logContext: ActiveLogContextProvider,
+  ) {}
 
-  use(req: RequestWithLogContext, res: Response, next: NextFunction) {
+  /**
+   * Opens the request's log context with the launch ID from
+   * `X-ARC-Client-Instance-Id`, if the header holds a UUID; the request is
+   * never rejected here. Everything downstream (guards, pipes, controllers,
+   * buses, filters) and the response logs below run inside this context.
+   *
+   * Later stages add what they learn: `ProjectLogContextGuard` the matched
+   * route's project and `JwtStrategy` the verified client name. Records
+   * written before that (`incomingRequest`, `requestHeaders`) carry neither;
+   * their `tag` links them to the request's later records.
+   *
+   * The request body is never logged: it can hold passwords and tokens. The
+   * headers record already shows its content type and length.
+   */
+  use(req: RequestWithLogContext, res: Response, next: NextFunction): void {
+    this.logContext.run({clientInstanceId: readClientInstanceId(req)}, () => {
+      this.logRequest(req, res, next);
+    });
+  }
+
+  private logRequest(
+    req: RequestWithLogContext,
+    res: Response,
+    next: NextFunction,
+  ): void {
     // Keep the log correlation ID readable while retaining 48 bits of entropy.
     const requestId = randomUUID().replaceAll('-', '').slice(0, 12);
     const startTime = Date.now();
@@ -34,45 +58,19 @@ export class RequestLoggerMiddleware implements NestMiddleware {
       msg: 'incomingRequest',
       description: `${req.method} ${req.originalUrl}`,
       tag: `request-${requestId}`,
-      source: this.extractClientId(req),
     });
 
-    // Log headers at debug level
+    // Log headers at debug level; the authorization and cookie values are redacted.
     this.logger.logDebug({
       component: 'RequestLogger',
       msg: 'requestHeaders',
       description: `Headers: ${JSON.stringify(this.sanitizeHeaders(req.headers))}`,
       tag: `request-${requestId}`,
-      source: this.extractClientId(req),
     });
-
-    // For multipart/form-data requests, we can't easily log the body
-    // as it's processed by multer, but we can log the presence of files
-    if (req.headers['content-type']?.includes('multipart/form-data')) {
-      this.logger.logDebug({
-        component: 'RequestLogger',
-        msg: 'requestBody',
-        description: 'Request contains multipart/form-data',
-        tag: `request-${requestId}`,
-        source: this.extractClientId(req),
-      });
-    } else if (
-      req.body &&
-      Object.keys(req.body as Record<string, unknown>).length > 0
-    ) {
-      this.logger.logDebug({
-        component: 'RequestLogger',
-        msg: 'requestBody',
-        description: `Body: ${JSON.stringify(req.body)}`,
-        tag: `request-${requestId}`,
-        source: this.extractClientId(req),
-      });
-    }
 
     // Capture response
     const originalSend = res.send;
     const logger = this.logger;
-    const extractClientId = this.extractClientId.bind(this);
     const sanitizeResponseBody = this.sanitizeResponseBody.bind(this);
 
     res.send = function (body: unknown) {
@@ -84,7 +82,6 @@ export class RequestLoggerMiddleware implements NestMiddleware {
         msg: 'outgoingResponse',
         description: `${req.method} ${req.originalUrl} ${res.statusCode} - ${responseTime}ms`,
         tag: `request-${requestId}`,
-        source: extractClientId(req),
       });
 
       logger.logDebug({
@@ -94,7 +91,6 @@ export class RequestLoggerMiddleware implements NestMiddleware {
           sanitizeResponseBody(responseBody),
         )}`,
         tag: `request-${requestId}`,
-        source: extractClientId(req),
       });
 
       // 'this' here refers to the response object
@@ -102,23 +98,6 @@ export class RequestLoggerMiddleware implements NestMiddleware {
     };
 
     next();
-  }
-
-  private extractClientId(req: Request): string {
-    // Try to extract client ID from JWT token or request
-    try {
-      const authHeader = req.headers.authorization;
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.slice(7);
-        const payload = JSON.parse(
-          Buffer.from(token.split('.')[1], 'base64').toString(),
-        ) as JwtPayload;
-        return payload.clientId ?? payload.sub ?? 'unknown';
-      }
-    } catch {
-      // Ignore parsing errors
-    }
-    return 'unknown';
   }
 
   private sanitizeHeaders(

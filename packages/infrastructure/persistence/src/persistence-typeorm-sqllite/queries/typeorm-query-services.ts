@@ -19,7 +19,6 @@ import type {
   SubgraphQueryService,
   SubgraphPropertyDefQueryService,
   DriverModuleDefinitionQueryService,
-  LogQueryService,
   DataLinkQueryService,
   ControlLinkQueryService,
   SubsystemQueryService,
@@ -89,17 +88,12 @@ export class DbQueryServices implements QueryServices {
   readonly subgraphQueryService: SubgraphQueryService;
   readonly subgraphPropertyDefQueryService: SubgraphPropertyDefQueryService;
   readonly driverModuleDefinitionQueryService: DriverModuleDefinitionQueryService;
-  readonly logQueryService: LogQueryService;
   readonly dataLinkQueryService: DataLinkQueryService;
   readonly controlLinkQueryService: ControlLinkQueryService;
   readonly subsystemQueryService: SubsystemQueryService;
   readonly nodeQueryService: NodeQueryService;
 
-  constructor(
-    dataSource: DataSource,
-    logQueryService: LogQueryService,
-    logger?: Logger,
-  ) {
+  constructor(dataSource: DataSource, logger?: Logger) {
     const editActionsQueryService = new EditActionsQueryService(
       dataSource.manager,
     );
@@ -317,7 +311,5 @@ export class DbQueryServices implements QueryServices {
       dataSource,
       editActionsQueryService,
     );
-
-    this.logQueryService = logQueryService;
   }
 }

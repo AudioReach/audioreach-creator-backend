@@ -10,9 +10,11 @@ import {AuthenticationController} from './authentication.controller.js';
 import {AuthenticationService} from './authentication.service.js';
 import {JwtStrategy} from './jwt.strategy.js';
 import {JWT_SECRET, JWT_EXPIRE} from './dto/constants.js';
+import {LoggingModule} from '../../../../infrastructure-wrapper/logging.module.js';
 
 @Module({
   imports: [
+    LoggingModule,
     PassportModule,
     JwtModule.register({
       secret: JWT_SECRET,

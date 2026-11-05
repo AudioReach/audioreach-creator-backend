@@ -64,8 +64,6 @@ import {GetAllSubgraphPropertyDefinitionsQuery} from '../../../definition/subgra
 import {GetAllSubgraphPropertyDefinitionsHandler} from '../../../definition/subgraph-property-definition/get-all/get-all-subgraph-property-definitions.handler.js';
 import {GetSubgraphPropertyDefinitionQuery} from '../../../definition/subgraph-property-definition/get-property/get-subgraph-property-definition.query.js';
 import {GetSubgraphPropertyDefinitionHandler} from '../../../definition/subgraph-property-definition/get-property/get-subgraph-property-definition.handler.js';
-import {GetLogsByProjectQuery} from '../../../logging/get-logs/get-logs-by-project.query.js';
-import {GetLogsByProjectHandler} from '../../../logging/get-logs/get-logs-by-project.handler.js';
 import {GetContainerPropertiesQuery} from '../../../usecase-designer/container/get-properties/get-container-properties.query.js';
 import {GetContainerPropertiesHandler} from '../../../usecase-designer/container/get-properties/get-container-properties.handler.js';
 import {GetContainerPropertyQuery} from '../../../usecase-designer/container/get-property/get-container-property.query.js';
@@ -290,11 +288,6 @@ export class QueryHandlerRegistry {
     this.queryHandlerFactories.set(GetSubgraphPropertyDefinitionQuery, {
       create: (deps: QueryHandlerDependencies) =>
         new GetSubgraphPropertyDefinitionHandler(deps.queryServices),
-    });
-
-    this.queryHandlerFactories.set(GetLogsByProjectQuery, {
-      create: (deps: QueryHandlerDependencies) =>
-        new GetLogsByProjectHandler(deps.queryServices),
     });
 
     this.queryHandlerFactories.set(GetContainerPropertiesQuery, {
