@@ -7,187 +7,498 @@ import {jest} from '@jest/globals';
 import {validate} from 'class-validator';
 import {plainToInstance} from 'class-transformer';
 import {LogController} from '../../../../../../src/presentation/rest/modules/logging/logging.controller.js';
-import {CreateLogEntryRequestDto} from '../../../../../../src/presentation/rest/modules/logging/dto/create-log-entry-request.dto.js';
+import {
+  CreateLogEntryRequestDto,
+  LOG_IDENTIFIER_MAX_LENGTH,
+} from '../../../../../../src/presentation/rest/modules/logging/dto/create-log-entry-request.dto.js';
+import {
+  ClientInstancesRequestDto,
+  ProjectLogsRequestDto,
+} from '../../../../../../src/presentation/rest/modules/logging/dto/log-search-request.dto.js';
+import {CLIENT_NAME_MAX_LENGTH} from '../../../../../../src/presentation/rest/modules/authentication/dto/authentication.dto.js';
+import {BadRequestException} from '@nestjs/common';
 import {LogLevel} from '@arc/core';
-import type {Logger, LogEntryReadModel} from '@arc/core';
+import {
+  InvalidLogCursorError,
+  LOG_SEARCH_DEFAULT_LIMIT,
+  LOG_SEARCH_MAX_LIMIT,
+  LogOrigin,
+  LogSortOrder,
+} from '@arc/logger';
+import type {
+  ClientInstanceReadModel,
+  LogEntryReadModel,
+  LogQueryService,
+  ClientLogWriter,
+} from '@arc/logger';
 
-const makeLogger = (): jest.Mocked<Logger> => ({
-  logVerbose: jest.fn(),
-  logDebug: jest.fn(),
-  logInfo: jest.fn(),
-  logWarn: jest.fn(),
-  logError: jest.fn(),
-  logCritical: jest.fn(),
-});
+const UI = 'audioreach-creator-ui';
+const UI_LAUNCH = '6AA7BF9E-2D6F-4DF7-B87B-9812A493BC52';
+const SERVER_RUN = '11111111-1111-4111-8111-111111111111';
 
-const makeQueryBus = () => ({
-  execute: jest.fn(),
-});
-
-const makeDto = (
-  overrides: Partial<CreateLogEntryRequestDto> = {},
-): CreateLogEntryRequestDto => ({
+const makeCreatePlain = (overrides: Record<string, unknown> = {}) => ({
   level: LogLevel.Info,
-  description: 'test description',
+  eventName: 'project.open.succeeded',
+  description: 'Opened project Demo',
   timestamp: '2026-01-01T00:00:00.000Z',
-  msg: 'test-msg',
-  component: 'TestComponent',
-  tag: 'test-tag',
+  component: 'ProjectView',
+  tag: 'project',
   ...overrides,
 });
 
+const readModel = (
+  overrides: Partial<LogEntryReadModel> = {},
+): LogEntryReadModel => ({
+  systemId: 7,
+  level: LogLevel.Warn,
+  timestamp: '2026-01-01T00:00:00.000Z',
+  eventName: 'project.open.slow',
+  description: 'Opening project Demo took 4 s',
+  component: 'ProjectView',
+  tag: 'project',
+  origin: LogOrigin.Server,
+  clientName: UI,
+  clientInstanceId: UI_LAUNCH.toLowerCase(),
+  serverInstanceId: SERVER_RUN,
+  projectId: 'proj-42',
+  ...overrides,
+});
+
+const instance: ClientInstanceReadModel = {
+  clientName: UI,
+  clientInstanceId: UI_LAUNCH.toLowerCase(),
+  projectIds: ['proj-1', 'proj-2'],
+  firstTimestamp: '2026-01-01T00:00:00.000Z',
+  lastTimestamp: '2026-01-01T00:05:00.000Z',
+  recordCount: 12,
+  errorCount: 1,
+};
+
+const setup = () => {
+  const write = jest.fn<ClientLogWriter['write']>();
+  const searchProjectLogs = jest.fn<LogQueryService['searchProjectLogs']>();
+  const listClientInstances = jest.fn<LogQueryService['listClientInstances']>();
+  const controller = new LogController(
+    {write},
+    {searchProjectLogs, listClientInstances},
+  );
+  return {controller, write, searchProjectLogs, listClientInstances};
+};
+
+const errorsFor = async <T extends object>(
+  cls: new () => T,
+  plain: Record<string, unknown>,
+): Promise<string[]> =>
+  (await validate(plainToInstance(cls, plain))).map(e => e.property);
+
 describe('LogController', () => {
-  describe('log() — POST /arc-api/v1/logs', () => {
-    it('calls logInfo for level Info', () => {
-      const logger = makeLogger();
-      const controller = new LogController(logger, makeQueryBus() as any);
+  describe('POST /arc-api/v1/logs', () => {
+    it('writes the record under the token client name and the header launch', () => {
+      const {controller, write} = setup();
 
-      controller.log(makeDto({level: LogLevel.Info}), 'client-id');
+      controller.log(
+        plainToInstance(
+          CreateLogEntryRequestDto,
+          makeCreatePlain({projectId: 'proj-42', error: 'boom'}),
+        ),
+        UI,
+        UI_LAUNCH.toLowerCase(),
+      );
 
-      expect(logger.logInfo).toHaveBeenCalledTimes(1);
-      expect(logger.logInfo).toHaveBeenCalledWith(
-        expect.objectContaining({
-          msg: 'test-msg',
-          description: 'test description',
-          component: 'TestComponent',
-          tag: 'test-tag',
-          source: 'client-id',
+      expect(write).toHaveBeenCalledWith({
+        level: LogLevel.Info,
+        eventName: 'project.open.succeeded',
+        description: 'Opened project Demo',
+        component: 'ProjectView',
+        tag: 'project',
+        timestamp: new Date('2026-01-01T00:00:00.000Z'),
+        projectId: 'proj-42',
+        error: 'boom',
+        clientName: UI,
+        clientInstanceId: UI_LAUNCH.toLowerCase(),
+      });
+    });
+  });
+
+  describe('GET /arc-api/v1/projects/:projectId/logs', () => {
+    it('applies the default page size and newest-first order', async () => {
+      const {controller, searchProjectLogs} = setup();
+      searchProjectLogs.mockResolvedValue({items: []});
+
+      await controller.getProjectLogs('proj-42', new ProjectLogsRequestDto());
+
+      expect(searchProjectLogs).toHaveBeenCalledWith({
+        projectId: 'proj-42',
+        clientName: undefined,
+        clientInstanceId: undefined,
+        origin: undefined,
+        minLevel: undefined,
+        limit: LOG_SEARCH_DEFAULT_LIMIT,
+        order: LogSortOrder.Desc,
+        cursor: undefined,
+      });
+    });
+
+    it('passes the filters and paging parameters', async () => {
+      const {controller, searchProjectLogs} = setup();
+      searchProjectLogs.mockResolvedValue({items: []});
+
+      await controller.getProjectLogs(
+        'proj-42',
+        plainToInstance(ProjectLogsRequestDto, {
+          clientName: UI,
+          clientInstanceId: UI_LAUNCH,
+          origin: 'CLIENT',
+          minLevel: 'WARN',
+          limit: '5',
+          order: 'asc',
+          cursor: 'abc',
         }),
       );
-    });
 
-    it('calls logVerbose for level Verbose', () => {
-      const logger = makeLogger();
-      const controller = new LogController(logger, makeQueryBus() as any);
-      controller.log(makeDto({level: LogLevel.Verbose}), '');
-      expect(logger.logVerbose).toHaveBeenCalledTimes(1);
-    });
-
-    it('calls logDebug for level Debug', () => {
-      const logger = makeLogger();
-      const controller = new LogController(logger, makeQueryBus() as any);
-      controller.log(makeDto({level: LogLevel.Debug}), '');
-      expect(logger.logDebug).toHaveBeenCalledTimes(1);
-    });
-
-    it('calls logWarn for level Warn', () => {
-      const logger = makeLogger();
-      const controller = new LogController(logger, makeQueryBus() as any);
-      controller.log(makeDto({level: LogLevel.Warn}), '');
-      expect(logger.logWarn).toHaveBeenCalledTimes(1);
-    });
-
-    it('calls logError for level Error', () => {
-      const logger = makeLogger();
-      const controller = new LogController(logger, makeQueryBus() as any);
-      controller.log(makeDto({level: LogLevel.Error}), '');
-      expect(logger.logError).toHaveBeenCalledTimes(1);
-    });
-
-    it('calls logCritical for level Critical', () => {
-      const logger = makeLogger();
-      const controller = new LogController(logger, makeQueryBus() as any);
-      controller.log(makeDto({level: LogLevel.Critical}), '');
-      expect(logger.logCritical).toHaveBeenCalledTimes(1);
-    });
-
-    it('passes dto.error string through verbatim', () => {
-      const logger = makeLogger();
-      const controller = new LogController(logger, makeQueryBus() as any);
-      controller.log(
-        makeDto({level: LogLevel.Error, error: 'something went wrong'}),
-        '',
-      );
-      const call = (logger.logError as jest.Mock).mock.calls[0][0] as any;
-      expect(call.error).toBe('something went wrong');
-    });
-
-    it('leaves error undefined when dto.error is absent', () => {
-      const logger = makeLogger();
-      const controller = new LogController(logger, makeQueryBus() as any);
-      controller.log(makeDto({level: LogLevel.Info}), '');
-      const call = (logger.logInfo as jest.Mock).mock.calls[0][0] as any;
-      expect(call.error).toBeUndefined();
-    });
-  });
-
-  describe('getLogs() — GET /arc-api/v1/projects/:projectId/logs', () => {
-    it('executes GetLogsByProjectQuery and returns mapped DTOs', async () => {
-      const logger = makeLogger();
-      const queryBus = makeQueryBus();
-      const entries: LogEntryReadModel[] = [
-        {
-          systemId: 1,
-          level: 'info',
-          description: 'desc',
-          timestamp: '2026-01-01T00:00:00.000Z',
-          msg: 'test-msg',
-          component: 'Comp',
-          tag: 'tag',
-          source: 'client-id',
-          projectId: 'proj-42',
-        },
-      ];
-      (queryBus.execute as jest.Mock).mockResolvedValue(entries);
-
-      const controller = new LogController(logger, queryBus as any);
-      const result = await controller.getLogs('proj-42', 'client-id');
-
-      expect(queryBus.execute).toHaveBeenCalledTimes(1);
-      expect(result.data).toHaveLength(1);
-      expect(result.data?.[0]).toMatchObject({
-        systemId: '1',
-        level: 'info',
-        description: 'desc',
-        msg: 'test-msg',
-        source: 'client-id',
+      expect(searchProjectLogs).toHaveBeenCalledWith({
         projectId: 'proj-42',
+        clientName: UI,
+        clientInstanceId: UI_LAUNCH.toLowerCase(),
+        origin: LogOrigin.Client,
+        minLevel: LogLevel.Warn,
+        limit: 5,
+        order: LogSortOrder.Asc,
+        cursor: 'abc',
       });
     });
 
-    it('returns empty data array when no entries match', async () => {
-      const queryBus = makeQueryBus();
-      (queryBus.execute as jest.Mock).mockResolvedValue([]);
+    it('maps the page to response DTOs with a string systemId', async () => {
+      const {controller, searchProjectLogs} = setup();
+      searchProjectLogs.mockResolvedValue({
+        items: [
+          readModel(),
+          readModel({
+            systemId: 8,
+            origin: LogOrigin.Client,
+            serverInstanceId: undefined,
+          }),
+        ],
+        nextCursor: 'next',
+      });
 
-      const controller = new LogController(makeLogger(), queryBus as any);
-      const result = await controller.getLogs('proj-99', 'client-id');
+      const result = await controller.getProjectLogs(
+        'proj-42',
+        new ProjectLogsRequestDto(),
+      );
 
-      expect(result.data).toEqual([]);
+      expect(result.data?.nextCursor).toBe('next');
+      expect(result.data?.items).toHaveLength(2);
+      expect({...result.data?.items[0]}).toEqual({
+        ...readModel(),
+        systemId: '7',
+        error: undefined,
+      });
+      expect(result.data?.items[1]).toMatchObject({
+        systemId: '8',
+        origin: LogOrigin.Client,
+        serverInstanceId: undefined,
+      });
+    });
+
+    it('omits nextCursor on the last page', async () => {
+      const {controller, searchProjectLogs} = setup();
+      searchProjectLogs.mockResolvedValue({items: [readModel()]});
+
+      const result = await controller.getProjectLogs(
+        'proj-42',
+        new ProjectLogsRequestDto(),
+      );
+
+      expect(result.data).not.toHaveProperty('nextCursor');
+    });
+
+    it('returns totalCount when the query service gives one', async () => {
+      const {controller, searchProjectLogs} = setup();
+      searchProjectLogs.mockResolvedValue({items: [], totalCount: 0});
+
+      const result = await controller.getProjectLogs(
+        'proj-42',
+        new ProjectLogsRequestDto(),
+      );
+
+      expect(result.data?.totalCount).toBe(0);
+    });
+
+    it('omits totalCount when the query service gives none', async () => {
+      const {controller, searchProjectLogs} = setup();
+      searchProjectLogs.mockResolvedValue({items: [readModel()]});
+
+      const result = await controller.getProjectLogs(
+        'proj-42',
+        new ProjectLogsRequestDto(),
+      );
+
+      expect(result.data).not.toHaveProperty('totalCount');
+    });
+
+    it('turns an invalid cursor into 400 ERR_1004', async () => {
+      const {controller, searchProjectLogs} = setup();
+      const failure = new InvalidLogCursorError('order mismatch');
+      searchProjectLogs.mockRejectedValue(failure);
+
+      const rejection = controller.getProjectLogs(
+        'proj-42',
+        new ProjectLogsRequestDto(),
+      );
+
+      await expect(rejection).rejects.toBeInstanceOf(BadRequestException);
+      await expect(rejection).rejects.toMatchObject({
+        message: 'Invalid log cursor: order mismatch',
+        response: {errorCode: 'ERR_1004'},
+        cause: failure,
+      });
+    });
+
+    it('lets a database failure reach the exception filter unchanged', async () => {
+      const {controller, searchProjectLogs} = setup();
+      const failure = new Error('DB error');
+      searchProjectLogs.mockRejectedValue(failure);
+
+      await expect(
+        controller.getProjectLogs('proj-42', new ProjectLogsRequestDto()),
+      ).rejects.toBe(failure);
     });
   });
 
-  describe('CreateLogEntryRequestDto — timestamp validation', () => {
-    const makeValidPlain = () => ({
-      level: LogLevel.Info,
-      description: 'desc',
-      timestamp: '2026-01-01T00:00:00.000Z',
-      msg: 'msg',
-      component: 'Comp',
-      tag: 'tag',
-    });
+  describe('GET /arc-api/v1/client-instances', () => {
+    it('applies the default page size', async () => {
+      const {controller, listClientInstances} = setup();
+      listClientInstances.mockResolvedValue({items: []});
 
-    it('accepts a valid ISO-8601 timestamp', async () => {
-      const dto = plainToInstance(CreateLogEntryRequestDto, makeValidPlain());
-      const errors = await validate(dto);
-      expect(errors.find(e => e.property === 'timestamp')).toBeUndefined();
-    });
+      await controller.getClientInstances(new ClientInstancesRequestDto());
 
-    it('rejects a non-date string', async () => {
-      const dto = plainToInstance(CreateLogEntryRequestDto, {
-        ...makeValidPlain(),
-        timestamp: 'not-a-date',
+      expect(listClientInstances).toHaveBeenCalledWith({
+        clientName: undefined,
+        limit: LOG_SEARCH_DEFAULT_LIMIT,
+        cursor: undefined,
       });
-      const errors = await validate(dto);
-      expect(errors.find(e => e.property === 'timestamp')).toBeDefined();
     });
 
-    it('rejects an empty timestamp', async () => {
-      const dto = plainToInstance(CreateLogEntryRequestDto, {
-        ...makeValidPlain(),
-        timestamp: '',
+    it('passes the filter and paging parameters', async () => {
+      const {controller, listClientInstances} = setup();
+      listClientInstances.mockResolvedValue({items: []});
+
+      await controller.getClientInstances(
+        plainToInstance(ClientInstancesRequestDto, {
+          clientName: UI,
+          limit: '3',
+          cursor: 'abc',
+        }),
+      );
+
+      expect(listClientInstances).toHaveBeenCalledWith({
+        clientName: UI,
+        limit: 3,
+        cursor: 'abc',
       });
-      const errors = await validate(dto);
-      expect(errors.find(e => e.property === 'timestamp')).toBeDefined();
+    });
+
+    it('maps the page to response DTOs', async () => {
+      const {controller, listClientInstances} = setup();
+      listClientInstances.mockResolvedValue({
+        items: [instance],
+        nextCursor: 'next',
+      });
+
+      const result = await controller.getClientInstances(
+        new ClientInstancesRequestDto(),
+      );
+
+      expect(result.data?.nextCursor).toBe('next');
+      expect({...result.data?.items[0]}).toEqual(instance);
+    });
+
+    it('turns an invalid cursor into 400 ERR_1004', async () => {
+      const {controller, listClientInstances} = setup();
+      listClientInstances.mockRejectedValue(
+        new InvalidLogCursorError('filter mismatch'),
+      );
+
+      await expect(
+        controller.getClientInstances(new ClientInstancesRequestDto()),
+      ).rejects.toMatchObject({
+        status: 400,
+        response: {errorCode: 'ERR_1004'},
+      });
+    });
+
+    it('omits nextCursor on the last page', async () => {
+      const {controller, listClientInstances} = setup();
+      listClientInstances.mockResolvedValue({items: [instance]});
+
+      const result = await controller.getClientInstances(
+        new ClientInstancesRequestDto(),
+      );
+
+      expect(result.data).not.toHaveProperty('nextCursor');
+    });
+
+    it('returns totalCount when the query service gives one, else omits it', async () => {
+      const {controller, listClientInstances} = setup();
+      listClientInstances.mockResolvedValueOnce({
+        items: [instance],
+        totalCount: 3,
+      });
+      listClientInstances.mockResolvedValueOnce({items: [instance]});
+
+      const first = await controller.getClientInstances(
+        new ClientInstancesRequestDto(),
+      );
+      const later = await controller.getClientInstances(
+        new ClientInstancesRequestDto(),
+      );
+
+      expect(first.data?.totalCount).toBe(3);
+      expect(later.data).not.toHaveProperty('totalCount');
+    });
+  });
+
+  describe('CreateLogEntryRequestDto validation', () => {
+    it('accepts a valid record', async () => {
+      expect(
+        await errorsFor(CreateLogEntryRequestDto, makeCreatePlain()),
+      ).toEqual([]);
+    });
+
+    it.each(['eventName', 'component', 'tag'])(
+      'limits %s to the identifier length',
+      async field => {
+        const atLimit = 'a'.repeat(LOG_IDENTIFIER_MAX_LENGTH);
+        expect(
+          await errorsFor(
+            CreateLogEntryRequestDto,
+            makeCreatePlain({[field]: atLimit}),
+          ),
+        ).toEqual([]);
+        expect(
+          await errorsFor(
+            CreateLogEntryRequestDto,
+            makeCreatePlain({[field]: `${atLimit}a`}),
+          ),
+        ).toEqual([field]);
+      },
+    );
+
+    it('does not limit description or error per field', async () => {
+      const long = 'a'.repeat(10_000);
+      expect(
+        await errorsFor(
+          CreateLogEntryRequestDto,
+          makeCreatePlain({description: long, error: long}),
+        ),
+      ).toEqual([]);
+    });
+
+    it.each(['eventName', 'component'])('requires %s', async field => {
+      expect(
+        await errorsFor(
+          CreateLogEntryRequestDto,
+          makeCreatePlain({[field]: undefined}),
+        ),
+      ).toEqual([field]);
+    });
+
+    it.each([
+      ['a non-date string', 'not-a-date'],
+      ['an empty string', ''],
+    ])('rejects %s as timestamp', async (_label, timestamp) => {
+      expect(
+        await errorsFor(CreateLogEntryRequestDto, makeCreatePlain({timestamp})),
+      ).toEqual(['timestamp']);
+    });
+
+    it.each([
+      'msg',
+      'serviceName',
+      'serviceInstanceId',
+      'clientName',
+      'clientInstanceId',
+    ])(
+      'rejects the %s field under the global whitelist settings',
+      async field => {
+        const errors = await validate(
+          plainToInstance(
+            CreateLogEntryRequestDto,
+            makeCreatePlain({[field]: 'x'}),
+          ),
+          {whitelist: true, forbidNonWhitelisted: true},
+        );
+        expect(errors.map(e => e.property)).toEqual([field]);
+      },
+    );
+  });
+
+  describe('log search request validation', () => {
+    it.each([
+      ['0', ['limit']],
+      ['1', []],
+      [String(LOG_SEARCH_MAX_LIMIT), []],
+      [String(LOG_SEARCH_MAX_LIMIT + 1), ['limit']],
+      ['ten', ['limit']],
+    ])('limit=%s gives errors %j', async (limit, expected) => {
+      expect(await errorsFor(ProjectLogsRequestDto, {limit})).toEqual(expected);
+      expect(await errorsFor(ClientInstancesRequestDto, {limit})).toEqual(
+        expected,
+      );
+    });
+
+    it('rejects an unknown order', async () => {
+      expect(await errorsFor(ProjectLogsRequestDto, {order: 'up'})).toEqual([
+        'order',
+      ]);
+    });
+
+    it('rejects an unknown origin', async () => {
+      expect(await errorsFor(ProjectLogsRequestDto, {origin: 'ui'})).toEqual([
+        'origin',
+      ]);
+    });
+
+    it('rejects an unknown minLevel', async () => {
+      expect(
+        await errorsFor(ProjectLogsRequestDto, {minLevel: 'warning'}),
+      ).toEqual(['minLevel']);
+    });
+
+    it.each([
+      ['origin', 'client'],
+      ['minLevel', 'warn'],
+    ])('rejects lowercase %s=%s', async (field, value) => {
+      expect(await errorsFor(ProjectLogsRequestDto, {[field]: value})).toEqual([
+        field,
+      ]);
+    });
+
+    it('rejects a non-UUID clientInstanceId', async () => {
+      expect(
+        await errorsFor(ProjectLogsRequestDto, {clientInstanceId: 'x'}),
+      ).toEqual(['clientInstanceId']);
+    });
+
+    it.each([ProjectLogsRequestDto, ClientInstancesRequestDto])(
+      '%p limits clientName to the registration limit',
+      async cls => {
+        const atLimit = 'a'.repeat(CLIENT_NAME_MAX_LENGTH);
+        expect(await errorsFor(cls, {clientName: atLimit})).toEqual([]);
+        expect(await errorsFor(cls, {clientName: `${atLimit}a`})).toEqual([
+          'clientName',
+        ]);
+        expect(await errorsFor(cls, {clientName: ''})).toEqual(['clientName']);
+      },
+    );
+
+    it('does not accept order on client-instances', async () => {
+      const errors = await validate(
+        plainToInstance(ClientInstancesRequestDto, {order: 'asc'}),
+        {whitelist: true, forbidNonWhitelisted: true},
+      );
+      expect(errors.map(e => e.property)).toEqual(['order']);
     });
   });
 });

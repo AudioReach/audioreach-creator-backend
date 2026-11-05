@@ -3,27 +3,35 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {LogEntryBase} from './log-entry-base.js';
-
 export const LogLevel = {
-  Verbose: 'verbose',
-  Debug: 'debug',
-  Info: 'info',
-  Warn: 'warn',
-  Error: 'error',
-  Critical: 'critical',
+  Verbose: 'VERBOSE',
+  Debug: 'DEBUG',
+  Info: 'INFO',
+  Warn: 'WARN',
+  Error: 'ERROR',
+  Critical: 'CRITICAL',
 } as const;
 
 export type LogLevel = (typeof LogLevel)[keyof typeof LogLevel];
 
-export const LogSource = {Server: 'Server'} as const;
-export type LogSource = (typeof LogSource)[keyof typeof LogSource];
-
-export interface LogData extends Omit<LogEntryBase, 'error' | 'source'> {
+/**
+ * What server code passes to the `Logger`. It describes the server's own
+ * work only; the writing service and request context are added by the
+ * logging infrastructure, and client-submitted records do not use it.
+ */
+export interface LogData {
+  /** Stable operation identifier used for grouping related log entries */
+  msg: string;
+  /** Detailed, contextual description of the logged event */
+  description: string;
+  /** Project or workspace associated with the log entry */
+  projectId?: string;
+  /** Component, service, or module that emitted the log entry */
+  component: string;
+  /** Feature or category used to group log entries */
+  tag: string;
   /** Timestamp when the log event occurred; defaults to the current time */
   timestamp?: Date;
-  /** Origin of the log entry; defaults to the server */
-  source?: string;
   /** The caught error, or preformatted text when no Error object exists */
   error?: Error | string;
 }

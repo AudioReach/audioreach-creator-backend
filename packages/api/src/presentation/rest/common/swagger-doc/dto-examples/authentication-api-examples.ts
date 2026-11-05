@@ -10,7 +10,7 @@ import {
 
 export const RegisterDtoExample = {
   getExample(): RegisterDto {
-    const dto = new RegisterDto('client-123');
+    const dto = new RegisterDto('audioreach-creator-ui');
     return dto;
   },
 };
@@ -21,7 +21,7 @@ export const RegisterResponseDataExample = {
       data: {
         token: 'jwt.token.here',
         clientId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-        clientName: 'client-123',
+        clientName: 'audioreach-creator-ui',
       },
     };
   },

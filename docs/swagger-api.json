@@ -6,8 +6,8 @@
         "operationId": "AuthenticationController_register",
         "parameters": [],
         "requestBody": {
-          "required": false,
-          "description": "Optional Request body parameter type: RegisterDto",
+          "required": true,
+          "description": "Request body parameter type: RegisterDto",
           "content": {
             "application/json": {
               "schema": {
@@ -17,7 +17,7 @@
                 "default": {
                   "summary": "Example RegisterDto",
                   "value": {
-                    "clientName": "client-123"
+                    "clientName": "audioreach-creator-ui"
                   }
                 }
               }
@@ -49,7 +49,7 @@
                       "data": {
                         "token": "jwt.token.here",
                         "clientId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-                        "clientName": "client-123"
+                        "clientName": "audioreach-creator-ui"
                       }
                     }
                   }
@@ -58,7 +58,7 @@
             }
           },
           "400": {
-            "description": "Failed to register client"
+            "description": "clientName is missing or invalid"
           }
         },
         "summary": "Register client",
@@ -8820,8 +8820,19 @@
     },
     "/arc-api/v1/logs": {
       "post": {
+        "description": "The record is attributed to the client name in the access token and the launch in X-ARC-Client-Instance-Id.",
         "operationId": "LogController_log",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "X-ARC-Client-Instance-Id",
+            "in": "header",
+            "description": "UUID of the launch that wrote the record",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -8834,10 +8845,10 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "Record accepted; the response body is empty"
           }
         },
-        "summary": "Submit a client log entry",
+        "summary": "Submit a client log record",
         "tags": [
           "Logging"
         ]
@@ -8845,7 +8856,8 @@
     },
     "/arc-api/v1/projects/{projectId}/logs": {
       "get": {
-        "operationId": "LogController_getLogs",
+        "description": "Client and server records, filtered by client, launch, origin and minimum level. Filters combine with AND; filters that cannot all match return no records.",
+        "operationId": "LogController_getProjectLogs",
         "parameters": [
           {
             "name": "projectId",
@@ -8854,14 +8866,164 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 200,
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "The nextCursor of the previous page. Valid only with the same filters (and order); anything else is rejected with 400.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "clientName",
+            "required": false,
+            "in": "query",
+            "description": "Only records belonging to this client: the ones it submitted and the server records written for its requests.",
+            "schema": {
+              "maxLength": 256,
+              "type": "string"
+            }
+          },
+          {
+            "name": "clientInstanceId",
+            "required": false,
+            "in": "query",
+            "description": "Only records belonging to this client launch, by the same rule.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "origin",
+            "required": false,
+            "in": "query",
+            "description": "Only records the client submitted, or only server records.",
+            "schema": {
+              "$ref": "#/components/schemas/LogOrigin"
+            }
+          },
+          {
+            "name": "minLevel",
+            "required": false,
+            "in": "query",
+            "description": "Only records at this level or more severe; WARN gives WARN, ERROR and CRITICAL.",
+            "schema": {
+              "$ref": "#/components/schemas/LogLevel"
+            }
+          },
+          {
+            "name": "order",
+            "required": false,
+            "in": "query",
+            "description": "Sort by (timestamp, systemId); desc is newest first.",
+            "schema": {
+              "$ref": "#/components/schemas/LogSortOrder"
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "One page of log records",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/LogEntryPageResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
           }
         },
-        "summary": "Get log entries for a project",
+        "summary": "Get the log records of a project",
+        "tags": [
+          "Logging"
+        ]
+      }
+    },
+    "/arc-api/v1/client-instances": {
+      "get": {
+        "description": "Newest lastTimestamp first.",
+        "operationId": "LogController_getClientInstances",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 200,
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "The nextCursor of the previous page. Valid only with the same filters (and order); anything else is rejected with 400.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "clientName",
+            "required": false,
+            "in": "query",
+            "description": "Only launches of this client.",
+            "schema": {
+              "maxLength": 256,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of client launches",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ClientInstancePageResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "List client launches that have project log records",
         "tags": [
           "Logging"
         ]
@@ -9107,9 +9269,13 @@
         "properties": {
           "clientName": {
             "type": "string",
-            "description": "Client name"
+            "description": "Name of the client application, such as `audioreach-creator-ui`. It is signed into the token and recorded with the logs of every request the client makes. Must not be `audioreach-creator-api`.",
+            "maxLength": 256
           }
-        }
+        },
+        "required": [
+          "clientName"
+        ]
       },
       "RegisterResponseDto": {
         "type": "object",
@@ -18618,34 +18784,46 @@
           "controlLinks"
         ]
       },
+      "LogLevel": {
+        "type": "string",
+        "enum": [
+          "VERBOSE",
+          "DEBUG",
+          "INFO",
+          "WARN",
+          "ERROR",
+          "CRITICAL"
+        ]
+      },
       "CreateLogEntryRequestDto": {
         "type": "object",
         "properties": {
           "level": {
-            "type": "string",
-            "enum": [
-              "verbose",
-              "debug",
-              "info",
-              "warn",
-              "error",
-              "critical"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LogLevel"
+              }
             ]
+          },
+          "eventName": {
+            "type": "string",
+            "maxLength": 256,
+            "description": "Stable dotted event name, such as project.open.succeeded"
           },
           "description": {
             "type": "string"
           },
           "timestamp": {
-            "type": "string"
-          },
-          "msg": {
-            "type": "string"
+            "type": "string",
+            "description": "When the client produced the record"
           },
           "component": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 256
           },
           "tag": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 256
           },
           "projectId": {
             "type": "string"
@@ -18656,11 +18834,182 @@
         },
         "required": [
           "level",
+          "eventName",
           "description",
           "timestamp",
-          "msg",
           "component",
           "tag"
+        ]
+      },
+      "LogOrigin": {
+        "type": "string",
+        "enum": [
+          "CLIENT",
+          "SERVER"
+        ],
+        "description": "CLIENT: submitted through POST /logs; SERVER: written by the API"
+      },
+      "LogEntryResponseDto": {
+        "type": "object",
+        "properties": {
+          "systemId": {
+            "type": "string"
+          },
+          "level": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LogLevel"
+              }
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "When the record was produced, ISO-8601"
+          },
+          "eventName": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "component": {
+            "type": "string"
+          },
+          "tag": {
+            "type": "string"
+          },
+          "origin": {
+            "description": "CLIENT: submitted through POST /logs; SERVER: written by the API",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LogOrigin"
+              }
+            ]
+          },
+          "clientName": {
+            "type": "string",
+            "description": "The client that submitted the record, or the client a server record was written for"
+          },
+          "clientInstanceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The client launch the record belongs to, by the same rule"
+          },
+          "serverInstanceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Server records only: the API run that wrote the record"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "systemId",
+          "level",
+          "timestamp",
+          "eventName",
+          "description",
+          "component",
+          "tag",
+          "origin"
+        ]
+      },
+      "LogEntryPageResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LogEntryResponseDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "Pass as cursor to get the next page; omitted on the last page"
+          },
+          "totalCount": {
+            "type": "number",
+            "description": "First page only (no cursor): the number of records matching the filter when the page was read. An estimate for progress; the listing is complete when nextCursor is absent."
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "LogSortOrder": {
+        "type": "string",
+        "enum": [
+          "desc",
+          "asc"
+        ]
+      },
+      "ClientInstanceResponseDto": {
+        "type": "object",
+        "properties": {
+          "clientName": {
+            "type": "string"
+          },
+          "clientInstanceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projectIds": {
+            "description": "Projects the launch has records for, ascending",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "firstTimestamp": {
+            "type": "string",
+            "description": "Earliest record timestamp, ISO-8601"
+          },
+          "lastTimestamp": {
+            "type": "string",
+            "description": "Latest record timestamp, ISO-8601"
+          },
+          "recordCount": {
+            "type": "number",
+            "description": "Number of project records of the launch"
+          },
+          "errorCount": {
+            "type": "number",
+            "description": "How many of them are ERROR or CRITICAL"
+          }
+        },
+        "required": [
+          "clientInstanceId",
+          "projectIds",
+          "firstTimestamp",
+          "lastTimestamp",
+          "recordCount",
+          "errorCount"
+        ]
+      },
+      "ClientInstancePageResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClientInstanceResponseDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "Pass as cursor to get the next page; omitted on the last page"
+          },
+          "totalCount": {
+            "type": "number",
+            "description": "First page only (no cursor): the number of launches matching the filter when the page was read. An estimate for progress; the listing is complete when nextCursor is absent."
+          }
+        },
+        "required": [
+          "items"
         ]
       }
     }

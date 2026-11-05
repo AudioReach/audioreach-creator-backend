@@ -12,6 +12,9 @@ import {
   resetDatabase,
 } from './test-app.factory.js';
 
+/** The client name the shared e2e registration uses. */
+export const E2E_CLIENT_NAME = 'audioreach-e2e-test';
+
 /**
  * Setup helper for E2E tests
  * Creates a test application with in-memory database and production authentication
@@ -46,7 +49,7 @@ export async function setupE2ETest(): Promise<{
 
   const registrationResponse = await request(httpServer)
     .post('/arc-api/v1/auth/register')
-    .send({clientName: 'audioreach-e2e-test'})
+    .send({clientName: E2E_CLIENT_NAME})
     .expect(201);
   const authToken = registrationResponse.body.data.token as string;
 

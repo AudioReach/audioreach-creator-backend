@@ -5,7 +5,7 @@
 
 import {Transform} from 'node:stream';
 import type {DataSource} from 'typeorm';
-import {LogLevel, LogSource} from '@arc/core';
+import {LogLevel} from '@arc/core';
 import {LogEntrySchema} from '../entity-schema/log-entry.schema.js';
 import type {LogEntryRow} from '../entity-schema/log-entry.schema.js';
 
@@ -46,13 +46,19 @@ export class PinoSQLiteTransport extends Transform {
           entry['timestamp'] != null
             ? new Date(entry['timestamp'] as string)
             : new Date(),
-        source: (entry['source'] as string) ?? LogSource.Server,
         projectId: (entry['projectId'] as string) ?? undefined,
         component: (entry['component'] as string) ?? '',
         tag: (entry['tag'] as string) ?? '',
-        msg: (entry['msg'] as string) ?? '',
+        // Server records still carry the event name in `msg` until PR 1.3;
+        // client-submitted records carry `eventName`.
+        eventName:
+          (entry['eventName'] as string) ?? (entry['msg'] as string) ?? '',
         description: (entry['description'] as string) ?? '',
         error: entry['error'] ? JSON.stringify(entry['error']) : undefined,
+        serviceName: (entry['serviceName'] as string) ?? '',
+        serviceInstanceId: (entry['serviceInstanceId'] as string) ?? '',
+        clientName: (entry['clientName'] as string) ?? undefined,
+        clientInstanceId: (entry['clientInstanceId'] as string) ?? undefined,
       })
       .execute();
   }

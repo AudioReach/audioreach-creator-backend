@@ -51,6 +51,44 @@ const DOMAIN_STATUS_MAP = new Map<DomainExceptionClass, number>([
   [DuplicateLinkException, HttpStatus.CONFLICT],
 ]);
 
+/**
+ * A 4xx error raised by Express middleware before the request reaches Nest,
+ * so it is not a Nest `HttpException`. Express middleware creates these with
+ * the `http-errors` library; the JSON body parser raises, for example:
+ *
+ * - 413 Payload Too Large: the body is over the 100 KB limit. For instance a
+ *   client sends a log through `POST /logs` that is too big; Express rejects
+ *   it before the logging controller or `ClientLogWriter` runs.
+ * - 415 Unsupported Media Type: the body uses an unsupported charset or
+ *   content encoding.
+ * - 400 Bad Request: for instance a body whose length does not match its
+ *   `Content-Length`. (Malformed JSON is different: Nest already turns it
+ *   into a `BadRequestException`.)
+ *
+ * Without this check such errors would be answered as 500. `expose: true` is
+ * the `http-errors` flag that marks the message as safe to return to the
+ * caller; the library sets it by default for every status below 500.
+ */
+interface ExpressClientError extends Error {
+  status: number;
+  expose: true;
+}
+
+function isExpressClientError(
+  exception: unknown,
+): exception is ExpressClientError {
+  if (!(exception instanceof Error)) {
+    return false;
+  }
+  const {status, expose} = exception as Partial<ExpressClientError>;
+  return (
+    expose === true &&
+    typeof status === 'number' &&
+    status >= 400 &&
+    status < 500
+  );
+}
+
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   constructor(@Inject('LOGGER') private readonly logger: Logger) {}
@@ -153,6 +191,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }
       return {
         status,
+        errorCode: exception.name,
+        details: undefined,
+        issues: undefined,
+      };
+    }
+    if (isExpressClientError(exception)) {
+      return {
+        status: exception.status,
         errorCode: exception.name,
         details: undefined,
         issues: undefined,

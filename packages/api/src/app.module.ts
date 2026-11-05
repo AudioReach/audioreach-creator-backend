@@ -4,6 +4,7 @@
  */
 
 import {Module} from '@nestjs/common';
+import {APP_GUARD} from '@nestjs/core';
 import type {NestModule, MiddlewareConsumer} from '@nestjs/common';
 import {ConfigModule} from '@nestjs/config';
 import {AuthenticationModule} from './presentation/rest/modules/authentication/authentication.module.js';
@@ -25,6 +26,7 @@ import {ModuleDefinitionModule} from './presentation/rest/modules/definition/mod
 import {SpfCustomModuleSchemaModule} from './presentation/rest/modules/definition/spf-custom-module-schema/spf-custom-module-schema.module.js';
 import {RequestLoggerMiddleware} from './infrastructure-wrapper/middleware/request-logger.middleware.js';
 import {LogModule} from './presentation/rest/modules/logging/logging.module.js';
+import {ProjectLogContextGuard} from './guards/project-log-context.guard.js';
 
 @Module({
   imports: [
@@ -52,7 +54,7 @@ import {LogModule} from './presentation/rest/modules/logging/logging.module.js';
   ],
 
   controllers: [],
-  providers: [],
+  providers: [{provide: APP_GUARD, useClass: ProjectLogContextGuard}],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

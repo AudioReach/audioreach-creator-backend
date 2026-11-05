@@ -227,6 +227,10 @@ export default [
             'ipcTxId',
             'ipcRxId',
             'HeapId',
+            // OpenTelemetry service.instance.id values: UUIDs, not system IDs.
+            'serviceInstanceId',
+            'clientInstanceId',
+            'serverInstanceId',
           ],
         },
       ],

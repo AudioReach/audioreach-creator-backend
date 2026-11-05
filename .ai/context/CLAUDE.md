@@ -255,7 +255,7 @@ All other endpoints exist in controllers but return "not implemented". Do not as
 3. Avoid over-engineering unless driven by a concrete requirement
 4. Preserve stateless HTTP semantics
 5. Prefer explicit contracts (DTO validation, invariants, idempotency)
-6. Do not bypass CQRS
+6. Do not bypass CQRS. Exception: log reads. Logs are operational data, not domain data, so `@arc/logger` owns the read contract (`LogQueryService`) and the API logging controller calls it directly, the same way `POST /logs` calls `ClientLogWriter`. Core keeps only the write side (`Logger`, `LogData`, `LogLevel`).
 7. Do not couple domain logic to NestJS, TypeORM, or worker implementations
 
 ## Standards (Apply When Relevant)

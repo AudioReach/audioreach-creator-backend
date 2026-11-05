@@ -21,7 +21,6 @@ import type {
   IdGenerationPort,
   NaturalIdGenerationPort,
   ISessionRepository,
-  LogQueryService,
 } from '@arc/core';
 import {DataSourceProvider} from './database/providers/data-source-provider.js';
 import {createTypeOrmUnitOfWorkFactory} from './persistence/unit-of-work/typeorm-unit-of-work.factory.js';
@@ -73,12 +72,9 @@ import {LoggingModule} from './logging.module.js';
     },
     {
       provide: 'QUERY_SERVICES',
-      useFactory: (
-        dataSource: DataSource,
-        logQueryService: LogQueryService,
-        logger: Logger,
-      ) => new DbQueryServices(dataSource, logQueryService, logger),
-      inject: ['DATA_SOURCE', 'LOG_QUERY_SERVICE', 'LOGGER'],
+      useFactory: (dataSource: DataSource, logger: Logger) =>
+        new DbQueryServices(dataSource, logger),
+      inject: ['DATA_SOURCE', 'LOGGER'],
     },
     {
       provide: 'UNIT_OF_WORK_FACTORY',

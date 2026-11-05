@@ -87,6 +87,39 @@ describe('AllExceptionsFilter', () => {
     );
   });
 
+  /** Builds an error shaped like the `http-errors` the body parser throws. */
+  const httpError = (name: string, status: number, expose: boolean) =>
+    Object.assign(new Error(`${name} message`), {name, status, expose});
+
+  it.each([
+    ['PayloadTooLargeError', 413],
+    ['BadRequestError', 400],
+    ['UnsupportedMediaTypeError', 415],
+  ])('keeps the status of an exposed %s (%i)', (name, status) => {
+    filter.catch(httpError(name, status, true), mockHost as any);
+    expect(mockResponse.status).toHaveBeenCalledWith(status);
+    expect(mockResponse.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: status,
+        errorCode: name,
+        message: `${name} message`,
+      }),
+    );
+    expect(mockLogger.logWarn).toHaveBeenCalled();
+    expect(mockLogger.logError).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['not exposed', httpError('BadRequestError', 400, false)],
+    ['a 5xx status', httpError('InternalServerError', 503, true)],
+  ])('maps an http error that is %s to 500', (_label, exception) => {
+    filter.catch(exception, mockHost as any);
+    expect(mockResponse.status).toHaveBeenCalledWith(500);
+    expect(mockResponse.json).toHaveBeenCalledWith(
+      expect.objectContaining({errorCode: 'INTERNAL_SERVER_ERROR'}),
+    );
+  });
+
   it('maps DomainNotImplementedException to 501', () => {
     const exception = new DomainNotImplementedException('getSubgraphs');
     filter.catch(exception, mockHost as any);
