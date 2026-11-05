@@ -56,7 +56,7 @@
     },
     "coverage:api": {
       "dependsOn": ["@arc/api#build"],
-      "outputs": ["coverage/**"],
+      "outputs": ["coverage/**", "test-results/**"],
       "inputs": [
         "src/**/*.ts",
         "tests/**/*.ts",
@@ -67,7 +67,7 @@
       "cache": true
     },
     "coverage:core": {
-      "outputs": ["coverage/**"],
+      "outputs": ["coverage/**", "test-results/**"],
       "inputs": [
         "src/**/*.ts",
         "tests/**/*.ts",
@@ -77,7 +77,7 @@
       "cache": true
     },
     "coverage:persistence": {
-      "outputs": ["coverage/**"],
+      "outputs": ["coverage/**", "test-results/**"],
       "inputs": [
         "src/**/*.ts",
         "tests/**/*.ts",
@@ -86,10 +86,17 @@
       ],
       "cache": true
     },
-    "coverage:workspace": {
-      "dependsOn": ["coverage:api", "coverage:core", "coverage:persistence"],
-      "outputs": ["coverage/**", "temp-coverage/**"],
+    "//#coverage:workspace": {
+      "dependsOn": [
+        "@arc/api#coverage:api",
+        "@arc/core#coverage:core",
+        "@arc/persistence#coverage:persistence"
+      ],
+      "outputs": ["coverage/**", "temp-coverage/**", "test-results/**"],
       "inputs": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "scripts/merge-junit-reports.mjs",
         "packages/api/coverage/coverage-final.json",
         "packages/core/coverage/coverage-final.json",
         "packages/infrastructure/persistence/coverage/coverage-final.json",
