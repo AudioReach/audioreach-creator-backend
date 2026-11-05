@@ -38,7 +38,7 @@ jobs:
       - name: 🔧 Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: 🔧 Enable Corepack (for pnpm)
         run: corepack enable
@@ -104,20 +104,20 @@ jobs:
         id: test
         run: |
           echo "🧪 Running tests..."
-          pnpm turbo run coverage:workspace
+          pnpm coverage
         continue-on-error: false
 
       - name: 📊 Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
-        if: steps.test.outcome != 'skipped'
+        if: always() && steps.test.outcome != 'skipped'
         with:
-          files: 'packages/*/test-results/merged-results.xml'
+          files: 'test-results/merged-results.xml'
           check_name: Test Results
           comment_mode: off
 
       - name: 📤 Upload Test Artifacts
         uses: actions/upload-artifact@v4
-        if: steps.test.outcome != 'skipped'
+        if: always() && steps.test.outcome != 'skipped'
         with:
           name: test-results
           path: |
@@ -127,12 +127,14 @@ jobs:
 
       - name: 📤 Upload Coverage Artifacts
         uses: actions/upload-artifact@v4
-        if: steps.test.outcome != 'skipped'
+        if: always()
         with:
           name: coverage-report
           path: |
-            coverage/merged/index.html
             coverage/merged/**/*
+            packages/api/coverage/**/*
+            packages/core/coverage/**/*
+            packages/infrastructure/persistence/coverage/**/*
           retention-days: 14
           if-no-files-found: warn
 
