@@ -109,6 +109,17 @@ export interface ControlLinkDownloadModel {
 }
 
 /**
+ * SCLU data and control links for a single subgraph pair (for SubgraphPairDataChunk reconstruction).
+ * A pair is any cross-subgraph link that is not InterUsecase type.
+ */
+export interface SubgraphPairDownloadModel {
+  srcSubgraphNaturalId: number;
+  dstSubgraphNaturalId: number;
+  dataLinks: DataLinkDownloadModel[];
+  controlLinks: ControlLinkDownloadModel[];
+}
+
+/**
  * Voice tag mapping for file download.
  */
 export interface VoiceTagDownloadModel {
@@ -122,13 +133,15 @@ export interface VoiceTagDownloadModel {
  * Complete subgraph data for file download.
  * Flattened structure optimized for ACDB binary serialization.
  * Audio/voice classification is determined in the application layer
- * by reading properties[] with isVoiceSubgraph().
+ * by reading spfProperties[] with isVoiceSubgraph().
  */
 export interface SubgraphDownloadModel {
   /** Subgraph natural ID */
   naturalId: number;
-  /** Subgraph properties — includes scenario ID payload used for voice detection */
-  properties: SubgraphPropertyDownloadModel[];
+  /** SPF orchestrator properties (PROPERTY_TYPE.Spf) — includes scenario ID payload used for voice detection */
+  spfProperties: SubgraphPropertyDownloadModel[];
+  /** Driver-section properties (PROPERTY_TYPE.Driver), serialized before the SPF orchestrator block */
+  driverProperties: SubgraphPropertyDownloadModel[];
   /** Modules in this subgraph */
   modules: ModuleDownloadModel[];
   /** Data links for this subgraph */
@@ -173,7 +186,7 @@ export interface UsecaseDataDownloadModel {
 /**
  * Unified calibration data per subgraph.
  * Contains both audio and voice calibration — no SQL-level filtering.
- * Application layer splits into audio/voice using SubgraphDownloadModel.properties
+ * Application layer splits into audio/voice using SubgraphDownloadModel.spfProperties
  * already present in DownloadEntities.
  * CQRS read model optimized for file download operations.
  */
@@ -342,6 +355,8 @@ export interface SpfParamDefDownloadModel {
   pidType: string;
   elementsStructure: string; // raw JSON
   isReadOnly: boolean;
+  isHidden?: boolean;
+  deprecated?: boolean;
   toolPolicies?: string; // raw JSON array string
   copySrcParamNaturalId?: number;
 }
@@ -369,6 +384,7 @@ export interface DataPortGroupDownloadModel {
 export interface StaticIntentDownloadModel {
   intentNaturalId: number;
   name: string;
+  maxPortCount?: number;
 }
 
 /**
@@ -398,6 +414,9 @@ export interface SpfModuleDefinitionDownloadModel {
   displayName?: string;
   description?: string;
   groupName?: string;
+  replacedBy?: number;
+  builtIn?: boolean;
+  isOffloadable?: boolean;
   searchKeys?: string;
   stackSize: number;
   params: SpfParamDefDownloadModel[];
@@ -438,7 +457,11 @@ export interface VcpmParamDefDownloadModel {
   name?: string;
   description?: string;
   maxSize: number;
+  pidType: string;
   paramStructure: string; // raw JSON (elements array)
+  toolPolicies?: string;
+  deprecated?: boolean;
+  isReadOnly?: boolean;
 }
 
 /**
@@ -447,7 +470,9 @@ export interface VcpmParamDefDownloadModel {
 export interface VcpmModuleDefinitionDownloadModel {
   naturalId: number;
   name: string;
+  displayName?: string;
   description?: string;
+  replacedBy?: number;
   params: VcpmParamDefDownloadModel[];
 }
 
@@ -488,6 +513,7 @@ export interface ConfigurationDownloadModel {
   validationConfig?: string | null;
   alsaMetaData?: string | null;
   alsaTagData?: string | null;
+  versionConfig: string; // raw JSON string — {major, minor}
 }
 
 export interface ProcessorDefinitionDownloadModel {
@@ -593,6 +619,8 @@ export interface DownloadEntities {
   processorDefinitions?: ProcessorDefinitionDownloadModel[];
   containerTypeDefinitions?: ContainerTypeDefinitionDownloadModel[];
   configurationData?: ConfigurationDownloadModel;
+  // SCLU inter-subgraph links (separate from per-subgraph SubgraphDataChunk links)
+  subgraphPairs?: SubgraphPairDownloadModel[];
   // UI-metadata fields for .awsp reconstruction
   uiUsecases?: UiUsecaseDownloadModel[];
   uiSubgraphs?: UiSubgraphDownloadModel[];
@@ -646,7 +674,7 @@ export interface BulkReadQueryService {
 
   /**
    * Read all calibration data (audio + voice) with no scenario filtering.
-   * Application layer determines audio/voice using isVoiceSubgraph(subgraph.properties).
+   * Application layer determines audio/voice using isVoiceSubgraph(subgraph.spfProperties).
    *
    * Sorting order:
    * 1. Subgraph ID (ascending)

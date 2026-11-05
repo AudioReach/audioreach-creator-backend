@@ -73,6 +73,7 @@ import type {ForeignKeyMapper} from './foreign-key-mapper.js';
 import type {BootUpLoadingChunk} from './acdb-chunk-parsers/bootup-loading-chunk-parser.js';
 import type {ModuleManagerChunk} from './acdb-chunk-parsers/module-manager-chunk-parser.js';
 import type {ActiveControlPortInfo} from './entity-builders/spf-module-builder.js';
+import type {PortIoType} from '../../../../domain/entities/common/enums/port-io-type.js';
 import {
   ModuleManagerData,
   type ModuleTypeValue,
@@ -84,6 +85,7 @@ import type {
   SystemId,
 } from '../../../../shared/types/branded-ids.js';
 import type {BuildResult} from '../types/issue-collection.js';
+import type {DriverPropertyDefinitionData} from '../../../ports/persistence/repositories/bulk-import/bulk-import.repository.js';
 
 /**
  * Constants for entity model keys used by EntityBuilderService
@@ -1042,10 +1044,13 @@ export class EntityBuilderService {
     parsedAwsp: ParsedAwsp,
     fileSystemId: number,
   ): Promise<BuildResult<SubgraphPropertyDefinition>> {
-    // Extract SPF property definitions from AWSP and filter for SG_CFG category (subgraph properties)
+    // Extract all SPF property definitions from AWSP.
+    // SG_CFG, MODULE_PROP, CONNECTION, and any other categories are all stored in
+    // subgraph_property_definitions so they round-trip correctly.
+    // CONTAINTER_CFG is handled separately by buildContainerPropertyDefinitions.
     const allSpfProperties = parsedAwsp.getSpfPropertyDefinitions();
     const awspPropertyDefinitions = allSpfProperties?.filter(
-      prop => prop.categoryName === 'SG_CFG',
+      prop => prop.categoryName !== 'CONTAINTER_CFG',
     );
 
     if (!awspPropertyDefinitions || awspPropertyDefinitions.length === 0) {
@@ -1068,6 +1073,7 @@ export class EntityBuilderService {
         maxSize: awspProperty.maxSize,
         elementsStructure: JSON.stringify(awspProperty.elements),
         isVoice: awspProperty.isVoice || false,
+        categoryName: awspProperty.categoryName,
       });
 
       entities.push(propertyDef);
@@ -1404,6 +1410,65 @@ export class EntityBuilderService {
       entities,
       issues: [],
     };
+  }
+
+  /**
+   * Build driver property definitions from AWSP data with system IDs assigned.
+   */
+  async buildDriverPropertyDefinitions(
+    parsedAwsp: ParsedAwsp,
+    fileSystemId: number,
+  ): Promise<DriverPropertyDefinitionData[]> {
+    const awspDefs = parsedAwsp.getDriverPropertyDefinitions();
+
+    if (!awspDefs || awspDefs.length === 0) {
+      return [];
+    }
+
+    const entities: DriverPropertyDefinitionData[] = [];
+
+    for (const def of awspDefs) {
+      const systemId = await this.idGenerator.getNextId(fileSystemId);
+
+      entities.push({
+        systemId,
+        fileSystemId,
+        naturalId: def.id,
+        name: def.name,
+        description: def.description,
+        maxSize: def.maxSize ?? 0,
+        propertyStructure: JSON.stringify(def.elements),
+      });
+
+      // Register in FK mapper so subgraph-builder can resolve driver property system IDs
+      this.foreignKeyMapper.addSubgraphPropertyDefinitionMapping(
+        def.id as NaturalId,
+        systemId as SystemId,
+      );
+    }
+
+    this.logger?.logInfo({
+      eventName: 'awsp_driver_property_definitions_complete',
+      description: `Successfully built ${entities.length} driver property definitions from AWSP with system IDs assigned`,
+      component: 'EntityBuilderService',
+      tag: 'awsp-processing',
+    });
+
+    return entities;
+  }
+
+  async addDynamicDataPort(
+    module: SpfModule,
+    portNaturalId: number,
+    portIoType: PortIoType,
+    fileSystemId: number,
+  ): Promise<void> {
+    return this.spfModuleBuilder.addDynamicDataPort(
+      module,
+      portNaturalId,
+      portIoType,
+      fileSystemId,
+    );
   }
 
   //TODO: Call this API during upload.

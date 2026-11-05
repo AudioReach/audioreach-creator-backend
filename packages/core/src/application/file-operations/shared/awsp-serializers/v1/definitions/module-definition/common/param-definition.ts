@@ -75,21 +75,21 @@ export class AwspParamDefinition extends BaseDefinition {
    */
   toJSON(): Record<string, unknown> {
     return {
-      id: this.id,
+      id: `0x${this.id.toString(16).toUpperCase().padStart(8, '0')}`,
       name: this.name,
       toolPolicies: this.toolPolicies,
       pidType: this.pidType,
       elements: this.serializeField(this.elements),
-      description: this.description,
-      maxSize: this.maxSize,
-      isNeuralNet: this.isNeuralNet,
-      isOffloaded: this.isOffloaded,
-      isHwAccel: this.isHwAccel,
-      isHwAccelEnable: this.isHwAccelEnable,
-      isHidden: this.isHidden,
-      isReadOnly: this.isReadOnly,
-      deprecated: this.deprecated,
-      copySrcParamId: this.copySrcParamId,
+      description: this.description ?? undefined,
+      maxSize: this.maxSize ?? undefined,
+      isNeuralNet: this.isNeuralNet ?? undefined,
+      isOffloaded: this.isOffloaded ?? undefined,
+      isHwAccel: this.isHwAccel ?? undefined,
+      isHwAccelEnable: this.isHwAccelEnable ?? undefined,
+      isHidden: this.isHidden ?? undefined,
+      isReadOnly: this.isReadOnly ?? undefined,
+      deprecated: this.deprecated ?? undefined,
+      copySrcParamId: this.copySrcParamId ?? undefined,
     };
   }
 }

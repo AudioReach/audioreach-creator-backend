@@ -178,7 +178,6 @@ export class SubsystemLinkResolutionService {
         CONTROL_LINK_TYPE.Normal,
         peerAModule.subgraphSystemId,
         peerBModule.subgraphSystemId,
-        [],
       );
       const options = {
         source: SOURCE.Manual,

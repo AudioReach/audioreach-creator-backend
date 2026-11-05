@@ -113,7 +113,7 @@ export class KeyDefinitionInserter {
           naturalId: vd.naturalId,
           name: vd.name,
           description: vd.description,
-          enumMember: vd.enumMember as string | undefined,
+          enumMember: vd.enumMember,
           specialValue: vd.specialValue,
           keySystemId: key.systemId,
         };

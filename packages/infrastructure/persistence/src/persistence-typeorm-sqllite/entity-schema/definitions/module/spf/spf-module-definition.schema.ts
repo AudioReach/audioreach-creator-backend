@@ -36,6 +36,9 @@ export interface SpfModuleDefinitionRow
   extends EntityBaseRow, SpfModuleDefinitionBase {
   description?: string;
   groupName?: string;
+  replacedBy?: number | null;
+  builtIn?: boolean | null;
+  isOffloadable?: boolean | null;
   modSearchKeys?: string;
   metadata?: string;
   isLoadedAtBootup: boolean;
@@ -84,6 +87,21 @@ export const SpfModuleDefinitionSchema =
         length: 255,
         nullable: true,
         name: 'group_name',
+      },
+      replacedBy: {
+        type: 'integer',
+        nullable: true,
+        name: 'replaced_by',
+      },
+      builtIn: {
+        type: 'boolean',
+        nullable: true,
+        name: 'built_in',
+      },
+      isOffloadable: {
+        type: 'boolean',
+        nullable: true,
+        name: 'is_offloadable',
       },
       modSearchKeys: {
         type: 'text',

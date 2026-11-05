@@ -32,7 +32,7 @@ export class AwspStaticControlPort extends AwspPort {
    */
   toJSON(): Record<string, unknown> {
     return {
-      id: this.id,
+      id: `0x${this.id.toString(16).toUpperCase()}`,
       name: this.name,
       intents: this.serializeField(this.intents),
     };

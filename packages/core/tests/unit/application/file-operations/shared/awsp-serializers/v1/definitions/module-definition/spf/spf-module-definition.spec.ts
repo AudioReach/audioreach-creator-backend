@@ -46,7 +46,7 @@ describe('AwspSpfModuleDefinition - Nested Object Hydration', () => {
             {
               id: 100,
               name: 'Intent1',
-              maxports: 2,
+              maxPortCount: 2,
             },
           ],
         },
@@ -55,7 +55,7 @@ describe('AwspSpfModuleDefinition - Nested Object Hydration', () => {
         {
           id: 200,
           name: 'DynamicIntent1',
-          maxports: 4,
+          maxPortCount: 4,
         },
       ],
     },
@@ -161,7 +161,7 @@ describe('AwspSpfModuleDefinition - Nested Object Hydration', () => {
             {
               id: 200,
               name: 'DynamicIntent1',
-              maxports: 4,
+              maxPortCount: 4,
             },
           ],
         },

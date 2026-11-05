@@ -7,16 +7,19 @@ export interface StaticIntentDefinitionInit {
   systemId: number;
   naturalId: number;
   name: string;
+  maxPortCount?: number;
 }
 
 export class StaticIntentDefinition {
   readonly systemId: number;
   readonly naturalId: number;
   name: string;
+  maxPortCount?: number;
 
   constructor(initParam: StaticIntentDefinitionInit) {
     this.naturalId = initParam.naturalId;
     this.systemId = initParam.systemId;
     this.name = initParam.name;
+    this.maxPortCount = initParam.maxPortCount;
   }
 }

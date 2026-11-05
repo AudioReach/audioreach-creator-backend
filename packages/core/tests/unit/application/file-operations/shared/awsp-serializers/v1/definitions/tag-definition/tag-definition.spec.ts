@@ -108,7 +108,7 @@ describe('TagDefinition', () => {
 
       const json = tag.toJSON();
 
-      expect(json.id).toBe(1);
+      expect(json.id).toBe('0x1');
       expect(json.name).toBe('TestTag');
       expect(json.description).toBe('Test');
     });
@@ -120,7 +120,7 @@ describe('TagDefinition', () => {
 
       const json = tag.toJSON();
 
-      expect(json.id).toBe(1);
+      expect(json.id).toBe('0x1');
       expect(json.name).toBe('TestTag');
       expect(json.description).toBeUndefined();
     });
@@ -155,7 +155,12 @@ describe('TagDefinition', () => {
       const tag = AwspTagDefinition.fromJSON(original);
       const serialized = tag.toJSON();
 
-      expect(serialized).toEqual(original);
+      expect(serialized).toEqual({
+        ...original,
+        id: '0x1',
+        isSpfTag: undefined,
+        keys: undefined,
+      });
     });
   });
 });

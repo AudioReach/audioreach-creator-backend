@@ -33,7 +33,7 @@ export interface ParameterDefinitionReadModel {
  * no backing column for.
  */
 export interface ParameterDefinitionSummaryReadModel extends ParameterDefinitionReadModel {
-  readonly isHidden: boolean;
+  readonly isHidden?: boolean;
   readonly deprecated?: boolean;
   readonly toolPolicies: string; // stored form; mapped to ToolPolicy[] at the DTO boundary
 }

@@ -898,9 +898,9 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
       naturalId: p.naturalId,
       name: p.name ?? '',
       description: p.description,
-      isHidden: false, // not persisted yet
+      isHidden: p.isHidden ?? undefined,
       isReadOnly: p.isReadOnly,
-      deprecated: undefined, // not persisted yet
+      deprecated: p.deprecated ?? undefined,
       toolPolicies: p.toolPolicies ?? '',
       pidType: p.pidType,
     };

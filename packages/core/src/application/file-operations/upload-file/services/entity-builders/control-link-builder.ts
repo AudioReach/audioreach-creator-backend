@@ -348,24 +348,22 @@ export class ControlLinkBuilder {
     }
 
     // Enforce canonical order required by ck_control_link_port_canonical_order:
-    // nodeA_port_system_id < nodeB_port_system_id
-    const [canonA, canonAPort, canonB, canonBPort, canonSrcSg, canonDstSg] =
+    // nodeA_port_system_id < nodeB_port_system_id.
+    // Keep sourceSubgraphSystemId as peer1's subgraph regardless of port swap so
+    // that the download groups the link under the same subgraph as the original ACDB.
+    const [canonA, canonAPort, canonB, canonBPort] =
       nodeAPortSystemId < nodeBPortSystemId
         ? [
             peerNodeASystemId,
             nodeAPortSystemId,
             peerNodeBSystemId,
             nodeBPortSystemId,
-            sourceSgId,
-            destSgId,
           ]
         : [
             peerNodeBSystemId,
             nodeBPortSystemId,
             peerNodeASystemId,
             nodeAPortSystemId,
-            destSgId,
-            sourceSgId,
           ];
 
     const controlLink = new ControlLink(
@@ -377,8 +375,8 @@ export class ControlLinkBuilder {
       canonBPort,
       heapId,
       linkType,
-      canonSrcSg,
-      canonDstSg,
+      sourceSgId,
+      destSgId,
     );
 
     return {

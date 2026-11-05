@@ -207,7 +207,7 @@ describe('Project Delete Cascade Integration Tests', () => {
     const ds = getTestDataSource();
 
     await ds.query(
-      `INSERT INTO configuration (file_system_id, port_strategy, default_processor_domain, rtc_config, alsa_lib_config) VALUES (?, 'INPUT_EVEN_OUTPUT_ODD', 0, '{}', '{}')`,
+      `INSERT INTO configuration (file_system_id, version_config, port_strategy, default_processor_domain, rtc_config, alsa_lib_config) VALUES (?, '{}', 'INPUT_EVEN_OUTPUT_ODD', 0, '{}', '{}')`,
       [file.systemId],
     );
 

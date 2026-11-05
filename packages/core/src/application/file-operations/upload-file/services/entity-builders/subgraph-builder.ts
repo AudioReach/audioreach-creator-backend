@@ -180,6 +180,23 @@ export class SubgraphBuilder {
     const uiEntry = uiSubgraphMap.get(subgraphPropertyData.subgraphId);
     const name = uiEntry?.name ?? `Subgraph_${subgraphPropertyData.subgraphId}`;
 
+    const sgkvs = this.buildSgkvs(uiEntry, name);
+
+    return new Subgraph({
+      systemId: 0,
+      naturalId: subgraphPropertyData.subgraphId,
+      name,
+      isImported: false, //TODO: get from workspace
+      fileSystemId: 0,
+      properties,
+      sgkvs,
+    });
+  }
+
+  private buildSgkvs(
+    uiEntry: UiSubgraph | undefined,
+    subgraphName: string,
+  ): Sgkv[] {
     const sgkvs: Sgkv[] = [];
     const seenFingerprints = new Set<string>();
     for (const kv of uiEntry?.supportedKeyValues ?? []) {
@@ -193,7 +210,7 @@ export class SubgraphBuilder {
         if (vsId === undefined) {
           this.logger?.logWarn({
             eventName: 'sgkv_value_not_found',
-            description: `SGKV value not found for key=0x${keyId.toString(16)} value=0x${valueId.toString(16)} in subgraph ${name}`,
+            description: `SGKV value not found for key=0x${keyId.toString(16)} value=0x${valueId.toString(16)} in subgraph ${subgraphName}`,
             component: 'SubgraphBuilder',
             tag: 'subgraph-building',
           });
@@ -207,7 +224,7 @@ export class SubgraphBuilder {
         if (seenFingerprints.has(fingerprint)) {
           this.logger?.logWarn({
             eventName: 'sgkv_duplicate_skipped',
-            description: `Duplicate SGKV skipped for subgraph ${name} (keyValue="${kv.keyValue}")`,
+            description: `Duplicate SGKV skipped for subgraph ${subgraphName} (keyValue="${kv.keyValue}")`,
             component: 'SubgraphBuilder',
             tag: 'subgraph-building',
           });
@@ -219,16 +236,7 @@ export class SubgraphBuilder {
         );
       }
     }
-
-    return new Subgraph({
-      systemId: 0,
-      naturalId: subgraphPropertyData.subgraphId,
-      name,
-      isImported: false, //TODO: get from workspace
-      fileSystemId: 0,
-      properties,
-      sgkvs,
-    });
+    return sgkvs;
   }
 
   private convertToEntityBuildIssue(

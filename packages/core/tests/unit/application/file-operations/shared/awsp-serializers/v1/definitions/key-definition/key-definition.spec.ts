@@ -89,7 +89,7 @@ describe('AwspKeyDefinition', () => {
 
       const json = key.toJSON();
 
-      expect(json.id).toBe(1);
+      expect(json.id).toBe('0x1');
       expect(json.name).toBe('TestKey');
       expect(Array.isArray(json.values)).toBe(true);
     });
@@ -121,7 +121,7 @@ describe('AwspKeyDefinition', () => {
       const key = AwspKeyDefinition.fromJSON(original);
       const serialized = key.toJSON();
 
-      expect(serialized.id).toBe(original.id);
+      expect(serialized.id).toBe('0x1');
       expect(serialized.name).toBe(original.name);
       expect(serialized.description).toBe(original.description);
       expect(serialized.isVoice).toBe(original.isVoice);

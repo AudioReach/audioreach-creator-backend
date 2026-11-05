@@ -45,7 +45,7 @@ describe('SPF Supporting Schemas', () => {
       const validData = {
         id: 1,
         name: 'control_port',
-        intents: [{id: 1, name: 'intent1', maxports: 2}],
+        intents: [{id: 1, name: 'intent1', maxPortCount: 2}],
       };
       const result = AwspStaticControlPortSchema.parse(validData);
       expect(result.id).toBe(1);
@@ -58,17 +58,17 @@ describe('SPF Supporting Schemas', () => {
       const validData = {
         id: 1,
         name: 'test_intent',
-        maxports: 4,
+        maxPortCount: 4,
       };
       const result = AwspIntentSchema.parse(validData);
       expect(result.id).toBe(1);
-      expect(result.maxports).toBe(4);
+      expect(result.maxPortCount).toBe(4);
     });
 
     it('should parse intent without name', () => {
       const validData = {
         id: 1,
-        maxports: 2,
+        maxPortCount: 2,
       };
       const result = AwspIntentSchema.parse(validData);
       expect(result.name).toBeUndefined();
@@ -96,10 +96,10 @@ describe('SPF Supporting Schemas', () => {
         staticPorts: [
           {
             id: 1,
-            intents: [{id: 1, maxports: 2}],
+            intents: [{id: 1, maxPortCount: 2}],
           },
         ],
-        dynamicIntents: [{id: 2, maxports: 4}],
+        dynamicIntents: [{id: 2, maxPortCount: 4}],
       };
       const result = AwspControlPortsInfoSchema.parse(validData);
       expect(result.staticPorts).toHaveLength(1);

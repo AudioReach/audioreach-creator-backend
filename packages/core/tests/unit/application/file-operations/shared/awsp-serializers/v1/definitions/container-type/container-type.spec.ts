@@ -30,7 +30,7 @@ describe('ContainerType serialization', () => {
 
       const json = container.toJSON();
 
-      expect(json.id).toBe(1);
+      expect(json.id).toBe('0x1');
       expect(json.name).toBe('TestContainer');
     });
   });
@@ -45,7 +45,7 @@ describe('ContainerType serialization', () => {
       const container = ContainerType.fromJSON(original);
       const serialized = container.toJSON();
 
-      expect(serialized).toEqual(original);
+      expect(serialized).toEqual({...original, id: '0x1'});
     });
   });
 });

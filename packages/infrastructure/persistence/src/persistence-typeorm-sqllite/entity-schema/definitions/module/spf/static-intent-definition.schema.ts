@@ -15,6 +15,7 @@ export interface StaticIntentDefinitionBase {
   systemId: number;
   naturalId: number;
   name: string;
+  maxPortCount?: number | null;
   staticControlPortDefinitionSystemId: number;
 }
 
@@ -38,6 +39,11 @@ export const StaticIntentDefinitionSchema =
         length: 255,
         nullable: true,
         name: 'name',
+      },
+      maxPortCount: {
+        type: 'integer',
+        name: 'max_port_count',
+        nullable: true,
       },
       staticControlPortDefinitionSystemId: {
         type: 'integer',

@@ -391,10 +391,10 @@ export class KeyDefinitionBuilder {
       fileSystemId: 0, // Placeholder - will be assigned during build process
       name: awsp.name,
       description: awsp.description,
-      isCalibrationKey: awsp.isCalKey ?? true, //TODO: fix workspace file
-      isGraphKey: awsp.isGraphKey ?? true, //TODO: fix workspace file
-      isVoice: awsp.isVoice ?? false,
-      isDynamic: awsp.isDynamic ?? false,
+      isCalibrationKey: awsp.isCalKey,
+      isGraphKey: awsp.isGraphKey,
+      isVoice: awsp.isVoice,
+      isDynamic: awsp.isDynamic,
       isSpfKey: awsp.isSpfKey,
       values: domainValues,
 

@@ -44,6 +44,9 @@ import type {ControlLink} from '../../../../domain/entities/usecase-data/links/c
 import type {Subsystem} from '../../../../domain/entities/usecase-data/subsystem/subsystem.js';
 import type {UiSubsystem} from '../../shared/awsp-serializers/v1/ui-metadata/index.js';
 import {UiSwitchesResolver} from './ui-switches-resolver.js';
+import {asNaturalId, asSystemId} from '../../../../shared/types/branded-ids.js';
+import {PORT_IO_TYPE} from '../../../../domain/entities/common/enums/port-io-type.js';
+import type {SubgraphPairDataChunk} from '../../shared/acdb-chunks/subgraph-pair-data-chunk.js';
 
 /**
  * Large block size for ID reservation to cover all entities in a file upload.
@@ -429,6 +432,9 @@ export class UploadFileOrchestrator {
       // Phase 1f: Build and Insert Container Property Definitions (no dependencies)
       await this.buildAndInsertContainerPropertyDefinitions(bulkRepo);
 
+      // Phase 1g: Build and Insert Driver Property Definitions (no dependencies)
+      await this.buildAndInsertDriverPropertyDefinitions(bulkRepo);
+
       // Phase 2: Build and Insert Subgraphs (no dependencies)
       await this.buildAndInsertSubgraphs(bulkRepo);
 
@@ -444,6 +450,11 @@ export class UploadFileOrchestrator {
 
       // Phase 4b: Build and Insert Driver Modules with DKV Calibration Data
       await this.buildAndInsertDriverModules(bulkRepo);
+
+      // Phase 4c: Expand module ports for any SCLU data links that reference port
+      // IDs beyond those created from the portInfo property (e.g. inter-subgraph
+      // connection ports whose count exceeds maxInputPorts in the ACDB).
+      await this.expandModulePortsForSubgraphLinks();
 
       // Phase 5: Build links, compute subsystem boundary ports, insert all three
       const dataLinks = await this.buildDataLinks();
@@ -662,9 +673,16 @@ export class UploadFileOrchestrator {
     // Collect build issues
     this.issueCollector.addIssues(result.issues);
 
-    if (result.entities.length > 0) {
+    // Create stub definitions for tag IDs referenced in ACDB TMLU but absent from AWSP
+    //const stubs = await this.buildStubTagDefinitionsFromAcdb(
+    //  this.currentFileSystemId,
+    //);
+
+    const allEntities = [...result.entities];
+
+    if (allEntities.length > 0) {
       // Insert tag definitions
-      const insertResult = await bulkRepo.insertTagDefinitions(result.entities);
+      const insertResult = await bulkRepo.insertTagDefinitions(allEntities);
 
       // Collect insertion errors from the insert result
       this.collectInsertionErrors(
@@ -676,14 +694,14 @@ export class UploadFileOrchestrator {
       if (insertResult.ok) {
         this.logger?.logInfo({
           eventName: 'tag_definitions_persisted',
-          description: `Successfully inserted ${result.entities.length} tag definitions (build: ${result.issues.length} issues)`,
+          description: `Successfully inserted ${allEntities.length} tag definitions (build: ${result.issues.length} issues)`,
           component: 'UploadFileOrchestrator',
           tag: 'database-persistence',
         });
       } else {
         this.logger?.logError({
           eventName: 'tag_definitions_insertion_failed',
-          description: `Failed to insert some tag definitions: ${insertResult.errors.length} insertion failures out of ${result.entities.length} entities (build: ${result.issues.length} issues)`,
+          description: `Failed to insert some tag definitions: ${insertResult.errors.length} insertion failures out of ${allEntities.length} entities (build: ${result.issues.length} issues)`,
           component: 'UploadFileOrchestrator',
           tag: 'database-persistence',
           error: new Error(
@@ -696,6 +714,47 @@ export class UploadFileOrchestrator {
       }
     }
   }
+
+  /* Build minimal stub TagDefinition rows for tag IDs in ACDB TMLU not found in AWSP.
+  private async buildStubTagDefinitionsFromAcdb(
+    fileSystemId: number,
+  ): Promise<TagDefinition[]> {
+    const tmluChunk = this.parsedAcdb?.getChunk<TaggedModuleMapChunk>(
+      PARSED_CHUNK_TYPES.TAGGED_MODULE_MAP,
+    );
+    if (!tmluChunk) return [];
+
+    const stubs: TagDefinition[] = [];
+    const seen = new Set<number>();
+
+    for (const entry of tmluChunk.taggedModuleEntries) {
+      if (seen.has(entry.tagId)) continue;
+      seen.add(entry.tagId);
+
+      if (
+        this.foreignKeyMapper.getTagDefinitionSystemId(
+          asNaturalId(entry.tagId),
+        ) !== undefined
+      )
+        continue;
+
+      const systemId = await this.idGenerator.getNextId(fileSystemId);
+      const stub = new TagDefinition({
+        systemId,
+        naturalId: entry.tagId,
+        name: '',
+        keysAllowed: [],
+        isVoice: false,
+        fileSystemId,
+      });
+      this.foreignKeyMapper.addTagDefinitionMapping(
+        asNaturalId(entry.tagId),
+        asSystemId(systemId),
+      );
+      stubs.push(stub);
+    }
+    return stubs;
+  }*/
 
   /**
    * Phase 1b: Build and Insert Processor Definitions
@@ -1128,6 +1187,47 @@ export class UploadFileOrchestrator {
     }
   }
 
+  private async buildAndInsertDriverPropertyDefinitions(
+    bulkRepo: BulkImportRepository,
+  ): Promise<void> {
+    const entities = await this.builderService.buildDriverPropertyDefinitions(
+      this.parsedAwsp!,
+      this.currentFileSystemId,
+    );
+
+    if (entities.length > 0) {
+      const insertResult =
+        await bulkRepo.insertDriverPropertyDefinitions(entities);
+
+      this.collectInsertionErrors(
+        insertResult,
+        ISSUE_ENTITY_TYPE.DriverPropertyDefinition,
+      );
+
+      if (insertResult.ok) {
+        this.logger?.logInfo({
+          eventName: 'driver_property_definitions_persisted',
+          description: `Successfully inserted ${entities.length} driver property definitions`,
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+        });
+      } else {
+        this.logger?.logError({
+          eventName: 'driver_property_definitions_insertion_failed',
+          description: `Failed to insert some driver property definitions: ${insertResult.errors.length} insertion failures out of ${entities.length} entities`,
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          error: new Error(
+            '\t' +
+              insertResult.errors
+                .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
+                .join('\n\t'),
+          ),
+        });
+      }
+    }
+  }
+
   /**
    * Phase 2: Build and Insert Subgraphs
    */
@@ -1257,6 +1357,85 @@ export class UploadFileOrchestrator {
     this.builderService.assignSpfModuleParents(
       this.builtSpfModules,
       preparedSubsystems,
+    );
+  }
+
+  /**
+   * After modules are built (but before they are saved), scan all SCLU data links
+   * and create any DataPort entities that are referenced but were not created by
+   * createDataPortsFromProperties (e.g. because the portInfo maxInputPorts is lower
+   * than the actual inter-subgraph connection port ID).
+   */
+  private async expandModulePortsForSubgraphLinks(): Promise<void> {
+    if (!this.parsedAcdb) return;
+
+    const subgraphPairChunk = this.parsedAcdb.getChunk<SubgraphPairDataChunk>(
+      PARSED_CHUNK_TYPES.SUBGRAPH_PAIR_DATA,
+    );
+    if (!subgraphPairChunk) return;
+
+    this.logger?.logInfo({
+      eventName: 'subgraph_port_expansion_start',
+      description: `expandModulePortsForSubgraphLinks: ${subgraphPairChunk.subgraphPairs.length} pairs, ${this.builtSpfModules.length} modules`,
+      component: 'UploadFileOrchestrator',
+      tag: 'subgraph-port-expansion',
+    });
+
+    const moduleBySystemId = new Map<number, SpfModule>();
+    for (const m of this.builtSpfModules) {
+      moduleBySystemId.set(m.systemId, m);
+    }
+
+    for (const pair of subgraphPairChunk.subgraphPairs) {
+      for (const dataLink of pair.dataLinks ?? []) {
+        await this.expandPortIfMissing(
+          dataLink.sourceInstanceId,
+          dataLink.sourcePortId,
+          PORT_IO_TYPE.Output,
+          moduleBySystemId,
+        );
+        await this.expandPortIfMissing(
+          dataLink.destinationInstanceId,
+          dataLink.destinationPortId,
+          PORT_IO_TYPE.Input,
+          moduleBySystemId,
+        );
+      }
+    }
+  }
+
+  private async expandPortIfMissing(
+    instanceNaturalId: number,
+    portNaturalId: number,
+    portIoType: typeof PORT_IO_TYPE.Input | typeof PORT_IO_TYPE.Output,
+    moduleBySystemId: Map<number, SpfModule>,
+  ): Promise<void> {
+    const moduleSysId =
+      this.builderService.foreignKeyMapper.getSpfModuleSystemId(
+        asNaturalId(instanceNaturalId),
+      );
+    if (moduleSysId === undefined) return;
+
+    const existing =
+      portIoType === PORT_IO_TYPE.Output
+        ? this.builderService.foreignKeyMapper.getOutputPortSystemId(
+            asSystemId(moduleSysId),
+            asNaturalId(portNaturalId),
+          )
+        : this.builderService.foreignKeyMapper.getInputPortSystemId(
+            asSystemId(moduleSysId),
+            asNaturalId(portNaturalId),
+          );
+    if (existing) return;
+
+    const module = moduleBySystemId.get(moduleSysId);
+    if (!module) return;
+
+    await this.builderService.addDynamicDataPort(
+      module,
+      portNaturalId,
+      portIoType,
+      this.currentFileSystemId,
     );
   }
 
@@ -1501,12 +1680,10 @@ export class UploadFileOrchestrator {
     }
 
     if (controlPortIntents.size > 0) {
-      this.logger?.logInfo({
-        eventName: 'control_port_intents_extracted',
-        description: `Control port intents extracted: ${controlPortIntents.size} control ports have associated intents (insertion pending implementation)`,
-        component: 'UploadFileOrchestrator',
-        tag: 'database-persistence',
-      });
+      await bulkRepo.insertControlLinkIntents(
+        controlPortIntents,
+        this.currentFileSystemId,
+      );
     }
   }
 
