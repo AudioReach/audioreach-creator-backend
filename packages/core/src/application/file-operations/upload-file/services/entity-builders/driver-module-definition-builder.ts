@@ -46,7 +46,7 @@ export class DriverModuleDefinitionBuilder {
     }
 
     this.logger?.logDebug({
-      msg: 'driver_module_definition_building_start',
+      eventName: 'driver_module_definition_building_start',
       description: `Building ${awspModuleDefinitions.length} driver module definitions`,
       component: 'DriverModuleDefinitionBuilder',
       tag: 'driver-module-definitions',
@@ -82,7 +82,7 @@ export class DriverModuleDefinitionBuilder {
     }
 
     this.logger?.logInfo({
-      msg: 'driver_module_definition_building_complete',
+      eventName: 'driver_module_definition_building_complete',
       description: `Successfully built ${entities.length} driver module definitions with system IDs assigned, ${issues.length} failures`,
       component: 'DriverModuleDefinitionBuilder',
       tag: 'driver-module-definitions',

@@ -36,7 +36,7 @@ export class UiSwitchesResolver {
           if (systemId === undefined) {
             this.logger?.logWarn({
               component: 'UiSwitchesResolver',
-              msg: 'resolveModule',
+              eventName: 'resolveModule',
               description: `Switch ${sw.id}: module instanceId ${m.instanceId} has no systemId mapping — dropped`,
               tag: 'ui-switches',
             });
@@ -56,7 +56,7 @@ export class UiSwitchesResolver {
           if (srcSysId === undefined || dstSysId === undefined) {
             this.logger?.logWarn({
               component: 'UiSwitchesResolver',
-              msg: 'resolveDataLink',
+              eventName: 'resolveDataLink',
               description: `Switch ${sw.id}: dataLink ${dl.sourceId}→${dl.destinationId} has unresolved systemId — dropped`,
               tag: 'ui-switches',
             });
@@ -103,7 +103,7 @@ export class UiSwitchesResolver {
           if (srcSysId === undefined || dstSysId === undefined) {
             this.logger?.logWarn({
               component: 'UiSwitchesResolver',
-              msg: 'resolveControlLink',
+              eventName: 'resolveControlLink',
               description: `Switch ${sw.id}: controlLink ${cl.sourceId}→${cl.destinationId} has unresolved systemId — dropped`,
               tag: 'ui-switches',
             });

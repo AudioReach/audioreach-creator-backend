@@ -114,7 +114,7 @@ describe('UsecaseBuilder', () => {
 
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: 'usecase_conversion_complete',
+            eventName: 'usecase_conversion_complete',
             description: expect.stringContaining('system IDs assigned'),
             component: 'UsecaseBuilder',
           }),
@@ -246,7 +246,7 @@ describe('UsecaseBuilder', () => {
         expect(result[0].subgraphSystemIds).toHaveLength(0);
         expect(mockLogger.logWarn).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: 'subgraph_mapping_missing',
+            eventName: 'subgraph_mapping_missing',
           }),
         );
       });
@@ -334,7 +334,7 @@ describe('UsecaseBuilder', () => {
 
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: 'usecase_conversion_complete',
+            eventName: 'usecase_conversion_complete',
             description:
               'Converted 1 usecases successfully, 1 failed, system IDs assigned',
           }),

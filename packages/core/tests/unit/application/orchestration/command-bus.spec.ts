@@ -228,6 +228,104 @@ describe('CommandBus', () => {
     });
   });
 
+  describe('Logging', () => {
+    const makeLogger = () => ({
+      logVerbose: jest.fn(),
+      logDebug: jest.fn(),
+      logInfo: jest.fn(),
+      logWarn: jest.fn(),
+      logError: jest.fn(),
+      logCritical: jest.fn(),
+    });
+
+    /** Runs a command whose handler does `handle`, and returns what was logged. */
+    const run = async (handle: () => Promise<unknown>) => {
+      const logger = makeLogger();
+      mockRegistry.getCommandHandlerFactory.mockReturnValue({
+        create: jest.fn().mockReturnValue({handle: jest.fn(handle)}),
+      });
+      const bus = new CommandBus(
+        mockRegistry,
+        mockIdGeneration,
+        mockNaturalIdGeneration,
+        mockFileSystem,
+        mockUowFactory,
+        undefined,
+        logger,
+      );
+      await bus.execute(new TestCommand('test-data')).catch(() => undefined);
+      const records = Object.values(logger).flatMap(
+        fn => fn.mock.calls.map(call => call[0]) as Record<string, unknown>[],
+      );
+      return {logger, records};
+    };
+
+    const eventNames = (fn: jest.Mock) =>
+      fn.mock.calls.map(call => (call[0] as {eventName: string}).eventName);
+
+    it('logs the unit of work and the success of a command', async () => {
+      const {logger} = await run(async () => 'ok');
+
+      expect(eventNames(logger.logDebug)).toEqual([
+        'command.unit_of_work.created',
+        'command.execute.succeeded',
+      ]);
+    });
+
+    it('logs the rollback of a transaction the handler left open', async () => {
+      mockUnitOfWork.isInTransaction.mockReturnValueOnce(true);
+
+      const {logger} = await run(async () => 'ok');
+
+      expect(eventNames(logger.logWarn)).toEqual([
+        'command.transaction.auto_rolled_back',
+      ]);
+    });
+
+    it('logs a failed command and its rollback', async () => {
+      mockUnitOfWork.isInTransaction.mockReturnValue(true);
+
+      const {logger} = await run(async () => {
+        throw new Error('boom');
+      });
+
+      expect(eventNames(logger.logError)).toEqual(['command.execute.failed']);
+      expect(eventNames(logger.logDebug)).toContain(
+        'command.transaction.rolled_back',
+      );
+    });
+
+    it('logs a rollback that fails', async () => {
+      mockUnitOfWork.isInTransaction.mockReturnValue(true);
+      mockUnitOfWork.rollback.mockRejectedValue(new Error('rollback broke'));
+
+      const {logger} = await run(async () => {
+        throw new Error('boom');
+      });
+
+      expect(eventNames(logger.logError)).toEqual([
+        'command.execute.failed',
+        'command.transaction.rollback_failed',
+      ]);
+    });
+
+    it('logs a thrown non-Error as an Error', async () => {
+      mockUnitOfWork.isInTransaction.mockReturnValue(true);
+      mockUnitOfWork.rollback.mockRejectedValue('not an Error');
+
+      const {records} = await run(async () => {
+        throw 'also not an Error';
+      });
+
+      expect(records.length).toBeGreaterThan(0);
+      for (const record of records) {
+        if ('error' in record) {
+          expect(record['error']).toBeInstanceOf(Error);
+        }
+      }
+    });
+  });
+
   describe('Integration with Real Components', () => {
     it('should handle real exception scenarios', async () => {
       // Given: Real registry and unregistered command

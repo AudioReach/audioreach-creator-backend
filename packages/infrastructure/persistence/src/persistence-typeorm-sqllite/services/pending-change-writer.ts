@@ -456,7 +456,7 @@ export class PendingChangeWriter {
     manager: EntityManager,
   ): Promise<number> {
     this.logger?.logDebug({
-      msg: 'insertingAction',
+      eventName: 'insertingAction',
       description: `edit_actions key session=${row.sessionId}, table=${row.targetTable}, target=${row.targetSystemId}, fieldPath=${row.fieldPath ?? '<null>'}, operation=${row.operation}`,
       component: 'PendingChangeWriter',
       tag: 'edit-actions',
@@ -468,7 +468,7 @@ export class PendingChangeWriter {
       generatedChangeId = getGeneratedChangeId(result.identifiers[0]);
     } catch (error) {
       this.logger?.logError({
-        msg: 'insertActionFailed',
+        eventName: 'insertActionFailed',
         description: `Failed to insert edit_actions key session=${row.sessionId}, table=${row.targetTable}, target=${row.targetSystemId}, fieldPath=${row.fieldPath ?? '<null>'}, operation=${row.operation}`,
         component: 'PendingChangeWriter',
         tag: 'edit-actions',

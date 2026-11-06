@@ -776,7 +776,7 @@ describe('KeyDefinitionBuilder', () => {
 
       expect(mockLogger.logDebug).toHaveBeenCalledWith(
         expect.objectContaining({
-          msg: 'sequential_key_building_start',
+          eventName: 'sequential_key_building_start',
         }),
       );
     });
@@ -802,7 +802,7 @@ describe('KeyDefinitionBuilder', () => {
 
       expect(mockLogger.logDebug).toHaveBeenCalledWith(
         expect.objectContaining({
-          msg: 'sequential_key_building_start',
+          eventName: 'sequential_key_building_start',
         }),
       );
     });
@@ -828,7 +828,7 @@ describe('KeyDefinitionBuilder', () => {
 
       expect(mockLogger.logDebug).toHaveBeenCalledWith(
         expect.objectContaining({
-          msg: 'sequential_key_building_start',
+          eventName: 'sequential_key_building_start',
         }),
       );
     });
@@ -875,7 +875,7 @@ describe('KeyDefinitionBuilder', () => {
 
       expect(mockLogger.logDebug).toHaveBeenCalledWith(
         expect.objectContaining({
-          msg: 'parallel_key_building_start',
+          eventName: 'parallel_key_building_start',
         }),
       );
       expect(mockWorkerPool.executeParallel).toHaveBeenCalled();

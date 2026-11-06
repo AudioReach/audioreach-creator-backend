@@ -103,7 +103,7 @@ function recordSlowOperation(
   }
 
   diagnostics.logger.logWarn({
-    msg: 'bulk_insert_slow',
+    eventName: 'bulk_insert_slow',
     description: `${description}; durationMs=${durationMs.toFixed(1)}`,
     component: 'BatchInserter',
     tag: 'database-persistence',
@@ -181,7 +181,7 @@ function logInsertFailure(
   if (diagnostics?.enabled !== true) return;
 
   diagnostics.logger.logError({
-    msg,
+    eventName: msg,
     description,
     component: 'BatchInserter',
     tag: 'database-persistence',

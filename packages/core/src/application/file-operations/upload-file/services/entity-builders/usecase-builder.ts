@@ -90,7 +90,7 @@ export class UsecaseBuilder {
       } catch (error) {
         errorCount++;
         this.logger?.logWarn({
-          msg: 'usecase_conversion_failed',
+          eventName: 'usecase_conversion_failed',
           description: `Failed to convert usecase entry ${i}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           component: 'UsecaseBuilder',
           tag: 'usecase-building',
@@ -99,7 +99,7 @@ export class UsecaseBuilder {
     }
 
     this.logger?.logInfo({
-      msg: 'usecase_conversion_complete',
+      eventName: 'usecase_conversion_complete',
       description: `Converted ${successCount} usecases successfully, ${errorCount} failed, system IDs assigned`,
       component: 'UsecaseBuilder',
       tag: 'usecase-building',
@@ -131,7 +131,7 @@ export class UsecaseBuilder {
       );
       if (sgSystemId === undefined) {
         this.logger?.logWarn({
-          msg: 'subgraph_mapping_missing',
+          eventName: 'subgraph_mapping_missing',
           description: `No subgraph mapping found for natural subgraph ID ${naturalSgId} in usecase ${index}`,
           component: 'UsecaseBuilder',
           tag: 'usecase-building',
@@ -156,7 +156,7 @@ export class UsecaseBuilder {
         });
       } else {
         this.logger?.logWarn({
-          msg: 'subgraph_pair_mapping_missing',
+          eventName: 'subgraph_pair_mapping_missing',
           description: `Failed to resolve subgraph pair (${pair.source}, ${pair.destination}) in usecase ${index}`,
           component: 'UsecaseBuilder',
           tag: 'usecase-building',
@@ -211,7 +211,7 @@ export class UsecaseBuilder {
           valueSystemIds.push(valueSystemId);
         } else {
           this.logger?.logWarn({
-            msg: 'missing_value_mapping',
+            eventName: 'missing_value_mapping',
             description: `No foreign key mapping found for key-value pair (${keyValue.keyId}:${keyValue.value}) in usecase ${index}`,
             component: 'UsecaseBuilder',
             tag: 'foreign-key-mapping',
@@ -219,7 +219,7 @@ export class UsecaseBuilder {
         }
       } catch (error) {
         this.logger?.logWarn({
-          msg: 'key_value_mapping_failed',
+          eventName: 'key_value_mapping_failed',
           description: `Failed to map key-value pair (${keyValue.keyId}:${keyValue.value}) in usecase ${index}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           component: 'UsecaseBuilder',
           tag: 'usecase-building',

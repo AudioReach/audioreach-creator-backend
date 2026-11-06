@@ -14,6 +14,22 @@ import promisePlugin from 'eslint-plugin-promise';
 import prettierConfig from 'eslint-config-prettier';
 import customRules from './eslint-rules/index.js';
 
+/** Log calls whose `eventName` is not `<domain>.<operation>.<outcome>`. */
+const logEventName =
+  'CallExpression[callee.property.name=/^log(Verbose|Debug|Info|Warn|Error|Critical)$/] > ObjectExpression > Property[key.name="eventName"]';
+const eventNameRules = [
+  {
+    selector: `${logEventName} > Literal[value!=/^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$/]`,
+    message:
+      'eventName must be <domain>.<operation>.<outcome>: three lowercase, snake_case parts (design §6.3).',
+  },
+  {
+    selector: `${logEventName} > TemplateLiteral`,
+    message:
+      'eventName must be a fixed name; put per-occurrence values in description (design §6.3).',
+  },
+];
+
 export default [
   {
     ignores: [
@@ -432,6 +448,34 @@ export default [
     rules: {
       // Disabled: File system adapter requires dynamic paths from function parameters
       'security/detect-non-literal-fs-filename': 'off',
+    },
+  },
+
+  // Deprecated APIs are reported, not blocking.
+  {
+    files: ['**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-deprecated': 'warn',
+      // Duplicates no-deprecated, which reports the same calls as warnings.
+      'sonarjs/deprecation': 'off',
+    },
+  },
+
+  // Log event names (design §6.3). Each warning is a name still to be
+  // renamed; areas already renamed are errors.
+  {
+    files: ['**/*.ts'],
+    rules: {
+      'no-restricted-syntax': ['warn', ...eventNameRules],
+    },
+  },
+  {
+    files: [
+      'packages/core/src/application/usecase-designer/use-case-creator/**/*.ts',
+      'packages/core/src/application/orchestration/command-bus.ts',
+    ],
+    rules: {
+      'no-restricted-syntax': ['error', ...eventNameRules],
     },
   },
 

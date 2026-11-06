@@ -41,7 +41,7 @@ export function createMockLogger(): jest.Mocked<Logger> {
  * ```typescript
  * const mockLogger = createMockLoggerWithOverrides({
  *   logError: jest.fn().mockImplementation((data) => {
- *     console.error('Custom error handler:', data.msg);
+ *     console.error('Custom error handler:', data.eventName);
  *   }),
  * });
  * ```

@@ -1185,7 +1185,8 @@ describe('CalibrationDataBuilder', () => {
       const warnCalls = (mockLogger.logWarn as jest.Mock).mock.calls;
       const spuriousWarn = warnCalls.some(
         (args: unknown[]) =>
-          (args[0] as {msg?: string}).msg === 'vcpm_param_not_found',
+          (args[0] as {eventName?: string}).eventName ===
+          'vcpm_param_not_found',
       );
       expect(spuriousWarn).toBe(false);
     });

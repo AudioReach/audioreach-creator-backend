@@ -23,7 +23,7 @@ const UNSIGNED_TOKEN = [
 ].join('.');
 
 interface Captured {
-  msg: string;
+  eventName: string;
   context: ActiveLogContext;
   data: LogData;
 }
@@ -45,7 +45,11 @@ describe('RequestLoggerMiddleware', () => {
     // Record the context that is active when each log call is made, which is
     // what PinoLogService reads.
     const capture = (data: LogData) => {
-      captured.push({msg: data.msg, context: logContext.current(), data});
+      captured.push({
+        eventName: data.eventName,
+        context: logContext.current(),
+        data,
+      });
     };
     const logger: Logger = {
       logVerbose: capture,
@@ -99,7 +103,7 @@ describe('RequestLoggerMiddleware', () => {
 
     // The client name and project are added later, once verified or routed.
     expect(downstream).toEqual({clientInstanceId: LAUNCH});
-    expect(captured.map(c => c.msg)).toEqual(
+    expect(captured.map(c => c.eventName)).toEqual(
       expect.arrayContaining([
         'incomingRequest',
         'requestHeaders',
@@ -123,7 +127,8 @@ describe('RequestLoggerMiddleware', () => {
       },
     );
 
-    const context = (msg: string) => captured.find(c => c.msg === msg)?.context;
+    const context = (eventName: string) =>
+      captured.find(c => c.eventName === eventName)?.context;
     expect(context('incomingRequest')).toEqual({clientInstanceId: LAUNCH});
     expect(context('outgoingResponse')).toEqual({
       clientInstanceId: LAUNCH,
@@ -145,7 +150,7 @@ describe('RequestLoggerMiddleware', () => {
         body: {password: SECRET, nested: {token: SECRET}},
       });
 
-      expect(captured.map(c => c.msg)).not.toContain('requestBody');
+      expect(captured.map(c => c.eventName)).not.toContain('requestBody');
       expect(JSON.stringify(captured.map(c => c.data))).not.toContain(SECRET);
     });
 
@@ -155,7 +160,9 @@ describe('RequestLoggerMiddleware', () => {
         body: {password: SECRET},
       });
 
-      const headers = captured.find(c => c.msg === 'requestHeaders')?.data;
+      const headers = captured.find(
+        c => c.eventName === 'requestHeaders',
+      )?.data;
       expect(headers?.description).toContain(
         '"content-type":"application/json"',
       );

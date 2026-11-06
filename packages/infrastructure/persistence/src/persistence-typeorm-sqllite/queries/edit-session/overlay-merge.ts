@@ -301,7 +301,7 @@ export interface EditActionForOverlay {
 
 const _compat = new OverlayMergeImpl();
 
-// eslint-disable-next-line sonarjs/deprecation -- this IS the deprecated compat shim; EditActionForOverlay is used internally here
+// eslint-disable-next-line @typescript-eslint/no-deprecated -- this IS the deprecated compat shim; EditActionForOverlay is used internally here
 function toEditActionRow(ea: EditActionForOverlay): EditActionRow {
   return {
     changeId: 0,
@@ -322,7 +322,7 @@ function toEditActionRow(ea: EditActionForOverlay): EditActionRow {
 /** @deprecated Use OverlayMergeImpl.applyToSingle(). Removed in LLD3. */
 export function applyToSingle<T extends {systemId: number}>(
   baseRow: T | null,
-  // eslint-disable-next-line sonarjs/deprecation -- parameter type for this deprecated overload
+  // eslint-disable-next-line @typescript-eslint/no-deprecated -- parameter type for this deprecated overload
   editAction: EditActionForOverlay | null,
 ): T | null {
   if (!editAction) return baseRow;
@@ -335,7 +335,7 @@ export function applyToSingle<T extends {systemId: number}>(
 /** @deprecated Use OverlayMergeImpl.applyToCollection(). Removed in LLD3. */
 export function applyToCollection<T extends {systemId: number}>(
   baseRows: T[],
-  // eslint-disable-next-line sonarjs/deprecation -- parameter type for this deprecated overload
+  // eslint-disable-next-line @typescript-eslint/no-deprecated -- parameter type for this deprecated overload
   editActions: EditActionForOverlay[],
 ): T[] {
   return _compat

@@ -20,20 +20,18 @@ export type LogLevel = (typeof LogLevel)[keyof typeof LogLevel];
  * logging infrastructure, and client-submitted records do not use it.
  */
 export interface LogData {
-  /** Stable operation identifier used for grouping related log entries */
-  msg: string;
-  /** Detailed, contextual description of the logged event */
-  description: string;
-  /** Project or workspace associated with the log entry */
-  projectId?: string;
-  /** Component, service, or module that emitted the log entry */
-  component: string;
-  /** Feature or category used to group log entries */
-  tag: string;
-  /** Timestamp when the log event occurred; defaults to the current time */
-  timestamp?: Date;
-  /** The caught error, or preformatted text when no Error object exists */
-  error?: Error | string;
+  /** Stable, low-cardinality event name: `<domain>.<operation>.<outcome>` */
+  readonly eventName: string;
+  /** Human-readable, contextual description of the event */
+  readonly description: string;
+  /** Component, service, or module that emitted the event */
+  readonly component: string;
+  /** Feature or category used to group events */
+  readonly tag: string;
+  /** When the event occurred, if earlier than the log call; defaults to now */
+  readonly timestamp?: Date;
+  /** The caught error */
+  readonly error?: Error;
 }
 
 export interface Logger {

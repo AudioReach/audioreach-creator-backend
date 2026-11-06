@@ -15,12 +15,11 @@ const WORKER_SCRIPT = fileURLToPath(
 interface ScriptedInput {
   delayMs?: number;
   outcome?: 'success' | 'failure' | 'hang';
-  projectId?: string;
 }
 
 interface Captured {
-  msg: string;
-  projectId?: string;
+  eventName: string;
+  description: string;
   requestId: string | undefined;
 }
 
@@ -39,8 +38,8 @@ describe('NodeWorkerPoolAdapter', () => {
     captured = [];
     const capture = (data: LogData) => {
       captured.push({
-        msg: data.msg,
-        projectId: data.projectId,
+        eventName: data.eventName,
+        description: data.description,
         requestId: requestContext.getStore(),
       });
     };
@@ -94,12 +93,16 @@ describe('NodeWorkerPoolAdapter', () => {
     const result = await submit(
       p,
       'req-a',
-      task('fails', {outcome: 'failure', projectId: 'proj-1'}),
+      task('fails', {outcome: 'failure'}),
     );
 
     expect(result.success).toBe(false);
     expect(captured).toEqual([
-      {msg: 'worker_task_error', projectId: 'proj-1', requestId: 'req-a'},
+      {
+        eventName: 'worker_task_error',
+        description: 'Worker task failed: scripted failure for fails',
+        requestId: 'req-a',
+      },
     ]);
   });
 
@@ -114,7 +117,10 @@ describe('NodeWorkerPoolAdapter', () => {
     await Promise.all([a, b]);
 
     expect(captured).toEqual([
-      {msg: 'worker_task_error', projectId: undefined, requestId: 'req-b'},
+      expect.objectContaining({
+        eventName: 'worker_task_error',
+        requestId: 'req-b',
+      }),
     ]);
   });
 
@@ -128,26 +134,25 @@ describe('NodeWorkerPoolAdapter', () => {
     await expect(b).rejects.toThrow(/timeout/);
 
     expect(captured).toEqual([
-      {msg: 'task_timeout', projectId: undefined, requestId: 'req-b'},
+      expect.objectContaining({eventName: 'task_timeout', requestId: 'req-b'}),
     ]);
   });
 
   it('keeps concurrent tasks in their own contexts', async () => {
     const p = createPool(2);
     const run = (id: string, delayMs: number) =>
-      submit(
-        p,
-        id,
-        task(id, {outcome: 'failure', delayMs, projectId: `project-of-${id}`}),
-      );
+      submit(p, id, task(id, {outcome: 'failure', delayMs}));
 
     // req-c queues behind req-a and req-b and is dispatched by whichever
-    // finishes first.
+    // finishes first. Each task is named after its request, and the failure
+    // message names the task.
     await Promise.all([run('req-a', 20), run('req-b', 5), run('req-c', 1)]);
 
     expect(captured).toHaveLength(3);
     for (const entry of captured) {
-      expect(entry.projectId).toBe(`project-of-${entry.requestId}`);
+      expect(entry.description).toBe(
+        `Worker task failed: scripted failure for ${entry.requestId}`,
+      );
     }
   });
 });

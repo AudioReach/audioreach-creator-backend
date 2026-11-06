@@ -159,12 +159,13 @@ export async function createTestApp(): Promise<INestApplication> {
     logger = app.get<Logger>('LOGGER');
   } catch {
     logger = {
-      logInfo: ctx => console.log(`[INFO] ${ctx.msg}`),
-      logWarn: ctx => console.warn(`[WARN] ${ctx.msg}`),
-      logError: ctx => console.error(`[ERROR] ${ctx.msg}`, ctx.error),
-      logDebug: ctx => console.debug(`[DEBUG] ${ctx.msg}`),
-      logVerbose: ctx => console.debug(`[VERBOSE] ${ctx.msg}`),
-      logCritical: ctx => console.error(`[CRITICAL] ${ctx.msg}`, ctx.error),
+      logInfo: ctx => console.log(`[INFO] ${ctx.eventName}`),
+      logWarn: ctx => console.warn(`[WARN] ${ctx.eventName}`),
+      logError: ctx => console.error(`[ERROR] ${ctx.eventName}`, ctx.error),
+      logDebug: ctx => console.debug(`[DEBUG] ${ctx.eventName}`),
+      logVerbose: ctx => console.debug(`[VERBOSE] ${ctx.eventName}`),
+      logCritical: ctx =>
+        console.error(`[CRITICAL] ${ctx.eventName}`, ctx.error),
     } as Logger;
   }
   app.useGlobalFilters(

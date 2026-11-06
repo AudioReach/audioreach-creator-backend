@@ -114,7 +114,7 @@ export class NodeWorkerPoolAdapter implements WorkerPoolPort {
           this.logger.logError({
             component: 'WorkerPool',
             tag: 'worker-lifecycle',
-            msg: 'worker_error',
+            eventName: 'worker_error',
             description: `Worker ${i} encountered an error`,
             error: error instanceof Error ? error : new Error(String(error)),
           });
@@ -129,9 +129,9 @@ export class NodeWorkerPoolAdapter implements WorkerPoolPort {
             this.logger.logError({
               component: 'WorkerPool',
               tag: 'worker-lifecycle',
-              msg: 'worker_exit',
+              eventName: 'worker_exit',
               description: `Worker ${i} exited with non-zero code: ${code}`,
-              error: `Worker exited with code ${code}`,
+              error: new Error(`Worker exited with code ${code}`),
             });
           } else {
             console.error(`Worker ${i} exited with code ${code}`);
@@ -183,10 +183,9 @@ export class NodeWorkerPoolAdapter implements WorkerPoolPort {
           this.logger.logError({
             component: 'WorkerPool',
             tag: 'worker-task',
-            msg: 'worker_task_error',
+            eventName: 'worker_task_error',
             description: `Worker task failed: ${result.error ?? 'Unknown error'}`,
             error: workerError,
-            projectId: errorDetails.context?.projectId as string | undefined,
           });
         }
 
@@ -204,7 +203,7 @@ export class NodeWorkerPoolAdapter implements WorkerPoolPort {
           this.logger.logError({
             component: 'WorkerPool',
             tag: 'worker-task',
-            msg: 'task_execution_error',
+            eventName: 'task_execution_error',
             description: `Task execution failed for handler: ${task.handlerKey}`,
             error: error instanceof Error ? error : new Error(String(error)),
           });
@@ -230,7 +229,7 @@ export class NodeWorkerPoolAdapter implements WorkerPoolPort {
             this.logger.logError({
               component: 'WorkerPool',
               tag: 'worker-task',
-              msg: 'task_timeout',
+              eventName: 'task_timeout',
               description: `Task timeout for handler: ${task.handlerKey}`,
               error: timeoutError,
             });

@@ -11,7 +11,7 @@ import type {LogProducerIdentity} from '../../src/identity/log-producer-identity
 import type {LogData} from '@arc/core';
 
 const makeData = (): LogData => ({
-  msg: 'test-msg',
+  eventName: 'test.op.succeeded',
   description: 'test description',
   timestamp: new Date('2026-01-01T00:00:00Z'),
   component: 'TestComponent',
@@ -89,22 +89,6 @@ describe('PinoLogService', () => {
     expect(pino.fatal).toHaveBeenCalledWith(expect.objectContaining(data));
   });
 
-  it('defaults the timestamp when it is omitted', () => {
-    const pino = makePinoLogger();
-    const svc = new PinoLogService(pino as never, producer, logContext);
-    const data: LogData = {
-      msg: 'test-msg',
-      description: 'test description',
-      component: 'TestComponent',
-      tag: 'test-tag',
-    };
-
-    svc.logInfo(data);
-
-    const loggedData = (pino.info as jest.Mock).mock.calls[0][0] as LogData;
-    expect(loggedData.timestamp).toBeInstanceOf(Date);
-  });
-
   it('adds the producer identity to every record', () => {
     const pino = makePinoLogger();
     const svc = new PinoLogService(pino as never, producer, logContext);
@@ -155,16 +139,29 @@ describe('PinoLogService', () => {
     expect(calls[1][0]).not.toHaveProperty('clientInstanceId');
   });
 
-  it('keeps a projectId the caller passes over the context projectId', () => {
-    const pino = makePinoLogger();
-    const svc = new PinoLogService(pino as never, producer, logContext);
+  describe('timestamp', () => {
+    const logged = (data: LogData): ServerLogRecord => {
+      const pino = makePinoLogger();
+      const svc = new PinoLogService(pino as never, producer, logContext);
+      svc.logInfo(data);
+      return (pino.info as jest.Mock).mock.calls[0][0] as ServerLogRecord;
+    };
 
-    logContext.run({projectId: 'route-project'}, () => {
-      svc.logError({...makeData(), projectId: 'explicit-project'});
+    it('defaults to the time of the log call when omitted', () => {
+      const {timestamp: _omitted, ...data} = makeData();
+      const before = Date.now();
+
+      const {timestamp} = logged(data);
+
+      expect(timestamp).toBeInstanceOf(Date);
+      expect(timestamp.getTime()).toBeGreaterThanOrEqual(before);
+      expect(timestamp.getTime()).toBeLessThanOrEqual(Date.now());
     });
 
-    const record = (pino.error as jest.Mock).mock
-      .calls[0][0] as ServerLogRecord;
-    expect(record.projectId).toBe('explicit-project');
+    it('keeps a timestamp the caller passes', () => {
+      const data = makeData();
+
+      expect(logged(data).timestamp).toBe(data.timestamp);
+    });
   });
 });
