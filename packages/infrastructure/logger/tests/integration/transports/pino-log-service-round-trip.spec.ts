@@ -21,7 +21,7 @@ import type {
   LogProducerIdentity,
 } from '../../../src/index.js';
 import {LogLevel} from '@arc/core';
-import type {LogData} from '@arc/core';
+import type {LegacyLogData, LogData} from '@arc/core';
 
 const producer: LogProducerIdentity = {
   serviceName: 'audioreach-creator-api',
@@ -76,14 +76,18 @@ describe('Pino to SQLite round-trip', () => {
   });
 
   const makeData = (overrides: Partial<LogData> = {}): LogData => ({
-    msg: 'test.op',
+    eventName: 'test.op',
     description: 'test description',
     timestamp: new Date('2026-01-01T00:00:00.000Z'),
-    projectId: 'proj-42',
     component: 'TestComponent',
     tag: 'test-tag',
     ...overrides,
   });
+
+  /** Runs `log` in a request whose route names project `proj-42` */
+  const inProject = (log: () => void): void => {
+    logContext.run({projectId: 'proj-42'}, log);
+  };
 
   const readProject = async (): Promise<LogEntryReadModel[]> =>
     (
@@ -101,14 +105,14 @@ describe('Pino to SQLite round-trip', () => {
 
   describe('level mapping', () => {
     it('logVerbose stores level as VERBOSE, not trace', async () => {
-      logger.logVerbose(makeData());
+      inProject(() => logger.logVerbose(makeData()));
       await sqliteTransport.flush();
 
       expect((await readProject())[0].level).toBe(LogLevel.Verbose);
     });
 
     it('logCritical stores level as CRITICAL, not fatal', async () => {
-      logger.logCritical(makeData());
+      inProject(() => logger.logCritical(makeData()));
       await sqliteTransport.flush();
 
       expect((await readProject())[0].level).toBe(LogLevel.Critical);
@@ -120,7 +124,7 @@ describe('Pino to SQLite round-trip', () => {
       ['logWarn', LogLevel.Warn],
       ['logError', LogLevel.Error],
     ] as const)('%s stores level as "%s"', async (method, expected) => {
-      logger[method](makeData());
+      inProject(() => logger[method](makeData()));
       await sqliteTransport.flush();
 
       const rows = await readProject();
@@ -130,8 +134,8 @@ describe('Pino to SQLite round-trip', () => {
   });
 
   describe('server records', () => {
-    it('store msg as event_name and the producer identity', async () => {
-      logger.logInfo(makeData({projectId: undefined}));
+    it('store eventName as event_name and the producer identity', async () => {
+      logger.logInfo(makeData());
       await sqliteTransport.flush();
 
       expect(await readRows()).toEqual([
@@ -154,7 +158,7 @@ describe('Pino to SQLite round-trip', () => {
           projectId: 'proj-42',
         },
         () => {
-          logger.logInfo(makeData({projectId: undefined}));
+          logger.logInfo(makeData());
         },
       );
       await sqliteTransport.flush();
@@ -181,6 +185,25 @@ describe('Pino to SQLite round-trip', () => {
         message: error.message,
         stack: error.stack,
       });
+    });
+  });
+
+  describe('legacy server records', () => {
+    const legacy: LegacyLogData = {
+      msg: 'legacy.op',
+      description: 'legacy description',
+      component: 'TestComponent',
+      tag: 'test-tag',
+      error: 'disk full',
+    };
+
+    it('store msg as event_name and a string error as its message', async () => {
+      logger.logError(legacy);
+      await sqliteTransport.flush();
+
+      const [row] = await readRows();
+      expect(row.event_name).toBe('legacy.op');
+      expect(JSON.parse(row.error ?? '')).toEqual({message: 'disk full'});
     });
   });
 

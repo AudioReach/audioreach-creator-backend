@@ -186,7 +186,6 @@ export class NodeWorkerPoolAdapter implements WorkerPoolPort {
             msg: 'worker_task_error',
             description: `Worker task failed: ${result.error ?? 'Unknown error'}`,
             error: workerError,
-            projectId: errorDetails.context?.projectId as string | undefined,
           });
         }
 

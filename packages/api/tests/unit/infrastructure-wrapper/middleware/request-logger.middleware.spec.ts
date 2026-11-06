@@ -5,7 +5,7 @@
 
 import {AsyncLocalStorageLogContextProvider} from '@arc/logger';
 import type {ActiveLogContext} from '@arc/logger';
-import type {Logger, LogData} from '@arc/core';
+import type {Logger, LogData, LegacyLogData} from '@arc/core';
 import type {Request, Response} from 'express';
 import {RequestLoggerMiddleware} from '../../../../src/infrastructure-wrapper/middleware/request-logger.middleware.js';
 import {CLIENT_INSTANCE_ID_HEADER} from '../../../../src/decorators/client-instance-id.decorator.js';
@@ -25,7 +25,7 @@ const UNSIGNED_TOKEN = [
 interface Captured {
   msg: string;
   context: ActiveLogContext;
-  data: LogData;
+  data: LogData | LegacyLogData;
 }
 
 interface RequestShape {
@@ -44,8 +44,12 @@ describe('RequestLoggerMiddleware', () => {
     captured = [];
     // Record the context that is active when each log call is made, which is
     // what PinoLogService reads.
-    const capture = (data: LogData) => {
-      captured.push({msg: data.msg, context: logContext.current(), data});
+    const capture = (data: LogData | LegacyLogData) => {
+      captured.push({
+        msg: data.msg ?? data.eventName ?? '',
+        context: logContext.current(),
+        data,
+      });
     };
     const logger: Logger = {
       logVerbose: capture,

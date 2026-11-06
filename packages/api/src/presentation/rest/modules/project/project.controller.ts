@@ -726,7 +726,6 @@ export class ProjectController {
       component: 'ProjectController',
       msg: 'downloadArcDbFiles',
       description: 'Downloading files as multipart response',
-      projectId,
       tag: 'file-download',
     });
 
@@ -754,7 +753,6 @@ export class ProjectController {
       component: 'ProjectController',
       msg: 'downloadArcDbFiles',
       description: 'Multipart response sent successfully',
-      projectId,
       tag: 'file-download',
     });
   }

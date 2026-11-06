@@ -12,10 +12,7 @@ export interface ActiveLogContext {
   readonly clientName?: string;
   /** The calling client's launch ID, from `X-ARC-Client-Instance-Id` */
   readonly clientInstanceId?: string;
-  /**
-   * The project the request is about, from the matched route. A `projectId`
-   * the caller passes in `LogData` takes precedence.
-   */
+  /** The project the request is about, from the matched route */
   readonly projectId?: string;
 }
 

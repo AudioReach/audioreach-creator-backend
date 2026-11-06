@@ -4,11 +4,11 @@
  */
 
 // Test worker for NodeWorkerPoolAdapter. Each task's input scripts the reply:
-//   {delayMs, outcome: 'success' | 'failure' | 'hang', projectId?}
+//   {delayMs, outcome: 'success' | 'failure' | 'hang'}
 import {parentPort} from 'node:worker_threads';
 
 parentPort.on('message', task => {
-  const {delayMs = 0, outcome = 'success', projectId} = task.input ?? {};
+  const {delayMs = 0, outcome = 'success'} = task.input ?? {};
   if (outcome === 'hang') {
     return;
   }
@@ -20,7 +20,6 @@ parentPort.on('message', task => {
         errorDetails: {
           type: 'ScriptedError',
           handlerKey: task.handlerKey,
-          context: {projectId},
         },
       });
       return;

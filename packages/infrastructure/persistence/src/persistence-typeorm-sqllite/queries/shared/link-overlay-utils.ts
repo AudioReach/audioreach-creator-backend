@@ -5,7 +5,6 @@
 
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import type {ProjectSessionRow} from '../../entity-schema/index.js';
-// eslint-disable-next-line sonarjs/deprecation
 import {applyToCollection} from '../edit-session/overlay-merge.js';
 import type {EntityName} from '../../entity-schema/entity-table-names.js';
 
@@ -40,7 +39,7 @@ export async function applyLinkOverlayAndMap<
       entityName,
     );
     if (actions.length > 0) {
-      // eslint-disable-next-line sonarjs/deprecation
+      // eslint-disable-next-line @typescript-eslint/no-deprecated
       overlaid = applyToCollection(
         overlaid as unknown as Array<{systemId: number}>,
         actions,

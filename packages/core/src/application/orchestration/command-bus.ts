@@ -57,10 +57,11 @@ export class CommandBus {
     const {uow, release} = await this.uowFactory();
 
     this.logger?.logDebug({
-      msg: 'uow-created',
+      eventName: 'command.unit_of_work.created',
       description: 'UnitOfWork created for command execution',
       component: 'CommandBus',
       tag: 'uow-lifecycle',
+      timestamp: new Date(),
     });
 
     // Stamp WriteContext only when a session is present (Case 1 + 2).
@@ -75,28 +76,31 @@ export class CommandBus {
       // Safety check: ensure transaction is closed
       if (uow.isInTransaction()) {
         this.logger?.logWarn({
-          msg: 'auto-rollback',
+          eventName: 'command.transaction.auto_rolled_back',
           description: `Handler ${command.constructor.name} left transaction open. Auto-rolling back.`,
           component: 'CommandBus',
           tag: 'transaction-safety',
+          timestamp: new Date(),
         });
         await uow.rollback();
       }
 
       this.logger?.logDebug({
-        msg: 'command-execution-success',
+        eventName: 'command.execute.succeeded',
         description: `Command executed successfully: ${command.constructor.name}`,
         component: 'CommandBus',
         tag: 'command-execution',
+        timestamp: new Date(),
       });
 
       return result;
     } catch (error) {
       this.logger?.logError({
-        msg: 'command-execution-error',
+        eventName: 'command.execute.failed',
         description: `Command execution failed: ${command.constructor.name}`,
         component: 'CommandBus',
         tag: 'command-execution',
+        timestamp: new Date(),
         error: error instanceof Error ? error : new Error(String(error)),
       });
 
@@ -105,18 +109,20 @@ export class CommandBus {
         if (uow.isInTransaction()) {
           await uow.rollback();
           this.logger?.logDebug({
-            msg: 'error-rollback',
+            eventName: 'command.transaction.rolled_back',
             description: 'Transaction rolled back due to error',
             component: 'CommandBus',
             tag: 'transaction-rollback',
+            timestamp: new Date(),
           });
         }
       } catch (rollbackError) {
         this.logger?.logError({
-          msg: 'rollback-error',
+          eventName: 'command.transaction.rollback_failed',
           description: 'Failed to rollback transaction after error',
           component: 'CommandBus',
           tag: 'transaction-rollback',
+          timestamp: new Date(),
           error:
             rollbackError instanceof Error
               ? rollbackError

@@ -20,7 +20,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const HEADER = 'X-ARC-Client-Instance-Id';
 /** Records the middleware writes before routing and authentication. */
-const PRE_ROUTING_MSGS = new Set(['incomingRequest', 'requestHeaders']);
+const PRE_ROUTING_EVENTS = new Set(['incomingRequest', 'requestHeaders']);
 const PINO_LEVELS = [
   'trace',
   'debug',
@@ -90,7 +90,8 @@ describe('Request log context E2E', () => {
       .send(body)
       .timeout(10000);
 
-  const withMsg = (msg: string) => records.filter(r => r.msg === msg);
+  const withEvent = (eventName: string) =>
+    records.filter(r => r.eventName === eventName);
 
   it('adds the server producer identity to every record', async () => {
     await patch(projectId, randomUUID(), {name: 'producer'}).expect(200);
@@ -107,14 +108,14 @@ describe('Request log context E2E', () => {
     const launch = randomUUID();
     await patch(projectId, launch, {name: 'labels'}).expect(200);
 
-    const early = records.filter(r => PRE_ROUTING_MSGS.has(r.msg));
-    const later = records.filter(r => !PRE_ROUTING_MSGS.has(r.msg));
+    const early = records.filter(r => PRE_ROUTING_EVENTS.has(r.eventName));
+    const later = records.filter(r => !PRE_ROUTING_EVENTS.has(r.eventName));
     expect(early.length).toBeGreaterThan(0);
     expect(later.length).toBeGreaterThan(0);
     expect(records.every(r => r.clientInstanceId === launch)).toBe(true);
     expect(early.some(r => 'clientName' in r || 'projectId' in r)).toBe(false);
     expect(later.every(r => r.clientName === E2E_CLIENT_NAME)).toBe(true);
-    expect(withMsg('outgoingResponse').map(r => r.projectId)).toEqual([
+    expect(withEvent('outgoingResponse').map(r => r.projectId)).toEqual([
       projectId,
     ]);
   });
@@ -149,7 +150,7 @@ describe('Request log context E2E', () => {
     expect(records.length).toBeGreaterThan(0);
     expect(records.some(r => 'clientName' in r)).toBe(false);
     // The project is added before authentication, so the 401 carries it.
-    expect(withMsg('outgoingResponse').map(r => r.projectId)).toEqual([
+    expect(withEvent('outgoingResponse').map(r => r.projectId)).toEqual([
       projectId,
     ]);
   });
@@ -177,18 +178,18 @@ describe('Request log context E2E', () => {
     }
     expect(statuses).toEqual(ok.flatMap(() => [200, 404, 400]));
 
-    const ids = (msg: string) =>
-      new Set(withMsg(msg).map(r => r.clientInstanceId));
+    const ids = (eventName: string) =>
+      new Set(withEvent(eventName).map(r => r.clientInstanceId));
 
     // Records written by the bus and the exception filters carry the
     // client name and the route's project ID as well.
-    for (const r of withMsg('command-execution-error')) {
+    for (const r of withEvent('command.execute.failed')) {
       expect(r.clientName).toBe(E2E_CLIENT_NAME);
       expect(r.projectId).toBe('999999');
     }
 
-    expect(ids('command-execution-success')).toEqual(new Set(ok));
-    expect(ids('command-execution-error')).toEqual(new Set(missing));
+    expect(ids('command.execute.succeeded')).toEqual(new Set(ok));
+    expect(ids('command.execute.failed')).toEqual(new Set(missing));
     expect(ids('validationFailed')).toEqual(new Set(invalid));
     expect(ids('incomingRequest')).toEqual(
       new Set([...ok, ...missing, ...invalid]),
@@ -217,12 +218,12 @@ describe('Request log context E2E', () => {
       nested: {token: secret},
     }).expect(400);
 
-    expect(withMsg('validationFailed')).toHaveLength(1);
-    expect(withMsg('validationFailed')[0].error).toContain(
+    expect(withEvent('validationFailed')).toHaveLength(1);
+    expect(withEvent('validationFailed')[0].error?.message).toContain(
       'property password should not exist',
     );
-    expect(records.some(r => r.msg === 'requestBody')).toBe(false);
-    expect(records.some(r => r.msg === 'requestDetails')).toBe(false);
+    expect(records.some(r => r.eventName === 'requestBody')).toBe(false);
+    expect(records.some(r => r.eventName === 'requestDetails')).toBe(false);
     expect(JSON.stringify(records)).not.toContain(secret);
   });
 
