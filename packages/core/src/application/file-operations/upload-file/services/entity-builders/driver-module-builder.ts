@@ -52,7 +52,7 @@ export class DriverModuleBuilder {
     }
 
     this.logger?.logDebug({
-      msg: 'driver_module_building_start',
+      eventName: 'driver_module_building_start',
       description: `Building ${moduleDefinitionIds.length} driver modules`,
       component: 'DriverModuleBuilder',
       tag: 'driver-modules',
@@ -116,7 +116,7 @@ export class DriverModuleBuilder {
     }
 
     this.logger?.logInfo({
-      msg: 'driver_module_building_complete',
+      eventName: 'driver_module_building_complete',
       description: `Successfully built ${entities.length} driver modules with system IDs assigned, ${issues.length} failures`,
       component: 'DriverModuleBuilder',
       tag: 'driver-modules',
@@ -163,7 +163,7 @@ export class DriverModuleBuilder {
     } catch (error) {
       // Log warning but don't fail the entire build
       this.logger?.logWarn({
-        msg: 'calibration_attachment_failed',
+        eventName: 'calibration_attachment_failed',
         description: `Failed to attach calibration data: ${error instanceof Error ? error.message : 'Unknown error'}`,
         component: 'DriverModuleBuilder',
         tag: 'calibration-attachment',

@@ -50,7 +50,7 @@ export class TagDefinitionBuilder {
 
           if (keySystemId === undefined) {
             this.logger?.logWarn({
-              msg: 'key_definition_resolution_failed',
+              eventName: 'key_definition_resolution_failed',
               description: `Key definition system ID not found for key ${supportedKey.id} in tag ${awspTagDef.id}`,
               component: 'TagDefinitionBuilder',
               tag: 'tag-definition-building',
@@ -91,7 +91,7 @@ export class TagDefinitionBuilder {
     }
 
     this.logger?.logInfo({
-      msg: 'tag_definitions_built',
+      eventName: 'tag_definitions_built',
       description: `Built ${entities.length} tag definitions with system IDs assigned`,
       component: 'TagDefinitionBuilder',
       tag: 'tag-definition-building',

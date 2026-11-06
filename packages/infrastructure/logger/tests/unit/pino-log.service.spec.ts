@@ -8,7 +8,7 @@ import {PinoLogService} from '../../src/pino-log.service.js';
 import type {ServerLogRecord} from '../../src/pino-log.service.js';
 import {AsyncLocalStorageLogContextProvider} from '../../src/context/async-local-storage-log-context-provider.js';
 import type {LogProducerIdentity} from '../../src/identity/log-producer-identity.js';
-import type {LegacyLogData, LogData} from '@arc/core';
+import type {LogData} from '@arc/core';
 
 const makeData = (): LogData => ({
   eventName: 'test.op.succeeded',
@@ -139,56 +139,29 @@ describe('PinoLogService', () => {
     expect(calls[1][0]).not.toHaveProperty('clientInstanceId');
   });
 
-  describe('legacy calls', () => {
-    const legacy = (overrides: Partial<LegacyLogData> = {}): LegacyLogData => ({
-      msg: 'legacy-op',
-      description: 'legacy description',
-      component: 'TestComponent',
-      tag: 'test-tag',
-      ...overrides,
-    });
-
-    const logged = (data: LegacyLogData): ServerLogRecord => {
+  describe('timestamp', () => {
+    const logged = (data: LogData): ServerLogRecord => {
       const pino = makePinoLogger();
       const svc = new PinoLogService(pino as never, producer, logContext);
       svc.logInfo(data);
       return (pino.info as jest.Mock).mock.calls[0][0] as ServerLogRecord;
     };
 
-    it('writes msg as eventName and drops msg', () => {
-      const record = logged(legacy());
+    it('defaults to the time of the log call when omitted', () => {
+      const {timestamp: _omitted, ...data} = makeData();
+      const before = Date.now();
 
-      expect(record.eventName).toBe('legacy-op');
-      expect(record).not.toHaveProperty('msg');
-      expect(record.description).toBe('legacy description');
-    });
+      const {timestamp} = logged(data);
 
-    it('defaults the timestamp when it is omitted', () => {
-      expect(logged(legacy()).timestamp).toBeInstanceOf(Date);
+      expect(timestamp).toBeInstanceOf(Date);
+      expect(timestamp.getTime()).toBeGreaterThanOrEqual(before);
+      expect(timestamp.getTime()).toBeLessThanOrEqual(Date.now());
     });
 
     it('keeps a timestamp the caller passes', () => {
-      const timestamp = new Date('2026-01-01T00:00:00Z');
+      const data = makeData();
 
-      expect(logged(legacy({timestamp})).timestamp).toBe(timestamp);
-    });
-
-    it('wraps a string error in an Error without a stack', () => {
-      const {error} = logged(legacy({error: 'disk full'}));
-
-      expect(error).toBeInstanceOf(Error);
-      expect(error?.message).toBe('disk full');
-      expect(error?.stack).toBeUndefined();
-    });
-
-    it('keeps an Error error unchanged', () => {
-      const cause = new Error('boom');
-
-      expect(logged(legacy({error: cause})).error).toBe(cause);
-    });
-
-    it('omits error when there is none', () => {
-      expect(logged(legacy())).not.toHaveProperty('error');
+      expect(logged(data).timestamp).toBe(data.timestamp);
     });
   });
 });

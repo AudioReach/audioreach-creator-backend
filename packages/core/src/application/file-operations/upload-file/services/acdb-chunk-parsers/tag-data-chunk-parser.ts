@@ -272,7 +272,7 @@ export class TagDataChunkParser extends BaseChunkParser<TagDataChunk> {
       const errorMsg =
         'MODULE_TAG_DATA_LUT, MODULE_TAG_DATA_DEF, and MODULE_TAG_DATA_DOT chunks are required';
       this.logger?.logError({
-        msg: 'parse_tag_data_failed',
+        eventName: 'parse_tag_data_failed',
         description: errorMsg,
         component: 'TagDataChunkParser',
         tag: 'tag-data-parsing',
@@ -308,7 +308,7 @@ export class TagDataChunkParser extends BaseChunkParser<TagDataChunk> {
         offset = result.newOffset;
       } catch (error) {
         this.logger?.logError({
-          msg: 'parse_tag_data_entry_failed',
+          eventName: 'parse_tag_data_entry_failed',
           description: `Failed to parse tag data entry ${i}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           component: 'TagDataChunkParser',
           tag: 'tag-data-parsing',

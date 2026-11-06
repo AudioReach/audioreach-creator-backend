@@ -96,7 +96,7 @@ export class CalibrationDataBuilder {
     }
 
     this.logger?.logInfo({
-      msg: 'calibration_data_built',
+      eventName: 'calibration_data_built',
       description: `Built calibration data: ${kvDataWithModules.length} KvData entries for ${kvDataByModule.size} modules`,
       component: 'CalibrationDataBuilder',
       tag: 'calibration-building',
@@ -192,7 +192,7 @@ export class CalibrationDataBuilder {
     );
     if (!ckvLutTbl) {
       this.logger?.logWarn({
-        msg: 'missing_ckv_lut_table',
+        eventName: 'missing_ckv_lut_table',
         description: `CKV LUT table not found for offset ${calDataObj.offsetVoiceCkvLookupTable}`,
         component: 'CalibrationDataBuilder',
         tag: 'calibration-building',
@@ -206,7 +206,7 @@ export class CalibrationDataBuilder {
     );
     if (!defEntry) {
       this.logger?.logWarn({
-        msg: 'missing_def_entry',
+        eventName: 'missing_def_entry',
         description: `DEF entry not found for offset ${calDataObj.offsetVoiceCalDefinitionTable}`,
         component: 'CalibrationDataBuilder',
         tag: 'calibration-building',
@@ -220,7 +220,7 @@ export class CalibrationDataBuilder {
     );
     if (!dotEntry) {
       this.logger?.logWarn({
-        msg: 'missing_dot_entry',
+        eventName: 'missing_dot_entry',
         description: `DOT entry not found for offset ${calDataObj.offsetVoiceCalDefinitionTable}`,
         component: 'CalibrationDataBuilder',
         tag: 'calibration-building',
@@ -237,7 +237,7 @@ export class CalibrationDataBuilder {
 
     if (keyIds.length > 0 && valueSystemIds.length === 0) {
       this.logger?.logWarn({
-        msg: 'value_resolution_failed',
+        eventName: 'value_resolution_failed',
         description: 'Failed to resolve value system IDs for voice calibration',
         component: 'CalibrationDataBuilder',
         tag: 'calibration-building',
@@ -286,7 +286,7 @@ export class CalibrationDataBuilder {
     );
     if (!calKeyTbl) {
       this.logger?.logWarn({
-        msg: 'missing_cal_key_table',
+        eventName: 'missing_cal_key_table',
         description: `Calibration key table not found for offset ${ckvDataTbl.offsetVoiceCalKeyTable}`,
         component: 'CalibrationDataBuilder',
         tag: 'calibration-building',
@@ -315,7 +315,7 @@ export class CalibrationDataBuilder {
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error';
         this.logger?.logWarn({
-          msg: 'cal_data_obj_processing_failed',
+          eventName: 'cal_data_obj_processing_failed',
           description: `Failed to process calibration data object: ${errorMessage}`,
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',
@@ -356,7 +356,7 @@ export class CalibrationDataBuilder {
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error';
         this.logger?.logWarn({
-          msg: 'voice_ckv_data_tbl_processing_failed',
+          eventName: 'voice_ckv_data_tbl_processing_failed',
           description: `Failed to process voice CKV data table: ${errorMessage}`,
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',
@@ -396,7 +396,7 @@ export class CalibrationDataBuilder {
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error';
         this.logger?.logWarn({
-          msg: 'voice_calibration_processing_failed',
+          eventName: 'voice_calibration_processing_failed',
           description: `Failed to process voice calibration for subgraph ${sgCalTbl.subgraphId}: ${errorMessage}`,
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',
@@ -446,7 +446,7 @@ export class CalibrationDataBuilder {
     );
     if (!datapoolChunk) {
       this.logger?.logWarn({
-        msg: 'missing_datapool_chunk',
+        eventName: 'missing_datapool_chunk',
         description: 'Datapool chunk not found for calibration',
         component: 'CalibrationDataBuilder',
         tag: 'calibration-building',
@@ -456,7 +456,7 @@ export class CalibrationDataBuilder {
 
     if (defAndOffset.pairs.length !== defAndOffset.offsets.length) {
       this.logger?.logWarn({
-        msg: 'count_mismatch',
+        eventName: 'count_mismatch',
         description: `DEF and DOT entry count mismatch: ${defAndOffset.pairs.length} vs ${defAndOffset.offsets.length}`,
         component: 'CalibrationDataBuilder',
         tag: 'calibration-building',
@@ -515,7 +515,7 @@ export class CalibrationDataBuilder {
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error';
         this.logger?.logWarn({
-          msg: 'audio_calibration_processing_failed',
+          eventName: 'audio_calibration_processing_failed',
           description: `Failed to process audio calibration for subgraph ${sgLutEntry.subgraphId}: ${errorMessage}`,
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',
@@ -551,7 +551,7 @@ export class CalibrationDataBuilder {
       );
       if (!keyIds) {
         this.logger?.logWarn({
-          msg: 'missing_key_table',
+          eventName: 'missing_key_table',
           description: `Key table not found for offset ${calKeyTableEntry.offsetCalKeyTable}`,
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',
@@ -565,7 +565,7 @@ export class CalibrationDataBuilder {
       );
       if (!ckvLutTbl) {
         this.logger?.logWarn({
-          msg: 'missing_ckv_lut_table',
+          eventName: 'missing_ckv_lut_table',
           description: `CKV LUT table not found for offset ${calKeyTableEntry.offsetCalLookupTable}`,
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',
@@ -619,7 +619,7 @@ export class CalibrationDataBuilder {
 
       if (keyIds.length > 0 && valueSystemIds.length === 0) {
         this.logger?.logWarn({
-          msg: 'value_resolution_failed',
+          eventName: 'value_resolution_failed',
           description:
             'Failed to resolve value system IDs for audio calibration',
           component: 'CalibrationDataBuilder',
@@ -641,7 +641,7 @@ export class CalibrationDataBuilder {
 
       if (!defEntry || !dotEntry) {
         this.logger?.logWarn({
-          msg: 'missing_def_or_dot_entry',
+          eventName: 'missing_def_or_dot_entry',
           description: `Missing DEF or DOT entry for offsets: DEF=${ckvEntry.offsetCalDefinition}, DOT=${ckvEntry.offsetCalDataOffset}`,
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',
@@ -697,7 +697,7 @@ export class CalibrationDataBuilder {
 
     if (!datapoolChunk) {
       this.logger?.logWarn({
-        msg: 'vcpm_missing_datapool',
+        eventName: 'vcpm_missing_datapool',
         description: 'Datapool chunk not found — skipping VCPM data attachment',
         component: 'CalibrationDataBuilder',
         tag: 'vcpm-building',
@@ -712,7 +712,7 @@ export class CalibrationDataBuilder {
 
     if (vcpmDefinitionSystemId === undefined) {
       this.logger?.logWarn({
-        msg: 'vcpm_definition_not_found',
+        eventName: 'vcpm_definition_not_found',
         description: `VCPM module definition not found for voiceModuleInstanceNaturalId=${voiceCalChunk.voiceModuleInstanceId} — skipping VCPM data attachment`,
         component: 'CalibrationDataBuilder',
         tag: 'vcpm-building',
@@ -726,7 +726,7 @@ export class CalibrationDataBuilder {
       const subgraph = subgraphByNaturalId.get(sgCalTbl.subgraphId);
       if (!subgraph) {
         this.logger?.logWarn({
-          msg: 'vcpm_subgraph_not_found',
+          eventName: 'vcpm_subgraph_not_found',
           description: `Subgraph not found for subgraphNaturalId=${sgCalTbl.subgraphId} — skipping VCPM data for this subgraph`,
           component: 'CalibrationDataBuilder',
           tag: 'vcpm-building',
@@ -747,7 +747,7 @@ export class CalibrationDataBuilder {
         subgraph.setVcpmDataInstance(vcpmInstance);
       } catch (error) {
         this.logger?.logWarn({
-          msg: 'vcpm_instance_build_failed',
+          eventName: 'vcpm_instance_build_failed',
           description: `Failed to build VCPM instance for subgraphNaturalId=${sgCalTbl.subgraphId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           component: 'CalibrationDataBuilder',
           tag: 'vcpm-building',
@@ -756,7 +756,7 @@ export class CalibrationDataBuilder {
     }
 
     this.logger?.logInfo({
-      msg: 'vcpm_data_attached',
+      eventName: 'vcpm_data_attached',
       description: `Attached VCPM data to ${subgraphs.filter(s => s.vcpmDataInstance !== null).length} subgraphs`,
       component: 'CalibrationDataBuilder',
       tag: 'vcpm-building',
@@ -832,7 +832,7 @@ export class CalibrationDataBuilder {
         );
       } catch (error) {
         this.logger?.logWarn({
-          msg: 'vcpm_cal_data_obj_failed',
+          eventName: 'vcpm_cal_data_obj_failed',
           description: `Failed to process VCPM cal data object: ${error instanceof Error ? error.message : 'Unknown error'}`,
           component: 'CalibrationDataBuilder',
           tag: 'vcpm-building',
@@ -948,7 +948,7 @@ export class CalibrationDataBuilder {
 
       if (paramSystemId === undefined) {
         this.logger?.logWarn({
-          msg: 'vcpm_param_not_found',
+          eventName: 'vcpm_param_not_found',
           description: `VCPM param definition not found for paramId=${paramId}`,
           component: 'CalibrationDataBuilder',
           tag: 'vcpm-building',
@@ -978,7 +978,7 @@ export class CalibrationDataBuilder {
     const data = datapoolChunk.getDataAtOffset(dataOffset);
     if (!data) {
       this.logger?.logWarn({
-        msg: 'datapool_offset_not_found',
+        eventName: 'datapool_offset_not_found',
         description: `No data found at datapool offset ${dataOffset}`,
         component: 'CalibrationDataBuilder',
         tag: 'calibration-building',
@@ -1050,7 +1050,7 @@ export class CalibrationDataBuilder {
 
       if (valueSystemId === undefined) {
         this.logger?.logWarn({
-          msg: 'value_resolution_failed',
+          eventName: 'value_resolution_failed',
           description: `Failed to resolve value system ID for keyId=${keyIds[i]}, valueId=${valueIds[i]}`,
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',
@@ -1125,7 +1125,7 @@ export class CalibrationDataBuilder {
     );
     if (!moduleSystemId) {
       this.logger?.logWarn({
-        msg: 'module_resolution_failed',
+        eventName: 'module_resolution_failed',
         description: `Failed to resolve module system ID for instance ${moduleInstanceId}`,
         component: 'CalibrationDataBuilder',
         tag: 'calibration-building',
@@ -1170,7 +1170,7 @@ export class CalibrationDataBuilder {
 
       if (!moduleDefinitionSystemId) {
         this.logger?.logWarn({
-          msg: 'module_definition_resolution_failed',
+          eventName: 'module_definition_resolution_failed',
           description: `Failed to resolve module definition system ID for instance ${moduleInstanceId} (systemId: ${moduleSystemId})`,
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',
@@ -1185,7 +1185,7 @@ export class CalibrationDataBuilder {
 
       if (parameterSystemId === undefined) {
         this.logger?.logWarn({
-          msg: 'parameter_resolution_failed',
+          eventName: 'parameter_resolution_failed',
           description: `Failed to resolve parameter system ID for param ${payload.parameterId} in module definition ${moduleDefinitionSystemId}`,
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',
@@ -1225,7 +1225,7 @@ export class CalibrationDataBuilder {
         : undefined;
       if (persistence.payloadId && !payload) {
         this.logger?.logError({
-          msg: 'ckv_payload_not_found',
+          eventName: 'ckv_payload_not_found',
           description: `payloadId ${persistence.payloadId} not found in payloadMap for module 0x${instanceId.toString(16)}`,
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',
@@ -1260,7 +1260,7 @@ export class CalibrationDataBuilder {
         match.uiPersistence = payload ?? null;
       } else {
         this.logger?.logError({
-          msg: 'ckv_match_not_found',
+          eventName: 'ckv_match_not_found',
           description: `No matching CKV for module 0x${instanceId.toString(16)} payloadId=${persistence.payloadId} calKeyValue=${persistence.calKeyValue ?? '(zero-CKV)'}`,
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',

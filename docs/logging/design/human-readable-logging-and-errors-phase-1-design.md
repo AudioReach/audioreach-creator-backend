@@ -62,7 +62,6 @@ logger.logWarn({
   description: "Module 'RX MFC' (0x0000A1B2) failed validation",
   component: 'ModuleValidator',
   tag: 'validation',
-  timestamp: new Date(),
 });
 ```
 
@@ -647,7 +646,7 @@ interface LogData {
   readonly description: string;
   readonly component: string;
   readonly tag: string;
-  readonly timestamp: Date;
+  readonly timestamp?: Date;
   readonly error?: Error;
 }
 
@@ -661,8 +660,13 @@ interface Logger {
 }
 ```
 
-During migration a deprecated `LegacyLogData` overload keeps existing callers
-compiling; see §13.1. The contract above is the only one new code may use.
+`timestamp` is optional: `PinoLogService` sets it to the time of the log call
+when it is omitted, as Pino and OpenTelemetry do. A caller passes it only for
+an event that happened earlier than the call. It is set at the call, not when
+the record is stored, because the SQLite transport writes in batches.
+
+All callers were moved to this contract in one step in Phase 1 (§13.1); there
+is no legacy call shape.
 
 Core does not provide:
 
@@ -797,6 +801,9 @@ later (OpenTelemetry LLD §5.4).
   [OpenTelemetry naming rules](https://github.com/open-telemetry/semantic-conventions/blob/main/docs/general/naming.md)
   (for example, `command.transaction.rollback_failed`). They have no
   application prefix while logs stay in the application's own store.
+  A `no-restricted-syntax` lint rule reports a string-literal `eventName`
+  that does not match this convention, and any template-literal `eventName`
+  (§13.1).
 - `description` contains human-readable contextual detail.
 - `component` identifies the emitting application component.
 - `tag` remains the broad category.
@@ -1518,57 +1525,43 @@ Project-data schema changes in this phase (not logging):
 
 ## 13. Implementation Sequence
 
-### 13.1 Migration strategy: parallel change
+### 13.1 Migration strategy
 
 The logger and issue contracts are used across the codebase (285 `logger.log*`
 calls in 44 files; issue factories in about 60 call-site files), while this
-work adopts them in routing first. The contracts therefore change with
+work adopts them in routing first. They migrate differently.
+
+**Logger: one-step migration (Phase 1).** The change at each log call is
+mechanical: rename `msg` to `eventName` and pass an `Error` instead of a string
+`error`. One commit therefore changes every call with a script, fixes the few
+that the compiler reports by hand, and deletes the old shape. There is no
+legacy overload, no translation code, and no `never` field to keep two shapes
+apart. The commit is separate from the contract change, so it can be reverted
+on its own.
+
+The event names kept their old values. Renaming them to the §6.3 convention
+needs knowledge of each call, so it is not scripted. A `no-restricted-syntax`
+lint rule tracks it:
+
+- as `warn` everywhere; the warning count is the names still to rename; and
+- as `error`, through a `files` override in `eslint.config.js`, for renamed
+  areas. The list starts with `application/usecase-designer/use-case-creator/**`
+  and `application/orchestration/command-bus.ts`; each renaming change adds
+  the areas it converts.
+
+The rule reports a string-literal `eventName` in a `log*()` call that does not
+match `<domain>.<operation>.<outcome>`, and any template-literal `eventName`,
+which would carry per-occurrence values. When it reports no warnings, it
+becomes `error` everywhere and the override is removed.
+
+Tests that assert an event name change with the name.
+
+**Issues: parallel change (Phase 4).** Issue producers need typed facts and
+templates per code, which cannot be scripted. The issue contract therefore
+changes with
 [Parallel Change](https://martinfowler.com/bliki/ParallelChange.html):
 expand, migrate, contract. Code not yet migrated keeps compiling and behaving
 as today, and each later PR migrates one feature area.
-
-**Expand (logger, Phase 1).** The target `LogData` (§6.1) and the current
-shape, renamed `LegacyLogData`, exist side by side. `never` fields make the
-two shapes mutually exclusive, so a call cannot mix `eventName` and `msg`:
-
-```typescript
-interface LogData {
-  readonly eventName: string;
-  readonly description: string;
-  readonly component: string;
-  readonly tag: string;
-  readonly timestamp: Date;
-  readonly error?: Error;
-  readonly msg?: never;
-}
-
-/** @deprecated Migrate to LogData. Removed when migration completes (§13.1). */
-interface LegacyLogData {
-  readonly msg: string;
-  readonly description: string;
-  readonly component: string;
-  readonly tag: string;
-  readonly timestamp?: Date;
-  readonly error?: Error | string;
-  readonly eventName?: never;
-}
-
-interface Logger {
-  logInfo(data: LogData): void;
-  /** @deprecated Use the LogData overload. */
-  logInfo(data: LegacyLogData): void;
-  // the same pair for logVerbose, logDebug, logWarn, logError, logCritical
-}
-```
-
-Existing calls resolve to the deprecated overload without change.
-`PinoLogService`, the only `Logger` implementation, is the single translation
-point: it detects the legacy shape, maps `msg` to `eventName`, defaults
-`timestamp`, and wraps a string `error` in an `Error`. `LegacyLogData` has no
-`source`: the three callers that set it (request middleware, worker pool, and
-client-log controller) move to §6.2 and §7 in Phase 1. The worker pool's value
-is always `Server` today, because worker results never carry a `clientId`.
-Core has no translation helper.
 
 **Expand (issues, Phase 4).** The current `Issue` shape, with free-text
 `message`, is kept as a deprecated `LegacyIssue`. `Result<T>` accepts rendered
@@ -1580,29 +1573,19 @@ becomes `ApiEntityRef[]` (§8.4), the mapper gives each legacy use-case ID the
 §4.2 fallback `displayName` (`UseCase with systemId: 0x...`) until its producer
 is converted.
 
-**Guardrails.** `@typescript-eslint/no-deprecated` is enabled:
+**Guardrails (issues).** `@typescript-eslint/no-deprecated` is enabled as
+`warn` everywhere; Phase 4 adds a `files` override that makes it `error` for
+`LegacyIssue` in migrated areas. `sonarjs/deprecation`, enabled as `error` by
+the sonarjs recommended config, is turned off: it duplicates `no-deprecated`.
+If `no-deprecated` does not report a deprecated type, the fallback is a
+`no-restricted-syntax` rule for the migrated areas that rejects `LegacyIssue`
+(§18).
 
-- as `warn` everywhere; the warning count is the remaining migration; and
-- as `error`, through a `files` override in `eslint.config.js`, for migrated
-  areas. The list starts with `application/usecase-designer/use-case-creator/**`
-  and `application/orchestration/command-bus.ts`, and each migration PR adds
-  the areas it converts.
+**Migrate (Phase 6).** Each PR converts one feature area's issue producers,
+and adds that area to the `error` override. It changes nothing else.
 
-The rule is turned off, through a `files` override, for the two files that
-declare the deprecated overloads (`logger.interface.ts` and
-`pino-log.service.ts`). `sonarjs/deprecation`, enabled as `error` by the
-sonarjs recommended config, is turned off: it would report every legacy call
-as an error and duplicates `no-deprecated`.
-
-If the rule does not report calls that resolve to a deprecated overload, the
-fallback is a `no-restricted-syntax` rule for the migrated areas that rejects
-a `msg` property in `log*()` calls and the use of `LegacyIssue` (§18).
-
-**Migrate (Phase 6).** Each PR converts one feature area's call sites and
-producers, and adds that area to the `error` override. It changes nothing else.
-
-**Contract (Phase 7).** Delete the compatibility code (see Phase 7). The
-compiler then reports any remaining caller.
+**Contract (Phase 7).** Delete the issue compatibility code (see Phase 7). The
+compiler then reports any remaining producer.
 
 **Not bridged.** These changes are not call-site compatible and ship complete
 in their own PR:
@@ -1632,11 +1615,12 @@ in their own PR:
   header, and new DTOs against this contract.
 - Make core `LogData` independent of the persisted read shape.
 - Rename the stable event identifier from `msg` to `eventName` in the core
-  write contract.
-- Add the deprecated `LegacyLogData` overloads, the legacy translation in
-  `PinoLogService`, and the `no-deprecated` guardrails (§13.1). Existing call
-  sites are not changed.
-- Migrate the `command-bus.ts` log calls to the new contract.
+  write contract, and make `timestamp` optional (§6.1).
+- Migrate the `command-bus.ts` log calls to the new contract and the §6.3
+  event names.
+- In a separate commit, move every other log call to the new contract in one
+  step and add the event-name lint rule (§13.1). Event names keep their old
+  values.
 
 ### Phase 2: Identity kernel
 
@@ -1696,24 +1680,27 @@ in their own PR:
   replace them with natural identity, or with the §4.2 fallback when natural
   identity is missing.
 - Migrate features using the shared identity adapters.
-- Each PR migrates one feature area's log calls (`LegacyLogData` to `LogData`)
-  and issue producers (`LegacyIssue` to facts), adds `IssueContextMap` entries
-  and API variants for codes that gain context, and adds the area to the
-  `no-deprecated` `error` override (§13.1).
+- Each PR migrates one feature area's issue producers (`LegacyIssue` to
+  facts), adds `IssueContextMap` entries and API variants for codes that gain
+  context, and adds the area to the `no-deprecated` `error` override (§13.1).
+- Rename event names to the §6.3 convention, and add each renamed area to the
+  event-name rule's `error` override (§13.1). This can happen after the other
+  phases.
 - Do not introduce feature-specific formatters or hidden lookup services.
 
 ### Phase 7: Remove compatibility
 
-Done when `no-deprecated` reports no warnings. In one PR:
+The logger has no compatibility code to remove (§13.1). Done when
+`no-deprecated` reports no `LegacyIssue` use. In one PR:
 
-- delete `LegacyLogData` and the deprecated `Logger` overloads;
-- delete the legacy translation in `PinoLogService`;
-- remove `msg?: never` from `LogData`: it only keeps the two shapes apart;
 - delete `LegacyIssue`, its branch in `Result<T>`, and the legacy path and
   `impactedUsecases` fallback in the API mapper;
-- remove the `no-deprecated` `files` override and any fallback
+- remove the `LegacyIssue` `files` override and any fallback
   `no-restricted-syntax` rule; and
 - confirm the build, lint, and test suites pass with no deprecated usage.
+
+When the event-name rule reports no warnings, make it `error` everywhere and
+remove its `files` override. This does not block Phase 7.
 
 Phase 7 does not touch the client-log endpoint (§7); its future is owned by
 the OpenTelemetry LLD.
@@ -1747,13 +1734,14 @@ the OpenTelemetry LLD.
 - every use case created by import has a derived `type`, which overrides any
   type in UI metadata;
 - layer-boundary lint passes with no allowlist; and
-- core `LogData` requires `timestamp`, accepts only `Error` for `error`, uses
-  `eventName`, and has no `msg`, `source`, trace, or resource fields;
-- a log call mixing `LogData` and `LegacyLogData` fields fails to compile;
-- legacy log calls are still persisted with the same stored fields as today;
-- `no-deprecated` fails lint for legacy log calls or `LegacyIssue` in migrated
-  areas; and
-- after Phase 7, no `LegacyLogData` or `LegacyIssue` symbol remains.
+- core `LogData` accepts only `Error` for `error`, uses `eventName`, and has
+  no `msg`, `source`, `projectId`, trace, or resource fields;
+- a record logged without `timestamp` gets the time of the log call, and a
+  passed `timestamp` is kept;
+- the event-name lint rule fails lint for a non-conforming `eventName` in
+  renamed areas;
+- `no-deprecated` fails lint for `LegacyIssue` in migrated areas; and
+- after Phase 7, no `LegacyIssue` symbol remains.
 
 ### Persistence
 
@@ -1837,7 +1825,8 @@ the OpenTelemetry LLD.
 | Area | Expected impact |
 |---|---|
 | Core logger types | Use `eventName`, separate write data from persisted/read fields, and remove `source` from writes |
-| Migration compatibility (temporary) | Deprecated `LegacyLogData` overloads and `LegacyIssue` path, `PinoLogService` legacy translation, `no-deprecated` lint overrides; all removed in Phase 7 (§13.1) |
+| Log call sites | Every `log*()` call moved to `LogData` in one commit; event-name lint rule (§13.1) |
+| Migration compatibility (temporary) | Deprecated `LegacyIssue` path and its `no-deprecated` lint override; removed in Phase 7 (§13.1) |
 | Core identity | Add identity types, adapters, and `IdentityFormatter` |
 | Core import | Derive `UseCase.type` with the routing classifier |
 | Lint and layering | Add `no-restricted-imports` boundaries; move types out of three violating files |
@@ -1944,9 +1933,11 @@ work only adds fields; it does not migrate existing ones.
     repository and identity read. The system-ID fallback is used only for
     entities that are missing; existing entities whose identity is not yet
     loaded are read in batches on the failure path (§5.3).
-22. The logger and issue contracts change by parallel change (§13.1):
-    deprecated legacy shapes keep unmigrated code working, lint blocks them in
-    migrated areas, and Phase 7 removes them in one PR.
+22. The logger contract changes in one step: one commit moves every log call
+    to `LogData`, with no legacy shape. Event names are renamed later, tracked
+    by a lint rule. The issue contract changes by parallel change: the
+    deprecated `LegacyIssue` keeps unmigrated code working, lint blocks it in
+    migrated areas, and Phase 7 removes it in one PR (§13.1).
 23. A reader can find every project log of one client launch, its own and the
     server's, with one `clientInstanceId` filter, because both sides store
     `client_instance_id` (§10). The request context is an infrastructure `AsyncLocalStorage` port that the
@@ -1991,9 +1982,9 @@ These are verification steps for implementation, not open design questions:
   repository and its query service with their parameters, return shapes,
   error style, and callers. Record the decision for each overlap (§5.4 "one
   method per read") in the plan before writing code.
-- At the start of Phase 1, confirm `@typescript-eslint/no-deprecated` reports
-  calls that resolve to a deprecated overload and uses of a deprecated type. If
-  it does not, use the `no-restricted-syntax` fallback in §13.1.
+- At the start of Phase 4, confirm `@typescript-eslint/no-deprecated` reports
+  uses of a deprecated type. If it does not, use the `no-restricted-syntax`
+  fallback in §13.1.
 - Confirm `AsyncLocalStorage.run(ctx, next)` in the Nest middleware keeps the
   context through guards, pipes, controllers, and the CQRS buses, that
   concurrent requests stay isolated, and that values added with `enrich` in

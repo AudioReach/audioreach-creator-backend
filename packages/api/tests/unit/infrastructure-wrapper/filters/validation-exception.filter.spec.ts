@@ -120,12 +120,14 @@ describe('ValidationExceptionFilter', () => {
     const [record] = mockLogger.logWarn.mock.calls[0] as [
       Record<string, unknown>,
     ];
-    expect(record).toMatchObject({msg: 'validationFailed'});
-    expect(record.error).toContain('property unexpected should not exist');
+    expect(record).toMatchObject({eventName: 'validationFailed'});
+    const {message} = record.error as Error;
+    expect(message).toContain('property unexpected should not exist');
 
-    const logged = JSON.stringify(
-      Object.values(mockLogger).flatMap(m => m.mock.calls),
-    );
+    // JSON.stringify drops an Error's message, so check it separately.
+    const logged =
+      JSON.stringify(Object.values(mockLogger).flatMap(m => m.mock.calls)) +
+      message;
     expect(logged).not.toContain(SECRET);
     expect(logged).not.toContain('Bearer secret');
   });

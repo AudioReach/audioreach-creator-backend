@@ -67,7 +67,7 @@ export class SubgraphBuilder {
     this.deduplicateNames(result.entities);
 
     this.logger?.logInfo({
-      msg: 'subgraph_building_complete',
+      eventName: 'subgraph_building_complete',
       description: `Successfully built ${result.entities.length} subgraphs with system IDs assigned, ${result.issues.length} failed`,
       component: 'SubgraphBuilder',
       tag: 'subgraph-building',
@@ -133,7 +133,7 @@ export class SubgraphBuilder {
         issues.push(issue);
 
         this.logger?.logWarn({
-          msg: 'subgraph_conversion_failed',
+          eventName: 'subgraph_conversion_failed',
           description: `Failed to convert subgraph property (ID: ${subgraphProperty.subgraphId}): ${errorMessage}`,
           component: 'SubgraphBuilder',
           tag: 'subgraph-building',
@@ -164,7 +164,7 @@ export class SubgraphBuilder {
 
       if (propertySystemId === undefined) {
         this.logger?.logWarn({
-          msg: 'property_definition_not_found',
+          eventName: 'property_definition_not_found',
           description: `Subgraph property definition not found for propertyId ${propertyId} in subgraph ${subgraphPropertyData.subgraphId}`,
           component: 'SubgraphBuilder',
           tag: 'subgraph-building',
@@ -192,7 +192,7 @@ export class SubgraphBuilder {
         );
         if (vsId === undefined) {
           this.logger?.logWarn({
-            msg: 'sgkv_value_not_found',
+            eventName: 'sgkv_value_not_found',
             description: `SGKV value not found for key=0x${keyId.toString(16)} value=0x${valueId.toString(16)} in subgraph ${name}`,
             component: 'SubgraphBuilder',
             tag: 'subgraph-building',
@@ -206,7 +206,7 @@ export class SubgraphBuilder {
         const fingerprint = [...valueSystemIds].sort((a, b) => a - b).join(',');
         if (seenFingerprints.has(fingerprint)) {
           this.logger?.logWarn({
-            msg: 'sgkv_duplicate_skipped',
+            eventName: 'sgkv_duplicate_skipped',
             description: `Duplicate SGKV skipped for subgraph ${name} (keyValue="${kv.keyValue}")`,
             component: 'SubgraphBuilder',
             tag: 'subgraph-building',
@@ -270,7 +270,7 @@ export class SubgraphBuilder {
     for (const [original, renamed] of duplicateGroups) {
       const renamedList = renamed.map(n => `"${n}"`).join(', ');
       this.logger?.logWarn({
-        msg: 'subgraph_name_deduplicated',
+        eventName: 'subgraph_name_deduplicated',
         description: `Duplicate subgraph name "${original}" found — renamed to ${renamedList}`,
         component: 'SubgraphBuilder',
         tag: 'subgraph-building',

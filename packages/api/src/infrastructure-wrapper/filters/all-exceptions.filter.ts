@@ -103,7 +103,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     const logContext = {
       component: 'ExceptionFilter',
-      msg: 'handleException',
+      eventName: 'handleException',
       description: `${request.method} ${request.url} failed with status ${status}`,
       tag: 'exception',
       error:

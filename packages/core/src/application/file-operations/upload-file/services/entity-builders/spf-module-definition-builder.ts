@@ -125,7 +125,7 @@ export class SpfModuleDefinitionBuilder {
     }
 
     this.logger?.logDebug({
-      msg: 'spf_module_definition_building_start',
+      eventName: 'spf_module_definition_building_start',
       description: `Building ${awspModuleDefinitions.length} SPF module definitions`,
       component: 'SpfModuleDefinitionBuilder',
       tag: 'spf-module-definitions',
@@ -148,7 +148,7 @@ export class SpfModuleDefinitionBuilder {
       }
 
       this.logger?.logInfo({
-        msg: 'spf_module_definition_building_complete',
+        eventName: 'spf_module_definition_building_complete',
         description: `Successfully built ${result.entities.length} SPF module definitions with system IDs assigned, ${result.issues.length} failures`,
         component: 'SpfModuleDefinitionBuilder',
         tag: 'spf-module-definitions',
@@ -157,7 +157,7 @@ export class SpfModuleDefinitionBuilder {
       return result;
     } catch (error) {
       this.logger?.logError({
-        msg: 'spf_module_definition_building_failed',
+        eventName: 'spf_module_definition_building_failed',
         description: 'SPF module definition building failed',
         component: 'SpfModuleDefinitionBuilder',
         tag: 'spf-module-definitions',
@@ -236,7 +236,7 @@ export class SpfModuleDefinitionBuilder {
     );
     if (systemId === undefined) {
       this.logger?.logWarn({
-        msg: 'processor_mapping_not_found',
+        eventName: 'processor_mapping_not_found',
         description: `Processor definition ID ${moduleDef.processorSystemId} not found in foreign key mapper for module ${moduleDef.naturalId}`,
         component: 'SpfModuleDefinitionBuilder',
         tag: 'spf-module-definitions',
@@ -257,7 +257,7 @@ export class SpfModuleDefinitionBuilder {
       );
       if (systemId === undefined) {
         this.logger?.logWarn({
-          msg: 'container_type_mapping_not_found',
+          eventName: 'container_type_mapping_not_found',
           description: `Container type ID ${containerTypeNaturalId} not found in foreign key mapper for module ${moduleDef.naturalId}`,
           component: 'SpfModuleDefinitionBuilder',
           tag: 'spf-module-definitions',
@@ -298,7 +298,7 @@ export class SpfModuleDefinitionBuilder {
     }
 
     this.logger?.logDebug({
-      msg: 'parallel_spf_module_building_start',
+      eventName: 'parallel_spf_module_building_start',
       description: `Building ${moduleDefinitions.length} SPF module definitions in parallel (2 tasks)`,
       component: 'SpfModuleDefinitionBuilder',
       tag: 'spf-module-definitions',
@@ -356,11 +356,11 @@ export class SpfModuleDefinitionBuilder {
 
       if (!result.success || result.error) {
         this.logger?.logError({
-          msg: 'parallel_task_failed',
+          eventName: 'parallel_task_failed',
           description: `Failed to build ${task.input.taskName}: ${result.error}`,
           component: 'SpfModuleDefinitionBuilder',
           tag: 'spf-module-definitions',
-          error: String(result.error || 'Unknown error'),
+          error: new Error(String(result.error || 'Unknown error')),
         });
         continue;
       }
@@ -374,17 +374,17 @@ export class SpfModuleDefinitionBuilder {
         issues.push(entityBuildIssue);
 
         this.logger?.logError({
-          msg: 'spf_module_definition_transform_error',
+          eventName: 'spf_module_definition_transform_error',
           description: `Failed to build SPF module definition ${error.moduleId} (${error.moduleName}): ${error.error}`,
           component: 'SpfModuleDefinitionBuilder',
           tag: 'spf-module-definitions',
-          error: String(error.error || 'Unknown error'),
+          error: new Error(String(error.error || 'Unknown error')),
         });
       }
     }
 
     this.logger?.logInfo({
-      msg: 'parallel_spf_module_building_complete',
+      eventName: 'parallel_spf_module_building_complete',
       description: `Parallel processing completed: ${validModuleDefinitions.length} valid, ${issues.length} errors`,
       component: 'SpfModuleDefinitionBuilder',
       tag: 'spf-module-definitions',
@@ -405,7 +405,7 @@ export class SpfModuleDefinitionBuilder {
     bootUpModuleIds?: Set<number>,
   ): BuildResult<SpfModuleDefinition> {
     this.logger?.logDebug({
-      msg: 'sequential_spf_module_building_start',
+      eventName: 'sequential_spf_module_building_start',
       description: `Building ${moduleDefinitions.length} SPF module definitions sequentially`,
       component: 'SpfModuleDefinitionBuilder',
       tag: 'spf-module-definitions',
@@ -435,18 +435,18 @@ export class SpfModuleDefinitionBuilder {
           issues.push(entityBuildIssue);
 
           this.logger?.logError({
-            msg: 'spf_module_definition_transform_error',
+            eventName: 'spf_module_definition_transform_error',
             description: `Failed to build SPF module definition ${awspModuleDef.id} (${awspModuleDef.name}): ${error}`,
             component: 'SpfModuleDefinitionBuilder',
             tag: 'spf-module-definitions',
-            error: String(error),
+            error: new Error(error),
           });
         }
       }
     }
 
     this.logger?.logInfo({
-      msg: 'sequential_spf_module_building_complete',
+      eventName: 'sequential_spf_module_building_complete',
       description: `Sequential processing completed: ${validModuleDefinitions.length} valid, ${issues.length} errors`,
       component: 'SpfModuleDefinitionBuilder',
       tag: 'spf-module-definitions',

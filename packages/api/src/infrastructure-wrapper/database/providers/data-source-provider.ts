@@ -87,7 +87,7 @@ export class DataSourceProvider implements OnModuleInit, OnModuleDestroy {
 
   private logInfo(msg: string): void {
     this.logger.logInfo({
-      msg: 'database_initialization',
+      eventName: 'database_initialization',
       description: msg,
       component: 'DataSourceProvider',
       tag: 'database',
@@ -96,7 +96,7 @@ export class DataSourceProvider implements OnModuleInit, OnModuleDestroy {
 
   private logError(msg: string, error: Error): void {
     this.logger.logError({
-      msg: 'database_initialization',
+      eventName: 'database_initialization',
       description: msg,
       component: 'DataSourceProvider',
       tag: 'database',

@@ -230,7 +230,7 @@ export class SubsystemBuilder {
         );
         if (subgraphSystemId === undefined) {
           this.logger?.logWarn({
-            msg: 'subsystem_child_subgraph_not_found',
+            eventName: 'subsystem_child_subgraph_not_found',
             description: `Subgraph child ${child.id.toString(16)} of subsystem ${entry.name} not found in FK mapper — subgraph-to-subsystem mapping skipped`,
             component: 'SubsystemBuilder',
             tag: 'subsystem-building',
@@ -303,7 +303,7 @@ export class SubsystemBuilder {
     );
 
     this.logger?.logInfo({
-      msg: 'subsystem_links_built',
+      eventName: 'subsystem_links_built',
       description: `SubsystemBuilder: attached SLS for ${dataLinkPaths.filter(p => p !== null).length} data links, CSLS for ${controlLinkPaths.filter(p => p !== null).length} control links`,
       component: 'SubsystemBuilder',
       tag: 'subsystem-links',
@@ -720,7 +720,7 @@ export class SubsystemBuilder {
     );
     if (parentSystemId === undefined) {
       this.logger?.logWarn({
-        msg: 'subsystem_parent_not_found',
+        eventName: 'subsystem_parent_not_found',
         description: `Parent subsystem ${parentNaturalId.toString(16)} not found in FK mapper for child ${entryId.toString(16)}`,
         component: 'SubsystemBuilder',
         tag: 'subsystem-building',
@@ -744,7 +744,7 @@ export class SubsystemBuilder {
       );
       if (keySystemId === undefined) {
         this.logger?.logWarn({
-          msg: 'subsystem_filtered_key_not_found',
+          eventName: 'subsystem_filtered_key_not_found',
           description: `Key ${hex} not found in FK mapper for subsystem ${entry.name}`,
           component: 'SubsystemBuilder',
           tag: 'subsystem-building',
@@ -778,7 +778,7 @@ export class SubsystemBuilder {
 
     if (sorted.length < subsystems.length) {
       this.logger?.logWarn({
-        msg: 'subsystem_cycle_detected',
+        eventName: 'subsystem_cycle_detected',
         description: `Cycle detected in subsystem hierarchy — ${subsystems.length - sorted.length} subsystems skipped`,
         component: 'SubsystemBuilder',
         tag: 'subsystem-building',

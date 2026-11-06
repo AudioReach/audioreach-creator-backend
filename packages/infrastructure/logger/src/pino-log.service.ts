@@ -4,7 +4,7 @@
  */
 
 import type {Logger as PinoLogger} from 'pino';
-import type {Logger, LogData, LegacyLogData} from '@arc/core';
+import type {Logger, LogData} from '@arc/core';
 import type {ActiveLogContextProvider} from './context/active-log-context.js';
 import type {LogProducerIdentity} from './identity/log-producer-identity.js';
 
@@ -30,11 +30,7 @@ export interface ServerLogRecord {
   clientInstanceId?: string;
 }
 
-/**
- * The only `Logger` implementation. It accepts both call shapes and writes
- * every record as `LogData`; legacy calls are translated here and nowhere
- * else.
- */
+/** The only `Logger` implementation. */
 export class PinoLogService implements Logger {
   constructor(
     private readonly pinoLogger: PinoLogger,
@@ -42,30 +38,31 @@ export class PinoLogService implements Logger {
     private readonly contextProvider: ActiveLogContextProvider,
   ) {}
 
-  logVerbose(data: LogData | LegacyLogData): void {
+  logVerbose(data: LogData): void {
     this.pinoLogger.trace(this.toRecord(data));
   }
-  logDebug(data: LogData | LegacyLogData): void {
+  logDebug(data: LogData): void {
     this.pinoLogger.debug(this.toRecord(data));
   }
-  logInfo(data: LogData | LegacyLogData): void {
+  logInfo(data: LogData): void {
     this.pinoLogger.info(this.toRecord(data));
   }
-  logWarn(data: LogData | LegacyLogData): void {
+  logWarn(data: LogData): void {
     this.pinoLogger.warn(this.toRecord(data));
   }
-  logError(data: LogData | LegacyLogData): void {
+  logError(data: LogData): void {
     this.pinoLogger.error(this.toRecord(data));
   }
-  logCritical(data: LogData | LegacyLogData): void {
+  logCritical(data: LogData): void {
     this.pinoLogger.fatal(this.toRecord(data));
   }
 
-  private toRecord(data: LogData | LegacyLogData): ServerLogRecord {
+  private toRecord(data: LogData): ServerLogRecord {
     const {clientName, clientInstanceId, projectId} =
       this.contextProvider.current();
     const record: ServerLogRecord = {
-      ...toLogData(data),
+      ...data,
+      timestamp: data.timestamp ?? new Date(),
       serviceName: this.producer.serviceName,
       serviceInstanceId: this.producer.serviceInstanceId,
     };
@@ -80,37 +77,4 @@ export class PinoLogService implements Logger {
     }
     return record;
   }
-}
-
-/**
- * Translates a legacy call: `msg` becomes `eventName`, a missing
- * `timestamp` becomes now, and a string `error` is wrapped in an `Error`.
- */
-function toLogData(data: LogData | LegacyLogData): LogData {
-  if (!isLegacy(data)) {
-    return data;
-  }
-  const {msg, error, timestamp, ...rest} = data;
-  return {
-    ...rest,
-    eventName: msg,
-    timestamp: timestamp ?? new Date(),
-    ...(error !== undefined && {
-      error: typeof error === 'string' ? errorFromText(error) : error,
-    }),
-  };
-}
-
-/**
- * Wraps preformatted error text. The stack is removed: it would point at
- * this translation, not at the failure the text describes.
- */
-function errorFromText(text: string): Error {
-  const error = new Error(text);
-  delete error.stack;
-  return error;
-}
-
-function isLegacy(data: LogData | LegacyLogData): data is LegacyLogData {
-  return 'msg' in data;
 }

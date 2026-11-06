@@ -48,7 +48,7 @@ export class AwspFileOrchestrator {
     const startTime = Date.now();
 
     this.logger?.logInfo({
-      msg: 'awsp_parsing_started',
+      eventName: 'awsp_parsing_started',
       description: 'AWSP parsing started',
       component: 'AwspFileOrchestrator',
       tag: 'parsing',
@@ -94,7 +94,7 @@ export class AwspFileOrchestrator {
       parsedAwsp.setUiMetadata(uiMetadata);
 
       this.logger?.logInfo({
-        msg: 'awsp_configuration_parsed',
+        eventName: 'awsp_configuration_parsed',
         description: `Configuration parsed successfully with portStrategy: ${configurationData.portStrategy}, defaultProcessorDomain: ${configurationData.defaultProcessorDomain}`,
         component: 'AwspFileOrchestrator',
         tag: 'parsing',
@@ -102,7 +102,7 @@ export class AwspFileOrchestrator {
 
       const duration = Date.now() - startTime;
       this.logger?.logInfo({
-        msg: 'awsp_parsing_completed',
+        eventName: 'awsp_parsing_completed',
         description: `AWSP parsing completed in ${duration}ms`,
         component: 'AwspFileOrchestrator',
         tag: 'parsing',
@@ -111,7 +111,7 @@ export class AwspFileOrchestrator {
       return parsedAwsp;
     } catch (error) {
       this.logger?.logError({
-        msg: 'awsp_parsing_failed',
+        eventName: 'awsp_parsing_failed',
         description: 'AWSP parsing failed',
         component: 'AwspFileOrchestrator',
         tag: 'parsing',
@@ -142,7 +142,7 @@ export class AwspFileOrchestrator {
         } catch (cleanupError) {
           // Log cleanup error but don't throw - parsing was successful
           this.logger?.logError({
-            msg: 'awsp_cleanup_failed',
+            eventName: 'awsp_cleanup_failed',
             description: 'Failed to delete unzipped folder',
             component: 'AwspFileOrchestrator',
             tag: 'cleanup',

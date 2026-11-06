@@ -41,11 +41,10 @@ export class DeleteSpfModuleHandler implements CommandHandler<
       );
       await this.uow.commit();
       this.logger?.logInfo({
-        msg: `Deleted module '${deletedModule.alias ?? 'unknown'}' (${BinaryUtils.toHexString(deletedModule.systemId)})`,
+        eventName: `Deleted module '${deletedModule.alias ?? 'unknown'}' (${BinaryUtils.toHexString(deletedModule.systemId)})`,
         description: 'SPF module delete committed.',
         component: 'DeleteSpfModuleHandler',
         tag: 'module-delete',
-        timestamp: new Date(),
       });
       return {
         groupId: this.uow.getWriteContext().groupId,
@@ -54,11 +53,10 @@ export class DeleteSpfModuleHandler implements CommandHandler<
     } catch (error) {
       if (this.uow.isInTransaction()) await this.uow.rollback();
       this.logger?.logError({
-        msg: `Delete module failed (${BinaryUtils.toHexString(command.spfModuleSystemId)})`,
+        eventName: `Delete module failed (${BinaryUtils.toHexString(command.spfModuleSystemId)})`,
         description: 'SPF module delete rolled back.',
         component: 'DeleteSpfModuleHandler',
         tag: 'module-delete',
-        timestamp: new Date(),
         error: error instanceof Error ? error : new Error(String(error)),
       });
       throw error;

@@ -21,7 +21,7 @@ import type {
   LogProducerIdentity,
 } from '../../../src/index.js';
 import {LogLevel} from '@arc/core';
-import type {LegacyLogData, LogData} from '@arc/core';
+import type {LogData} from '@arc/core';
 
 const producer: LogProducerIdentity = {
   serviceName: 'audioreach-creator-api',
@@ -185,25 +185,6 @@ describe('Pino to SQLite round-trip', () => {
         message: error.message,
         stack: error.stack,
       });
-    });
-  });
-
-  describe('legacy server records', () => {
-    const legacy: LegacyLogData = {
-      msg: 'legacy.op',
-      description: 'legacy description',
-      component: 'TestComponent',
-      tag: 'test-tag',
-      error: 'disk full',
-    };
-
-    it('store msg as event_name and a string error as its message', async () => {
-      logger.logError(legacy);
-      await sqliteTransport.flush();
-
-      const [row] = await readRows();
-      expect(row.event_name).toBe('legacy.op');
-      expect(JSON.parse(row.error ?? '')).toEqual({message: 'disk full'});
     });
   });
 

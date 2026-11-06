@@ -14,6 +14,22 @@ import promisePlugin from 'eslint-plugin-promise';
 import prettierConfig from 'eslint-config-prettier';
 import customRules from './eslint-rules/index.js';
 
+/** Log calls whose `eventName` is not `<domain>.<operation>.<outcome>`. */
+const logEventName =
+  'CallExpression[callee.property.name=/^log(Verbose|Debug|Info|Warn|Error|Critical)$/] > ObjectExpression > Property[key.name="eventName"]';
+const eventNameRules = [
+  {
+    selector: `${logEventName} > Literal[value!=/^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$/]`,
+    message:
+      'eventName must be <domain>.<operation>.<outcome>: three lowercase, snake_case parts (design §6.3).',
+  },
+  {
+    selector: `${logEventName} > TemplateLiteral`,
+    message:
+      'eventName must be a fixed name; put per-occurrence values in description (design §6.3).',
+  },
+];
+
 export default [
   {
     ignores: [
@@ -435,14 +451,22 @@ export default [
     },
   },
 
-  // Logging migration (parallel change). Each warning is a call that still
-  // uses the deprecated LegacyLogData overload; migrated areas are errors.
+  // Deprecated APIs are reported, not blocking.
   {
     files: ['**/*.ts'],
     rules: {
       '@typescript-eslint/no-deprecated': 'warn',
-      // Duplicates no-deprecated, and would report every legacy call as an error.
+      // Duplicates no-deprecated, which reports the same calls as warnings.
       'sonarjs/deprecation': 'off',
+    },
+  },
+
+  // Log event names (design §6.3). Each warning is a name still to be
+  // renamed; areas already renamed are errors.
+  {
+    files: ['**/*.ts'],
+    rules: {
+      'no-restricted-syntax': ['warn', ...eventNameRules],
     },
   },
   {
@@ -451,17 +475,7 @@ export default [
       'packages/core/src/application/orchestration/command-bus.ts',
     ],
     rules: {
-      '@typescript-eslint/no-deprecated': 'error',
-    },
-  },
-  {
-    // These files declare and implement the deprecated overloads.
-    files: [
-      'packages/core/src/shared/types/logger.interface.ts',
-      'packages/infrastructure/logger/src/pino-log.service.ts',
-    ],
-    rules: {
-      '@typescript-eslint/no-deprecated': 'off',
+      'no-restricted-syntax': ['error', ...eventNameRules],
     },
   },
 

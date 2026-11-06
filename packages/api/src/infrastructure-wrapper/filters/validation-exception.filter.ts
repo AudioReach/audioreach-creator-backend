@@ -48,10 +48,12 @@ export class ValidationExceptionFilter implements ExceptionFilter {
     // and tokens.
     this.logger.logWarn({
       component: 'ValidationFilter',
-      msg: 'validationFailed',
+      eventName: 'validationFailed',
       description: 'Request validation failed',
       tag: `request-${requestId}`,
-      error: `Validation errors: ${JSON.stringify(validationErrors, null, 2)}`,
+      error: new Error(
+        `Validation errors: ${JSON.stringify(validationErrors, null, 2)}`,
+      ),
     });
 
     response

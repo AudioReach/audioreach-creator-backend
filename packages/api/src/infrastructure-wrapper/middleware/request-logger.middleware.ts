@@ -55,7 +55,7 @@ export class RequestLoggerMiddleware implements NestMiddleware {
 
     this.logger.logInfo({
       component: 'RequestLogger',
-      msg: 'incomingRequest',
+      eventName: 'incomingRequest',
       description: `${req.method} ${req.originalUrl}`,
       tag: `request-${requestId}`,
     });
@@ -63,7 +63,7 @@ export class RequestLoggerMiddleware implements NestMiddleware {
     // Log headers at debug level; the authorization and cookie values are redacted.
     this.logger.logDebug({
       component: 'RequestLogger',
-      msg: 'requestHeaders',
+      eventName: 'requestHeaders',
       description: `Headers: ${JSON.stringify(this.sanitizeHeaders(req.headers))}`,
       tag: `request-${requestId}`,
     });
@@ -79,14 +79,14 @@ export class RequestLoggerMiddleware implements NestMiddleware {
 
       logger.logInfo({
         component: 'RequestLogger',
-        msg: 'outgoingResponse',
+        eventName: 'outgoingResponse',
         description: `${req.method} ${req.originalUrl} ${res.statusCode} - ${responseTime}ms`,
         tag: `request-${requestId}`,
       });
 
       logger.logDebug({
         component: 'RequestLogger',
-        msg: 'responseBody',
+        eventName: 'responseBody',
         description: `Body: ${JSON.stringify(
           sanitizeResponseBody(responseBody),
         )}`,

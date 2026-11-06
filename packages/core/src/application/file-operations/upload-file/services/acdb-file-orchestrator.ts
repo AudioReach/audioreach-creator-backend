@@ -126,7 +126,7 @@ export class AcdbFileOrchestrator {
     const startTime = Date.now();
 
     this.logger?.logInfo({
-      msg: 'acdb_parsing_started',
+      eventName: 'acdb_parsing_started',
       description: 'ACDB parsing started',
       component: 'AcdbFileOrchestrator',
       tag: 'parsing',
@@ -167,7 +167,7 @@ export class AcdbFileOrchestrator {
 
       const duration = Date.now() - startTime;
       this.logger?.logInfo({
-        msg: 'acdb_parsing_completed',
+        eventName: 'acdb_parsing_completed',
         description: `ACDB parsing completed in ${duration}ms`,
         component: 'AcdbFileOrchestrator',
         tag: 'parsing',
@@ -176,7 +176,7 @@ export class AcdbFileOrchestrator {
       return Promise.resolve(result);
     } catch (error) {
       this.logger?.logError({
-        msg: 'acdb_parsing_failed',
+        eventName: 'acdb_parsing_failed',
         description: 'ACDB parsing failed',
         component: 'AcdbFileOrchestrator',
         tag: 'parsing',
@@ -246,7 +246,7 @@ export class AcdbFileOrchestrator {
       // Check if parser can be executed (dependencies are met)
       if (!this.isParserAvailable(parserType, descriptors, parsedChunks)) {
         this.logger?.logInfo({
-          msg: 'acdb_chunk_skipped',
+          eventName: 'acdb_chunk_skipped',
           description: `Skipping parser ${parserType}: missing dependencies`,
           component: 'AcdbFileOrchestrator',
           tag: 'parsing',
@@ -269,14 +269,14 @@ export class AcdbFileOrchestrator {
         result.addChunk(parserType, chunk);
 
         this.logger?.logInfo({
-          msg: 'acdb_chunk_parsed',
+          eventName: 'acdb_chunk_parsed',
           description: `Successfully parsed chunk: ${parserType}`,
           component: 'AcdbFileOrchestrator',
           tag: 'parsing',
         });
       } catch (error) {
         this.logger?.logError({
-          msg: 'acdb_chunk_parse_failed',
+          eventName: 'acdb_chunk_parse_failed',
           description: `Failed to parse chunk: ${parserType}`,
           component: 'AcdbFileOrchestrator',
           tag: 'parsing',
