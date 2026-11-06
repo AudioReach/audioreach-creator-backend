@@ -32,7 +32,6 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {toApiResult} from '../../common/result/to-api-result.js';
 import {PropertyResponseDto} from '../../common/dto/property-response.dto.js';
-import {UpdatePropertyRequestDto} from '../../common/dto/update-property-request.dto.js';
 import {SetContainerHeapIdRequestDto} from './dto/set-container-heap-id-request.dto.js';
 import {SetContainerHeapIdResponseDto} from './dto/set-container-heap-id-response.dto.js';
 import {ParameterSummaryDto} from '../../common/dto/parameter-summary.dto.js';
@@ -276,7 +275,7 @@ export class ContainerController extends BaseController {
   @UseGuards(SessionGuard)
   @ApiDocumentationWithExample({
     summary: 'Set a container property',
-    requestDto: UpdatePropertyRequestDto,
+    requestDto: PropertySummaryDto,
     responses: [
       {
         status: HttpStatus.OK,
@@ -305,7 +304,7 @@ export class ContainerController extends BaseController {
     @Param('projectId') projectId: string,
     @Param('containerSystemId', ParseIntPipe) containerSystemId: number,
     @Param('propertySystemId', ParseIntPipe) propertySystemId: number,
-    @Body() dto: UpdatePropertyRequestDto,
+    @Body() dto: PropertySummaryDto,
     @ArcSession() session: ActiveSession,
     @ClientId() clientId: string,
   ): Promise<ApiResult<PropertyResponseDto>> {

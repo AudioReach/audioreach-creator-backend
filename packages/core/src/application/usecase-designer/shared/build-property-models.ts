@@ -35,7 +35,7 @@ export function buildPropertyModels(
         ? parseParameterData(p.payload, def.elementsStructure)
         : [];
     data.push({
-      systemId: p.systemId,
+      systemId: def.systemId,
       naturalId: def.naturalId,
       propertyName: def.name,
       elements,
