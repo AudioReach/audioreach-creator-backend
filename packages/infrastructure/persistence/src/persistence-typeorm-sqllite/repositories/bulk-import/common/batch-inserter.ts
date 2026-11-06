@@ -4,7 +4,11 @@
  */
 
 import type {Logger} from '@arc/core';
-import type {EntityBaseRow} from '../../entity-schema/entity-base.js';
+import type {EntityBaseRow} from '../../../entity-schema/entity-base.js';
+import {
+  getSqliteInsertBatchSize,
+  getSqliteMaxBindVariables,
+} from './sqlite-insert-batch-size.js';
 import {
   type EntityManager,
   type EntityTarget,
@@ -13,12 +17,10 @@ import {
 } from 'typeorm';
 
 export const DEFAULT_BATCH_SIZE = 500;
-export const DEFAULT_SLOW_BATCH_DURATION_MS = 1000;
 
 export interface BatchInsertDiagnostics {
   readonly enabled: boolean;
   readonly logger: Logger;
-  readonly slowThresholdMs: number;
 }
 
 const diagnosticsByManager = new WeakMap<
@@ -58,6 +60,16 @@ export interface BatchInsertOptions {
   readonly diagnostics?: BatchInsertDiagnostics;
 }
 
+/** Rows from batches that failed during the first-pass insert. */
+export type BatchInsertWithoutRetryResult<TRow> = {
+  readonly failedRows: readonly TRow[];
+};
+
+export type BatchInsertWithoutRetryOptions = {
+  /** Preserve SQLite INSERT OR IGNORE behavior for idempotent association rows. */
+  readonly ignoreConflicts?: boolean;
+};
+
 /**
  * Internal raw failure produced by each private insert method in an inserter.
  * Inserters group these by `moduleSystemId` to build the final
@@ -90,41 +102,22 @@ type InsertAttempt =
   | {readonly success: true}
   | {readonly success: false; readonly error: unknown};
 
-function recordSlowOperation(
-  diagnostics: BatchInsertDiagnostics | undefined,
-  description: string,
-  durationMs: number,
-): void {
-  if (
-    diagnostics?.enabled !== true ||
-    durationMs < diagnostics.slowThresholdMs
-  ) {
-    return;
-  }
-
-  diagnostics.logger.logWarn({
-    msg: 'bulk_insert_slow',
-    description: `${description}; durationMs=${durationMs.toFixed(1)}`,
-    component: 'BatchInserter',
-    tag: 'database-persistence',
-  });
-}
-
 async function tryInsert<TEntity extends EntityBaseRow & ObjectLiteral>(
   manager: EntityManager,
   target: EntityTarget<TEntity>,
   value: InsertRow<TEntity> | InsertRow<TEntity>[],
-  diagnostics: BatchInsertDiagnostics | undefined,
-  description: string,
 ): Promise<InsertAttempt> {
-  // Batch and row retries share the same timing and database-call behavior.
-  const startedAt = diagnostics?.enabled === true ? performance.now() : 0;
-
   try {
-    await manager.insert<TEntity>(target, value);
-    const durationMs =
-      diagnostics?.enabled === true ? performance.now() - startedAt : 0;
-    recordSlowOperation(diagnostics, description, durationMs);
+    // EntityManager.insert() keeps entity updates enabled. Because SQLite does
+    // not support RETURNING, TypeORM would reload default/version columns with
+    // a SELECT after each successful bulk insert.
+    await manager
+      .createQueryBuilder()
+      .insert()
+      .into(target)
+      .values(value)
+      .updateEntity(false)
+      .execute();
     return {success: true};
   } catch (error: unknown) {
     return {success: false, error};
@@ -147,13 +140,7 @@ async function insertFallbackRows<
   // A failed batch is retried row by row so valid rows can still be imported.
   for (const [offset, row] of batch.entries()) {
     const rowIndex = batchStartIndex + offset;
-    const attempt = await tryInsert(
-      manager,
-      target,
-      row,
-      diagnostics,
-      `target=${targetName} operation=insert fallback batchIndex=${batchIndex} rowIndex=${rowIndex}`,
-    );
+    const attempt = await tryInsert(manager, target, row);
 
     if (attempt.success) continue;
 
@@ -204,7 +191,6 @@ export const BatchInserter = {
     const diagnostics =
       options.diagnostics ?? diagnosticsByManager.get(manager);
     const targetName = getTargetName(target);
-    const startedAt = diagnostics?.enabled === true ? performance.now() : 0;
 
     const result: BatchInsertResult = {
       success: true,
@@ -214,13 +200,7 @@ export const BatchInserter = {
     for (let i = 0; i < rows.length; i += batchSize) {
       const batch = rows.slice(i, i + batchSize);
       const batchIndex = i / batchSize;
-      const attempt = await tryInsert(
-        manager,
-        target,
-        batch,
-        diagnostics,
-        `target=${targetName} operation=insert batchIndex=${batchIndex} rowCount=${batch.length}`,
-      );
+      const attempt = await tryInsert(manager, target, batch);
 
       if (!attempt.success) {
         logInsertFailure(
@@ -244,14 +224,47 @@ export const BatchInserter = {
       }
     }
 
-    const durationMs =
-      diagnostics?.enabled === true ? performance.now() - startedAt : 0;
-    recordSlowOperation(
-      diagnostics,
-      `target=${targetName} operation=insert totalRowCount=${rows.length}`,
-      durationMs,
-    );
-
     return result;
+  },
+};
+
+/**
+ * Inserts rows in SQLite-safe batches without retrying failed batches.
+ * Callers receive the failed rows and apply their own fallback logic.
+ */
+export const BatchInserterWithoutRetry = {
+  async insert<
+    TEntity extends ObjectLiteral,
+    TRow extends QueryDeepPartialEntity<TEntity>,
+  >(
+    manager: EntityManager,
+    target: EntityTarget<TEntity>,
+    rows: readonly TRow[],
+    options: BatchInsertWithoutRetryOptions = {},
+  ): Promise<BatchInsertWithoutRetryResult<TRow>> {
+    const maxBindVariables = await getSqliteMaxBindVariables(manager);
+    const batchSize = getSqliteInsertBatchSize(
+      manager.connection.getMetadata(target),
+      maxBindVariables,
+    );
+    const failedRows: TRow[] = [];
+
+    for (let start = 0; start < rows.length; start += batchSize) {
+      const batch = rows.slice(start, start + batchSize);
+      try {
+        const queryBuilder = manager
+          .createQueryBuilder()
+          .insert()
+          .into(target)
+          .values(batch)
+          .updateEntity(false);
+        if (options.ignoreConflicts) queryBuilder.orIgnore();
+        await queryBuilder.execute();
+      } catch {
+        failedRows.push(...batch);
+      }
+    }
+
+    return {failedRows};
   },
 };

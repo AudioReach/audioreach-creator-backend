@@ -13,7 +13,7 @@ import {
   registerBatchInsertDiagnostics,
   type BatchInsertDiagnostics,
   type InsertRow,
-} from '../../../../src/persistence-typeorm-sqllite/repositories/bulk-import/batch-inserter.js';
+} from '../../../../../src/persistence-typeorm-sqllite/repositories/bulk-import/common/batch-inserter.js';
 
 interface TestRow extends EntityBaseRow {
   readonly name: string;
@@ -34,34 +34,67 @@ function diagnostics(
   logger: jest.Mocked<Logger>,
   enabled: boolean,
 ): BatchInsertDiagnostics {
-  return {enabled, logger, slowThresholdMs: 0};
+  return {enabled, logger};
 }
 
 function row(systemId: number, name: string): InsertRow<TestRow> {
   return {systemId, name};
 }
 
+type QueryBuilderStub = {
+  readonly insert: jest.Mock;
+  readonly into: jest.Mock;
+  readonly values: jest.Mock;
+  readonly updateEntity: jest.Mock;
+  readonly execute: jest.Mock;
+};
+
+function createManager(execute: jest.Mock): {
+  readonly manager: EntityManager;
+  readonly queryBuilder: QueryBuilderStub;
+} {
+  const queryBuilder: QueryBuilderStub = {
+    insert: jest.fn(),
+    into: jest.fn(),
+    values: jest.fn(),
+    updateEntity: jest.fn(),
+    execute,
+  };
+  queryBuilder.insert.mockReturnValue(queryBuilder);
+  queryBuilder.into.mockReturnValue(queryBuilder);
+  queryBuilder.values.mockReturnValue(queryBuilder);
+  queryBuilder.updateEntity.mockReturnValue(queryBuilder);
+
+  return {
+    manager: {
+      createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
+    } as unknown as EntityManager,
+    queryBuilder,
+  };
+}
+
 describe('BatchInserter diagnostics', () => {
   it('uses the common default batch size', async () => {
-    const manager = {
-      insert: jest.fn(async () => undefined),
-    } as unknown as EntityManager;
+    const execute = jest.fn(async () => undefined);
+    const {manager, queryBuilder} = createManager(execute);
     const rows = Array.from({length: DEFAULT_BATCH_SIZE + 1}, (_, index) =>
       row(index + 1, `row-${index + 1}`),
     );
 
     await BatchInserter.insert<TestRow>(manager, 'TestRow', rows);
 
-    expect(manager.insert).toHaveBeenCalledTimes(2);
-    expect(manager.insert.mock.calls[0][1]).toHaveLength(DEFAULT_BATCH_SIZE);
-    expect(manager.insert.mock.calls[1][1]).toHaveLength(1);
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(queryBuilder.values.mock.calls[0][0]).toHaveLength(
+      DEFAULT_BATCH_SIZE,
+    );
+    expect(queryBuilder.values.mock.calls[1][0]).toHaveLength(1);
+    expect(queryBuilder.updateEntity).toHaveBeenNthCalledWith(1, false);
+    expect(queryBuilder.updateEntity).toHaveBeenNthCalledWith(2, false);
   });
 
-  it('does not log or measure diagnostics when disabled', async () => {
+  it('does not log diagnostics when disabled', async () => {
     const logger = createLogger();
-    const manager = {
-      insert: jest.fn(async () => undefined),
-    } as unknown as EntityManager;
+    const {manager} = createManager(jest.fn(async () => undefined));
 
     const result = await BatchInserter.insert<TestRow>(
       manager,
@@ -77,11 +110,9 @@ describe('BatchInserter diagnostics', () => {
     expect(logger.logError).not.toHaveBeenCalled();
   });
 
-  it('logs only slow operations when enabled', async () => {
+  it('does not log successful operations when diagnostics are enabled', async () => {
     const logger = createLogger();
-    const manager = {
-      insert: jest.fn(async () => undefined),
-    } as unknown as EntityManager;
+    const {manager} = createManager(jest.fn(async () => undefined));
 
     await BatchInserter.insert<TestRow>(
       manager,
@@ -93,39 +124,39 @@ describe('BatchInserter diagnostics', () => {
       },
     );
 
-    expect(logger.logWarn).toHaveBeenCalled();
-    expect(logger.logWarn.mock.calls[0][0]).toEqual(
-      expect.objectContaining({
-        msg: 'bulk_insert_slow',
-        component: 'BatchInserter',
-      }),
-    );
+    expect(logger.logWarn).not.toHaveBeenCalled();
     expect(logger.logError).not.toHaveBeenCalled();
   });
 
-  it('uses diagnostics registered for the manager', async () => {
+  it('uses registered diagnostics for insert failures', async () => {
     const logger = createLogger();
-    const manager = {
-      insert: jest.fn(async () => undefined),
-    } as unknown as EntityManager;
+    const {manager} = createManager(
+      jest.fn(async () => {
+        throw new Error('constraint failed');
+      }),
+    );
     registerBatchInsertDiagnostics(manager, diagnostics(logger, true));
 
     await BatchInserter.insert<TestRow>(manager, 'TestRow', [row(1, 'first')]);
 
-    expect(logger.logWarn).toHaveBeenCalled();
+    expect(logger.logError).toHaveBeenCalledTimes(2);
     registerBatchInsertDiagnostics(manager, diagnostics(logger, false));
   });
 
   it('logs batch and fallback-row failures', async () => {
     const logger = createLogger();
-    const manager = {
-      insert: jest.fn(async (_target: unknown, value: unknown) => {
-        if (Array.isArray(value)) throw new Error('batch constraint failed');
-        if ((value as TestRow).systemId === 2) {
-          throw new Error('row constraint failed');
-        }
-      }),
-    } as unknown as EntityManager;
+    let value: InsertRow<TestRow> | InsertRow<TestRow>[] | undefined;
+    const execute = jest.fn(async () => {
+      if (Array.isArray(value)) throw new Error('batch constraint failed');
+      if (value?.systemId === 2) {
+        throw new Error('row constraint failed');
+      }
+    });
+    const {manager, queryBuilder} = createManager(execute);
+    queryBuilder.values.mockImplementation(insertValue => {
+      value = insertValue as InsertRow<TestRow> | InsertRow<TestRow>[];
+      return queryBuilder;
+    });
 
     const result = await BatchInserter.insert<TestRow>(
       manager,
@@ -139,6 +170,8 @@ describe('BatchInserter diagnostics', () => {
     expect(result.failedEntities).toEqual([
       {systemId: 2, message: 'row constraint failed'},
     ]);
+    expect(queryBuilder.updateEntity).toHaveBeenCalledTimes(3);
+    expect(queryBuilder.updateEntity).toHaveBeenCalledWith(false);
     expect(logger.logError).toHaveBeenCalledTimes(2);
     expect(logger.logError.mock.calls[0][0]).toEqual(
       expect.objectContaining({msg: 'bulk_insert_batch_failed'}),

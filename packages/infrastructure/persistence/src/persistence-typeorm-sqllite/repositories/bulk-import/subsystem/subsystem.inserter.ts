@@ -15,9 +15,10 @@ import {okBulkInsert} from '@arc/core';
 import type {BulkInserter} from '../common/bulk-inserter.interface.js';
 import {
   BatchInserter,
+  BatchInserterWithoutRetry,
   type InsertRow,
   type RawFailure,
-} from '../batch-inserter.js';
+} from '../common/batch-inserter.js';
 import {groupRawFailures} from '../common/group-raw-failures.js';
 import {emptyStepResult} from '../common/step-result.js';
 import type {StepResult} from '../common/step-result.js';
@@ -36,10 +37,6 @@ import {
   type SubsystemFilteredKeyRow,
   type SubsystemRow,
 } from '../../../entity-schema/usecase-data/subsystem/subsystem.js';
-import type {EntityRowForInsert} from '../../../entity-schema/entity-base.js';
-
-type SubsystemFilteredKeyInsertRow =
-  EntityRowForInsert<SubsystemFilteredKeyRow>;
 
 export class SubsystemInserter implements BulkInserter<Subsystem> {
   constructor(
@@ -255,7 +252,7 @@ export class SubsystemInserter implements BulkInserter<Subsystem> {
     subsystems: Subsystem[],
     failedSubsystemIds: Set<number>,
   ): Promise<StepResult> {
-    const rows: SubsystemFilteredKeyInsertRow[] = [];
+    const rows: SubsystemFilteredKeyRow[] = [];
     for (const s of subsystems) {
       if (failedSubsystemIds.has(s.systemId)) continue;
       for (const keySystemId of s.filteredKeySystemIds) {
@@ -268,28 +265,40 @@ export class SubsystemInserter implements BulkInserter<Subsystem> {
     }
     if (rows.length === 0) return emptyStepResult();
 
-    try {
-      await this.manager
-        .createQueryBuilder()
-        .insert()
-        .into(SubsystemFilteredKeySchema)
-        .values(rows)
-        .orIgnore()
-        .execute();
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      return {
-        rawFailures: subsystems.map(s => ({
-          systemId: s.systemId,
+    const {failedRows} = await BatchInserterWithoutRetry.insert(
+      this.manager,
+      SubsystemFilteredKeySchema,
+      rows,
+      {ignoreConflicts: true},
+    );
+    const rawFailures: RawFailure[] = [];
+    const failedEntityIds = new Set<number>();
+    const subsystemBySystemId = new Map(
+      subsystems.map(subsystem => [subsystem.systemId, subsystem]),
+    );
+
+    for (const row of failedRows) {
+      if (failedEntityIds.has(row.subsystemsSystemId)) continue;
+      try {
+        await this.manager
+          .createQueryBuilder()
+          .insert()
+          .into(SubsystemFilteredKeySchema)
+          .values(row)
+          .orIgnore()
+          .execute();
+      } catch (error) {
+        const subsystem = subsystemBySystemId.get(row.subsystemsSystemId)!;
+        failedEntityIds.add(subsystem.systemId);
+        rawFailures.push({
+          systemId: subsystem.systemId,
           entityLabel: 'SubsystemFilteredKey',
-          failedRowJson: JSON.stringify(
-            rows.filter(r => r.subsystemsSystemId === s.systemId),
-          ),
-          dbError: msg,
-        })),
-        failedEntityIds: new Set(subsystems.map(s => s.systemId)),
-      };
+          failedRowJson: JSON.stringify(row),
+          dbError: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
-    return emptyStepResult();
+
+    return {rawFailures, failedEntityIds};
   }
 }
