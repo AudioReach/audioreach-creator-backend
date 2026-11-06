@@ -316,7 +316,7 @@ describe('SpfModuleBuilder', () => {
 
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: 'spf_module_building_complete',
+            eventName: 'spf_module_building_complete',
             description: expect.stringContaining(
               'Successfully built 1 SPF modules with system IDs assigned',
             ),
@@ -541,7 +541,7 @@ describe('SpfModuleBuilder', () => {
 
         expect(mockLogger.logWarn).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: 'spf_module_conversion_failed',
+            eventName: 'spf_module_conversion_failed',
             description: expect.stringContaining(
               'Failed to convert module instance',
             ),
@@ -747,7 +747,7 @@ describe('SpfModuleBuilder', () => {
 
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: 'spf_module_building_complete',
+            eventName: 'spf_module_building_complete',
             description:
               'Successfully built 2 SPF modules with system IDs assigned, 0 failed',
             component: 'SpfModuleBuilder',

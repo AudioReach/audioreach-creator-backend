@@ -63,7 +63,7 @@ export class DriverCalibrationChunkParser extends BaseChunkParser<DriverCalibrat
       const errorMsg =
         'DRIVER_CALIBRATION_KEY_TABLE, DRIVER_CALIBRATION_DATA_TABLE, DRIVER_CALIBRATION_DATA_DEF, and DRIVER_CALIBRATION_DATA_DOT chunks are not present';
       this.logger?.logWarn({
-        msg: 'parse_driver_calibration_not_found',
+        eventName: 'parse_driver_calibration_not_found',
         description: errorMsg,
         component: 'DriverCalibrationChunkParser',
         tag: 'calibration-parsing',
@@ -99,7 +99,7 @@ export class DriverCalibrationChunkParser extends BaseChunkParser<DriverCalibrat
         currentOffset = newOffset;
       } catch (error) {
         this.logger?.logWarn({
-          msg: 'parse_module_entry_failed',
+          eventName: 'parse_module_entry_failed',
           description: `Failed to parse module lookup entry at offset ${currentOffset}`,
           component: 'DriverCalibrationChunkParser',
           tag: 'calibration-parsing',
@@ -110,7 +110,7 @@ export class DriverCalibrationChunkParser extends BaseChunkParser<DriverCalibrat
     }
 
     this.logger?.logInfo({
-      msg: 'parse_driver_calibration_success',
+      eventName: 'parse_driver_calibration_success',
       description: `Parsed ${chunk.moduleLookupEntries.length} driver calibration module entries`,
       component: 'DriverCalibrationChunkParser',
       tag: 'calibration-parsing',

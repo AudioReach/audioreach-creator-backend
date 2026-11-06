@@ -70,7 +70,7 @@ export class AcdbFileSerializer {
       metrics.endMemory.heapUsed - metrics.startMemory.heapUsed;
     const memoryDeltaMB = (memoryDelta / 1024 / 1024).toFixed(2);
     this.logger?.logInfo({
-      msg: 'performance-monitoring',
+      eventName: 'performance-monitoring',
       description: `Performance: ${metrics.operation} completed in ${metrics.duration.toFixed(2)}ms (memory delta: ${memoryDeltaMB}MB)`,
       component: 'AcdbFileSerializer',
       tag: 'profiling-metrics',

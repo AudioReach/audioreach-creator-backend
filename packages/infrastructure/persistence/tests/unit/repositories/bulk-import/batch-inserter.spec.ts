@@ -96,7 +96,7 @@ describe('BatchInserter diagnostics', () => {
     expect(logger.logWarn).toHaveBeenCalled();
     expect(logger.logWarn.mock.calls[0][0]).toEqual(
       expect.objectContaining({
-        msg: 'bulk_insert_slow',
+        eventName: 'bulk_insert_slow',
         component: 'BatchInserter',
       }),
     );
@@ -141,10 +141,10 @@ describe('BatchInserter diagnostics', () => {
     ]);
     expect(logger.logError).toHaveBeenCalledTimes(2);
     expect(logger.logError.mock.calls[0][0]).toEqual(
-      expect.objectContaining({msg: 'bulk_insert_batch_failed'}),
+      expect.objectContaining({eventName: 'bulk_insert_batch_failed'}),
     );
     expect(logger.logError.mock.calls[1][0]).toEqual(
-      expect.objectContaining({msg: 'bulk_insert_fallback_row_failed'}),
+      expect.objectContaining({eventName: 'bulk_insert_fallback_row_failed'}),
     );
   });
 });

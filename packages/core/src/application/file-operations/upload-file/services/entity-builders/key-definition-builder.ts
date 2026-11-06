@@ -88,7 +88,7 @@ export class KeyDefinitionBuilder {
       }
 
       this.logger?.logInfo({
-        msg: 'key_definition_building_complete',
+        eventName: 'key_definition_building_complete',
         description: `Successfully built ${result.entities.length} key definitions with system IDs assigned, ${result.issues.length} failures`,
         component: 'KeyDefinitionBuilder',
         tag: 'key-definitions',
@@ -97,7 +97,7 @@ export class KeyDefinitionBuilder {
       return result;
     } catch (error) {
       this.logger?.logError({
-        msg: 'key_definition_building_failed',
+        eventName: 'key_definition_building_failed',
         description: 'Key definition building failed',
         component: 'KeyDefinitionBuilder',
         tag: 'key-definitions',
@@ -168,7 +168,7 @@ export class KeyDefinitionBuilder {
     }
 
     this.logger?.logDebug({
-      msg: 'parallel_key_building_start',
+      eventName: 'parallel_key_building_start',
       description: `Building ${keyDefinitions.length} key definitions in parallel (2 tasks)`,
       component: 'KeyDefinitionBuilderService',
       tag: 'key-definitions',
@@ -219,11 +219,11 @@ export class KeyDefinitionBuilder {
 
       if (!result.success || result.error) {
         this.logger?.logError({
-          msg: 'parallel_task_failed',
+          eventName: 'parallel_task_failed',
           description: `Failed to build ${task.input.taskName}: ${result.error}`,
           component: 'KeyDefinitionBuilderService',
           tag: 'key-definitions',
-          error: String(result.error || 'Unknown error'),
+          error: new Error(String(result.error || 'Unknown error')),
         });
         continue;
       }
@@ -237,17 +237,17 @@ export class KeyDefinitionBuilder {
         issues.push(entityBuildIssue);
 
         this.logger?.logError({
-          msg: 'key_definition_transform_error',
+          eventName: 'key_definition_transform_error',
           description: `Failed to build key definition ${error.keyId} (${error.keyName}): ${error.error}`,
           component: 'KeyDefinitionBuilderService',
           tag: 'key-definitions',
-          error: String(error.error || 'Unknown error'),
+          error: new Error(String(error.error || 'Unknown error')),
         });
       }
     }
 
     this.logger?.logInfo({
-      msg: 'parallel_key_building_complete',
+      eventName: 'parallel_key_building_complete',
       description: `Parallel processing completed: ${validKeyDefinitions.length} valid, ${issues.length} errors`,
       component: 'KeyDefinitionBuilderService',
       tag: 'key-definitions',
@@ -267,7 +267,7 @@ export class KeyDefinitionBuilder {
     keyDefinitions: AwspKeyDefinition[],
   ): BuildResult<KeyDefinition> {
     this.logger?.logDebug({
-      msg: 'sequential_key_building_start',
+      eventName: 'sequential_key_building_start',
       description: `Building ${keyDefinitions.length} key definitions sequentially`,
       component: 'KeyDefinitionBuilderService',
       tag: 'key-definitions',
@@ -304,7 +304,7 @@ export class KeyDefinitionBuilder {
         issues.push(entityBuildIssue);
 
         this.logger?.logError({
-          msg: 'key_definition_transform_error',
+          eventName: 'key_definition_transform_error',
           description: `Failed to build key definition ${awspKeyDef.id} (${awspKeyDef.name}): ${detailedMessage}`,
           component: 'KeyDefinitionBuilder',
           tag: 'key-definitions',
@@ -314,7 +314,7 @@ export class KeyDefinitionBuilder {
     }
 
     this.logger?.logInfo({
-      msg: 'sequential_key_building_complete',
+      eventName: 'sequential_key_building_complete',
       description: `Sequential processing completed: ${validKeyDefinitions.length} valid, ${issues.length} errors`,
       component: 'KeyDefinitionBuilderService',
       tag: 'key-definitions',

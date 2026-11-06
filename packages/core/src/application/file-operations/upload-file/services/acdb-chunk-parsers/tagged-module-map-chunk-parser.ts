@@ -139,7 +139,7 @@ export class TaggedModuleMapChunkParser extends BaseChunkParser<TaggedModuleMapC
     if (!defData) {
       const errorMsg = 'TAGGED_MODULES_DEF chunk is required';
       this.logger?.logError({
-        msg: 'parse_tagged_module_map_failed',
+        eventName: 'parse_tagged_module_map_failed',
         description: errorMsg,
         component: 'TaggedModuleMapChunkParser',
         tag: 'tagged-module-map-parsing',
@@ -173,7 +173,7 @@ export class TaggedModuleMapChunkParser extends BaseChunkParser<TaggedModuleMapC
         offset = result.newOffset;
       } catch (error) {
         this.logger?.logError({
-          msg: 'parse_tagged_module_entry_failed',
+          eventName: 'parse_tagged_module_entry_failed',
           description: `Failed to parse tagged module entry ${i}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           component: 'TaggedModuleMapChunkParser',
           tag: 'tagged-module-map-parsing',

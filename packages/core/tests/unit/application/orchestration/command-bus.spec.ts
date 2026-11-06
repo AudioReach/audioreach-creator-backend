@@ -309,7 +309,7 @@ describe('CommandBus', () => {
       ]);
     });
 
-    it('writes every record in the LogData shape', async () => {
+    it('logs a thrown non-Error as an Error', async () => {
       mockUnitOfWork.isInTransaction.mockReturnValue(true);
       mockUnitOfWork.rollback.mockRejectedValue('not an Error');
 
@@ -319,8 +319,6 @@ describe('CommandBus', () => {
 
       expect(records.length).toBeGreaterThan(0);
       for (const record of records) {
-        expect(record).not.toHaveProperty('msg');
-        expect(record['timestamp']).toBeInstanceOf(Date);
         if ('error' in record) {
           expect(record['error']).toBeInstanceOf(Error);
         }

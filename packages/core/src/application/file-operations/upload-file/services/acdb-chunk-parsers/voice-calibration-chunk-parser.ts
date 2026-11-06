@@ -446,7 +446,7 @@ export class VoiceCalibrationChunkParser extends BaseChunkParser<VoiceCalibratio
       const errorMsg =
         'VCPM_MASTER_KEY chunk is required for parsing VCPM_CALDATA';
       this.logger?.logError({
-        msg: 'parse_voice_calibration_failed',
+        eventName: 'parse_voice_calibration_failed',
         description: errorMsg,
         component: 'VoiceCalibrationChunkParser',
         tag: 'calibration-parsing',
@@ -459,7 +459,7 @@ export class VoiceCalibrationChunkParser extends BaseChunkParser<VoiceCalibratio
       const errorMsg =
         'VCPM_CALIBRATION_KEY_TABLE, VCPM_CALIBRATION_DATA_LUT, and VCPM_CALIBRATION_DATA_DEF chunks are required';
       this.logger?.logError({
-        msg: 'parse_voice_calibration_failed',
+        eventName: 'parse_voice_calibration_failed',
         description: errorMsg,
         component: 'VoiceCalibrationChunkParser',
         tag: 'calibration-parsing',
@@ -504,7 +504,7 @@ export class VoiceCalibrationChunkParser extends BaseChunkParser<VoiceCalibratio
         offset = result.newOffset;
       } catch (error) {
         this.logger?.logError({
-          msg: 'parse_voice_calibration_entry_failed',
+          eventName: 'parse_voice_calibration_entry_failed',
           description: `Failed to parse voice calibration entry ${i}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           component: 'VoiceCalibrationChunkParser',
           tag: 'calibration-parsing',

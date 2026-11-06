@@ -288,7 +288,7 @@ export class ProjectController {
   ): Promise<ApiResult<ProjectInfoResponseDto>> {
     this.logger.logInfo({
       component: 'ProjectController',
-      msg: 'uploadArcDbFiles',
+      eventName: 'uploadArcDbFiles',
       description: 'Method called',
       tag: 'file-upload',
     });
@@ -395,9 +395,8 @@ export class ProjectController {
   ): Promise<ApiResult<ProjectInfoResponseDto[]>> {
     this.logger.logInfo({
       component: 'ProjectController',
-      msg: 'Fetching all projects',
+      eventName: 'Fetching all projects',
       description: 'Retrieving all active projects for the client' + clientId,
-      timestamp: new Date(),
       tag: 'project',
     });
 
@@ -724,7 +723,7 @@ export class ProjectController {
   ): Promise<void> {
     this.logger.logInfo({
       component: 'ProjectController',
-      msg: 'downloadArcDbFiles',
+      eventName: 'downloadArcDbFiles',
       description: 'Downloading files as multipart response',
       tag: 'file-download',
     });
@@ -751,7 +750,7 @@ export class ProjectController {
 
     this.logger.logInfo({
       component: 'ProjectController',
-      msg: 'downloadArcDbFiles',
+      eventName: 'downloadArcDbFiles',
       description: 'Multipart response sent successfully',
       tag: 'file-download',
     });

@@ -63,7 +63,7 @@ export class VcpmModuleDefinitionBuilder {
     }
 
     this.logger?.logDebug({
-      msg: 'vcpm_module_definition_building_start',
+      eventName: 'vcpm_module_definition_building_start',
       description: `Building ${awspModuleDefinitions.length} VCPM module definitions`,
       component: 'VcpmModuleDefinitionBuilder',
       tag: 'vcpm-module-definitions',
@@ -99,7 +99,7 @@ export class VcpmModuleDefinitionBuilder {
     }
 
     this.logger?.logInfo({
-      msg: 'vcpm_module_definition_building_complete',
+      eventName: 'vcpm_module_definition_building_complete',
       description: `Successfully built ${entities.length} VCPM module definitions with system IDs assigned, ${issues.length} failures`,
       component: 'VcpmModuleDefinitionBuilder',
       tag: 'vcpm-module-definitions',

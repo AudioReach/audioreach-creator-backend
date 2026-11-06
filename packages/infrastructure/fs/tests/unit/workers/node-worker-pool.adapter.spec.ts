@@ -5,7 +5,7 @@
 
 import {AsyncLocalStorage} from 'node:async_hooks';
 import {fileURLToPath} from 'node:url';
-import type {Logger, LogData, LegacyLogData, WorkerTask} from '@arc/core';
+import type {Logger, LogData, WorkerTask} from '@arc/core';
 import {NodeWorkerPoolAdapter} from '../../../src/workers/node-worker-pool.adapter.js';
 
 const WORKER_SCRIPT = fileURLToPath(
@@ -18,7 +18,7 @@ interface ScriptedInput {
 }
 
 interface Captured {
-  msg: string;
+  eventName: string;
   description: string;
   requestId: string | undefined;
 }
@@ -36,9 +36,9 @@ describe('NodeWorkerPoolAdapter', () => {
 
   beforeEach(() => {
     captured = [];
-    const capture = (data: LogData | LegacyLogData) => {
+    const capture = (data: LogData) => {
       captured.push({
-        msg: data.msg ?? data.eventName ?? '',
+        eventName: data.eventName,
         description: data.description,
         requestId: requestContext.getStore(),
       });
@@ -99,7 +99,7 @@ describe('NodeWorkerPoolAdapter', () => {
     expect(result.success).toBe(false);
     expect(captured).toEqual([
       {
-        msg: 'worker_task_error',
+        eventName: 'worker_task_error',
         description: 'Worker task failed: scripted failure for fails',
         requestId: 'req-a',
       },
@@ -117,7 +117,10 @@ describe('NodeWorkerPoolAdapter', () => {
     await Promise.all([a, b]);
 
     expect(captured).toEqual([
-      expect.objectContaining({msg: 'worker_task_error', requestId: 'req-b'}),
+      expect.objectContaining({
+        eventName: 'worker_task_error',
+        requestId: 'req-b',
+      }),
     ]);
   });
 
@@ -131,7 +134,7 @@ describe('NodeWorkerPoolAdapter', () => {
     await expect(b).rejects.toThrow(/timeout/);
 
     expect(captured).toEqual([
-      expect.objectContaining({msg: 'task_timeout', requestId: 'req-b'}),
+      expect.objectContaining({eventName: 'task_timeout', requestId: 'req-b'}),
     ]);
   });
 

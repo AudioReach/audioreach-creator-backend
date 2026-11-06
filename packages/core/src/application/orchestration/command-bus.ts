@@ -61,7 +61,6 @@ export class CommandBus {
       description: 'UnitOfWork created for command execution',
       component: 'CommandBus',
       tag: 'uow-lifecycle',
-      timestamp: new Date(),
     });
 
     // Stamp WriteContext only when a session is present (Case 1 + 2).
@@ -80,7 +79,6 @@ export class CommandBus {
           description: `Handler ${command.constructor.name} left transaction open. Auto-rolling back.`,
           component: 'CommandBus',
           tag: 'transaction-safety',
-          timestamp: new Date(),
         });
         await uow.rollback();
       }
@@ -90,7 +88,6 @@ export class CommandBus {
         description: `Command executed successfully: ${command.constructor.name}`,
         component: 'CommandBus',
         tag: 'command-execution',
-        timestamp: new Date(),
       });
 
       return result;
@@ -100,7 +97,6 @@ export class CommandBus {
         description: `Command execution failed: ${command.constructor.name}`,
         component: 'CommandBus',
         tag: 'command-execution',
-        timestamp: new Date(),
         error: error instanceof Error ? error : new Error(String(error)),
       });
 
@@ -113,7 +109,6 @@ export class CommandBus {
             description: 'Transaction rolled back due to error',
             component: 'CommandBus',
             tag: 'transaction-rollback',
-            timestamp: new Date(),
           });
         }
       } catch (rollbackError) {
@@ -122,7 +117,6 @@ export class CommandBus {
           description: 'Failed to rollback transaction after error',
           component: 'CommandBus',
           tag: 'transaction-rollback',
-          timestamp: new Date(),
           error:
             rollbackError instanceof Error
               ? rollbackError

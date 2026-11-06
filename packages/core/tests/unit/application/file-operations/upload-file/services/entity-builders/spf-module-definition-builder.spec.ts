@@ -1138,7 +1138,7 @@ describe('SpfModuleDefinitionBuilder', () => {
 
       expect(mockLogger.logDebug).toHaveBeenCalledWith(
         expect.objectContaining({
-          msg: 'sequential_spf_module_building_start',
+          eventName: 'sequential_spf_module_building_start',
         }),
       );
     });
@@ -1163,7 +1163,7 @@ describe('SpfModuleDefinitionBuilder', () => {
 
       expect(mockLogger.logDebug).toHaveBeenCalledWith(
         expect.objectContaining({
-          msg: 'sequential_spf_module_building_start',
+          eventName: 'sequential_spf_module_building_start',
         }),
       );
     });
@@ -1188,7 +1188,7 @@ describe('SpfModuleDefinitionBuilder', () => {
 
       expect(mockLogger.logDebug).toHaveBeenCalledWith(
         expect.objectContaining({
-          msg: 'sequential_spf_module_building_start',
+          eventName: 'sequential_spf_module_building_start',
         }),
       );
     });
@@ -1233,7 +1233,7 @@ describe('SpfModuleDefinitionBuilder', () => {
 
       expect(mockLogger.logDebug).toHaveBeenCalledWith(
         expect.objectContaining({
-          msg: 'parallel_spf_module_building_start',
+          eventName: 'parallel_spf_module_building_start',
         }),
       );
       expect(mockWorkerPool.executeParallel).toHaveBeenCalled();

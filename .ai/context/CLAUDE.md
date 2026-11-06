@@ -270,7 +270,9 @@ Cite official or credible sources only when they directly inform the decision (N
 
 ## Logging Convention
 
-Structured logging via `Logger` port. All log calls include: `msg`, `action`, `component`, `tag`, `timestamp`. Error calls also include `error: Error`.
+Structured logging via the `Logger` port with `LogData`. Every log call includes `eventName`, `description`, `component`, and `tag`. Error calls also include `error: Error`; wrap a non-`Error` value in `new Error(...)`. `timestamp` is optional and defaults to the time of the call; pass it only for an event that happened earlier. Do not pass `projectId` or the producer: infrastructure adds them from the request context.
+
+**Event names:** `eventName` is a fixed `<domain>.<operation>.<outcome>` name: three lowercase parts, snake_case within a part (e.g. `command.transaction.rollback_failed`). Never build it from a template literal; per-occurrence values such as IDs go in `description`. A lint rule (`no-restricted-syntax` in `eslint.config.js`) reports names that do not follow this.
 
 **ID logging rule:** All entity IDs must be logged in hex using `BinaryUtils.toHexString()`. This applies to `systemId` and any natural-key ID field (e.g. `subgraphId`, `containerId`, `moduleId`). Always pair the hex ID with a human-readable identifier (alias, name) when available:
 ```typescript

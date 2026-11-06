@@ -106,7 +106,7 @@ export class AcdbParser {
         // Log warning for unknown parser types but don't crash
         if (this.logger) {
           this.logger.logWarn({
-            msg: 'acdb_unknown_parser_type',
+            eventName: 'acdb_unknown_parser_type',
             description: `Unknown parser type encountered: ${parserType}. Skipping parsing.`,
             component: 'AcdbParser',
             tag: 'parsing',

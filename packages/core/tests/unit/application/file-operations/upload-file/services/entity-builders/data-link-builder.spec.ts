@@ -119,7 +119,7 @@ describe('DataLinkBuilder', () => {
         expect(result).toEqual([]);
         expect(mockLogger.logDebug).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: 'no_data_link_properties',
+            eventName: 'no_data_link_properties',
             description: 'No data link properties provided for building',
           }),
         );
@@ -158,7 +158,7 @@ describe('DataLinkBuilder', () => {
         expect(result).toHaveLength(2);
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: 'data_link_deduplication',
+            eventName: 'data_link_deduplication',
             description: expect.stringContaining(
               '3 total → 2 unique properties',
             ),
@@ -181,7 +181,7 @@ describe('DataLinkBuilder', () => {
 
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: 'data_link_building_complete',
+            eventName: 'data_link_building_complete',
             description: expect.stringContaining('system IDs assigned'),
             component: 'DataLinkBuilder',
           }),
@@ -294,7 +294,7 @@ describe('DataLinkBuilder', () => {
         expect(result).toHaveLength(0);
         expect(mockLogger.logWarn).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: 'source_module_mapping_failed',
+            eventName: 'source_module_mapping_failed',
             description: expect.stringContaining('Failed to map source module'),
           }),
         );
@@ -324,7 +324,7 @@ describe('DataLinkBuilder', () => {
         expect(result).toHaveLength(0);
         expect(mockLogger.logWarn).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: 'destination_module_mapping_failed',
+            eventName: 'destination_module_mapping_failed',
             description: expect.stringContaining(
               'Failed to map destination module',
             ),
@@ -355,7 +355,7 @@ describe('DataLinkBuilder', () => {
         expect(result).toHaveLength(0);
         expect(mockLogger.logWarn).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: 'source_port_mapping_failed',
+            eventName: 'source_port_mapping_failed',
             description: expect.stringContaining('Failed to map source port'),
           }),
         );
@@ -384,7 +384,7 @@ describe('DataLinkBuilder', () => {
         expect(result).toHaveLength(0);
         expect(mockLogger.logWarn).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: 'destination_port_mapping_failed',
+            eventName: 'destination_port_mapping_failed',
             description: expect.stringContaining(
               'Failed to map destination port',
             ),
@@ -456,7 +456,7 @@ describe('DataLinkBuilder', () => {
         expect(result).toHaveLength(0);
         expect(mockLogger.logWarn).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: 'data_link_conversion_error',
+            eventName: 'data_link_conversion_error',
             description: expect.stringContaining('Unexpected error converting'),
           }),
         );
@@ -486,7 +486,7 @@ describe('DataLinkBuilder', () => {
 
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: 'data_link_deduplication',
+            eventName: 'data_link_deduplication',
             description:
               'Data link deduplication: 2 total → 1 unique properties (1 duplicates removed)',
             component: 'DataLinkBuilder',

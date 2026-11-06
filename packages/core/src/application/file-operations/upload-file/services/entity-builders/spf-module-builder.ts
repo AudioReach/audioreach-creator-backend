@@ -83,7 +83,7 @@ export class SpfModuleBuilder {
     }
 
     this.logger?.logInfo({
-      msg: 'port_strategy_selected',
+      eventName: 'port_strategy_selected',
       description: `Using port strategy: ${portStrategy}`,
       component: 'SpfModuleBuilder',
       tag: 'spf-module-building',
@@ -126,7 +126,7 @@ export class SpfModuleBuilder {
     }
 
     this.logger?.logInfo({
-      msg: 'spf_module_building_complete',
+      eventName: 'spf_module_building_complete',
       description: `Successfully built ${result.entities.length} SPF modules with system IDs assigned, ${result.issues.length} failed`,
       component: 'SpfModuleBuilder',
       tag: 'spf-module-building',
@@ -273,7 +273,7 @@ export class SpfModuleBuilder {
     } catch (error) {
       // Log warning but don't fail the entire build
       this.logger?.logWarn({
-        msg: 'calibration_attachment_failed',
+        eventName: 'calibration_attachment_failed',
         description: `Failed to attach calibration data: ${error instanceof Error ? error.message : 'Unknown error'}`,
         component: 'SpfModuleBuilder',
         tag: 'calibration-attachment',
@@ -344,7 +344,7 @@ export class SpfModuleBuilder {
    */
   private logTagDataSuccess(moduleCount: number): void {
     this.logger?.logInfo({
-      msg: 'tag_data_attached',
+      eventName: 'tag_data_attached',
       description: `Attached tag data to ${moduleCount} SPF modules`,
       component: 'SpfModuleBuilder',
       tag: 'tag-attachment',
@@ -356,7 +356,7 @@ export class SpfModuleBuilder {
    */
   private logTagDataFailure(error: unknown): void {
     this.logger?.logWarn({
-      msg: 'tag_attachment_failed',
+      eventName: 'tag_attachment_failed',
       description: `Failed to attach tag data: ${error instanceof Error ? error.message : 'Unknown error'}`,
       component: 'SpfModuleBuilder',
       tag: 'tag-attachment',
@@ -529,7 +529,7 @@ export class SpfModuleBuilder {
 
   private logConversionError(instanceId: number, error: unknown): void {
     this.logger?.logWarn({
-      msg: 'spf_module_conversion_failed',
+      eventName: 'spf_module_conversion_failed',
       description: `Failed to convert module instance ${instanceId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
       component: 'SpfModuleBuilder',
       tag: 'spf-module-building',

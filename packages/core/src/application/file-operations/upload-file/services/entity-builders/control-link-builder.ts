@@ -42,7 +42,7 @@ export class ControlLinkBuilder {
     // Input validation
     if (!controlLinkProperties || controlLinkProperties.length === 0) {
       this.logger?.logDebug({
-        msg: 'no_control_link_properties',
+        eventName: 'no_control_link_properties',
         description: 'No control link properties provided for building',
         component: 'ControlLinkBuilder',
         tag: 'control-link-building',
@@ -59,7 +59,7 @@ export class ControlLinkBuilder {
     );
 
     this.logger?.logInfo({
-      msg: 'control_link_deduplication',
+      eventName: 'control_link_deduplication',
       description: `Control link deduplication: ${controlLinkProperties.length} total → ${uniqueProperties.size} unique properties (${duplicateCount} duplicates removed)`,
       component: 'ControlLinkBuilder',
       tag: 'control-link-building',
@@ -81,7 +81,7 @@ export class ControlLinkBuilder {
 
     // STEP 5: Performance and results logging
     this.logger?.logInfo({
-      msg: 'control_link_building_complete',
+      eventName: 'control_link_building_complete',
       description: `Control link building complete: ${controlLinkProperties.length} total → ${uniqueProperties.size} unique → ${successCount} successful, ${errorCount} failed (${duplicateCount} duplicates eliminated), ${controlPortIntents.size} control ports with intents, system IDs assigned`,
       component: 'ControlLinkBuilder',
       tag: 'control-link-building',
@@ -217,7 +217,7 @@ export class ControlLinkBuilder {
       return {success: true, controlLink};
     } catch (error) {
       this.logger?.logWarn({
-        msg: 'control_link_conversion_failed',
+        eventName: 'control_link_conversion_failed',
         description: `Failed to convert control link property (peer1: ${property.peer1InstanceId}, peer2: ${property.peer2InstanceId}): ${error instanceof Error ? error.message : 'Unknown error'}`,
         component: 'ControlLinkBuilder',
         tag: 'control-link-building',
@@ -322,7 +322,7 @@ export class ControlLinkBuilder {
 
     if (sourceSgId === undefined) {
       this.logger?.logWarn({
-        msg: 'source_subgraph_mapping_failed',
+        eventName: 'source_subgraph_mapping_failed',
         description: `Failed to resolve source subgraph for control link module instance ${property.peer1InstanceId}`,
         component: 'ControlLinkBuilder',
         tag: 'control-link-building',
@@ -332,7 +332,7 @@ export class ControlLinkBuilder {
 
     if (destSgId === undefined) {
       this.logger?.logWarn({
-        msg: 'dest_subgraph_mapping_failed',
+        eventName: 'dest_subgraph_mapping_failed',
         description: `Failed to resolve dest subgraph for control link module instance ${property.peer2InstanceId}`,
         component: 'ControlLinkBuilder',
         tag: 'control-link-building',

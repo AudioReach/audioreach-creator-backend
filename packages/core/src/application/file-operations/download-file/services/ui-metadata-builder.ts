@@ -88,7 +88,7 @@ export class UiMetadataBuilder {
       } catch (error) {
         this.logger?.logWarn({
           component: 'UiMetadataBuilder',
-          msg: 'parseSrsMetadata',
+          eventName: 'parseSrsMetadata',
           description: `Failed to parse uiSrsMetadataJson — srsMetadata will be omitted`,
           error: error instanceof Error ? error : new Error(String(error)),
           tag: 'download-file',

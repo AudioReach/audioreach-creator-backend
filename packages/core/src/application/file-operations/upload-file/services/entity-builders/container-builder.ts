@@ -66,7 +66,7 @@ export class ContainerBuilder {
     }
 
     this.logger?.logInfo({
-      msg: 'container_building_complete',
+      eventName: 'container_building_complete',
       description: `Successfully built ${result.entities.length} containers with system IDs assigned, ${result.issues.length} failed, extracted ${result.containerProcessorMap.size} processor mappings`,
       component: 'ContainerBuilder',
       tag: 'container-building',
@@ -135,7 +135,7 @@ export class ContainerBuilder {
         issues.push(issue);
 
         this.logger?.logWarn({
-          msg: 'container_conversion_failed',
+          eventName: 'container_conversion_failed',
           description: `Failed to convert container property (ID: ${acdbContainer.containerId}): ${errorMessage}`,
           component: 'ContainerBuilder',
           tag: 'container-building',
@@ -174,7 +174,7 @@ export class ContainerBuilder {
 
       if (propertySystemId === undefined) {
         this.logger?.logWarn({
-          msg: 'property_definition_not_found',
+          eventName: 'property_definition_not_found',
           description: `Container property definition not found for propertyId ${propertyId} in container ${acdbContainer.containerId}`,
           component: 'ContainerBuilder',
           tag: 'container-building',
