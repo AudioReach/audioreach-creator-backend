@@ -49,10 +49,7 @@ export class PinoSQLiteTransport extends Transform {
         projectId: (entry['projectId'] as string) ?? undefined,
         component: (entry['component'] as string) ?? '',
         tag: (entry['tag'] as string) ?? '',
-        // Server records still carry the event name in `msg` until PR 1.3;
-        // client-submitted records carry `eventName`.
-        eventName:
-          (entry['eventName'] as string) ?? (entry['msg'] as string) ?? '',
+        eventName: (entry['eventName'] as string) ?? '',
         description: (entry['description'] as string) ?? '',
         error: entry['error'] ? JSON.stringify(entry['error']) : undefined,
         serviceName: (entry['serviceName'] as string) ?? '',

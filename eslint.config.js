@@ -435,6 +435,36 @@ export default [
     },
   },
 
+  // Logging migration (parallel change). Each warning is a call that still
+  // uses the deprecated LegacyLogData overload; migrated areas are errors.
+  {
+    files: ['**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-deprecated': 'warn',
+      // Duplicates no-deprecated, and would report every legacy call as an error.
+      'sonarjs/deprecation': 'off',
+    },
+  },
+  {
+    files: [
+      'packages/core/src/application/usecase-designer/use-case-creator/**/*.ts',
+      'packages/core/src/application/orchestration/command-bus.ts',
+    ],
+    rules: {
+      '@typescript-eslint/no-deprecated': 'error',
+    },
+  },
+  {
+    // These files declare and implement the deprecated overloads.
+    files: [
+      'packages/core/src/shared/types/logger.interface.ts',
+      'packages/infrastructure/logger/src/pino-log.service.ts',
+    ],
+    rules: {
+      '@typescript-eslint/no-deprecated': 'off',
+    },
+  },
+
   // Prettier integration - must be last
   prettierConfig,
 ];

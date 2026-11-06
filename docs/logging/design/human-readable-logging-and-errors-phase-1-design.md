@@ -62,7 +62,6 @@ logger.logWarn({
   description: "Module 'RX MFC' (0x0000A1B2) failed validation",
   component: 'ModuleValidator',
   tag: 'validation',
-  projectId,
   timestamp: new Date(),
 });
 ```
@@ -648,7 +647,6 @@ interface LogData {
   readonly description: string;
   readonly component: string;
   readonly tag: string;
-  readonly projectId?: string;
   readonly timestamp: Date;
   readonly error?: Error;
 }
@@ -767,9 +765,9 @@ X-ARC-Client-Instance-Id: 6aa7bf9e-2d6f-4df7-b87b-9812a493bc52
   records of a request that matches no route carry
   neither value; their `tag` links them to the request's later records.
 - `PinoLogService` reads the context when it writes a record and stores
-  `client_name`, `client_instance_id`, and `project_id`. An explicit
-  `LogData.projectId` wins over the route's. Records written outside a
-  request, such as startup, have none.
+  `client_name`, `client_instance_id`, and `project_id`. The project comes
+  only from the route; `LogData` has no `projectId`. Records written outside
+  a request, such as startup, have none.
 - The context is an infrastructure-only port, `ActiveLogContextProvider`
   (OpenTelemetry LLD §8.1) with `current()`, `run(context, fn)`, and
   `enrich(values)`. `enrich` changes the context of the innermost active
@@ -794,11 +792,14 @@ later (OpenTelemetry LLD §5.4).
 
 - `eventName` is the stable, low-cardinality event name. New names use a
   dot-separated `<domain>.<operation>.<outcome>` convention and never contain
-  entity IDs or other per-occurrence values.
+  entity IDs or other per-occurrence values. Names are lowercase, and words
+  within a part are joined with underscores, as in the
+  [OpenTelemetry naming rules](https://github.com/open-telemetry/semantic-conventions/blob/main/docs/general/naming.md)
+  (for example, `command.transaction.rollback_failed`). They have no
+  application prefix while logs stay in the application's own store.
 - `description` contains human-readable contextual detail.
 - `component` identifies the emitting application component.
 - `tag` remains the broad category.
-- `projectId` is supplied only when genuinely known by the caller.
 
 `eventName` is the core/application contract name and maps directly to
 OpenTelemetry `EventName` later. It is stored in the `event_name` column, which
@@ -1137,8 +1138,6 @@ mapping}`:
   `satisfies Record<IssueCode, Type<ApiIssueItemBase>>`, lists the variant for
   every code. The `oneOf`, the `mapping`, and `@ApiExtraModels` are built from
   it, so adding a code without a variant fails to compile.
-- A type test checks that each variant's `relatedEntities` and `params` equal
-  the wire form of `ContextFor<C>` (`ApiEntityRef` for references).
 - Clients generated from the spec get a TypeScript union narrowed by `code`.
   A client treats an unknown `code` as a plain issue (show `message`), so new
   codes do not break older clients.
@@ -1538,11 +1537,9 @@ interface LogData {
   readonly description: string;
   readonly component: string;
   readonly tag: string;
-  readonly projectId?: string;
   readonly timestamp: Date;
   readonly error?: Error;
   readonly msg?: never;
-  readonly source?: never;
 }
 
 /** @deprecated Migrate to LogData. Removed when migration completes (§13.1). */
@@ -1551,11 +1548,9 @@ interface LegacyLogData {
   readonly description: string;
   readonly component: string;
   readonly tag: string;
-  readonly projectId?: string;
   readonly timestamp?: Date;
   readonly error?: Error | string;
   readonly eventName?: never;
-  readonly source?: never;
 }
 
 interface Logger {
@@ -1641,8 +1636,6 @@ in their own PR:
 - Add the deprecated `LegacyLogData` overloads, the legacy translation in
   `PinoLogService`, and the `no-deprecated` guardrails (§13.1). Existing call
   sites are not changed.
-- Add compile-time tests proving core callers cannot provide `msg`, `source`,
-  or string-valued errors and must provide `timestamp`.
 - Migrate the `command-bus.ts` log calls to the new contract.
 
 ### Phase 2: Identity kernel
@@ -1715,6 +1708,7 @@ Done when `no-deprecated` reports no warnings. In one PR:
 
 - delete `LegacyLogData` and the deprecated `Logger` overloads;
 - delete the legacy translation in `PinoLogService`;
+- remove `msg?: never` from `LogData`: it only keeps the two shapes apart;
 - delete `LegacyIssue`, its branch in `Result<T>`, and the legacy path and
   `impactedUsecases` fallback in the API mapper;
 - remove the `no-deprecated` `files` override and any fallback
@@ -1754,7 +1748,7 @@ the OpenTelemetry LLD.
   type in UI metadata;
 - layer-boundary lint passes with no allowlist; and
 - core `LogData` requires `timestamp`, accepts only `Error` for `error`, uses
-  `eventName`, and rejects `msg`, `source`, trace, and resource fields;
+  `eventName`, and has no `msg`, `source`, trace, or resource fields;
 - a log call mixing `LogData` and `LegacyLogData` fields fails to compile;
 - legacy log calls are still persisted with the same stored fields as today;
 - `no-deprecated` fails lint for legacy log calls or `LegacyIssue` in migrated

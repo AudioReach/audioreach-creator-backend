@@ -8,10 +8,10 @@ import {PinoLogService} from '../../src/pino-log.service.js';
 import type {ServerLogRecord} from '../../src/pino-log.service.js';
 import {AsyncLocalStorageLogContextProvider} from '../../src/context/async-local-storage-log-context-provider.js';
 import type {LogProducerIdentity} from '../../src/identity/log-producer-identity.js';
-import type {LogData} from '@arc/core';
+import type {LegacyLogData, LogData} from '@arc/core';
 
 const makeData = (): LogData => ({
-  msg: 'test-msg',
+  eventName: 'test.op.succeeded',
   description: 'test description',
   timestamp: new Date('2026-01-01T00:00:00Z'),
   component: 'TestComponent',
@@ -89,22 +89,6 @@ describe('PinoLogService', () => {
     expect(pino.fatal).toHaveBeenCalledWith(expect.objectContaining(data));
   });
 
-  it('defaults the timestamp when it is omitted', () => {
-    const pino = makePinoLogger();
-    const svc = new PinoLogService(pino as never, producer, logContext);
-    const data: LogData = {
-      msg: 'test-msg',
-      description: 'test description',
-      component: 'TestComponent',
-      tag: 'test-tag',
-    };
-
-    svc.logInfo(data);
-
-    const loggedData = (pino.info as jest.Mock).mock.calls[0][0] as LogData;
-    expect(loggedData.timestamp).toBeInstanceOf(Date);
-  });
-
   it('adds the producer identity to every record', () => {
     const pino = makePinoLogger();
     const svc = new PinoLogService(pino as never, producer, logContext);
@@ -155,16 +139,56 @@ describe('PinoLogService', () => {
     expect(calls[1][0]).not.toHaveProperty('clientInstanceId');
   });
 
-  it('keeps a projectId the caller passes over the context projectId', () => {
-    const pino = makePinoLogger();
-    const svc = new PinoLogService(pino as never, producer, logContext);
-
-    logContext.run({projectId: 'route-project'}, () => {
-      svc.logError({...makeData(), projectId: 'explicit-project'});
+  describe('legacy calls', () => {
+    const legacy = (overrides: Partial<LegacyLogData> = {}): LegacyLogData => ({
+      msg: 'legacy-op',
+      description: 'legacy description',
+      component: 'TestComponent',
+      tag: 'test-tag',
+      ...overrides,
     });
 
-    const record = (pino.error as jest.Mock).mock
-      .calls[0][0] as ServerLogRecord;
-    expect(record.projectId).toBe('explicit-project');
+    const logged = (data: LegacyLogData): ServerLogRecord => {
+      const pino = makePinoLogger();
+      const svc = new PinoLogService(pino as never, producer, logContext);
+      svc.logInfo(data);
+      return (pino.info as jest.Mock).mock.calls[0][0] as ServerLogRecord;
+    };
+
+    it('writes msg as eventName and drops msg', () => {
+      const record = logged(legacy());
+
+      expect(record.eventName).toBe('legacy-op');
+      expect(record).not.toHaveProperty('msg');
+      expect(record.description).toBe('legacy description');
+    });
+
+    it('defaults the timestamp when it is omitted', () => {
+      expect(logged(legacy()).timestamp).toBeInstanceOf(Date);
+    });
+
+    it('keeps a timestamp the caller passes', () => {
+      const timestamp = new Date('2026-01-01T00:00:00Z');
+
+      expect(logged(legacy({timestamp})).timestamp).toBe(timestamp);
+    });
+
+    it('wraps a string error in an Error without a stack', () => {
+      const {error} = logged(legacy({error: 'disk full'}));
+
+      expect(error).toBeInstanceOf(Error);
+      expect(error?.message).toBe('disk full');
+      expect(error?.stack).toBeUndefined();
+    });
+
+    it('keeps an Error error unchanged', () => {
+      const cause = new Error('boom');
+
+      expect(logged(legacy({error: cause})).error).toBe(cause);
+    });
+
+    it('omits error when there is none', () => {
+      expect(logged(legacy())).not.toHaveProperty('error');
+    });
   });
 });
