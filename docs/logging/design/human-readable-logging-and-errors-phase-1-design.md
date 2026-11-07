@@ -181,7 +181,7 @@ Use deterministic natural identities:
 | Entity | Preferred human identity |
 |---|---|
 | Project | name, then project UUID when needed |
-| UseCase | alias when present, then the ordered `keyName:valueName (keyNaturalId:valueNaturalId)` GKV pairs |
+| UseCase | alias when present, then the ordered GKV pairs by name, `keyName:valueName`, without natural IDs |
 | Subgraph | name plus natural subgraph ID |
 | SPF module (driver module uses the same form) | alias when present, otherwise the module definition name, plus the module instance natural ID |
 | Container | container natural ID (containers have no name) |
@@ -199,9 +199,14 @@ is a user-given label and may not be unique, so the natural ID or GKV pairs
 always follow it. Example:
 
 ```text
-UseCase 'Playback' [StreamType:Playback (0x0000A1B2:0x00000001)]
-UseCase [StreamType:Record (0x0000A1B2:0x00000002)]
+UseCase 'Playback' [StreamType:Playback, DeviceRx:Speaker]
+UseCase [StreamType:Record, DeviceTx:Handset_Mic]
 ```
+
+A UseCase's GKV has several pairs, so its text uses names only: natural IDs
+for every pair would make the identity too long to read. Key and value names
+come from the definition file and identify the pair; the reference's
+`systemId` remains in structured context for machines.
 
 A port without a name is shown by its natural ID (`port 0x00000002`).
 
@@ -224,8 +229,9 @@ fields that carry a system ID on the wire (`systemId` in entity references and
 natural IDs are resolved through the batched key-value-definition service (the
 `getKeyValueSummaryForGivenValues` path). The `orderedKeys` field on the domain
 entity carries natural-ID ordering only; full names come from key-value-definition
-resolution. The canonical format for one pair is
-`keyName:valueName (0xKeyNaturalId:0xValueNaturalId)`.
+resolution. In a UseCase, one pair is `keyName:valueName` and pairs are
+separated by `, `. A value definition on its own is one pair with its natural
+IDs, `keyName:valueName (0xKeyNaturalId:0xValueNaturalId)`.
 
 ### 4.4 Identity formatting
 
@@ -278,18 +284,40 @@ interface EntityIdentityMap {
   SubgraphPropertyDefinition: NamedNaturalId;
   ContainerPropertyDefinition: NamedNaturalId;
   DataLink: {readonly source: LinkEndpoint; readonly destination: LinkEndpoint};
-  ControlLink: {readonly endpoints: readonly [LinkEndpoint, LinkEndpoint]}; // §4.3 order
+  ControlLink: {readonly endpoints: readonly [LinkEndpoint, LinkEndpoint]}; // any order
   Project: {readonly name: string; readonly uuid: string};
 }
 
 type IdentityFor<T extends IssueEntityType> =
   T extends keyof EntityIdentityMap ? EntityIdentityMap[T] : never;
+
+type EntityRef<T extends IssueEntityType = IssueEntityType> = {
+  [K in T]: {
+    readonly entityType: K;
+    readonly systemId: number;
+    readonly identity?: IdentityFor<K>;
+  };
+}[T];
 ```
 
-`EntityRef<T>` (§8.3) is discriminated on `entityType`, so a reference can
-only carry the identity of its own type. An entity type gets its map entry
-when its first producer is converted (Phase 4 for routing, Phase 6 for the
-rest). Until then its references have no identity and use the fallback.
+`EntityRef<T>` lives in `domain/identity/` with the identity types, because
+the formatter takes it; issue facts (§8.3) import it. It is discriminated on
+`entityType`, so a reference can only carry the identity of its own type.
+Phase 2 adds the map entries for the eight types routing uses (UseCase,
+Subgraph, SpfModule, Subsystem, DataLink, ControlLink, KeyDefinition,
+ValueDefinition). Each other type gets its entry, and its formatter case,
+with its first Phase 6 producer. Until then its references have no identity
+and use the fallback.
+
+**Where identity comes from.** There are no adapters from entities to
+identity. A producer fills `identity` from a batched `find…Identities` read
+(§5.2, §5.3), or sets it inline when it already holds the exact fields (for
+example `{name: sg.name, naturalId: sg.naturalId}` from a loaded subgraph).
+The §4.3 rules that need related data (alias or definition name, GKV order)
+live in the identity reads. The formatter orders control-link endpoints
+itself, so the same link reads the same way whoever built its identity;
+endpoints without node identity go last. A shared function is added only when
+two producers repeat the same rule.
 Existing names such as `SpfModuleIdentity` are aliases
 (`IdentityFor<'SpfModule'>`).
 
@@ -305,6 +333,13 @@ interface IdentityFormatter {
 When `identity` is present, it returns the natural identity from §4.3 and
 ignores `systemId`. When `identity` is missing, it returns the §4.2 fallback,
 `<Entity type> with systemId: 0x...`. It never performs identity lookup.
+
+Every result starts with the entity's type label, so a `displayName` or a log
+description can be read on its own: `Module 'RX MFC' (0x0000A1B2)`,
+`Subgraph 'Speaker' (0x00000004)`. The label is the type name, except
+`SpfModule` is `Module`, `KeyDefinition` is `Key`, and `ValueDefinition` is
+`Value`. Templates do not repeat the type before a formatted reference
+(`requested: Subgraph 'Mic capture' (0x00000010)`).
 
 ## 5. Identity Resolution
 
@@ -578,7 +613,7 @@ Types are split into a write group and a read group. Each lives in one place.
 |---|---|---|
 | Shared record | per-entity `XxxRecord` (the persisted field set shared by write and read types) | next to the entity, e.g. `domain/entities/usecase-data/usecase/usecase.record.ts` |
 | Write | entities, `*Init` (e.g. `UseCaseInit extends UsecaseRecord`), write inputs, write results | `domain/entities/...` and the owning application module |
-| Identity | `EntityIdentityMap`, `IdentityFor<T>`, `NamedNaturalId`, `NamedKeyValue`, `PortIdentity`, `LinkEndpoint` (§4.4); used by issue facts and returned by read methods | `domain/identity/` |
+| Identity | `EntityRef<T>`, `EntityIdentityMap`, `IdentityFor<T>`, `NamedNaturalId`, `NamedKeyValue`, `PortIdentity`, `LinkEndpoint` (§4.4); used by issue facts and returned by read methods | `domain/identity/` |
 | Read | facets (`WithGkv`, `WithSubgraphs`, `WithLinks`), `ReadOptions` | `application/read-models/<entity>/`; shared types in `application/read-models/common/` |
 | Persistence rows | TypeORM entity schemas | infrastructure only |
 | API DTOs | wire classes and mappers | API layer only |
@@ -611,12 +646,14 @@ Decisions for the routing scope:
 ### 5.7 Layer boundaries (lint)
 
 The root `eslint.config.js` gains a `no-restricted-imports` configuration that
-enforces the placement in §5.5, alongside the existing
-`custom/no-domain-infrastructure-deps` rule:
+enforces the placement in §5.5. It replaces the custom
+`custom/no-domain-infrastructure-deps` rule, whose bans move into the domain
+row; the built-in rule also covers `export … from` and package subpaths, which
+the custom rule missed:
 
 | Files | Must not import |
 |---|---|
-| `packages/core/src/domain/**` | `packages/core/src/application/**` |
+| `packages/core/src/domain/**` | `packages/core/src/application/**`; infrastructure and API packages; `typeorm`, `express` |
 | `packages/core/src/shared/**` | `packages/core/src/application/**`, `packages/core/src/domain/**` |
 | `packages/core/src/application/read-models/**` | infrastructure and API packages |
 
@@ -1001,15 +1038,7 @@ written as literals because domain cannot import application.
 **Facts.**
 
 ```typescript
-// domain/issues/
-type EntityRef<T extends IssueEntityType = IssueEntityType> = {
-  [K in T]: {
-    readonly entityType: K;
-    readonly systemId: number;
-    readonly identity?: IdentityFor<K>; // §4.4
-  };
-}[T];
-
+// domain/issues/ (EntityRef is imported from domain/identity/, §4.4)
 interface IssueFact<C extends IssueCode = IssueCode> {
   readonly code: C;
   readonly severity: IssueSeverity;
@@ -1181,20 +1210,20 @@ each `systemId` into a string and omits the empty `params`:
 {
   "code": "ARC-ROUTING-MANUAL-GKV-CONFLICT",
   "severity": "ERROR",
-  "message": "Manual UseCase topology conflicts with UseCase 'Playback' [StreamType:Playback (0x0000A1B2:0x00000001)] (requested subgraphs: 'Mic capture' (0x00000010), 'Speaker out' (0x00000011); requested pairs: 'Mic capture' (0x00000010) -> 'Speaker out' (0x00000011)).",
+  "message": "Manual UseCase topology conflicts with UseCase 'Playback' [StreamType:Playback, DeviceRx:Speaker] (requested: Subgraph 'Mic capture' (0x00000010), Subgraph 'Speaker out' (0x00000011); requested pair: Subgraph 'Mic capture' (0x00000010) -> Subgraph 'Speaker out' (0x00000011)).",
   "relatedEntities": {
     "gkvValues": [
       {"entityType": "ValueDefinition", "systemId": "77",
-       "displayName": "StreamType:Playback (0x0000A1B2:0x00000001)"}
+       "displayName": "Value StreamType:Playback (0x0000A1B2:0x00000001)"}
     ],
     "subgraphs": [
-      {"entityType": "Subgraph", "systemId": "101", "displayName": "'Mic capture' (0x00000010)"},
-      {"entityType": "Subgraph", "systemId": "102", "displayName": "'Speaker out' (0x00000011)"}
+      {"entityType": "Subgraph", "systemId": "101", "displayName": "Subgraph 'Mic capture' (0x00000010)"},
+      {"entityType": "Subgraph", "systemId": "102", "displayName": "Subgraph 'Speaker out' (0x00000011)"}
     ]
   },
   "impactedUsecases": [
     {"entityType": "UseCase", "systemId": "412",
-     "displayName": "UseCase 'Playback' [StreamType:Playback (0x0000A1B2:0x00000001)]"}
+     "displayName": "UseCase 'Playback' [StreamType:Playback, DeviceRx:Speaker]"}
   ]
 }
 ```
@@ -1624,11 +1653,13 @@ in their own PR:
 
 ### Phase 2: Identity kernel
 
-- Add the identity types in `domain/identity/` and `IdentityFormatter`
-  (single `format` method) in core (§4.4).
-- Add ordinary-entity adapters that consume already-loaded data.
-- Unit-test deterministic natural identity and the hexadecimal system-ID
-  fallback.
+- Add `EntityRef`, `IdentityFor`, and the identity types in `domain/identity/`,
+  with `EntityIdentityMap` entries for the eight routing types (§4.4). Add
+  `ValueDefinition` to `ISSUE_ENTITY_TYPE` (§8.2).
+- Add `IdentityFormatter` (single `format` method) in `application/issues/`,
+  with a case for each of those entries (§4.4).
+- Unit-test each §4.3 format and the hexadecimal system-ID fallback.
+- No entity-to-identity adapters (§4.4).
 
 ### Phase 3: Read side, types, and boundaries
 
@@ -1648,8 +1679,9 @@ in their own PR:
 
 ### Phase 4: Issue contract
 
-- Add `IssueFact`, `EntityRef`, `FixOptionFact`, and `IssueContextMap` in
-  `domain/issues/`, replacing `shared/issues/`.
+- Add `IssueFact`, `FixOptionFact`, and `IssueContextMap` in
+  `domain/issues/`, replacing `shared/issues/`; facts use the Phase 2
+  `EntityRef`.
 - Add `Issue`, `RenderedEntityRef`, `RenderedFixOption`, `IssueRenderer`, and
   per-code templates in `application/issues/`.
 - Add `ApiIssueItemBase`, `ApiPlainIssueItem`, the per-code variant registry,
@@ -1679,7 +1711,9 @@ in their own PR:
 - Audit remaining project log/error messages for decimal or bare system IDs and
   replace them with natural identity, or with the §4.2 fallback when natural
   identity is missing.
-- Migrate features using the shared identity adapters.
+- Migrate features using the identity reads and `IdentityFormatter`. Add each
+  remaining entity type's `EntityIdentityMap` entry and formatter case with
+  its first producer (§4.4).
 - Each PR migrates one feature area's issue producers (`LegacyIssue` to
   facts), adds `IssueContextMap` entries and API variants for codes that gain
   context, and adds the area to the `no-deprecated` `error` override (§13.1).
@@ -1827,7 +1861,7 @@ the OpenTelemetry LLD.
 | Core logger types | Use `eventName`, separate write data from persisted/read fields, and remove `source` from writes |
 | Log call sites | Every `log*()` call moved to `LogData` in one commit; event-name lint rule (§13.1) |
 | Migration compatibility (temporary) | Deprecated `LegacyIssue` path and its `no-deprecated` lint override; removed in Phase 7 (§13.1) |
-| Core identity | Add identity types, adapters, and `IdentityFormatter` |
+| Core identity | Add `EntityRef`, identity types for the routing entities, and `IdentityFormatter` |
 | Core import | Derive `UseCase.type` with the routing classifier |
 | Lint and layering | Add `no-restricted-imports` boundaries; move types out of three violating files |
 | Core issues | Replace `shared/issues/` with `domain/issues/` facts; add `application/issues/` renderer, templates, and formatter; convert producers |
@@ -1946,7 +1980,11 @@ work only adds fields; it does not migrate existing ones.
     Codes with context have their own variant; the rest share
     `ApiPlainIssueItem`. Clients treat unknown codes as plain issues.
 25. Identity types are plain data in `domain/identity/`, keyed by entity type
-    in `EntityIdentityMap`.
+    in `EntityIdentityMap`. `EntityRef` lives there too, so Phase 2 can add
+    the formatter before the Phase 4 issue facts. Phase 2 covers only the
+    eight routing types; the rest arrive with their first producer. There
+    are no entity-to-identity adapters: identity comes from batched identity
+    reads, or inline when the producer already holds the fields (§4.4).
 26. Log reads are the one exception to CQRS. Logs are operational data, so the
     read contract lives in `@arc/logger` and the API calls `LogQueryService`
     directly, as it calls `ClientLogWriter` for writes. Core keeps only the

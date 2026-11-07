@@ -6,7 +6,7 @@
 import type {
   ACDBVersionInfo,
   CodecInfo,
-} from '../../../../file-operations/shared/acdb-chunks/header-chunk.js';
+} from '../../../../../domain/entities/common/entities/header.entity.js';
 import type {ModulePortStrategy} from '../../../../file-operations/shared/awsp-serializers/v1/configuration/types.js';
 import type {UsecaseType} from '../../../../../domain/entities/usecase-data/usecase/usecase-type.js';
 import type {DataLinkType} from '../../../../../domain/entities/usecase-data/links/data-link-type.js';

@@ -14,7 +14,6 @@ const noManualStatusCodes = require('./no-manual-status-codes.cjs');
 const noControllerTryCatch = require('./no-controller-try-catch.cjs');
 const enforceHttpExceptions = require('./enforce-http-exceptions.cjs');
 const noRawPersistenceQueries = require('./no-raw-persistence-queries.cjs');
-const noDomainInfrastructureDeps = require('./no-domain-infrastructure-deps.cjs');
 const enforceResponseDtoNaming = require('./enforce-response-dto-naming.cjs');
 const noQueryServicesInCommandHandler = require('./no-query-services-in-command-handler.cjs');
 const handlerMustImplementInterface = require('./handler-must-implement-interface.cjs');
@@ -28,7 +27,6 @@ export default {
     'no-manual-status-codes': noManualStatusCodes,
     'no-controller-try-catch': noControllerTryCatch,
     'enforce-http-exceptions': enforceHttpExceptions,
-    'no-domain-infrastructure-deps': noDomainInfrastructureDeps,
     'no-raw-persistence-queries': noRawPersistenceQueries,
     'enforce-response-dto-naming': enforceResponseDtoNaming,
     'no-query-services-in-command-handler': noQueryServicesInCommandHandler,

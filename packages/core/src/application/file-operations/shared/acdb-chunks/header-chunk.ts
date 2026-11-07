@@ -3,28 +3,12 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {JsonObject} from '../../../../shared/types/json-types.js';
+import type {
+  ACDBVersionInfo,
+  CodecInfo,
+} from '../../../../domain/entities/common/entities/header.entity.js';
 import {BaseChunk} from './base-chunk.js';
 import {PARSED_CHUNK_TYPES} from '../constants/chunk-types.js';
-
-/**
- * ACDB version information structure
- */
-export interface ACDBVersionInfo extends JsonObject {
-  major: number;
-  minor: number;
-  revision: number;
-  cplInfo: number;
-}
-
-/**
- * Codec information structure
- */
-export interface CodecInfo extends JsonObject {
-  codecId: number;
-  majorVersion: number;
-  minorVersion: number;
-}
 
 /**
  * Header chunk containing ACDB file metadata and version information.

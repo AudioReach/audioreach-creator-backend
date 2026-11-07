@@ -9063,6 +9063,7 @@
           "DriverModuleDefinition",
           "VcpmModuleDefinition",
           "KeyDefinition",
+          "ValueDefinition",
           "TagDefinition",
           "ProcessorDefinition",
           "ContainerType",

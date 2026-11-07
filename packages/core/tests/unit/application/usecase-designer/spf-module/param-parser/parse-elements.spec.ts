@@ -11,7 +11,7 @@ import type {
   ElementArrayData,
   StructData,
 } from '../../../../../../src/domain/entities/definitions/common/types/element-data.js';
-import {PARAMETER_ELEMENT_TYPE} from '../../../../../../src/application/usecase-designer/shared/element-definition.js';
+import {PARAMETER_ELEMENT_TYPE} from '../../../../../../src/domain/entities/definitions/common/types/element-type.js';
 
 describe('parseParameterData', () => {
   describe('ConfigElement', () => {

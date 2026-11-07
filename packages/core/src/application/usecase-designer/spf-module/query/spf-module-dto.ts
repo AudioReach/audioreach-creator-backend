@@ -4,7 +4,7 @@
  */
 
 import {z} from 'zod';
-import {PropertyDtoSchema} from '../../../../shared/dto/property-dto.js';
+import {PropertyDtoSchema} from '../../shared/dto/property.dto.js';
 import {KeyValueInfoDtoSchema} from '../../../../shared/dto/key-value-info-dto.js';
 import type {SpfModuleReadModel} from '../../../ports/persistence/query-services/spf-module/spf-module-read-model.js';
 import type {

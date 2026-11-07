@@ -9,7 +9,7 @@ import {
 } from '../../../../../../src/application/usecase-designer/spf-module/get-tag-data/tkv-cal-data-dto.js';
 import type {TkvReadModel} from '../../../../../../src/application/ports/persistence/query-services/spf-module/tuning/tuning-config-read-model.js';
 import type {ParameterCalibrationReadModel} from '../../../../../../src/application/usecase-designer/spf-module/get-tag-data/tkv-calibration-read-model.js';
-import {PARAMETER_ELEMENT_TYPE} from '../../../../../../src/application/usecase-designer/shared/element-definition.js';
+import {PARAMETER_ELEMENT_TYPE} from '../../../../../../src/domain/entities/definitions/common/types/element-type.js';
 
 const mockTkv: TkvReadModel = {
   systemId: 10,
