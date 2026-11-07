@@ -4,7 +4,7 @@
  */
 
 import {AwspBaseElement} from './base-element.js';
-import type {DataType} from './type/data-type.js';
+import type {DataType} from '../../../../../../../domain/entities/definitions/common/types/data-type.js';
 import type {DisplayType} from './type/display-type.js';
 import type {ElementPolicy} from './type/element-policy.js';
 import {

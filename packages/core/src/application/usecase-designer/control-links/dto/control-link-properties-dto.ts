@@ -4,8 +4,8 @@
  */
 
 import {z} from 'zod';
-export {PropertyDtoSchema} from '../../../../shared/dto/property-dto.js';
-export type {PropertyDto} from '../../../../shared/dto/property-dto.js';
+export {PropertyDtoSchema} from '../../shared/dto/property.dto.js';
+export type {PropertyDto} from '../../shared/dto/property.dto.js';
 
 const IntentItemSchema = z.object({
   naturalId: z.number().int().describe('Intent numeric ID'),

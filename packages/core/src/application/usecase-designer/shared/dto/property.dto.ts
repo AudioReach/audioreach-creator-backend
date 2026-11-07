@@ -7,8 +7,8 @@ import {z} from 'zod';
 import {
   mapElements,
   ParameterElementDtoSchema,
-} from '../../application/usecase-designer/spf-module/dto/element-dto.js';
-import type {PropertyDataDto} from '../../application/usecase-designer/shared/property-read-model.js';
+} from '../../spf-module/dto/element-dto.js';
+import type {PropertyDataDto} from '../property-read-model.js';
 
 export const PropertyDtoSchema = z
   .object({

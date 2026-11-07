@@ -2,11 +2,8 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-import type {DataType} from '../../../../../application/file-operations/shared/awsp-serializers/v1/definitions/common/type/data-type.js';
-import {
-  PARAMETER_ELEMENT_TYPE,
-  type DisplayType,
-} from '../../../../../application/usecase-designer/shared/element-definition.js';
+import type {DataType} from './data-type.js';
+import {PARAMETER_ELEMENT_TYPE, type DisplayType} from './element-type.js';
 
 // ── Shared base fields present on every element variant ───────────────────────
 

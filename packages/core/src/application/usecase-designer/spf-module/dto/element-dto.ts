@@ -10,7 +10,7 @@ import type {
   ElementArrayData,
   StructData,
 } from '../../../../domain/entities/definitions/common/types/element-data.js';
-import {PARAMETER_ELEMENT_TYPE} from '../../shared/element-definition.js';
+import {PARAMETER_ELEMENT_TYPE} from '../../../../domain/entities/definitions/common/types/element-type.js';
 import * as ParameterElementSummaryDtoModels from '../../shared/dto/parameter-element-summary.dto.js';
 
 export {

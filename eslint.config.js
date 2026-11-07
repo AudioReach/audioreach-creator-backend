@@ -178,19 +178,6 @@ export default [
         },
       ],
 
-      'custom/no-domain-infrastructure-deps': [
-        'error',
-        {
-          domainPattern: '**/packages/core/src/domain/**/*.ts',
-          bannedImports: [
-            '**/infrastructure/**',
-            '**/api/**',
-            'typeorm',
-            'express',
-          ],
-        },
-      ],
-
       'custom/no-raw-persistence-queries': [
         'error',
         {
@@ -476,6 +463,79 @@ export default [
     ],
     rules: {
       'no-restricted-syntax': ['error', ...eventNameRules],
+    },
+  },
+
+  // Layer boundaries inside core (design §5.7): domain and shared never
+  // depend on the layers above them.
+  {
+    files: ['packages/core/src/domain/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/application/**'],
+              message: 'domain must not import application.',
+            },
+            {
+              group: [
+                '@arc/api',
+                '@arc/persistence',
+                '@arc/fs',
+                '@arc/logger',
+                '**/infrastructure/**',
+                '**/api/**',
+                'typeorm',
+                'express',
+              ],
+              message:
+                'domain must not import infrastructure, API or framework packages.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['packages/core/src/shared/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/application/**', '**/domain/**'],
+              message: 'shared must not import application or domain.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['packages/core/src/application/read-models/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '@arc/api',
+                '@arc/persistence',
+                '@arc/fs',
+                '@arc/logger',
+                '**/infrastructure/**',
+                '**/api/**',
+              ],
+              message:
+                'read models must not import infrastructure or API packages.',
+            },
+          ],
+        },
+      ],
     },
   },
 

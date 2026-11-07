@@ -29,6 +29,7 @@ export const ISSUE_ENTITY_TYPE = {
   DriverModuleDefinition: 'DriverModuleDefinition',
   VcpmModuleDefinition: 'VcpmModuleDefinition',
   KeyDefinition: 'KeyDefinition',
+  ValueDefinition: 'ValueDefinition',
   TagDefinition: 'TagDefinition',
   ProcessorDefinition: 'ProcessorDefinition',
   ContainerType: 'ContainerType',

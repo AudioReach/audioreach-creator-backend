@@ -4,8 +4,8 @@
  */
 
 import {z} from 'zod';
-import {PropertyDtoSchema} from '../../../../shared/dto/property-dto.js';
-import type {PropertyDto} from '../../../../shared/dto/property-dto.js';
+import {PropertyDtoSchema} from '../../shared/dto/property.dto.js';
+import type {PropertyDto} from '../../shared/dto/property.dto.js';
 
 export const SubgraphPropertiesDtoSchema = z
   .object({

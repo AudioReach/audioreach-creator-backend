@@ -8,7 +8,7 @@ import type {GetContainerPropertiesQuery} from './get-container-properties.query
 import {buildPropertyModels} from '../../shared/build-property-models.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
 import {Result, RESULT_KIND} from '../../../shared/result/result.js';
-import {mapPropertyToDto} from '../../../../shared/dto/property-dto.js';
+import {mapPropertyToDto} from '../../shared/dto/property.dto.js';
 import {
   mapContainerProperties,
   type ContainerPropertiesDto,

@@ -341,8 +341,8 @@ export type {
 export {
   PropertyDtoSchema,
   mapPropertyToDto,
-} from './shared/dto/property-dto.js';
-export type {PropertyDto} from './shared/dto/property-dto.js';
+} from './application/usecase-designer/shared/dto/property.dto.js';
+export type {PropertyDto} from './application/usecase-designer/shared/dto/property.dto.js';
 export type {PropertyDataDto} from './application/usecase-designer/shared/property-read-model.js';
 
 // Container query handlers
@@ -383,6 +383,7 @@ export type {DriverModuleDefinitionDto} from './application/definition/driver-mo
 
 // Use case designer
 export * from './application/usecase-designer/shared/index.js';
+export * from './domain/entities/definitions/common/types/element-type.js';
 export * from './application/usecase-designer/spf-module/get-cal-data/ckv-calibration-read-model.js';
 export * from './application/usecase-designer/spf-module/get-cal-data/get-ckv-cal-data.query.js';
 export * from './application/usecase-designer/spf-module/get-cal-data/get-ckv-cal-data.handler.js';

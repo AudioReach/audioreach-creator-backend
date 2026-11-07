@@ -3,13 +3,13 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 import type {JsonObject} from '../../../../../shared/types/json-types.js';
-import {HeaderEntity} from '../../../../../domain/entities/common/entities/header.entity.js';
-import {ACDB_RAW_CHUNK_TYPES} from '../../../shared/constants/chunk-types.js';
 import {
-  HeaderChunk,
+  HeaderEntity,
   type ACDBVersionInfo,
   type CodecInfo,
-} from '../../../shared/acdb-chunks/header-chunk.js';
+} from '../../../../../domain/entities/common/entities/header.entity.js';
+import {ACDB_RAW_CHUNK_TYPES} from '../../../shared/constants/chunk-types.js';
+import {HeaderChunk} from '../../../shared/acdb-chunks/header-chunk.js';
 import {
   BaseEntityBuilder,
   type EntityBuilderContext,

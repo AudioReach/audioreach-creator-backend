@@ -4,11 +4,26 @@
  */
 
 import type {JsonObject} from '../../../../shared/types/json-types.js';
-import type {
-  ACDBVersionInfo,
-  CodecInfo,
-} from '../../../../application/file-operations/shared/acdb-chunks/header-chunk.js';
 import {BaseEntity} from '../base-entity.js';
+
+/**
+ * ACDB version information structure
+ */
+export interface ACDBVersionInfo extends JsonObject {
+  major: number;
+  minor: number;
+  revision: number;
+  cplInfo: number;
+}
+
+/**
+ * Codec information structure
+ */
+export interface CodecInfo extends JsonObject {
+  codecId: number;
+  majorVersion: number;
+  minorVersion: number;
+}
 
 /**
  * Interface for HeaderEntity JSON representation

@@ -2,7 +2,7 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-import {PARAMETER_ELEMENT_TYPE} from './element-definition.js';
+import {PARAMETER_ELEMENT_TYPE} from '../../../domain/entities/definitions/common/types/element-type.js';
 import {DATA_TYPE} from '../../../shared/dto/element-data/element-types.js';
 import type {
   ConfigElement,

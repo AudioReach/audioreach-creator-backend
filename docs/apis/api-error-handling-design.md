@@ -598,7 +598,7 @@ export class GetComponentsHandler {
 | 1 | `no-manual-status-codes` | Prevents `res.status(4xx/5xx)` in controllers; allows 200/201/204 only | `packages/api/src/presentation/**/*.ts` |
 | 2 | `no-controller-try-catch` | Prevents try-catch in controllers (exceptions must bubble) | `packages/api/src/presentation/**/*.ts` |
 | 3 | `enforce-http-exceptions` | Only NestJS exceptions (`@nestjs/common`) may be thrown in controllers; bans generic `Error` and raw `HttpException` | `packages/api/src/presentation/**/*.ts` |
-| 4 | `no-domain-infrastructure-deps` | Bans imports from infrastructure/api/framework in domain | `packages/core/src/domain/**/*.ts` |
+| 4 | `no-restricted-imports` (built-in) | Bans imports from application, infrastructure, API and framework packages in domain | `packages/core/src/domain/**/*.ts` |
 
 **All rules are configured as `'error'`** in `eslint.config.js`. CI pipeline fails on violation.
 
