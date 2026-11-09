@@ -13,9 +13,11 @@ import {okBulkInsert, BinaryUtils} from '@arc/core';
 import type {BulkInserter} from '../common/bulk-inserter.interface.js';
 import {
   BatchInserter,
+  BatchInserterWithoutRetry,
+  insertWithoutEntityUpdate,
   type InsertRow,
   type RawFailure,
-} from '../batch-inserter.js';
+} from '../common/batch-inserter.js';
 import {groupRawFailures} from '../common/group-raw-failures.js';
 import {emptyStepResult} from '../common/step-result.js';
 import type {StepResult} from '../common/step-result.js';
@@ -55,10 +57,6 @@ import {
   ModuleDefinitionContainerTypeLinkSchema,
   type ModuleDefinitionContainerTypeLinkRow,
 } from '../../../entity-schema/definitions/module/spf/module-definition-container-type-link.schema.js';
-import type {EntityRowForInsert} from '../../../entity-schema/entity-base.js';
-
-type ModuleDefinitionContainerTypeLinkInsertRow =
-  EntityRowForInsert<ModuleDefinitionContainerTypeLinkRow>;
 
 type DataPortGroupDefinition = SpfModuleDefinition['dataPortGroups'][number];
 type StaticControlPortDefinition =
@@ -463,7 +461,7 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
   private async insertContainerTypeLinks(
     items: SpfModuleDefinition[],
   ): Promise<StepResult> {
-    const allRows: ModuleDefinitionContainerTypeLinkInsertRow[] = [];
+    const allRows: ModuleDefinitionContainerTypeLinkRow[] = [];
     for (const mod of items) {
       for (const containerTypeSystemId of mod.containerTypesSystemIds) {
         allRows.push({
@@ -476,27 +474,32 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
 
     if (allRows.length === 0) return emptyStepResult();
 
-    const {failedEntities} =
-      await BatchInserter.insert<ModuleDefinitionContainerTypeLinkRow>(
-        this.manager,
-        ModuleDefinitionContainerTypeLinkSchema,
-        allRows,
-      );
-    const rowBySystemId = new Map(
-      allRows.map(row => [row.systemId, row] as const),
+    const {failedRows} = await BatchInserterWithoutRetry.insert(
+      this.manager,
+      ModuleDefinitionContainerTypeLinkSchema,
+      allRows,
     );
-    const rawFailures: RawFailure[] = failedEntities.map(failure => {
-      const row = rowBySystemId.get(failure.systemId)!;
-      const mod = items.find(
-        item => item.systemId === row.moduleDefinitionSystemId,
-      )!;
-      return {
-        systemId: mod.systemId,
-        entityLabel: 'ModuleDefinitionContainerTypeLink',
-        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(mod.naturalId)}) Row: ${JSON.stringify(row)}`,
-        dbError: failure.message,
-      };
-    });
+    const rawFailures: RawFailure[] = [];
+
+    for (const row of failedRows) {
+      try {
+        await insertWithoutEntityUpdate(
+          this.manager,
+          ModuleDefinitionContainerTypeLinkSchema,
+          row,
+        );
+      } catch (error) {
+        const mod = items.find(
+          m => m.systemId === row.moduleDefinitionSystemId,
+        )!;
+        rawFailures.push({
+          systemId: mod.systemId,
+          entityLabel: 'ModuleDefinitionContainerTypeLink',
+          failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(mod.naturalId)}) Row: ${JSON.stringify(row)}`,
+          dbError: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
 
     return {
       rawFailures,

@@ -5,7 +5,14 @@
 
 import type {DataSource, EntityManager} from 'typeorm';
 import type {IdGenerationPort} from '@arc/core';
-import {SpfModule, KvData, ControlPort, TagData} from '@arc/core';
+import {
+  SpfModule,
+  KvData,
+  ControlPort,
+  ModuleParameterData,
+  TagData,
+  asSystemId,
+} from '@arc/core';
 import {
   setupIntegrationTest,
   teardownIntegrationTest,
@@ -153,6 +160,32 @@ function makeIdGenerator(): IdGenerationPort {
   };
 }
 
+async function createParameterDefinitions(
+  manager: EntityManager,
+  systemIds: readonly number[],
+): Promise<void> {
+  for (let start = 0; start < systemIds.length; start += 50) {
+    await manager.insert(
+      'SpfModuleParameterDefinition',
+      systemIds.slice(start, start + 50).map((systemId, offset) => ({
+        systemId,
+        naturalId: start + offset + 1,
+        name: `parameter-${systemId}`,
+        description: null,
+        maxSize: 1,
+        pidType: 'uint32',
+        isPersistent: false,
+        elementsStructure: null,
+        isReadOnly: false,
+        toolPolicies: null,
+        copySrcParamNaturalId: null,
+        spfModuleDefinitionSystemId: DEFINITION_ID,
+        version: 1,
+      })),
+    );
+  }
+}
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('SpfModuleInserter — CKV insertion', () => {
@@ -269,6 +302,37 @@ describe('SpfModuleInserter — CKV insertion', () => {
     expect(valuesForCkv211).toHaveLength(2);
   });
 
+  it('inserts more than 1,000 ckv_values rows in metadata-sized batches', async () => {
+    const valueDefSystemIds = Array.from(
+      {length: 1001},
+      (_, index) => 20_000 + index,
+    );
+
+    for (let index = 0; index < valueDefSystemIds.length; index += 500) {
+      await manager.insert(
+        'ValueDefinition',
+        valueDefSystemIds.slice(index, index + 500).map((systemId, offset) => ({
+          systemId,
+          keySystemId: KEY_DEF_ID,
+          naturalId: 10_000 + index + offset,
+          name: `large-value-${index + offset}`,
+          version: 1,
+        })),
+      );
+    }
+
+    const result = await inserter.insert([
+      buildModule(1005, [{id: 240, values: valueDefSystemIds}]),
+    ]);
+
+    expect(result.ok).toBe(true);
+    expect(
+      await dataSource.query(
+        `SELECT system_id FROM ckv_values WHERE ckv_system_id = 240`,
+      ),
+    ).toHaveLength(valueDefSystemIds.length);
+  });
+
   it('rolls back ckv row and reports failure when a value FK does not exist', async () => {
     const NON_EXISTENT_VALUE_ID = 9999;
     const module = buildModule(1002, [
@@ -296,8 +360,103 @@ describe('SpfModuleInserter — CKV insertion', () => {
     expect(valueRows).toHaveLength(0);
   });
 
-  it('isolates failure — good CKV survives when sibling CKV has bad value FK', async () => {
+  it('removes a CKV when a later ckv_values batch fails', async () => {
+    const validValueDefIds = Array.from(
+      {length: 333},
+      (_, index) => 40_000 + index,
+    );
+    const NON_EXISTENT_VALUE_ID = 99_999;
+
+    for (let start = 0; start < validValueDefIds.length; start += 100) {
+      await manager.insert(
+        'ValueDefinition',
+        validValueDefIds.slice(start, start + 100).map((systemId, offset) => ({
+          systemId,
+          keySystemId: KEY_DEF_ID,
+          naturalId: 30_000 + start + offset,
+          name: `later-failure-value-${start + offset}`,
+          version: 1,
+        })),
+      );
+    }
+
+    const result = await inserter.insert([
+      buildModule(1006, [
+        {id: 250, values: [...validValueDefIds, NON_EXISTENT_VALUE_ID]},
+      ]),
+    ]);
+
+    expect(result.ok).toBe(false);
+    expect(
+      await dataSource.query(`SELECT * FROM ckv WHERE system_id = 250`),
+    ).toHaveLength(0);
+    expect(
+      await dataSource.query(
+        `SELECT * FROM ckv_values WHERE ckv_system_id = 250`,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('removes a CKV when a later parameter payload batch fails', async () => {
+    const validParameterIds = Array.from(
+      {length: 199},
+      (_, index) => 50_000 + index,
+    );
+    const NON_EXISTENT_PARAMETER_ID = 99_998;
+    await createParameterDefinitions(manager, validParameterIds);
+
+    const module = buildModule(1007, [{id: 260, values: [VALUE_DEF_ID_1]}]);
+    const ckv = module.ckvs[0]!;
+    for (const parameterId of validParameterIds) {
+      ckv.addParameterPayload(
+        new ModuleParameterData(asSystemId(parameterId), new Uint8Array([1])),
+      );
+    }
+    ckv.addParameterPayload(
+      new ModuleParameterData(
+        asSystemId(NON_EXISTENT_PARAMETER_ID),
+        new Uint8Array([2]),
+      ),
+    );
+
+    const result = await inserter.insert([module]);
+
+    expect(result.ok).toBe(false);
+    expect(
+      await dataSource.query(`SELECT * FROM ckv WHERE system_id = 260`),
+    ).toHaveLength(0);
+    expect(
+      await dataSource.query(
+        `SELECT * FROM ckv_values WHERE ckv_system_id = 260`,
+      ),
+    ).toHaveLength(0);
+    expect(
+      await dataSource.query(
+        `SELECT * FROM ckv_parameter_payload WHERE ckv_system_id = 260`,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('isolates failure - good CKV survives a mixed batch with a bad value FK', async () => {
     const NON_EXISTENT_VALUE_ID = 9999;
+    const validValueDefIds = Array.from(
+      {length: 332},
+      (_, index) => 30_000 + index,
+    );
+
+    for (let index = 0; index < validValueDefIds.length; index += 500) {
+      await manager.insert(
+        'ValueDefinition',
+        validValueDefIds.slice(index, index + 500).map((systemId, offset) => ({
+          systemId,
+          keySystemId: KEY_DEF_ID,
+          naturalId: 20_000 + index + offset,
+          name: `fallback-value-${index + offset}`,
+          version: 1,
+        })),
+      );
+    }
+
     const module = buildModule(1003, [
       {id: 230, values: [VALUE_DEF_ID_1]}, // valid
       {id: 231, values: [NON_EXISTENT_VALUE_ID]}, // bad FK

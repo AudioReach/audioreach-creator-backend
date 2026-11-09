@@ -9,26 +9,30 @@ import {
   teardownIntegrationTest,
 } from '../helpers/test-database-setup.js';
 
-const RELATIONSHIP_KEYS = {
-  CkvValues: ['ckvSystemId', 'valueDefSystemId'],
-  TkvValues: ['tkvSystemId', 'valueDefSystemId'],
-  DkvValues: ['dkvSystemId', 'valueDefSystemId'],
-  SgkvValues: ['sgkvSystemId', 'valueDefSystemId'],
-  VcpmCkvValues: ['vcpmCkvSystemId', 'valueDefSystemId'],
-  UsecaseGkvValues: ['usecaseSystemId', 'valueDefSystemId'],
-  SubsystemFilteredKey: ['subsystemsSystemId', 'keyDefinitionSystemId'],
-  UseCaseCategoryJoin: ['useCaseSystemId', 'categorySystemId'],
-  ModuleDefinitionContainerTypeLink: [
-    'moduleDefinitionSystemId',
-    'containerTypeSystemId',
+const RELATIONSHIP_SCHEMAS = [
+  ['CkvValues', ['ckvSystemId', 'valueDefSystemId'], false],
+  ['TkvValues', ['tkvSystemId', 'valueDefSystemId'], false],
+  ['DkvValues', ['dkvSystemId', 'valueDefSystemId'], false],
+  ['SgkvValues', ['sgkvSystemId', 'valueDefSystemId'], false],
+  ['VcpmCkvValues', ['vcpmCkvSystemId', 'valueDefSystemId'], false],
+  ['UsecaseGkvValues', ['usecaseSystemId', 'valueDefSystemId'], false],
+  [
+    'SubsystemFilteredKey',
+    ['subsystemsSystemId', 'keyDefinitionSystemId'],
+    false,
   ],
-  ModuleDefinitionProcessorLink: [
-    'moduleDefinitionSystemId',
-    'processorDefinitionSystemId',
+  ['UseCaseCategoryJoin', ['useCaseSystemId', 'categorySystemId'], false],
+  [
+    'ModuleDefinitionContainerTypeLink',
+    ['moduleDefinitionSystemId', 'containerTypeSystemId'],
+    false,
   ],
-} as const;
-
-const MANAGED_COLUMNS = ['version'];
+  [
+    'ModuleDefinitionProcessorLink',
+    ['moduleDefinitionSystemId', 'processorDefinitionSystemId'],
+    true,
+  ],
+] as const;
 
 describe('relationship schemas with synthetic system IDs', () => {
   beforeAll(async () => {
@@ -39,9 +43,9 @@ describe('relationship schemas with synthetic system IDs', () => {
     await teardownIntegrationTest();
   });
 
-  it.each(Object.entries(RELATIONSHIP_KEYS))(
-    '%s uses systemId as its sole primary key, preserves its natural key, and has managed columns',
-    (entityName, naturalKey) => {
+  it.each(RELATIONSHIP_SCHEMAS)(
+    '%s uses systemId as its sole primary key and preserves its natural key',
+    (entityName, naturalKey, hasVersion) => {
       const metadata = getTestDataSource().getMetadata(entityName);
 
       expect(
@@ -57,12 +61,8 @@ describe('relationship schemas with synthetic system IDs', () => {
         ),
       ).toBe(true);
       expect(
-        MANAGED_COLUMNS.every(column =>
-          metadata.columns.some(
-            metadataColumn => metadataColumn.propertyName === column,
-          ),
-        ),
-      ).toBe(true);
+        metadata.columns.some(column => column.propertyName === 'version'),
+      ).toBe(hasVersion);
     },
   );
 

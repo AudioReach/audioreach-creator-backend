@@ -52,7 +52,7 @@ import {EntityReviewedAtInserter} from './entity-reviewed-at/entity-reviewed-at.
 import {
   registerBatchInsertDiagnostics,
   type BatchInsertDiagnostics,
-} from './batch-inserter.js';
+} from './common/batch-inserter.js';
 
 /**
  * TypeORM implementation of BulkImportRepository.
