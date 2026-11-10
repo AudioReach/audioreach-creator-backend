@@ -314,7 +314,11 @@ export class SubgraphController extends BaseController {
     @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<UpdateScenarioResponseDto>> {
     const result = await this.commandBus.execute<ScenarioChangeDto>(
-      new SetSubgraphScenarioCommand(subgraphSystemId, dto.elements),
+      new SetSubgraphScenarioCommand(
+        subgraphSystemId,
+        Number(dto.systemId),
+        dto.elements,
+      ),
       session,
     );
     return toApiResult(Result.ok(result));
@@ -357,7 +361,11 @@ export class SubgraphController extends BaseController {
     @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<UpdateVsidResponseDto>> {
     const result = await this.commandBus.execute<VsidUpdateDto>(
-      new SetSubgraphVsidCommand(subgraphSystemId, dto.elements),
+      new SetSubgraphVsidCommand(
+        subgraphSystemId,
+        Number(dto.systemId),
+        dto.elements,
+      ),
       session,
     );
     return toApiResult(Result.ok(result));
@@ -415,26 +423,20 @@ export class SubgraphController extends BaseController {
 
   /**
    * Replace a low-cascading subgraph property.
-   * Returns 400 if propSystemId maps to a reserved property (scenario, VSID, ASoC).
+   * Returns 400 if body systemId maps to a reserved property (scenario or VSID).
    */
-  @Put('/:subgraphSystemId/properties/:propSystemId')
+  @Put('/:subgraphSystemId/properties')
   @ApiParam({
     name: 'subgraphSystemId',
     required: true,
     type: String,
     description: 'System id of a subgraph',
   })
-  @ApiParam({
-    name: 'propSystemId',
-    required: true,
-    type: String,
-    description: 'System id of the property to replace',
-  })
   @UseGuards(SessionGuard)
   @ApiDocumentationWithExample({
     summary: 'Replace a low-cascading subgraph property',
     description:
-      'Returns 400 if propSystemId maps to a reserved property (scenario, VSID, ASoC) — use the dedicated PUT endpoint instead.',
+      'Returns 400 if body systemId maps to a reserved property (scenario or VSID) — use the dedicated PUT endpoint instead.',
     requestDto: PropertySummaryDto,
     responses: [
       {
@@ -459,15 +461,15 @@ export class SubgraphController extends BaseController {
   async putSubgraphProperty(
     @Param('projectId') projectId: string,
     @Param('subgraphSystemId', ParseIntPipe) subgraphSystemId: number,
-    @Param('propSystemId', ParseIntPipe) propSystemId: number,
     @Body() dto: PropertySummaryDto,
     @ArcSession() session: ActiveSession,
     @ClientId() clientId: string,
   ): Promise<ApiResult<PropertyResponseDto>> {
+    const propertySystemId = Number(dto.systemId);
     await this.commandBus.execute<void>(
       new SetSubgraphPropertyCommand(
         subgraphSystemId,
-        propSystemId,
+        propertySystemId,
         dto.elements,
       ),
       session,
@@ -475,7 +477,7 @@ export class SubgraphController extends BaseController {
     const query = new GetSubgraphPropertyQuery(
       Number.parseInt(projectId, 10),
       subgraphSystemId,
-      propSystemId,
+      propertySystemId,
       clientId,
     );
     const result = await this.queryBus.execute<Result<PropertyDataDto>>(query);

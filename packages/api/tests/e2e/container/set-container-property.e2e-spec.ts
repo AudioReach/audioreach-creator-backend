@@ -415,17 +415,29 @@ function toPropertyWriteElement(element: any): PropertyWriteElement {
   };
 }
 
-function createPropertyUpdateRequest(elements: any[]): {
+function createPropertyUpdateRequest(
+  systemId: number,
+  elements: any[],
+): {
+  systemId: string;
   elements: PropertyWriteElement[];
 } {
   return {
+    systemId: String(systemId),
     elements: elements.map(toPropertyWriteElement),
   };
 }
 
+function propertyWriteUrl(
+  projectId: string,
+  containerSystemId: string | number,
+): string {
+  return `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties`;
+}
+
 // ── suite ─────────────────────────────────────────────────────────────────────
 
-describe('E2E: PUT /arc-api/v1/projects/:projectId/containers/:containerSystemId/properties/:propertySystemId', () => {
+describe('E2E: PUT /arc-api/v1/projects/:projectId/containers/:containerSystemId/properties', () => {
   let app: INestApplication;
   let httpServer: unknown;
   let authToken: string;
@@ -488,11 +500,9 @@ describe('E2E: PUT /arc-api/v1/projects/:projectId/containers/:containerSystemId
     await endSession(httpServer, authToken, projectId);
 
     const res = await request(httpServer as Parameters<typeof request>[0])
-      .put(
-        `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties/${propertySystemId}`,
-      )
+      .put(propertyWriteUrl(projectId, containerSystemId))
       .set('Authorization', `Bearer ${authToken}`)
-      .send(createPropertyUpdateRequest([]))
+      .send(createPropertyUpdateRequest(propertySystemId, []))
       .timeout(30_000);
 
     expect(res.status).toBe(403);
@@ -509,11 +519,9 @@ describe('E2E: PUT /arc-api/v1/projects/:projectId/containers/:containerSystemId
       return;
     }
     const res = await request(httpServer as Parameters<typeof request>[0])
-      .put(
-        `/arc-api/v1/projects/${projectId}/containers/999999999/properties/${propertySystemId}`,
-      )
+      .put(propertyWriteUrl(projectId, 999999999))
       .set('Authorization', `Bearer ${authToken}`)
-      .send(createPropertyUpdateRequest([]))
+      .send(createPropertyUpdateRequest(propertySystemId, []))
       .timeout(30_000);
 
     expect(res.status).toBe(404);
@@ -527,11 +535,9 @@ describe('E2E: PUT /arc-api/v1/projects/:projectId/containers/:containerSystemId
       return;
     }
     const res = await request(httpServer as Parameters<typeof request>[0])
-      .put(
-        `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties/999999999`,
-      )
+      .put(propertyWriteUrl(projectId, containerSystemId))
       .set('Authorization', `Bearer ${authToken}`)
-      .send(createPropertyUpdateRequest([]))
+      .send(createPropertyUpdateRequest(999999999, []))
       .timeout(30_000);
 
     expect(res.status).toBe(404);
@@ -545,12 +551,10 @@ describe('E2E: PUT /arc-api/v1/projects/:projectId/containers/:containerSystemId
       return;
     }
     const res = await request(httpServer as Parameters<typeof request>[0])
-      .put(
-        `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties/${propertySystemId}`,
-      )
+      .put(propertyWriteUrl(projectId, containerSystemId))
       .set('Authorization', `Bearer ${authToken}`)
       .send(
-        createPropertyUpdateRequest([
+        createPropertyUpdateRequest(propertySystemId, [
           {
             type: 'NOT_A_VALID_ELEMENT_TYPE',
             name: 'bad',
@@ -563,22 +567,16 @@ describe('E2E: PUT /arc-api/v1/projects/:projectId/containers/:containerSystemId
     expect(res.status).toBe(400);
   }, 60_000);
 
-  it('returns 400 when the request repeats property identity from the URL', async () => {
+  it('returns 400 when systemId is missing from a property write body', async () => {
     if (!projectId || !containerSystemId || !propertySystemId) {
       console.warn('No fixture data - skipping');
       return;
     }
 
     const res = await request(httpServer as Parameters<typeof request>[0])
-      .put(
-        `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties/${propertySystemId}`,
-      )
+      .put(propertyWriteUrl(projectId, containerSystemId))
       .set('Authorization', `Bearer ${authToken}`)
-      .send({
-        elements: [],
-        name: 'Property',
-        systemId: String(propertySystemId),
-      })
+      .send({elements: []})
       .timeout(30_000);
 
     expect(res.status).toBe(400);
@@ -609,12 +607,10 @@ describe('E2E: PUT /arc-api/v1/projects/:projectId/containers/:containerSystemId
     }
 
     const res = await request(httpServer as Parameters<typeof request>[0])
-      .put(
-        `/arc-api/v1/projects/${projectId}/containers/${capabilityProperty.containerSystemId}/properties/${capabilityProperty.propertySystemId}`,
-      )
+      .put(propertyWriteUrl(projectId, capabilityProperty.containerSystemId))
       .set('Authorization', `Bearer ${authToken}`)
       .send(
-        createPropertyUpdateRequest([
+        createPropertyUpdateRequest(capabilityProperty.propertySystemId, [
           {type: 'ConfigElement', name: 'count', value: 1},
           {
             type: 'ConfigElement',
@@ -667,11 +663,14 @@ describe('E2E: PUT /arc-api/v1/projects/:projectId/containers/:containerSystemId
     const existingElements: any[] = getRes.body?.data?.elements ?? [];
 
     const setRes = await request(httpServer as Parameters<typeof request>[0])
-      .put(
-        `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties/${capabilityPropertySystemId}`,
-      )
+      .put(propertyWriteUrl(projectId, containerSystemId))
       .set('Authorization', `Bearer ${authToken}`)
-      .send(createPropertyUpdateRequest(existingElements))
+      .send(
+        createPropertyUpdateRequest(
+          capabilityPropertySystemId,
+          existingElements,
+        ),
+      )
       .timeout(30_000);
 
     expect(setRes.status).toBe(200);
@@ -722,9 +721,14 @@ describe('E2E: PUT /arc-api/v1/projects/:projectId/containers/:containerSystemId
     }
 
     const setRes = await request(httpServer as Parameters<typeof request>[0])
-      .put(propertyUrl)
+      .put(propertyWriteUrl(projectId, emptyContainer.containerSystemId))
       .set('Authorization', `Bearer ${authToken}`)
-      .send(createPropertyUpdateRequest(getRes.body?.data?.elements ?? []))
+      .send(
+        createPropertyUpdateRequest(
+          emptyContainer.propertySystemId,
+          getRes.body?.data?.elements ?? [],
+        ),
+      )
       .timeout(30_000);
 
     expect(setRes.status).toBe(200);
@@ -772,11 +776,9 @@ describe('E2E: PUT /arc-api/v1/projects/:projectId/containers/:containerSystemId
     );
 
     const setRes = await request(httpServer as Parameters<typeof request>[0])
-      .put(
-        `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties/${heapPropertySystemId}`,
-      )
+      .put(propertyWriteUrl(projectId, containerSystemId))
       .set('Authorization', `Bearer ${authToken}`)
-      .send(createPropertyUpdateRequest(elements))
+      .send(createPropertyUpdateRequest(heapPropertySystemId, elements))
       .timeout(30_000);
 
     expect(setRes.status).toBe(200);
@@ -821,11 +823,9 @@ describe('E2E: PUT /arc-api/v1/projects/:projectId/containers/:containerSystemId
     );
 
     const setRes = await request(httpServer as Parameters<typeof request>[0])
-      .put(
-        `/arc-api/v1/projects/${projectId}/containers/${containerSystemId}/properties/${heapPropertySystemId}`,
-      )
+      .put(propertyWriteUrl(projectId, containerSystemId))
       .set('Authorization', `Bearer ${authToken}`)
-      .send(createPropertyUpdateRequest(elements))
+      .send(createPropertyUpdateRequest(heapPropertySystemId, elements))
       .timeout(30_000);
 
     expect(setRes.status).toBe(200);
@@ -990,11 +990,14 @@ describe('E2E: PUT /arc-api/v1/projects/:projectId/containers/:containerSystemId
     }
 
     const setRes = await request(httpServer as Parameters<typeof request>[0])
-      .put(
-        `/arc-api/v1/projects/${projectId}/containers/${genericProperty.containerSystemId}/properties/${genericProperty.propertySystemId}`,
-      )
+      .put(propertyWriteUrl(projectId, genericProperty.containerSystemId))
       .set('Authorization', `Bearer ${authToken}`)
-      .send(createPropertyUpdateRequest(updated.elements))
+      .send(
+        createPropertyUpdateRequest(
+          genericProperty.propertySystemId,
+          updated.elements,
+        ),
+      )
       .timeout(30_000);
 
     expect(setRes.status).toBe(200);

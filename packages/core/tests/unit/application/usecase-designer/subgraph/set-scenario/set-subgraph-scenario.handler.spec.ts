@@ -147,9 +147,32 @@ describe('SetSubgraphScenarioHandler', () => {
     const handler = new SetSubgraphScenarioHandler(uow, uow._idGeneration);
     await expect(
       handler.handle(
-        new SetSubgraphScenarioCommand(10, AUDIO_RECORDING_ELEMENTS),
+        new SetSubgraphScenarioCommand(
+          10,
+          SCENARIO_DEF_SYS_ID,
+          AUDIO_RECORDING_ELEMENTS,
+        ),
       ),
     ).rejects.toBeInstanceOf(ResourceNotFoundException);
+  });
+
+  it('rejects a system ID that is not the scenario property before writing', async () => {
+    const uow = makeUow(
+      makeSubgraph(SUB_GRAPH_PROP_ID_SCENARIO_VALUE_AUDIO_PLAYBACK),
+    ) as any;
+    const handler = new SetSubgraphScenarioHandler(uow, uow._idGeneration);
+    const command = new SetSubgraphScenarioCommand(
+      10,
+      999,
+      AUDIO_RECORDING_ELEMENTS,
+    );
+
+    await expect(handler.handle(command)).rejects.toBeInstanceOf(
+      InvalidInputException,
+    );
+    expect(uow.startTransaction).not.toHaveBeenCalled();
+    expect(uow._setPropertyData).not.toHaveBeenCalled();
+    expect(uow._commit).not.toHaveBeenCalled();
   });
 
   it('returns empty mutation log when scenario unchanged', async () => {
@@ -168,7 +191,11 @@ describe('SetSubgraphScenarioHandler', () => {
     ] as any;
     const handler = new SetSubgraphScenarioHandler(uow, uow._idGeneration);
     const result = await handler.handle(
-      new SetSubgraphScenarioCommand(10, audioPlaybackElements),
+      new SetSubgraphScenarioCommand(
+        10,
+        SCENARIO_DEF_SYS_ID,
+        audioPlaybackElements,
+      ),
     );
     expect(result.propertiesAdded).toHaveLength(0);
     expect(uow._setPropertyData).not.toHaveBeenCalled();
@@ -180,7 +207,11 @@ describe('SetSubgraphScenarioHandler', () => {
     ) as any;
     const handler = new SetSubgraphScenarioHandler(uow, uow._idGeneration);
     const result = await handler.handle(
-      new SetSubgraphScenarioCommand(10, AUDIO_RECORDING_ELEMENTS),
+      new SetSubgraphScenarioCommand(
+        10,
+        SCENARIO_DEF_SYS_ID,
+        AUDIO_RECORDING_ELEMENTS,
+      ),
     );
     expect(uow._commit).toHaveBeenCalled();
     expect(result.groupId).toBe(GROUP_ID);
@@ -211,7 +242,7 @@ describe('SetSubgraphScenarioHandler', () => {
     const handler = new SetSubgraphScenarioHandler(uow, uow._idGeneration);
 
     await handler.handle(
-      new SetSubgraphScenarioCommand(10, [
+      new SetSubgraphScenarioCommand(10, SCENARIO_DEF_SYS_ID, [
         {
           type: 'ConfigElement',
           name: 'scenario',
@@ -252,7 +283,11 @@ describe('SetSubgraphScenarioHandler', () => {
     const handler = new SetSubgraphScenarioHandler(uow, uow._idGeneration);
     await expect(
       handler.handle(
-        new SetSubgraphScenarioCommand(10, AUDIO_RECORDING_ELEMENTS),
+        new SetSubgraphScenarioCommand(
+          10,
+          SCENARIO_DEF_SYS_ID,
+          AUDIO_RECORDING_ELEMENTS,
+        ),
       ),
     ).rejects.toThrow('fail');
     expect(uow._rollback).toHaveBeenCalled();
@@ -274,7 +309,9 @@ describe('SetSubgraphScenarioHandler', () => {
     ) as any;
     const handler = new SetSubgraphScenarioHandler(uow, uow._idGeneration);
     await expect(
-      handler.handle(new SetSubgraphScenarioCommand(10, badElements)),
+      handler.handle(
+        new SetSubgraphScenarioCommand(10, SCENARIO_DEF_SYS_ID, badElements),
+      ),
     ).rejects.toBeInstanceOf(InvalidInputException);
   });
 });

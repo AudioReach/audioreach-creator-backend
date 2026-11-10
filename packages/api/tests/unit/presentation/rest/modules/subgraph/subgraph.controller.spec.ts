@@ -22,12 +22,12 @@ function createController() {
   const queryBus = {
     execute: jest.fn().mockResolvedValue(Result.ok(subgraphs)),
   };
-  const commandBus = {execute: jest.fn()};
+  const commandBus = {execute: jest.fn().mockResolvedValue({groupId: 'g1'})};
   const controller = new SubgraphController(
     queryBus as never,
     commandBus as never,
   );
-  return {controller, queryBus};
+  return {controller, queryBus, commandBus};
 }
 
 describe('SubgraphController', () => {
@@ -75,6 +75,64 @@ describe('SubgraphController', () => {
       await expect(
         controller.getAllSubgraphs('7', 'client-1', '10,abc'),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  it('maps a scenario body systemId to SetSubgraphScenarioCommand', async () => {
+    const {controller, commandBus} = createController();
+
+    await controller.setSubgraphScenario(
+      10,
+      {systemId: '50', elements: []} as never,
+      {sessionId: 1, fileSystemId: 7} as never,
+    );
+
+    expect(commandBus.execute.mock.calls[0][0]).toMatchObject({
+      subgraphSystemId: 10,
+      propertySystemId: 50,
+      elements: [],
+    });
+  });
+
+  it('maps a VSID body systemId to SetSubgraphVsidCommand', async () => {
+    const {controller, commandBus} = createController();
+
+    await controller.setSubgraphVsid(
+      10,
+      {systemId: '55', elements: []} as never,
+      {sessionId: 1, fileSystemId: 7} as never,
+    );
+
+    expect(commandBus.execute.mock.calls[0][0]).toMatchObject({
+      subgraphSystemId: 10,
+      propertySystemId: 55,
+      elements: [],
+    });
+  });
+
+  it('maps a generic property body systemId to SetSubgraphPropertyCommand', async () => {
+    const {controller, queryBus, commandBus} = createController();
+    queryBus.execute.mockResolvedValueOnce(
+      Result.ok({
+        systemId: 52,
+        naturalId: 123,
+        propertyName: 'Property',
+        elements: [],
+      }),
+    );
+
+    await (controller.putSubgraphProperty as any)(
+      '7',
+      10,
+      {systemId: '52', elements: []},
+      {sessionId: 1, fileSystemId: 7},
+      'client-1',
+    );
+
+    expect(commandBus.execute.mock.calls[0][0]).toMatchObject({
+      subgraphSystemId: 10,
+      propertySystemId: 52,
+      elements: [],
     });
   });
 });

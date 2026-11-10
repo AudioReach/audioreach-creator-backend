@@ -51,6 +51,7 @@ export const ParameterSummaryDtoSchema = UpdatePropertyRequestDtoSchema.extend({
 });
 export type ParameterSummaryDto = z.infer<typeof ParameterSummaryDtoSchema>;
 
-export const PropertySummaryDtoSchema = UpdatePropertyRequestDtoSchema;
-// eslint-disable-next-line sonarjs/redundant-type-aliases -- property-context alias for API readability
-export type PropertySummaryDto = UpdatePropertyRequestDto;
+export const PropertySummaryDtoSchema = UpdatePropertyRequestDtoSchema.extend({
+  systemId: z.string().describe('System identifier (property system ID)'),
+});
+export type PropertySummaryDto = z.infer<typeof PropertySummaryDtoSchema>;

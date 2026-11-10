@@ -259,18 +259,12 @@ export class ContainerController extends BaseController {
    * Returns 400 for invalid property values, 403 without an active session,
    * and 422 when the capability list is incompatible with module definitions.
    */
-  @Put('/:containerSystemId/properties/:propertySystemId')
+  @Put('/:containerSystemId/properties')
   @ApiParam({
     name: 'containerSystemId',
     required: true,
     type: String,
     description: 'System id of a container',
-  })
-  @ApiParam({
-    name: 'propertySystemId',
-    required: true,
-    type: String,
-    description: 'System id of the property to update',
   })
   @UseGuards(SessionGuard)
   @ApiDocumentationWithExample({
@@ -303,11 +297,11 @@ export class ContainerController extends BaseController {
   async setContainerProperty(
     @Param('projectId') projectId: string,
     @Param('containerSystemId', ParseIntPipe) containerSystemId: number,
-    @Param('propertySystemId', ParseIntPipe) propertySystemId: number,
     @Body() dto: PropertySummaryDto,
     @ArcSession() session: ActiveSession,
     @ClientId() clientId: string,
   ): Promise<ApiResult<PropertyResponseDto>> {
+    const propertySystemId = Number(dto.systemId);
     await this.commandBus.execute<void>(
       new SetContainerPropertyCommand(
         containerSystemId,

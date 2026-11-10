@@ -189,6 +189,11 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
         'Scenario property definition not found',
       );
     }
+    if (scenarioDef.systemId !== command.propertySystemId) {
+      throw new InvalidInputException(
+        `Property definition ${command.propertySystemId} is not the scenario property.`,
+      );
+    }
 
     const scenarioProp = subgraph.properties.find(
       p => p.propertyDefinitionSystemId === scenarioDef.systemId,
