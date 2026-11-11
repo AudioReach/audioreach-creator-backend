@@ -13,12 +13,37 @@ import {setupE2ETest, teardownE2ETest} from '../helpers/e2e-test-setup.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+async function startDesignerSession(
+  httpServer: unknown,
+  authToken: string,
+  projectId: string,
+): Promise<void> {
+  await request(httpServer as Parameters<typeof request>[0])
+    .post(`/arc-api/v1/projects/${projectId}/start-session`)
+    .set('Authorization', `Bearer ${authToken}`)
+    .send({mode: 'DESIGNER'})
+    .timeout(30_000)
+    .expect(201);
+}
+
+async function endSession(
+  httpServer: unknown,
+  authToken: string,
+  projectId: string,
+): Promise<void> {
+  await request(httpServer as Parameters<typeof request>[0])
+    .post(`/arc-api/v1/projects/${projectId}/end-session`)
+    .set('Authorization', `Bearer ${authToken}`)
+    .timeout(30_000);
+}
+
 describe('Get Subgraph Properties E2E (GET /arc-api/v1/projects/{projectId}/subgraphs/{subgraphSystemId}/properties)', () => {
   let app: INestApplication;
   let httpServer: any;
   let authToken: string;
   let projectId: string | undefined;
   let sampleSubgraphSystemId: string | undefined;
+  let propertyWriteSubgraphSystemId: string | undefined;
 
   beforeAll(async () => {
     const testSetup = await setupE2ETest();
@@ -27,6 +52,7 @@ describe('Get Subgraph Properties E2E (GET /arc-api/v1/projects/{projectId}/subg
     authToken = testSetup.authToken;
     projectId = undefined;
     sampleSubgraphSystemId = undefined;
+    propertyWriteSubgraphSystemId = undefined;
 
     const acdbPath = join(__dirname, '../fixtures/acdb_cal.acdb');
     const awspPath = join(__dirname, '../fixtures/workspaceFileXml.awsp');
@@ -49,7 +75,7 @@ describe('Get Subgraph Properties E2E (GET /arc-api/v1/projects/{projectId}/subg
 
     projectId = uploadResponse.body.data.projectId;
 
-    // Discover a real subgraph systemId via the get-components endpoint on the first usecase
+    // Discover a subgraph ID for the generic property-write contract test.
     const usecaseResponse = await request(httpServer)
       .get(`/arc-api/v1/projects/${projectId}/usecases`)
       .set('Authorization', `Bearer ${authToken}`)
@@ -58,19 +84,19 @@ describe('Get Subgraph Properties E2E (GET /arc-api/v1/projects/{projectId}/subg
     if (usecaseResponse.status === 200) {
       const usecases: any[] = usecaseResponse.body.data ?? [];
       if (usecases.length > 0) {
-        const usecaseId = usecases[0].usecaseId ?? usecases[0].systemId;
         const componentsResponse = await request(httpServer)
-          .get(
-            `/arc-api/v1/projects/${projectId}/usecases/${usecaseId}/components`,
-          )
+          .post(`/arc-api/v1/projects/${projectId}/usecases/components/query`)
           .set('Authorization', `Bearer ${authToken}`)
+          .send({systemIds: [String(usecases[0].systemId)]})
           .timeout(30000);
 
         if (componentsResponse.status === 200) {
-          const subgraphs: any[] =
-            componentsResponse.body.data?.subgraphs ?? [];
-          if (subgraphs.length > 0) {
-            sampleSubgraphSystemId = String(subgraphs[0].systemId);
+          const spfModules: any[] =
+            componentsResponse.body.data?.spfModules ?? [];
+          if (spfModules.length > 0) {
+            propertyWriteSubgraphSystemId = String(
+              spfModules[0].subgraphSystemId,
+            );
           }
         }
       }
@@ -118,6 +144,28 @@ describe('Get Subgraph Properties E2E (GET /arc-api/v1/projects/{projectId}/subg
 
     expect(response.status).toBe(404);
   });
+
+  it('returns 400 when a generic property write body omits systemId', async () => {
+    if (!projectId || !propertyWriteSubgraphSystemId) {
+      console.warn('No projectId or sampleSubgraphSystemId â€” skipping');
+      return;
+    }
+
+    await startDesignerSession(httpServer, authToken, projectId);
+    try {
+      const response = await request(httpServer)
+        .put(
+          `/arc-api/v1/projects/${projectId}/subgraphs/${propertyWriteSubgraphSystemId}/properties`,
+        )
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({elements: []})
+        .timeout(30_000);
+
+      expect(response.status).toBe(400);
+    } finally {
+      await endSession(httpServer, authToken, projectId);
+    }
+  }, 60_000);
 
   it('returns 207 with issues when a property payload row is missing', async () => {
     if (!projectId || !sampleSubgraphSystemId) {

@@ -17,6 +17,7 @@ export class SetSubgraphScenarioCommand extends BaseCommand {
 
   constructor(
     public readonly subgraphSystemId: number,
+    public readonly propertySystemId: number,
     public readonly elements: ParameterElementSummaryDto[],
   ) {
     super();

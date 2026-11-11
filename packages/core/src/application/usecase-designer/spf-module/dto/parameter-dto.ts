@@ -36,15 +36,22 @@ export const ParameterDtoSchema = z.object({
 
 export type ParameterDto = z.infer<typeof ParameterDtoSchema>;
 
-export const ParameterSummaryDtoSchema = z.object({
-  systemId: z.string().describe('System identifier (parameter system ID)'),
-  name: z.string().describe('Parameter name'),
+export const UpdatePropertyRequestDtoSchema = z.object({
   elements: z
     .array(ParameterElementSummaryDtoSchema)
     .describe('Elements to write'),
 });
+
+export type UpdatePropertyRequestDto = z.infer<
+  typeof UpdatePropertyRequestDtoSchema
+>;
+
+export const ParameterSummaryDtoSchema = UpdatePropertyRequestDtoSchema.extend({
+  systemId: z.string().describe('System identifier (parameter system ID)'),
+});
 export type ParameterSummaryDto = z.infer<typeof ParameterSummaryDtoSchema>;
 
-export const PropertySummaryDtoSchema = ParameterSummaryDtoSchema;
-// eslint-disable-next-line sonarjs/redundant-type-aliases -- property-context alias for API readability
-export type PropertySummaryDto = ParameterSummaryDto;
+export const PropertySummaryDtoSchema = UpdatePropertyRequestDtoSchema.extend({
+  systemId: z.string().describe('System identifier (property system ID)'),
+});
+export type PropertySummaryDto = z.infer<typeof PropertySummaryDtoSchema>;

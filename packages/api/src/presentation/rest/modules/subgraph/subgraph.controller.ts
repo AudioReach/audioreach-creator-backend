@@ -48,7 +48,6 @@ import {
   UpdateSubgraphContainerIdRequestDto,
   CreateVcpmCkvRequestDto,
 } from './dto/subgraph-request.dto.js';
-import {UpdatePropertyRequestDto} from '../../common/dto/update-property-request.dto.js';
 import {ParameterSummaryDto} from '../../common/dto/parameter-summary.dto.js';
 import {PropertySummaryDto} from '../../common/dto/property-summary.dto.js';
 import {ConfigElementSummaryDto} from '../../common/dto/element-data/elements/config-element-summary.dto.js';
@@ -292,7 +291,7 @@ export class SubgraphController extends BaseController {
     summary: 'Set scenario property for a subgraph (Audio/Voice)',
     description:
       'Triggers a 4–7 step cascade. Returns a mutation log of properties and module CKVs added/removed.',
-    requestDto: UpdatePropertyRequestDto,
+    requestDto: PropertySummaryDto,
     responses: [
       {
         status: HttpStatus.OK,
@@ -311,11 +310,15 @@ export class SubgraphController extends BaseController {
   })
   async setSubgraphScenario(
     @Param('subgraphSystemId', ParseIntPipe) subgraphSystemId: number,
-    @Body() dto: UpdatePropertyRequestDto,
+    @Body() dto: PropertySummaryDto,
     @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<UpdateScenarioResponseDto>> {
     const result = await this.commandBus.execute<ScenarioChangeDto>(
-      new SetSubgraphScenarioCommand(subgraphSystemId, dto.elements),
+      new SetSubgraphScenarioCommand(
+        subgraphSystemId,
+        Number(dto.systemId),
+        dto.elements,
+      ),
       session,
     );
     return toApiResult(Result.ok(result));
@@ -335,7 +338,7 @@ export class SubgraphController extends BaseController {
   @ApiDocumentationWithExample({
     summary:
       'Set VSID for a subgraph — propagates via BFS to all connected subgraphs',
-    requestDto: UpdatePropertyRequestDto,
+    requestDto: PropertySummaryDto,
     responses: [
       {
         status: HttpStatus.OK,
@@ -354,11 +357,15 @@ export class SubgraphController extends BaseController {
   })
   async setSubgraphVsid(
     @Param('subgraphSystemId', ParseIntPipe) subgraphSystemId: number,
-    @Body() dto: UpdatePropertyRequestDto,
+    @Body() dto: PropertySummaryDto,
     @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<UpdateVsidResponseDto>> {
     const result = await this.commandBus.execute<VsidUpdateDto>(
-      new SetSubgraphVsidCommand(subgraphSystemId, dto.elements),
+      new SetSubgraphVsidCommand(
+        subgraphSystemId,
+        Number(dto.systemId),
+        dto.elements,
+      ),
       session,
     );
     return toApiResult(Result.ok(result));
@@ -416,27 +423,21 @@ export class SubgraphController extends BaseController {
 
   /**
    * Replace a low-cascading subgraph property.
-   * Returns 400 if propSystemId maps to a reserved property (scenario, VSID, ASoC).
+   * Returns 400 if body systemId maps to a reserved property (scenario or VSID).
    */
-  @Put('/:subgraphSystemId/properties/:propSystemId')
+  @Put('/:subgraphSystemId/properties')
   @ApiParam({
     name: 'subgraphSystemId',
     required: true,
     type: String,
     description: 'System id of a subgraph',
   })
-  @ApiParam({
-    name: 'propSystemId',
-    required: true,
-    type: String,
-    description: 'System id of the property to replace',
-  })
   @UseGuards(SessionGuard)
   @ApiDocumentationWithExample({
     summary: 'Replace a low-cascading subgraph property',
     description:
-      'Returns 400 if propSystemId maps to a reserved property (scenario, VSID, ASoC) — use the dedicated PUT endpoint instead.',
-    requestDto: UpdatePropertyRequestDto,
+      'Returns 400 if body systemId maps to a reserved property (scenario or VSID) — use the dedicated PUT endpoint instead.',
+    requestDto: PropertySummaryDto,
     responses: [
       {
         status: HttpStatus.OK,
@@ -460,15 +461,15 @@ export class SubgraphController extends BaseController {
   async putSubgraphProperty(
     @Param('projectId') projectId: string,
     @Param('subgraphSystemId', ParseIntPipe) subgraphSystemId: number,
-    @Param('propSystemId', ParseIntPipe) propSystemId: number,
-    @Body() dto: UpdatePropertyRequestDto,
+    @Body() dto: PropertySummaryDto,
     @ArcSession() session: ActiveSession,
     @ClientId() clientId: string,
   ): Promise<ApiResult<PropertyResponseDto>> {
+    const propertySystemId = Number(dto.systemId);
     await this.commandBus.execute<void>(
       new SetSubgraphPropertyCommand(
         subgraphSystemId,
-        propSystemId,
+        propertySystemId,
         dto.elements,
       ),
       session,
@@ -476,7 +477,7 @@ export class SubgraphController extends BaseController {
     const query = new GetSubgraphPropertyQuery(
       Number.parseInt(projectId, 10),
       subgraphSystemId,
-      propSystemId,
+      propertySystemId,
       clientId,
     );
     const result = await this.queryBus.execute<Result<PropertyDataDto>>(query);
@@ -726,7 +727,7 @@ export class SubgraphController extends BaseController {
   @UseGuards(SessionGuard)
   @ApiDocumentationWithExample({
     summary: 'Update VCPM calibration data for a specific CKV',
-    requestDto: UpdatePropertyRequestDto,
+    requestDto: PropertySummaryDto,
     responses: [
       {
         status: HttpStatus.OK,
@@ -747,7 +748,7 @@ export class SubgraphController extends BaseController {
     @Param('projectId') projectId: string,
     @Param('subgraphSystemId', ParseIntPipe) subgraphSystemId: number,
     @Param('ckvSystemId', ParseIntPipe) ckvSystemId: number,
-    @Body() dto: UpdatePropertyRequestDto,
+    @Body() dto: PropertySummaryDto,
     @ArcSession() session: ActiveSession,
     @ClientId() clientId: string,
   ): Promise<ApiResult<CkvCalDataResponseDto>> {

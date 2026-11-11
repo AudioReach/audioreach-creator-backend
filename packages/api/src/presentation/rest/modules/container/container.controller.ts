@@ -32,7 +32,6 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {toApiResult} from '../../common/result/to-api-result.js';
 import {PropertyResponseDto} from '../../common/dto/property-response.dto.js';
-import {UpdatePropertyRequestDto} from '../../common/dto/update-property-request.dto.js';
 import {SetContainerHeapIdRequestDto} from './dto/set-container-heap-id-request.dto.js';
 import {SetContainerHeapIdResponseDto} from './dto/set-container-heap-id-response.dto.js';
 import {ParameterSummaryDto} from '../../common/dto/parameter-summary.dto.js';
@@ -260,23 +259,17 @@ export class ContainerController extends BaseController {
    * Returns 400 for invalid property values, 403 without an active session,
    * and 422 when the capability list is incompatible with module definitions.
    */
-  @Put('/:containerSystemId/properties/:propertySystemId')
+  @Put('/:containerSystemId/properties')
   @ApiParam({
     name: 'containerSystemId',
     required: true,
     type: String,
     description: 'System id of a container',
   })
-  @ApiParam({
-    name: 'propertySystemId',
-    required: true,
-    type: String,
-    description: 'System id of the property to update',
-  })
   @UseGuards(SessionGuard)
   @ApiDocumentationWithExample({
     summary: 'Set a container property',
-    requestDto: UpdatePropertyRequestDto,
+    requestDto: PropertySummaryDto,
     responses: [
       {
         status: HttpStatus.OK,
@@ -304,11 +297,11 @@ export class ContainerController extends BaseController {
   async setContainerProperty(
     @Param('projectId') projectId: string,
     @Param('containerSystemId', ParseIntPipe) containerSystemId: number,
-    @Param('propertySystemId', ParseIntPipe) propertySystemId: number,
-    @Body() dto: UpdatePropertyRequestDto,
+    @Body() dto: PropertySummaryDto,
     @ArcSession() session: ActiveSession,
     @ClientId() clientId: string,
   ): Promise<ApiResult<PropertyResponseDto>> {
+    const propertySystemId = Number(dto.systemId);
     await this.commandBus.execute<void>(
       new SetContainerPropertyCommand(
         containerSystemId,

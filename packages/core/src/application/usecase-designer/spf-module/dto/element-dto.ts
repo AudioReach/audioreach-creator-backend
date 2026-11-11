@@ -121,11 +121,11 @@ export function mapConfigElement(
   };
 }
 
-export function mapElements(elements: ElementData[]): unknown[] {
+export function mapElements(elements: ElementData[]): ParameterElementDto[] {
   return elements.map(e => mapElement(e));
 }
 
-export function mapElement(e: ElementData): unknown {
+export function mapElement(e: ElementData): ParameterElementDto {
   if (e.type === PARAMETER_ELEMENT_TYPE.ConfigElement)
     return mapConfigElement(e);
   if (e.type === PARAMETER_ELEMENT_TYPE.ElementArray) return mapElementArray(e);

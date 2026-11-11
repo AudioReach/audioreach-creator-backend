@@ -53,6 +53,11 @@ export class SetSubgraphVsidHandler implements CommandHandler<
     if (!vsidDef) {
       throw new ResourceNotFoundException('VSID property definition not found');
     }
+    if (vsidDef.systemId !== command.propertySystemId) {
+      throw new InvalidInputException(
+        `Property definition ${command.propertySystemId} is not the VSID property.`,
+      );
+    }
 
     const scenarioDef = definitions.find(
       definition => definition.naturalId === SUB_GRAPH_PROP_ID_SCENARIO_ID,

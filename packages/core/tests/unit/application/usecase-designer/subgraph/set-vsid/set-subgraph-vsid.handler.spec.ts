@@ -114,15 +114,28 @@ describe('SetSubgraphVsidHandler', () => {
     const uow = makeUow({subgraph: null}) as any;
     const handler = new SetSubgraphVsidHandler(uow);
     await expect(
-      handler.handle(new SetSubgraphVsidCommand(10, ELEMENTS)),
+      handler.handle(new SetSubgraphVsidCommand(10, VSID_DEF_SYS_ID, ELEMENTS)),
     ).rejects.toBeInstanceOf(ResourceNotFoundException);
+  });
+
+  it('rejects a system ID that is not the VSID property before writing', async () => {
+    const uow = makeUow({subgraph: makeSubgraph(10, 100)}) as any;
+    const handler = new SetSubgraphVsidHandler(uow);
+    const command = new SetSubgraphVsidCommand(10, 999, ELEMENTS);
+
+    await expect(handler.handle(command)).rejects.toBeInstanceOf(
+      InvalidInputException,
+    );
+    expect(uow.startTransaction).not.toHaveBeenCalled();
+    expect(uow._setPropertyData).not.toHaveBeenCalled();
+    expect(uow._commit).not.toHaveBeenCalled();
   });
 
   it('returns empty affectedSubgraphSystemIds when VSID unchanged', async () => {
     const uow = makeUow({subgraph: makeSubgraph(10, 200)}) as any;
     const handler = new SetSubgraphVsidHandler(uow);
     const result = await handler.handle(
-      new SetSubgraphVsidCommand(10, ELEMENTS),
+      new SetSubgraphVsidCommand(10, VSID_DEF_SYS_ID, ELEMENTS),
     );
     expect(result.affectedSubgraphSystemIds).toHaveLength(0);
     expect(uow._setPropertyData).not.toHaveBeenCalled();
@@ -135,7 +148,7 @@ describe('SetSubgraphVsidHandler', () => {
     }) as any;
     const handler = new SetSubgraphVsidHandler(uow);
     const result = await handler.handle(
-      new SetSubgraphVsidCommand(10, ELEMENTS),
+      new SetSubgraphVsidCommand(10, VSID_DEF_SYS_ID, ELEMENTS),
     );
     expect(uow._setPropertyData).toHaveBeenCalledTimes(1);
     expect(result.affectedSubgraphSystemIds).toContain('10');
@@ -150,7 +163,7 @@ describe('SetSubgraphVsidHandler', () => {
     uow.isInTransaction.mockReturnValue(true);
     const handler = new SetSubgraphVsidHandler(uow);
     await expect(
-      handler.handle(new SetSubgraphVsidCommand(10, ELEMENTS)),
+      handler.handle(new SetSubgraphVsidCommand(10, VSID_DEF_SYS_ID, ELEMENTS)),
     ).rejects.toThrow('db error');
     expect(uow._rollback).toHaveBeenCalled();
   });
@@ -169,7 +182,9 @@ describe('SetSubgraphVsidHandler', () => {
     const uow = makeUow({subgraph: makeSubgraph(10, 100)}) as any;
     const handler = new SetSubgraphVsidHandler(uow);
     await expect(
-      handler.handle(new SetSubgraphVsidCommand(10, badElements)),
+      handler.handle(
+        new SetSubgraphVsidCommand(10, VSID_DEF_SYS_ID, badElements),
+      ),
     ).rejects.toBeInstanceOf(InvalidInputException);
   });
 });

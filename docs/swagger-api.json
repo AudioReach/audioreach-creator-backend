@@ -6184,6 +6184,78 @@
         "tags": [
           "subgraphs"
         ]
+      },
+      "put": {
+        "description": "Returns 400 if body systemId maps to a reserved property (scenario or VSID) — use the dedicated PUT endpoint instead.",
+        "operationId": "SubgraphController_putSubgraphProperty",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "subgraphSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of a subgraph",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Request body parameter type: PropertySummaryDto",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PropertySummaryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Property replaced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/PropertyResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Reserved property — use dedicated endpoint"
+          },
+          "404": {
+            "description": "Subgraph or property not found"
+          },
+          "422": {
+            "description": "Failed to replace property"
+          }
+        },
+        "summary": "Replace a low-cascading subgraph property",
+        "tags": [
+          "subgraphs"
+        ]
       }
     },
     "/arc-api/v1/projects/{projectId}/subgraphs/{subgraphSystemId}/properties/{propertySystemId}": {
@@ -6278,11 +6350,11 @@
         ],
         "requestBody": {
           "required": true,
-          "description": "Request body parameter type: UpdatePropertyRequestDto",
+          "description": "Request body parameter type: PropertySummaryDto",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdatePropertyRequestDto"
+                "$ref": "#/components/schemas/PropertySummaryDto"
               }
             }
           }
@@ -6348,11 +6420,11 @@
         ],
         "requestBody": {
           "required": true,
-          "description": "Request body parameter type: UpdatePropertyRequestDto",
+          "description": "Request body parameter type: PropertySummaryDto",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdatePropertyRequestDto"
+                "$ref": "#/components/schemas/PropertySummaryDto"
               }
             }
           }
@@ -6457,89 +6529,6 @@
           }
         },
         "summary": "Set subgraph properties",
-        "tags": [
-          "subgraphs"
-        ]
-      }
-    },
-    "/arc-api/v1/projects/{projectId}/subgraphs/{subgraphSystemId}/properties/{propSystemId}": {
-      "put": {
-        "description": "Returns 400 if propSystemId maps to a reserved property (scenario, VSID, ASoC) — use the dedicated PUT endpoint instead.",
-        "operationId": "SubgraphController_putSubgraphProperty",
-        "parameters": [
-          {
-            "name": "projectId",
-            "required": true,
-            "in": "path",
-            "description": "The unique identifier of the project",
-            "schema": {
-              "example": "12345",
-              "type": "string"
-            }
-          },
-          {
-            "name": "subgraphSystemId",
-            "required": true,
-            "in": "path",
-            "description": "System id of a subgraph",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "propSystemId",
-            "required": true,
-            "in": "path",
-            "description": "System id of the property to replace",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "description": "Request body parameter type: UpdatePropertyRequestDto",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdatePropertyRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Property replaced",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/PropertyResponseDto"
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Reserved property — use dedicated endpoint"
-          },
-          "404": {
-            "description": "Subgraph or property not found"
-          },
-          "422": {
-            "description": "Failed to replace property"
-          }
-        },
-        "summary": "Replace a low-cascading subgraph property",
         "tags": [
           "subgraphs"
         ]
@@ -6829,11 +6818,11 @@
         ],
         "requestBody": {
           "required": true,
-          "description": "Request body parameter type: UpdatePropertyRequestDto",
+          "description": "Request body parameter type: PropertySummaryDto",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdatePropertyRequestDto"
+                "$ref": "#/components/schemas/PropertySummaryDto"
               }
             }
           }
@@ -7824,6 +7813,80 @@
         "tags": [
           "containers"
         ]
+      },
+      "put": {
+        "operationId": "ContainerController_setContainerProperty",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "containerSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of a container",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Request body parameter type: PropertySummaryDto",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PropertySummaryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Property updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/PropertyResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid property value"
+          },
+          "403": {
+            "description": "No active session"
+          },
+          "404": {
+            "description": "Container or property not found"
+          },
+          "422": {
+            "description": "Failed to set property"
+          }
+        },
+        "summary": "Set a container property",
+        "tags": [
+          "containers"
+        ]
       }
     },
     "/arc-api/v1/projects/{projectId}/containers/{containerSystemId}/properties/{propertySystemId}": {
@@ -7886,89 +7949,6 @@
           }
         },
         "summary": "Get property data for a single container property",
-        "tags": [
-          "containers"
-        ]
-      },
-      "put": {
-        "operationId": "ContainerController_setContainerProperty",
-        "parameters": [
-          {
-            "name": "projectId",
-            "required": true,
-            "in": "path",
-            "description": "The unique identifier of the project",
-            "schema": {
-              "example": "12345",
-              "type": "string"
-            }
-          },
-          {
-            "name": "containerSystemId",
-            "required": true,
-            "in": "path",
-            "description": "System id of a container",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "propertySystemId",
-            "required": true,
-            "in": "path",
-            "description": "System id of the property to update",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "description": "Request body parameter type: UpdatePropertyRequestDto",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdatePropertyRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Property updated",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/PropertyResponseDto"
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid property value"
-          },
-          "403": {
-            "description": "No active session"
-          },
-          "404": {
-            "description": "Container or property not found"
-          },
-          "422": {
-            "description": "Failed to set property"
-          }
-        },
-        "summary": "Set a container property",
         "tags": [
           "containers"
         ]
@@ -14462,7 +14442,175 @@
             "description": "Array of calibration elements for this property. Can contain ConfigElement, ElementTemplateArray, or Struct entries.",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ElementUnion"
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "ConfigElement"
+                      ]
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Element name"
+                    },
+                    "value": {
+                      "type": "string"
+                    },
+                    "dataType": {
+                      "type": "string"
+                    },
+                    "isReadOnly": {
+                      "type": "boolean"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "group": {
+                      "type": "string"
+                    },
+                    "subgroup": {
+                      "type": "string"
+                    },
+                    "unit": {
+                      "type": "string"
+                    },
+                    "displayType": {
+                      "type": "string"
+                    },
+                    "policy": {
+                      "type": "string"
+                    },
+                    "qFormat": {
+                      "type": "string"
+                    },
+                    "precision": {
+                      "type": "number"
+                    },
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    },
+                    "allowedValues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "description": "Display name"
+                          },
+                          "value": {
+                            "type": "string",
+                            "description": "Encoded value"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "value"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "value",
+                    "dataType",
+                    "isReadOnly"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "ElementTemplateArray"
+                      ]
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Array element name"
+                    },
+                    "value": {
+                      "type": "array",
+                      "items": {}
+                    },
+                    "isReadOnly": {
+                      "type": "boolean"
+                    },
+                    "template": {
+                      "type": "array",
+                      "items": {}
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "group": {
+                      "type": "string"
+                    },
+                    "subgroup": {
+                      "type": "string"
+                    },
+                    "length": {
+                      "type": "number"
+                    },
+                    "lengthFormula": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "value",
+                    "isReadOnly",
+                    "template"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "Struct"
+                      ]
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Struct element name"
+                    },
+                    "value": {
+                      "type": "array",
+                      "items": {}
+                    },
+                    "isReadOnly": {
+                      "type": "boolean"
+                    },
+                    "structType": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "group": {
+                      "type": "string"
+                    },
+                    "subgroup": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "value",
+                    "isReadOnly",
+                    "structType"
+                  ]
+                }
+              ]
             }
           }
         },
@@ -16446,21 +16594,21 @@
           "systemId": {
             "type": "string",
             "description": "System identifier (parameter system ID)"
-          },
-          "name": {
-            "type": "string",
-            "description": "Parameter name"
           }
         },
         "required": [
           "elements",
-          "systemId",
-          "name"
+          "systemId"
         ]
       },
       "PropertySummaryDto": {
         "type": "object",
         "properties": {
+          "systemId": {
+            "type": "string",
+            "description": "System identifier of the property to update",
+            "example": "123"
+          },
           "elements": {
             "type": "array",
             "items": {
@@ -16477,20 +16625,11 @@
               ]
             },
             "description": "Elements to write"
-          },
-          "systemId": {
-            "type": "string",
-            "description": "System identifier (parameter system ID)"
-          },
-          "name": {
-            "type": "string",
-            "description": "Parameter name"
           }
         },
         "required": [
-          "elements",
           "systemId",
-          "name"
+          "elements"
         ]
       },
       "UpdateScenarioResponseDto": {
@@ -16749,41 +16888,6 @@
           "properties"
         ],
         "description": "Subgraph property data"
-      },
-      "UpdatePropertyRequestDto": {
-        "type": "object",
-        "properties": {
-          "elements": {
-            "type": "array",
-            "items": {
-              "oneOf": [
-                {
-                  "$ref": "#/components/schemas/ConfigElementSummaryDto"
-                },
-                {
-                  "$ref": "#/components/schemas/ElementTemplateArraySummaryDto"
-                },
-                {
-                  "$ref": "#/components/schemas/StructSummaryDto"
-                }
-              ]
-            },
-            "description": "Elements to write"
-          },
-          "systemId": {
-            "type": "string",
-            "description": "System identifier (parameter system ID)"
-          },
-          "name": {
-            "type": "string",
-            "description": "Parameter name"
-          }
-        },
-        "required": [
-          "elements",
-          "systemId",
-          "name"
-        ]
       },
       "PatchSubgraphRequestDto": {
         "type": "object",
