@@ -197,7 +197,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
   ): Promise<Result<SpfModuleDefinitionReadModel>> {
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.dataSource.manager,
         fileSystemId,
       );
 
@@ -233,7 +233,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
   ): Promise<Result<ParameterDefinitionReadModel>> {
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.dataSource.manager,
         fileSystemId,
       );
 
@@ -299,7 +299,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
       if (defSystemIds.length === 0) return Result.ok([]);
 
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.dataSource.manager,
         fileSystemId,
       );
 
@@ -404,7 +404,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
   ): Promise<Result<SpfModuleDefinitionSummaryReadModel>> {
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.dataSource.manager,
         fileSystemId,
       );
 
@@ -471,7 +471,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
   ): Promise<Result<CustomModuleMetadataReadModel | null>> {
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.dataSource.manager,
         fileSystemId,
       );
       const row = await this.moduleManagerFetcher.fetchOne(
@@ -500,7 +500,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     if (moduleDefinitionSystemIds.length === 0) return map;
 
     const sessionId = await resolveActiveSessionId(
-      this.dataSource,
+      this.dataSource.manager,
       fileSystemId,
     );
     const rows = await this.moduleManagerFetcher.fetchMany(
@@ -526,7 +526,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     const resolvedSessionId =
       sessionId !== undefined
         ? sessionId
-        : await resolveActiveSessionId(this.dataSource, fileSystemId);
+        : await resolveActiveSessionId(this.dataSource.manager, fileSystemId);
 
     const params = await this.paramFetcher.fetchMany(
       [moduleDefSystemId],
@@ -570,7 +570,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
       .getOne()) as {fileSystemId: number} | null;
     if (!row) return {fileSystemId: null, sessionId: null};
     const sessionId = await resolveActiveSessionId(
-      this.dataSource,
+      this.dataSource.manager,
       row.fileSystemId,
     );
     return {fileSystemId: row.fileSystemId, sessionId};

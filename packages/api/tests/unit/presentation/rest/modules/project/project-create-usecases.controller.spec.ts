@@ -5,13 +5,14 @@
 
 import {describe, expect, it, jest} from '@jest/globals';
 import {
+  CHANGE_OPERATION,
   CreateManualUsecasesCommand,
-  ISSUE_CODE,
+  CreateUsecasesCommand,
   IssueSeverity,
   Result,
   SESSION_MODE,
+  SOURCE,
 } from '@arc/core';
-import {InternalServerErrorException} from '@nestjs/common';
 import {ProjectController} from '../../../../../../src/presentation/rest/modules/project/project.controller.js';
 
 const session = {
@@ -25,6 +26,16 @@ const outcome = {
   emittedChanges: [],
   issues: [],
   groupId: 'group-1',
+  changes: [
+    {
+      systemId: 21,
+      changeId: 7,
+      operation: CHANGE_OPERATION.Delete,
+      source: SOURCE.Manual,
+      before: null,
+      after: null,
+    },
+  ],
 };
 
 const manualRequest = {
@@ -36,12 +47,31 @@ const manualRequest = {
   includedControlLinkSystemIds: ['42'],
 };
 
-function createController(queryResults = [Result.ok([])]) {
+const autoRequest = {
+  usecaseSystemIds: [],
+  activeSubgraphs: [],
+  includedDataLinkSystemIds: [],
+  includedControlLinkSystemIds: [],
+};
+
+const expectedResponse = {
+  changes: [
+    {
+      systemId: '21',
+      changeId: '7',
+      operation: CHANGE_OPERATION.Delete,
+      source: SOURCE.Manual,
+      before: null,
+      after: null,
+    },
+  ],
+  issues: [],
+  groupId: 'group-1',
+};
+
+function createController() {
   const commandBus = {execute: jest.fn().mockResolvedValue(Result.ok(outcome))};
   const queryBus = {execute: jest.fn()};
-  for (const result of queryResults) {
-    queryBus.execute.mockResolvedValueOnce(result);
-  }
   const controller = new ProjectController(
     commandBus as never,
     queryBus as never,
@@ -50,14 +80,18 @@ function createController(queryResults = [Result.ok([])]) {
   return {controller, commandBus, queryBus};
 }
 
+const routingFailure = Result.fail({
+  code: 'ROUTING_FAILED',
+  message: 'routing failed',
+  severity: IssueSeverity.Error,
+});
+
 describe('ProjectController create usecases', () => {
-  it('dispatches raw manual input and returns the projected rich response', async () => {
+  it('dispatches raw manual input and returns the change details from the command', async () => {
     const {controller, commandBus, queryBus} = createController();
 
     const response = await controller.createManualUsecases(
-      '1',
       manualRequest,
-      'client-1',
       session,
     );
 
@@ -75,156 +109,37 @@ describe('ProjectController create usecases', () => {
       },
     });
     expect(commandSession).toBe(session);
-    expect(queryBus.execute).toHaveBeenCalledTimes(1);
-    expect(response.data).toEqual({
-      changes: [],
-      issues: [],
-      groupId: 'group-1',
-    });
-  });
-
-  it('does not project when the manual routing command fails', async () => {
-    const {controller, commandBus, queryBus} = createController();
-    commandBus.execute.mockResolvedValueOnce(
-      Result.fail({
-        code: 'MANUAL_ROUTING_FAILED',
-        message: 'manual routing failed',
-        severity: IssueSeverity.Error,
-      }),
-    );
-
-    await expect(
-      controller.createManualUsecases('1', manualRequest, 'client-1', session),
-    ).rejects.toThrow();
     expect(queryBus.execute).not.toHaveBeenCalled();
+    expect(response.data).toEqual(expectedResponse);
   });
 
-  it('preserves the group ID when manual projection fails', async () => {
-    const {controller, queryBus} = createController([
-      Result.fail({
-        code: ISSUE_CODE.DB_QUERY_FAILED,
-        message: 'projection failed',
-        severity: IssueSeverity.Error,
-      }),
-    ]);
-
-    await expect(
-      controller.createManualUsecases('1', manualRequest, 'client-1', session),
-    ).rejects.toMatchObject<Partial<InternalServerErrorException>>({
-      response: expect.objectContaining({groupId: 'group-1'}),
-    });
-    expect(queryBus.execute).toHaveBeenCalledTimes(1);
-  });
-
-  it('retries one transient projection failure without rerunning routing', async () => {
-    const transientFailure = Result.fail({
-      code: ISSUE_CODE.TRANSIENT_DB_READ_FAILED,
-      message: 'database busy',
-      severity: IssueSeverity.Error,
-    });
-    const {controller, commandBus, queryBus} = createController([
-      transientFailure,
-      Result.ok([]),
-    ]);
-
-    await controller.createUsecases(
-      '1',
-      {
-        usecaseSystemIds: [],
-        activeSubgraphs: [],
-        includedDataLinkSystemIds: [],
-        includedControlLinkSystemIds: [],
-      },
-      'client-1',
-      session,
-    );
-
-    expect(commandBus.execute).toHaveBeenCalledTimes(1);
-    expect(queryBus.execute).toHaveBeenCalledTimes(2);
-  });
-
-  it('does not project when the routing command fails', async () => {
+  it('dispatches auto input and returns the change details from the command', async () => {
     const {controller, commandBus, queryBus} = createController();
-    commandBus.execute.mockResolvedValueOnce(
-      Result.fail({
-        code: 'ROUTING_FAILED',
-        message: 'routing failed',
-        severity: IssueSeverity.Error,
-      }),
-    );
 
-    await expect(
-      controller.createUsecases(
-        '1',
-        {
-          usecaseSystemIds: [],
-          activeSubgraphs: [],
-          includedDataLinkSystemIds: [],
-          includedControlLinkSystemIds: [],
-        },
-        'client-1',
-        session,
-      ),
-    ).rejects.toThrow();
+    const response = await controller.createUsecases(autoRequest, session);
+
+    expect(commandBus.execute.mock.calls[0]?.[0]).toBeInstanceOf(
+      CreateUsecasesCommand,
+    );
     expect(queryBus.execute).not.toHaveBeenCalled();
+    expect(response.data).toEqual(expectedResponse);
   });
 
-  it('does not retry a permanent projection failure and preserves the group ID', async () => {
-    const failure = Result.fail({
-      code: ISSUE_CODE.DB_QUERY_FAILED,
-      message: 'projection failed',
-      severity: IssueSeverity.Error,
-    });
-    const {controller, queryBus} = createController([failure]);
+  it('rejects when the manual routing command fails', async () => {
+    const {controller, commandBus} = createController();
+    commandBus.execute.mockResolvedValueOnce(routingFailure);
 
     await expect(
-      controller.createUsecases(
-        '1',
-        {
-          usecaseSystemIds: [],
-          activeSubgraphs: [],
-          includedDataLinkSystemIds: [],
-          includedControlLinkSystemIds: [],
-        },
-        'client-1',
-        session,
-      ),
-    ).rejects.toMatchObject<Partial<InternalServerErrorException>>({
-      response: expect.objectContaining({groupId: 'group-1'}),
-    });
-    expect(queryBus.execute).toHaveBeenCalledTimes(1);
+      controller.createManualUsecases(manualRequest, session),
+    ).rejects.toThrow();
   });
 
-  it('does not retry a projection failure containing a permanent issue', async () => {
-    const mixedFailure = Result.fail(
-      {
-        code: ISSUE_CODE.TRANSIENT_DB_READ_FAILED,
-        message: 'database busy',
-        severity: IssueSeverity.Error,
-      },
-      {
-        code: ISSUE_CODE.DB_QUERY_FAILED,
-        message: 'invalid result',
-        severity: IssueSeverity.Error,
-      },
-    );
-    const {controller, commandBus, queryBus} = createController([mixedFailure]);
+  it('rejects when the routing command fails', async () => {
+    const {controller, commandBus} = createController();
+    commandBus.execute.mockResolvedValueOnce(routingFailure);
 
     await expect(
-      controller.createUsecases(
-        '1',
-        {
-          usecaseSystemIds: [],
-          activeSubgraphs: [],
-          includedDataLinkSystemIds: [],
-          includedControlLinkSystemIds: [],
-        },
-        'client-1',
-        session,
-      ),
-    ).rejects.toBeInstanceOf(InternalServerErrorException);
-
-    expect(commandBus.execute).toHaveBeenCalledTimes(1);
-    expect(queryBus.execute).toHaveBeenCalledTimes(1);
+      controller.createUsecases(autoRequest, session),
+    ).rejects.toThrow();
   });
 });

@@ -4,10 +4,15 @@
  */
 
 import {DomainRuleViolationException} from '../../../../shared/exceptions/domain-rule-violation.exception.js';
+import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
+import {failedToIssues} from '../../../shared/result/failed-to-issues.js';
+import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
 import {SOURCE} from '../../../shared/change-vocabulary.js';
 import {RESULT_KIND} from '../../../shared/result/result.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
+import type {UsecaseRepository} from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
+import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
 import {
   createAutoRoutingInput,
   type AutoRoutingInput,
@@ -92,7 +97,8 @@ export class AutoRoutingPreparationService {
 
     const usecaseRepository = uow.getUsecaseRepository();
     const selectedUsecases = selection.selectedUsecaseSystemIds?.length
-      ? await usecaseRepository.findBySystemIds(
+      ? await this.findSelectedUsecases(
+          usecaseRepository,
           fileSystemId,
           selection.selectedUsecaseSystemIds,
         )
@@ -100,7 +106,7 @@ export class AutoRoutingPreparationService {
 
     // `target_table='UseCase'` and `source='MANUAL'`
     const activeManualUsecaseEdits =
-      await usecaseRepository.findWithActiveManualEdits(fileSystemId);
+      await usecaseRepository.findActiveManualUseCaseEdits(fileSystemId);
 
     const graphSnapshot = await prepareRoutingSnapshot(
       {
@@ -122,5 +128,24 @@ export class AutoRoutingPreparationService {
       selection,
       activeManualUsecaseEdits,
     });
+  }
+
+  /** Routing needs every selected use case; a missing one is a 404. */
+  private async findSelectedUsecases(
+    usecaseRepository: UsecaseRepository,
+    fileSystemId: number,
+    usecaseSystemIds: readonly number[],
+  ): Promise<UseCase[]> {
+    const read = await usecaseRepository.findUseCases(
+      fileSystemId,
+      usecaseSystemIds,
+    );
+    if (read.failed.length > 0) {
+      throw new ResourceNotFoundException(
+        'Selected use cases not found',
+        failedToIssues(ISSUE_ENTITY_TYPE.UseCase, read.failed),
+      );
+    }
+    return read.items;
   }
 }

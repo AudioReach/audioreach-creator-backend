@@ -16,20 +16,31 @@ import type {
   EditOptions,
   UsecaseType,
   IdGenerationPort,
+  BatchRead,
+  UseCaseReadModel,
+  UseCaseReadModelQuery,
+  UsecaseChangeDescriptor,
+  UsecaseChangeDetails,
+  UsecaseFilteredTopologyData,
+  UseCase,
 } from '@arc/core';
-import {CHANGE_OPERATION, UseCase, READ_MODE} from '@arc/core';
+import {CHANGE_OPERATION} from '@arc/core';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {UsecaseOverlayFetcher} from '../../fetchers/usecase-overlay-fetcher.js';
-import type {OverlaidUseCase} from '../../fetchers/usecase-overlay-fetcher.js';
 import {UsecaseGkvValuesFetcher} from '../../fetchers/usecase-gkv-values-fetcher.js';
 import {UseCaseCategoryFetcher} from '../../fetchers/usecase-category-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
+import type {DbUseCaseQueryService} from '../../queries/usecase/db-usecase-query-service.js';
+import {createUseCaseQueryService} from '../../queries/usecase/create-usecase-query-service.js';
+import {UseCaseQueryMappers} from '../../queries/usecase/usecase-query-mappers.js';
 import type {UseCaseSubgraphBase} from '../../entity-schema/usecase-data/use-case-subgraph.schema.js';
 import type {UseCaseSubgraphPairBase} from '../../entity-schema/usecase-data/use-case-subgraph-pair.schema.js';
 
 export class TypeOrmUsecaseRepository implements UsecaseRepository {
   private readonly ucFetcher: UsecaseOverlayFetcher;
+  /** Query reads, run on the unit-of-work manager. */
+  private readonly queries: DbUseCaseQueryService;
 
   constructor(
     private readonly writer: PendingChangeWriter,
@@ -44,70 +55,61 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
       new UseCaseCategoryFetcher(manager, editActionsQueryService),
       new UsecaseGkvValuesFetcher(manager, editActionsQueryService),
     );
+    this.queries = createUseCaseQueryService(manager);
   }
 
-  // ── Reads ────────────────────────────────────────────────────────────────────
+  // ── Query reads (UseCaseQueryService) ───────────────────────────────────────
 
-  async findBySystemIds(
+  findUseCaseReadModels(
+    fileSystemId: number,
+    query?: UseCaseReadModelQuery,
+  ): Promise<BatchRead<UseCaseReadModel>> {
+    return this.queries.findUseCaseReadModels(fileSystemId, query);
+  }
+
+  findUseCaseChangeDetails(
+    fileSystemId: number,
+    emittedChanges: readonly UsecaseChangeDescriptor[],
+  ): Promise<UsecaseChangeDetails[]> {
+    return this.queries.findUseCaseChangeDetails(fileSystemId, emittedChanges);
+  }
+
+  findUseCaseFilteredTopologyData(
+    fileSystemId: number,
+  ): Promise<UsecaseFilteredTopologyData> {
+    return this.queries.findUseCaseFilteredTopologyData(fileSystemId);
+  }
+
+  findUseCases(
     fileSystemId: number,
     ucSystemIds: readonly number[],
     options?: ReadOptions,
-  ): Promise<UseCase[]> {
-    if (ucSystemIds.length === 0) return [];
-    const mode = options?.readMode ?? READ_MODE.Overlay;
-    const sessionId =
-      mode === READ_MODE.Committed
-        ? null
-        : this.uow.getWriteContext().session.sessionId;
-    const overlaid = await this.ucFetcher.getUsecases(fileSystemId, sessionId, [
-      ...ucSystemIds,
-    ]);
-    return overlaid.map(uc => this.hydrateOverlaid(uc));
+  ): Promise<BatchRead<UseCase>> {
+    return this.queries.findUseCases(fileSystemId, ucSystemIds, options);
   }
 
-  async findBySubgraph(
+  findUseCasesBySubgraphs(
     fileSystemId: number,
-    subgraphSystemId: number,
+    subgraphSystemIds: readonly number[],
     options?: ReadOptions,
   ): Promise<UseCase[]> {
-    const mode = options?.readMode ?? READ_MODE.Overlay;
-    const sessionId =
-      mode === READ_MODE.Committed
-        ? null
-        : this.uow.getWriteContext().session.sessionId;
-    const memberships =
-      await this.ucFetcher.getSubgraphMembershipRowsForSubgraph(
-        fileSystemId,
-        subgraphSystemId,
-        sessionId,
-      );
-    const usecaseSystemIds = [
-      ...new Set(memberships.map(row => row.usecaseSystemId)),
-    ];
-    if (usecaseSystemIds.length === 0) return [];
-
-    const overlaid = await this.ucFetcher.getUsecases(
+    return this.queries.findUseCasesBySubgraphs(
       fileSystemId,
-      sessionId,
-      usecaseSystemIds,
+      subgraphSystemIds,
+      options,
     );
-    return overlaid.map(uc => this.hydrateOverlaid(uc));
   }
 
-  async findAll(
+  findAllUseCases(
     fileSystemId: number,
     options?: ReadOptions,
   ): Promise<UseCase[]> {
-    const mode = options?.readMode ?? READ_MODE.Overlay;
-    const sessionId =
-      mode === READ_MODE.Committed
-        ? null
-        : this.uow.getWriteContext().session.sessionId;
-    const overlaid = await this.ucFetcher.getUsecases(fileSystemId, sessionId);
-    return overlaid.map(uc => this.hydrateOverlaid(uc));
+    return this.queries.findAllUseCases(fileSystemId, options);
   }
 
-  async findWithActiveManualEdits(
+  // ── Command-only reads ──────────────────────────────────────────────────────
+
+  async findActiveManualUseCaseEdits(
     fileSystemId: number,
   ): Promise<ActiveManualUsecaseEdit[]> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
@@ -121,7 +123,7 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     const usecaseById = new Map(
       usecases.map(usecase => [
         usecase.systemId,
-        this.hydrateOverlaid(usecase),
+        UseCaseQueryMappers.toUseCase(usecase),
       ]),
     );
 
@@ -145,9 +147,9 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
   ): Promise<{affectedUseCaseSystemIds: number[]}> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
     const [memberships, pairs] = await Promise.all([
-      this.ucFetcher.getSubgraphMembershipRowsForSubgraph(
+      this.ucFetcher.getSubgraphMembershipRowsForSubgraphs(
         fileSystemId,
-        subgraphSystemId,
+        [subgraphSystemId],
         sessionId,
       ),
       this.ucFetcher.getSubgraphPairRowsForSubgraph(
@@ -584,22 +586,6 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
         row.sourceSubgraphSystemId === sourceSubgraphSystemId &&
         row.destSubgraphSystemId === destSubgraphSystemId,
     );
-  }
-
-  private hydrateOverlaid(uc: OverlaidUseCase): UseCase {
-    return new UseCase({
-      systemId: uc.systemId,
-      fileSystemId: uc.fileSystemId,
-      alias: uc.alias ?? undefined,
-      aliasId: uc.aliasId ?? undefined,
-      type: uc.type ?? undefined,
-      categories: uc.categoryNames,
-      subgraphSystemIds: uc.subgraphSystemIds,
-      subgraphPairs: uc.subgraphPairs,
-      keyVector: {
-        valueSystemIds: uc.gkvEntries.map(g => g.valueDefSystemId),
-      },
-    });
   }
 
   private parseReferencedComponents(

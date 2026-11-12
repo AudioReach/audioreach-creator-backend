@@ -76,7 +76,11 @@ function createUow(events: string[]) {
       findChangedInSession: jest.fn(async () => ({added: [], deleted: []})),
     }),
     getUsecaseRepository: () => ({
-      findWithActiveManualEdits: jest.fn(async () => []),
+      findActiveManualUseCaseEdits: jest.fn(async () => []),
+      findUseCaseChangeDetails: jest.fn(async () => {
+        events.push('change-details:read');
+        return [];
+      }),
     }),
   };
 }
@@ -154,6 +158,7 @@ describe('CreateManualUsecasesHandler', () => {
         'data-link:resolve',
         'snapshot:build',
         'engine:run',
+        'change-details:read',
         'transaction:commit',
       ]),
     );

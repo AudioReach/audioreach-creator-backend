@@ -5,7 +5,7 @@
 
 import {ApiProperty} from '@nestjs/swagger';
 import {createZodDto} from 'nestjs-zod';
-import type {RoutingOutcome, UsecaseChangeDetails} from '@arc/core';
+import type {RoutingCommandOutcome} from '@arc/core';
 import {
   mapUsecaseChangeDetails,
   UsecaseChangeDetailsDtoSchema,
@@ -31,11 +31,10 @@ export class CreateUsecasesResponseDto {
 export class CreateManualUsecasesResponseDto extends CreateUsecasesResponseDto {}
 
 export function mapCreateUsecasesResponse(
-  outcome: RoutingOutcome,
-  changes: readonly UsecaseChangeDetails[],
+  outcome: RoutingCommandOutcome,
 ): CreateUsecasesResponseDto {
   return {
-    changes: changes.map(change => mapUsecaseChangeDetails(change)),
+    changes: outcome.changes.map(change => mapUsecaseChangeDetails(change)),
     issues: toApiIssueItems(outcome.issues) ?? [],
     groupId: outcome.groupId,
   };

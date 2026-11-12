@@ -3,17 +3,18 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {DataSource} from 'typeorm';
+import type {EntityManager} from 'typeorm';
 import type {
+  BatchRead,
+  FailedEntity,
+  FilterExpression,
   UseCaseQueryService,
+  ReadOptions,
   UseCaseReadModel,
+  UseCaseReadModelQuery,
   UsecaseChangeDetails,
   UsecaseChangeSnapshot,
-  ComponentsReadModel,
-  FilterExpression,
   KeyValueDefQueryService,
-  ISessionRepository,
-  SpfModuleQueryService,
   KeyValuePairReadModel,
   UsecaseChangeDescriptor,
   UsecaseFilteredTopologyData,
@@ -21,11 +22,16 @@ import type {
 } from '@arc/core';
 import {
   CHANGE_OPERATION,
-  Result,
-  IssueFactory,
+  ERROR_CODES,
+  FAILED_ENTITY_REASON,
+  ISSUE_ENTITY_TYPE,
+  READ_MODE,
   RESULT_KIND,
   USECASE_TYPE,
+  UseCase,
 } from '@arc/core';
+import {withNotFound} from '../../utils/with-not-found.js';
+import {resolveActiveSessionId} from '../shared/session-resolver.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {USECASE_PARAM_FILTER} from './usecase-param-filter.js';
 import {UseCaseQueryMappers} from './usecase-query-mappers.js';
@@ -40,24 +46,16 @@ import {SpfModuleOverlayFetcher} from '../../fetchers/spf-module-overlay-fetcher
 import {NodeOverlayFetcher} from '../../fetchers/node-overlay-fetcher.js';
 import {ContainerOverlayFetcher} from '../../fetchers/container-overlay-fetcher.js';
 import {ContainerPropertyDataFetcher} from '../../fetchers/container-property-data-fetcher.js';
-import {resolveActiveSessionId} from '../shared/session-resolver.js';
-import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
+import {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 
 /**
  * Database implementation of UseCaseQueryService.
  *
- * getAllUseCases — overlay via UsecaseOverlayFetcher (FR-3); GKV key-value
- *   pairs resolved via KeyValueDefQueryService (FR-4).
+ * Reads through the given EntityManager; build it with
+ * createUseCaseQueryService.
  *
- * getAllComponentsForUseCases (deprecated) — previously violated FR-3/FR-4 by
- *   loading modules, data links, and control links via direct queries with
- *   inline overlay. Now:
- *   - Modules: SpfModuleQueryService.findByUsecaseIds() (FR-4 — complex read
- *     model, query service is the right boundary)
- *   - Data/control links: LinkOverlayFetcher directly (FR-4 — raw fields are
- *     available from the fetcher; mapped via UseCaseQueryMappers)
- *   fileSystemId is resolved from the use_cases table since the deprecated
- *   signature omits it.
+ * Overlay via UsecaseOverlayFetcher (FR-3); GKV key-value pairs resolved via
+ * KeyValueDefQueryService (FR-4).
  */
 export class DbUseCaseQueryService implements UseCaseQueryService {
   private readonly usecaseFetcher: UsecaseOverlayFetcher;
@@ -69,10 +67,8 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
   private readonly containerFetcher: ContainerOverlayFetcher;
 
   constructor(
-    private readonly dataSource: DataSource,
+    private readonly manager: EntityManager,
     private readonly keyValueDefQuerySvc: KeyValueDefQueryService,
-    private readonly spfModuleQuerySvc: SpfModuleQueryService,
-    private readonly sessionRepo: ISessionRepository,
     editActionsQuerySvc: EditActionsQueryService,
     usecaseFetcher: UsecaseOverlayFetcher,
     linkFetcher: LinkOverlayFetcher,
@@ -84,428 +80,358 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
     this.subsystemFetcher = subsystemFetcher;
     this.subgraphFetcher = subgraphFetcher;
     this.spfModuleFetcher = new SpfModuleOverlayFetcher(
-      dataSource.manager,
+      manager,
       editActionsQuerySvc,
     );
-    this.nodeFetcher = new NodeOverlayFetcher(
-      dataSource.manager,
-      editActionsQuerySvc,
-    );
+    this.nodeFetcher = new NodeOverlayFetcher(manager, editActionsQuerySvc);
     this.containerFetcher = new ContainerOverlayFetcher(
-      dataSource.manager,
+      manager,
       editActionsQuerySvc,
-      new ContainerPropertyDataFetcher(dataSource.manager, editActionsQuerySvc),
+      new ContainerPropertyDataFetcher(manager, editActionsQuerySvc),
     );
   }
 
-  // ── getAllUseCases ────────────────────────────────────────────────────────────
-
-  async getAllUseCases(
+  async findUseCaseReadModels(
     fileSystemId: number,
-    filter?: FilterExpression,
-  ): Promise<Result<UseCaseReadModel[]>> {
-    try {
-      const session =
-        await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
-      const sessionId = session?.sessionId ?? null;
+    query?: UseCaseReadModelQuery,
+  ): Promise<BatchRead<UseCaseReadModel>> {
+    const ids = query?.ids === undefined ? undefined : [...new Set(query.ids)];
+    if (ids?.length === 0) return {items: [], failed: []};
+    const sessionId = await resolveActiveSessionId(this.manager, fileSystemId);
 
-      // If a filter is provided, run a lightweight SQL query to get matching IDs.
-      // The filter uses EXISTS subqueries over SpfModule/Subgraph — cross-aggregate
-      // concerns that stay in the query service.
-      let restrictToIds: number[] | undefined;
-      if (filter) {
-        const qb = this.dataSource
-          .getRepository(ENTITY_NAMES.UseCase)
-          .createQueryBuilder('uc')
-          .select('uc.systemId')
-          .where('uc.fileSystemId = :fileSystemId', {fileSystemId});
-        USECASE_PARAM_FILTER.apply(qb, filter, 'uc');
-        const filtered = (await qb.getMany()) as Array<{systemId: number}>;
-        restrictToIds = filtered.map(r => r.systemId);
-        if (restrictToIds.length === 0) return Result.ok([]);
-      }
-
-      // Fetcher handles UseCase scalars + GKV entry overlay + category assignments (FR-3).
-      const overlaidUsecases = await this.usecaseFetcher.getUsecases(
+    let usecases: OverlaidUseCase[];
+    let notFound: FailedEntity[] = [];
+    if (ids) {
+      // Load the requested IDs first so missing ones can be reported, then
+      // drop the ones that exist but do not match the filter.
+      usecases = await this.usecaseFetcher.getUsecasesWithoutPairs(
         fileSystemId,
         sessionId,
-        restrictToIds,
+        ids,
       );
-
-      const gkvDefsByValueId = await this.getGkvDefsByValueId(
-        overlaidUsecases,
-        fileSystemId,
-      );
-
-      const readModels: UseCaseReadModel[] = overlaidUsecases.map(uc => {
-        const gkv = uc.gkvEntries
-          .map(e => gkvDefsByValueId.get(e.valueDefSystemId))
-          .filter((p): p is NonNullable<typeof p> => p != null)
-          .map(pair => ({
-            key: {
-              systemId: pair.key.systemId,
-              naturalId: pair.key.naturalId,
-              name: pair.key.name,
-            },
-            value: {
-              systemId: pair.value.systemId,
-              naturalId: pair.value.naturalId,
-              name: pair.value.name,
-            },
-          }));
-
-        return {
-          systemId: uc.systemId,
-          gkv,
-          alias: uc.alias ?? undefined,
-          aliasId: uc.aliasId ?? undefined,
-          categories: uc.categoryNames,
-          type: uc.type,
-        };
-      });
-
-      return Result.ok(readModels);
-    } catch (error) {
-      return Result.fail(
-        IssueFactory.dbError(
-          error instanceof Error ? error.message : 'Failed to query usecases',
-        ),
-      );
-    }
-  }
-
-  /**
-   * Loads usecases with their resolved GKV key-value pairs.
-   *
-   * Topology data (subgraph mappings, subsystems, modules) is not required here
-   * — the caller (SubsystemFilteredGkvService) assembles UsecaseFilteredGkvData
-   * in-memory after this call. The fetcher derives subgraph IDs internally when
-   * not supplied.
-   */
-  async getUsecasesWithGkv(
-    fileId: number,
-    usecaseSystemIds: readonly number[],
-  ): Promise<Result<UseCaseReadModel[]>> {
-    try {
-      if (usecaseSystemIds.length === 0) return Result.ok([]);
-      const session =
-        await this.sessionRepo.findActiveSessionByFileSystemId(fileId);
-      const sessionId = session?.sessionId ?? null;
-      const effectiveUsecases =
-        await this.usecaseFetcher.getUsecasesForFilteredGkv(fileId, sessionId, [
-          ...usecaseSystemIds,
-        ]);
-      const gkvDefsByValueId = await this.getGkvDefsByValueId(
-        effectiveUsecases,
-        fileId,
-      );
-      return Result.ok(
-        effectiveUsecases.map(uc => ({
-          systemId: uc.systemId,
-          gkv: uc.gkvEntries
-            .map(entry => gkvDefsByValueId.get(entry.valueDefSystemId))
-            .filter((p): p is NonNullable<typeof p> => p != null),
-          alias: uc.alias ?? undefined,
-          aliasId: uc.aliasId ?? undefined,
-          categories: uc.categoryNames,
-          type: uc.type,
-        })),
-      );
-    } catch (error) {
-      return Result.fail(
-        IssueFactory.dbError(
-          error instanceof Error
-            ? error.message
-            : 'Failed to load usecase GKV data',
-        ),
-      );
-    }
-  }
-
-  async getUsecaseFilteredTopologyData(
-    fileId: number,
-  ): Promise<Result<UsecaseFilteredTopologyData>> {
-    try {
-      const session =
-        await this.sessionRepo.findActiveSessionByFileSystemId(fileId);
-      const sessionId = session?.sessionId ?? null;
-      const [subgraphSystemIdsByUsecase, subsystems] = await Promise.all([
-        this.usecaseFetcher.getUsecaseSubgraphMap(fileId, sessionId),
-        this.subsystemFetcher.fetchAll(fileId, sessionId),
-      ]);
-      const usecaseSystemIds = [...subgraphSystemIdsByUsecase.keys()];
-      const subgraphIds = [
-        ...new Set([...subgraphSystemIdsByUsecase.values()].flat()),
-      ];
-      const [subgraphs, modules] =
-        subgraphIds.length === 0
-          ? [[], []]
-          : await Promise.all([
-              this.subgraphFetcher.fetchMany(fileId, sessionId, {
-                systemId: subgraphIds,
-              }),
-              this.spfModuleFetcher.fetchMany(fileId, sessionId, {
-                subgraphSystemId: subgraphIds,
-              }),
-            ]);
-      const nodeRows = await this.nodeFetcher.fetchMany(
-        modules.map(module => module.systemId),
-        fileId,
-        sessionId,
-      );
-      const containerIds = [
-        ...new Set(modules.map(module => module.containerSystemId)),
-      ];
-      const containers =
-        containerIds.length === 0
-          ? []
-          : await this.containerFetcher.fetchMany(fileId, sessionId, {
-              systemId: containerIds,
-            });
-      const parentByNode = new Map(
-        nodeRows.map(node => [node.systemId, node.parentSystemId]),
-      );
-      const naturalByContainer = new Map(
-        containers.map(container => [container.systemId, container.naturalId]),
-      );
-      const filteredKeySystemIds = [
-        ...new Set(
-          subsystems.flatMap(subsystem => subsystem.filteredKeySystemIds),
-        ),
-      ];
-      let keyDefinitionsBySystemId = new Map<
-        number,
-        {systemId: number; naturalId: number; name: string}
-      >();
-      if (filteredKeySystemIds.length > 0) {
-        const keyDefsResult =
-          await this.keyValueDefQuerySvc.getKeyDefinitionsBySystemIds(
-            filteredKeySystemIds,
-            fileId,
-          );
-        if (keyDefsResult.kind === RESULT_KIND.Fail) {
-          return Result.fail(...keyDefsResult.issues);
-        }
-        keyDefinitionsBySystemId = new Map(
-          keyDefsResult.data.map(key => [key.systemId, key]),
+      notFound = withNotFound(ids, usecases, uc => uc.systemId).failed;
+      if (query?.filter && usecases.length > 0) {
+        const matching = await this.findIdsMatchingFilter(
+          fileSystemId,
+          query.filter,
+          usecases.map(uc => uc.systemId),
         );
+        usecases = usecases.filter(uc => matching.has(uc.systemId));
       }
-      return Result.ok({
-        usecaseSystemIds,
-        subgraphSystemIdsByUsecase,
-        subgraphNaturalIdsBySystemId: new Map(
-          subgraphs.map(subgraph => [subgraph.systemId, subgraph.naturalId]),
-        ),
-        subsystems: subsystems.map(
-          (subsystem): SubsystemFilterEntry => ({
-            systemId: subsystem.systemId,
-            naturalId: subsystem.subsystemId,
-            name: subsystem.name,
-            parentSystemId: subsystem.parentSystemId,
-            filteredKeys: subsystem.filteredKeySystemIds.flatMap(systemId => {
-              const key = keyDefinitionsBySystemId.get(systemId);
-              return key === undefined ? [] : [key];
-            }),
-          }),
-        ),
-        modules: modules.map(module => {
-          const rawParent = parentByNode.get(module.systemId);
-          return {
-            systemId: module.systemId,
-            parentSystemId: rawParent == null ? undefined : rawParent,
-            moduleNaturalId: module.naturalId,
-            subgraphSystemId: module.subgraphSystemId,
-            // Container.naturalId is always present; fallback guards against a
-            // missing overlay row during a partial import.
-            containerNaturalId:
-              naturalByContainer.get(module.containerSystemId) ??
-              module.containerSystemId,
-          };
-        }),
-      });
-    } catch (error) {
-      return Result.fail(
-        IssueFactory.dbError(
-          error instanceof Error
-            ? error.message
-            : 'Failed to load filtered usecase topology',
-        ),
+    } else if (query?.filter) {
+      const matching = await this.findIdsMatchingFilter(
+        fileSystemId,
+        query.filter,
+      );
+      usecases =
+        matching.size === 0
+          ? []
+          : await this.usecaseFetcher.getUsecasesWithoutPairs(
+              fileSystemId,
+              sessionId,
+              [...matching],
+            );
+    } else {
+      usecases = await this.usecaseFetcher.getUsecasesWithoutPairs(
+        fileSystemId,
+        sessionId,
       );
     }
-  }
 
-  async getChangeDetails(
-    fileId: number,
-    emittedChanges: readonly UsecaseChangeDescriptor[],
-  ): Promise<Result<UsecaseChangeDetails[]>> {
-    try {
-      if (emittedChanges.length === 0) return Result.ok([]);
-
-      const usecaseIds = emittedChanges.map(change => change.systemId);
-      if (new Set(usecaseIds).size !== usecaseIds.length) {
-        throw new Error('Duplicate emitted UseCase system IDs');
-      }
-
-      const session =
-        await this.sessionRepo.findActiveSessionByFileSystemId(fileId);
-      const sessionId = session?.sessionId ?? null;
-
-      const [
-        beforeUsecases,
-        afterUsecases,
-        beforeDataLinks,
-        afterDataLinks,
-        beforeControlLinks,
-        afterControlLinks,
-      ] = await Promise.all([
-        this.usecaseFetcher.getUsecases(fileId, null, usecaseIds),
-        this.usecaseFetcher.getUsecases(fileId, sessionId, usecaseIds),
-        this.linkFetcher.loadDataLinkRows(fileId, null),
-        this.linkFetcher.loadDataLinkRows(fileId, sessionId),
-        this.linkFetcher.loadControlLinkRows(fileId, null),
-        this.linkFetcher.loadControlLinkRows(fileId, sessionId),
-      ]);
-      const gkvDefsByValueId = await this.getGkvDefsByValueId(
-        [...beforeUsecases, ...afterUsecases],
-        fileId,
-      );
-      const beforeSnapshots = this.getChangeSnapshotMap(
-        beforeUsecases,
-        beforeDataLinks,
-        beforeControlLinks,
-        gkvDefsByValueId,
-      );
-      const afterSnapshots = this.getChangeSnapshotMap(
-        afterUsecases,
-        afterDataLinks,
-        afterControlLinks,
-        gkvDefsByValueId,
-      );
-
-      const details = emittedChanges.map(change => {
-        const before = beforeSnapshots.get(change.systemId) ?? null;
-        const after = afterSnapshots.get(change.systemId) ?? null;
-        this.assertSnapshotBoundary(change, before, after);
-        return {...change, before, after};
-      });
-      return Result.ok(details);
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : 'Failed to query usecase change details';
-      const issue = isTransientReadError(error)
-        ? IssueFactory.transientDbReadError(message)
-        : IssueFactory.dbError(message);
-      return Result.fail(issue);
-    }
-  }
-
-  // ── getAllComponentsForUseCases (deprecated) ──────────────────────────────────
-
-  /**
-   * @deprecated Use the individual query services with a fileSystemId scope instead.
-   *
-   * Previously violated FR-3/FR-4 by loading modules, data links, and control
-   * links via direct queries with inline OverlayMergeImpl. Now:
-   *   - Modules: delegated to SpfModuleQueryService.findByUsecaseIds() (FR-4 —
-   *     the module read model is assembled from many fetchers; the query service
-   *     is the correct boundary)
-   *   - Links: LinkOverlayFetcher.loadBaseDataLinkRows/loadBaseControlLinkRows
-   *     called directly (FR-4 — fetcher returns the raw fields needed; mapped via
-   *     UseCaseQueryMappers)
-   *
-   * fileSystemId is resolved from the use_cases table since the deprecated
-   * signature omits it.
-   */
-  async getAllComponentsForUseCases(
-    useCaseSystemIds: number[],
-  ): Promise<ComponentsReadModel> {
-    if (useCaseSystemIds.length === 0) {
-      return {modules: [], dataLinks: [], controlLinks: []};
-    }
-
-    // Resolve fileSystemId — required by the module query service and link fetcher.
-    // The deprecated signature omits fileSystemId, so we look it up once.
-    const fileSystemId =
-      await this.resolveFileSystemIdForUsecases(useCaseSystemIds);
-    if (fileSystemId === null) {
-      return {modules: [], dataLinks: [], controlLinks: []};
-    }
-
-    const sessionId = await resolveActiveSessionId(
-      this.dataSource,
+    const gkvDefsByValueId = await this.getGkvDefsByValueId(
+      usecases,
       fileSystemId,
     );
+    const items: UseCaseReadModel[] = [];
+    const failed: FailedEntity[] = [...notFound];
+    for (const uc of usecases) {
+      const missingRef = this.findUnresolvedGkvValue(uc, gkvDefsByValueId);
+      if (missingRef === undefined) {
+        items.push({
+          systemId: uc.systemId,
+          gkv: this.toGkvReadModel(uc, gkvDefsByValueId),
+          alias: uc.alias ?? undefined,
+          aliasId: uc.aliasId ?? undefined,
+          categories: uc.categoryNames,
+          type: uc.type,
+        });
+      } else {
+        failed.push({
+          systemId: uc.systemId,
+          reason: FAILED_ENTITY_REASON.UnresolvedReference,
+          // No identity: a UseCase's identity includes the missing GKV pair.
+          missingRef: {
+            entityType: ISSUE_ENTITY_TYPE.ValueDefinition,
+            systemId: missingRef,
+          },
+        });
+      }
+    }
+    return {items, failed};
+  }
 
-    // Resolve subgraph IDs once — used by both link types (FR-3: via usecaseFetcher).
-    const usecases = await this.usecaseFetcher.getUsecases(
+  async findUseCaseFilteredTopologyData(
+    fileSystemId: number,
+  ): Promise<UsecaseFilteredTopologyData> {
+    const sessionId = await resolveActiveSessionId(this.manager, fileSystemId);
+    const [subgraphSystemIdsByUsecase, subsystems] = await Promise.all([
+      this.usecaseFetcher.getUsecaseSubgraphMap(fileSystemId, sessionId),
+      this.subsystemFetcher.fetchAll(fileSystemId, sessionId),
+    ]);
+    const usecaseSystemIds = [...subgraphSystemIdsByUsecase.keys()];
+    const subgraphIds = [
+      ...new Set([...subgraphSystemIdsByUsecase.values()].flat()),
+    ];
+    const [subgraphs, modules] =
+      subgraphIds.length === 0
+        ? [[], []]
+        : await Promise.all([
+            this.subgraphFetcher.fetchMany(fileSystemId, sessionId, {
+              systemId: subgraphIds,
+            }),
+            this.spfModuleFetcher.fetchMany(fileSystemId, sessionId, {
+              subgraphSystemId: subgraphIds,
+            }),
+          ]);
+    const nodeRows = await this.nodeFetcher.fetchMany(
+      modules.map(module => module.systemId),
       fileSystemId,
       sessionId,
-      useCaseSystemIds,
     );
-    const subgraphIds = [
-      ...new Set(usecases.flatMap(uc => uc.subgraphSystemIds)),
+    const containerIds = [
+      ...new Set(modules.map(module => module.containerSystemId)),
     ];
-    const linkFilter =
-      subgraphIds.length > 0
-        ? {
-            $or: [
-              {sourceSubgraphSystemId: subgraphIds},
-              {destSubgraphSystemId: subgraphIds},
-            ],
-          }
-        : undefined;
-
-    // Modules: query service (FR-4). Links: fetcher with $or subgraph filter (FR-4).
-    const [modulesResult, dataLinks, controlLinks] = await Promise.all([
-      this.spfModuleQuerySvc.findByUsecaseIds(useCaseSystemIds, fileSystemId),
-      linkFilter
-        ? this.linkFetcher
-            .loadDataLinkRows(fileSystemId, sessionId, linkFilter)
-            .then(links =>
-              links.map(dl =>
-                UseCaseQueryMappers.mapToComponentDataLinkReadModel(dl),
-              ),
-            )
-        : Promise.resolve([]),
-      linkFilter
-        ? this.linkFetcher
-            .loadControlLinkRows(fileSystemId, sessionId, linkFilter)
-            .then(links =>
-              links.map(cl =>
-                UseCaseQueryMappers.mapToComponentControlLinkReadModel(cl),
-              ),
-            )
-        : Promise.resolve([]),
-    ]);
-
+    const containers =
+      containerIds.length === 0
+        ? []
+        : await this.containerFetcher.fetchMany(fileSystemId, sessionId, {
+            systemId: containerIds,
+          });
+    const parentByNode = new Map(
+      nodeRows.map(node => [node.systemId, node.parentSystemId]),
+    );
+    const naturalByContainer = new Map(
+      containers.map(container => [container.systemId, container.naturalId]),
+    );
+    const filteredKeySystemIds = [
+      ...new Set(
+        subsystems.flatMap(subsystem => subsystem.filteredKeySystemIds),
+      ),
+    ];
+    let keyDefinitionsBySystemId = new Map<
+      number,
+      {systemId: number; naturalId: number; name: string}
+    >();
+    if (filteredKeySystemIds.length > 0) {
+      const keyDefsResult =
+        await this.keyValueDefQuerySvc.getKeyDefinitionsBySystemIds(
+          filteredKeySystemIds,
+          fileSystemId,
+        );
+      if (keyDefsResult.kind === RESULT_KIND.Fail) {
+        throw new Error(joinIssueMessages(keyDefsResult.issues));
+      }
+      keyDefinitionsBySystemId = new Map(
+        keyDefsResult.data.map(key => [key.systemId, key]),
+      );
+    }
     return {
-      modules:
-        modulesResult.kind !== RESULT_KIND.Fail ? modulesResult.data : [],
-      dataLinks,
-      controlLinks,
+      usecaseSystemIds,
+      subgraphSystemIdsByUsecase,
+      subgraphNaturalIdsBySystemId: new Map(
+        subgraphs.map(subgraph => [subgraph.systemId, subgraph.naturalId]),
+      ),
+      subsystems: subsystems.map(
+        (subsystem): SubsystemFilterEntry => ({
+          systemId: subsystem.systemId,
+          naturalId: subsystem.subsystemId,
+          name: subsystem.name,
+          parentSystemId: subsystem.parentSystemId,
+          filteredKeys: subsystem.filteredKeySystemIds.flatMap(systemId => {
+            const key = keyDefinitionsBySystemId.get(systemId);
+            return key === undefined ? [] : [key];
+          }),
+        }),
+      ),
+      modules: modules.map(module => {
+        const rawParent = parentByNode.get(module.systemId);
+        return {
+          systemId: module.systemId,
+          parentSystemId: rawParent == null ? undefined : rawParent,
+          moduleNaturalId: module.naturalId,
+          subgraphSystemId: module.subgraphSystemId,
+          // Container.naturalId is always present; fallback guards against a
+          // missing overlay row during a partial import.
+          containerNaturalId:
+            naturalByContainer.get(module.containerSystemId) ??
+            module.containerSystemId,
+        };
+      }),
     };
+  }
+
+  async findUseCaseChangeDetails(
+    fileSystemId: number,
+    emittedChanges: readonly UsecaseChangeDescriptor[],
+  ): Promise<UsecaseChangeDetails[]> {
+    if (emittedChanges.length === 0) return [];
+
+    const usecaseIds = emittedChanges.map(change => change.systemId);
+    if (new Set(usecaseIds).size !== usecaseIds.length) {
+      throw new Error('Duplicate emitted UseCase system IDs');
+    }
+
+    const sessionId = await resolveActiveSessionId(this.manager, fileSystemId);
+
+    const [
+      beforeUsecases,
+      afterUsecases,
+      beforeDataLinks,
+      afterDataLinks,
+      beforeControlLinks,
+      afterControlLinks,
+    ] = await Promise.all([
+      this.usecaseFetcher.getUsecases(fileSystemId, null, usecaseIds),
+      this.usecaseFetcher.getUsecases(fileSystemId, sessionId, usecaseIds),
+      this.linkFetcher.loadDataLinkRows(fileSystemId, null),
+      this.linkFetcher.loadDataLinkRows(fileSystemId, sessionId),
+      this.linkFetcher.loadControlLinkRows(fileSystemId, null),
+      this.linkFetcher.loadControlLinkRows(fileSystemId, sessionId),
+    ]);
+    const gkvDefsByValueId = await this.getGkvDefsByValueId(
+      [...beforeUsecases, ...afterUsecases],
+      fileSystemId,
+    );
+    for (const usecase of [...beforeUsecases, ...afterUsecases]) {
+      const missingRef = this.findUnresolvedGkvValue(usecase, gkvDefsByValueId);
+      if (missingRef !== undefined) {
+        throw new Error(
+          `UseCase ${usecase.systemId} references missing GKV value definition ${missingRef}`,
+        );
+      }
+    }
+    const beforeSnapshots = this.getChangeSnapshotMap(
+      beforeUsecases,
+      beforeDataLinks,
+      beforeControlLinks,
+      gkvDefsByValueId,
+    );
+    const afterSnapshots = this.getChangeSnapshotMap(
+      afterUsecases,
+      afterDataLinks,
+      afterControlLinks,
+      gkvDefsByValueId,
+    );
+
+    const details = emittedChanges.map(change => {
+      const before = beforeSnapshots.get(change.systemId) ?? null;
+      const after = afterSnapshots.get(change.systemId) ?? null;
+      this.assertSnapshotBoundary(change, before, after);
+      return {...change, before, after};
+    });
+    return details;
   }
 
   // ── Private helpers ───────────────────────────────────────────────────────────
 
-  /**
-   * Looks up fileSystemId from any of the given usecase system IDs.
-   * Required by getAllComponentsForUseCases whose deprecated signature omits it.
-   * Returns null when no matching usecase is found.
-   */
-  private async resolveFileSystemIdForUsecases(
-    usecaseSystemIds: number[],
+  async findUseCases(
+    fileSystemId: number,
+    ucSystemIds: readonly number[],
+    options?: ReadOptions,
+  ): Promise<BatchRead<UseCase>> {
+    if (ucSystemIds.length === 0) return {items: [], failed: []};
+    const sessionId = await this.resolveSessionId(fileSystemId, options);
+    const overlaid = await this.usecaseFetcher.getUsecases(
+      fileSystemId,
+      sessionId,
+      [...new Set(ucSystemIds)],
+    );
+    return withNotFound(
+      ucSystemIds,
+      overlaid.map(uc => UseCaseQueryMappers.toUseCase(uc)),
+      uc => uc.systemId,
+    );
+  }
+
+  async findUseCasesBySubgraphs(
+    fileSystemId: number,
+    subgraphSystemIds: readonly number[],
+    options?: ReadOptions,
+  ): Promise<UseCase[]> {
+    if (subgraphSystemIds.length === 0) return [];
+    const sessionId = await this.resolveSessionId(fileSystemId, options);
+    const memberships =
+      await this.usecaseFetcher.getSubgraphMembershipRowsForSubgraphs(
+        fileSystemId,
+        subgraphSystemIds,
+        sessionId,
+      );
+    const usecaseSystemIds = [
+      ...new Set(memberships.map(row => row.usecaseSystemId)),
+    ];
+    if (usecaseSystemIds.length === 0) return [];
+
+    const overlaid = await this.usecaseFetcher.getUsecases(
+      fileSystemId,
+      sessionId,
+      usecaseSystemIds,
+    );
+    return overlaid.map(uc => UseCaseQueryMappers.toUseCase(uc));
+  }
+
+  async findAllUseCases(
+    fileSystemId: number,
+    options?: ReadOptions,
+  ): Promise<UseCase[]> {
+    const sessionId = await this.resolveSessionId(fileSystemId, options);
+    const overlaid = await this.usecaseFetcher.getUsecases(
+      fileSystemId,
+      sessionId,
+    );
+    return overlaid.map(uc => UseCaseQueryMappers.toUseCase(uc));
+  }
+
+  /** Committed mode reads base tables only; overlay mode uses the active session. */
+  private resolveSessionId(
+    fileSystemId: number,
+    options?: ReadOptions,
   ): Promise<number | null> {
-    const row = (await this.dataSource
+    return (options?.readMode ?? READ_MODE.Overlay) === READ_MODE.Committed
+      ? Promise.resolve(null)
+      : resolveActiveSessionId(this.manager, fileSystemId);
+  }
+
+  /**
+   * Returns the IDs of base-table use cases that match `filter`. The filter
+   * uses EXISTS subqueries over SpfModule/Subgraph, which are
+   * cross-aggregate concerns that stay in the query service.
+   */
+  private async findIdsMatchingFilter(
+    fileSystemId: number,
+    filter: FilterExpression,
+    restrictToIds?: readonly number[],
+  ): Promise<Set<number>> {
+    const qb = this.manager
       .getRepository(ENTITY_NAMES.UseCase)
       .createQueryBuilder('uc')
-      .select('uc.fileSystemId')
-      .where('uc.systemId IN (:...ids)', {ids: usecaseSystemIds})
-      .limit(1)
-      .getOne()) as {fileSystemId: number} | null;
-    return row?.fileSystemId ?? null;
+      .select('uc.systemId')
+      .where('uc.fileSystemId = :fileSystemId', {fileSystemId});
+    if (restrictToIds) {
+      qb.andWhere('uc.systemId IN (:...ids)', {ids: [...restrictToIds]});
+    }
+    USECASE_PARAM_FILTER.apply(qb, filter, 'uc');
+    const rows = (await qb.getMany()) as Array<{systemId: number}>;
+    return new Set(rows.map(row => row.systemId));
+  }
+
+  /** The first GKV value definition of `usecase` that did not resolve. */
+  private findUnresolvedGkvValue(
+    usecase: OverlaidUseCase,
+    gkvDefsByValueId: ReadonlyMap<number, KeyValuePairReadModel>,
+  ): number | undefined {
+    return usecase.gkvEntries.find(
+      entry => !gkvDefsByValueId.has(entry.valueDefSystemId),
+    )?.valueDefSystemId;
   }
 
   private getChangeSnapshotMap(
@@ -591,7 +517,7 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
 
   private async getGkvDefsByValueId(
     usecases: readonly OverlaidUseCase[],
-    fileId: number,
+    fileSystemId: number,
   ): Promise<Map<number, KeyValuePairReadModel>> {
     const valueDefSystemIds = [
       ...new Set(
@@ -603,13 +529,19 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
     const pairsResult =
       await this.keyValueDefQuerySvc.getKeyValueSummaryForGivenValues(
         valueDefSystemIds,
-        fileId,
+        fileSystemId,
       );
     if (pairsResult.kind === RESULT_KIND.Fail) {
-      throw new Error(
-        pairsResult.issues.map(issue => issue.message).join('; ') ||
-          'Failed to resolve UseCase GKV values',
-      );
+      // Every requested value missing is reported as a failure; callers
+      // treat the use cases as unresolved instead.
+      if (
+        pairsResult.issues.every(
+          issue => issue.code === ERROR_CODES.ENTITY_NOT_FOUND,
+        )
+      ) {
+        return new Map();
+      }
+      throw new Error(joinIssueMessages(pairsResult.issues));
     }
 
     return new Map(pairsResult.data.map(pair => [pair.value.systemId, pair]));
@@ -637,18 +569,9 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
   }
 }
 
-function isTransientReadError(error: unknown): boolean {
-  if (typeof error !== 'object' || error === null) return false;
-  const candidate = error as {
-    code?: string;
-    driverError?: {code?: string};
-  };
-  const codes = [candidate.code, candidate.driverError?.code];
-  return codes.some(
-    code =>
-      code === 'SQLITE_BUSY' ||
-      code === 'SQLITE_LOCKED' ||
-      code === 'ETIMEDOUT' ||
-      code === 'ECONNRESET',
+function joinIssueMessages(issues: readonly {message: string}[]): string {
+  return (
+    issues.map(issue => issue.message).join('; ') ||
+    'Failed to resolve key-value definitions'
   );
 }

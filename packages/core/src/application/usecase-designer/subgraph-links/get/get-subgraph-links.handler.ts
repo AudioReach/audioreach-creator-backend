@@ -6,6 +6,8 @@
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import {Result, RESULT_KIND} from '../../../shared/result/result.js';
+import {failedToIssues} from '../../../shared/result/failed-to-issues.js';
+import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
 import type {SubgraphLinksDto} from '../dto/subgraph-links-dto.js';
 import {
@@ -69,16 +71,18 @@ export class GetSubgraphLinksHandler implements QueryHandler<
         ],
       );
 
-    const usecasesResult =
-      await this.queryServices.useCaseQueryService.getAllUseCases(fileSystemId);
-    if (usecasesResult.kind === RESULT_KIND.Fail)
-      return Result.fail(...usecasesResult.issues);
+    const usecases =
+      await this.queryServices.useCaseQueryService.findUseCaseReadModels(
+        fileSystemId,
+      );
+    const referencedIds = new Set(usecaseIds);
+    const usecaseIssues = failedToIssues(
+      ISSUE_ENTITY_TYPE.UseCase,
+      usecases.failed.filter(entity => referencedIds.has(entity.systemId)),
+    );
 
     const usecasesById = new Map(
-      usecasesResult.data.map(usecase => [
-        usecase.systemId,
-        mapUseCase(usecase),
-      ]),
+      usecases.items.map(usecase => [usecase.systemId, mapUseCase(usecase)]),
     );
     const data = {
       dataLinks: dataLinksResult.data.map(link => ({
@@ -104,7 +108,7 @@ export class GetSubgraphLinksHandler implements QueryHandler<
     return this.withIssues(data, [
       ...(dataLinksResult.issues ?? []),
       ...(controlLinksResult.issues ?? []),
-      ...(usecasesResult.issues ?? []),
+      ...usecaseIssues,
     ]);
   }
 

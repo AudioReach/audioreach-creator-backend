@@ -232,10 +232,10 @@ export class UsecaseOverlayFetcher {
   }
 
   /**
-   * Loads the response fields required by subsystem-filtered GKV grouping.
+   * Loads the fields required by use case read models.
    * Unlike getUsecases(), this does not load subgraph pairs.
    */
-  async getUsecasesForFilteredGkv(
+  async getUsecasesWithoutPairs(
     fileSystemId: number,
     sessionId: number | null,
     restrictToIds?: number[],
@@ -481,15 +481,17 @@ export class UsecaseOverlayFetcher {
   }
 
   /**
-   * Returns effective membership rows that reference one subgraph. The
-   * baseline query is scoped through UseCase.fileSystemId; relation tables do
-   * not carry file scope themselves.
+   * Returns effective membership rows that reference any of the given
+   * subgraphs. The baseline query is scoped through UseCase.fileSystemId;
+   * relation tables do not carry file scope themselves.
    */
-  async getSubgraphMembershipRowsForSubgraph(
+  async getSubgraphMembershipRowsForSubgraphs(
     fileSystemId: number,
-    subgraphSystemId: number,
+    subgraphSystemIds: readonly number[],
     sessionId: number | null,
   ): Promise<UseCaseSubgraphBase[]> {
+    if (subgraphSystemIds.length === 0) return [];
+    const wanted = new Set(subgraphSystemIds);
     const usecases = await this.fetchMany(fileSystemId, sessionId);
     const usecaseIds = usecases.map(uc => uc.systemId);
     if (usecaseIds.length === 0) return [];
@@ -523,7 +525,7 @@ export class UsecaseOverlayFetcher {
             )
             .map(result => result.effective);
 
-    return rows.filter(row => row.subgraphSystemId === subgraphSystemId);
+    return rows.filter(row => wanted.has(row.subgraphSystemId));
   }
 
   /**

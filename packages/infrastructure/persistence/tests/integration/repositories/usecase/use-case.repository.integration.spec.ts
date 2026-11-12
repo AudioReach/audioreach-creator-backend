@@ -10,6 +10,7 @@ import {
   CHANGE_STATUS,
   CHANGE_OPERATION,
   READ_MODE,
+  FAILED_ENTITY_REASON,
   type IdGenerationPort,
 } from '@arc/core';
 import {UseCase} from '@arc/core';
@@ -195,22 +196,26 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
     }
   });
 
-  // ── findBySystemIds ──────────────────────────────────────────────────────────
+  // ── findUseCases ──────────────────────────────────────────────────────────
 
-  describe('findBySystemIds', () => {
+  describe('findUseCases', () => {
     it('returns [] when ucSystemIds is empty', async () => {
       const repo = makeRepo(qr.manager, sessionId);
-      expect(await repo.findBySystemIds(FILE_ID, [])).toEqual([]);
+      expect(await repo.findUseCases(FILE_ID, [])).toEqual({
+        items: [],
+        failed: [],
+      });
     });
 
     it('returns UCs matching provided systemIds', async () => {
       await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
       await seedUseCase(ds, 1001, 2, 'uc-b', USECASE_TYPE.Island);
       const repo = makeRepo(qr.manager, sessionId);
-      const result = await repo.findBySystemIds(FILE_ID, [1000]);
-      expect(result).toHaveLength(1);
-      expect(result[0].systemId).toBe(1000);
-      expect(result[0].type).toBe(USECASE_TYPE.Linked);
+      const {items, failed} = await repo.findUseCases(FILE_ID, [1000]);
+      expect(items).toHaveLength(1);
+      expect(items[0].systemId).toBe(1000);
+      expect(items[0].type).toBe(USECASE_TYPE.Linked);
+      expect(failed).toEqual([]);
     });
 
     it('includes only the requested session-created usecase', async () => {
@@ -229,10 +234,14 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       );
       await qr.commitTransaction();
 
-      await expect(repo.findBySystemIds(FILE_ID, [9001])).resolves.toEqual([
-        expect.objectContaining({systemId: 9001}),
-      ]);
-      await expect(repo.findBySystemIds(FILE_ID, [9002])).resolves.toEqual([]);
+      await expect(repo.findUseCases(FILE_ID, [9001])).resolves.toEqual({
+        items: [expect.objectContaining({systemId: 9001})],
+        failed: [],
+      });
+      await expect(repo.findUseCases(FILE_ID, [9002])).resolves.toEqual({
+        items: [],
+        failed: [{systemId: 9002, reason: FAILED_ENTITY_REASON.NotFound}],
+      });
     });
 
     it('hydrates session-created GKV values and applies their DELETE payload', async () => {
@@ -250,7 +259,7 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       await qr.commitTransaction();
 
       expect(
-        (await repo.findBySystemIds(FILE_ID, [uc.systemId]))[0].keyVector
+        (await repo.findUseCases(FILE_ID, [uc.systemId])).items[0].keyVector
           .valueSystemIds,
       ).toEqual([7001, 7002]);
 
@@ -274,7 +283,7 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       await qr.commitTransaction();
 
       expect(
-        (await repo.findBySystemIds(FILE_ID, [uc.systemId]))[0].keyVector
+        (await repo.findUseCases(FILE_ID, [uc.systemId])).items[0].keyVector
           .valueSystemIds,
       ).toEqual([7002]);
     });
@@ -285,7 +294,9 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       await linkSg(ds, 1000, SG_ID_2);
       await linkPair(ds, 1000, SG_ID_1, SG_ID_2);
       const repo = makeRepo(qr.manager, sessionId);
-      const [uc] = await repo.findBySystemIds(FILE_ID, [1000]);
+      const {
+        items: [uc],
+      } = await repo.findUseCases(FILE_ID, [1000]);
       expect(uc.subgraphSystemIds.sort()).toEqual([SG_ID_1, SG_ID_2]);
       expect(uc.subgraphPairs).toEqual([
         {sourceSubgraphSystemId: SG_ID_1, destSubgraphSystemId: SG_ID_2},
@@ -302,10 +313,10 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
         [sessionId, 1000, membershipSystemId],
       );
       const repo = makeRepo(qr.manager, sessionId);
-      const committed = await repo.findBySystemIds(FILE_ID, [1000], {
+      const committed = await repo.findUseCases(FILE_ID, [1000], {
         readMode: READ_MODE.Committed,
       });
-      expect(committed[0].subgraphSystemIds).toContain(SG_ID_1);
+      expect(committed.items[0].subgraphSystemIds).toContain(SG_ID_1);
     });
 
     it('applies relationship DELETE actions by internal row systemId', async () => {
@@ -321,14 +332,16 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       );
       await qr.commitTransaction();
 
-      const [overlaid] = await repo.findBySystemIds(FILE_ID, [1000]);
+      const {
+        items: [overlaid],
+      } = await repo.findUseCases(FILE_ID, [1000]);
       expect(overlaid.subgraphSystemIds).toEqual([]);
     });
   });
 
-  // ── findBySubgraph ──────────────────────────────────────────────────────────
+  // ── findUseCasesBySubgraphs ─────────────────────────────────────────────────────────
 
-  describe('findBySubgraph', () => {
+  describe('findUseCasesBySubgraphs', () => {
     it('returns usecases containing the specified subgraph', async () => {
       await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
       await seedUseCase(ds, 1001, 2, 'uc-b', USECASE_TYPE.Island);
@@ -336,28 +349,168 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       await linkSg(ds, 1001, SG_ID_2);
       const repo = makeRepo(qr.manager, sessionId);
 
-      const result = await repo.findBySubgraph(FILE_ID, SG_ID_1);
+      const result = await repo.findUseCasesBySubgraphs(FILE_ID, [SG_ID_1]);
 
       expect(result).toHaveLength(1);
       expect(result[0].systemId).toBe(1000);
       expect(result[0].subgraphSystemIds).toEqual([SG_ID_1]);
     });
 
+    it('returns each usecase once across several subgraphs', async () => {
+      await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
+      await seedUseCase(ds, 1001, 2, 'uc-b', USECASE_TYPE.Island);
+      await linkSg(ds, 1000, SG_ID_1);
+      await linkSg(ds, 1000, SG_ID_2);
+      await linkSg(ds, 1001, SG_ID_2);
+      const repo = makeRepo(qr.manager, sessionId);
+
+      const result = await repo.findUseCasesBySubgraphs(FILE_ID, [
+        SG_ID_1,
+        SG_ID_2,
+      ]);
+
+      expect(result.map(uc => uc.systemId).sort()).toEqual([1000, 1001]);
+    });
+
+    it('returns every subgraph of a matching usecase, not only the queried ones', async () => {
+      await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
+      await linkSg(ds, 1000, SG_ID_1);
+      await linkSg(ds, 1000, SG_ID_2);
+      const repo = makeRepo(qr.manager, sessionId);
+
+      const [uc] = await repo.findUseCasesBySubgraphs(FILE_ID, [SG_ID_1]);
+
+      expect([...uc.subgraphSystemIds].sort()).toEqual([SG_ID_1, SG_ID_2]);
+    });
+
     it('returns [] when the subgraph has no usecases', async () => {
       const repo = makeRepo(qr.manager, sessionId);
 
-      await expect(repo.findBySubgraph(FILE_ID, SG_ID_1)).resolves.toEqual([]);
+      await expect(
+        repo.findUseCasesBySubgraphs(FILE_ID, [SG_ID_1]),
+      ).resolves.toEqual([]);
+    });
+
+    it('returns [] for no subgraphs', async () => {
+      await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
+      await linkSg(ds, 1000, SG_ID_1);
+      const repo = makeRepo(qr.manager, sessionId);
+
+      await expect(repo.findUseCasesBySubgraphs(FILE_ID, [])).resolves.toEqual(
+        [],
+      );
     });
   });
 
-  // ── findAll ──────────────────────────────────────────────────────────────────
+  // ── findUseCaseReadModels (inherited query read) ────────────────────────────
 
-  describe('findAll', () => {
+  describe('findUseCaseReadModels', () => {
+    async function seedTwoUsecases(): Promise<void> {
+      await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
+      await seedUseCase(ds, 1001, 2, 'uc-b', USECASE_TYPE.Island);
+      await linkSg(ds, 1000, SG_ID_1);
+      await linkSg(ds, 1001, SG_ID_2);
+    }
+
+    async function idsOf(
+      query?: Parameters<TypeOrmUsecaseRepository['findUseCaseReadModels']>[1],
+    ): Promise<number[]> {
+      const result = await makeRepo(
+        qr.manager,
+        sessionId,
+      ).findUseCaseReadModels(FILE_ID, query);
+      return result.items.map(uc => uc.systemId).sort();
+    }
+
+    it('returns every usecase of the file with no query', async () => {
+      await seedTwoUsecases();
+      await expect(idsOf()).resolves.toEqual([1000, 1001]);
+    });
+
+    it('returns only the requested ids', async () => {
+      await seedTwoUsecases();
+      await expect(idsOf({ids: [1001]})).resolves.toEqual([1001]);
+    });
+
+    it('returns no usecases for an empty id list', async () => {
+      await seedTwoUsecases();
+      await expect(idsOf({ids: []})).resolves.toEqual([]);
+    });
+
+    it('applies the filter', async () => {
+      await seedTwoUsecases();
+      await expect(
+        idsOf({
+          filter: {
+            type: 'condition',
+            field: 'subgraphNaturalId',
+            value: SG_ID_2,
+          },
+        }),
+      ).resolves.toEqual([1001]);
+    });
+
+    it('reports requested ids that do not exist as NOT_FOUND', async () => {
+      await seedTwoUsecases();
+      const result = await makeRepo(
+        qr.manager,
+        sessionId,
+      ).findUseCaseReadModels(FILE_ID, {ids: [1000, 4242]});
+      expect(result.items.map(uc => uc.systemId)).toEqual([1000]);
+      expect(result.failed).toEqual([
+        {systemId: 4242, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
+    });
+
+    it('applies the filter within the requested ids', async () => {
+      await seedTwoUsecases();
+      await expect(
+        idsOf({
+          ids: [1000],
+          filter: {
+            type: 'condition',
+            field: 'subgraphNaturalId',
+            value: SG_ID_2,
+          },
+        }),
+      ).resolves.toEqual([]);
+    });
+
+    it('sees a usecase created earlier in the same transaction', async () => {
+      const repo = makeRepo(qr.manager, sessionId);
+      await qr.startTransaction();
+      await repo.create(
+        new UseCase({
+          systemId: 9001,
+          fileSystemId: FILE_ID,
+          alias: 'uncommitted',
+          keyVector: {valueSystemIds: []},
+          subgraphSystemIds: [],
+          subgraphPairs: [],
+        }),
+        {source: SOURCE.AutoRouting},
+      );
+
+      const result = await repo.findUseCaseReadModels(FILE_ID, {ids: [9001]});
+      await qr.rollbackTransaction();
+
+      expect(result).toEqual({
+        items: [
+          expect.objectContaining({systemId: 9001, alias: 'uncommitted'}),
+        ],
+        failed: [],
+      });
+    });
+  });
+
+  // ── findAllUseCases ──────────────────────────────────────────────────────────────────
+
+  describe('findAllUseCases', () => {
     it('returns all UCs on the file', async () => {
       await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
       await seedUseCase(ds, 1001, 2, 'uc-b', USECASE_TYPE.Ec);
       const repo = makeRepo(qr.manager, sessionId);
-      const result = await repo.findAll(FILE_ID);
+      const result = await repo.findAllUseCases(FILE_ID);
       expect(result.map(u => u.systemId).sort()).toEqual([1000, 1001]);
     });
 
@@ -382,11 +535,11 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       }
       await qr.commitTransaction();
 
-      const [overlaid] = await repo.findAll(FILE_ID);
+      const [overlaid] = await repo.findAllUseCases(FILE_ID);
       expect(overlaid.subgraphSystemIds).toEqual([]);
       expect(overlaid.subgraphPairs).toEqual([]);
 
-      const [committed] = await repo.findAll(FILE_ID, {
+      const [committed] = await repo.findAllUseCases(FILE_ID, {
         readMode: READ_MODE.Committed,
       });
       expect(committed.subgraphSystemIds.sort()).toEqual([SG_ID_1, SG_ID_2]);
@@ -398,7 +551,7 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
 
   // ── findWithActiveEdits ──────────────────────────────────────────────────────
 
-  describe('findWithActiveManualEdits', () => {
+  describe('findActiveManualUseCaseEdits', () => {
     it('returns UCs with active MANUAL source edit_actions', async () => {
       await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
       await ds.query(
@@ -407,7 +560,7 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
         [sessionId, 1000, 1000],
       );
       const repo = makeRepo(qr.manager, sessionId);
-      const result = await repo.findWithActiveManualEdits(FILE_ID);
+      const result = await repo.findActiveManualUseCaseEdits(FILE_ID);
       expect(result).toEqual([
         expect.objectContaining({
           usecase: expect.objectContaining({systemId: 1000}),
@@ -425,7 +578,7 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
         [sessionId, 1000, 1000],
       );
       const repo = makeRepo(qr.manager, sessionId);
-      expect(await repo.findWithActiveManualEdits(FILE_ID)).toEqual([]);
+      expect(await repo.findActiveManualUseCaseEdits(FILE_ID)).toEqual([]);
     });
 
     it('preserves each manual action metadata and hydrated usecase', async () => {
@@ -450,7 +603,7 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       const [result] = await makeRepo(
         qr.manager,
         sessionId,
-      ).findWithActiveManualEdits(FILE_ID);
+      ).findActiveManualUseCaseEdits(FILE_ID);
       expect(result).toEqual(
         expect.objectContaining({
           changeId: expect.any(Number),
@@ -473,7 +626,7 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       );
 
       await expect(
-        makeRepo(qr.manager, sessionId).findWithActiveManualEdits(FILE_ID),
+        makeRepo(qr.manager, sessionId).findActiveManualUseCaseEdits(FILE_ID),
       ).resolves.toEqual([
         expect.objectContaining({
           changeId: expect.any(Number),
@@ -492,7 +645,7 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
         [sessionId, 1000, 1000],
       );
       const repo = makeRepo(qr.manager, sessionId);
-      expect(await repo.findWithActiveManualEdits(FILE_ID)).toEqual([
+      expect(await repo.findActiveManualUseCaseEdits(FILE_ID)).toEqual([
         expect.objectContaining({
           operation: CHANGE_OPERATION.Update,
           usecase: expect.objectContaining({systemId: 1000}),
@@ -628,7 +781,9 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
         destSubgraphSystemId: SG_ID_1,
       });
 
-      const [hydrated] = await repo.findBySystemIds(FILE_ID, [1000]);
+      const {
+        items: [hydrated],
+      } = await repo.findUseCases(FILE_ID, [1000]);
       expect(hydrated).toEqual(
         expect.objectContaining({
           systemId: 1000,
@@ -642,13 +797,15 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
           keyVector: {valueSystemIds: [7001, 7002]},
         }),
       );
-      await expect(repo.findWithActiveManualEdits(FILE_ID)).resolves.toEqual([
-        expect.objectContaining({
-          operation: CHANGE_OPERATION.Create,
-          referencedComponents,
-          usecase: expect.objectContaining({systemId: 1000}),
-        }),
-      ]);
+      await expect(repo.findActiveManualUseCaseEdits(FILE_ID)).resolves.toEqual(
+        [
+          expect.objectContaining({
+            operation: CHANGE_OPERATION.Create,
+            referencedComponents,
+            usecase: expect.objectContaining({systemId: 1000}),
+          }),
+        ],
+      );
     });
 
     it('creates distinct edit targets when usecases share an SG and pair', async () => {
@@ -873,7 +1030,9 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       expect(rootRows).toEqual([expect.objectContaining({new_value: '{}'})]);
       expect(result).toEqual({systemId: 1000, changeId: rootRows[0].change_id});
 
-      const [overlaid] = await repo.findBySystemIds(FILE_ID, [1000]);
+      const {
+        items: [overlaid],
+      } = await repo.findUseCases(FILE_ID, [1000]);
       expect(overlaid.subgraphPairs).toEqual([
         {sourceSubgraphSystemId: SG_ID_2, destSubgraphSystemId: SG_ID_1},
       ]);
@@ -1015,7 +1174,9 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
         type: USECASE_TYPE.Island,
       });
 
-      const [overlaid] = await repo.findBySystemIds(FILE_ID, [1000]);
+      const {
+        items: [overlaid],
+      } = await repo.findUseCases(FILE_ID, [1000]);
       expect(overlaid.type).toBe(USECASE_TYPE.Island);
     });
 
@@ -1153,7 +1314,9 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
         changeId: rootRow.change_id,
       });
 
-      const [effective] = await repo.findBySystemIds(FILE_ID, [1000]);
+      const {
+        items: [effective],
+      } = await repo.findUseCases(FILE_ID, [1000]);
       expect(effective.systemId).toBe(1000);
       expect(effective.type).toBe(USECASE_TYPE.Linked);
       expect(

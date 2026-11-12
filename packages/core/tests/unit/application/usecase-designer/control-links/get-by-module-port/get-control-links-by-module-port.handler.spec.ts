@@ -41,15 +41,16 @@ describe('GetControlLinksByModulePortHandler', () => {
         ),
       },
       useCaseQueryService: {
-        getAllUseCases: jest.fn().mockResolvedValue(
-          Result.ok([
+        findUseCaseReadModels: jest.fn().mockResolvedValue({
+          items: [
             {
               systemId: 404,
               gkv: [],
               type: 'LINKED',
             },
-          ]),
-        ),
+          ],
+          failed: [],
+        }),
       },
     } as unknown as QueryServices;
 

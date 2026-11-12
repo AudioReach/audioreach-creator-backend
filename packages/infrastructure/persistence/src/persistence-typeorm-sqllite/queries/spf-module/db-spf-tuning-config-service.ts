@@ -85,7 +85,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
   ): Promise<Result<CkvReadModel[]>> {
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.dataSource.manager,
         fileSystemId,
       );
 
@@ -157,7 +157,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
   ): Promise<Result<CkvParamReadModel[]>> {
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.dataSource.manager,
         fileSystemId,
       );
 
@@ -220,7 +220,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
   ): Promise<Result<TagReadModel[]>> {
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.dataSource.manager,
         fileSystemId,
       );
 

@@ -18,12 +18,10 @@ export async function findReachableSubgraphIds(
   let frontier = [startSubgraphId];
 
   while (frontier.length > 0) {
-    const usecaseBatches = await Promise.all(
-      frontier.map(subgraphSystemId =>
-        usecaseRepository.findBySubgraph(fileSystemId, subgraphSystemId),
-      ),
+    const usecases = await usecaseRepository.findUseCasesBySubgraphs(
+      fileSystemId,
+      frontier,
     );
-    const usecases = usecaseBatches.flat();
     const linked = new Set<number>();
 
     for (const usecase of usecases) {

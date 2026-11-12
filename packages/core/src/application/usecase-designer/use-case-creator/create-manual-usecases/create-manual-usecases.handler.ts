@@ -15,7 +15,8 @@ import {
   createManualRoutingInput,
   findDuplicateActiveSubgraphSystemIds,
 } from '../contracts/routing-input.js';
-import type {RoutingOutcome} from '../contracts/routing-outcome.js';
+import type {RoutingCommandOutcome} from '../contracts/routing-outcome.js';
+import {attachChangeDetails} from '../shared/attach-change-details.js';
 import {createRoutingEngine} from '../engine/create-routing-engine.js';
 import type {RoutingEngine} from '../engine/routing-engine.js';
 import {readRoutingGraphEdits} from '../shared/read-routing-graph-edits.js';
@@ -36,7 +37,7 @@ import {CreateManualUsecasesCommand} from './create-manual-usecases.command.js';
  */
 export class CreateManualUsecasesHandler implements CommandHandler<
   CreateManualUsecasesCommand,
-  Result<RoutingOutcome>
+  Result<RoutingCommandOutcome>
 > {
   constructor(
     private readonly uow: UnitOfWork,
@@ -48,7 +49,7 @@ export class CreateManualUsecasesHandler implements CommandHandler<
 
   async handle(
     command: CreateManualUsecasesCommand,
-  ): Promise<Result<RoutingOutcome>> {
+  ): Promise<Result<RoutingCommandOutcome>> {
     const duplicateSubgraphIds = findDuplicateActiveSubgraphSystemIds(
       command.input.activeSubgraphs.map(sg =>
         parseId(sg.systemId, 'activeSubgraphs.systemId'),
@@ -84,7 +85,7 @@ export class CreateManualUsecasesHandler implements CommandHandler<
       );
       const activeManualUsecaseEdits = await this.uow
         .getUsecaseRepository()
-        .findWithActiveManualEdits(command.fileSystemId);
+        .findActiveManualUseCaseEdits(command.fileSystemId);
       const selectedUsecases: UseCase[] = []; // engine requires an empty list, NA for manual workflow
 
       const graphSnapshot = await prepareRoutingSnapshot(
@@ -117,8 +118,13 @@ export class CreateManualUsecasesHandler implements CommandHandler<
       const result = await this.engine.run(input, this.uow, this.idGeneration);
       if (result.kind === RESULT_KIND.Fail)
         throw new DomainRuleViolationException(result.issues);
+      const outcome = await attachChangeDetails(
+        this.uow,
+        command.fileSystemId,
+        result,
+      );
       await this.uow.commit();
-      return result;
+      return outcome;
     } catch (error) {
       if (this.uow.isInTransaction()) await this.uow.rollback();
       throw error;

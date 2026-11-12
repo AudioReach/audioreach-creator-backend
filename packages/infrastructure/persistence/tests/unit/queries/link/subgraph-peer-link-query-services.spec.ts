@@ -27,9 +27,11 @@ function createDataSource(): DataSource {
     getOne: jest.fn().mockResolvedValue(null),
   };
   return {
-    getRepository: jest.fn().mockReturnValue({
-      createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
-    }),
+    manager: {
+      getRepository: jest.fn().mockReturnValue({
+        createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
+      }),
+    },
   } as unknown as DataSource;
 }
 

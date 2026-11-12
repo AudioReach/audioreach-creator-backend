@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {DataSource} from 'typeorm';
+import type {EntityManager} from 'typeorm';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {SESSION_STATUS} from '../../entity-schema/edit-session/project-session.schema.js';
 
@@ -21,10 +21,10 @@ import {SESSION_STATUS} from '../../entity-schema/edit-session/project-session.s
  * consistent everywhere.
  */
 export async function resolveActiveSessionId(
-  dataSource: DataSource,
+  manager: EntityManager,
   fileSystemId: number,
 ): Promise<number | null> {
-  const session = (await dataSource
+  const session = (await manager
     .getRepository(ENTITY_NAMES.ProjectSession)
     .createQueryBuilder('s')
     .select('s.sessionId')

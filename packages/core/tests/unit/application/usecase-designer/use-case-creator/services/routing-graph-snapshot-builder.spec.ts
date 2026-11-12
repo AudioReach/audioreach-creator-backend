@@ -79,7 +79,9 @@ function createUow(options: {
         : [...options.dataLinks],
   );
   const findControlLinks = jest.fn(async () => [...options.controlLinks]);
-  const findAll = jest.fn(async () => [...(options.committedUsecases ?? [])]);
+  const findAllUseCases = jest.fn(async () => [
+    ...(options.committedUsecases ?? []),
+  ]);
   return {
     uow: {
       getSubgraphRepository: () => ({getAggregates}),
@@ -89,12 +91,12 @@ function createUow(options: {
       getControlLinkRepository: () => ({
         findIntraUcLinksByFile: findControlLinks,
       }),
-      getUsecaseRepository: () => ({findAll}),
+      getUsecaseRepository: () => ({findAllUseCases}),
     },
     getAggregates,
     findDataLinks,
     findControlLinks,
-    findAll,
+    findAllUseCases,
   };
 }
 
@@ -136,7 +138,7 @@ describe('RoutingGraphSnapshotBuilder', () => {
     expect(catalog.getAggregates).not.toHaveBeenCalled();
     expect(catalog.findDataLinks).not.toHaveBeenCalled();
     expect(catalog.findControlLinks).not.toHaveBeenCalled();
-    expect(catalog.findAll).not.toHaveBeenCalled();
+    expect(catalog.findAllUseCases).not.toHaveBeenCalled();
     expect(classifyMdfSubgraphs).not.toHaveBeenCalled();
   });
 
@@ -177,7 +179,7 @@ describe('RoutingGraphSnapshotBuilder', () => {
     expect(catalog.getAggregates).toHaveBeenCalledTimes(1);
     expect(catalog.findDataLinks).toHaveBeenCalledTimes(2);
     expect(catalog.findControlLinks).toHaveBeenCalledTimes(1);
-    expect(catalog.findAll).toHaveBeenCalledWith(7, {
+    expect(catalog.findAllUseCases).toHaveBeenCalledWith(7, {
       readMode: READ_MODE.Committed,
     });
     expect(classifyMdfSubgraphs).toHaveBeenCalledWith(

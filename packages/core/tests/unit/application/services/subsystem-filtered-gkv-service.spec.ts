@@ -308,10 +308,10 @@ describe('SubsystemFilteredGkvService.resolveFilteredGroups', () => {
     usecases: UseCaseReadModel[] = [],
   ): jest.Mocked<UseCaseQueryService> {
     return {
-      getUsecaseFilteredTopologyData: jest
+      findUseCaseFilteredTopologyData: jest.fn().mockResolvedValue(topology),
+      findUseCaseReadModels: jest
         .fn()
-        .mockResolvedValue(Result.ok(topology)),
-      getUsecasesWithGkv: jest.fn().mockResolvedValue(Result.ok(usecases)),
+        .mockResolvedValue({items: usecases, failed: []}),
     } as unknown as jest.Mocked<UseCaseQueryService>;
   }
 
@@ -327,27 +327,48 @@ describe('SubsystemFilteredGkvService.resolveFilteredGroups', () => {
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind !== RESULT_KIND.Ok) return;
     expect(result.data).toHaveLength(0);
-    expect(querySvc.getUsecaseFilteredTopologyData).toHaveBeenCalledWith(42);
-    expect(querySvc.getUsecasesWithGkv).toHaveBeenCalledWith(42, []);
+    expect(querySvc.findUseCaseFilteredTopologyData).toHaveBeenCalledWith(42);
+    expect(querySvc.findUseCaseReadModels).toHaveBeenCalledWith(42, {ids: []});
   });
 
-  it('forwards a topology failure without calling getUsecasesWithGkv', async () => {
+  it('propagates a topology read error without loading use cases', async () => {
     const querySvc = {
-      getUsecaseFilteredTopologyData: jest.fn().mockResolvedValue(
-        Result.fail({
-          code: 'DB_QUERY_FAILED',
-          message: 'err',
-          severity: 'Error',
-        } as never),
-      ),
-      getUsecasesWithGkv: jest.fn(),
+      findUseCaseFilteredTopologyData: jest
+        .fn()
+        .mockRejectedValue(new Error('db down')),
+      findUseCaseReadModels: jest.fn(),
     } as unknown as jest.Mocked<UseCaseQueryService>;
+    const service = new SubsystemFilteredGkvService(querySvc);
+
+    await expect(service.resolveFilteredGroups(42)).rejects.toThrow('db down');
+    expect(querySvc.findUseCaseReadModels).not.toHaveBeenCalled();
+  });
+
+  it('returns a partial result naming use cases whose GKV could not be resolved', async () => {
+    const querySvc = buildQueryService();
+    querySvc.findUseCaseReadModels.mockResolvedValue({
+      items: [],
+      failed: [
+        {
+          systemId: 2,
+          reason: 'UNRESOLVED_REFERENCE',
+          missingRef: {entityType: 'ValueDefinition' as const, systemId: 77},
+        },
+      ],
+    });
     const service = new SubsystemFilteredGkvService(querySvc);
 
     const result = await service.resolveFilteredGroups(42);
 
-    expect(result.kind).toBe(RESULT_KIND.Fail);
-    expect(querySvc.getUsecasesWithGkv).not.toHaveBeenCalled();
+    expect(result.kind).toBe(RESULT_KIND.Partial);
+    if (result.kind !== RESULT_KIND.Partial) return;
+    expect(result.issues).toEqual([
+      expect.objectContaining({
+        code: 'ENTITY_UNRESOLVED_REFERENCE',
+        message:
+          'UseCase with systemId: 0x00000002 was skipped: it references Value with systemId: 0x0000004D, which was not found in this project.',
+      }),
+    ]);
   });
 
   it('rejects an unknown subsystem ID in the filter', async () => {

@@ -10,7 +10,7 @@ import type {UsecaseType} from '../../../../../domain/entities/usecase-data/usec
 import type {SubgraphPair} from '../shared/links-for-pair.js';
 export type {ReadMode, ReadOptions} from '../shared/read-options.js';
 export {READ_MODE} from '../shared/read-options.js';
-import type {ReadOptions} from '../shared/read-options.js';
+import type {UseCaseQueryService} from '../../query-services/usecase/usecase-query-service.js';
 
 /**
  * Components referenced by a manual UseCase edit. Stored with the edit so
@@ -75,45 +75,17 @@ export interface StructuralDelta {
 }
 
 /**
- * `UseCase` aggregate write path + a minimal read path for the routing
- * engine and manual-UC flow.
+ * `UseCase` writes, plus the reads that only commands need.
+ *
+ * Inherits every `UseCaseQueryService` read so commands run them inside
+ * their own transaction and see their uncommitted writes.
  */
-export interface UsecaseRepository {
+export interface UsecaseRepository extends UseCaseQueryService {
   removeSubgraphReferences(
     subgraphSystemId: number,
     fileSystemId: number,
     options?: EditOptions,
   ): Promise<{affectedUseCaseSystemIds: number[]}>;
-
-  /**
-   * Returns the UCs on `fileSystemId` whose `systemId` is in `ucSystemIds`.
-   * Empty input → []. Missing IDs are silently omitted.
-   *
-   * `readMode` defaults to `READ_MODE.Overlay`; committed mode ignores
-   * session edits.
-   */
-  findBySystemIds(
-    fileSystemId: number,
-    ucSystemIds: readonly number[],
-    options?: ReadOptions,
-  ): Promise<UseCase[]>;
-
-  /**
-   * Returns UCs on `fileSystemId` that contain the specified subgraph.
-   * `readMode` defaults to `READ_MODE.Overlay`.
-   */
-  findBySubgraph(
-    fileSystemId: number,
-    subgraphSystemId: number,
-    options?: ReadOptions,
-  ): Promise<UseCase[]>;
-
-  /**
-   * Returns all UCs on `fileSystemId`. `readMode` defaults to
-   * `READ_MODE.Overlay`. Committed mode returns pre-session state; callers
-   * can filter the returned collection in memory.
-   */
-  findAll(fileSystemId: number, options?: ReadOptions): Promise<UseCase[]>;
 
   /**
    * Returns UCs that are the target of at least one current MANUAL edit action
@@ -128,7 +100,7 @@ export interface UsecaseRepository {
    * Not affected by `readMode` — this query is inherently about
    * `edit_actions` state, not overlay-vs-committed base rows.
    */
-  findWithActiveManualEdits(
+  findActiveManualUseCaseEdits(
     fileSystemId: number,
   ): Promise<ActiveManualUsecaseEdit[]>;
 

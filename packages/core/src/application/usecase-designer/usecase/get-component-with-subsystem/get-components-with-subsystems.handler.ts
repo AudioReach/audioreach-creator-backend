@@ -10,6 +10,10 @@ import type {ComponentsReadModel} from '../../../ports/persistence/query-service
 import type {ControlLinkReadModel} from '../../../ports/persistence/query-services/link/control-link-read-model.js';
 import type {SubsystemDataLinkReadModel} from '../../../ports/persistence/query-services/usecase/query-models/subsystem-data-link-read-model.js';
 import {Result, RESULT_KIND} from '../../../shared/result/result.js';
+import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
+import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {FAILED_ENTITY_REASON} from '../../../ports/persistence/batch-read.js';
+import {failedToIssues} from '../../../shared/result/failed-to-issues.js';
 import {GetComponentsWithSubsystemsQuery} from './get-components-with-subsystems.query.js';
 import {buildSubsystemTree} from './build-subsystem-tree.js';
 import type {ComponentCollectionWithSubsystemsDto} from '../dto/component-collection-dto.js';
@@ -29,18 +33,20 @@ export class GetComponentsWithSubsystemsHandler implements QueryHandler<
         query.projectId,
       );
 
-    // Validate all usecase IDs exist (DB or session via getAllUseCases overlay)
-    const allUsecasesResult =
-      await this.queryServices.useCaseQueryService.getAllUseCases(fileId);
-    if (allUsecasesResult.kind === RESULT_KIND.Fail)
-      throw new Error(
-        allUsecasesResult.issues[0]?.message ?? 'Failed to load usecases',
+    // Validate all usecase IDs exist (DB or session overlay).
+    const usecases =
+      await this.queryServices.useCaseQueryService.findUseCaseReadModels(
+        fileId,
+        {ids: query.scope.systemIds},
       );
-
-    const knownIds = new Set(allUsecasesResult.data.map(uc => uc.systemId));
-    const invalidId = query.scope.systemIds.find(id => !knownIds.has(id));
-    if (invalidId !== undefined)
-      throw new Error(`UseCase ${invalidId} not found`);
+    const notFound = usecases.failed.filter(
+      entity => entity.reason === FAILED_ENTITY_REASON.NotFound,
+    );
+    if (notFound.length > 0)
+      throw new ResourceNotFoundException(
+        `UseCase ${notFound.map(entity => entity.systemId).join(', ')} not found`,
+        failedToIssues(ISSUE_ENTITY_TYPE.UseCase, notFound),
+      );
 
     const svc = this.queryServices;
     const systemIds = query.scope.systemIds;

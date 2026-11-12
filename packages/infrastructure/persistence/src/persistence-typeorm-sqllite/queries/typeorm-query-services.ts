@@ -26,7 +26,7 @@ import type {
   Logger,
 } from '@arc/core';
 import {DataSource} from 'typeorm';
-import {DbUseCaseQueryService} from './usecase/index.js';
+import {createUseCaseQueryService} from './usecase/index.js';
 import {DbProjectQueryService} from './db-project-query-service.js';
 import {TypeOrmValidationQueryRepository} from '../repositories/validation/typeorm-validation-query.repository.js';
 import {TypeOrmBulkReadQueryService} from './bulk-read/typeorm-bulk-read-query-service.js';
@@ -189,7 +189,7 @@ export class DbQueryServices implements QueryServices {
     );
 
     this.keyValueDefQueryService = new DbKeyValueDefQueryService(
-      dataSource,
+      dataSource.manager,
       editActionsQueryService,
     );
 
@@ -275,17 +275,7 @@ export class DbQueryServices implements QueryServices {
         sessionRepo,
       );
 
-    this.useCaseQueryService = new DbUseCaseQueryService(
-      dataSource,
-      this.keyValueDefQueryService,
-      this.spfModuleQueryService,
-      sessionRepo,
-      editActionsQueryService,
-      usecaseOverlayFetcher,
-      linkOverlayFetcher,
-      subsystemOverlayFetcher,
-      subgraphOverlayFetcher,
-    );
+    this.useCaseQueryService = createUseCaseQueryService(dataSource.manager);
 
     // Individual link + subsystem query services
     this.dataLinkQueryService = new DbDataLinkQueryService(

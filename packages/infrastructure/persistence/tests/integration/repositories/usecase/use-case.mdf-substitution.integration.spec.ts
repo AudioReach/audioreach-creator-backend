@@ -363,9 +363,9 @@ async function createMdfPersistenceHarness(): Promise<MdfPersistenceHarness> {
   }
 
   async function loadOverlayTopology(usecaseSystemId: number) {
-    const [usecase] = await repository.findBySystemIds(FILE_ID, [
-      usecaseSystemId,
-    ]);
+    const {
+      items: [usecase],
+    } = await repository.findUseCases(FILE_ID, [usecaseSystemId]);
     return {
       members: [...usecase.subgraphSystemIds],
       pairs: usecase.subgraphPairs.map(
@@ -547,9 +547,9 @@ async function createCollapsePersistenceHarness(): Promise<CollapsePersistenceHa
   }
 
   async function loadOverlayTopology(usecaseSystemId: number) {
-    const [usecase] = await repository.findBySystemIds(FILE_ID, [
-      usecaseSystemId,
-    ]);
+    const {
+      items: [usecase],
+    } = await repository.findUseCases(FILE_ID, [usecaseSystemId]);
     return {
       members: [...usecase.subgraphSystemIds],
       pairs: usecase.subgraphPairs.map(

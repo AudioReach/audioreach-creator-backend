@@ -13,12 +13,30 @@ import type {
   ControlLinkReadModel,
   SubsystemDataLinkReadModel,
 } from '@arc/core';
-import {PORT_IO_TYPE} from '@arc/core';
+import {PORT_IO_TYPE, UseCase} from '@arc/core';
+import type {OverlaidUseCase} from '../../fetchers/usecase-overlay-fetcher.js';
 import type {ValueDefinitionRow, NodeRow} from '../../entity-schema/index.js';
 import type {ControlLinkBase} from '../../entity-schema/usecase-data/Links/control-link.js';
 import type {DataLinkBase} from '../../entity-schema/usecase-data/Links/data-link.js';
 
 export const UseCaseQueryMappers = {
+  /** Builds the `UseCase` domain model from an overlaid row. */
+  toUseCase(uc: OverlaidUseCase): UseCase {
+    return new UseCase({
+      systemId: uc.systemId,
+      fileSystemId: uc.fileSystemId,
+      alias: uc.alias ?? undefined,
+      aliasId: uc.aliasId ?? undefined,
+      type: uc.type ?? undefined,
+      categories: uc.categoryNames,
+      subgraphSystemIds: uc.subgraphSystemIds,
+      subgraphPairs: uc.subgraphPairs,
+      keyVector: {
+        valueSystemIds: uc.gkvEntries.map(g => g.valueDefSystemId),
+      },
+    });
+  },
+
   mapValueToKeyVector(value: ValueDefinitionRow): KeyValuePairReadModel {
     return {
       key: {

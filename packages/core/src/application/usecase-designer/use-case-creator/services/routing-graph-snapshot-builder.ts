@@ -88,7 +88,7 @@ export class RoutingGraphSnapshotBuilder {
     ] = await Promise.all([
       uow.getDataLinkRepository().findIntraUcLinksByFile(input.fileSystemId),
       uow.getControlLinkRepository().findIntraUcLinksByFile(input.fileSystemId),
-      uow.getUsecaseRepository().findAll(input.fileSystemId, {
+      uow.getUsecaseRepository().findAllUseCases(input.fileSystemId, {
         readMode: READ_MODE.Committed,
       }),
       uow.getDataLinkRepository().findIntraUcLinksByFile(input.fileSystemId, {

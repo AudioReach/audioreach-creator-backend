@@ -6,10 +6,9 @@
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import type {Result} from '../../../shared/result/result.js';
-import {
-  Result as ResultUtil,
-  RESULT_KIND,
-} from '../../../shared/result/result.js';
+import {Result as ResultUtil} from '../../../shared/result/result.js';
+import {failedToIssues} from '../../../shared/result/failed-to-issues.js';
+import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
 import {GetAllUseCasesQuery} from './get-all-usecases.query.js';
 import type {UseCaseDto} from '../dto/usecase-dto.js';
 import {mapUseCase} from '../dto/usecase-dto.js';
@@ -26,17 +25,18 @@ export class GetAllUseCasesHandler implements QueryHandler<
         query.projectId,
       );
 
-    const result = await this.queryServices.useCaseQueryService.getAllUseCases(
-      fileId,
-      query.filter,
-    );
+    const usecases =
+      await this.queryServices.useCaseQueryService.findUseCaseReadModels(
+        fileId,
+        {filter: query.filter},
+      );
+    const dtos = usecases.items.map(uc => mapUseCase(uc));
 
-    if (result.kind === RESULT_KIND.Fail) return result;
-
-    const dtos = result.data.map(uc => mapUseCase(uc));
-
-    if (result.kind === RESULT_KIND.Partial)
-      return ResultUtil.partial(dtos, result.issues);
-    return ResultUtil.ok(dtos, result.issues);
+    return usecases.failed.length > 0
+      ? ResultUtil.partial(
+          dtos,
+          failedToIssues(ISSUE_ENTITY_TYPE.UseCase, usecases.failed),
+        )
+      : ResultUtil.ok(dtos);
   }
 }

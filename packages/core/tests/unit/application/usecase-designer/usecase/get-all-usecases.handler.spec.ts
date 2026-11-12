@@ -21,10 +21,41 @@ describe('GetAllUseCasesHandler', () => {
         getFileIdByProjectId: jest.fn().mockResolvedValue(42),
       },
       useCaseQueryService: {
-        getAllUseCases: jest.fn().mockResolvedValue(Result.ok(useCases)),
+        findUseCaseReadModels: jest
+          .fn()
+          .mockResolvedValue({items: useCases, failed: []}),
       },
     } as unknown as jest.Mocked<QueryServices>;
   }
+
+  it('returns the loaded use cases with an issue per use case that could not be resolved', async () => {
+    const qs = buildServices([new UseCaseReadModel(7, [])]);
+    qs.useCaseQueryService.findUseCaseReadModels.mockResolvedValue({
+      items: [new UseCaseReadModel(7, [])],
+      failed: [
+        {
+          systemId: 8,
+          reason: 'UNRESOLVED_REFERENCE',
+          missingRef: {entityType: 'ValueDefinition' as const, systemId: 30},
+        },
+      ],
+    });
+
+    const result = await new GetAllUseCasesHandler(qs).handle(
+      new GetAllUseCasesQuery(1, 'c'),
+    );
+
+    expect(result.kind).toBe(RESULT_KIND.Partial);
+    if (result.kind !== RESULT_KIND.Partial) return;
+    expect(result.data.map(uc => uc.systemId)).toEqual(['7']);
+    expect(result.issues).toEqual([
+      expect.objectContaining({
+        code: 'ENTITY_UNRESOLVED_REFERENCE',
+        message:
+          'UseCase with systemId: 0x00000008 was skipped: it references Value with systemId: 0x0000001E, which was not found in this project.',
+      }),
+    ]);
+  });
 
   it('maps use case systemId to string', async () => {
     const qs = buildServices([new UseCaseReadModel(7, [])]);
