@@ -80,7 +80,7 @@ function makeUow(opts: {subgraph?: any; linkedIds?: number[]} = {}) {
       getPropertyDefinitions: jest.fn().mockResolvedValue([makeVsidDef()]),
     }),
     getUsecaseRepository: jest.fn().mockReturnValue({
-      findBySubgraph: jest
+      findUseCasesBySubgraphs: jest
         .fn()
         .mockResolvedValue(
           linkedIds.length > 0

@@ -4,7 +4,10 @@
  */
 
 import {jest} from '@jest/globals';
-import {Result} from '../../../../../../src/application/shared/result/result.js';
+import {
+  Result,
+  RESULT_KIND,
+} from '../../../../../../src/application/shared/result/result.js';
 import {emptyGraphEdits} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
 import type {RoutingGraphSnapshot} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
 import {createEmptyRoutingOutcome} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-outcome.js';
@@ -30,11 +33,17 @@ function snapshot(): RoutingGraphSnapshot {
 const idGeneration = {getNextId: jest.fn(async () => 100)} as never;
 
 function createUow(events: string[], options?: {addedSubgraph?: boolean}) {
-  const findBySystemIds = jest.fn(async () => {
+  const findUseCases = jest.fn(async () => {
     events.push('selected-usecases:read');
-    return [];
+    return {items: [], failed: []};
   });
-  const findWithActiveManualEdits = jest.fn(async () => {
+  const findUseCaseChangeDetails = jest.fn(
+    async (_fileSystemId: number, _changes: readonly unknown[]) => {
+      events.push('change-details:read');
+      return [] as unknown[];
+    },
+  );
+  const findActiveManualUseCaseEdits = jest.fn(async () => {
     events.push('manual-usecase-edits:read');
     return [];
   });
@@ -71,12 +80,14 @@ function createUow(events: string[], options?: {addedSubgraph?: boolean}) {
         findChangedInSession: changed('edits:read'),
       }),
       getUsecaseRepository: () => ({
-        findBySystemIds,
-        findWithActiveManualEdits,
+        findUseCases,
+        findActiveManualUseCaseEdits,
+        findUseCaseChangeDetails,
       }),
     },
-    findBySystemIds,
-    findWithActiveManualEdits,
+    findUseCases,
+    findActiveManualUseCaseEdits,
+    findUseCaseChangeDetails,
   };
 }
 
@@ -226,11 +237,12 @@ describe('CreateUsecasesHandler', () => {
       'manual-usecase-edits:read',
       'snapshot:build',
       'engine:run',
+      'change-details:read',
       'transaction:commit',
     ]);
     expect(snapshotBuilder.build).toHaveBeenCalledTimes(1);
-    expect(catalog.findBySystemIds).not.toHaveBeenCalled();
-    expect(catalog.findWithActiveManualEdits).toHaveBeenCalledWith(1);
+    expect(catalog.findUseCases).not.toHaveBeenCalled();
+    expect(catalog.findActiveManualUseCaseEdits).toHaveBeenCalledWith(1);
     expect(engine.run).toHaveBeenCalledWith(
       expect.objectContaining({
         fileSystemId: 1,
@@ -338,5 +350,70 @@ describe('CreateUsecasesHandler', () => {
     );
     expect(catalog.uow.rollback).toHaveBeenCalledTimes(1);
     expect(engine.run).not.toHaveBeenCalled();
+  });
+
+  it('returns the change details read inside the transaction for the emitted changes', async () => {
+    const events: string[] = [];
+    const catalog = createUow(events);
+    const emitted = [
+      {systemId: 5, operation: 'CREATE', source: 'AUTO'},
+    ] as never[];
+    const details = [{systemId: 5, before: null, after: {}}];
+    catalog.findUseCaseChangeDetails.mockResolvedValue(details);
+    const handler = new CreateUsecasesHandler(
+      catalog.uow as never,
+      idGeneration,
+      {resolveAllChains: jest.fn(async () => Result.ok())} as never,
+      {
+        run: jest.fn(async () =>
+          Result.ok(createEmptyRoutingOutcome('group-1', emitted)),
+        ),
+      } as never,
+      {build: jest.fn(async () => Result.ok(snapshot()))} as never,
+    );
+
+    const result = await handler.handle(
+      new CreateUsecasesCommand(1, {
+        activeSubgraphs: [],
+        includedDataLinkSystemIds: [],
+        includedControlLinkSystemIds: [],
+      }),
+    );
+
+    expect(catalog.findUseCaseChangeDetails).toHaveBeenCalledWith(1, emitted);
+    expect(result).toMatchObject({
+      kind: RESULT_KIND.Ok,
+      data: {groupId: 'group-1', emittedChanges: emitted, changes: details},
+    });
+  });
+
+  it('rolls back the routing work when the change details cannot be read', async () => {
+    const events: string[] = [];
+    const catalog = createUow(events);
+    catalog.findUseCaseChangeDetails.mockRejectedValue(
+      new Error('UseCase 5 references missing GKV value definition 9'),
+    );
+    const handler = new CreateUsecasesHandler(
+      catalog.uow as never,
+      idGeneration,
+      {resolveAllChains: jest.fn(async () => Result.ok())} as never,
+      {
+        run: jest.fn(async () => Result.ok(createEmptyRoutingOutcome('g'))),
+      } as never,
+      {build: jest.fn(async () => Result.ok(snapshot()))} as never,
+    );
+
+    await expect(
+      handler.handle(
+        new CreateUsecasesCommand(1, {
+          activeSubgraphs: [],
+          includedDataLinkSystemIds: [],
+          includedControlLinkSystemIds: [],
+        }),
+      ),
+    ).rejects.toThrow('missing GKV value definition 9');
+
+    expect(catalog.uow.commit).not.toHaveBeenCalled();
+    expect(catalog.uow.rollback).toHaveBeenCalledTimes(1);
   });
 });

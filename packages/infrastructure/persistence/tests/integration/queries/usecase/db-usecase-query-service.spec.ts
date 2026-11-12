@@ -7,7 +7,6 @@ import type {DataSource} from 'typeorm';
 import {
   CHANGE_OPERATION,
   CHANGE_STATUS,
-  RESULT_KIND,
   Result,
   SOURCE,
   USECASE_TYPE,
@@ -26,7 +25,6 @@ import {
 } from '../../helpers/test-database-setup.js';
 import {DbUseCaseQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/usecase/db-usecase-query-service.js';
 import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
-import {TypeOrmSessionRepository} from '../../../../src/persistence-typeorm-sqllite/repositories/session/typeorm-session.repository.js';
 import {UsecaseOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/usecase-overlay-fetcher.js';
 import {UsecaseGkvValuesFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/usecase-gkv-values-fetcher.js';
 import {UseCaseCategoryFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/usecase-category-fetcher.js';
@@ -48,10 +46,11 @@ import {
 const FILE_ID = 100;
 const USECASE_ID = 900;
 
-describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
+describe('DbUseCaseQueryService.findUseCaseChangeDetails (integration)', () => {
   let dataSource: DataSource;
   let service: DbUseCaseQueryService;
   let sessionId: number;
+  let knownGkvValueIds: Set<number>;
 
   beforeAll(async () => {
     await setupIntegrationTest();
@@ -65,6 +64,7 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
     await setupEachTest();
     dataSource = getTestDataSource();
     await seedProjectFileAndSession();
+    knownGkvValueIds = new Set([700]);
 
     const editActions = new EditActionsQueryService(dataSource.manager);
     const usecaseFetcher = new UsecaseOverlayFetcher(
@@ -74,11 +74,11 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
       new UsecaseGkvValuesFetcher(dataSource.manager, editActions),
     );
     service = new DbUseCaseQueryService(
-      dataSource,
+      dataSource.manager,
       {
         getKeyValueSummaryForGivenValues: async (valueSystemIds: number[]) =>
           Result.ok(
-            valueSystemIds.includes(700)
+            valueSystemIds.includes(700) && knownGkvValueIds.has(700)
               ? [
                   {
                     key: {systemId: 70, naturalId: 7, name: 'Device'},
@@ -88,8 +88,6 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
               : [],
           ),
       } as any,
-      {} as any,
-      new TypeOrmSessionRepository(dataSource.manager),
       editActions,
       usecaseFetcher,
       new LinkOverlayFetcher(dataSource.manager, editActions),
@@ -99,7 +97,7 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
   it('projects a session-created EC UseCase with matching overlay links', async () => {
     const createChangeId = await seedCreateActions();
 
-    const result = await service.getChangeDetails(FILE_ID, [
+    const changes = await service.findUseCaseChangeDetails(FILE_ID, [
       {
         systemId: USECASE_ID,
         changeId: createChangeId,
@@ -108,9 +106,7 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
       },
     ]);
 
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data).toEqual([
+    expect(changes).toEqual([
       {
         systemId: USECASE_ID,
         changeId: createChangeId,
@@ -165,7 +161,7 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
       payload: {alias: 'updated'},
     });
 
-    const result = await service.getChangeDetails(FILE_ID, [
+    const changes = await service.findUseCaseChangeDetails(FILE_ID, [
       {
         systemId: USECASE_ID,
         changeId,
@@ -174,9 +170,7 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
       },
     ]);
 
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data[0]).toEqual(
+    expect(changes[0]).toEqual(
       expect.objectContaining({
         source: SOURCE.AutoRouting,
         before: expect.objectContaining({alias: 'committed', isEc: false}),
@@ -202,7 +196,7 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
       },
     });
 
-    const result = await service.getChangeDetails(FILE_ID, [
+    const changes = await service.findUseCaseChangeDetails(FILE_ID, [
       {
         systemId: secondUsecaseId,
         changeId: secondChangeId,
@@ -217,14 +211,10 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
       },
     ]);
 
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data.map(change => [change.systemId, change.source])).toEqual(
-      [
-        [secondUsecaseId, SOURCE.AutoRouting],
-        [USECASE_ID, SOURCE.Manual],
-      ],
-    );
+    expect(changes.map(change => [change.systemId, change.source])).toEqual([
+      [secondUsecaseId, SOURCE.AutoRouting],
+      [USECASE_ID, SOURCE.Manual],
+    ]);
   });
 
   it('uses the complete latest overlay relationships across multiple action groups', async () => {
@@ -244,7 +234,7 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
       payload: {useCaseSystemId: USECASE_ID, categorySystemId: 911},
     });
 
-    const result = await service.getChangeDetails(FILE_ID, [
+    const changes = await service.findUseCaseChangeDetails(FILE_ID, [
       {
         systemId: USECASE_ID,
         changeId: createChangeId,
@@ -253,9 +243,7 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
       },
     ]);
 
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data[0]).toEqual(
+    expect(changes[0]).toEqual(
       expect.objectContaining({
         before: null,
         after: expect.objectContaining({categories: ['voice', 'media']}),
@@ -300,7 +288,7 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
       },
     });
 
-    const result = await service.getChangeDetails(FILE_ID, [
+    const changes = await service.findUseCaseChangeDetails(FILE_ID, [
       {
         systemId: USECASE_ID,
         changeId: createChangeId,
@@ -309,18 +297,34 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
       },
     ]);
 
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data[0]?.after?.dataLinks.map(link => link.systemId)).toEqual(
-      [906, 909],
+    expect(changes[0]?.after?.dataLinks.map(link => link.systemId)).toEqual([
+      906, 909,
+    ]);
+    expect(changes[0]?.after?.controlLinks.map(link => link.systemId)).toEqual([
+      908, 910,
+    ]);
+  });
+
+  it('throws when an emitted use case references a missing GKV value', async () => {
+    const createChangeId = await seedCreateActions();
+    knownGkvValueIds.clear();
+
+    await expect(
+      service.findUseCaseChangeDetails(FILE_ID, [
+        {
+          systemId: USECASE_ID,
+          changeId: createChangeId,
+          operation: CHANGE_OPERATION.Create,
+          source: SOURCE.DiffTool,
+        },
+      ]),
+    ).rejects.toThrow(
+      `UseCase ${USECASE_ID} references missing GKV value definition 700`,
     );
-    expect(
-      result.data[0]?.after?.controlLinks.map(link => link.systemId),
-    ).toEqual([908, 910]);
   });
 
   it('rejects duplicate emitted UseCase IDs', async () => {
-    const result = await service.getChangeDetails(FILE_ID, [
+    const read = service.findUseCaseChangeDetails(FILE_ID, [
       {
         systemId: USECASE_ID,
         changeId: 1,
@@ -335,7 +339,7 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
       },
     ]);
 
-    expect(result.kind).toBe(RESULT_KIND.Fail);
+    await expect(read).rejects.toThrow('Duplicate emitted UseCase system IDs');
   });
 
   it('projects committed state as before and null after for deletes', async () => {
@@ -348,7 +352,7 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
       payload: {},
     });
 
-    const result = await service.getChangeDetails(FILE_ID, [
+    const changes = await service.findUseCaseChangeDetails(FILE_ID, [
       {
         systemId: USECASE_ID,
         changeId,
@@ -357,9 +361,7 @@ describe('DbUseCaseQueryService.getChangeDetails (integration)', () => {
       },
     ]);
 
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data[0]).toEqual(
+    expect(changes[0]).toEqual(
       expect.objectContaining({
         before: expect.objectContaining({alias: 'committed'}),
         after: null,

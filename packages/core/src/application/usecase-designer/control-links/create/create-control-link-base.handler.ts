@@ -454,16 +454,13 @@ export abstract class ControlLinkCreationHandler<
     if (nodeA.type !== NodeType.Module || nodeB.type !== NodeType.Module)
       return;
     if (command.linkType === CONTROL_LINK_TYPE.InterUsecase) {
-      const [ucsA, ucsB] = await Promise.all([
-        this.uow
-          .getUsecaseRepository()
-          .findBySubgraph(fileSystemId, nodeA.subgraphId),
-        this.uow
-          .getUsecaseRepository()
-          .findBySubgraph(fileSystemId, nodeB.subgraphId),
-      ]);
-      const aIds = new Set(ucsA.map(uc => uc.systemId));
-      if (ucsB.some(uc => aIds.has(uc.systemId))) {
+      if (
+        await this.endpointsShareUsecase(
+          fileSystemId,
+          nodeA.subgraphId,
+          nodeB.subgraphId,
+        )
+      ) {
         throw new DomainRuleViolationException([
           IssueFactory.clTopologyViolation(
             'The endpoints share a use case and cannot be inter-usecase',
@@ -473,22 +470,35 @@ export abstract class ControlLinkCreationHandler<
       return;
     }
     if (nodeA.subgraphId === nodeB.subgraphId) return;
-    const [ucsA, ucsB] = await Promise.all([
-      this.uow
-        .getUsecaseRepository()
-        .findBySubgraph(fileSystemId, nodeA.subgraphId),
-      this.uow
-        .getUsecaseRepository()
-        .findBySubgraph(fileSystemId, nodeB.subgraphId),
-    ]);
-    const aIds = new Set(ucsA.map(uc => uc.systemId));
-    if (!ucsB.some(uc => aIds.has(uc.systemId))) {
+    if (
+      !(await this.endpointsShareUsecase(
+        fileSystemId,
+        nodeA.subgraphId,
+        nodeB.subgraphId,
+      ))
+    ) {
       throw new DomainRuleViolationException([
         IssueFactory.clTopologyViolation(
           'The endpoints belong to different use cases; use INTER_USECASE linkType',
         ),
       ]);
     }
+  }
+
+  /** True when one use case contains both subgraphs. */
+  private async endpointsShareUsecase(
+    fileSystemId: number,
+    subgraphA: number,
+    subgraphB: number,
+  ): Promise<boolean> {
+    const usecases = await this.uow
+      .getUsecaseRepository()
+      .findUseCasesBySubgraphs(fileSystemId, [subgraphA, subgraphB]);
+    return usecases.some(
+      uc =>
+        uc.subgraphSystemIds.includes(subgraphA) &&
+        uc.subgraphSystemIds.includes(subgraphB),
+    );
   }
 
   private async resolveIntents(

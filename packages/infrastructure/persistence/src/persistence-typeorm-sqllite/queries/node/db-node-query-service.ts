@@ -55,7 +55,7 @@ export class DbNodeQueryService implements NodeQueryService {
   ): Promise<Result<DataPortReadModel[]>> {
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.dataSource.manager,
         fileSystemId,
       );
 
@@ -124,7 +124,7 @@ export class DbNodeQueryService implements NodeQueryService {
   ): Promise<Result<ControlPortReadModel[]>> {
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.dataSource.manager,
         fileSystemId,
       );
 
@@ -214,7 +214,7 @@ export class DbNodeQueryService implements NodeQueryService {
     );
 
     const sessionId = await resolveActiveSessionId(
-      this.dataSource,
+      this.dataSource.manager,
       fileSystemId,
     );
     if (sessionId === null) return countMap;
@@ -271,7 +271,7 @@ export class DbNodeQueryService implements NodeQueryService {
     );
 
     const sessionId = await resolveActiveSessionId(
-      this.dataSource,
+      this.dataSource.manager,
       fileSystemId,
     );
     if (sessionId === null) return countMap;

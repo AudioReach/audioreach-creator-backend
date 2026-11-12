@@ -55,7 +55,7 @@ export class DbTkvCalibrationQueryService implements TkvQueryService {
     tkvSystemId: number,
   ): Promise<TkvReadModel | null> {
     const sessionId = await resolveActiveSessionId(
-      this.dataSource,
+      this.dataSource.manager,
       fileSystemId,
     );
     const overlaid = await this.tkvFetcher.fetchTkv(tkvSystemId, sessionId);
@@ -71,7 +71,7 @@ export class DbTkvCalibrationQueryService implements TkvQueryService {
     paramSystemIds?: number[],
   ): Promise<ParameterPayloadReadModel[]> {
     const sessionId = await resolveActiveSessionId(
-      this.dataSource,
+      this.dataSource.manager,
       fileSystemId,
     );
     const all = await this.tkvFetcher.fetchPayloads(tkvSystemId, sessionId);

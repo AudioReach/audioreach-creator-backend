@@ -41,8 +41,8 @@ describe('GetSubgraphPeerDataLinksHandler', () => {
         ),
       },
       useCaseQueryService: {
-        getAllUseCases: jest.fn().mockResolvedValue(
-          Result.ok([
+        findUseCaseReadModels: jest.fn().mockResolvedValue({
+          items: [
             {
               systemId: 404,
               gkv: [],
@@ -51,8 +51,9 @@ describe('GetSubgraphPeerDataLinksHandler', () => {
               categories: ['audio'],
               type: 'LINKED',
             },
-          ]),
-        ),
+          ],
+          failed: [],
+        }),
       },
     } as unknown as QueryServices;
 
@@ -98,7 +99,7 @@ describe('GetSubgraphPeerDataLinksHandler', () => {
         findSubgraphPeerLinks: jest.fn().mockResolvedValue(Result.ok([])),
       },
       useCaseQueryService: {
-        getAllUseCases: jest.fn(),
+        findUseCaseReadModels: jest.fn(),
       },
     } as unknown as QueryServices;
 
@@ -109,6 +110,8 @@ describe('GetSubgraphPeerDataLinksHandler', () => {
     );
 
     expect(result).toEqual(Result.ok([]));
-    expect(services.useCaseQueryService.getAllUseCases).not.toHaveBeenCalled();
+    expect(
+      services.useCaseQueryService.findUseCaseReadModels,
+    ).not.toHaveBeenCalled();
   });
 });

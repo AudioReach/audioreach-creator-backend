@@ -53,7 +53,7 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
   ): Promise<Result<SubsystemReadModel[]>> {
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.dataSource.manager,
         fileSystemId,
       );
       const subsystems = await this.subsystemFetcher.fetchAll(
@@ -258,7 +258,7 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
     if (usecaseSystemIds.length === 0) return Result.ok([]);
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.dataSource.manager,
         fileSystemId,
       );
 
@@ -328,7 +328,7 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
     if (usecaseSystemIds.length === 0) return Result.ok([]);
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.dataSource.manager,
         fileSystemId,
       );
 
@@ -415,7 +415,7 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
     controlLinkBySystemId: Map<number, ControlLinkBase>;
   }> {
     const sessionId = await resolveActiveSessionId(
-      this.dataSource,
+      this.dataSource.manager,
       fileSystemId,
     );
     const [controlLinks, segments] = await Promise.all([

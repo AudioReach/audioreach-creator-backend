@@ -55,10 +55,7 @@ import {
   DeleteProjectCommand,
   CreateUsecasesCommand,
   CreateManualUsecasesCommand,
-  GetUsecaseChangeDetailsQuery,
   RESULT_KIND,
-  ISSUE_CODE,
-  IssueSeverity,
   type PathRef,
   type Logger,
   type DownloadFileResult,
@@ -69,8 +66,7 @@ import {
   type ActiveSession,
   type SessionMode as CoreSessionMode,
   type ProjectDto,
-  type RoutingOutcome,
-  type UsecaseChangeDetails,
+  type RoutingCommandOutcome,
 } from '@arc/core';
 import {promises as fsPromises} from 'node:fs';
 
@@ -124,43 +120,6 @@ export class ProjectController {
     @Inject('LOGGER') private readonly logger: Logger,
     private readonly fixCommandDispatcher: FixCommandDispatcher,
   ) {}
-
-  private async projectUsecaseChanges(
-    projectId: string,
-    clientId: string,
-    outcome: RoutingOutcome,
-  ): Promise<readonly UsecaseChangeDetails[]> {
-    const query = new GetUsecaseChangeDetailsQuery(
-      projectId,
-      clientId,
-      outcome.emittedChanges,
-    );
-    let result =
-      await this.queryBus.execute<Result<UsecaseChangeDetails[]>>(query);
-    if (
-      result.kind === RESULT_KIND.Fail &&
-      result.issues.every(
-        issue => issue.code === ISSUE_CODE.TRANSIENT_DB_READ_FAILED,
-      )
-    ) {
-      result =
-        await this.queryBus.execute<Result<UsecaseChangeDetails[]>>(query);
-    }
-    if (result.kind === RESULT_KIND.Fail) {
-      throw new InternalServerErrorException({
-        groupId: outcome.groupId,
-        issues: [
-          {
-            code: ISSUE_CODE.USECASE_CHANGE_PROJECTION_FAILED,
-            message:
-              'Routing succeeded, but response projection failed. The accepted changes were preserved.',
-            severity: IssueSeverity.Error,
-          },
-        ],
-      });
-    }
-    return result.data;
-  }
 
   /**
    * Creates a safe temporary file path by sanitizing the filename
@@ -1115,9 +1074,7 @@ export class ProjectController {
     },
   })
   async createUsecases(
-    @Param('projectId') projectId: string,
     @Body() body: CreateUsecasesRequestDto,
-    @ClientId() clientId: string,
     @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<CreateUsecasesResponseDto>> {
     const command = new CreateUsecasesCommand(session.fileSystemId, {
@@ -1126,19 +1083,13 @@ export class ProjectController {
       includedDataLinkSystemIds: body.includedDataLinkSystemIds,
       includedControlLinkSystemIds: body.includedControlLinkSystemIds,
     });
-    const outcomeResult = await this.commandBus.execute<Result<RoutingOutcome>>(
-      command,
-      session,
-    );
+    const outcomeResult = await this.commandBus.execute<
+      Result<RoutingCommandOutcome>
+    >(command, session);
     if (outcomeResult.kind === RESULT_KIND.Fail)
       return toApiResult(outcomeResult);
-    const changes = await this.projectUsecaseChanges(
-      projectId,
-      clientId,
-      outcomeResult.data,
-    );
     return toApiResult(
-      Result.ok(mapCreateUsecasesResponse(outcomeResult.data, changes)),
+      Result.ok(mapCreateUsecasesResponse(outcomeResult.data)),
     );
   }
 
@@ -1259,9 +1210,7 @@ export class ProjectController {
     },
   })
   async createManualUsecases(
-    @Param('projectId') projectId: string,
     @Body() body: CreateManualUsecasesRequestDto,
-    @ClientId() clientId: string,
     @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<CreateManualUsecasesResponseDto>> {
     const command = new CreateManualUsecasesCommand(session.fileSystemId, {
@@ -1269,19 +1218,13 @@ export class ProjectController {
       includedDataLinkSystemIds: body.includedDataLinkSystemIds,
       includedControlLinkSystemIds: body.includedControlLinkSystemIds,
     });
-    const outcomeResult = await this.commandBus.execute<Result<RoutingOutcome>>(
-      command,
-      session,
-    );
+    const outcomeResult = await this.commandBus.execute<
+      Result<RoutingCommandOutcome>
+    >(command, session);
     if (outcomeResult.kind === RESULT_KIND.Fail)
       return toApiResult(outcomeResult);
-    const changes = await this.projectUsecaseChanges(
-      projectId,
-      clientId,
-      outcomeResult.data,
-    );
     return toApiResult(
-      Result.ok(mapCreateUsecasesResponse(outcomeResult.data, changes)),
+      Result.ok(mapCreateUsecasesResponse(outcomeResult.data)),
     );
   }
 

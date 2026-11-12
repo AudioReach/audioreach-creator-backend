@@ -54,7 +54,7 @@ export class DbDriverModuleDefinitionQueryService implements DriverModuleDefinit
   ): Promise<Result<BaseModuleDefinitionSummaryReadModel[]>> {
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.dataSource.manager,
         fileSystemId,
       );
 
@@ -120,7 +120,7 @@ export class DbDriverModuleDefinitionQueryService implements DriverModuleDefinit
   ): Promise<Result<BaseModuleDefinitionSummaryReadModel>> {
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.dataSource.manager,
         fileSystemId,
       );
 

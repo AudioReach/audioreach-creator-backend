@@ -108,7 +108,7 @@ function makeUow(subgraph: any, vcpmDefs: any[] = []) {
         .mockResolvedValue([makeScenarioDef(), makeVsidDef()]),
     }),
     getUsecaseRepository: jest.fn().mockReturnValue({
-      findBySubgraph: jest.fn().mockResolvedValue([]),
+      findUseCasesBySubgraphs: jest.fn().mockResolvedValue([]),
     }),
     getVcpmDefinitionRepository: jest.fn().mockReturnValue({
       getAllVcpmModuleDefinitions: jest.fn().mockResolvedValue(vcpmDefs),

@@ -54,14 +54,6 @@ export const IssueFactory = {
     };
   },
 
-  transientDbReadError(message: string): Issue {
-    return {
-      code: ISSUE_CODE.TRANSIENT_DB_READ_FAILED,
-      message,
-      severity: IssueSeverity.Error,
-    };
-  },
-
   parseError(code: string, message: string): Issue {
     return {
       code,

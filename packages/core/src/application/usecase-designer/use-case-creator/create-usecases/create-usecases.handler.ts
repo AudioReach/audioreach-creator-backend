@@ -12,7 +12,8 @@ import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 import {findDuplicateActiveSubgraphSystemIds} from '../contracts/routing-input.js';
 import {parseId} from '../../shared/parse-id.js';
-import type {RoutingOutcome} from '../contracts/routing-outcome.js';
+import type {RoutingCommandOutcome} from '../contracts/routing-outcome.js';
+import {attachChangeDetails} from '../shared/attach-change-details.js';
 import {createRoutingEngine} from '../engine/create-routing-engine.js';
 import type {RoutingEngine} from '../engine/routing-engine.js';
 import {RoutingGraphSnapshotBuilder} from '../services/routing-graph-snapshot-builder.js';
@@ -22,7 +23,7 @@ import {CreateUsecasesCommand} from './create-usecases.command.js';
 
 export class CreateUsecasesHandler implements CommandHandler<
   CreateUsecasesCommand,
-  Result<RoutingOutcome>
+  Result<RoutingCommandOutcome>
 > {
   constructor(
     private readonly uow: UnitOfWork,
@@ -38,7 +39,7 @@ export class CreateUsecasesHandler implements CommandHandler<
 
   async handle(
     command: CreateUsecasesCommand,
-  ): Promise<Result<RoutingOutcome>> {
+  ): Promise<Result<RoutingCommandOutcome>> {
     const duplicateSubgraphIds = findDuplicateActiveSubgraphSystemIds(
       command.input.activeSubgraphs.map(sg =>
         parseId(sg.systemId, 'activeSubgraphs.systemId'),
@@ -62,8 +63,13 @@ export class CreateUsecasesHandler implements CommandHandler<
       const result = await this.engine.run(input, this.uow, this.idGeneration);
       if (result.kind === RESULT_KIND.Fail)
         throw new DomainRuleViolationException(result.issues);
+      const outcome = await attachChangeDetails(
+        this.uow,
+        command.fileSystemId,
+        result,
+      );
       await this.uow.commit();
-      return result;
+      return outcome;
     } catch (error) {
       if (this.uow.isInTransaction()) await this.uow.rollback();
       throw error;

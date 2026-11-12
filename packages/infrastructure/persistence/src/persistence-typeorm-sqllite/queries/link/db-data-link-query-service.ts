@@ -50,7 +50,7 @@ export class DbDataLinkQueryService implements DataLinkQueryService {
 
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.dataSource.manager,
         fileSystemId,
       );
 
@@ -97,7 +97,7 @@ export class DbDataLinkQueryService implements DataLinkQueryService {
   ): Promise<Result<DataLinkWithUsecaseIdsReadModel[]>> {
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.dataSource.manager,
         fileSystemId,
       );
       const links = await this.linkFetcher.loadDataLinkRows(
@@ -246,7 +246,7 @@ export class DbDataLinkQueryService implements DataLinkQueryService {
   ): Promise<Result<DataLinkReadModel[]>> {
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.dataSource.manager,
         fileSystemId,
       );
 

@@ -32,6 +32,7 @@ export * from './application/shared/base-command.js';
 export * from './application/shared/base-query.js';
 export * from './application/ports/persistence/unit-of-work.js';
 export * from './application/ports/persistence/unit-of-work-factory.js';
+export * from './application/ports/persistence/batch-read.js';
 export * from './application/ports/persistence/repositories/bulk-import/bulk-insert-result-types.js';
 export * from './application/ports/persistence/repositories/bulk-import/bulk-import.repository.js';
 export * from './application/ports/persistence/repositories/project/project.repository.js';
@@ -48,6 +49,7 @@ export * from './domain/entities/definitions/common/types/build-type.js';
 export * from './domain/entities/definitions/common/types/mdf-module-type.js';
 // New Result<T> discriminated union + namespace (design §3, FR-2, FR-3).
 export * from './application/shared/result/result.js';
+export * from './application/shared/result/failed-to-issues.js';
 
 // Shared Change Types
 export * from './application/shared/change-vocabulary.js';
@@ -430,7 +432,6 @@ export * from './application/usecase-designer/spf-module/update-tag-data/update-
 export * from './application/usecase-designer/spf-module/get/get-module-compact.query.js';
 export * from './application/usecase-designer/spf-module/get/get-module-compact.handler.js';
 export * from './application/usecase-designer/usecase/get-all/index.js';
-export * from './application/usecase-designer/usecase/get-change-details/get-usecase-change-details.query.js';
 export * from './application/usecase-designer/usecase/get-components/index.js';
 export * from './application/usecase-designer/usecase/get-component-with-subsystem/get-components-with-subsystems.query.js';
 export * from './application/usecase-designer/usecase/get-component-with-subsystem/get-components-with-subsystems.handler.js';

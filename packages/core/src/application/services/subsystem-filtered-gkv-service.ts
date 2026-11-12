@@ -5,6 +5,8 @@
 
 import type {FilterExpression} from '../../shared/filter/filter-expression.js';
 import {IssueFactory} from '../../shared/issues/factories.js';
+import {ISSUE_ENTITY_TYPE} from '../../shared/issues/impacted-entity.js';
+import {failedToIssues} from '../shared/result/failed-to-issues.js';
 import {
   RESULT_KIND,
   Result,
@@ -94,25 +96,19 @@ export class SubsystemFilteredGkvService {
     fileId: number,
     filter?: FilterExpression,
   ): Promise<ArcResult<SubsystemFilteredGkvGroup[]>> {
-    const topologyResult =
-      await this.useCaseQueryService.getUsecaseFilteredTopologyData(fileId);
-    if (topologyResult.kind === RESULT_KIND.Fail) return topologyResult;
+    const topology =
+      await this.useCaseQueryService.findUseCaseFilteredTopologyData(fileId);
 
-    const matchingIdsResult = this.findMatchingUsecaseIds(
-      topologyResult.data,
-      filter,
-    );
+    const matchingIdsResult = this.findMatchingUsecaseIds(topology, filter);
     if (matchingIdsResult.kind === RESULT_KIND.Fail) return matchingIdsResult;
 
-    const usecasesResult = await this.useCaseQueryService.getUsecasesWithGkv(
+    const usecases = await this.useCaseQueryService.findUseCaseReadModels(
       fileId,
-      matchingIdsResult.data,
+      {ids: matchingIdsResult.data},
     );
-    if (usecasesResult.kind === RESULT_KIND.Fail) return usecasesResult;
 
-    const topology = topologyResult.data;
     const gkvData: UsecaseFilteredGkvData = {
-      usecases: usecasesResult.data,
+      usecases: usecases.items,
       subgraphSystemIdsByUsecase: new Map(
         matchingIdsResult.data.map(id => [
           id,
@@ -127,8 +123,11 @@ export class SubsystemFilteredGkvService {
     const groupsResult = this.buildFilteredGkv(gkvData, filter);
     if (groupsResult.kind === RESULT_KIND.Fail) return groupsResult;
 
-    return usecasesResult.kind === RESULT_KIND.Partial
-      ? Result.partial(groupsResult.data, usecasesResult.issues)
+    return usecases.failed.length > 0
+      ? Result.partial(
+          groupsResult.data,
+          failedToIssues(ISSUE_ENTITY_TYPE.UseCase, usecases.failed),
+        )
       : groupsResult;
   }
 

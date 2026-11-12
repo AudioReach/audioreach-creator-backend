@@ -76,7 +76,7 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
     projectSessionRepository =
       getTestRepository<ProjectSessionRow>(ProjectSessionSchema);
     service = new DbKeyValueDefQueryService(
-      dataSource,
+      dataSource.manager,
       new EditActionsQueryService(dataSource.manager),
     );
   });

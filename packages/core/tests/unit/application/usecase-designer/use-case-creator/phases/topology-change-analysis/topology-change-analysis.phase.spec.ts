@@ -191,12 +191,12 @@ function createFixture(options: FixtureOptions = {}) {
         })
       : createAutoRoutingInput(inputInit);
   const context = new RoutingContext(input);
-  const findAll = jest.fn(() => {
+  const findAllUseCases = jest.fn(() => {
     throw new Error('Phase 2 must not read the usecase repository');
   });
   const getSgkvs = jest.fn().mockResolvedValue([...(options.sgkvs ?? [])]);
   const subgraphRepository = {getSgkvs} as unknown as SubgraphRepository;
-  return {context, subgraphRepository, findAll, getSgkvs};
+  return {context, subgraphRepository, findAllUseCases, getSgkvs};
 }
 
 function runAnalysis(
@@ -225,7 +225,7 @@ describe('TopologyChangeAnalysisPhase', () => {
     const result = await runAnalysis(service, fixture);
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
-    expect(fixture.findAll).not.toHaveBeenCalled();
+    expect(fixture.findAllUseCases).not.toHaveBeenCalled();
     expect(fixture.context.topologyChangeAnalysis).toEqual({
       affectedUsecaseSystemIds: new Set([1]),
       decisions: [
@@ -1274,7 +1274,7 @@ describe('TopologyChangeAnalysisPhase', () => {
 
     await runAnalysis(service, fixture);
 
-    expect(fixture.findAll).not.toHaveBeenCalled();
+    expect(fixture.findAllUseCases).not.toHaveBeenCalled();
     expect(fixture.getSgkvs).toHaveBeenCalledWith(1, [2, 3]);
     expect(fixture.context.topologyChangeAnalysis?.decisions[0]).toEqual({
       kind: USECASE_TOPOLOGY_DECISION_KIND.DeleteOrReconstruct,
@@ -1387,7 +1387,7 @@ describe('TopologyChangeAnalysisPhase', () => {
 
     await runAnalysis(service, fixture);
 
-    expect(fixture.findAll).not.toHaveBeenCalled();
+    expect(fixture.findAllUseCases).not.toHaveBeenCalled();
     expect(fixture.getSgkvs).toHaveBeenCalledWith(1, [2, 3]);
     expect(fixture.context.topologyChangeAnalysis?.decisions[0]).toEqual(
       expect.objectContaining({

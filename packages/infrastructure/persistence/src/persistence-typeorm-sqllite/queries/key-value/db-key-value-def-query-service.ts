@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {DataSource} from 'typeorm';
+import type {EntityManager} from 'typeorm';
 import type {
   KeyValueDefQueryService,
   KeyDefinitionReadModel,
@@ -32,15 +32,12 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
   private readonly valueFetcher: ValueDefinitionFetcher;
 
   constructor(
-    private readonly dataSource: DataSource,
+    private readonly manager: EntityManager,
     editActionsSvc: EditActionsQueryService,
   ) {
-    this.valueFetcher = new ValueDefinitionFetcher(
-      dataSource.manager,
-      editActionsSvc,
-    );
+    this.valueFetcher = new ValueDefinitionFetcher(manager, editActionsSvc);
     this.kvFetcher = new KeyValueDefinitionFetcher(
-      dataSource.manager,
+      manager,
       editActionsSvc,
       this.valueFetcher,
     );
@@ -52,7 +49,7 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
   ): Promise<Result<KeyDefinitionReadModel[]>> {
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.manager,
         fileSystemId,
       );
 
@@ -96,7 +93,7 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
 
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.manager,
         fileSystemId,
       );
       const keys = await this.kvFetcher.fetchMany(
@@ -178,7 +175,7 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
 
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.manager,
         fileSystemId,
       );
 
@@ -327,7 +324,7 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
   ): Promise<Result<KeyDefinitionReadModel>> {
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.manager,
         fileSystemId,
       );
       const keys = await this.kvFetcher.fetchMany(

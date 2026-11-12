@@ -50,7 +50,7 @@ export class DbTagDefinitionQueryService implements TagDefinitionQueryService {
   ): Promise<Result<TagDefinitionReadModel[]>> {
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.dataSource.manager,
         fileSystemId,
       );
 
@@ -80,7 +80,7 @@ export class DbTagDefinitionQueryService implements TagDefinitionQueryService {
     tagSystemId: number,
   ): Promise<TagDefinitionReadModel | null> {
     const sessionId = await resolveActiveSessionId(
-      this.dataSource,
+      this.dataSource.manager,
       fileSystemId,
     );
 
@@ -110,7 +110,7 @@ export class DbTagDefinitionQueryService implements TagDefinitionQueryService {
     if (tagSystemIds.length === 0) return Result.ok([]);
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.dataSource.manager,
         fileSystemId,
       );
       const overlaidTags = await this.tagFetcher.fetchMany(

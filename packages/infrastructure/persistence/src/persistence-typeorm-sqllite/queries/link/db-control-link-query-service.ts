@@ -50,7 +50,7 @@ export class DbControlLinkQueryService implements ControlLinkQueryService {
 
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.dataSource.manager,
         fileSystemId,
       );
 
@@ -99,7 +99,7 @@ export class DbControlLinkQueryService implements ControlLinkQueryService {
 
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.dataSource.manager,
         fileSystemId,
       );
       const links = await this.linkFetcher.loadControlLinkRows(
@@ -129,7 +129,7 @@ export class DbControlLinkQueryService implements ControlLinkQueryService {
   ): Promise<Result<ControlLinkReadModel[]>> {
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.dataSource.manager,
         fileSystemId,
       );
       const [links, segments] = await Promise.all([
@@ -170,7 +170,7 @@ export class DbControlLinkQueryService implements ControlLinkQueryService {
   ): Promise<Result<ControlLinkWithUsecaseIdsReadModel[]>> {
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.dataSource.manager,
         fileSystemId,
       );
       const links = await this.linkFetcher.loadControlLinkRows(
@@ -248,7 +248,7 @@ export class DbControlLinkQueryService implements ControlLinkQueryService {
   ): Promise<Result<ControlLinkReadModel[]>> {
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource,
+        this.dataSource.manager,
         fileSystemId,
       );
 

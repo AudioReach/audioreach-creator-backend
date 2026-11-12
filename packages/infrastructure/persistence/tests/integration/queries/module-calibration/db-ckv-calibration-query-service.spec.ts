@@ -84,7 +84,7 @@ describe('DbCkvCalibrationQueryService definition filtering', () => {
     const svc = new DbCkvCalibrationQueryService(
       ds,
       editSvc,
-      new DbKeyValueDefQueryService(ds, editSvc),
+      new DbKeyValueDefQueryService(ds.manager, editSvc),
     );
     const payloads = await svc.getCkvPayloads(300, 70, 90, [25]);
     expect(payloads).toHaveLength(1);
@@ -108,7 +108,7 @@ describe('DbCkvCalibrationQueryService definition filtering', () => {
     const svc = new DbCkvCalibrationQueryService(
       ds,
       editSvc,
-      new DbKeyValueDefQueryService(ds, editSvc),
+      new DbKeyValueDefQueryService(ds.manager, editSvc),
     );
     const payloads = await svc.getCkvPayloads(300, 70, 90, [25]);
     expect(payloads).toHaveLength(1);

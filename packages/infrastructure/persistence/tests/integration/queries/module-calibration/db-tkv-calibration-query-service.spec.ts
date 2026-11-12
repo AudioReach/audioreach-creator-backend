@@ -98,7 +98,7 @@ async function seedAll(ds: DataSource) {
 
 function makeService(ds: DataSource): DbTkvCalibrationQueryService {
   const editSvc = new EditActionsQueryService(ds.manager);
-  const kvSvc = new DbKeyValueDefQueryService(ds, editSvc);
+  const kvSvc = new DbKeyValueDefQueryService(ds.manager, editSvc);
   return new DbTkvCalibrationQueryService(ds, editSvc, kvSvc);
 }
 

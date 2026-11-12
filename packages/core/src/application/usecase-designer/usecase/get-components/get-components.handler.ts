@@ -7,6 +7,10 @@ import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handl
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import type {ComponentsReadModel} from '../../../ports/persistence/query-services/usecase/query-models/components-read-model.js';
 import {Result, RESULT_KIND} from '../../../shared/result/result.js';
+import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
+import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {FAILED_ENTITY_REASON} from '../../../ports/persistence/batch-read.js';
+import {failedToIssues} from '../../../shared/result/failed-to-issues.js';
 import {
   GetComponentsQuery,
   COMPONENT_SCOPE_TYPE,
@@ -29,16 +33,7 @@ export class GetComponentsHandler implements QueryHandler<
       );
 
     if (query.scope.type === COMPONENT_SCOPE_TYPE.Usecase) {
-      const invalidResult = await this.findInvalidUsecaseId(
-        query.scope.systemIds,
-        fileId,
-      );
-      if (invalidResult.kind === RESULT_KIND.Fail)
-        throw new Error(
-          invalidResult.issues[0]?.message ?? 'Failed to validate usecase IDs',
-        );
-      if (invalidResult.data !== undefined)
-        throw new Error(`UseCase ${invalidResult.data} not found`);
+      await this.assertUsecasesExist(query.scope.systemIds, fileId);
     }
 
     const svc = this.queryServices;
@@ -78,15 +73,23 @@ export class GetComponentsHandler implements QueryHandler<
     }
   }
 
-  private async findInvalidUsecaseId(
-    systemIds: number[],
+  private async assertUsecasesExist(
+    systemIds: readonly number[],
     fileId: number,
-  ): Promise<Result<number | undefined>> {
-    const allResult =
-      await this.queryServices.useCaseQueryService.getAllUseCases(fileId);
-    if (allResult.kind === RESULT_KIND.Fail) return allResult;
-    const knownIds = new Set(allResult.data.map(uc => uc.systemId));
-    return Result.ok(systemIds.find(id => !knownIds.has(id)));
+  ): Promise<void> {
+    const usecases =
+      await this.queryServices.useCaseQueryService.findUseCaseReadModels(
+        fileId,
+        {ids: systemIds},
+      );
+    const notFound = usecases.failed.filter(
+      entity => entity.reason === FAILED_ENTITY_REASON.NotFound,
+    );
+    if (notFound.length > 0)
+      throw new ResourceNotFoundException(
+        `UseCase ${notFound.map(entity => entity.systemId).join(', ')} not found`,
+        failedToIssues(ISSUE_ENTITY_TYPE.UseCase, notFound),
+      );
   }
 
   private async loadAndMapComponents(

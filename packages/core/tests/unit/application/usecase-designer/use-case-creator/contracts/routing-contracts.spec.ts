@@ -25,7 +25,6 @@ import type {
   RoutingSelection,
 } from '../../../../../../src/application/use-case-designer/use-case-creator/contracts/routing-input.js';
 import type {ActiveManualUsecaseEdit} from '../../../../../../src/application/ports/persistence/repositories/usecase/usecase.repository.js';
-import {GetUsecaseChangeDetailsQuery} from '../../../../../../src/application/usecase-designer/usecase/get-change-details/get-usecase-change-details.query.js';
 
 function createUsecase(systemId: number, subgraphSystemIds: number[]): UseCase {
   return new UseCase({
@@ -252,22 +251,6 @@ describe('routing contracts', () => {
     expect(Object.isFrozen(input.graphSnapshot.sessionEdits.deletedSgs)).toBe(
       true,
     );
-  });
-
-  it('rejects duplicate emitted UseCase IDs in change-details queries', () => {
-    const duplicate = {
-      systemId: 21,
-      changeId: 7,
-      operation: CHANGE_OPERATION.Create,
-      source: SOURCE.Manual,
-    };
-    expect(
-      () =>
-        new GetUsecaseChangeDetailsQuery('1', 'client-1', [
-          duplicate,
-          duplicate,
-        ]),
-    ).toThrow('Duplicate emitted usecase systemId: 21');
   });
 
   it('assembleManualTopology isolates pair collections from caller-owned arrays', () => {

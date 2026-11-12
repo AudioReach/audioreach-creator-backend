@@ -7,6 +7,8 @@ import {jest, describe, it, expect, beforeEach} from '@jest/globals';
 import {GetComponentsWithSubsystemsHandler} from '../../../../../../src/application/usecase-designer/usecase/get-component-with-subsystem/get-components-with-subsystems.handler.js';
 import {GetComponentsWithSubsystemsQuery} from '../../../../../../src/application/usecase-designer/usecase/get-component-with-subsystem/get-components-with-subsystems.query.js';
 import {COMPONENT_SCOPE_TYPE} from '../../../../../../src/application/usecase-designer/usecase/get-components/component-scope-type.js';
+import type {FailedEntity} from '../../../../../../src/application/ports/persistence/batch-read.js';
+import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
 import type {QueryServices} from '../../../../../../src/application/ports/persistence/query-services/query-services.js';
 import type {SpfModuleReadModel} from '../../../../../../src/application/ports/persistence/query-services/spf-module/spf-module-read-model.js';
 import type {DataLinkReadModel} from '../../../../../../src/application/ports/persistence/query-services/link/data-link-read-model.js';
@@ -195,6 +197,7 @@ const SLS_L6_IN = makeSlsSegment(7, SS1, M5, L5_RAW.systemId); // inside SLS at 
 type ServiceOverrides = {
   fileId?: number;
   usecases?: UseCaseReadModel[];
+  failedUsecases?: FailedEntity[];
   modules?: SpfModuleReadModel[];
   subsystems?: SubsystemReadModel[];
   rawDataLinks?: DataLinkReadModel[];
@@ -207,6 +210,7 @@ function makeServices(overrides: ServiceOverrides = {}): QueryServices {
   const {
     fileId = FILE_ID,
     usecases = [new UseCaseReadModel(UC, [])],
+    failedUsecases = [],
     modules = [
       makeModule(M1),
       makeModule(M2),
@@ -225,7 +229,9 @@ function makeServices(overrides: ServiceOverrides = {}): QueryServices {
       getFileIdByProjectId: jest.fn().mockResolvedValue(fileId),
     },
     useCaseQueryService: {
-      getAllUseCases: jest.fn().mockResolvedValue(Result.ok(usecases)),
+      findUseCaseReadModels: jest
+        .fn()
+        .mockResolvedValue({items: usecases, failed: failedUsecases}),
     },
     spfModuleQueryService: {
       findByUsecaseIds: jest.fn().mockResolvedValue(Result.ok(modules)),
@@ -275,15 +281,29 @@ describe('GetComponentsWithSubsystemsHandler', () => {
   // Scenario H1 — Invalid usecase ID throws Error
   // ---------------------------------------------------------------------------
   describe('Scenario H1 — invalid usecase ID: handler throws', () => {
-    it('throws when a requested systemId is not in getAllUseCases', async () => {
-      const services = makeServices({usecases: [new UseCaseReadModel(UC, [])]});
+    const notFound999: FailedEntity = {systemId: 999, reason: 'NOT_FOUND'};
+
+    it('rejects with ResourceNotFoundException naming the missing systemId', async () => {
+      const services = makeServices({
+        usecases: [],
+        failedUsecases: [notFound999],
+      });
       const handler = new GetComponentsWithSubsystemsHandler(services);
 
-      await expect(handler.handle(makeQuery([999]))).rejects.toThrow('999');
+      const promise = handler.handle(makeQuery([999]));
+
+      await expect(promise).rejects.toBeInstanceOf(ResourceNotFoundException);
+      await expect(promise).rejects.toThrow('999');
+      expect(
+        services.useCaseQueryService.findUseCaseReadModels,
+      ).toHaveBeenCalledWith(FILE_ID, {ids: [999]});
     });
 
     it('does not call module or link services when ID validation fails', async () => {
-      const services = makeServices({usecases: [new UseCaseReadModel(UC, [])]});
+      const services = makeServices({
+        usecases: [],
+        failedUsecases: [notFound999],
+      });
       const handler = new GetComponentsWithSubsystemsHandler(services);
 
       await expect(handler.handle(makeQuery([999]))).rejects.toThrow();
@@ -294,6 +314,25 @@ describe('GetComponentsWithSubsystemsHandler', () => {
       expect(
         services.dataLinkQueryService.findByUsecaseIds,
       ).not.toHaveBeenCalled();
+    });
+
+    it('does not reject a use case that exists but has an unresolved GKV', async () => {
+      const services = makeServices({
+        usecases: [],
+        failedUsecases: [
+          {
+            systemId: UC,
+            reason: 'UNRESOLVED_REFERENCE',
+            missingRef: {entityType: 'ValueDefinition' as const, systemId: 77},
+          },
+        ],
+      });
+      const handler = new GetComponentsWithSubsystemsHandler(services);
+
+      await expect(handler.handle(makeQuery([UC]))).resolves.toBeDefined();
+      expect(
+        services.spfModuleQueryService.findByUsecaseIds,
+      ).toHaveBeenCalled();
     });
   });
 

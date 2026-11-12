@@ -215,19 +215,22 @@ function createManualRoutingFixture(seed: FixtureSeed) {
   };
 
   const usecaseRepository = {
-    findWithActiveManualEdits: async () => {
+    findActiveManualUseCaseEdits: async () => {
       const edits = activeManualEdits();
       activeManualReadSizes.push(edits.length);
       return edits;
     },
-    findBySystemIds: async (
+    findUseCases: async (
       _fileSystemId: number,
       systemIds: readonly number[],
-    ) =>
-      systemIds
+    ) => ({
+      items: systemIds
         .map(systemId => effectiveUsecase(systemId))
         .filter((item): item is UseCase => item !== undefined),
-    findAll: async () => [...committedUsecases],
+      failed: [],
+    }),
+    findUseCaseChangeDetails: async () => [],
+    findAllUseCases: async () => [...committedUsecases],
     create: async (
       created: UseCase,
       options?: {readonly source: Source},
@@ -366,7 +369,7 @@ function createManualRoutingFixture(seed: FixtureSeed) {
     getControlLinkRepository: () => controlLinkRepository,
     getUsecaseRepository: () => usecaseRepository,
     getModuleRepository: () => ({findModulesBySubgraphIds: async () => []}),
-    getModuleDefinitionRepository: () => ({findBySystemIds: async () => []}),
+    getModuleDefinitionRepository: () => ({findUseCases: async () => []}),
     getSubsystemRepository: () => ({
       findOrphanSubsystemSystemIds: async () => [],
       getAllNodesWithParents: async () => [],

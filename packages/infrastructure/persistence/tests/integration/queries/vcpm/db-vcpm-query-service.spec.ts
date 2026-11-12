@@ -111,7 +111,10 @@ function makeService(ds: DataSource): {
 } {
   const editActionsSvc = new EditActionsQueryService(ds.manager);
   const vcpmInstanceFetcher = new VcpmInstanceFetcher(ds.manager);
-  const keyValueService = new DbKeyValueDefQueryService(ds, editActionsSvc);
+  const keyValueService = new DbKeyValueDefQueryService(
+    ds.manager,
+    editActionsSvc,
+  );
   return {
     service: new DbSubgraphQueryService(
       new TypeOrmSessionRepository(ds.manager),

@@ -538,6 +538,44 @@ export default [
       ],
     },
   },
+  // Persistence reads return plain data or BatchRead<T>, and throw on
+  // infrastructure errors. Result<T> is for query and command handlers.
+  // TODO(item 2a): switch to 'error' once every service is converted.
+  {
+    files: ['packages/core/src/application/ports/persistence/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'warn',
+        {
+          patterns: [
+            {
+              group: ['**/shared/result/**'],
+              message:
+                'Persistence ports must not use Result; return plain data or BatchRead<T> and throw on errors.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['packages/infrastructure/persistence/src/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'warn',
+        {
+          paths: [
+            {
+              name: '@arc/core',
+              importNames: ['Result', 'RESULT_KIND', 'ResultKind'],
+              message:
+                'Persistence must not use Result; return plain data or BatchRead<T> and throw on errors.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 
   // Prettier integration - must be last
   prettierConfig,

@@ -144,7 +144,7 @@ function makeUow(
       }),
     }),
     getUsecaseRepository: jest.fn().mockReturnValue({
-      findBySubgraph: jest.fn().mockResolvedValue([]),
+      findUseCasesBySubgraphs: jest.fn().mockResolvedValue([]),
     }),
   } as unknown as UnitOfWork;
 }
@@ -427,5 +427,74 @@ describe('CreateControlLinkFlatHandler', () => {
         fileSystemId,
       ),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe('control link use-case scope', () => {
+  function crossSubgraphUow(usecases: Array<{subgraphSystemIds: number[]}>) {
+    const uow = makeUow(makeRepository());
+    const moduleRepo = (uow.getModuleRepository as jest.Mock)() as {
+      findModuleById: jest.Mock;
+    };
+    moduleRepo.findModuleById.mockImplementation((id: number) =>
+      Promise.resolve({
+        subgraphSystemId: id === 1 ? 100 : 200,
+        parentSystemId: null,
+        definitionSystemId: 900,
+        controlPorts: [{systemId: id === 1 ? 11 : 22, naturalId: 1}],
+      }),
+    );
+    (uow.getUsecaseRepository as jest.Mock).mockReturnValue({
+      findUseCasesBySubgraphs: jest.fn().mockResolvedValue(usecases),
+    });
+    return uow;
+  }
+
+  function commandOf(
+    linkType: (typeof CONTROL_LINK_TYPE)[keyof typeof CONTROL_LINK_TYPE],
+  ) {
+    return new CreateControlLinkFlatCommand(linkType, 1, 11, 2, 22, 1);
+  }
+
+  it('links modules in different subgraphs of one use case', async () => {
+    const uow = crossSubgraphUow([{subgraphSystemIds: [100, 200]}]);
+    const handler = new CreateControlLinkFlatHandler(
+      uow,
+      makeIdGeneration(),
+      makeQueryServices(),
+    );
+
+    const result = await handler.handle(commandOf(CONTROL_LINK_TYPE.Normal));
+
+    expect(result.controlLinks).toHaveLength(1);
+  });
+
+  it('rejects a normal link when no single use case holds both subgraphs', async () => {
+    const uow = crossSubgraphUow([
+      {subgraphSystemIds: [100]},
+      {subgraphSystemIds: [200]},
+    ]);
+    const handler = new CreateControlLinkFlatHandler(
+      uow,
+      makeIdGeneration(),
+      makeQueryServices(),
+    );
+
+    await expect(
+      handler.handle(commandOf(CONTROL_LINK_TYPE.Normal)),
+    ).rejects.toThrow('belong to different use cases');
+  });
+
+  it('rejects an inter-usecase link when the subgraphs share a use case', async () => {
+    const uow = crossSubgraphUow([{subgraphSystemIds: [100, 200]}]);
+    const handler = new CreateControlLinkFlatHandler(
+      uow,
+      makeIdGeneration(),
+      makeQueryServices(),
+    );
+
+    await expect(
+      handler.handle(commandOf(CONTROL_LINK_TYPE.InterUsecase)),
+    ).rejects.toThrow('share a use case');
   });
 });

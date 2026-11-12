@@ -101,7 +101,7 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
       dataSource,
       new EditActionsQueryService(dataSource.manager),
       new DbKeyValueDefQueryService(
-        dataSource,
+        dataSource.manager,
         new EditActionsQueryService(dataSource.manager),
       ),
     );
@@ -443,7 +443,7 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
     // the only method overlayTagDefinitionRows calls on this dependency
     // post-Task-3 (scoped to the tags' linked keys, not the whole file).
     const realKeyValueDefSvc = new DbKeyValueDefQueryService(
-      dataSource,
+      dataSource.manager,
       new EditActionsQueryService(dataSource.manager),
     );
     const stubKeyValueDefSvc: Pick<
