@@ -3,24 +3,24 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {BatchRead, FailedEntity} from '@arc/core';
+import type {BatchRead, FailedEntity, IssueEntityType} from '@arc/core';
 import {FAILED_ENTITY_REASON} from '@arc/core';
 
 /**
  * Appends `NOT_FOUND` entries for every requested systemId that is neither
  * loaded nor already failed.
  */
-export function withNotFound<T>(
+export function withNotFound<T, E extends IssueEntityType = IssueEntityType>(
   requestedIds: readonly number[],
   items: T[],
   getSystemId: (item: T) => number,
-  failed: FailedEntity[] = [],
-): BatchRead<T> {
+  failed: FailedEntity<E>[] = [],
+): BatchRead<T, E> {
   const seen = new Set<number>([
     ...items.map(item => getSystemId(item)),
     ...failed.map(f => f.systemId),
   ]);
-  const notFound: FailedEntity[] = [];
+  const notFound: FailedEntity<E>[] = [];
   for (const id of new Set(requestedIds)) {
     if (!seen.has(id)) {
       notFound.push({systemId: id, reason: FAILED_ENTITY_REASON.NotFound});

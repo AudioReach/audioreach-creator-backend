@@ -6,11 +6,7 @@
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import {GetAllKeyDefinitionsQuery} from './get-all-key-definitions.query.js';
-import type {Result} from '../../../shared/result/result.js';
-import {
-  RESULT_KIND,
-  Result as ResultClass,
-} from '../../../shared/result/result.js';
+import {Result} from '../../../shared/result/result.js';
 import type {KeyDefinitionDto} from '../dto/key-definition-dto.js';
 import {mapKeyDefinition} from '../dto/key-definition-dto.js';
 
@@ -28,19 +24,14 @@ export class GetAllKeyDefinitionsHandler implements QueryHandler<
         query.projectId,
       );
 
-    const result =
-      await this.queryServices.keyValueDefQueryService.getAllKeyDefinitions(
+    // Plain list, no `failed`: a key references nothing outside itself
+    // (its values are its own children), so no key can be skipped.
+    const keys =
+      await this.queryServices.keyValueDefQueryService.findAllKeyDefinitions(
         fileId,
-        query.keyNaturalId,
+        {naturalId: query.keyNaturalId},
       );
 
-    if (result.kind === RESULT_KIND.Fail) return result;
-
-    const dtos = result.data.map(k => mapKeyDefinition(k));
-
-    if (result.kind === RESULT_KIND.Partial) {
-      return ResultClass.partial(dtos, result.issues);
-    }
-    return ResultClass.ok(dtos, result.issues);
+    return Result.ok(keys.map(key => mapKeyDefinition(key)));
   }
 }

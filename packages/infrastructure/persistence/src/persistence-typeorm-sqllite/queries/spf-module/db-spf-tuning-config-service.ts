@@ -15,7 +15,6 @@ import type {
   ConfigurationIncludes,
   KeyValuePairReadModel,
   Issue,
-  TagDefinitionReadModel,
 } from '@arc/core';
 import {
   Result,
@@ -23,6 +22,8 @@ import {
   CONFIGURATION_INCLUDES,
   IssueSeverity,
   RESULT_KIND,
+  ISSUE_ENTITY_TYPE,
+  failedToIssues,
 } from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
@@ -250,16 +251,20 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
       const tagDefIds = [
         ...new Set(overlaidTagMaps.map(r => r.tagDefinitionSystemId)),
       ];
-      const tagDefsResult =
-        await this.tagDefinitionSvc.getTagDefinitionsBySystemIds(
-          tagDefIds,
-          fileSystemId,
-        );
-      const tagDefMap = new Map<number, TagDefinitionReadModel>(
-        (tagDefsResult.kind === RESULT_KIND.Fail ? [] : tagDefsResult.data).map(
-          t => [t.systemId, t],
-        ),
+      // Only each tag's name and natural ID are used, so a tag that links
+      // to a missing key still supplies them through its failed entry.
+      const tagDefs = await this.tagDefinitionSvc.findTagDefinitions(
+        fileSystemId,
+        tagDefIds,
       );
+      const tagDefMap = new Map<number, {name: string; naturalId: number}>([
+        ...tagDefs.items.map(tag => [tag.systemId, tag] as const),
+        ...tagDefs.failed.flatMap(tag =>
+          tag.identity === undefined
+            ? []
+            : [[tag.systemId, tag.identity] as const],
+        ),
+      ]);
 
       // Per tag map, build TKV read models.
       // Per-item failures captured without blocking the rest (FR-8 Rule 3).
@@ -412,14 +417,19 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
     valueDefIds: number[],
     fileSystemId: number,
   ): Promise<Result<KeyValuePairReadModel[]>> {
-    const keysResult =
-      await this.keyValueDefSvc.getKeyValueSummaryForGivenValues(
-        valueDefIds,
-        fileSystemId,
-      );
-    if (keysResult.kind === RESULT_KIND.Fail)
-      return Result.fail(...keysResult.issues);
-    return keysResult;
+    const pairs = await this.keyValueDefSvc.findKeyValuePairs(
+      fileSystemId,
+      valueDefIds,
+    );
+    if (pairs.failed.length === 0) return Result.ok(pairs.items);
+
+    const issues = failedToIssues(
+      ISSUE_ENTITY_TYPE.ValueDefinition,
+      pairs.failed,
+    );
+    return pairs.items.length > 0
+      ? Result.partial(pairs.items, issues)
+      : Result.fail(...issues);
   }
 
   /**

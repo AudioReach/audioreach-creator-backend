@@ -30,7 +30,7 @@ export interface UseCaseQueryService {
   /**
    * Loads use cases with their GKV key and value names resolved. A use case
    * whose GKV value definition is missing is reported in `failed` as
-   * `UNRESOLVED_REFERENCE` (part `gkv`).
+   * `UNRESOLVED_REFERENCE`.
    */
   findUseCaseReadModels(
     fileSystemId: number,

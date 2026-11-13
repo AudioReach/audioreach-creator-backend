@@ -38,17 +38,6 @@ function makeModuleRepo(
     getTkvPayloadEntries: jest.fn().mockResolvedValue([]),
     deleteTkv: jest.fn().mockResolvedValue(undefined),
     deleteTag: jest.fn().mockResolvedValue(undefined),
-    getTagDefinition: jest.fn().mockResolvedValue({
-      systemId: 70,
-      naturalId: 7,
-      name: 'tag',
-      isVoice: false,
-      keys: [],
-    }),
-    getKeyValueSummaryForGivenValues: jest.fn().mockResolvedValue({
-      kind: 'OK',
-      data: [],
-    }),
     findModuleForPatch: jest.fn(),
     renameModule: jest.fn(),
     changeContainer: jest.fn(),

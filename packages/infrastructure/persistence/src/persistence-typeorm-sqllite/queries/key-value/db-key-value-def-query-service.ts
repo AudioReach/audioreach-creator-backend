@@ -5,14 +5,15 @@
 
 import type {EntityManager} from 'typeorm';
 import type {
-  KeyValueDefQueryService,
+  BatchRead,
+  KeyDefinitionFilter,
   KeyDefinitionReadModel,
-  ValueDefinitionSummaryReadModel,
-  KeyDefinitionSummaryReadModel,
+  KeyValueDefQueryService,
+  KeyValuePairReadModel,
 } from '@arc/core';
-import {Result, ERROR_CODES, IssueSeverity, RESULT_KIND} from '@arc/core';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
+import {withNotFound} from '../../utils/with-not-found.js';
 import {KeyValueDefinitionFetcher} from '../../fetchers/definitions/key-value/key-value-definition-fetcher.js';
 import {ValueDefinitionFetcher} from '../../fetchers/definitions/key-value/value-definition-fetcher.js';
 import {toKeyDefinitionReadModel} from './key-definition-row-mapper.js';
@@ -21,11 +22,8 @@ import {toKeyDefinitionReadModel} from './key-definition-row-mapper.js';
  * Database implementation of KeyValueDefQueryService.
  *
  * Key rows are loaded by KeyValueDefinitionFetcher and child values by its
- * injected ValueDefinitionFetcher. No per-key N-query pattern is used.
- * table-scoped queries — no per-key N-query patterns.
- *
- * loadOverlaidKeysWithValues has been replaced by the fetcher's
- * fetchMany — the bulk loading and overlay logic now lives there.
+ * injected ValueDefinitionFetcher, with the session overlay applied. Each
+ * method issues table-scoped queries; there is no per-key query.
  */
 export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
   private readonly kvFetcher: KeyValueDefinitionFetcher;
@@ -43,326 +41,88 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
     );
   }
 
-  async getAllKeyDefinitions(
+  async findAllKeyDefinitions(
     fileSystemId: number,
-    keyNaturalId?: number,
-  ): Promise<Result<KeyDefinitionReadModel[]>> {
-    try {
-      const sessionId = await resolveActiveSessionId(
-        this.manager,
-        fileSystemId,
+    filter: KeyDefinitionFilter = {},
+  ): Promise<KeyDefinitionReadModel[]> {
+    const sessionId = await resolveActiveSessionId(this.manager, fileSystemId);
+    const keys = await this.kvFetcher.fetchMany('all', fileSystemId, sessionId);
+
+    return keys
+      .map(key => toKeyDefinitionReadModel(key))
+      .filter(
+        key =>
+          filter.naturalId === undefined || key.naturalId === filter.naturalId,
       );
-
-      // scope='all' — loads every key for the file in a single fetcher call.
-      const keys = await this.kvFetcher.fetchMany(
-        'all',
-        fileSystemId,
-        sessionId,
-      );
-
-      const all = keys.map(k => toKeyDefinitionReadModel(k));
-      const filtered =
-        keyNaturalId === undefined
-          ? all
-          : all.filter(k => k.naturalId === keyNaturalId);
-
-      return Result.ok(filtered);
-    } catch (error) {
-      return Result.fail({
-        code: ERROR_CODES.INTERNAL_ERROR,
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to load key definitions',
-        severity: IssueSeverity.Error,
-      });
-    }
   }
 
-  /**
-   * Batch — IDs that don't resolve (absent from DB and overlay) are reported
-   * as per-id ENTITY_NOT_FOUND issues via Result.partial, not silently
-   * dropped — a caller that asked for specific systemIds should learn which
-   * ones didn't come back.
-   */
-  async getKeyDefinitionsBySystemIds(
-    keySystemIds: number[],
+  async findKeyDefinitions(
     fileSystemId: number,
-  ): Promise<Result<KeyDefinitionReadModel[]>> {
-    if (keySystemIds.length === 0) return Result.ok([]);
+    keySystemIds: readonly number[],
+  ): Promise<BatchRead<KeyDefinitionReadModel, 'KeyDefinition'>> {
+    if (keySystemIds.length === 0) return {items: [], failed: []};
 
-    try {
-      const sessionId = await resolveActiveSessionId(
-        this.manager,
-        fileSystemId,
-      );
-      const keys = await this.kvFetcher.fetchMany(
-        keySystemIds,
-        fileSystemId,
-        sessionId,
-      );
-      const keyMap = new Map(keys.map(key => [key.systemId, key]));
-
-      const data = keySystemIds
-        .map(id => keyMap.get(id))
-        .filter((k): k is NonNullable<typeof k> => k != null)
-        .map(k => toKeyDefinitionReadModel(k));
-
-      const missingIds = keySystemIds.filter(id => !keyMap.has(id));
-      if (missingIds.length > 0) {
-        return Result.partial(
-          data,
-          missingIds.map(id => ({
-            code: ERROR_CODES.ENTITY_NOT_FOUND,
-            message: `KeyDefinition not found for systemId=${id}`,
-            severity: IssueSeverity.Error,
-          })),
-        );
-      }
-      return Result.ok(data);
-    } catch (error) {
-      return Result.fail({
-        code: ERROR_CODES.INTERNAL_ERROR,
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to load key definitions',
-        severity: IssueSeverity.Error,
-      });
-    }
-  }
-
-  async getKeyValueDefinitionForGivenValue(
-    valueDefSystemId: number,
-    fileSystemId: number,
-  ): Promise<Result<KeyDefinitionReadModel>> {
-    const result = await this.getKeyValueDefinitionForGivenValues(
-      [valueDefSystemId],
+    const sessionId = await resolveActiveSessionId(this.manager, fileSystemId);
+    const keys = await this.kvFetcher.fetchMany(
+      [...keySystemIds],
       fileSystemId,
+      sessionId,
     );
-    if (result.kind === RESULT_KIND.Fail) return Result.fail(...result.issues);
+    const keysById = new Map(keys.map(key => [key.systemId, key]));
+    const items = [...new Set(keySystemIds)].flatMap(id => {
+      const key = keysById.get(id);
+      return key === undefined ? [] : [toKeyDefinitionReadModel(key)];
+    });
 
-    const match = result.data.find(keyDef =>
-      keyDef.values.some(v => v.systemId === valueDefSystemId),
-    );
-    if (!match)
-      return Result.fail({
-        code: ERROR_CODES.ENTITY_NOT_FOUND,
-        message: `ValueDefinition not found for systemId=${valueDefSystemId}`,
-        severity: IssueSeverity.Error,
-      });
-    return Result.ok(match);
+    return withNotFound(keySystemIds, items, key => key.systemId);
   }
 
   /**
-   * Batch variant — resolves many valueDefSystemIds in two steps:
-   *   Step 1: value sub-fetcher lookup to discover parent key IDs from the
-   *     value rows (including session-only CREATEs).
-   *   Step 2: fetchMany on the discovered key IDs to load the
-   *     full key+value trees with overlay applied.
-   *
-   * Reports missing valueDefSystemIds via Result.partial — a caller that
-   * asked for specific value IDs should learn which ones didn't resolve.
-   * Covers both failure modes: the ValueDefinition row is missing (deleted in
-   * session or never existed), or the parent KeyDefinition was deleted in the
-   * session (the value row resolved but its parent key disappeared).
+   * Resolves the values first, to learn their parent keys (including values
+   * created in the session), then loads those keys with their values. A
+   * value whose key was deleted in the session is reported as not found.
    */
-  async getKeyValueDefinitionForGivenValues(
-    valueDefSystemIds: number[],
+  async findKeyValuePairs(
     fileSystemId: number,
-  ): Promise<Result<KeyDefinitionReadModel[]>> {
-    if (valueDefSystemIds.length === 0) return Result.ok([]);
+    valueDefSystemIds: readonly number[],
+  ): Promise<BatchRead<KeyValuePairReadModel, 'ValueDefinition'>> {
+    if (valueDefSystemIds.length === 0) return {items: [], failed: []};
 
-    try {
-      const sessionId = await resolveActiveSessionId(
-        this.manager,
-        fileSystemId,
-      );
-
-      // Step 1 — value-first: resolve value rows to discover parent key IDs.
-      // Uses the value sub-fetcher so session-only CREATE values are included.
-      const overlaidValues = await this.valueFetcher.fetchMany(
-        valueDefSystemIds,
-        sessionId,
-      );
-
-      const foundValueIds = new Set(overlaidValues.map(r => r.systemId));
-      const missingValueIds = valueDefSystemIds.filter(
-        id => !foundValueIds.has(id),
-      );
-
-      // Track which requested value IDs depend on which parent key, so a
-      // key that disappears in Step 2 (session-deleted) can be traced back
-      // to the specific value IDs that should then be reported as missing.
-      const requestedValueIdsByKeyId = new Map<number, number[]>();
-      for (const row of overlaidValues) {
-        const bucket = requestedValueIdsByKeyId.get(row.keySystemId) ?? [];
-        bucket.push(row.systemId);
-        requestedValueIdsByKeyId.set(row.keySystemId, bucket);
-      }
-
-      const keySystemIds = [...requestedValueIdsByKeyId.keys()];
-
-      if (keySystemIds.length === 0) {
-        return Result.fail(
-          ...missingValueIds.map(id => ({
-            code: ERROR_CODES.ENTITY_NOT_FOUND,
-            message: `ValueDefinition not found for systemId=${id}`,
-            severity: IssueSeverity.Error,
-          })),
-        );
-      }
-
-      // Step 2 — key-first: load the full key+value trees for the parent keys.
-      const keys = await this.kvFetcher.fetchMany(
-        keySystemIds,
-        fileSystemId,
-        sessionId,
-      );
-      const keyMap = new Map(keys.map(key => [key.systemId, key]));
-
-      // Preserve resolution order; fold value IDs from dropped keys into
-      // missingValueIds so they're reported rather than silently dropped.
-      const ordered: KeyDefinitionReadModel[] = [];
-      for (const id of keySystemIds) {
-        const key = keyMap.get(id);
-        if (key) {
-          ordered.push(toKeyDefinitionReadModel(key));
-        } else {
-          missingValueIds.push(...(requestedValueIdsByKeyId.get(id) ?? []));
-        }
-      }
-
-      if (missingValueIds.length > 0) {
-        return Result.partial(
-          ordered,
-          missingValueIds.map(id => ({
-            code: ERROR_CODES.ENTITY_NOT_FOUND,
-            message: `ValueDefinition not found for systemId=${id}`,
-            severity: IssueSeverity.Error,
-          })),
-        );
-      }
-
-      return Result.ok(ordered);
-    } catch (error) {
-      return Result.fail({
-        code: ERROR_CODES.INTERNAL_ERROR,
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to load value definitions',
-        severity: IssueSeverity.Error,
-      });
-    }
-  }
-
-  /**
-   * Resolves the requested ValueDefinition IDs into Key/Value summary pairs.
-   * Unlike getKeyValueDefinitionForGivenValues which returns distinct keys
-   * with all child values, this returns only the specific requested mappings.
-   */
-  async getKeyValueSummaryForGivenValues(
-    valueDefSystemIds: number[],
-    fileSystemId: number,
-  ): Promise<
-    Result<
-      Array<{
-        key: KeyDefinitionSummaryReadModel;
-        value: ValueDefinitionSummaryReadModel;
-      }>
-    >
-  > {
-    const keysResult = await this.getKeyValueDefinitionForGivenValues(
-      valueDefSystemIds,
-      fileSystemId,
+    const sessionId = await resolveActiveSessionId(this.manager, fileSystemId);
+    const values = await this.valueFetcher.fetchMany(
+      [...valueDefSystemIds],
+      sessionId,
     );
+    const keySystemIds = [...new Set(values.map(value => value.keySystemId))];
+    const keys =
+      keySystemIds.length === 0
+        ? []
+        : await this.kvFetcher.fetchMany(keySystemIds, fileSystemId, sessionId);
 
-    if (keysResult.kind === RESULT_KIND.Fail) {
-      return Result.fail(...keysResult.issues);
+    const pairsByValueId = new Map<number, KeyValuePairReadModel>();
+    for (const key of keys.map(row => toKeyDefinitionReadModel(row))) {
+      for (const value of key.values) {
+        pairsByValueId.set(value.systemId, {
+          key: {
+            systemId: key.systemId,
+            naturalId: key.naturalId,
+            name: key.name,
+            description: key.description,
+          },
+          value: {
+            systemId: value.systemId,
+            naturalId: value.naturalId,
+            name: value.name,
+            description: value.description,
+          },
+        });
+      }
     }
+    const items = [...new Set(valueDefSystemIds)].flatMap(id => {
+      const pair = pairsByValueId.get(id);
+      return pair === undefined ? [] : [pair];
+    });
 
-    try {
-      const requestedIds = new Set(valueDefSystemIds);
-      const keyValuePairs = keysResult.data.flatMap(key =>
-        key.values
-          .filter(value => requestedIds.has(value.systemId))
-          .map(value => ({
-            key: {
-              systemId: key.systemId,
-              naturalId: key.naturalId,
-              name: key.name,
-              description: key.description,
-            },
-            value: {
-              systemId: value.systemId,
-              naturalId: value.naturalId,
-              name: value.name,
-              description: value.description,
-            },
-          })),
-      );
-
-      return keysResult.kind === RESULT_KIND.Partial
-        ? Result.partial(keyValuePairs, keysResult.issues)
-        : Result.ok(keyValuePairs);
-    } catch (error) {
-      return Result.fail({
-        code: ERROR_CODES.INTERNAL_ERROR,
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to convert key/value pairs',
-        severity: IssueSeverity.Error,
-      });
-    }
+    return withNotFound(valueDefSystemIds, items, pair => pair.value.systemId);
   }
-
-  async getByKeyDefinition(
-    keyDefSystemId: number,
-    fileSystemId: number,
-  ): Promise<Result<KeyDefinitionReadModel>> {
-    try {
-      const sessionId = await resolveActiveSessionId(
-        this.manager,
-        fileSystemId,
-      );
-      const keys = await this.kvFetcher.fetchMany(
-        [keyDefSystemId],
-        fileSystemId,
-        sessionId,
-      );
-      const keyMap = new Map(keys.map(key => [key.systemId, key]));
-
-      const match = keyMap.get(keyDefSystemId);
-      return match
-        ? Result.ok(toKeyDefinitionReadModel(match))
-        : Result.fail({
-            code: ERROR_CODES.ENTITY_NOT_FOUND,
-            message: `KeyDefinition not found for systemId=${keyDefSystemId}`,
-            severity: IssueSeverity.Error,
-          });
-    } catch (error) {
-      return Result.fail({
-        code: ERROR_CODES.INTERNAL_ERROR,
-        message:
-          error instanceof Error
-            ? error.message
-            : `Failed to load key definition ${keyDefSystemId}`,
-        severity: IssueSeverity.Error,
-      });
-    }
-  }
-
-  // ── Private helpers ────────────────────────────────────────────────────────
-
-  /**
-   * Returns the active session ID for the given file, or null if no session
-   * is active.
-   *
-   * No fetcher is used here because project_sessions is not session-mutable —
-   * sessions are the overlay context itself, not data that gets overlaid.
-   * A session cannot be staged inside another session, so FR-3 does not apply
-   * and a direct query is both correct and necessary.
-   */
 }

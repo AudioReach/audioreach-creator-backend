@@ -3,14 +3,12 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {Result} from '../../../shared/result/result.js';
-import {
-  RESULT_KIND,
-  Result as ResultClass,
-} from '../../../shared/result/result.js';
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
+import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
 import {GetAllTagDefinitionsQuery} from './get-all-tag-definitions.query.js';
+import {Result} from '../../../shared/result/result.js';
+import {failedToIssues} from '../../../shared/result/failed-to-issues.js';
 import type {TagDefinitionDto} from '../dto/tag-definition-dto.js';
 import {mapTagDefinition} from '../dto/tag-definition-dto.js';
 
@@ -28,19 +26,18 @@ export class GetAllTagDefinitionsHandler implements QueryHandler<
         query.projectId,
       );
 
-    const result =
-      await this.queryServices.tagDefinitionQueryService.getAllTagDefinitions(
+    const tags =
+      await this.queryServices.tagDefinitionQueryService.findAllTagDefinitions(
         fileId,
-        query.tagNaturalId,
+        {naturalId: query.tagNaturalId},
       );
+    const dtos = tags.items.map(tag => mapTagDefinition(tag));
 
-    if (result.kind === RESULT_KIND.Fail) return result;
-
-    const dtos = result.data.map(t => mapTagDefinition(t));
-
-    if (result.kind === RESULT_KIND.Partial) {
-      return ResultClass.partial(dtos, result.issues);
-    }
-    return ResultClass.ok(dtos, result.issues);
+    return tags.failed.length > 0
+      ? Result.partial(
+          dtos,
+          failedToIssues(ISSUE_ENTITY_TYPE.TagDefinition, tags.failed),
+        )
+      : Result.ok(dtos);
   }
 }

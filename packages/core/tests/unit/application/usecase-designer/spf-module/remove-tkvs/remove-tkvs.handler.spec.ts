@@ -41,15 +41,6 @@ function makeModuleRepo(
     ]),
     getTkvPayloadEntries: jest.fn().mockResolvedValue([]),
     deleteTkv: jest.fn().mockResolvedValue(undefined),
-    getKeyValueSummaryForGivenValues: jest.fn().mockImplementation(ids =>
-      Promise.resolve({
-        kind: 'OK',
-        data: (ids as number[]).map(id => ({
-          key: {systemId: id + 100, naturalId: id + 100, name: 'key'},
-          value: {systemId: id, naturalId: id, name: 'value'},
-        })),
-      }),
-    ),
     findModuleForPatch: jest.fn(),
     renameModule: jest.fn(),
     changeContainer: jest.fn(),

@@ -23,12 +23,9 @@ import {
 import {
   CHANGE_OPERATION,
   CHANGE_STATUS,
+  FAILED_ENTITY_REASON,
   SOURCE,
-  Result,
-  IssueSeverity,
-  RESULT_KIND,
 } from '@arc/core';
-import type {KeyValueDefQueryService} from '@arc/core';
 import {DbTagDefinitionQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/tag-definition/db-tag-definition-query-service.js';
 import {DbKeyValueDefQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/key-value/db-key-value-def-query-service.js';
 import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
@@ -98,7 +95,7 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
     projectSessionRepository =
       getTestRepository<ProjectSessionRow>(ProjectSessionSchema);
     service = new DbTagDefinitionQueryService(
-      dataSource,
+      dataSource.manager,
       new EditActionsQueryService(dataSource.manager),
       new DbKeyValueDefQueryService(
         dataSource.manager,
@@ -150,11 +147,10 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
   it('returns an empty array when the file has no tag definitions', async () => {
     const {fileSystemId} = await createFileDependency();
 
-    const result = await service.getAllTagDefinitions(fileSystemId);
+    const result = await service.findAllTagDefinitions(fileSystemId);
 
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data).toEqual([]);
+    expect(result.failed).toEqual([]);
+    expect(result.items).toEqual([]);
   });
 
   it('returns tag definitions with linked key definitions and their values', async () => {
@@ -186,34 +182,33 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
       tagEnumValue: 'TAG_KEY_ENUM',
     });
 
-    const result = await service.getAllTagDefinitions(fileSystemId);
+    const result = await service.findAllTagDefinitions(fileSystemId);
 
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0]).toMatchObject({
+    expect(result.failed).toEqual([]);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
       systemId: 3,
       naturalId: 300,
       name: 'MyTag',
     });
-    expect(result.data[0].keys).toHaveLength(1);
-    expect(result.data[0].keys[0]).toMatchObject({
+    expect(result.items[0].keys).toHaveLength(1);
+    expect(result.items[0].keys[0]).toMatchObject({
       cHeaderTagEnumMemberName: 'TAG_KEY_ENUM',
     });
-    expect(result.data[0].keys[0].keyDefinition).toMatchObject({
+    expect(result.items[0].keys[0].keyDefinition).toMatchObject({
       systemId: 1,
       naturalId: 100,
       name: 'MyKey',
     });
-    expect(result.data[0].keys[0].keyDefinition.values).toHaveLength(1);
-    expect(result.data[0].keys[0].keyDefinition.values[0]).toMatchObject({
+    expect(result.items[0].keys[0].keyDefinition.values).toHaveLength(1);
+    expect(result.items[0].keys[0].keyDefinition.values[0]).toMatchObject({
       systemId: 2,
       naturalId: 200,
       name: 'MyValue',
     });
   });
 
-  it('filters by tagId when provided', async () => {
+  it('filters by natural ID when provided', async () => {
     const {fileSystemId} = await createFileDependency();
 
     await tagDefinitionRepository.save({
@@ -231,23 +226,27 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
       isVoice: false,
     });
 
-    const result = await service.getAllTagDefinitions(fileSystemId, 200);
+    const result = await service.findAllTagDefinitions(fileSystemId, {
+      naturalId: 200,
+    });
 
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0].name).toBe('TagTwo');
+    expect(result.failed).toEqual([]);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].name).toBe('TagTwo');
   });
 
-  it('getTagDefinition returns null when the tag does not exist', async () => {
+  it('findTagDefinitions reports a missing tag as not found', async () => {
     const {fileSystemId} = await createFileDependency();
 
-    const result = await service.getTagDefinition(fileSystemId, 999);
+    const result = await service.findTagDefinitions(fileSystemId, [999]);
 
-    expect(result).toBeNull();
+    expect(result).toEqual({
+      items: [],
+      failed: [{systemId: 999, reason: FAILED_ENTITY_REASON.NotFound}],
+    });
   });
 
-  it('getTagDefinition returns the tag with linked keys', async () => {
+  it('findTagDefinitions returns the tag with linked keys', async () => {
     const {fileSystemId} = await createFileDependency();
     const key = await keyDefinitionRepository.save({
       systemId: 1,
@@ -268,11 +267,18 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
       keyReferenceSystemId: key.systemId,
     });
 
-    const result = await service.getTagDefinition(fileSystemId, tag.systemId);
+    const result = await service.findTagDefinitions(fileSystemId, [
+      tag.systemId,
+    ]);
 
-    expect(result).toMatchObject({systemId: 2, naturalId: 200, name: 'MyTag'});
-    expect(result?.keys).toHaveLength(1);
-    expect(result?.keys[0].keyDefinition.systemId).toBe(1);
+    expect(result.failed).toEqual([]);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      systemId: 2,
+      naturalId: 200,
+      name: 'MyTag',
+    });
+    expect(result.items[0].keys[0].keyDefinition.systemId).toBe(1);
   });
 
   it('reflects a session UPDATE on a tag definition', async () => {
@@ -299,12 +305,11 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
       linkedEntityGroupId: null,
     });
 
-    const result = await service.getAllTagDefinitions(fileSystemId);
+    const result = await service.findAllTagDefinitions(fileSystemId);
 
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0].name).toBe('UpdatedName');
+    expect(result.failed).toEqual([]);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].name).toBe('UpdatedName');
   });
 
   it('excludes a tag definition deleted in the session', async () => {
@@ -331,38 +336,42 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
       linkedEntityGroupId: null,
     });
 
-    const result = await service.getAllTagDefinitions(fileSystemId);
+    const result = await service.findAllTagDefinitions(fileSystemId);
 
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data).toEqual([]);
+    expect(result.failed).toEqual([]);
+    expect(result.items).toEqual([]);
   });
 
-  it('excludes a link whose key definition is deleted in the session', async () => {
+  it('reports a tag whose linked key was deleted in the session as an unresolved reference, keeping other tags', async () => {
     const {fileSystemId} = await createFileDependency();
-    const key = await keyDefinitionRepository.save({
-      systemId: 1,
-      fileSystemId,
-      naturalId: 100,
-      name: 'MyKey',
-    });
-    const tag = await tagDefinitionRepository.save({
-      systemId: 2,
-      fileSystemId,
-      naturalId: 200,
-      name: 'MyTag',
-      isVoice: false,
-    });
-    await tagKeyDefLinkRepository.save({
-      systemId: 3,
-      tagDefinitionSystemId: tag.systemId,
-      keyReferenceSystemId: key.systemId,
-    });
+    await keyDefinitionRepository.save([
+      {systemId: 1, fileSystemId, naturalId: 100, name: 'GoodKey'},
+      {systemId: 2, fileSystemId, naturalId: 200, name: 'DeletedKey'},
+    ]);
+    await tagDefinitionRepository.save([
+      {
+        systemId: 3,
+        fileSystemId,
+        naturalId: 300,
+        name: 'GoodTag',
+        isVoice: false,
+      },
+      {
+        systemId: 5,
+        fileSystemId,
+        naturalId: 0x400,
+        name: 'BrokenTag',
+        isVoice: false,
+      },
+    ]);
+    await tagKeyDefLinkRepository.save([
+      {systemId: 4, tagDefinitionSystemId: 3, keyReferenceSystemId: 1},
+      {systemId: 6, tagDefinitionSystemId: 5, keyReferenceSystemId: 2},
+    ]);
     const session = await createSession(fileSystemId);
-
     await editActionRepository.save({
-      targetSystemId: key.systemId,
-      aggregateId: key.systemId,
+      targetSystemId: 2,
+      aggregateId: 2,
       sessionId: session.sessionId,
       targetTable: ENTITY_NAMES.KeyDefinition,
       operation: CHANGE_OPERATION.Delete,
@@ -373,129 +382,18 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
       linkedEntityGroupId: null,
     });
 
-    const result = await service.getAllTagDefinitions(fileSystemId);
+    const result = await service.findAllTagDefinitions(fileSystemId);
 
-    // getKeyDefinitionsBySystemIds now reports the deleted key as a
-    // per-id ENTITY_NOT_FOUND issue rather than silently omitting it —
-    // the tag itself still resolves, just with the dangling link dropped.
-    expect(result.kind).toBe(RESULT_KIND.Partial);
-    if (result.kind !== RESULT_KIND.Partial) return;
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0].keys).toEqual([]);
-    expect(result.issues).toHaveLength(1);
-    expect(result.issues[0].message).toContain(String(key.systemId));
-  });
-
-  it('returns a partial result when one key fails to resolve, leaving unaffected tags intact', async () => {
-    const {fileSystemId} = await createFileDependency();
-
-    const goodKey = await keyDefinitionRepository.save({
-      systemId: 1,
-      fileSystemId,
-      naturalId: 100,
-      name: 'GoodKey',
-    });
-    await valueDefinitionRepository.save({
-      systemId: 10,
-      keySystemId: goodKey.systemId,
-      naturalId: 1000,
-      name: 'GoodValue',
-    });
-    const badKey = await keyDefinitionRepository.save({
-      systemId: 2,
-      fileSystemId,
-      naturalId: 200,
-      name: 'BadKey',
-    });
-
-    const goodTag = await tagDefinitionRepository.save({
-      systemId: 3,
-      fileSystemId,
-      naturalId: 300,
-      name: 'TagOnGoodKey',
-      isVoice: false,
-    });
-    await tagKeyDefLinkRepository.save({
-      systemId: 4,
-      tagDefinitionSystemId: goodTag.systemId,
-      keyReferenceSystemId: goodKey.systemId,
-      tagEnumValue: 'GOOD_TAG_KEY_ENUM',
-    });
-
-    const badTag = await tagDefinitionRepository.save({
-      systemId: 5,
-      fileSystemId,
-      naturalId: 400,
-      name: 'TagOnBadKey',
-      isVoice: false,
-    });
-    await tagKeyDefLinkRepository.save({
-      systemId: 6,
-      tagDefinitionSystemId: badTag.systemId,
-      keyReferenceSystemId: badKey.systemId,
-      tagEnumValue: 'BAD_TAG_KEY_ENUM',
-    });
-
-    // Stub KeyValueDefQueryService: fails only for badKey's systemId (via the
-    // real service's own partial-result path), succeeds for every other key —
-    // isolates the tag-level partial-result propagation without needing a
-    // real DB error. Only getKeyDefinitionsBySystemIds is implemented — it's
-    // the only method overlayTagDefinitionRows calls on this dependency
-    // post-Task-3 (scoped to the tags' linked keys, not the whole file).
-    const realKeyValueDefSvc = new DbKeyValueDefQueryService(
-      dataSource.manager,
-      new EditActionsQueryService(dataSource.manager),
-    );
-    const stubKeyValueDefSvc: Pick<
-      KeyValueDefQueryService,
-      'getKeyDefinitionsBySystemIds'
-    > = {
-      async getKeyDefinitionsBySystemIds(keySystemIds, fsId) {
-        const result = await realKeyValueDefSvc.getKeyDefinitionsBySystemIds(
-          keySystemIds,
-          fsId,
-        );
-        if (result.kind === RESULT_KIND.Fail) return result;
-        const data = result.data.filter(k => k.systemId !== badKey.systemId);
-        return Result.partial(data, [
-          {
-            code: 'INTERNAL_ERROR',
-            message: 'Simulated failure for BadKey',
-            severity: IssueSeverity.Error,
-          },
-        ]);
+    expect(result.items.map(tag => tag.name)).toEqual(['GoodTag']);
+    expect(result.items[0].keys[0].keyDefinition.name).toBe('GoodKey');
+    expect(result.failed).toEqual([
+      {
+        systemId: 5,
+        reason: FAILED_ENTITY_REASON.UnresolvedReference,
+        identity: {name: 'BrokenTag', naturalId: 0x400},
+        missingRef: {entityType: 'KeyDefinition', systemId: 2},
       },
-    };
-
-    const serviceWithStub = new DbTagDefinitionQueryService(
-      dataSource,
-      new EditActionsQueryService(dataSource.manager),
-      stubKeyValueDefSvc as KeyValueDefQueryService,
-    );
-
-    const result = await serviceWithStub.getAllTagDefinitions(fileSystemId);
-
-    expect(result.kind).toBe(RESULT_KIND.Partial);
-    if (result.kind !== RESULT_KIND.Partial) return;
-    expect(result.issues).toHaveLength(1);
-    expect(result.issues[0].message).toContain('BadKey');
-
-    // TagOnGoodKey survives with its key resolved
-    const goodTagResult = result.data.find(
-      t => t.systemId === goodTag.systemId,
-    );
-    expect(goodTagResult).toMatchObject({systemId: 3, name: 'TagOnGoodKey'});
-    expect(goodTagResult?.keys).toHaveLength(1);
-    expect(goodTagResult?.keys[0].keyDefinition).toMatchObject({
-      systemId: 1,
-      name: 'GoodKey',
-    });
-
-    // TagOnBadKey survives too, but its link to the failed key is dropped —
-    // same "link whose key resolves to nothing" handling as a session-deleted key.
-    const badTagResult = result.data.find(t => t.systemId === badTag.systemId);
-    expect(badTagResult).toMatchObject({systemId: 5, name: 'TagOnBadKey'});
-    expect(badTagResult?.keys).toEqual([]);
+    ]);
   });
 
   it('scopes key resolution to only the keys a tag references, not the whole file', async () => {
@@ -531,26 +429,24 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
       ),
     );
 
-    // Spy on getKeyDefinitionsBySystemIds to confirm it's called with only
+    // Spy on findKeyDefinitions to confirm it's called with only
     // the 3 linked keys, not all 500 in the file.
     const spy = jest.spyOn(
       DbKeyValueDefQueryService.prototype,
-      'getKeyDefinitionsBySystemIds',
+      'findKeyDefinitions',
     );
 
     try {
-      const result = await service.getAllTagDefinitions(
-        fileSystemId,
-        tag.tagId,
-      );
+      const result = await service.findAllTagDefinitions(fileSystemId, {
+        naturalId: tag.naturalId,
+      });
 
-      expect(result.kind).toBe(RESULT_KIND.Ok);
-      if (result.kind !== RESULT_KIND.Ok) return;
-      expect(result.data).toHaveLength(1);
-      expect(result.data[0].keys).toHaveLength(3);
+      expect(result.failed).toEqual([]);
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].keys).toHaveLength(3);
 
       expect(spy).toHaveBeenCalledTimes(1);
-      const [calledIds] = spy.mock.calls[0];
+      const [, calledIds] = spy.mock.calls[0];
       expect(calledIds).toHaveLength(3);
       expect(new Set(calledIds)).toEqual(
         new Set(linkedKeys.map(k => k.systemId)),

@@ -25,13 +25,6 @@ function makeModuleRepo(
     }),
     getAllTagsForModule: jest.fn().mockResolvedValue([]),
     createTag: jest.fn().mockResolvedValue(undefined),
-    getTagDefinition: jest.fn().mockResolvedValue({
-      systemId: TAG_DEF_ID,
-      naturalId: 7,
-      name: 'tag',
-      isVoice: false,
-      keys: [],
-    }),
     findModuleForPatch: jest.fn(),
     renameModule: jest.fn(),
     changeContainer: jest.fn(),

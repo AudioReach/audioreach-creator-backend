@@ -5,9 +5,10 @@
 
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
-import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
+import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
 import {GetKeyDefinitionQuery} from './get-key-definition.query.js';
-import {RESULT_KIND, Result} from '../../../shared/result/result.js';
+import {Result} from '../../../shared/result/result.js';
+import {requireOne} from '../../../shared/result/require-one.js';
 import type {KeyDefinitionDto} from '../dto/key-definition-dto.js';
 import {mapKeyDefinition} from '../dto/key-definition-dto.js';
 
@@ -25,19 +26,17 @@ export class GetKeyDefinitionHandler implements QueryHandler<
         query.projectId,
       );
 
-    const result =
-      await this.queryServices.keyValueDefQueryService.getByKeyDefinition(
-        query.keySystemId,
+    const keys =
+      await this.queryServices.keyValueDefQueryService.findKeyDefinitions(
         fileId,
+        [query.keySystemId],
       );
+    const key = requireOne(
+      ISSUE_ENTITY_TYPE.KeyDefinition,
+      query.keySystemId,
+      keys,
+    );
 
-    if (result.kind === RESULT_KIND.Fail) {
-      throw new ResourceNotFoundException(
-        result.issues[0]?.message ??
-          `Key definition with system ID ${query.keySystemId} not found`,
-      );
-    }
-
-    return Result.ok(mapKeyDefinition(result.data));
+    return Result.ok(mapKeyDefinition(key));
   }
 }

@@ -21,7 +21,12 @@ import {
   getTestRepository,
   getTestDataSource,
 } from '../../helpers/test-database-setup.js';
-import {CHANGE_OPERATION, CHANGE_STATUS, RESULT_KIND, SOURCE} from '@arc/core';
+import {
+  CHANGE_OPERATION,
+  CHANGE_STATUS,
+  FAILED_ENTITY_REASON,
+  SOURCE,
+} from '@arc/core';
 import {DbKeyValueDefQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/key-value/db-key-value-def-query-service.js';
 import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
@@ -52,7 +57,7 @@ import {
   SESSION_STATUS,
 } from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
 
-describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () => {
+describe('DbKeyValueDefQueryService Integration Tests', () => {
   let dataSource: DataSource;
   let keyDefinitionRepository: Repository<KeyDefinitionRow>;
   let valueDefinitionRepository: Repository<ValueDefinitionRow>;
@@ -89,9 +94,11 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
     await setupEachTest();
   });
 
-  async function createFileDependency(): Promise<{fileSystemId: number}> {
+  async function createFileDependency(
+    projectName = 'Test Project',
+  ): Promise<{fileSystemId: number}> {
     const project = await projectRepository.save({
-      name: 'Test Project',
+      name: projectName,
       description: 'Test',
       type: 'Offline',
     });
@@ -124,11 +131,9 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
   it('returns an empty array when the file has no key definitions', async () => {
     const {fileSystemId} = await createFileDependency();
 
-    const result = await service.getAllKeyDefinitions(fileSystemId);
+    const result = await service.findAllKeyDefinitions(fileSystemId);
 
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data).toEqual([]);
+    expect(result).toEqual([]);
   });
 
   it('returns key definitions with their embedded values', async () => {
@@ -147,18 +152,16 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
       name: 'MyValue',
     });
 
-    const result = await service.getAllKeyDefinitions(fileSystemId);
+    const result = await service.findAllKeyDefinitions(fileSystemId);
 
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0]).toMatchObject({
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
       systemId: 1,
       naturalId: 100,
       name: 'MyKey',
     });
-    expect(result.data[0].values).toHaveLength(1);
-    expect(result.data[0].values[0]).toMatchObject({
+    expect(result[0].values).toHaveLength(1);
+    expect(result[0].values[0]).toMatchObject({
       systemId: 2,
       naturalId: 200,
       name: 'MyValue',
@@ -181,12 +184,12 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
       name: 'KeyTwo',
     });
 
-    const result = await service.getAllKeyDefinitions(fileSystemId, 200);
+    const result = await service.findAllKeyDefinitions(fileSystemId, {
+      naturalId: 200,
+    });
 
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0].name).toBe('KeyTwo');
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe('KeyTwo');
   });
 
   it('returns an empty array when the keyId filter matches nothing', async () => {
@@ -198,11 +201,11 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
       name: 'KeyOne',
     });
 
-    const result = await service.getAllKeyDefinitions(fileSystemId, 999);
+    const result = await service.findAllKeyDefinitions(fileSystemId, {
+      naturalId: 999,
+    });
 
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data).toEqual([]);
+    expect(result).toEqual([]);
   });
 
   it('reflects a session UPDATE on a key definition', async () => {
@@ -228,12 +231,10 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
       linkedEntityGroupId: null,
     });
 
-    const result = await service.getAllKeyDefinitions(fileSystemId);
+    const result = await service.findAllKeyDefinitions(fileSystemId);
 
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0].name).toBe('UpdatedName');
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe('UpdatedName');
   });
 
   it('excludes a key definition deleted in the session', async () => {
@@ -259,11 +260,9 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
       linkedEntityGroupId: null,
     });
 
-    const result = await service.getAllKeyDefinitions(fileSystemId);
+    const result = await service.findAllKeyDefinitions(fileSystemId);
 
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data).toEqual([]);
+    expect(result).toEqual([]);
   });
 
   it('includes a key definition that exists only as a session CREATE', async () => {
@@ -288,19 +287,17 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
       linkedEntityGroupId: null,
     });
 
-    const result = await service.getAllKeyDefinitions(fileSystemId);
+    const result = await service.findAllKeyDefinitions(fileSystemId);
 
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0]).toMatchObject({
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
       systemId: 999,
       name: 'SessionOnlyKey',
     });
-    expect(result.data[0].values).toEqual([]);
+    expect(result[0].values).toEqual([]);
   });
 
-  it('returns Result.fail when the underlying value query throws', async () => {
+  it('rejects when the underlying value query throws', async () => {
     const {fileSystemId} = await createFileDependency();
 
     await keyDefinitionRepository.save({
@@ -325,13 +322,154 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
       });
 
     try {
-      const result = await service.getAllKeyDefinitions(fileSystemId);
-
-      expect(result.kind).toBe(RESULT_KIND.Fail);
-      if (result.kind !== RESULT_KIND.Fail) return;
-      expect(result.issues[0].message).toContain('Simulated DB failure');
+      await expect(service.findAllKeyDefinitions(fileSystemId)).rejects.toThrow(
+        'Simulated DB failure',
+      );
     } finally {
       spy.mockRestore();
     }
+  });
+
+  async function seedKeyWithValues(fileSystemId: number): Promise<void> {
+    await keyDefinitionRepository.save({
+      systemId: 1,
+      fileSystemId,
+      naturalId: 100,
+      name: 'Speaker',
+    });
+    await valueDefinitionRepository.save([
+      {systemId: 11, keySystemId: 1, naturalId: 1, name: 'Left'},
+      {systemId: 12, keySystemId: 1, naturalId: 2, name: 'Right'},
+    ]);
+  }
+
+  describe('findKeyDefinitions', () => {
+    it('returns the requested keys and reports missing ones as not found', async () => {
+      const {fileSystemId} = await createFileDependency();
+      await seedKeyWithValues(fileSystemId);
+
+      const result = await service.findKeyDefinitions(fileSystemId, [1, 2]);
+
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]).toMatchObject({systemId: 1, name: 'Speaker'});
+      expect(result.items[0].values.map(v => v.name)).toEqual([
+        'Left',
+        'Right',
+      ]);
+      expect(result.failed).toEqual([
+        {systemId: 2, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
+    });
+
+    it('returns each key once when an id is requested twice', async () => {
+      const {fileSystemId} = await createFileDependency();
+      await seedKeyWithValues(fileSystemId);
+
+      const result = await service.findKeyDefinitions(fileSystemId, [1, 1]);
+
+      expect(result.items.map(k => k.systemId)).toEqual([1]);
+      expect(result.failed).toEqual([]);
+    });
+
+    it('does not return a key that belongs to another file', async () => {
+      const {fileSystemId} = await createFileDependency();
+      const other = await createFileDependency('Other Project');
+      await seedKeyWithValues(other.fileSystemId);
+
+      const result = await service.findKeyDefinitions(fileSystemId, [1]);
+
+      expect(result.items).toEqual([]);
+      expect(result.failed).toEqual([
+        {systemId: 1, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
+    });
+
+    it('returns an empty read for an empty id list', async () => {
+      const {fileSystemId} = await createFileDependency();
+
+      await expect(
+        service.findKeyDefinitions(fileSystemId, []),
+      ).resolves.toEqual({items: [], failed: []});
+    });
+  });
+
+  describe('findKeyValuePairs', () => {
+    it('pairs each requested value with its key and reports missing values', async () => {
+      const {fileSystemId} = await createFileDependency();
+      await seedKeyWithValues(fileSystemId);
+
+      const result = await service.findKeyValuePairs(fileSystemId, [12, 99]);
+
+      expect(result.items).toEqual([
+        {
+          key: expect.objectContaining({
+            systemId: 1,
+            naturalId: 100,
+            name: 'Speaker',
+          }),
+          value: expect.objectContaining({
+            systemId: 12,
+            naturalId: 2,
+            name: 'Right',
+          }),
+        },
+      ]);
+      expect(result.failed).toEqual([
+        {systemId: 99, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
+    });
+
+    it('includes a value that exists only as a session CREATE', async () => {
+      const {fileSystemId} = await createFileDependency();
+      await seedKeyWithValues(fileSystemId);
+      const session = await createSession(fileSystemId);
+      await editActionRepository.save({
+        targetSystemId: 13,
+        aggregateId: 1,
+        sessionId: session.sessionId,
+        targetTable: ENTITY_NAMES.ValueDefinition,
+        operation: CHANGE_OPERATION.Create,
+        fieldPath: '$',
+        newValue: {systemId: 13, keySystemId: 1, naturalId: 3, name: 'Center'},
+        source: SOURCE.Manual,
+        changeStatus: CHANGE_STATUS.Staged,
+        linkedEntityGroupId: null,
+      });
+
+      const result = await service.findKeyValuePairs(fileSystemId, [13]);
+
+      expect(result.failed).toEqual([]);
+      expect(result.items).toEqual([
+        {
+          key: expect.objectContaining({systemId: 1, name: 'Speaker'}),
+          value: expect.objectContaining({systemId: 13, name: 'Center'}),
+        },
+      ]);
+    });
+
+    it('reports a value as not found when its key was deleted in the session', async () => {
+      const {fileSystemId} = await createFileDependency();
+      await seedKeyWithValues(fileSystemId);
+      const session = await createSession(fileSystemId);
+      await editActionRepository.save({
+        targetSystemId: 1,
+        aggregateId: 1,
+        sessionId: session.sessionId,
+        targetTable: ENTITY_NAMES.KeyDefinition,
+        operation: CHANGE_OPERATION.Delete,
+        fieldPath: '$',
+        newValue: {},
+        source: SOURCE.Manual,
+        changeStatus: CHANGE_STATUS.Staged,
+        linkedEntityGroupId: null,
+      });
+
+      const result = await service.findKeyValuePairs(fileSystemId, [11]);
+
+      expect(result.items).toEqual([]);
+      expect(result.failed).toEqual([
+        {systemId: 11, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
+    });
   });
 });

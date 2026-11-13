@@ -3,96 +3,42 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {
-  KeyDefinitionReadModel,
-  KeyDefinitionSummaryReadModel,
-  ValueDefinitionSummaryReadModel,
-} from './key-value-definition-read-model.js';
-import type {Result} from '../../../../shared/result/result.js';
+import type {KeyDefinitionReadModel} from './key-value-definition-read-model.js';
+import type {KeyValuePairReadModel} from '../usecase/query-models/key-vector-read-model.js';
+import type {BatchRead} from '../../batch-read.js';
 
+/** Narrows `findAllKeyDefinitions` to the keys that match every field. */
+export interface KeyDefinitionFilter {
+  readonly naturalId?: number;
+}
+
+/**
+ * Key and value definition reads, with the session overlay applied. All
+ * methods throw on infrastructure errors.
+ */
 export interface KeyValueDefQueryService {
-  /**
-   * Returns all key definitions for the given file, with their values embedded.
-   * Optional keyId filters by natural ACDB key_id. Overlay is always applied.
-   *
-   * Result.fail only if the underlying query/overlay itself throws.
-   */
-  getAllKeyDefinitions(
+  /** Every key definition in the file, each with all its values. */
+  findAllKeyDefinitions(
     fileSystemId: number,
-    keyNaturalId?: number,
-  ): Promise<Result<KeyDefinitionReadModel[]>>;
+    filter?: KeyDefinitionFilter,
+  ): Promise<KeyDefinitionReadModel[]>;
 
   /**
-   * Batch — returns the overlaid KeyDefinitionReadModels for the given key
-   * systemIds. Each returned key carries its full child values. Ids that
-   * don't resolve (absent from DB and overlay) are silently omitted.
-   * Outer Result fails only if a DB query throws.
+   * The requested key definitions, each with all its values, in request
+   * order. Missing IDs are reported in `failed` as `NOT_FOUND`.
    */
-  getKeyDefinitionsBySystemIds(
-    keySystemIds: number[],
+  findKeyDefinitions(
     fileSystemId: number,
-  ): Promise<Result<KeyDefinitionReadModel[]>>;
+    keySystemIds: readonly number[],
+  ): Promise<BatchRead<KeyDefinitionReadModel, 'KeyDefinition'>>;
 
   /**
-   * Given a value systemId, returns its parent KeyDefinitionReadModel —
-   * key fields plus ALL child values under that key (not just the requested
-   * one). Resolution order: DB row first, then session overlay. Result.fail
-   * with ERROR_CODES.ENTITY_NOT_FOUND only if both come up empty.
+   * One key/value summary pair per requested value definition, in request
+   * order. A value that is missing, or whose key is missing, is reported in
+   * `failed` as `NOT_FOUND`.
    */
-  getKeyValueDefinitionForGivenValue(
-    valueDefSystemId: number,
+  findKeyValuePairs(
     fileSystemId: number,
-  ): Promise<Result<KeyDefinitionReadModel>>;
-
-  /**
-   * Batch variant — resolves many valueDefSystemIds in two DB queries total
-   * (not one per id, not one per distinct key), instead of one
-   * getKeyValueDefinitionForGivenValue call per id.
-   *
-   * Returns the distinct parent KeyDefinitionReadModels for the requested
-   * ids, deduped by key systemId. Each returned key carries ALL its child
-   * values. Ids that don't resolve (absent from DB and overlay) are
-   * silently omitted from the result.
-   *
-   * Outer Result fails only if a batch DB query itself throws.
-   */
-  getKeyValueDefinitionForGivenValues(
-    valueDefSystemIds: number[],
-    fileSystemId: number,
-  ): Promise<Result<KeyDefinitionReadModel[]>>;
-
-  /**
-   * Resolves the requested ValueDefinition ids into Key/Value summary pairs.
-   *
-   * Unlike getKeyValueDefinitionForGivenValues(), which returns distinct keys
-   * with all of their child values, this method returns exactly one
-   * KeyDefinitionSummaryReadModel/ValueDefinitionSummaryReadModel pair for
-   * each requested valueDefSystemId.
-   *
-   * The order of the returned pairs matches the order of the requested
-   * valueDefSystemIds.
-   *
-   */
-  getKeyValueSummaryForGivenValues(
-    valueDefSystemIds: number[],
-    fileSystemId: number,
-  ): Promise<
-    Result<
-      Array<{
-        key: KeyDefinitionSummaryReadModel;
-        value: ValueDefinitionSummaryReadModel;
-      }>
-    >
-  >;
-
-  /**
-   * Given a key systemId, returns the overlaid KeyDefinitionReadModel with
-   * all its child values. Resolution order: DB row first, then session
-   * overlay. Result.fail with ERROR_CODES.ENTITY_NOT_FOUND only if both
-   * come up empty.
-   */
-  getByKeyDefinition(
-    keyDefSystemId: number,
-    fileSystemId: number,
-  ): Promise<Result<KeyDefinitionReadModel>>;
+    valueDefSystemIds: readonly number[],
+  ): Promise<BatchRead<KeyValuePairReadModel, 'ValueDefinition'>>;
 }

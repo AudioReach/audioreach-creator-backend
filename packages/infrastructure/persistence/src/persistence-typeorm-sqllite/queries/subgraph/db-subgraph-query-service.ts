@@ -18,7 +18,6 @@ import {
   type KeyValueDefQueryService,
   type KeyValuePairListReadModel,
   type ConfigurationIncludes,
-  type Issue,
   type VcpmAggregateOptions,
   type VcpmAggregateReadModel,
   type VcpmCkvReadModel,
@@ -26,7 +25,8 @@ import {
   ERROR_CODES,
   IssueSeverity,
   CONFIGURATION_INCLUDES,
-  RESULT_KIND,
+  ISSUE_ENTITY_TYPE,
+  failedToIssues,
 } from '@arc/core';
 
 /**
@@ -112,44 +112,18 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
         ),
       ];
 
-      const itemErrors: Issue[] = [];
-      let kvPairsByValueId = new Map<
-        number,
-        {
-          key: {
-            systemId: number;
-            naturalId: number;
-            name: string;
-            description?: string;
-          };
-          value: {
-            systemId: number;
-            naturalId: number;
-            name: string;
-            description?: string;
-          };
-        }
-      >();
-
-      if (allValueDefIds.length > 0) {
-        // Single batch call for all key-value definitions (FR-4 + FR-5).
-        const pairsResult =
-          await this.keyValueDefSvc.getKeyValueSummaryForGivenValues(
-            allValueDefIds,
-            fileSystemId,
-          );
-        if (pairsResult.kind === RESULT_KIND.Fail) {
-          itemErrors.push(...pairsResult.issues);
-        } else {
-          if (pairsResult.kind === RESULT_KIND.Partial) {
-            itemErrors.push(...pairsResult.issues);
-          }
-          // Build a per-valueDefSystemId lookup for O(1) access during assembly.
-          kvPairsByValueId = new Map(
-            pairsResult.data.map(pair => [pair.value.systemId, pair]),
-          );
-        }
-      }
+      // Single batch call for all key-value definitions (FR-4 + FR-5).
+      const pairs = await this.keyValueDefSvc.findKeyValuePairs(
+        fileSystemId,
+        allValueDefIds,
+      );
+      const itemErrors = failedToIssues(
+        ISSUE_ENTITY_TYPE.ValueDefinition,
+        pairs.failed,
+      );
+      const kvPairsByValueId = new Map(
+        pairs.items.map(pair => [pair.value.systemId, pair]),
+      );
 
       // Assemble SubgraphReadModel[] in memory — no further DB calls.
       const results: SubgraphReadModel[] = subgraphs.map(s => {
@@ -356,16 +330,13 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
       return rows.map(row => ({systemId: row.systemId, values: []}));
     }
 
-    const result = await this.keyValueDefSvc.getKeyValueSummaryForGivenValues(
-      valueDefIds,
+    // A CKV is only usable with all its values; a missing one throws below.
+    const result = await this.keyValueDefSvc.findKeyValuePairs(
       fileSystemId,
+      valueDefIds,
     );
-    if (result.kind === RESULT_KIND.Fail) {
-      throw new Error('Failed to resolve CKV values for file ' + fileSystemId);
-    }
-
     const pairs = new Map(
-      result.data.map(pair => [
+      result.items.map(pair => [
         pair.value.systemId,
         {
           key: {

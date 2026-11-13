@@ -59,15 +59,6 @@ function makeModuleRepo(
     addParameterToTkv: jest.fn(),
     deleteParameterFromTkv: jest.fn(),
     getCkvPayloadEntries: jest.fn().mockResolvedValue([]),
-    getKeyValueSummaryForGivenValues: jest.fn().mockImplementation(ids =>
-      Promise.resolve({
-        kind: 'OK',
-        data: (ids as number[]).map(id => ({
-          key: {systemId: id + 100, naturalId: id + 100, name: 'key'},
-          value: {systemId: id, naturalId: id, name: 'value'},
-        })),
-      }),
-    ),
     ...overrides,
   } as unknown as jest.Mocked<ModuleRepository>;
 }

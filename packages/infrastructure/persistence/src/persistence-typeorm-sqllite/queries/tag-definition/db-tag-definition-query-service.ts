@@ -3,198 +3,142 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {DataSource} from 'typeorm';
+import type {EntityManager} from 'typeorm';
 import type {
+  BatchRead,
+  FailedEntity,
+  KeyDefinitionReadModel,
+  KeyValueDefQueryService,
+  TagDefinitionFilter,
   TagDefinitionQueryService,
   TagDefinitionReadModel,
   TagKeyDefinitionReadModel,
-  KeyValueDefQueryService,
 } from '@arc/core';
-import {Result, ERROR_CODES, IssueSeverity, RESULT_KIND} from '@arc/core';
+import {FAILED_ENTITY_REASON, ISSUE_ENTITY_TYPE} from '@arc/core';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
+import {withNotFound} from '../../utils/with-not-found.js';
 import {
   TagDefinitionFetcher,
   type OverlaidTagDefinition,
 } from '../../fetchers/definitions/tag-key-value/tag-definition-fetcher.js';
 
+type TagBatch = BatchRead<TagDefinitionReadModel, 'TagDefinition'>;
+
 /**
  * Database implementation of TagDefinitionQueryService.
  *
- * All overlay delegated to TagDefinitionFetcher (FR-3):
- *   fetchMany        — all or selected tag definitions with session overlay
- *   fetchOne         — one selected tag definition through fetchMany
- *
- * Key definition resolution (keyReferenceSystemId → name/values) is
- * cross-aggregate enrichment delegated to KeyValueDefQueryService (FR-4).
- * This must happen after the link overlay is finalized — the set of referenced
- * key system IDs is only known after overlay, so it cannot be parallelised with it.
+ * Tags and their key links are loaded by TagDefinitionFetcher with the
+ * session overlay applied (FR-3). The linked key definitions are loaded
+ * through KeyValueDefQueryService (FR-4), after the overlay, because only
+ * then is the set of linked keys known.
  */
 export class DbTagDefinitionQueryService implements TagDefinitionQueryService {
   private readonly tagFetcher: TagDefinitionFetcher;
 
   constructor(
-    private readonly dataSource: DataSource,
+    private readonly manager: EntityManager,
     editActionsSvc: EditActionsQueryService,
     private readonly keyValueDefSvc: KeyValueDefQueryService,
   ) {
-    this.tagFetcher = new TagDefinitionFetcher(
-      dataSource.manager,
-      editActionsSvc,
-    );
+    this.tagFetcher = new TagDefinitionFetcher(manager, editActionsSvc);
   }
 
-  async getAllTagDefinitions(
+  async findAllTagDefinitions(
     fileSystemId: number,
-    tagNaturalId?: number,
-  ): Promise<Result<TagDefinitionReadModel[]>> {
-    try {
-      const sessionId = await resolveActiveSessionId(
-        this.dataSource.manager,
-        fileSystemId,
-      );
-
-      // Overlay applied by fetcher (FR-3).
-      const overlaidTags = await this.tagFetcher.fetchMany(
-        'all',
-        fileSystemId,
-        sessionId,
-        tagNaturalId === undefined ? undefined : {naturalId: tagNaturalId},
-      );
-
-      return this.resolveAndMap(overlaidTags, fileSystemId);
-    } catch (error) {
-      return Result.fail({
-        code: ERROR_CODES.INTERNAL_ERROR,
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to load tag definitions',
-        severity: IssueSeverity.Error,
-      });
-    }
-  }
-
-  async getTagDefinition(
-    fileSystemId: number,
-    tagSystemId: number,
-  ): Promise<TagDefinitionReadModel | null> {
-    const sessionId = await resolveActiveSessionId(
-      this.dataSource.manager,
+    filter: TagDefinitionFilter = {},
+  ): Promise<TagBatch> {
+    const sessionId = await resolveActiveSessionId(this.manager, fileSystemId);
+    const tags = await this.tagFetcher.fetchMany(
+      'all',
       fileSystemId,
+      sessionId,
+      filter.naturalId === undefined
+        ? undefined
+        : {naturalId: filter.naturalId},
     );
 
-    // fetchOne handles the session-only CREATE case — an empty base
-    // list is passed through overlay and session CREATEs are still appended.
-    const overlaid = await this.tagFetcher.fetchOne(
-      tagSystemId,
+    return this.withKeys(tags, fileSystemId);
+  }
+
+  async findTagDefinitions(
+    fileSystemId: number,
+    tagSystemIds: readonly number[],
+  ): Promise<TagBatch> {
+    if (tagSystemIds.length === 0) return {items: [], failed: []};
+
+    const sessionId = await resolveActiveSessionId(this.manager, fileSystemId);
+    const tags = await this.tagFetcher.fetchMany(
+      [...new Set(tagSystemIds)],
       fileSystemId,
       sessionId,
     );
-    if (!overlaid) return null;
+    const {items, failed} = await this.withKeys(tags, fileSystemId);
 
-    const result = await this.resolveAndMap([overlaid], fileSystemId);
-    if (result.kind === RESULT_KIND.Fail) {
-      throw new Error(
-        result.issues[0]?.message ?? 'Failed to load key definitions for tag',
-      );
-    }
-
-    return result.data[0] ?? null;
+    return withNotFound(tagSystemIds, items, tag => tag.systemId, failed);
   }
-
-  async getTagDefinitionsBySystemIds(
-    tagSystemIds: number[],
-    fileSystemId: number,
-  ): Promise<Result<TagDefinitionReadModel[]>> {
-    if (tagSystemIds.length === 0) return Result.ok([]);
-    try {
-      const sessionId = await resolveActiveSessionId(
-        this.dataSource.manager,
-        fileSystemId,
-      );
-      const overlaidTags = await this.tagFetcher.fetchMany(
-        tagSystemIds,
-        fileSystemId,
-        sessionId,
-      );
-      return this.resolveAndMap(overlaidTags, fileSystemId);
-    } catch (error) {
-      return Result.fail({
-        code: ERROR_CODES.INTERNAL_ERROR,
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to load tag definitions',
-        severity: IssueSeverity.Error,
-      });
-    }
-  }
-
-  // ── Private helpers ───────────────────────────────────────────────────────
 
   /**
-   * Returns the active session ID for the given file, or null.
-   * project_sessions is not session-mutable — direct query is correct here.
-   *
-   * Resolves key definitions for the given overlaid tags and maps to
-   * TagDefinitionReadModel[].
-   *
-   * KeyValueDefQueryService is used rather than KeyValueDefinitionFetcher
-   * directly (FR-4): the service's read model has all the needed fields and
-   * assembling the key-value read model here would duplicate logic that
-   * belongs to the KeyValueDefQueryService (FR-6: read model ownership).
-   *
-   * Key IDs are scoped to only those referenced by these tags' links — not
-   * every key in the file — to avoid loading unnecessary data.
+   * Adds the linked key definitions to each tag. A tag that links to a
+   * missing key goes to `failed`, with its own name and natural ID.
    */
-  private async resolveAndMap(
-    tags: OverlaidTagDefinition[],
+  private async withKeys(
+    tags: readonly OverlaidTagDefinition[],
     fileSystemId: number,
-  ): Promise<Result<TagDefinitionReadModel[]>> {
-    const tagSystemIdSet = new Set(tags.map(t => t.systemId));
-    const distinctKeyIds = [
+  ): Promise<TagBatch> {
+    const keySystemIds = [
       ...new Set(
-        tags
-          .flatMap(t => t.links)
-          .filter(l => tagSystemIdSet.has(l.tagDefinitionSystemId))
-          .map(l => l.keyReferenceSystemId),
+        tags.flatMap(tag => tag.links.map(link => link.keyReferenceSystemId)),
       ),
     ];
+    const keys = await this.keyValueDefSvc.findKeyDefinitions(
+      fileSystemId,
+      keySystemIds,
+    );
+    const keysById = new Map(keys.items.map(key => [key.systemId, key]));
 
-    const allKeysResult =
-      await this.keyValueDefSvc.getKeyDefinitionsBySystemIds(
-        distinctKeyIds,
-        fileSystemId,
-      );
-    if (allKeysResult.kind === RESULT_KIND.Fail)
-      return Result.fail(...allKeysResult.issues);
-
-    const keyMap = new Map(allKeysResult.data.map(k => [k.systemId, k]));
-
-    const mapped = tags.map(t => {
-      // flatMap: skip links whose key was not resolved (deleted in session or missing)
-      const keys: TagKeyDefinitionReadModel[] = t.links.flatMap(l => {
-        const keyDefinition = keyMap.get(l.keyReferenceSystemId);
-        if (!keyDefinition) return [];
-        return [{cHeaderTagEnumMemberName: l.tagEnumValue, keyDefinition}];
-      });
-
-      return {
-        systemId: t.systemId,
-        naturalId: t.naturalId,
-        name: t.name,
-        description: t.description,
-        isVoice: t.isVoice,
-        cHeaderEnumName: t.cHeaderEnumName,
-        cHeaderEnumMember: t.cHeaderEnumValue,
-        keys,
-      } satisfies TagDefinitionReadModel;
-    });
-
-    const issues = allKeysResult.issues;
-    return issues && issues.length > 0
-      ? Result.partial(mapped, issues)
-      : Result.ok(mapped);
+    const items: TagDefinitionReadModel[] = [];
+    const failed: FailedEntity<'TagDefinition'>[] = [];
+    for (const tag of tags) {
+      const missingKeyId = tag.links
+        .map(link => link.keyReferenceSystemId)
+        .find(id => !keysById.has(id));
+      if (missingKeyId === undefined) {
+        items.push(toTagDefinitionReadModel(tag, keysById));
+      } else {
+        failed.push({
+          systemId: tag.systemId,
+          reason: FAILED_ENTITY_REASON.UnresolvedReference,
+          identity: {name: tag.name, naturalId: tag.naturalId},
+          missingRef: {
+            entityType: ISSUE_ENTITY_TYPE.KeyDefinition,
+            systemId: missingKeyId,
+          },
+        });
+      }
+    }
+    return {items, failed};
   }
+}
+
+function toTagDefinitionReadModel(
+  tag: OverlaidTagDefinition,
+  keysById: ReadonlyMap<number, KeyDefinitionReadModel>,
+): TagDefinitionReadModel {
+  const keys: TagKeyDefinitionReadModel[] = tag.links.flatMap(link => {
+    const keyDefinition = keysById.get(link.keyReferenceSystemId);
+    return keyDefinition === undefined
+      ? []
+      : [{cHeaderTagEnumMemberName: link.tagEnumValue, keyDefinition}];
+  });
+  return {
+    systemId: tag.systemId,
+    naturalId: tag.naturalId,
+    name: tag.name,
+    description: tag.description,
+    isVoice: tag.isVoice,
+    cHeaderEnumName: tag.cHeaderEnumName,
+    cHeaderEnumMember: tag.cHeaderEnumValue,
+    keys,
+  };
 }

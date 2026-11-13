@@ -205,7 +205,7 @@ export class DbQueryServices implements QueryServices {
       new VcpmModuleParameterDefinitionFetcher(dataSource.manager);
 
     this.tagDefinitionQueryService = new DbTagDefinitionQueryService(
-      dataSource,
+      dataSource.manager,
       editActionsQueryService,
       this.keyValueDefQueryService,
     );
