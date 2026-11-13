@@ -6,11 +6,7 @@
 import {jest} from '@jest/globals';
 import {GetAllKeyDefinitionsHandler} from '../../../../../src/application/definition/key-definition/get-all/get-all-key-definitions.handler.js';
 import {GetAllKeyDefinitionsQuery} from '../../../../../src/application/definition/key-definition/get-all/get-all-key-definitions.query.js';
-import {
-  Result,
-  RESULT_KIND,
-} from '../../../../../src/application/shared/result/result.js';
-import {IssueSeverity} from '../../../../../src/shared/issues/severity.js';
+import {RESULT_KIND} from '../../../../../src/application/shared/result/result.js';
 import type {QueryServices} from '../../../../../src/application/ports/persistence/query-services/query-services.js';
 import type {KeyDefinitionReadModel} from '../../../../../src/application/ports/persistence/query-services/key-value/key-value-definition-read-model.js';
 
@@ -18,7 +14,7 @@ describe('GetAllKeyDefinitionsHandler', () => {
   const buildQueryServices = (): jest.Mocked<QueryServices> =>
     ({
       projectQueryService: {getFileIdByProjectId: jest.fn()},
-      keyValueDefQueryService: {getAllKeyDefinitions: jest.fn()},
+      keyValueDefQueryService: {findAllKeyDefinitions: jest.fn()},
     }) as unknown as jest.Mocked<QueryServices>;
 
   it('resolves projectId to fileId then maps key definitions to DTOs', async () => {
@@ -41,8 +37,8 @@ describe('GetAllKeyDefinitionsHandler', () => {
       },
     ];
     (
-      qs.keyValueDefQueryService.getAllKeyDefinitions as jest.Mock
-    ).mockResolvedValue(Result.ok(keys));
+      qs.keyValueDefQueryService.findAllKeyDefinitions as jest.Mock
+    ).mockResolvedValue(keys);
 
     const handler = new GetAllKeyDefinitionsHandler(qs);
     const result = await handler.handle(
@@ -51,8 +47,8 @@ describe('GetAllKeyDefinitionsHandler', () => {
 
     expect(qs.projectQueryService.getFileIdByProjectId).toHaveBeenCalledWith(7);
     expect(
-      qs.keyValueDefQueryService.getAllKeyDefinitions,
-    ).toHaveBeenCalledWith(42, undefined);
+      qs.keyValueDefQueryService.findAllKeyDefinitions,
+    ).toHaveBeenCalledWith(42, {naturalId: undefined});
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind !== RESULT_KIND.Ok) return;
     expect(result.data).toHaveLength(1);
@@ -84,8 +80,8 @@ describe('GetAllKeyDefinitionsHandler', () => {
       },
     ];
     (
-      qs.keyValueDefQueryService.getAllKeyDefinitions as jest.Mock
-    ).mockResolvedValue(Result.ok(keys));
+      qs.keyValueDefQueryService.findAllKeyDefinitions as jest.Mock
+    ).mockResolvedValue(keys);
 
     const result = await new GetAllKeyDefinitionsHandler(qs).handle(
       new GetAllKeyDefinitionsQuery(7, undefined, 'client-id'),
@@ -107,47 +103,16 @@ describe('GetAllKeyDefinitionsHandler', () => {
       qs.projectQueryService.getFileIdByProjectId as jest.Mock
     ).mockResolvedValue(42);
     (
-      qs.keyValueDefQueryService.getAllKeyDefinitions as jest.Mock
-    ).mockResolvedValue(Result.ok([]));
+      qs.keyValueDefQueryService.findAllKeyDefinitions as jest.Mock
+    ).mockResolvedValue([]);
 
     await new GetAllKeyDefinitionsHandler(qs).handle(
       new GetAllKeyDefinitionsQuery(7, 123, 'client-id'),
     );
 
     expect(
-      qs.keyValueDefQueryService.getAllKeyDefinitions,
-    ).toHaveBeenCalledWith(42, 123);
-  });
-
-  it('forwards a partial result — preserves issues array and maps data', async () => {
-    const qs = buildQueryServices();
-    (
-      qs.projectQueryService.getFileIdByProjectId as jest.Mock
-    ).mockResolvedValue(42);
-
-    const keys: KeyDefinitionReadModel[] = [
-      {systemId: 1, naturalId: 100, name: 'GoodKey', values: []},
-    ];
-    const partial = Result.partial(keys, [
-      {
-        code: 'INTERNAL_ERROR',
-        message: 'Key 2: failed to resolve values',
-        severity: IssueSeverity.Error,
-      },
-    ]);
-    (
-      qs.keyValueDefQueryService.getAllKeyDefinitions as jest.Mock
-    ).mockResolvedValue(partial);
-
-    const result = await new GetAllKeyDefinitionsHandler(qs).handle(
-      new GetAllKeyDefinitionsQuery(7, undefined, 'client-id'),
-    );
-
-    expect(result.kind).toBe(RESULT_KIND.Partial);
-    if (result.kind !== RESULT_KIND.Partial) return;
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0].systemId).toBe('1');
-    expect(result.issues).toHaveLength(1);
+      qs.keyValueDefQueryService.findAllKeyDefinitions,
+    ).toHaveBeenCalledWith(42, {naturalId: 123});
   });
 
   it('propagates a rejection from getFileIdByProjectId', async () => {
@@ -162,7 +127,7 @@ describe('GetAllKeyDefinitionsHandler', () => {
       ),
     ).rejects.toThrow('Project not found');
     expect(
-      qs.keyValueDefQueryService.getAllKeyDefinitions,
+      qs.keyValueDefQueryService.findAllKeyDefinitions,
     ).not.toHaveBeenCalled();
   });
 });

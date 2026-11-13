@@ -27,6 +27,12 @@ import {
   SESSION_MODE,
   SESSION_STATUS,
 } from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
+import {EditActionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/edit-action.schema.js';
+import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
+import {KeyDefinitionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/definitions/key-value/key-definition.schema.js';
+import {ValueDefinitionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/definitions/key-value/value-definition.schema.js';
+import {CkvValuesSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/usecase-data/module/spf-module-calibration-data.schema.js';
+import {CHANGE_OPERATION, CHANGE_STATUS, SOURCE} from '@arc/core';
 
 describe('DbCkvCalibrationQueryService definition filtering', () => {
   beforeAll(setupIntegrationTest);
@@ -113,5 +119,56 @@ describe('DbCkvCalibrationQueryService definition filtering', () => {
     const payloads = await svc.getCkvPayloads(300, 70, 90, [25]);
     expect(payloads).toHaveLength(1);
     expect(payloads[0]).toMatchObject({systemId: 25});
+  });
+
+  it('rejects when a value of the CKV was deleted in the session', async () => {
+    await getTestRepository(KeyDefinitionSchema).save({
+      systemId: 80,
+      fileSystemId: 300,
+      naturalId: 8,
+      name: 'Device',
+    });
+    await getTestRepository(ValueDefinitionSchema).save({
+      systemId: 800,
+      keySystemId: 80,
+      naturalId: 1,
+      name: 'Speaker',
+    });
+    await getTestRepository(CkvValuesSchema).save({
+      systemId: 95,
+      ckvSystemId: 90,
+      valueDefSystemId: 800,
+    });
+    const session = await getTestRepository(ProjectSessionSchema).save({
+      fileSystemId: 300,
+      userId: 'u',
+      clientId: 'c',
+      sessionMode: SESSION_MODE.Designer,
+      status: SESSION_STATUS.Active,
+      endedAt: null,
+    });
+    await getTestRepository(EditActionSchema).save({
+      targetSystemId: 800,
+      aggregateId: 80,
+      sessionId: session.sessionId,
+      targetTable: ENTITY_NAMES.ValueDefinition,
+      operation: CHANGE_OPERATION.Delete,
+      fieldPath: '$',
+      newValue: {},
+      source: SOURCE.Manual,
+      changeStatus: CHANGE_STATUS.Staged,
+      linkedEntityGroupId: null,
+    });
+    const ds = getTestDataSource();
+    const editSvc = new EditActionsQueryService(ds.manager);
+    const svc = new DbCkvCalibrationQueryService(
+      ds,
+      editSvc,
+      new DbKeyValueDefQueryService(ds.manager, editSvc),
+    );
+
+    await expect(svc.getCkv(300, 70, 90)).rejects.toThrow(
+      'CKV 90 references missing value definition 800',
+    );
   });
 });

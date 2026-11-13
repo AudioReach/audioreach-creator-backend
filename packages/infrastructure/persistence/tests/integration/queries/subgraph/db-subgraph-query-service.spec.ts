@@ -8,10 +8,11 @@ import {
   CHANGE_OPERATION,
   CHANGE_STATUS,
   SOURCE,
+  FAILED_ENTITY_REASON,
   RESULT_KIND,
-  Result,
   CONFIGURATION_INCLUDES,
 } from '@arc/core';
+import type {KeyValueDefQueryService} from '@arc/core';
 import {
   SESSION_MODE,
   SESSION_STATUS,
@@ -37,6 +38,9 @@ import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-s
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 import {ProjectSessionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
+import {KeyDefinitionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/definitions/key-value/key-definition.schema.js';
+import {ValueDefinitionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/definitions/key-value/value-definition.schema.js';
+import {SgkvValuesSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/usecase-data/subgraph/subgraph-sgkv-data.js';
 import {SubgraphPropertyDefinitionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/definitions/subgraph/subgraph-property-definition.schema.js';
 import {
   describe,
@@ -162,6 +166,28 @@ async function seedEditAction(
   );
 }
 
+function buildService(
+  ds: DataSource,
+  keyValueDefSvc: Pick<KeyValueDefQueryService, 'findKeyValuePairs'>,
+): DbSubgraphQueryService {
+  const editActionsSvc = new EditActionsQueryService(ds.manager);
+  const vcpmInstanceFetcher = new VcpmInstanceFetcher(ds.manager);
+  return new DbSubgraphQueryService(
+    new TypeOrmSessionRepository(ds.manager),
+    keyValueDefSvc as KeyValueDefQueryService,
+    new SubgraphOverlayFetcher(
+      ds.manager,
+      editActionsSvc,
+      new SubgraphPropertyDataFetcher(ds.manager, editActionsSvc),
+      new SubgraphSgkvFetcher(ds.manager, editActionsSvc),
+    ),
+    editActionsSvc,
+    new VcpmCkvFetcher(ds.manager, vcpmInstanceFetcher),
+    new VcpmParameterPayloadFetcher(ds.manager),
+    new VcpmModuleParameterDefinitionFetcher(ds.manager),
+  );
+}
+
 describe('DbSubgraphQueryService.findPropertyPayloads (integration)', () => {
   let ds: DataSource;
   let svc: DbSubgraphQueryService;
@@ -176,22 +202,9 @@ describe('DbSubgraphQueryService.findPropertyPayloads (integration)', () => {
     await setupEachTest();
     ds = getTestDataSource();
     await seedProjectAndFile(ds);
-    const editActionsSvc = new EditActionsQueryService(ds.manager);
-    const vcpmInstanceFetcher = new VcpmInstanceFetcher(ds.manager);
-    svc = new DbSubgraphQueryService(
-      new TypeOrmSessionRepository(ds.manager),
-      {getKeyValueSummaryForGivenValues: async () => Result.ok([])} as any,
-      new SubgraphOverlayFetcher(
-        ds.manager,
-        editActionsSvc,
-        new SubgraphPropertyDataFetcher(ds.manager, editActionsSvc),
-        new SubgraphSgkvFetcher(ds.manager, editActionsSvc),
-      ),
-      editActionsSvc,
-      new VcpmCkvFetcher(ds.manager, vcpmInstanceFetcher),
-      new VcpmParameterPayloadFetcher(ds.manager),
-      new VcpmModuleParameterDefinitionFetcher(ds.manager),
-    );
+    svc = buildService(ds, {
+      findKeyValuePairs: async () => ({items: [], failed: []}),
+    });
   });
 
   it('returns null when subgraph does not exist and no session', async () => {
@@ -361,5 +374,55 @@ describe('DbSubgraphQueryService.findPropertyPayloads (integration)', () => {
         }),
       ]),
     );
+  });
+
+  it('returns a partial result naming each SGKV value that could not be loaded', async () => {
+    await seedSubgraph(ds, {systemId: SUBGRAPH_SYSTEM_ID, name: 'sg-a'});
+    await seedSgkv(ds, {systemId: 501, subgraphSystemId: SUBGRAPH_SYSTEM_ID});
+    await getTestRepository(KeyDefinitionSchema).save({
+      systemId: 70,
+      fileSystemId: FILE_ID,
+      naturalId: 7,
+      name: 'Device',
+    });
+    await getTestRepository(ValueDefinitionSchema).save([
+      {systemId: 700, keySystemId: 70, naturalId: 1, name: 'Speaker'},
+      {systemId: 0x2bd, keySystemId: 70, naturalId: 2, name: 'Handset'},
+    ]);
+    await getTestRepository(SgkvValuesSchema).save([
+      {systemId: 601, sgkvSystemId: 501, valueDefSystemId: 700},
+      {systemId: 602, sgkvSystemId: 501, valueDefSystemId: 0x2bd},
+    ]);
+    const speaker = {
+      key: {systemId: 70, naturalId: 7, name: 'Device'},
+      value: {systemId: 700, naturalId: 1, name: 'Speaker'},
+    };
+    const service = buildService(ds, {
+      findKeyValuePairs: async () => ({
+        items: [speaker],
+        failed: [{systemId: 0x2bd, reason: FAILED_ENTITY_REASON.NotFound}],
+      }),
+    });
+
+    const result = await service.getAllSubgraphs(
+      FILE_ID,
+      CONFIGURATION_INCLUDES.FullDetails,
+    );
+
+    expect(result.kind).toBe(RESULT_KIND.Partial);
+    if (result.kind !== RESULT_KIND.Partial) return;
+    expect(result.data).toEqual([
+      expect.objectContaining({
+        systemId: SUBGRAPH_SYSTEM_ID,
+        sgkvs: [{systemId: 501, keyValuePairs: [speaker]}],
+      }),
+    ]);
+    expect(result.issues).toEqual([
+      expect.objectContaining({
+        code: 'ENTITY_NOT_FOUND',
+        message:
+          'Value with systemId: 0x000002BD was not found in this project.',
+      }),
+    ]);
   });
 });

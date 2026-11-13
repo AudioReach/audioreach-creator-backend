@@ -6,11 +6,8 @@
 import {jest} from '@jest/globals';
 import {GetAllTagDefinitionsHandler} from '../../../../../src/application/definition/tag-definition/get-all/get-all-tag-definitions.handler.js';
 import {GetAllTagDefinitionsQuery} from '../../../../../src/application/definition/tag-definition/get-all/get-all-tag-definitions.query.js';
-import {
-  Result,
-  RESULT_KIND,
-} from '../../../../../src/application/shared/result/result.js';
-import {IssueSeverity} from '../../../../../src/shared/issues/severity.js';
+import {RESULT_KIND} from '../../../../../src/application/shared/result/result.js';
+import {FAILED_ENTITY_REASON} from '../../../../../src/application/ports/persistence/batch-read.js';
 import type {QueryServices} from '../../../../../src/application/ports/persistence/query-services/query-services.js';
 import type {TagDefinitionReadModel} from '../../../../../src/application/ports/persistence/query-services/tag-definition/tag-definition-read-model.js';
 
@@ -21,7 +18,7 @@ describe('GetAllTagDefinitionsHandler', () => {
         getFileIdByProjectId: jest.fn(),
       },
       tagDefinitionQueryService: {
-        getAllTagDefinitions: jest.fn(),
+        findAllTagDefinitions: jest.fn(),
       },
     }) as unknown as jest.Mocked<QueryServices>;
 
@@ -41,8 +38,8 @@ describe('GetAllTagDefinitionsHandler', () => {
       },
     ];
     (
-      queryServices.tagDefinitionQueryService.getAllTagDefinitions as jest.Mock
-    ).mockResolvedValue(Result.ok(tags));
+      queryServices.tagDefinitionQueryService.findAllTagDefinitions as jest.Mock
+    ).mockResolvedValue({items: tags, failed: []});
 
     const handler = new GetAllTagDefinitionsHandler(queryServices);
     const query = new GetAllTagDefinitionsQuery(7, undefined, 'client-id');
@@ -53,8 +50,8 @@ describe('GetAllTagDefinitionsHandler', () => {
       queryServices.projectQueryService.getFileIdByProjectId,
     ).toHaveBeenCalledWith(7);
     expect(
-      queryServices.tagDefinitionQueryService.getAllTagDefinitions,
-    ).toHaveBeenCalledWith(42, undefined);
+      queryServices.tagDefinitionQueryService.findAllTagDefinitions,
+    ).toHaveBeenCalledWith(42, {naturalId: undefined});
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind !== RESULT_KIND.Ok) return;
     expect(result.data).toHaveLength(1);
@@ -71,8 +68,8 @@ describe('GetAllTagDefinitionsHandler', () => {
       queryServices.projectQueryService.getFileIdByProjectId as jest.Mock
     ).mockResolvedValue(42);
     (
-      queryServices.tagDefinitionQueryService.getAllTagDefinitions as jest.Mock
-    ).mockResolvedValue(Result.ok([]));
+      queryServices.tagDefinitionQueryService.findAllTagDefinitions as jest.Mock
+    ).mockResolvedValue({items: [], failed: []});
 
     const handler = new GetAllTagDefinitionsHandler(queryServices);
     const query = new GetAllTagDefinitionsQuery(7, 123, 'client-id');
@@ -80,11 +77,11 @@ describe('GetAllTagDefinitionsHandler', () => {
     await handler.handle(query);
 
     expect(
-      queryServices.tagDefinitionQueryService.getAllTagDefinitions,
-    ).toHaveBeenCalledWith(42, 123);
+      queryServices.tagDefinitionQueryService.findAllTagDefinitions,
+    ).toHaveBeenCalledWith(42, {naturalId: 123});
   });
 
-  it('forwards a partial result unchanged — does not collapse it into a failure', async () => {
+  it('returns a partial result naming each tag that links to a missing key', async () => {
     const queryServices = buildQueryServices();
     (
       queryServices.projectQueryService.getFileIdByProjectId as jest.Mock
@@ -93,16 +90,19 @@ describe('GetAllTagDefinitionsHandler', () => {
     const tags: TagDefinitionReadModel[] = [
       {systemId: 1, naturalId: 100, name: 'GoodTag', isVoice: false, keys: []},
     ];
-    const partial = Result.partial(tags, [
-      {
-        code: 'INTERNAL_ERROR',
-        message: 'Key 2: failed to resolve values',
-        severity: IssueSeverity.Error,
-      },
-    ]);
     (
-      queryServices.tagDefinitionQueryService.getAllTagDefinitions as jest.Mock
-    ).mockResolvedValue(partial);
+      queryServices.tagDefinitionQueryService.findAllTagDefinitions as jest.Mock
+    ).mockResolvedValue({
+      items: tags,
+      failed: [
+        {
+          systemId: 2,
+          reason: FAILED_ENTITY_REASON.UnresolvedReference,
+          identity: {name: 'BrokenTag', naturalId: 0x200},
+          missingRef: {entityType: 'KeyDefinition', systemId: 0x30},
+        },
+      ],
+    });
 
     const handler = new GetAllTagDefinitionsHandler(queryServices);
     const query = new GetAllTagDefinitionsQuery(7, undefined, 'client-id');
@@ -111,9 +111,19 @@ describe('GetAllTagDefinitionsHandler', () => {
 
     expect(result.kind).toBe(RESULT_KIND.Partial);
     if (result.kind !== RESULT_KIND.Partial) return;
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0].systemId).toBe('1');
-    expect(result.issues).toHaveLength(1);
+    expect(result.data.map(tag => tag.systemId)).toEqual(['1']);
+    expect(result.issues).toEqual([
+      expect.objectContaining({
+        code: 'ENTITY_UNRESOLVED_REFERENCE',
+        message:
+          "Tag 'BrokenTag' (0x00000200) was skipped: it references " +
+          'Key with systemId: 0x00000030, which was not found in this project.',
+        impactedEntity: expect.objectContaining({
+          entityType: 'TagDefinition',
+          systemId: 2,
+        }),
+      }),
+    ]);
   });
 
   it('propagates a rejection from getFileIdByProjectId', async () => {
@@ -127,7 +137,7 @@ describe('GetAllTagDefinitionsHandler', () => {
 
     await expect(handler.handle(query)).rejects.toThrow('Project not found');
     expect(
-      queryServices.tagDefinitionQueryService.getAllTagDefinitions,
+      queryServices.tagDefinitionQueryService.findAllTagDefinitions,
     ).not.toHaveBeenCalled();
   });
 });

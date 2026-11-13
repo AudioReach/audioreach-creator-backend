@@ -17,6 +17,7 @@ const LABELS: Partial<Record<IssueEntityType, string>> = {
   SpfModule: 'Module',
   KeyDefinition: 'Key',
   ValueDefinition: 'Value',
+  TagDefinition: 'Tag',
 };
 
 /**
@@ -56,6 +57,7 @@ function formatIdentity(ref: EntityRef): string | undefined {
     case 'Subgraph':
     case 'Subsystem':
     case 'KeyDefinition':
+    case 'TagDefinition':
       return ref.identity && named(label(ref), ref.identity);
     case 'ValueDefinition': {
       if (!ref.identity) return undefined;

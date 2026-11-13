@@ -10,7 +10,6 @@ import type {
   ParameterPayloadReadModel,
   KeyValueDefQueryService,
 } from '@arc/core';
-import {RESULT_KIND} from '@arc/core';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
 import {
@@ -104,29 +103,28 @@ export class DbCkvCalibrationQueryService implements CkvQueryService {
 
   /**
    * Maps an overlaid Ckv to CkvReadModel, resolving key-value pairs via
-   * KeyValueDefQueryService (cross-aggregate enrichment — FR-4).
+   * KeyValueDefQueryService (cross-aggregate enrichment — FR-4). Throws if
+   * a value definition is missing: a CKV is only usable with all its values.
    */
   private async transformToCkvReadModel(
     row: OverlaidCkv,
     fileSystemId: number,
   ): Promise<CkvReadModel> {
     const valueDefIds = row.values.map(v => v.valueDefSystemId);
-    const pairsResult =
-      await this.keyValueDefQueryService.getKeyValueSummaryForGivenValues(
-        valueDefIds,
-        fileSystemId,
-      );
-
-    if (pairsResult.kind === RESULT_KIND.Fail) {
+    const pairs = await this.keyValueDefQueryService.findKeyValuePairs(
+      fileSystemId,
+      valueDefIds,
+    );
+    const missing = pairs.failed.at(0);
+    if (missing !== undefined) {
       throw new Error(
-        `Failed to resolve key-value pairs: ${pairsResult.issues.map(e => e.message).join(', ')}`,
+        `CKV ${row.systemId} references missing value definition ${missing.systemId}`,
       );
     }
-
     return {
       systemId: row.systemId,
       uiPersistence: row.uiPersistence ?? null,
-      keyValuePairs: pairsResult.data,
+      keyValuePairs: pairs.items,
     };
   }
 

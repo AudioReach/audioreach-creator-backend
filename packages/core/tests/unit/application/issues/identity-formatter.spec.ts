@@ -92,6 +92,7 @@ describe('IdentityFormatter', () => {
     ['Subgraph', "Subgraph 'Speaker' (0x00000004)"],
     ['Subsystem', "Subsystem 'Speaker' (0x00000004)"],
     ['KeyDefinition', "Key 'Speaker' (0x00000004)"],
+    ['TagDefinition', "Tag 'Speaker' (0x00000004)"],
   ] as const)('writes a %s as its name and natural ID', (entityType, text) => {
     const ref: EntityRef = {
       entityType,

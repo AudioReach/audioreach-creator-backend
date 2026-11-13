@@ -5,9 +5,10 @@
 
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
-import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
+import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
 import {GetTagDefinitionQuery} from './get-tag-definition.query.js';
 import {Result} from '../../../shared/result/result.js';
+import {requireOne} from '../../../shared/result/require-one.js';
 import type {TagDefinitionDto} from '../dto/tag-definition-dto.js';
 import {mapTagDefinition} from '../dto/tag-definition-dto.js';
 
@@ -25,18 +26,17 @@ export class GetTagDefinitionHandler implements QueryHandler<
         query.projectId,
       );
 
-    const result =
-      await this.queryServices.tagDefinitionQueryService.getTagDefinition(
+    const tags =
+      await this.queryServices.tagDefinitionQueryService.findTagDefinitions(
         fileId,
-        query.tagSystemId,
+        [query.tagSystemId],
       );
+    const tag = requireOne(
+      ISSUE_ENTITY_TYPE.TagDefinition,
+      query.tagSystemId,
+      tags,
+    );
 
-    if (!result) {
-      throw new ResourceNotFoundException(
-        `Tag definition with system ID ${query.tagSystemId} not found`,
-      );
-    }
-
-    return Result.ok(mapTagDefinition(result));
+    return Result.ok(mapTagDefinition(tag));
   }
 }

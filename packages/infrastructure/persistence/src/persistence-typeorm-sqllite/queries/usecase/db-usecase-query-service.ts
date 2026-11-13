@@ -22,11 +22,9 @@ import type {
 } from '@arc/core';
 import {
   CHANGE_OPERATION,
-  ERROR_CODES,
   FAILED_ENTITY_REASON,
   ISSUE_ENTITY_TYPE,
   READ_MODE,
-  RESULT_KIND,
   USECASE_TYPE,
   UseCase,
 } from '@arc/core';
@@ -218,23 +216,14 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
         subsystems.flatMap(subsystem => subsystem.filteredKeySystemIds),
       ),
     ];
-    let keyDefinitionsBySystemId = new Map<
-      number,
-      {systemId: number; naturalId: number; name: string}
-    >();
-    if (filteredKeySystemIds.length > 0) {
-      const keyDefsResult =
-        await this.keyValueDefQuerySvc.getKeyDefinitionsBySystemIds(
-          filteredKeySystemIds,
-          fileSystemId,
-        );
-      if (keyDefsResult.kind === RESULT_KIND.Fail) {
-        throw new Error(joinIssueMessages(keyDefsResult.issues));
-      }
-      keyDefinitionsBySystemId = new Map(
-        keyDefsResult.data.map(key => [key.systemId, key]),
-      );
-    }
+    // A filtered key that is missing is left out of its subsystem's filter.
+    const keyDefinitions = await this.keyValueDefQuerySvc.findKeyDefinitions(
+      fileSystemId,
+      filteredKeySystemIds,
+    );
+    const keyDefinitionsBySystemId = new Map(
+      keyDefinitions.items.map(key => [key.systemId, key]),
+    );
     return {
       usecaseSystemIds,
       subgraphSystemIdsByUsecase,
@@ -526,25 +515,12 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
         ),
       ),
     ];
-    const pairsResult =
-      await this.keyValueDefQuerySvc.getKeyValueSummaryForGivenValues(
-        valueDefSystemIds,
-        fileSystemId,
-      );
-    if (pairsResult.kind === RESULT_KIND.Fail) {
-      // Every requested value missing is reported as a failure; callers
-      // treat the use cases as unresolved instead.
-      if (
-        pairsResult.issues.every(
-          issue => issue.code === ERROR_CODES.ENTITY_NOT_FOUND,
-        )
-      ) {
-        return new Map();
-      }
-      throw new Error(joinIssueMessages(pairsResult.issues));
-    }
-
-    return new Map(pairsResult.data.map(pair => [pair.value.systemId, pair]));
+    // A missing value is left out; findUnresolvedGkvValue reports its use case.
+    const pairs = await this.keyValueDefQuerySvc.findKeyValuePairs(
+      fileSystemId,
+      valueDefSystemIds,
+    );
+    return new Map(pairs.items.map(pair => [pair.value.systemId, pair]));
   }
 
   private toGkvReadModel(
@@ -567,11 +543,4 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
         },
       }));
   }
-}
-
-function joinIssueMessages(issues: readonly {message: string}[]): string {
-  return (
-    issues.map(issue => issue.message).join('; ') ||
-    'Failed to resolve key-value definitions'
-  );
 }

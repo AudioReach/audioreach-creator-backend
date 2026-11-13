@@ -7,7 +7,7 @@ import type {DataSource} from 'typeorm';
 import {
   CHANGE_OPERATION,
   CHANGE_STATUS,
-  Result,
+  FAILED_ENTITY_REASON,
   SOURCE,
   USECASE_TYPE,
   DATA_LINK_TYPE,
@@ -76,9 +76,10 @@ describe('DbUseCaseQueryService.findUseCaseChangeDetails (integration)', () => {
     service = new DbUseCaseQueryService(
       dataSource.manager,
       {
-        getKeyValueSummaryForGivenValues: async (valueSystemIds: number[]) =>
-          Result.ok(
-            valueSystemIds.includes(700) && knownGkvValueIds.has(700)
+        findKeyValuePairs: async (_fileId: number, valueIds: number[]) => {
+          const found = valueIds.includes(700) && knownGkvValueIds.has(700);
+          return {
+            items: found
               ? [
                   {
                     key: {systemId: 70, naturalId: 7, name: 'Device'},
@@ -86,7 +87,14 @@ describe('DbUseCaseQueryService.findUseCaseChangeDetails (integration)', () => {
                   },
                 ]
               : [],
-          ),
+            failed: valueIds
+              .filter(id => !found || id !== 700)
+              .map(id => ({
+                systemId: id,
+                reason: FAILED_ENTITY_REASON.NotFound,
+              })),
+          };
+        },
       } as any,
       editActions,
       usecaseFetcher,

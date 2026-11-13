@@ -3,45 +3,33 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {Result} from '../../../../shared/result/result.js';
 import type {TagDefinitionReadModel} from './tag-definition-read-model.js';
+import type {BatchRead} from '../../batch-read.js';
 
+/** Narrows `findAllTagDefinitions` to the tags that match every field. */
+export interface TagDefinitionFilter {
+  readonly naturalId?: number;
+}
+
+/**
+ * Tag definition reads, with the session overlay applied. Each tag carries
+ * the key definitions it links to. A tag that links to a missing key is
+ * reported in `failed` as `UNRESOLVED_REFERENCE`. All methods throw on
+ * infrastructure errors.
+ */
 export interface TagDefinitionQueryService {
-  /**
-   * Returns all tag definitions for the given file, with associated key
-   * definitions (and their values) embedded. Optional tagId filters by
-   * natural ACDB tag_id. Overlay is always applied.
-   *
-   * Key resolution is delegated to
-   * KeyValueDefQueryService.getKeyDefinitionsBySystemIds, scoped to only
-   * the keys these tags actually reference — a key-level failure surfaces
-   * here as a partial result. Result.ok when everything resolved cleanly;
-   * Result.partial(data, errors) when some tags/keys failed; Result.fail
-   * only if the top-level query itself throws.
-   */
-  getAllTagDefinitions(
+  /** Every tag definition in the file. */
+  findAllTagDefinitions(
     fileSystemId: number,
-    tagNaturalId?: number,
-  ): Promise<Result<TagDefinitionReadModel[]>>;
+    filter?: TagDefinitionFilter,
+  ): Promise<BatchRead<TagDefinitionReadModel, 'TagDefinition'>>;
 
   /**
-   * Returns a single tag definition for the given file, with associated key
-   * definitions (and their values) embedded. Overlay is always applied.
-   * Returns null if absent from both DB and session.
+   * The requested tag definitions. Missing IDs are reported in `failed` as
+   * `NOT_FOUND`.
    */
-  getTagDefinition(
+  findTagDefinitions(
     fileSystemId: number,
-    tagSystemId: number,
-  ): Promise<TagDefinitionReadModel | null>;
-
-  /**
-   * Batch — returns the overlaid TagDefinitionReadModels for the given tag
-   * systemIds, with associated key definitions (and their values) embedded.
-   * Ids that don't resolve (absent from DB and overlay) are silently
-   * omitted. Result.fail only if the underlying query itself throws.
-   */
-  getTagDefinitionsBySystemIds(
-    tagSystemIds: number[],
-    fileSystemId: number,
-  ): Promise<Result<TagDefinitionReadModel[]>>;
+    tagSystemIds: readonly number[],
+  ): Promise<BatchRead<TagDefinitionReadModel, 'TagDefinition'>>;
 }

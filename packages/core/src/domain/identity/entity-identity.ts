@@ -53,6 +53,7 @@ export interface EntityIdentityMap {
   Subsystem: NamedNaturalId;
   KeyDefinition: NamedNaturalId;
   ValueDefinition: NamedKeyValue;
+  TagDefinition: NamedNaturalId;
   DataLink: {readonly source: LinkEndpoint; readonly destination: LinkEndpoint};
   /** A control link has no direction; the formatter orders its endpoints. */
   ControlLink: {readonly endpoints: readonly [LinkEndpoint, LinkEndpoint]};

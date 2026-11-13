@@ -9,7 +9,6 @@ import type {
   ParameterPayloadReadModel,
   KeyValueDefQueryService,
 } from '@arc/core';
-import {RESULT_KIND} from '@arc/core';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
 import {
@@ -82,25 +81,26 @@ export class DbTkvCalibrationQueryService implements TkvQueryService {
     return filtered.map(p => this.toParameterPayloadReadModel(p));
   }
 
+  /** Throws if a value definition is missing: a TKV is only usable whole. */
   private async transformToTkvReadModel(
     row: OverlaidTkv,
     fileSystemId: number,
   ): Promise<TkvReadModel> {
     const valueDefIds = row.values.map(v => v.valueDefSystemId);
-    const pairsResult =
-      await this.keyValueDefQueryService.getKeyValueSummaryForGivenValues(
-        valueDefIds,
-        fileSystemId,
-      );
-    if (pairsResult.kind === RESULT_KIND.Fail) {
+    const pairs = await this.keyValueDefQueryService.findKeyValuePairs(
+      fileSystemId,
+      valueDefIds,
+    );
+    const missing = pairs.failed.at(0);
+    if (missing !== undefined) {
       throw new Error(
-        `Failed to resolve TKV key-value pairs: ${pairsResult.issues.map(e => e.message).join(', ')}`,
+        `TKV ${row.systemId} references missing value definition ${missing.systemId}`,
       );
     }
     return {
       systemId: row.systemId,
       moduleTagIdMapSystemId: row.moduleTagIdMapSystemId,
-      keyValuePairs: pairsResult.data,
+      keyValuePairs: pairs.items,
     };
   }
 
