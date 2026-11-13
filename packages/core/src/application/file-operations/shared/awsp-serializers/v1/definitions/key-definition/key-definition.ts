@@ -78,7 +78,7 @@ export class AwspKeyDefinition extends BaseDefinition {
    */
   toJSON(): Record<string, unknown> {
     return {
-      id: this.id,
+      id: `0x${this.id.toString(16).toUpperCase()}`,
       name: this.name,
       values: this.serializeField(this.values),
       description: this.description,

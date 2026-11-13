@@ -8,52 +8,14 @@ import {join, dirname} from 'path';
 import {fileURLToPath} from 'url';
 import {promises as fs} from 'fs';
 import {INestApplication} from '@nestjs/common';
-import {
-  compareAcdbBuffers,
-  compareAwspFiles,
-  type AcdbComparisonMismatch,
-  type AwspComparisonMismatch,
-} from '@arc/core';
+import {compareAcdbBuffers, compareAwspFiles} from '@arc/core';
 import {NodeFileSystemAdapter} from '@arc/fs';
 import {setupE2ETest, teardownE2ETest} from '../helpers/e2e-test-setup.js';
 import {parseMultipartResponse} from '../helpers/multipart-parser.helper.js';
+import {buildMismatchReport} from '../helpers/mismatch-reporter.helper.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-/**
- * Group mismatches by `domain` and render a "count per domain" summary line
- * plus a full "domain -> every detail" breakdown, sorted by count descending
- * so the biggest offender is always first.
- */
-function summarizeMismatchesByDomain(
-  mismatches: ReadonlyArray<{domain: string; detail: string}>,
-): {summary: string; groups: string} {
-  const byDomain = new Map<string, string[]>();
-  for (const m of mismatches) {
-    const details = byDomain.get(m.domain) ?? [];
-    details.push(m.detail);
-    byDomain.set(m.domain, details);
-  }
-
-  const sorted = [...byDomain.entries()].sort(
-    ([, a], [, b]) => b.length - a.length,
-  );
-
-  const summary = sorted
-    .map(([domain, details]) => `  ${domain}: ${details.length}`)
-    .join('\n');
-
-  const groups = sorted
-    .map(
-      ([domain, details]) =>
-        `[${domain}] (${details.length})\n` +
-        details.map(detail => `  - ${detail}`).join('\n'),
-    )
-    .join('\n\n');
-
-  return {summary, groups};
-}
 
 async function downloadFilesFromProject(
   httpServer: any,
@@ -274,7 +236,7 @@ describe('Download File E2E (GET /arc-api/v1/projects/:projectId/download-files)
     console.log('✓ Header consistency verified - all fields match');
   }, 400000);
 
-  it.skip('should verify round-trip byte-level fidelity (acdb + awsp)', async () => {
+  it('should verify round-trip byte-level fidelity (acdb + awsp)', async () => {
     const acdbPath = join(__dirname, '../fixtures/acdb_cal.acdb');
     const awspPath = join(__dirname, '../fixtures/workspaceFileXml.awsp');
 
@@ -333,57 +295,23 @@ describe('Download File E2E (GET /arc-api/v1/projects/:projectId/download-files)
         {kind: 'path', name: 'downloaded.awsp', uri: tempAwspPath},
       );
 
-      const allMismatches: Array<
-        AcdbComparisonMismatch | AwspComparisonMismatch
-      > = [
-        ...acdbComparisonResult.mismatches,
-        ...awspComparisonResult.mismatches,
-      ];
-      const allUnsupportedDomainNotes = [
-        ...acdbComparisonResult.unsupportedDomainNotes,
-        ...awspComparisonResult.unsupportedDomainNotes,
-      ];
+      const report = buildMismatchReport(
+        acdbComparisonResult,
+        awspComparisonResult,
+      );
+      const totalMismatches =
+        acdbComparisonResult.mismatches.length +
+        awspComparisonResult.mismatches.length;
 
-      if (allMismatches.length > 0) {
-        const {summary, groups} = summarizeMismatchesByDomain(allMismatches);
-
-        const reportLines = [
-          `ACDB + AWSP comparison report — ${new Date().toISOString()}`,
-          `Total mismatches: ${allMismatches.length} ` +
-            `(acdb: ${acdbComparisonResult.mismatches.length}, ` +
-            `awsp: ${awspComparisonResult.mismatches.length})`,
-          '',
-          'Summary by domain:',
-          summary,
-          '',
-          'Details by domain:',
-          groups,
-        ];
-
-        if (allUnsupportedDomainNotes.length > 0) {
-          reportLines.push(
-            '',
-            'Known gaps (not failures):',
-            allUnsupportedDomainNotes.map(n => `  ${n}`).join('\n'),
-          );
-        }
-
-        const reportsDir = join(
-          __dirname,
-          '../../../logs/acdb-comparison-reports',
-        );
+      if (totalMismatches > 0) {
+        const reportsDir = join(__dirname, '../../../logs/comparison-reports');
         await fs.mkdir(reportsDir, {recursive: true});
         const reportPath = join(reportsDir, `comparison-${Date.now()}.txt`);
-        await fs.writeFile(reportPath, reportLines.join('\n'));
-
+        await fs.writeFile(reportPath, report);
         console.log(`✗ ACDB/AWSP mismatches written to: ${reportPath}`);
-        console.log(`  Total: ${allMismatches.length}`);
-        console.log(summary);
-      } else if (allUnsupportedDomainNotes.length > 0) {
-        console.log(
-          'ℹ ACDB/AWSP known gaps (not failures):\n' +
-            allUnsupportedDomainNotes.map(n => `  ${n}`).join('\n'),
-        );
+        console.log(report);
+      } else {
+        console.log(report);
       }
 
       expect(acdbComparisonResult.mismatches).toEqual([]);

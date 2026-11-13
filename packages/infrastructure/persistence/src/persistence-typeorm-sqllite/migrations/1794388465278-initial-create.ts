@@ -5,8 +5,8 @@
 
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-export class InitialCreate1793096320401 implements MigrationInterface {
-  name = 'InitialCreate1793096320401';
+export class InitialCreate1794388465278 implements MigrationInterface {
+  name = 'InitialCreate1794388465278';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -73,10 +73,10 @@ export class InitialCreate1793096320401 implements MigrationInterface {
       `CREATE TABLE "module_property_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "property_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "property_category_type" varchar(255), "property_structure" text NOT NULL)`,
     );
     await queryRunner.query(
-      `CREATE TABLE "spf_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "display_name" varchar(255), "description" text, "group_name" varchar(255), "mod_search_keys" text, "stack_size" integer NOT NULL DEFAULT (0), "file_system_id" integer NOT NULL, "metadata" text, "is_loaded_at_bootup" boolean NOT NULL DEFAULT (0), "processor_system_id" integer NOT NULL, "module_definition_system_id" integer, CONSTRAINT "REL_e5a9714fba21e5202c09bcfb7e" UNIQUE ("module_definition_system_id"))`,
+      `CREATE TABLE "spf_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "display_name" varchar(255), "description" text, "group_name" varchar(255), "replaced_by" integer, "built_in" boolean, "is_offloadable" boolean, "mod_search_keys" text, "stack_size" integer NOT NULL DEFAULT (0), "file_system_id" integer NOT NULL, "metadata" text, "is_loaded_at_bootup" boolean NOT NULL DEFAULT (0), "processor_system_id" integer NOT NULL, "module_definition_system_id" integer, CONSTRAINT "REL_e5a9714fba21e5202c09bcfb7e" UNIQUE ("module_definition_system_id"))`,
     );
     await queryRunner.query(
-      `CREATE TABLE "spf_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "param_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "max_size" integer NOT NULL, "pid_type" varchar(100) NOT NULL, "is_persistent" boolean NOT NULL, "elements_structure" text, "is_read_only" boolean NOT NULL, "tool_policies" text, "copy_src_param_id" integer, "spf_module_definition_system_id" integer)`,
+      `CREATE TABLE "spf_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "param_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "max_size" integer NOT NULL, "pid_type" varchar(100) NOT NULL, "is_persistent" boolean NOT NULL, "elements_structure" text, "is_read_only" boolean NOT NULL, "is_hidden" boolean, "is_deprecated" boolean, "tool_policies" text, "copy_src_param_id" integer, "spf_module_definition_system_id" integer)`,
     );
     await queryRunner.query(
       `CREATE INDEX "idx_module_param_defs_spf_module_def_id" ON "spf_module_parameter_definitions" ("spf_module_definition_system_id") `,
@@ -100,19 +100,19 @@ export class InitialCreate1793096320401 implements MigrationInterface {
       `CREATE INDEX "idx_static_ports_module_def_id" ON "static_control_port_definitions" ("module_definition_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "static_intent_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "intent_id" integer NOT NULL, "name" varchar(255), "static_control_port_definition_system_id" integer NOT NULL)`,
+      `CREATE TABLE "static_intent_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "intent_id" integer NOT NULL, "name" varchar(255), "max_port_count" integer, "static_control_port_definition_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
       `CREATE INDEX "idx_static_intent_defs_port_id" ON "static_intent_definitions" ("static_control_port_definition_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "subgraph_property_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "property_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "property_type" varchar CHECK( "property_type" IN ('SPF','DRIVER') ) NOT NULL, "elements_structure" text, "is_voice" boolean NOT NULL)`,
+      `CREATE TABLE "subgraph_property_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "property_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "property_type" varchar CHECK( "property_type" IN ('SPF','DRIVER') ) NOT NULL, "elements_structure" text, "is_voice" boolean NOT NULL, "category_name" varchar(50))`,
     );
     await queryRunner.query(
-      `CREATE TABLE "vcpm_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "display_name" varchar(255), "description" text, "group_name" varchar(255), "file_system_id" integer NOT NULL)`,
+      `CREATE TABLE "vcpm_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "display_name" varchar(255), "description" text, "group_name" varchar(255), "replaced_by" integer, "file_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `CREATE TABLE "vcpm_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "param_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "max_size" integer NOT NULL, "pid_type" varchar(100) NOT NULL, "is_persistent" boolean NOT NULL, "is_read_only" boolean NOT NULL, "tool_policies" text, "elements_structure" text, "copy_src_param_id" integer, "vcpm_module_definition_system_id" integer)`,
+      `CREATE TABLE "vcpm_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "param_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "max_size" integer NOT NULL, "pid_type" varchar(100) NOT NULL, "is_persistent" boolean NOT NULL, "is_read_only" boolean NOT NULL, "is_deprecated" boolean, "tool_policies" text, "elements_structure" text, "copy_src_param_id" integer, "vcpm_module_definition_system_id" integer)`,
     );
     await queryRunner.query(
       `CREATE INDEX "idx_module_param_defs_vcpm_module_def_id" ON "vcpm_module_parameter_definitions" ("vcpm_module_definition_system_id") `,
@@ -181,7 +181,7 @@ export class InitialCreate1793096320401 implements MigrationInterface {
       `CREATE UNIQUE INDEX "uk_projects_name" ON "projects" ("name") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "configuration" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "port_strategy" varchar CHECK( "port_strategy" IN ('INPUT_EVEN_OUTPUT_ODD','SEQUENTIAL') ) NOT NULL, "default_processor_domain" integer NOT NULL, "rtc_config" text NOT NULL, "alsa_lib_config" text NOT NULL, "validation_config" text, "alsa_meta_data" text, "alsa_tag_data" text)`,
+      `CREATE TABLE "configuration" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "version_config" text NOT NULL, "port_strategy" varchar CHECK( "port_strategy" IN ('INPUT_EVEN_OUTPUT_ODD','SEQUENTIAL') ) NOT NULL, "default_processor_domain" integer NOT NULL, "rtc_config" text NOT NULL, "alsa_lib_config" text NOT NULL, "validation_config" text, "alsa_meta_data" text, "alsa_tag_data" text)`,
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uk_configuration_file" ON "configuration" ("file_system_id") `,
@@ -661,10 +661,10 @@ export class InitialCreate1793096320401 implements MigrationInterface {
       `ALTER TABLE "temporary_module_property_definitions" RENAME TO "module_property_definitions"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "temporary_spf_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "display_name" varchar(255), "description" text, "group_name" varchar(255), "mod_search_keys" text, "stack_size" integer NOT NULL DEFAULT (0), "file_system_id" integer NOT NULL, "metadata" text, "is_loaded_at_bootup" boolean NOT NULL DEFAULT (0), "processor_system_id" integer NOT NULL, "module_definition_system_id" integer, CONSTRAINT "REL_e5a9714fba21e5202c09bcfb7e" UNIQUE ("module_definition_system_id"), CONSTRAINT "FK_e62091f259a92cc55156fdc0101" FOREIGN KEY ("processor_system_id") REFERENCES "processor_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_e5a9714fba21e5202c09bcfb7e4" FOREIGN KEY ("module_definition_system_id") REFERENCES "module_definition_meta_data" ("system_id") ON DELETE NO ACTION ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_spf_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "display_name" varchar(255), "description" text, "group_name" varchar(255), "replaced_by" integer, "built_in" boolean, "is_offloadable" boolean, "mod_search_keys" text, "stack_size" integer NOT NULL DEFAULT (0), "file_system_id" integer NOT NULL, "metadata" text, "is_loaded_at_bootup" boolean NOT NULL DEFAULT (0), "processor_system_id" integer NOT NULL, "module_definition_system_id" integer, CONSTRAINT "REL_e5a9714fba21e5202c09bcfb7e" UNIQUE ("module_definition_system_id"), CONSTRAINT "FK_e62091f259a92cc55156fdc0101" FOREIGN KEY ("processor_system_id") REFERENCES "processor_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_e5a9714fba21e5202c09bcfb7e4" FOREIGN KEY ("module_definition_system_id") REFERENCES "module_definition_meta_data" ("system_id") ON DELETE NO ACTION ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_spf_module_definitions"("system_id", "version", "module_definition_id", "name", "display_name", "description", "group_name", "mod_search_keys", "stack_size", "file_system_id", "metadata", "is_loaded_at_bootup", "processor_system_id", "module_definition_system_id") SELECT "system_id", "version", "module_definition_id", "name", "display_name", "description", "group_name", "mod_search_keys", "stack_size", "file_system_id", "metadata", "is_loaded_at_bootup", "processor_system_id", "module_definition_system_id" FROM "spf_module_definitions"`,
+      `INSERT INTO "temporary_spf_module_definitions"("system_id", "version", "module_definition_id", "name", "display_name", "description", "group_name", "replaced_by", "built_in", "is_offloadable", "mod_search_keys", "stack_size", "file_system_id", "metadata", "is_loaded_at_bootup", "processor_system_id", "module_definition_system_id") SELECT "system_id", "version", "module_definition_id", "name", "display_name", "description", "group_name", "replaced_by", "built_in", "is_offloadable", "mod_search_keys", "stack_size", "file_system_id", "metadata", "is_loaded_at_bootup", "processor_system_id", "module_definition_system_id" FROM "spf_module_definitions"`,
     );
     await queryRunner.query(`DROP TABLE "spf_module_definitions"`);
     await queryRunner.query(
@@ -674,10 +674,10 @@ export class InitialCreate1793096320401 implements MigrationInterface {
       `DROP INDEX "idx_module_param_defs_spf_module_def_id"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "temporary_spf_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "param_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "max_size" integer NOT NULL, "pid_type" varchar(100) NOT NULL, "is_persistent" boolean NOT NULL, "elements_structure" text, "is_read_only" boolean NOT NULL, "tool_policies" text, "copy_src_param_id" integer, "spf_module_definition_system_id" integer, CONSTRAINT "FK_ef02bfa739e94a283a1726b2d22" FOREIGN KEY ("spf_module_definition_system_id") REFERENCES "spf_module_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_spf_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "param_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "max_size" integer NOT NULL, "pid_type" varchar(100) NOT NULL, "is_persistent" boolean NOT NULL, "elements_structure" text, "is_read_only" boolean NOT NULL, "is_hidden" boolean, "is_deprecated" boolean, "tool_policies" text, "copy_src_param_id" integer, "spf_module_definition_system_id" integer, CONSTRAINT "FK_ef02bfa739e94a283a1726b2d22" FOREIGN KEY ("spf_module_definition_system_id") REFERENCES "spf_module_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_spf_module_parameter_definitions"("system_id", "version", "param_id", "name", "description", "max_size", "pid_type", "is_persistent", "elements_structure", "is_read_only", "tool_policies", "copy_src_param_id", "spf_module_definition_system_id") SELECT "system_id", "version", "param_id", "name", "description", "max_size", "pid_type", "is_persistent", "elements_structure", "is_read_only", "tool_policies", "copy_src_param_id", "spf_module_definition_system_id" FROM "spf_module_parameter_definitions"`,
+      `INSERT INTO "temporary_spf_module_parameter_definitions"("system_id", "version", "param_id", "name", "description", "max_size", "pid_type", "is_persistent", "elements_structure", "is_read_only", "is_hidden", "is_deprecated", "tool_policies", "copy_src_param_id", "spf_module_definition_system_id") SELECT "system_id", "version", "param_id", "name", "description", "max_size", "pid_type", "is_persistent", "elements_structure", "is_read_only", "is_hidden", "is_deprecated", "tool_policies", "copy_src_param_id", "spf_module_definition_system_id" FROM "spf_module_parameter_definitions"`,
     );
     await queryRunner.query(`DROP TABLE "spf_module_parameter_definitions"`);
     await queryRunner.query(
@@ -736,10 +736,10 @@ export class InitialCreate1793096320401 implements MigrationInterface {
     );
     await queryRunner.query(`DROP INDEX "idx_static_intent_defs_port_id"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_static_intent_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "intent_id" integer NOT NULL, "name" varchar(255), "static_control_port_definition_system_id" integer NOT NULL, CONSTRAINT "FK_ec3390b2d1cf73e8b8158d9b690" FOREIGN KEY ("static_control_port_definition_system_id") REFERENCES "static_control_port_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_static_intent_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "intent_id" integer NOT NULL, "name" varchar(255), "max_port_count" integer, "static_control_port_definition_system_id" integer NOT NULL, CONSTRAINT "FK_ec3390b2d1cf73e8b8158d9b690" FOREIGN KEY ("static_control_port_definition_system_id") REFERENCES "static_control_port_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_static_intent_definitions"("system_id", "version", "intent_id", "name", "static_control_port_definition_system_id") SELECT "system_id", "version", "intent_id", "name", "static_control_port_definition_system_id" FROM "static_intent_definitions"`,
+      `INSERT INTO "temporary_static_intent_definitions"("system_id", "version", "intent_id", "name", "max_port_count", "static_control_port_definition_system_id") SELECT "system_id", "version", "intent_id", "name", "max_port_count", "static_control_port_definition_system_id" FROM "static_intent_definitions"`,
     );
     await queryRunner.query(`DROP TABLE "static_intent_definitions"`);
     await queryRunner.query(
@@ -749,20 +749,20 @@ export class InitialCreate1793096320401 implements MigrationInterface {
       `CREATE INDEX "idx_static_intent_defs_port_id" ON "static_intent_definitions" ("static_control_port_definition_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "temporary_subgraph_property_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "property_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "property_type" varchar CHECK( "property_type" IN ('SPF','DRIVER') ) NOT NULL, "elements_structure" text, "is_voice" boolean NOT NULL, CONSTRAINT "FK_03245d64859911ba5749f1ad3a8" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_subgraph_property_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "property_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "property_type" varchar CHECK( "property_type" IN ('SPF','DRIVER') ) NOT NULL, "elements_structure" text, "is_voice" boolean NOT NULL, "category_name" varchar(50), CONSTRAINT "FK_03245d64859911ba5749f1ad3a8" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_subgraph_property_definitions"("system_id", "version", "file_system_id", "property_id", "name", "description", "max_size", "property_type", "elements_structure", "is_voice") SELECT "system_id", "version", "file_system_id", "property_id", "name", "description", "max_size", "property_type", "elements_structure", "is_voice" FROM "subgraph_property_definitions"`,
+      `INSERT INTO "temporary_subgraph_property_definitions"("system_id", "version", "file_system_id", "property_id", "name", "description", "max_size", "property_type", "elements_structure", "is_voice", "category_name") SELECT "system_id", "version", "file_system_id", "property_id", "name", "description", "max_size", "property_type", "elements_structure", "is_voice", "category_name" FROM "subgraph_property_definitions"`,
     );
     await queryRunner.query(`DROP TABLE "subgraph_property_definitions"`);
     await queryRunner.query(
       `ALTER TABLE "temporary_subgraph_property_definitions" RENAME TO "subgraph_property_definitions"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "temporary_vcpm_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "display_name" varchar(255), "description" text, "group_name" varchar(255), "file_system_id" integer NOT NULL, CONSTRAINT "FK_ca4f5cdb1f4ce4fe319bd859591" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_vcpm_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "display_name" varchar(255), "description" text, "group_name" varchar(255), "replaced_by" integer, "file_system_id" integer NOT NULL, CONSTRAINT "FK_ca4f5cdb1f4ce4fe319bd859591" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_vcpm_module_definitions"("system_id", "version", "module_definition_id", "name", "display_name", "description", "group_name", "file_system_id") SELECT "system_id", "version", "module_definition_id", "name", "display_name", "description", "group_name", "file_system_id" FROM "vcpm_module_definitions"`,
+      `INSERT INTO "temporary_vcpm_module_definitions"("system_id", "version", "module_definition_id", "name", "display_name", "description", "group_name", "replaced_by", "file_system_id") SELECT "system_id", "version", "module_definition_id", "name", "display_name", "description", "group_name", "replaced_by", "file_system_id" FROM "vcpm_module_definitions"`,
     );
     await queryRunner.query(`DROP TABLE "vcpm_module_definitions"`);
     await queryRunner.query(
@@ -772,10 +772,10 @@ export class InitialCreate1793096320401 implements MigrationInterface {
       `DROP INDEX "idx_module_param_defs_vcpm_module_def_id"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "temporary_vcpm_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "param_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "max_size" integer NOT NULL, "pid_type" varchar(100) NOT NULL, "is_persistent" boolean NOT NULL, "is_read_only" boolean NOT NULL, "tool_policies" text, "elements_structure" text, "copy_src_param_id" integer, "vcpm_module_definition_system_id" integer, CONSTRAINT "FK_5b700b594556357857f7f1c7822" FOREIGN KEY ("vcpm_module_definition_system_id") REFERENCES "vcpm_module_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_vcpm_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "param_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "max_size" integer NOT NULL, "pid_type" varchar(100) NOT NULL, "is_persistent" boolean NOT NULL, "is_read_only" boolean NOT NULL, "is_deprecated" boolean, "tool_policies" text, "elements_structure" text, "copy_src_param_id" integer, "vcpm_module_definition_system_id" integer, CONSTRAINT "FK_5b700b594556357857f7f1c7822" FOREIGN KEY ("vcpm_module_definition_system_id") REFERENCES "vcpm_module_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_vcpm_module_parameter_definitions"("system_id", "version", "param_id", "name", "description", "max_size", "pid_type", "is_persistent", "is_read_only", "tool_policies", "elements_structure", "copy_src_param_id", "vcpm_module_definition_system_id") SELECT "system_id", "version", "param_id", "name", "description", "max_size", "pid_type", "is_persistent", "is_read_only", "tool_policies", "elements_structure", "copy_src_param_id", "vcpm_module_definition_system_id" FROM "vcpm_module_parameter_definitions"`,
+      `INSERT INTO "temporary_vcpm_module_parameter_definitions"("system_id", "version", "param_id", "name", "description", "max_size", "pid_type", "is_persistent", "is_read_only", "is_deprecated", "tool_policies", "elements_structure", "copy_src_param_id", "vcpm_module_definition_system_id") SELECT "system_id", "version", "param_id", "name", "description", "max_size", "pid_type", "is_persistent", "is_read_only", "is_deprecated", "tool_policies", "elements_structure", "copy_src_param_id", "vcpm_module_definition_system_id" FROM "vcpm_module_parameter_definitions"`,
     );
     await queryRunner.query(`DROP TABLE "vcpm_module_parameter_definitions"`);
     await queryRunner.query(
@@ -922,10 +922,10 @@ export class InitialCreate1793096320401 implements MigrationInterface {
     );
     await queryRunner.query(`DROP INDEX "uk_configuration_file"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_configuration" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "port_strategy" varchar CHECK( "port_strategy" IN ('INPUT_EVEN_OUTPUT_ODD','SEQUENTIAL') ) NOT NULL, "default_processor_domain" integer NOT NULL, "rtc_config" text NOT NULL, "alsa_lib_config" text NOT NULL, "validation_config" text, "alsa_meta_data" text, "alsa_tag_data" text, CONSTRAINT "FK_be312e55b8b1321dc1ca9ac1367" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_configuration" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "version_config" text NOT NULL, "port_strategy" varchar CHECK( "port_strategy" IN ('INPUT_EVEN_OUTPUT_ODD','SEQUENTIAL') ) NOT NULL, "default_processor_domain" integer NOT NULL, "rtc_config" text NOT NULL, "alsa_lib_config" text NOT NULL, "validation_config" text, "alsa_meta_data" text, "alsa_tag_data" text, CONSTRAINT "FK_be312e55b8b1321dc1ca9ac1367" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_configuration"("system_id", "version", "file_system_id", "port_strategy", "default_processor_domain", "rtc_config", "alsa_lib_config", "validation_config", "alsa_meta_data", "alsa_tag_data") SELECT "system_id", "version", "file_system_id", "port_strategy", "default_processor_domain", "rtc_config", "alsa_lib_config", "validation_config", "alsa_meta_data", "alsa_tag_data" FROM "configuration"`,
+      `INSERT INTO "temporary_configuration"("system_id", "version", "file_system_id", "version_config", "port_strategy", "default_processor_domain", "rtc_config", "alsa_lib_config", "validation_config", "alsa_meta_data", "alsa_tag_data") SELECT "system_id", "version", "file_system_id", "version_config", "port_strategy", "default_processor_domain", "rtc_config", "alsa_lib_config", "validation_config", "alsa_meta_data", "alsa_tag_data" FROM "configuration"`,
     );
     await queryRunner.query(`DROP TABLE "configuration"`);
     await queryRunner.query(
@@ -2308,10 +2308,10 @@ export class InitialCreate1793096320401 implements MigrationInterface {
       `ALTER TABLE "configuration" RENAME TO "temporary_configuration"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "configuration" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "port_strategy" varchar CHECK( "port_strategy" IN ('INPUT_EVEN_OUTPUT_ODD','SEQUENTIAL') ) NOT NULL, "default_processor_domain" integer NOT NULL, "rtc_config" text NOT NULL, "alsa_lib_config" text NOT NULL, "validation_config" text, "alsa_meta_data" text, "alsa_tag_data" text)`,
+      `CREATE TABLE "configuration" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "version_config" text NOT NULL, "port_strategy" varchar CHECK( "port_strategy" IN ('INPUT_EVEN_OUTPUT_ODD','SEQUENTIAL') ) NOT NULL, "default_processor_domain" integer NOT NULL, "rtc_config" text NOT NULL, "alsa_lib_config" text NOT NULL, "validation_config" text, "alsa_meta_data" text, "alsa_tag_data" text)`,
     );
     await queryRunner.query(
-      `INSERT INTO "configuration"("system_id", "version", "file_system_id", "port_strategy", "default_processor_domain", "rtc_config", "alsa_lib_config", "validation_config", "alsa_meta_data", "alsa_tag_data") SELECT "system_id", "version", "file_system_id", "port_strategy", "default_processor_domain", "rtc_config", "alsa_lib_config", "validation_config", "alsa_meta_data", "alsa_tag_data" FROM "temporary_configuration"`,
+      `INSERT INTO "configuration"("system_id", "version", "file_system_id", "version_config", "port_strategy", "default_processor_domain", "rtc_config", "alsa_lib_config", "validation_config", "alsa_meta_data", "alsa_tag_data") SELECT "system_id", "version", "file_system_id", "version_config", "port_strategy", "default_processor_domain", "rtc_config", "alsa_lib_config", "validation_config", "alsa_meta_data", "alsa_tag_data" FROM "temporary_configuration"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_configuration"`);
     await queryRunner.query(
@@ -2460,10 +2460,10 @@ export class InitialCreate1793096320401 implements MigrationInterface {
       `ALTER TABLE "vcpm_module_parameter_definitions" RENAME TO "temporary_vcpm_module_parameter_definitions"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "vcpm_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "param_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "max_size" integer NOT NULL, "pid_type" varchar(100) NOT NULL, "is_persistent" boolean NOT NULL, "is_read_only" boolean NOT NULL, "tool_policies" text, "elements_structure" text, "copy_src_param_id" integer, "vcpm_module_definition_system_id" integer)`,
+      `CREATE TABLE "vcpm_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "param_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "max_size" integer NOT NULL, "pid_type" varchar(100) NOT NULL, "is_persistent" boolean NOT NULL, "is_read_only" boolean NOT NULL, "is_deprecated" boolean, "tool_policies" text, "elements_structure" text, "copy_src_param_id" integer, "vcpm_module_definition_system_id" integer)`,
     );
     await queryRunner.query(
-      `INSERT INTO "vcpm_module_parameter_definitions"("system_id", "version", "param_id", "name", "description", "max_size", "pid_type", "is_persistent", "is_read_only", "tool_policies", "elements_structure", "copy_src_param_id", "vcpm_module_definition_system_id") SELECT "system_id", "version", "param_id", "name", "description", "max_size", "pid_type", "is_persistent", "is_read_only", "tool_policies", "elements_structure", "copy_src_param_id", "vcpm_module_definition_system_id" FROM "temporary_vcpm_module_parameter_definitions"`,
+      `INSERT INTO "vcpm_module_parameter_definitions"("system_id", "version", "param_id", "name", "description", "max_size", "pid_type", "is_persistent", "is_read_only", "is_deprecated", "tool_policies", "elements_structure", "copy_src_param_id", "vcpm_module_definition_system_id") SELECT "system_id", "version", "param_id", "name", "description", "max_size", "pid_type", "is_persistent", "is_read_only", "is_deprecated", "tool_policies", "elements_structure", "copy_src_param_id", "vcpm_module_definition_system_id" FROM "temporary_vcpm_module_parameter_definitions"`,
     );
     await queryRunner.query(
       `DROP TABLE "temporary_vcpm_module_parameter_definitions"`,
@@ -2475,20 +2475,20 @@ export class InitialCreate1793096320401 implements MigrationInterface {
       `ALTER TABLE "vcpm_module_definitions" RENAME TO "temporary_vcpm_module_definitions"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "vcpm_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "display_name" varchar(255), "description" text, "group_name" varchar(255), "file_system_id" integer NOT NULL)`,
+      `CREATE TABLE "vcpm_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "display_name" varchar(255), "description" text, "group_name" varchar(255), "replaced_by" integer, "file_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `INSERT INTO "vcpm_module_definitions"("system_id", "version", "module_definition_id", "name", "display_name", "description", "group_name", "file_system_id") SELECT "system_id", "version", "module_definition_id", "name", "display_name", "description", "group_name", "file_system_id" FROM "temporary_vcpm_module_definitions"`,
+      `INSERT INTO "vcpm_module_definitions"("system_id", "version", "module_definition_id", "name", "display_name", "description", "group_name", "replaced_by", "file_system_id") SELECT "system_id", "version", "module_definition_id", "name", "display_name", "description", "group_name", "replaced_by", "file_system_id" FROM "temporary_vcpm_module_definitions"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_vcpm_module_definitions"`);
     await queryRunner.query(
       `ALTER TABLE "subgraph_property_definitions" RENAME TO "temporary_subgraph_property_definitions"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "subgraph_property_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "property_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "property_type" varchar CHECK( "property_type" IN ('SPF','DRIVER') ) NOT NULL, "elements_structure" text, "is_voice" boolean NOT NULL)`,
+      `CREATE TABLE "subgraph_property_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "property_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "property_type" varchar CHECK( "property_type" IN ('SPF','DRIVER') ) NOT NULL, "elements_structure" text, "is_voice" boolean NOT NULL, "category_name" varchar(50))`,
     );
     await queryRunner.query(
-      `INSERT INTO "subgraph_property_definitions"("system_id", "version", "file_system_id", "property_id", "name", "description", "max_size", "property_type", "elements_structure", "is_voice") SELECT "system_id", "version", "file_system_id", "property_id", "name", "description", "max_size", "property_type", "elements_structure", "is_voice" FROM "temporary_subgraph_property_definitions"`,
+      `INSERT INTO "subgraph_property_definitions"("system_id", "version", "file_system_id", "property_id", "name", "description", "max_size", "property_type", "elements_structure", "is_voice", "category_name") SELECT "system_id", "version", "file_system_id", "property_id", "name", "description", "max_size", "property_type", "elements_structure", "is_voice", "category_name" FROM "temporary_subgraph_property_definitions"`,
     );
     await queryRunner.query(
       `DROP TABLE "temporary_subgraph_property_definitions"`,
@@ -2498,10 +2498,10 @@ export class InitialCreate1793096320401 implements MigrationInterface {
       `ALTER TABLE "static_intent_definitions" RENAME TO "temporary_static_intent_definitions"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "static_intent_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "intent_id" integer NOT NULL, "name" varchar(255), "static_control_port_definition_system_id" integer NOT NULL)`,
+      `CREATE TABLE "static_intent_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "intent_id" integer NOT NULL, "name" varchar(255), "max_port_count" integer, "static_control_port_definition_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `INSERT INTO "static_intent_definitions"("system_id", "version", "intent_id", "name", "static_control_port_definition_system_id") SELECT "system_id", "version", "intent_id", "name", "static_control_port_definition_system_id" FROM "temporary_static_intent_definitions"`,
+      `INSERT INTO "static_intent_definitions"("system_id", "version", "intent_id", "name", "max_port_count", "static_control_port_definition_system_id") SELECT "system_id", "version", "intent_id", "name", "max_port_count", "static_control_port_definition_system_id" FROM "temporary_static_intent_definitions"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_static_intent_definitions"`);
     await queryRunner.query(
@@ -2566,10 +2566,10 @@ export class InitialCreate1793096320401 implements MigrationInterface {
       `ALTER TABLE "spf_module_parameter_definitions" RENAME TO "temporary_spf_module_parameter_definitions"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "spf_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "param_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "max_size" integer NOT NULL, "pid_type" varchar(100) NOT NULL, "is_persistent" boolean NOT NULL, "elements_structure" text, "is_read_only" boolean NOT NULL, "tool_policies" text, "copy_src_param_id" integer, "spf_module_definition_system_id" integer)`,
+      `CREATE TABLE "spf_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "param_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "max_size" integer NOT NULL, "pid_type" varchar(100) NOT NULL, "is_persistent" boolean NOT NULL, "elements_structure" text, "is_read_only" boolean NOT NULL, "is_hidden" boolean, "is_deprecated" boolean, "tool_policies" text, "copy_src_param_id" integer, "spf_module_definition_system_id" integer)`,
     );
     await queryRunner.query(
-      `INSERT INTO "spf_module_parameter_definitions"("system_id", "version", "param_id", "name", "description", "max_size", "pid_type", "is_persistent", "elements_structure", "is_read_only", "tool_policies", "copy_src_param_id", "spf_module_definition_system_id") SELECT "system_id", "version", "param_id", "name", "description", "max_size", "pid_type", "is_persistent", "elements_structure", "is_read_only", "tool_policies", "copy_src_param_id", "spf_module_definition_system_id" FROM "temporary_spf_module_parameter_definitions"`,
+      `INSERT INTO "spf_module_parameter_definitions"("system_id", "version", "param_id", "name", "description", "max_size", "pid_type", "is_persistent", "elements_structure", "is_read_only", "is_hidden", "is_deprecated", "tool_policies", "copy_src_param_id", "spf_module_definition_system_id") SELECT "system_id", "version", "param_id", "name", "description", "max_size", "pid_type", "is_persistent", "elements_structure", "is_read_only", "is_hidden", "is_deprecated", "tool_policies", "copy_src_param_id", "spf_module_definition_system_id" FROM "temporary_spf_module_parameter_definitions"`,
     );
     await queryRunner.query(
       `DROP TABLE "temporary_spf_module_parameter_definitions"`,
@@ -2581,10 +2581,10 @@ export class InitialCreate1793096320401 implements MigrationInterface {
       `ALTER TABLE "spf_module_definitions" RENAME TO "temporary_spf_module_definitions"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "spf_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "display_name" varchar(255), "description" text, "group_name" varchar(255), "mod_search_keys" text, "stack_size" integer NOT NULL DEFAULT (0), "file_system_id" integer NOT NULL, "metadata" text, "is_loaded_at_bootup" boolean NOT NULL DEFAULT (0), "processor_system_id" integer NOT NULL, "module_definition_system_id" integer, CONSTRAINT "REL_e5a9714fba21e5202c09bcfb7e" UNIQUE ("module_definition_system_id"))`,
+      `CREATE TABLE "spf_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "display_name" varchar(255), "description" text, "group_name" varchar(255), "replaced_by" integer, "built_in" boolean, "is_offloadable" boolean, "mod_search_keys" text, "stack_size" integer NOT NULL DEFAULT (0), "file_system_id" integer NOT NULL, "metadata" text, "is_loaded_at_bootup" boolean NOT NULL DEFAULT (0), "processor_system_id" integer NOT NULL, "module_definition_system_id" integer, CONSTRAINT "REL_e5a9714fba21e5202c09bcfb7e" UNIQUE ("module_definition_system_id"))`,
     );
     await queryRunner.query(
-      `INSERT INTO "spf_module_definitions"("system_id", "version", "module_definition_id", "name", "display_name", "description", "group_name", "mod_search_keys", "stack_size", "file_system_id", "metadata", "is_loaded_at_bootup", "processor_system_id", "module_definition_system_id") SELECT "system_id", "version", "module_definition_id", "name", "display_name", "description", "group_name", "mod_search_keys", "stack_size", "file_system_id", "metadata", "is_loaded_at_bootup", "processor_system_id", "module_definition_system_id" FROM "temporary_spf_module_definitions"`,
+      `INSERT INTO "spf_module_definitions"("system_id", "version", "module_definition_id", "name", "display_name", "description", "group_name", "replaced_by", "built_in", "is_offloadable", "mod_search_keys", "stack_size", "file_system_id", "metadata", "is_loaded_at_bootup", "processor_system_id", "module_definition_system_id") SELECT "system_id", "version", "module_definition_id", "name", "display_name", "description", "group_name", "replaced_by", "built_in", "is_offloadable", "mod_search_keys", "stack_size", "file_system_id", "metadata", "is_loaded_at_bootup", "processor_system_id", "module_definition_system_id" FROM "temporary_spf_module_definitions"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_spf_module_definitions"`);
     await queryRunner.query(

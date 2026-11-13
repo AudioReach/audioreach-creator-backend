@@ -150,6 +150,9 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
       displayName: mod.displayName,
       description: mod.description,
       groupName: mod.groupName,
+      replacedBy: mod.replacedBy ?? null,
+      builtIn: mod.builtIn ?? null,
+      isOffloadable: mod.isOffloadable ?? null,
       modSearchKeys: mod.modSearchKeys,
       stackSize: mod.stackSize,
       fileSystemId: mod.fileSystemId,
@@ -201,6 +204,8 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
             isPersistent: param.isPersistent,
             elementsStructure: param.elementsStructure,
             isReadOnly: param.isReadOnly,
+            isHidden: param.isHidden ?? null,
+            deprecated: param.deprecated ?? null,
             toolPolicies:
               param.toolPolicies.length > 0
                 ? JSON.stringify(param.toolPolicies)
@@ -582,15 +587,17 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
           continue;
         }
         for (const intent of port.staticIntents) {
-          contextBySystemId.set(intent.systemId, {
+          const systemId = await this.idGeneration.getNextId(mod.fileSystemId);
+          contextBySystemId.set(systemId, {
             mod,
             portNaturalId: port.naturalId,
             intentNaturalId: intent.naturalId,
           });
           rows.push({
-            systemId: intent.systemId,
+            systemId,
             naturalId: intent.naturalId,
             name: intent.name,
+            maxPortCount: intent.maxPortCount ?? null,
             staticControlPortDefinitionSystemId: portSystemId,
           });
         }

@@ -32,7 +32,10 @@ import {AwspStaticControlPort} from '../../shared/awsp-serializers/v1/definition
 import {AwspIntent} from '../../shared/awsp-serializers/v1/definitions/module-definition/spf/intent.js';
 import {DriverModuleDefinition} from '../../shared/awsp-serializers/v1/definitions/module-definition/driver/driver-module-definition.js';
 import {AwspVcpmModuleDefinition} from '../../shared/awsp-serializers/v1/definitions/module-definition/vcpm/vcpm-module-definition.js';
-import {SpfPropertyDefinition} from '../../shared/awsp-serializers/v1/definitions/property-definition/spf-property-definition.js';
+import {
+  SpfPropertyDefinition,
+  CATEGORY_ID_BY_NAME,
+} from '../../shared/awsp-serializers/v1/definitions/property-definition/spf-property-definition.js';
 import {DriverPropertyDefinition} from '../../shared/awsp-serializers/v1/definitions/property-definition/driver-property-definition.js';
 import {ProcessorDefinition} from '../../shared/awsp-serializers/v1/definitions/processor-definition/processor-definition.js';
 import {ContainerType} from '../../shared/awsp-serializers/v1/definitions/container-type/container-type.js';
@@ -63,16 +66,16 @@ export class AwspDefinitionsMapper {
       const instance = new AwspKeyDefinition();
       instance.id = model.keyNaturalId;
       instance.name = model.name;
-      instance.description = model.description;
-      instance.isVoice = model.isVoice;
-      instance.isDynamic = model.isDynamic;
-      instance.isCalKey = model.isCalibrationKey;
-      instance.isGraphKey = model.isGraphKey;
-      instance.isSpfKey = model.isSpfKey;
-      instance.enumName = model.enumName;
-      instance.enumMember = model.enumMember;
-      instance.calKeyEnumMember = model.calKeyEnumMember;
-      instance.graphKeyEnumMember = model.graphKeyEnumMember;
+      instance.description = model.description ?? undefined;
+      instance.isVoice = model.isVoice ?? undefined;
+      instance.isDynamic = model.isDynamic ?? undefined;
+      instance.isCalKey = model.isCalibrationKey ?? undefined;
+      instance.isGraphKey = model.isGraphKey ?? undefined;
+      instance.isSpfKey = model.isSpfKey ?? undefined;
+      instance.enumName = model.enumName ?? undefined;
+      instance.enumMember = model.enumMember ?? undefined;
+      instance.calKeyEnumMember = model.calKeyEnumMember ?? undefined;
+      instance.graphKeyEnumMember = model.graphKeyEnumMember ?? undefined;
       instance.specialty = model.specialityKeyValue
         ? (AwspDefinitionsMapper.reverseMap(
             AwspDefinitionsMapper.SPECIALTY_KEY_BY_VALUE,
@@ -89,9 +92,9 @@ export class AwspDefinitionsMapper {
         const val = new AwspValueDefinition();
         val.id = v.valueNaturalId;
         val.name = v.name;
-        val.description = v.description;
-        val.enumMember = v.enumMember;
-        val.specialValue = v.specialValue;
+        val.description = v.description ?? undefined;
+        val.enumMember = v.enumMember ?? undefined;
+        val.specialValue = v.specialValue ?? undefined;
         return val;
       });
       return instance;
@@ -101,24 +104,28 @@ export class AwspDefinitionsMapper {
   toAwspTagDefinitions(
     models: TagDefinitionDownloadModel[],
   ): AwspTagDefinition[] {
-    return models.map(model => {
-      const instance = new AwspTagDefinition();
-      instance.id = model.tagNaturalId;
-      instance.name = model.name;
-      instance.description = model.description;
-      instance.isVoice = model.isVoice;
-      instance.enumName = model.enumName;
-      instance.enumMember = model.enumMember;
-      instance.isSpfTag = model.isSpfTag;
-      instance.keys = model.supportedKeys.map(sk => {
-        const link = new AwspTagKeyDefinition();
-        link.id = sk.keyNaturalId;
-        link.name = sk.keyName;
-        link.enumMember = sk.enumValue;
-        return link;
+    return models
+      .filter(model => model.name !== '') // skip ACDB-only stub defs (no AWSP entry)
+      .map(model => {
+        const instance = new AwspTagDefinition();
+        instance.id = model.tagNaturalId;
+        instance.name = model.name;
+        instance.description = model.description ?? undefined;
+        instance.isVoice = model.isVoice === true ? true : undefined;
+        instance.enumName = model.enumName ?? undefined;
+        instance.enumMember = model.enumMember ?? undefined;
+        instance.isSpfTag = model.isSpfTag === true ? true : undefined;
+        if (model.supportedKeys.length > 0) {
+          instance.keys = model.supportedKeys.map(sk => {
+            const link = new AwspTagKeyDefinition();
+            link.id = sk.keyNaturalId;
+            link.name = sk.keyName;
+            link.enumMember = sk.enumValue;
+            return link;
+          });
+        }
+        return instance;
       });
-      return instance;
-    });
   }
 
   toAwspSpfModuleDefinitions(
@@ -128,10 +135,13 @@ export class AwspDefinitionsMapper {
       const instance = new AwspSpfModuleDefinition();
       instance.id = model.naturalId;
       instance.name = model.name;
-      instance.displayName = model.displayName;
-      instance.description = model.description;
-      instance.groupName = model.groupName;
-      instance.searchKeys = model.searchKeys;
+      instance.displayName = model.displayName ?? undefined;
+      instance.description = model.description ?? undefined;
+      instance.groupName = model.groupName ?? undefined;
+      instance.replacedBy = model.replacedBy ?? undefined;
+      instance.builtIn = model.builtIn ?? undefined;
+      instance.isOffloadable = model.isOffloadable ?? undefined;
+      instance.searchKeys = model.searchKeys ?? undefined;
       instance.stackSize = model.stackSize;
       instance.processors = model.supportedProcessorIds;
       instance.containerTypes = model.supportedContainerTypes;
@@ -141,7 +151,10 @@ export class AwspDefinitionsMapper {
       );
 
       const inputGroup = model.portGroups.find(g => g.portIoType === 'Input');
-      if (inputGroup) {
+      if (
+        inputGroup &&
+        (inputGroup.maxPortCount > 0 || inputGroup.ports.length > 0)
+      ) {
         const info = new AwspDataPortsInfo();
         info.maxPortCount = inputGroup.maxPortCount;
         info.ports = inputGroup.ports.map(p => {
@@ -154,7 +167,10 @@ export class AwspDefinitionsMapper {
       }
 
       const outputGroup = model.portGroups.find(g => g.portIoType === 'Output');
-      if (outputGroup) {
+      if (
+        outputGroup &&
+        (outputGroup.maxPortCount > 0 || outputGroup.ports.length > 0)
+      ) {
         const info = new AwspDataPortsInfo();
         info.maxPortCount = outputGroup.maxPortCount;
         info.ports = outputGroup.ports.map(p => {
@@ -179,7 +195,7 @@ export class AwspDefinitionsMapper {
             const intent = new AwspIntent();
             intent.id = i.intentNaturalId;
             intent.name = i.name;
-            intent.maxports = 0;
+            intent.maxPortCount = i.maxPortCount ?? 0;
             return intent;
           });
           return staticPort;
@@ -188,7 +204,7 @@ export class AwspDefinitionsMapper {
           const intent = new AwspIntent();
           intent.id = di.intentNaturalId;
           intent.name = di.name;
-          intent.maxports = di.maxPort ?? 0;
+          intent.maxPortCount = di.maxPort ?? 0;
           return intent;
         });
         instance.controlPort = ctrlInfo;
@@ -205,13 +221,13 @@ export class AwspDefinitionsMapper {
       const instance = new DriverModuleDefinition();
       instance.id = model.naturalId;
       instance.name = model.name;
-      instance.description = model.description;
+      instance.description = model.description ?? undefined;
 
       instance.parameters = model.params.map(p => {
         const param = new AwspParamDefinition();
         param.id = p.naturalId;
         param.name = p.name ?? '';
-        param.description = p.description;
+        param.description = p.description ?? undefined;
         param.maxSize = p.maxSize;
         // toolPolicies and pidType are not stored for driver params — use safe defaults
         param.toolPolicies = [];
@@ -237,16 +253,45 @@ export class AwspDefinitionsMapper {
       const instance = new AwspVcpmModuleDefinition();
       instance.id = model.naturalId;
       instance.name = model.name;
-      instance.description = model.description;
+      instance.displayName = model.displayName ?? undefined;
+      instance.description = model.description ?? undefined;
+      instance.replacedBy = model.replacedBy ?? undefined;
 
       instance.parameters = model.params.map(p => {
         const param = new AwspParamDefinition();
         param.id = p.naturalId;
         param.name = p.name ?? '';
-        param.description = p.description;
+        param.description = p.description ?? undefined;
         param.maxSize = p.maxSize;
-        param.toolPolicies = [];
-        param.pidType = 'None';
+        param.deprecated = p.deprecated ?? undefined;
+        param.isReadOnly = p.isReadOnly === true ? true : undefined;
+        param.pidType = AwspDefinitionsMapper.reverseMap(
+          AwspDefinitionsMapper.PARAM_TYPE_BY_VALUE,
+          p.pidType,
+          'PARAM_TYPE',
+          `vcpm param ${p.naturalId}`,
+          'None',
+        ) as AwspParamDefinition['pidType'];
+        const rawPolicies = p.toolPolicies
+          ? AwspDefinitionsMapper.parseJson<string[]>(
+              p.toolPolicies,
+              'toolPolicies',
+              `vcpm param ${p.naturalId}`,
+            )
+          : [];
+        param.toolPolicies = rawPolicies
+          .filter((v): v is string => v != null)
+          .map(v =>
+            AwspDefinitionsMapper.reverseMap(
+              AwspDefinitionsMapper.TOOL_POLICY_BY_VALUE,
+              v,
+              'TOOL_POLICY',
+              `vcpm param ${p.naturalId}`,
+            ),
+          )
+          .filter(
+            (v): v is string => v !== undefined,
+          ) as AwspParamDefinition['toolPolicies'];
         param.elements = p.paramStructure
           ? AwspDefinitionsMapper.parseJson<AwspParamDefinition['elements']>(
               p.paramStructure,
@@ -268,7 +313,7 @@ export class AwspDefinitionsMapper {
       const instance = new SpfPropertyDefinition();
       instance.id = model.propertyNaturalId;
       instance.name = model.name;
-      instance.description = model.description;
+      instance.description = model.description ?? undefined;
       instance.maxSize = model.maxSize;
       instance.elements = model.elementsStructure
         ? AwspDefinitionsMapper.parseJson<SpfPropertyDefinition['elements']>(
@@ -278,11 +323,9 @@ export class AwspDefinitionsMapper {
           )
         : [];
       instance.categoryName = model.categoryName;
-      // categoryId and apmModuleInstanceId are required positive integers but not
-      // stored in the DB (see design §1.4). Use 1 as sentinel value.
-      instance.categoryId = 1;
+      instance.categoryId = CATEGORY_ID_BY_NAME[model.categoryName] ?? 1;
       instance.apmModuleInstanceId = 1;
-      instance.isVoice = model.isVoice;
+      instance.isVoice = model.isVoice === true ? true : undefined;
       return instance;
     });
   }
@@ -294,7 +337,7 @@ export class AwspDefinitionsMapper {
       const instance = new DriverPropertyDefinition();
       instance.id = model.propertyNaturalId;
       instance.name = model.name;
-      instance.description = model.description;
+      instance.description = model.description ?? undefined;
       instance.maxSize = model.maxSize;
       instance.elements = model.propertyStructure
         ? AwspDefinitionsMapper.parseJson<DriverPropertyDefinition['elements']>(
@@ -335,7 +378,7 @@ export class AwspDefinitionsMapper {
     const param = new AwspParamDefinition();
     param.id = p.paramNaturalId;
     param.name = p.name ?? '';
-    param.description = p.description;
+    param.description = p.description ?? undefined;
     param.maxSize = p.maxSize;
     param.pidType = AwspDefinitionsMapper.reverseMap(
       AwspDefinitionsMapper.PARAM_TYPE_BY_VALUE,
@@ -351,8 +394,10 @@ export class AwspDefinitionsMapper {
           `spf param ${p.paramNaturalId}`,
         )
       : [];
-    param.isReadOnly = p.isReadOnly;
-    param.copySrcParamId = p.copySrcParamNaturalId;
+    param.isReadOnly = p.isReadOnly === true ? true : undefined;
+    param.isHidden = p.isHidden === true ? true : undefined;
+    param.deprecated = p.deprecated ?? undefined;
+    param.copySrcParamId = p.copySrcParamNaturalId ?? undefined;
     const rawPolicies = p.toolPolicies
       ? AwspDefinitionsMapper.parseJson<string[]>(
           p.toolPolicies,

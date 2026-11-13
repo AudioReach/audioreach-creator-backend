@@ -27,6 +27,16 @@ import type {
   EntityReviewedAt,
 } from '@arc/core';
 
+export interface DriverPropertyDefinitionData {
+  systemId: number;
+  fileSystemId: number;
+  naturalId: number;
+  name: string;
+  description?: string;
+  maxSize: number;
+  propertyStructure: string;
+}
+
 /**
  * Repository interface for bulk import operations. Failure of any insertion results in upload-file failure.
  */
@@ -80,6 +90,19 @@ export interface BulkImportRepository {
    * @returns Promise resolving to the bulk insert result indicating success and any failed entities
    */
   insertControlLinks(items: readonly ControlLink[]): Promise<BulkInsertResult>;
+
+  /**
+   * Inserts SCLU-sourced intents for control ports, skipping duplicates.
+   * Called after insertControlLinks to seed per-port intents extracted from
+   * the ACDB SCLU section, which may differ from SPF module port intents.
+   *
+   * @param portIntents - Map of controlPortSystemId → intent natural IDs
+   * @param fileSystemId - File system ID for ID generation
+   */
+  insertControlLinkIntents(
+    portIntents: Map<number, number[]>,
+    fileSystemId: number,
+  ): Promise<void>;
 
   /**
    * Inserts use case rows in bulk, including their associated KeyVectors.
@@ -187,6 +210,16 @@ export interface BulkImportRepository {
    */
   insertContainerPropertyDefinitions(
     items: readonly PropertyDefinition[],
+  ): Promise<BulkInsertResult>;
+
+  /**
+   * Inserts driver property definition rows in bulk.
+   *
+   * @param items - Driver property definitions with pre-assigned systemIds
+   * @returns Promise resolving to the bulk insert result indicating success and any failed entities
+   */
+  insertDriverPropertyDefinitions(
+    items: readonly DriverPropertyDefinitionData[],
   ): Promise<BulkInsertResult>;
 
   /**

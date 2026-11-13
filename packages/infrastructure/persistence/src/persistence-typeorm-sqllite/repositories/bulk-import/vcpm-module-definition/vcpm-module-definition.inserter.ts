@@ -77,6 +77,7 @@ export class VcpmModuleDefinitionInserter {
       displayName: mod.displayName,
       description: mod.description,
       groupName: mod.groupName,
+      replacedBy: mod.replacedBy ?? null,
     }));
 
     const {failedEntities} = await BatchInserter.insert(
@@ -122,6 +123,7 @@ export class VcpmModuleDefinitionInserter {
             pidType: param.pidType,
             isPersistent: param.isPersistent,
             isReadOnly: param.isReadOnly,
+            deprecated: param.deprecated ?? null,
             elementsStructure: param.elementsStructure,
             toolPolicies:
               param.toolPolicies.length > 0

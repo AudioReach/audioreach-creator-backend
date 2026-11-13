@@ -19,6 +19,7 @@ export interface VcpmModuleDefinitionRow extends EntityBaseRow {
   displayName?: string;
   description?: string;
   groupName?: string;
+  replacedBy?: number | null;
   fileSystemId: number;
 
   // Relations
@@ -59,6 +60,11 @@ export const VcpmModuleDefinitionSchema =
         length: 255,
         nullable: true,
         name: 'group_name',
+      },
+      replacedBy: {
+        type: 'integer',
+        nullable: true,
+        name: 'replaced_by',
       },
       fileSystemId: {
         type: 'integer',

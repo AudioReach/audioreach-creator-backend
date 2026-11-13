@@ -37,6 +37,7 @@ export class SubgraphPropertyDefinitionInserter {
       elementsStructure: item.elementsStructure,
       maxSize: item.maxSize ?? 0,
       isVoice: item.isVoice,
+      categoryName: item.categoryName ?? null,
     }));
 
     const {failedEntities} = await BatchInserter.insert(

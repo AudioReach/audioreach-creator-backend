@@ -773,11 +773,21 @@ export class SpfModuleBuilder {
       return [];
     }
 
-    // Get static ports from module definition
-    const staticInputPorts = moduleDefinition?.inputPort?.ports ?? [];
-    const staticOutputPorts = moduleDefinition?.outputPort?.ports ?? [];
+    // Get static ports from module definition, capped to portInfo limits.
+    // portInfo.maxInputPorts is the actual active port count from the ACDB — the
+    // module definition may define more static ports than an instance uses.
+    const allStaticInputPorts = moduleDefinition?.inputPort?.ports ?? [];
+    const allStaticOutputPorts = moduleDefinition?.outputPort?.ports ?? [];
+    const staticInputPorts = allStaticInputPorts.slice(
+      0,
+      portInfo.maxInputPorts,
+    );
+    const staticOutputPorts = allStaticOutputPorts.slice(
+      0,
+      portInfo.maxOutputPorts,
+    );
 
-    // Calculate dynamic port counts
+    // Calculate dynamic port counts (always >= 0 after capping)
     const dynamicInputPortCount =
       portInfo.maxInputPorts - staticInputPorts.length;
     const dynamicOutputPortCount =

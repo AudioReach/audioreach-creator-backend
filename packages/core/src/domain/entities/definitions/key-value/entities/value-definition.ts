@@ -17,15 +17,15 @@ export class ValueDefinition {
   // member of value entity
   readonly naturalId: number;
   name: string;
-  description: string;
-  enumMember: string;
-  specialValue: string;
+  description?: string;
+  enumMember?: string;
+  specialValue?: string;
   constructor(initParam: ValueDefinitionInit) {
     this.systemId = initParam.systemId;
     this.naturalId = initParam.naturalId;
     this.name = initParam.name;
-    this.description = initParam.description ?? '';
-    this.enumMember = initParam.enumMember ?? '';
-    this.specialValue = initParam.specialValue ?? '';
+    this.description = initParam.description;
+    this.enumMember = initParam.enumMember;
+    this.specialValue = initParam.specialValue;
   }
 }

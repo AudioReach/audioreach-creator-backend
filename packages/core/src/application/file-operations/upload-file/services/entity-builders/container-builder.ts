@@ -5,6 +5,7 @@
 import {Container} from '../../../../../domain/entities/usecase-data/container/container.js';
 import {ContainerPropertyValue} from '../../../../../domain/entities/usecase-data/container/value-objects/container-property.js';
 import type {AcdbContainerProperties} from '../../../shared/acdb-chunks/spf-properties/types.js';
+import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
 import type {IdGenerationPort} from '../../../../ports/id-generation/id-generation.port.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
@@ -15,6 +16,7 @@ import {
 import type {BuildResult} from '../../types/issue-collection.js';
 import type {Issue} from '../../../../../shared/issues/index.js';
 import {
+  IssueCategory,
   IssueSeverity,
   ISSUE_ENTITY_TYPE,
 } from '../../../../../shared/issues/index.js';
@@ -117,8 +119,10 @@ export class ContainerBuilder {
 
     for (const acdbContainer of acdbContainerPropertyData) {
       try {
-        const container = this.convertAcdbContainer(acdbContainer);
+        const {container, issues: containerIssues} =
+          this.convertAcdbContainer(acdbContainer);
         containers.push(container);
+        issues.push(...containerIssues);
 
         // Extract processor ID from container properties
         const processorId = this.extractProcessorId(acdbContainer);
@@ -153,20 +157,20 @@ export class ContainerBuilder {
   /**
    * Convert single ContainerProperty to Container entity
    */
-  private convertAcdbContainer(
-    acdbContainer: AcdbContainerProperties,
-  ): Container {
-    // Create Container entity
+  private convertAcdbContainer(acdbContainer: AcdbContainerProperties): {
+    container: Container;
+    issues: Issue[];
+  } {
     const container = new Container(
       0, // systemId - Placeholder - will be assigned before insertion
-      acdbContainer.containerId, // Use the containerId from the property
+      acdbContainer.containerId,
       0, // containerTypeSystemId - TODO: resolve from CONTAINER_PROP_ID_CAPABILITY_LIST → container_types.value lookup
       0, // fileSystemId - Placeholder - will be assigned before insertion
     );
 
-    // Add properties to the container
+    const issues: Issue[] = [];
+
     for (const [propertyId, propertyData] of acdbContainer.properties) {
-      // Resolve property ID to system ID using foreign key mapper
       const propertySystemId =
         this.foreignKeyMapper.getContainerPropertyDefinitionSystemId(
           asNaturalId(propertyId),
@@ -174,12 +178,21 @@ export class ContainerBuilder {
 
       if (propertySystemId === undefined) {
         this.logger?.logWarn({
-          eventName: 'property_definition_not_found',
-          description: `Container property definition not found for propertyId ${propertyId} in container ${acdbContainer.containerId}`,
+          eventName: 'container_property_definition_not_found',
+          description: `Container ${BinaryUtils.toHexString(acdbContainer.containerId)}: property ${BinaryUtils.toHexString(propertyId)} not in AWSP definitions — data will not be persisted`,
           component: 'ContainerBuilder',
           tag: 'container-building',
         });
-        // Skip this property if definition not found
+        issues.push({
+          code: ERROR_CODES.MISSING_DEFINITION,
+          message: `Container ${BinaryUtils.toHexString(acdbContainer.containerId)}: property ${BinaryUtils.toHexString(propertyId)} not in AWSP definitions — not persisted`,
+          severity: IssueSeverity.Warning,
+          category: IssueCategory.DataLoss,
+          impactedEntity: {
+            entityType: ISSUE_ENTITY_TYPE.Container,
+            systemId: acdbContainer.containerId,
+          },
+        });
         continue;
       }
 
@@ -190,7 +203,7 @@ export class ContainerBuilder {
       container.properties.set(propertySystemId, containerPropertyValue);
     }
 
-    return container;
+    return {container, issues};
   }
 
   /**

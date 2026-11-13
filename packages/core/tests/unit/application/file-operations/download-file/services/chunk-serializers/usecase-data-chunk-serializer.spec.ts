@@ -442,9 +442,10 @@ describe('UsecaseDataChunkSerializer', () => {
         sgPairList,
       );
 
-      expect(result.size).toBe(2);
+      expect(result.size).toBe(3); // all subgraphs including sink (3)
       expect(result.get(1)).toEqual([2]);
       expect(result.get(2)).toEqual([3]);
+      expect(result.get(3)).toEqual([]); // sink with no destinations
     });
 
     it('should handle multiple destinations', () => {
@@ -466,7 +467,7 @@ describe('UsecaseDataChunkSerializer', () => {
       expect(result.get(3)).toEqual([4]);
     });
 
-    it('should only include sources with destinations', () => {
+    it('should include sink subgraphs with empty destinations array', () => {
       const reverseOrder = [2, 1];
       const sgPairList = [new SubgraphPair(1, 2)];
 
@@ -475,9 +476,11 @@ describe('UsecaseDataChunkSerializer', () => {
         sgPairList,
       );
 
-      expect(result.size).toBe(1);
+      expect(result.size).toBe(2);
       expect(result.has(1)).toBe(true);
-      expect(result.has(2)).toBe(false); // 2 is sink, no destinations
+      expect(result.get(1)).toEqual([2]);
+      expect(result.has(2)).toBe(true); // sink included with empty destinations
+      expect(result.get(2)).toEqual([]);
     });
   });
 
@@ -498,9 +501,9 @@ describe('UsecaseDataChunkSerializer', () => {
       );
       let pos = 0;
 
-      // NumSourceSubgraphs
+      // NumSubgraphs (all subgraphs, including sinks with destCount=0)
       const numSources = view.getUint32(pos, true);
-      expect(numSources).toBe(2); // 1 and 2 have destinations
+      expect(numSources).toBe(3); // 1, 2, and 3 (sink) are all written
       pos += 4;
 
       // Verify structure is correct

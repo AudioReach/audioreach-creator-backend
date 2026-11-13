@@ -32,7 +32,7 @@ export abstract class BasePropertyDefinition extends BaseDefinition {
    */
   protected serializeBasePropertyFields(): Record<string, unknown> {
     return {
-      id: this.id,
+      id: `0x${this.id.toString(16).toUpperCase().padStart(8, '0')}`,
       name: this.name,
       description: this.description,
       maxSize: this.maxSize,

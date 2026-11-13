@@ -18,6 +18,8 @@ import type {VoiceCalibrationChunk} from '../../shared/acdb-chunks/voice-calibra
 import type {DriverCalibrationChunk} from '../../shared/acdb-chunks/driver-calibration-chunk.js';
 import type {TagDataChunk} from '../../shared/acdb-chunks/tag-data-chunk.js';
 import type {TaggedModuleMapChunk} from '../../shared/acdb-chunks/tagged-module-map-chunk.js';
+import type {SubgraphPairDataChunk} from '../../shared/acdb-chunks/subgraph-pair-data-chunk.js';
+import {HEAP_ID_DEFAULT} from '../../../../domain/entities/definitions/container/container-property-ids.js';
 import type {SubgraphConfigProperty} from '../../shared/acdb-chunks/spf-properties/subgraph-config-property.js';
 import type {ContainerConfigProperty} from '../../shared/acdb-chunks/spf-properties/container-config-property.js';
 import type {ModuleListProperty} from '../../shared/acdb-chunks/spf-properties/module-list-property.js';
@@ -96,6 +98,7 @@ export async function compareAcdbBuffers(
     Promise.resolve(compareDriverCalibration(original, downloaded)),
     Promise.resolve(compareTagData(original, downloaded)),
     Promise.resolve(compareTaggedModuleMap(original, downloaded)),
+    Promise.resolve(compareSubgraphPairData(original, downloaded)),
   ]);
   const mismatches: AcdbComparisonMismatch[] = results.flat();
 
@@ -175,7 +178,9 @@ function compareByteMaps(
     }
   }
   for (const key of mapA.keys()) {
-    if (mapB.has(key) && !bytesEqual(mapA.get(key), mapB.get(key))) {
+    const dataA = mapA.get(key);
+    const dataB = mapB.get(key);
+    if (dataB !== undefined && !bytesEqual(dataA, dataB)) {
       mismatches.push({
         domain,
         detail: `${path}.property[${BinaryUtils.toHexString(key)}] payload differs`,
@@ -314,34 +319,6 @@ function compareUsecaseData(
 }
 
 // ── Subgraph data (SPF properties) ─────────────────────────────────────
-
-function parseDriverProperties(payload: Uint8Array): {
-  subgraphId: number;
-  properties: Map<number, Uint8Array>;
-} {
-  const view = new DataView(
-    payload.buffer,
-    payload.byteOffset,
-    payload.byteLength,
-  );
-  let pos = 0;
-  const subgraphId = BinaryUtils.readUint32(view, pos);
-  pos += BinaryUtils.SIZEOF_UINT32;
-  const numProperties = BinaryUtils.readUint32(view, pos);
-  pos += BinaryUtils.SIZEOF_UINT32;
-
-  const properties = new Map<number, Uint8Array>();
-  for (let i = 0; i < numProperties; i++) {
-    const propertyId = BinaryUtils.readUint32(view, pos);
-    pos += BinaryUtils.SIZEOF_UINT32;
-    const length = BinaryUtils.readUint32(view, pos);
-    pos += BinaryUtils.SIZEOF_UINT32;
-    properties.set(propertyId, payload.slice(pos, pos + length));
-    pos += length;
-  }
-
-  return {subgraphId, properties};
-}
 
 function compareSubgraphConfig(
   domain: string,
@@ -701,23 +678,12 @@ function compareSubgraphData(
 
   for (const [entryA, entryB] of diff.pairs) {
     const path = `subgraph[${entryA.subgraphId}]`;
-
-    const {subgraphId: driverSgIdA, properties: driverPropsA} =
-      parseDriverProperties(entryA.driverProperties);
-    const {subgraphId: driverSgIdB, properties: driverPropsB} =
-      parseDriverProperties(entryB.driverProperties);
-    if (driverSgIdA !== driverSgIdB) {
-      mismatches.push({
-        domain,
-        detail: `${path}.driverProperties: embedded subgraphId differs (original=${driverSgIdA}, downloaded=${driverSgIdB})`,
-      });
-    }
     mismatches.push(
       ...compareByteMaps(
         domain,
         `${path}.driverProperties`,
-        driverPropsA,
-        driverPropsB,
+        entryA.driverProperties.properties,
+        entryB.driverProperties.properties,
       ),
       ...compareSpfProperties(
         domain,
@@ -1685,16 +1651,152 @@ function compareTaggedModuleMap(
   return mismatches;
 }
 
+// ── Subgraph pair data (SCLU/SCDE/SCDO) ────────────────────────────────
+
+function subgraphPairId(p: {
+  sourceSubgraphId: number;
+  destinationSubgraphId: number;
+}): string {
+  return `0x${BinaryUtils.toHexString(p.sourceSubgraphId)}→0x${BinaryUtils.toHexString(p.destinationSubgraphId)}`;
+}
+
+type SubgraphPairEntry = SubgraphPairDataChunk['subgraphPairs'][0];
+
+function compareSubgraphPairLinks(
+  domain: string,
+  path: string,
+  pairA: SubgraphPairEntry,
+  pairB: SubgraphPairEntry,
+): AcdbComparisonMismatch[] {
+  const mismatches: AcdbComparisonMismatch[] = [];
+
+  const {onlyInA: dlOnlyA, onlyInB: dlOnlyB} = diffByKey(
+    pairA.dataLinks,
+    pairB.dataLinks,
+    dl =>
+      `${dl.sourceInstanceId}:${dl.sourcePortId}:${dl.destinationInstanceId}:${dl.destinationPortId}`,
+  );
+  for (const dl of dlOnlyA) {
+    mismatches.push({
+      domain,
+      detail: `${path}.dataLink[${dl.sourceInstanceId}:${dl.sourcePortId}→${dl.destinationInstanceId}:${dl.destinationPortId}] present only in original file`,
+    });
+  }
+  for (const dl of dlOnlyB) {
+    mismatches.push({
+      domain,
+      detail: `${path}.dataLink[${dl.sourceInstanceId}:${dl.sourcePortId}→${dl.destinationInstanceId}:${dl.destinationPortId}] present only in downloaded file`,
+    });
+  }
+
+  const {
+    onlyInA: clOnlyA,
+    onlyInB: clOnlyB,
+    pairs: clPairs,
+  } = diffByKey(pairA.controlLinks, pairB.controlLinks, cl => {
+    const x = `${cl.peer1InstanceId}:${cl.peer1PortId}`;
+    const y = `${cl.peer2InstanceId}:${cl.peer2PortId}`;
+    return x < y ? `${x}:${y}` : `${y}:${x}`;
+  });
+  const clLabel = (cl: SubgraphPairEntry['controlLinks'][0]): string =>
+    `${cl.peer1InstanceId}:${cl.peer1PortId}↔${cl.peer2InstanceId}:${cl.peer2PortId}`;
+  for (const cl of clOnlyA) {
+    mismatches.push({
+      domain,
+      detail: `${path}.controlLink[${clLabel(cl)}] present only in original file`,
+    });
+  }
+  for (const cl of clOnlyB) {
+    mismatches.push({
+      domain,
+      detail: `${path}.controlLink[${clLabel(cl)}] present only in downloaded file`,
+    });
+  }
+  for (const [clA, clB] of clPairs) {
+    const clPath = `${path}.controlLink[${clLabel(clA)}]`;
+    const heapA = clA.heapId ?? HEAP_ID_DEFAULT;
+    const heapB = clB.heapId ?? HEAP_ID_DEFAULT;
+    if (heapA !== heapB) {
+      mismatches.push({
+        domain,
+        detail: `${clPath}.heapId differs: ${heapA} vs ${heapB}`,
+      });
+    }
+    const intentsA = [...(clA.intents ?? [])].sort((x, y) => x - y);
+    const intentsB = [...(clB.intents ?? [])].sort((x, y) => x - y);
+    if (compareNumberArrays(intentsA, intentsB) !== 0) {
+      mismatches.push({
+        domain,
+        detail: `${clPath}.intents differ: [${intentsA.join(',')}] vs [${intentsB.join(',')}]`,
+      });
+    }
+  }
+
+  return mismatches;
+}
+
+function compareSubgraphPairData(
+  a: ParsedAcdb,
+  b: ParsedAcdb,
+): AcdbComparisonMismatch[] {
+  const domain = 'subgraphPairData';
+  const chunkA = a.getChunk<SubgraphPairDataChunk>(
+    PARSED_CHUNK_TYPES.SUBGRAPH_PAIR_DATA,
+  );
+  const chunkB = b.getChunk<SubgraphPairDataChunk>(
+    PARSED_CHUNK_TYPES.SUBGRAPH_PAIR_DATA,
+  );
+
+  if (!chunkA && !chunkB) return [];
+  if (!chunkA || !chunkB) {
+    return [
+      {domain, detail: `SUBGRAPH_PAIR_DATA chunk present in only one file`},
+    ];
+  }
+
+  const mismatches: AcdbComparisonMismatch[] = [];
+  const {onlyInA, onlyInB, pairs} = diffByKey(
+    chunkA.subgraphPairs,
+    chunkB.subgraphPairs,
+    p => `${p.sourceSubgraphId}:${p.destinationSubgraphId}`,
+  );
+
+  if (onlyInA.length > 0 || onlyInB.length > 0) {
+    mismatches.push({
+      domain,
+      detail:
+        `count: original=${chunkA.subgraphPairs.length}, downloaded=${chunkB.subgraphPairs.length} ` +
+        `(missing=${onlyInA.length}, extra=${onlyInB.length})`,
+    });
+  }
+
+  for (const p of onlyInA) {
+    mismatches.push({
+      domain,
+      detail: `- pair[${subgraphPairId(p)}] only in original`,
+    });
+  }
+  for (const p of onlyInB) {
+    mismatches.push({
+      domain,
+      detail: `+ pair[${subgraphPairId(p)}] only in downloaded`,
+    });
+  }
+
+  for (const [pairA, pairB] of pairs) {
+    const path = `pair[${subgraphPairId(pairA)}]`;
+    mismatches.push(...compareSubgraphPairLinks(domain, path, pairA, pairB));
+  }
+
+  return mismatches;
+}
+
 // ── Known gaps (chunk types the download pipeline doesn't serialize) ────
 
 const UNSUPPORTED_DOWNLOAD_DOMAINS: Array<{
   parsedType: ParsedChunkType;
   label: string;
 }> = [
-  {
-    parsedType: PARSED_CHUNK_TYPES.SUBGRAPH_PAIR_DATA,
-    label: 'SUBGRAPH_PAIR_DATA (SCLU/SCDE/SCDO)',
-  },
   {
     parsedType: PARSED_CHUNK_TYPES.MODULE_MANAGER,
     label: 'MODULE_MANAGER (MODM)',

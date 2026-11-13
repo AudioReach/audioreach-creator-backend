@@ -6,6 +6,7 @@
 import {PARSED_CHUNK_TYPES} from '../constants/chunk-types.js';
 import {BaseChunk} from './base-chunk.js';
 import type {SpfProperties} from './spf-properties/index.js';
+import type {DriverProperties} from './driver-properties.js';
 import type {
   AcdbSubgraphProperties,
   AcdbContainerProperties,
@@ -21,8 +22,8 @@ import type {
 export interface SubgraphDataEntry {
   /** Subgraph ID */
   subgraphId: number;
-  /** Driver properties data */
-  driverProperties: Uint8Array;
+  /** Parsed driver-section properties */
+  driverProperties: DriverProperties;
   /** Parsed SPF properties */
   spfProperties: SpfProperties;
 }
@@ -68,16 +69,25 @@ export class SubgraphDataChunk extends BaseChunk {
   }
 
   /**
-   * Extract all subgraphs from SPF properties
+   * Extract all subgraphs from SPF properties, with driver properties merged in.
+   * Driver properties for each subgraph are merged into AcdbSubgraphProperties.properties
+   * so callers receive a unified Map<propertyId, Uint8Array> with no separate pipeline.
    */
   getAllSubgraphs(): AcdbSubgraphProperties[] {
     const subgraphs: AcdbSubgraphProperties[] = [];
 
     for (const entry of this.subgraphData) {
       if (entry.spfProperties.subgraphConfig) {
-        subgraphs.push(
-          ...entry.spfProperties.subgraphConfig.subgraphProperties,
-        );
+        for (const sg of entry.spfProperties.subgraphConfig
+          .subgraphProperties) {
+          if (sg.subgraphId === entry.subgraphId) {
+            for (const [propId, propData] of entry.driverProperties
+              .properties) {
+              sg.properties.set(propId, propData);
+            }
+          }
+          subgraphs.push(sg);
+        }
       }
     }
 
