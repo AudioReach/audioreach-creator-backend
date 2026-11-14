@@ -205,12 +205,8 @@ describe('TypeOrmContainerRepository (integration)', () => {
       [sessionId, ENTITY_NAMES.ContainerPropertyData, CHANGE_OPERATION.Create],
     );
     expect(rows.map(row => row.target_system_id)).toEqual([501, 601]);
-    expect(
-      JSON.parse(rows[0].new_value).containerPropertyDefinitionSystemId,
-    ).toBe(900);
-    expect(
-      JSON.parse(rows[1].new_value).containerPropertyDefinitionSystemId,
-    ).toBe(900);
+    expect(JSON.parse(rows[0].new_value).propertySystemId).toBe(900);
+    expect(JSON.parse(rows[1].new_value).propertySystemId).toBe(900);
   });
 
   it('loads effective container property definitions as domain entities', async () => {

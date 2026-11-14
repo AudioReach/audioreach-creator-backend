@@ -4,6 +4,7 @@
  */
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
+import type {Logger} from '../../../../shared/types/logger.interface.js';
 import {Result} from '../../../shared/result/result.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
@@ -21,7 +22,10 @@ export class AddTkvParametersHandler implements CommandHandler<
   AddTkvParametersCommand,
   Result<AddTkvParametersResult>
 > {
-  constructor(private readonly uow: UnitOfWork) {}
+  constructor(
+    private readonly uow: UnitOfWork,
+    private readonly logger?: Logger,
+  ) {}
 
   async handle(
     command: AddTkvParametersCommand,
@@ -102,6 +106,14 @@ export class AddTkvParametersHandler implements CommandHandler<
           ),
         );
         continue;
+      }
+      for (const w of serialized.warnings) {
+        this.logger?.logWarn({
+          eventName: 'tkv.parameter.defaultClamped',
+          description: `Parameter ${parameterSystemId}: ${w}`,
+          component: 'AddTkvParametersHandler',
+          tag: 'calibration',
+        });
       }
       await moduleRepo.addParameterToTkv(
         tkvSystemId,

@@ -5,6 +5,7 @@
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
+import type {Logger} from '../../../../shared/types/logger.interface.js';
 import type {
   CkvSummary,
   CkvPayloadEntry,
@@ -32,6 +33,7 @@ export class AddCkvParametersHandler implements CommandHandler<
   constructor(
     private readonly uow: UnitOfWork,
     private readonly idGeneration: IdGenerationPort,
+    private readonly logger?: Logger,
   ) {}
 
   async handle(
@@ -145,6 +147,14 @@ export class AddCkvParametersHandler implements CommandHandler<
       throw new Error(
         `Failed to serialize default data for parameter ${parameterSystemId}: ${serialized.error}`,
       );
+    }
+    for (const w of serialized.warnings) {
+      this.logger?.logWarn({
+        eventName: 'ckv.parameter.defaultClamped',
+        description: `Parameter ${parameterSystemId}: ${w}`,
+        component: 'AddCkvParametersHandler',
+        tag: 'calibration',
+      });
     }
 
     for (const ckv of targetCkvs) {

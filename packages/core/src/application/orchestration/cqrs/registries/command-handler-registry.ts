@@ -302,12 +302,17 @@ export class CommandHandlerRegistry {
           deps.uow,
           deps.idGeneration,
           deps.naturalIdGeneration,
+          deps.logger,
         ),
     });
 
     this.commandHandlerFactories.set(SetSubgraphScenarioCommand, {
       create: deps =>
-        new SetSubgraphScenarioHandler(deps.uow, deps.idGeneration),
+        new SetSubgraphScenarioHandler(
+          deps.uow,
+          deps.idGeneration,
+          deps.logger,
+        ),
     });
 
     this.commandHandlerFactories.set(SetSubgraphVsidCommand, {
@@ -403,10 +408,12 @@ export class CommandHandlerRegistry {
         new MoveSubsystemComponentsHandler(deps.uow, deps.idGeneration),
     });
     this.commandHandlerFactories.set(AddCkvsCommand, {
-      create: deps => new AddCkvsHandler(deps.uow, deps.idGeneration),
+      create: deps =>
+        new AddCkvsHandler(deps.uow, deps.idGeneration, deps.logger),
     });
     this.commandHandlerFactories.set(RemoveCkvsCommand, {
-      create: deps => new RemoveCkvsHandler(deps.uow, deps.idGeneration),
+      create: deps =>
+        new RemoveCkvsHandler(deps.uow, deps.idGeneration, deps.logger),
     });
     this.commandHandlerFactories.set(AddTagsCommand, {
       create: deps => new AddTagsHandler(deps.uow, deps.idGeneration),
@@ -415,20 +422,26 @@ export class CommandHandlerRegistry {
       create: deps => new RemoveTagsHandler(deps.uow),
     });
     this.commandHandlerFactories.set(AddTkvsCommand, {
-      create: deps => new AddTkvsHandler(deps.uow, deps.idGeneration),
+      create: deps =>
+        new AddTkvsHandler(deps.uow, deps.idGeneration, deps.logger),
     });
     this.commandHandlerFactories.set(RemoveTkvsCommand, {
       create: deps => new RemoveTkvsHandler(deps.uow),
     });
     this.commandHandlerFactories.set(AddCkvParametersCommand, {
-      create: deps => new AddCkvParametersHandler(deps.uow, deps.idGeneration),
+      create: deps =>
+        new AddCkvParametersHandler(deps.uow, deps.idGeneration, deps.logger),
     });
     this.commandHandlerFactories.set(RemoveCkvParametersCommand, {
       create: deps =>
-        new RemoveCkvParametersHandler(deps.uow, deps.idGeneration),
+        new RemoveCkvParametersHandler(
+          deps.uow,
+          deps.idGeneration,
+          deps.logger,
+        ),
     });
     this.commandHandlerFactories.set(AddTkvParametersCommand, {
-      create: deps => new AddTkvParametersHandler(deps.uow),
+      create: deps => new AddTkvParametersHandler(deps.uow, deps.logger),
     });
     this.commandHandlerFactories.set(RemoveTkvParametersCommand, {
       create: deps => new RemoveTkvParametersHandler(deps.uow),

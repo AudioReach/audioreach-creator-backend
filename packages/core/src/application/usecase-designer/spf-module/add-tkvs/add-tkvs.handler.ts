@@ -5,6 +5,7 @@
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
+import type {Logger} from '../../../../shared/types/logger.interface.js';
 import {Result} from '../../../shared/result/result.js';
 import {KvData} from '../../../../domain/entities/common/entities/kv-data.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/index.js';
@@ -25,6 +26,7 @@ export class AddTkvsHandler implements CommandHandler<
   constructor(
     private readonly uow: UnitOfWork,
     private readonly idGeneration: IdGenerationPort,
+    private readonly logger?: Logger,
   ) {}
 
   async handle(command: AddTkvsCommand): Promise<Result<AddTkvsResult>> {
@@ -94,7 +96,7 @@ export class AddTkvsHandler implements CommandHandler<
       valueDefinitionSystemIds: item.valueDefinitionSystemIds,
       uiPersistence: null,
     });
-    buildDefaultPayloads(kvData, paramDefs);
+    buildDefaultPayloads(kvData, paramDefs, this.logger);
     await moduleRepo.createTkv(kvData, tagSystemId, moduleSystemId);
     return tkvSystemId;
   }

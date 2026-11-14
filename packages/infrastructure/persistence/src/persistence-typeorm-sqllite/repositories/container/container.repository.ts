@@ -145,7 +145,7 @@ export class TypeOrmContainerRepository implements ContainerRepository {
           aggregateId: container.systemId,
           payload: {
             containerSystemId: container.systemId,
-            containerPropertyDefinitionSystemId: propDefSystemId,
+            propertySystemId: propDefSystemId,
             payload: propVal.getPayloadCopy() ?? null,
           },
           ...options,

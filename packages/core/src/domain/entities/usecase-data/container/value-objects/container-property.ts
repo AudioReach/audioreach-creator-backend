@@ -8,17 +8,16 @@ import {BinaryPayloadValue} from '../../../common/value-objects/binary-payload-v
 export class ContainerPropertyValue extends BinaryPayloadValue {
   /** System ID of the container_property_data row. */
   systemId: number;
-  readonly containerPropertyDefinitionSystemId: number;
+  readonly propertyDefinitionSystemId: number;
 
   constructor(
-    containerPropertyDefinitionSystemId: number,
+    propertyDefinitionSystemId: number,
     payload: Uint8Array | null,
     systemId = 0,
   ) {
     super(payload);
     this.systemId = systemId;
-    this.containerPropertyDefinitionSystemId =
-      containerPropertyDefinitionSystemId;
+    this.propertyDefinitionSystemId = propertyDefinitionSystemId;
   }
 
   getPayloadCopy(): Uint8Array | null {

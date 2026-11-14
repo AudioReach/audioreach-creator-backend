@@ -474,12 +474,11 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
           targetSystemId: bp.portSystemId,
           aggregateId,
           payload: {
-            dataPortId: bp.dataPortId,
+            naturalId: bp.dataPortId,
             portIoType: bp.portIoType,
             isStatic: false,
             name: '',
             nodeSystemId: bp.nodeSystemId,
-            fileSystemId: bp.fileSystemId,
           },
           ...options,
         },

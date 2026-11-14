@@ -87,6 +87,12 @@ export class ApplyEditActionReducer {
       delete result.referencedComponents;
       delete result.sgkvAssignments;
     }
+    if (row.targetTable === ENTITY_NAMES.SubsystemDataLink) {
+      // linkType has no DB column; it is kept in the edit-action payload for
+      // in-session overlay reads (resolveDataLinkTypes fallback) but must be
+      // stripped before the actual DB write.
+      delete result.linkType;
+    }
     for (const property of Object.keys(result)) {
       if (!knownProperties.has(property)) {
         this.fail(row, `Unknown persistence property '${property}'`);

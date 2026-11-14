@@ -8,6 +8,8 @@ import {ContainerPropertyValue} from '../../../domain/entities/usecase-data/cont
 import {CONTAINER_PROP_ID_STACK_SIZE} from '../../../domain/entities/definitions/spf-ids.js';
 import {encodeStackSize} from '../shared/utils/container-stack-size-codec.js';
 import type {PropertyDefinition} from '../../../domain/entities/definitions/common/entities/property-definition.js';
+import {serializeDefaultParameterData} from '../shared/serialize-elements.js';
+import type {Logger} from '../../../shared/types/logger.interface.js';
 
 export interface ContainerInit {
   systemId: number;
@@ -20,20 +22,15 @@ export interface ContainerInit {
  * Builds a complete Container domain object with all property defaults seeded.
  *
  * Stack size is always initialised to 0 (required for the UPDATE-only
- * setPropertyData path on future PATCH calls).
- *
- * All other property definitions get their default blobs so that
- * createContainer stages the container row and all ContainerPropertyData rows
- * atomically as one complete aggregate.
- *
- * TODO(add-module-calibration-defaults): populate non-stack-size property blobs
- * using serializeDefaultParameterData(propDef.elementsStructure) once that
- * utility is implemented.
- * See: docs/edit-crud/design/add-module-calibration-defaults-design.md §8
+ * setPropertyData path on future PATCH calls). All other property definitions
+ * get their default blobs via serializeDefaultParameterData so that createContainer
+ * stages the container row and all ContainerPropertyData rows atomically as one
+ * complete aggregate.
  */
 export function buildContainerWithDefaults(
   init: ContainerInit,
   propertyDefinitions: PropertyDefinition[],
+  logger?: Logger,
 ): Container {
   const container = new Container(
     init.systemId,
@@ -60,15 +57,26 @@ export function buildContainerWithDefaults(
     ),
   );
 
-  // Seed all other property definitions with their defaults.
+  // Seed all other property definitions with their serialized defaults.
   for (const propDef of propertyDefinitions) {
     if (propDef.naturalId === CONTAINER_PROP_ID_STACK_SIZE) continue;
+    const serialized = serializeDefaultParameterData(propDef);
+    if (!serialized.ok) {
+      throw new Error(
+        `Failed to serialize default data for container property ${propDef.systemId}: ${serialized.error}`,
+      );
+    }
+    for (const w of serialized.warnings) {
+      logger?.logWarn({
+        eventName: 'container.build.defaultClamped',
+        description: `Container property ${propDef.systemId}: ${w}`,
+        component: 'buildContainerWithDefaults',
+        tag: 'container',
+      });
+    }
     container.properties.set(
       propDef.systemId,
-      new ContainerPropertyValue(
-        propDef.systemId,
-        null, // TODO: replace with serializeDefaultParameterData(propDef.elementsStructure)
-      ),
+      new ContainerPropertyValue(propDef.systemId, serialized.value),
     );
   }
 
