@@ -11,9 +11,11 @@ import {ENTITY_TYPE} from '../../../../../src/shared/entity-type.js';
 
 describe('failedToIssues', () => {
   it('reports a missing entity by its hex systemId', () => {
-    const [issue] = failedToIssues(ENTITY_TYPE.Subgraph, [
-      {systemId: 42, reason: FAILED_ENTITY_REASON.NotFound},
-    ]);
+    const [issue] = failedToIssues({
+      entityType: ENTITY_TYPE.Subgraph,
+      items: [],
+      failed: [{systemId: 42, reason: FAILED_ENTITY_REASON.NotFound}],
+    });
 
     expect(issue).toEqual({
       code: ISSUE_CODE.ENTITY_NOT_FOUND,
@@ -29,14 +31,18 @@ describe('failedToIssues', () => {
   });
 
   it('names a skipped entity by its identity, not its systemId', () => {
-    const [issue] = failedToIssues(ENTITY_TYPE.Subgraph, [
-      {
-        systemId: 7,
-        reason: FAILED_ENTITY_REASON.UnresolvedReference,
-        identity: {name: 'Speaker', naturalId: 4},
-        missingRef: {entityType: 'ValueDefinition', systemId: 9},
-      },
-    ]);
+    const [issue] = failedToIssues({
+      entityType: ENTITY_TYPE.Subgraph,
+      items: [],
+      failed: [
+        {
+          systemId: 7,
+          reason: FAILED_ENTITY_REASON.UnresolvedReference,
+          identity: {name: 'Speaker', naturalId: 4},
+          missingRef: {entityType: ENTITY_TYPE.ValueDefinition, systemId: 9},
+        },
+      ],
+    });
 
     expect(issue.code).toBe(ISSUE_CODE.ENTITY_UNRESOLVED_REFERENCE);
     expect(issue.message).toBe(
@@ -51,9 +57,11 @@ describe('failedToIssues', () => {
   });
 
   it('falls back to the systemId when a skipped entity has no identity', () => {
-    const [issue] = failedToIssues(ENTITY_TYPE.UseCase, [
-      {systemId: 8, reason: FAILED_ENTITY_REASON.UnresolvedReference},
-    ]);
+    const [issue] = failedToIssues({
+      entityType: ENTITY_TYPE.UseCase,
+      items: [],
+      failed: [{systemId: 8, reason: FAILED_ENTITY_REASON.UnresolvedReference}],
+    });
 
     expect(issue.message).toBe(
       'UseCase with systemId: 0x00000008 was skipped: ' +
@@ -62,6 +70,8 @@ describe('failedToIssues', () => {
   });
 
   it('returns no issues when nothing failed', () => {
-    expect(failedToIssues(ENTITY_TYPE.Subgraph, [])).toEqual([]);
+    expect(
+      failedToIssues({entityType: ENTITY_TYPE.Subgraph, items: [], failed: []}),
+    ).toEqual([]);
   });
 });

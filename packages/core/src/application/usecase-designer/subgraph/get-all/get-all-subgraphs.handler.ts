@@ -6,7 +6,8 @@
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import {CONFIGURATION_INCLUDES} from '../../../ports/persistence/query-services/configuration-includes.js';
-import {Result, RESULT_KIND} from '../../../shared/result/result.js';
+import {Result} from '../../../shared/result/result.js';
+import {failedToIssues} from '../../../shared/result/failed-to-issues.js';
 import type {Result as ResultType} from '../../../shared/result/result.js';
 import type {SubgraphDto} from '../dto/subgraph-dto.js';
 import {mapSubgraph} from '../dto/subgraph-dto.js';
@@ -26,19 +27,19 @@ export class GetAllSubgraphsHandler implements QueryHandler<
         query.projectId,
       );
 
-    const result =
-      await this.queryServices.subgraphQueryService.getAllSubgraphs(
-        fileSystemId,
-        CONFIGURATION_INCLUDES.FullDetails,
-        query.systemIds,
-      );
+    const {subgraphQueryService} = this.queryServices;
+    const includes = CONFIGURATION_INCLUDES.FullDetails;
+    const batch =
+      query.systemIds === undefined
+        ? await subgraphQueryService.findAllSubgraphs(fileSystemId, includes)
+        : await subgraphQueryService.findSubgraphs(
+            fileSystemId,
+            query.systemIds,
+            includes,
+          );
 
-    if (result.kind === RESULT_KIND.Fail) return Result.fail(...result.issues);
-
-    const dtos = result.data.map(subgraph => mapSubgraph(subgraph));
-
-    if (result.kind === RESULT_KIND.Partial)
-      return Result.partial(dtos, result.issues);
-    return Result.ok(dtos, result.issues);
+    const dtos = batch.items.map(subgraph => mapSubgraph(subgraph));
+    if (batch.failed.length === 0) return Result.ok(dtos);
+    return Result.partial(dtos, failedToIssues(batch));
   }
 }

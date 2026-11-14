@@ -70,7 +70,12 @@ export class RoutingEngine {
       () =>
         this.topologyChangeAnalysis.run(context, uow.getSubgraphRepository()),
       () => this.islandTransition.run(context),
-      () => this.kvResolution.run(context, uow.getSubgraphRepository()),
+      () =>
+        this.kvResolution.run(
+          context,
+          uow.getSubgraphRepository(),
+          uow.getKeyValueDefinitionRepository(),
+        ),
       () => this.seedDetection.run(context),
       () => this.coneComputation.run(context),
       () => this.dfsRouting.run(context),
@@ -105,7 +110,12 @@ export class RoutingEngine {
       () =>
         this.topologyChangeAnalysis.run(context, uow.getSubgraphRepository()),
       () => this.islandTransition.run(context),
-      () => this.kvResolution.run(context, uow.getSubgraphRepository()),
+      () =>
+        this.kvResolution.run(
+          context,
+          uow.getSubgraphRepository(),
+          uow.getKeyValueDefinitionRepository(),
+        ),
       () => this.seedDetection.run(context),
       () => this.coneComputation.run(context),
       () => this.dfsRouting.run(context),

@@ -8,7 +8,6 @@ import type {QueryServices} from '../../../ports/persistence/query-services/quer
 import type {Result} from '../../../shared/result/result.js';
 import {Result as ResultUtil} from '../../../shared/result/result.js';
 import {failedToIssues} from '../../../shared/result/failed-to-issues.js';
-import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {GetAllUseCasesQuery} from './get-all-usecases.query.js';
 import type {UseCaseDto} from '../dto/usecase-dto.js';
 import {mapUseCase} from '../dto/usecase-dto.js';
@@ -33,10 +32,7 @@ export class GetAllUseCasesHandler implements QueryHandler<
     const dtos = usecases.items.map(uc => mapUseCase(uc));
 
     return usecases.failed.length > 0
-      ? ResultUtil.partial(
-          dtos,
-          failedToIssues(ENTITY_TYPE.UseCase, usecases.failed),
-        )
+      ? ResultUtil.partial(dtos, failedToIssues(usecases))
       : ResultUtil.ok(dtos);
   }
 }

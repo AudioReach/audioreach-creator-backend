@@ -12,6 +12,7 @@ import type {ISessionRepository} from './repositories/session/session.repository
 import type {ModuleRepository} from './repositories/module/module.repository.js';
 import type {ContainerRepository} from './repositories/container/container.repository.js';
 import type {ModuleDefinitionRepository} from './repositories/module/module-definition.repository.js';
+import type {KeyValueDefinitionRepository} from './repositories/key-value/key-value-definition.repository.js';
 import type {DataLinkRepository} from './repositories/data-link/data-link.repository.js';
 import type {ControlLinkRepository} from './repositories/control-link/control-link.repository.js';
 import type {SubgraphRepository} from './repositories/subgraph/subgraph.repository.js';
@@ -78,4 +79,5 @@ export interface UnitOfWork {
   getSubsystemRepository(): SubsystemRepository;
   getUsecaseRepository(): UsecaseRepository;
   getVcpmDefinitionRepository(): VcpmDefinitionRepository;
+  getKeyValueDefinitionRepository(): KeyValueDefinitionRepository;
 }

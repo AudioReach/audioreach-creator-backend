@@ -16,6 +16,7 @@ import {CreateUsecasesHandler} from '../../../../../../src/application/usecase-d
 import {RoutingIssueFactory} from '../../../../../../src/application/usecase-designer/use-case-creator/issues/routing-issue-factory.js';
 import {AutoRoutingPreparationService} from '../../../../../../src/application/usecase-designer/use-case-creator/services/auto-routing-preparation.service.js';
 import {DomainRuleViolationException} from '../../../../../../src/shared/exceptions/domain-rule-violation.exception.js';
+import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
 
 function snapshot(): RoutingGraphSnapshot {
   return {
@@ -35,7 +36,7 @@ const idGeneration = {getNextId: jest.fn(async () => 100)} as never;
 function createUow(events: string[], options?: {addedSubgraph?: boolean}) {
   const findUseCases = jest.fn(async () => {
     events.push('selected-usecases:read');
-    return {items: [], failed: []};
+    return {entityType: ENTITY_TYPE.UseCase, items: [], failed: []};
   });
   const findUseCaseChangeDetails = jest.fn(
     async (_fileSystemId: number, _changes: readonly unknown[]) => {

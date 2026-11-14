@@ -3,44 +3,69 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {BatchRead} from '../../batch-read.js';
 import type {PropertyPayloadReadModel} from '../shared/property-payload-read-model.js';
-import type {Result} from '../../../../shared/result/result.js';
 import type {ConfigurationIncludes} from '../configuration-includes.js';
 import type {SubgraphReadModel} from './subgraph-read-model.js';
 import type {
   VcpmAggregateOptions,
   VcpmAggregateReadModel,
 } from '../vcpm/vcpm-read-model.js';
+import type {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
 
+/** The property payload rows of one subgraph. */
+export interface SubgraphPropertyPayloadsReadModel {
+  readonly subgraphSystemId: number;
+  readonly properties: PropertyPayloadReadModel[];
+}
+
+/**
+ * Subgraph reads, with the session overlay applied. All methods throw on
+ * infrastructure errors.
+ *
+ * `includes`: `SUMMARY` loads scalar fields only (`sgkvs` is `null`);
+ * `FULL_DETAILS` also loads SGKVs resolved to key/value pairs.
+ */
 export interface SubgraphQueryService {
   /**
-   * Returns property payloads for the specified subgraph, with session overlay applied.
-   *
-   * - `Result.fail` — DB error.
-   * - `Result.ok(null)` — subgraph does not exist (caller should throw 404).
-   * - `Result.ok(PropertyPayloadReadModel[])` — subgraph exists; list may be empty.
+   * The requested subgraphs, in request order. Missing IDs are reported in
+   * `failed` as `NOT_FOUND`. With `FULL_DETAILS`, a subgraph whose SGKV
+   * references a missing value definition is reported as
+   * `UNRESOLVED_REFERENCE`, with its name and natural ID.
    */
-  findPropertyPayloads(
-    subgraphSystemId: number,
+  findSubgraphs(
     fileSystemId: number,
-  ): Promise<Result<PropertyPayloadReadModel[] | null>>;
+    subgraphSystemIds: readonly number[],
+    includes: ConfigurationIncludes,
+  ): Promise<BatchRead<SubgraphReadModel, typeof ENTITY_TYPE.Subgraph>>;
 
   /**
-   * Returns all subgraphs for the given file, with session overlay applied.
-   * When systemIds is supplied, only those subgraphs are returned.
-   *
-   * - Summary: scalar fields only; `sgkvs` is `null`.
-   * - FullDetails: scalar fields + SGKVs resolved to key-value pairs.
+   * Every subgraph in the file. `failed` holds only `UNRESOLVED_REFERENCE`
+   * entries, as for `findSubgraphs`.
    */
-  getAllSubgraphs(
+  findAllSubgraphs(
     fileSystemId: number,
     includes: ConfigurationIncludes,
-    systemIds?: number[],
-  ): Promise<Result<SubgraphReadModel[]>>;
+  ): Promise<BatchRead<SubgraphReadModel, typeof ENTITY_TYPE.Subgraph>>;
 
-  getVcpmAggregateBySubgraph(
-    subgraphSystemId: number,
+  /**
+   * The property payloads of each requested subgraph, in request order; a
+   * subgraph may have none. Missing IDs are reported as `NOT_FOUND`.
+   */
+  findSubgraphPropertyPayloads(
     fileSystemId: number,
+    subgraphSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<SubgraphPropertyPayloadsReadModel, typeof ENTITY_TYPE.Subgraph>
+  >;
+
+  /**
+   * The VCPM data of one subgraph. The caller checks that the subgraph
+   * exists; an unknown subgraph yields an empty aggregate.
+   */
+  findVcpmAggregate(
+    fileSystemId: number,
+    subgraphSystemId: number,
     options?: VcpmAggregateOptions,
-  ): Promise<Result<VcpmAggregateReadModel>>;
+  ): Promise<VcpmAggregateReadModel>;
 }

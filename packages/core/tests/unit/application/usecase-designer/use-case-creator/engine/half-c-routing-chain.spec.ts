@@ -55,6 +55,7 @@ function engine(phases: ReturnType<typeof phase>[]) {
 
 const uow = {
   getSubgraphRepository: () => ({}),
+  getKeyValueDefinitionRepository: () => ({}),
   getSubsystemRepository: () => ({
     findOrphanSubsystemSystemIds: async () => [],
   }),

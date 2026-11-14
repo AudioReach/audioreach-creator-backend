@@ -15,6 +15,7 @@ import {
   type UsecaseFilteredTopologyData,
 } from '../../../../src/application/services/subsystem-filtered-gkv-service.js';
 import type {UseCaseQueryService} from '../../../../src/application/ports/persistence/query-services/usecase/usecase-query-service.js';
+import {ENTITY_TYPE} from '../../../../src/shared/entity-type.js';
 
 const key = (systemId: number, valueSystemId: number) => ({
   key: {systemId, keyId: systemId, name: `Key ${systemId}`},
@@ -311,7 +312,7 @@ describe('SubsystemFilteredGkvService.resolveFilteredGroups', () => {
       findUseCaseFilteredTopologyData: jest.fn().mockResolvedValue(topology),
       findUseCaseReadModels: jest
         .fn()
-        .mockResolvedValue({items: usecases, failed: []}),
+        .mockResolvedValue({entityType: ENTITY_TYPE.UseCase, items: usecases, failed: []}),
     } as unknown as jest.Mocked<UseCaseQueryService>;
   }
 
@@ -347,6 +348,7 @@ describe('SubsystemFilteredGkvService.resolveFilteredGroups', () => {
   it('returns a partial result naming use cases whose GKV could not be resolved', async () => {
     const querySvc = buildQueryService();
     querySvc.findUseCaseReadModels.mockResolvedValue({
+      entityType: ENTITY_TYPE.UseCase,
       items: [],
       failed: [
         {

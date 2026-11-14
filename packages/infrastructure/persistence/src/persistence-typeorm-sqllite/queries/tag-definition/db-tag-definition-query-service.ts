@@ -23,7 +23,10 @@ import {
   type OverlaidTagDefinition,
 } from '../../fetchers/definitions/tag-key-value/tag-definition-fetcher.js';
 
-type TagBatch = BatchRead<TagDefinitionReadModel, 'TagDefinition'>;
+type TagBatch = BatchRead<
+  TagDefinitionReadModel,
+  typeof ENTITY_TYPE.TagDefinition
+>;
 
 /**
  * Database implementation of TagDefinitionQueryService.
@@ -65,7 +68,8 @@ export class DbTagDefinitionQueryService implements TagDefinitionQueryService {
     fileSystemId: number,
     tagSystemIds: readonly number[],
   ): Promise<TagBatch> {
-    if (tagSystemIds.length === 0) return {items: [], failed: []};
+    if (tagSystemIds.length === 0)
+      return {entityType: ENTITY_TYPE.TagDefinition, items: [], failed: []};
 
     const sessionId = await resolveActiveSessionId(this.manager, fileSystemId);
     const tags = await this.tagFetcher.fetchMany(
@@ -75,7 +79,13 @@ export class DbTagDefinitionQueryService implements TagDefinitionQueryService {
     );
     const {items, failed} = await this.withKeys(tags, fileSystemId);
 
-    return withNotFound(tagSystemIds, items, tag => tag.systemId, failed);
+    return withNotFound(
+      ENTITY_TYPE.TagDefinition,
+      tagSystemIds,
+      items,
+      tag => tag.systemId,
+      failed,
+    );
   }
 
   /**
@@ -98,7 +108,7 @@ export class DbTagDefinitionQueryService implements TagDefinitionQueryService {
     const keysById = new Map(keys.items.map(key => [key.systemId, key]));
 
     const items: TagDefinitionReadModel[] = [];
-    const failed: FailedEntity<'TagDefinition'>[] = [];
+    const failed: FailedEntity<typeof ENTITY_TYPE.TagDefinition>[] = [];
     for (const tag of tags) {
       const missingKeyId = tag.links
         .map(link => link.keyReferenceSystemId)
@@ -117,7 +127,7 @@ export class DbTagDefinitionQueryService implements TagDefinitionQueryService {
         });
       }
     }
-    return {items, failed};
+    return {entityType: ENTITY_TYPE.TagDefinition, items, failed};
   }
 }
 

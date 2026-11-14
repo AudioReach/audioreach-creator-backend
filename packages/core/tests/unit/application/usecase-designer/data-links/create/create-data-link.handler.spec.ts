@@ -89,11 +89,19 @@ function makeSubsystemRepo(subsystemIds: number[] = []): SubsystemRepository {
   } as unknown as SubsystemRepository;
 }
 
+/** The use cases holding the given subgraphs, by their subgraph IDs. */
+type UseCasesOf = (subgraphIds: number[]) => {subgraphSystemIds: number[]}[];
+
+const oneUseCaseHoldingAll: UseCasesOf = subgraphIds => [
+  {subgraphSystemIds: subgraphIds},
+];
+
 function makeUow(
   overrides: {
     dlEditRepo?: DataLinkRepository;
     subsystemRepo?: SubsystemRepository;
     moduleRepo?: ModuleRepository;
+    useCases?: UseCasesOf;
   } = {},
 ): UnitOfWork {
   return {
@@ -121,8 +129,14 @@ function makeUow(
       .fn()
       .mockReturnValue(overrides.dlEditRepo ?? makeDataLinkEditRepo()),
     getControlLinkRepository: jest.fn(),
-    getSubgraphRepository: jest.fn().mockReturnValue({
-      getUsecaseSystemIdForSubgraph: jest.fn().mockResolvedValue(100),
+    getUsecaseRepository: jest.fn().mockReturnValue({
+      findUseCasesBySubgraphs: jest
+        .fn()
+        .mockImplementation((_fs: number, subgraphIds: number[]) =>
+          Promise.resolve(
+            (overrides.useCases ?? oneUseCaseHoldingAll)(subgraphIds),
+          ),
+        ),
     }),
     getSubsystemRepository: jest
       .fn()

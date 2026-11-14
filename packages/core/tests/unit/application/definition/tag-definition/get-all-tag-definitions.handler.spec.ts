@@ -10,6 +10,7 @@ import {RESULT_KIND} from '../../../../../src/application/shared/result/result.j
 import {FAILED_ENTITY_REASON} from '../../../../../src/application/ports/persistence/batch-read.js';
 import type {QueryServices} from '../../../../../src/application/ports/persistence/query-services/query-services.js';
 import type {TagDefinitionReadModel} from '../../../../../src/application/ports/persistence/query-services/tag-definition/tag-definition-read-model.js';
+import {ENTITY_TYPE} from '../../../../../src/shared/entity-type.js';
 
 describe('GetAllTagDefinitionsHandler', () => {
   const buildQueryServices = (): jest.Mocked<QueryServices> =>
@@ -39,7 +40,7 @@ describe('GetAllTagDefinitionsHandler', () => {
     ];
     (
       queryServices.tagDefinitionQueryService.findAllTagDefinitions as jest.Mock
-    ).mockResolvedValue({items: tags, failed: []});
+    ).mockResolvedValue({entityType: ENTITY_TYPE.TagDefinition, items: tags, failed: []});
 
     const handler = new GetAllTagDefinitionsHandler(queryServices);
     const query = new GetAllTagDefinitionsQuery(7, undefined, 'client-id');
@@ -69,7 +70,7 @@ describe('GetAllTagDefinitionsHandler', () => {
     ).mockResolvedValue(42);
     (
       queryServices.tagDefinitionQueryService.findAllTagDefinitions as jest.Mock
-    ).mockResolvedValue({items: [], failed: []});
+    ).mockResolvedValue({entityType: ENTITY_TYPE.TagDefinition, items: [], failed: []});
 
     const handler = new GetAllTagDefinitionsHandler(queryServices);
     const query = new GetAllTagDefinitionsQuery(7, 123, 'client-id');
@@ -93,6 +94,7 @@ describe('GetAllTagDefinitionsHandler', () => {
     (
       queryServices.tagDefinitionQueryService.findAllTagDefinitions as jest.Mock
     ).mockResolvedValue({
+      entityType: ENTITY_TYPE.TagDefinition,
       items: tags,
       failed: [
         {

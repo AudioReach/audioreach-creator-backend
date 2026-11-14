@@ -8,55 +8,35 @@ import {
   applyUcFilterToSg,
   type UcFilter,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/shared/uc-kv-filter.js';
-import type {
-  SessionChanged,
-  SgkvEntry,
-  Subgraph,
-  SubgraphRepository,
-} from '@arc/core';
+import {FAILED_ENTITY_REASON} from '../../../../../../src/application/ports/persistence/batch-read.js';
+import type {SubgraphRepository} from '../../../../../../src/application/ports/persistence/repositories/subgraph/subgraph.repository.js';
+import type {SgkvEntry} from '../../../../../../src/application/usecase-designer/use-case-creator/shared/sgkv-entries.js';
+import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
+import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
+import {batchOf} from '../../../../../helpers/index.js';
+import {subgraphsWithSgkvs} from '../helpers/routing-reads.js';
 
 /**
- * In-memory `SubgraphRepository` implementation for these unit tests.
- * Each method has an honest implementation backed by the fixture map;
- * unused methods are wired to throw so a test that unexpectedly reaches
- * them fails loudly instead of silently returning defaults.
+ * A `SubgraphRepository` holding the subgraphs of one file. A subgraph
+ * requested from any other file is not found.
  */
-class InMemorySubgraphRepo implements SubgraphRepository {
-  constructor(
-    private readonly rows: {
-      fileSystemId: number;
-      sgkvs: Record<number, SgkvEntry[]>;
-    },
-  ) {}
-
-  async subgraphExists(
-    _systemId: number,
-    _fileSystemId: number,
-  ): Promise<boolean> {
-    throw new Error('subgraphExists not exercised by applyUcFilterToSg tests');
-  }
-
-  async createSubgraph(): Promise<void> {
-    throw new Error('createSubgraph not exercised by applyUcFilterToSg tests');
-  }
-
-  async getSgkvs(
-    fileSystemId: number,
-    sgSystemIds: readonly number[],
-  ): Promise<SgkvEntry[]> {
-    if (fileSystemId !== this.rows.fileSystemId) return [];
-    const out: SgkvEntry[] = [];
-    for (const sgId of sgSystemIds) {
-      out.push(...(this.rows.sgkvs[sgId] ?? []));
-    }
-    return out;
-  }
-
-  async findChangedInSession(): Promise<SessionChanged<Subgraph>> {
-    throw new Error(
-      'findChangedInSession not exercised by applyUcFilterToSg tests',
-    );
-  }
+function inMemorySubgraphRepo(rows: {
+  fileSystemId: number;
+  sgkvs: Record<number, SgkvEntry[]>;
+}): SubgraphRepository {
+  return {
+    findSubgraphs: async (fileSystemId: number, ids: readonly number[]) =>
+      fileSystemId === rows.fileSystemId
+        ? subgraphsWithSgkvs(ids, Object.values(rows.sgkvs).flat())
+        : batchOf(
+            ENTITY_TYPE.Subgraph,
+            [],
+            ids.map(systemId => ({
+              systemId,
+              reason: FAILED_ENTITY_REASON.NotFound,
+            })),
+          ),
+  } as unknown as SubgraphRepository;
 }
 
 describe('applyUcFilterToSg', () => {
@@ -72,7 +52,7 @@ describe('applyUcFilterToSg', () => {
       [K1, new Set([V10])],
       [K2, new Set([V20])],
     ]);
-    const repo = new InMemorySubgraphRepo({
+    const repo = inMemorySubgraphRepo({
       fileSystemId: 10,
       sgkvs: {
         0xa1: [
@@ -104,7 +84,7 @@ describe('applyUcFilterToSg', () => {
 
   it('drops SGKVs where every pair is filtered out', async () => {
     const filter: UcFilter = new Map([[K1, new Set([V10])]]);
-    const repo = new InMemorySubgraphRepo({
+    const repo = inMemorySubgraphRepo({
       fileSystemId: 10,
       sgkvs: {
         0xa1: [
@@ -121,13 +101,13 @@ describe('applyUcFilterToSg', () => {
 
   it('returns [] when the SG has no SGKVs on the given file', async () => {
     const filter: UcFilter = new Map([[K1, new Set([V10])]]);
-    const repo = new InMemorySubgraphRepo({fileSystemId: 10, sgkvs: {}});
+    const repo = inMemorySubgraphRepo({fileSystemId: 10, sgkvs: {}});
     expect(await applyUcFilterToSg(10, 0xa1, filter, repo)).toEqual([]);
   });
 
-  it('respects fileSystemId scope', async () => {
+  it('throws when the SG is not on the given file', async () => {
     const filter: UcFilter = new Map([[K1, new Set([V10])]]);
-    const repo = new InMemorySubgraphRepo({
+    const repo = inMemorySubgraphRepo({
       fileSystemId: 10,
       sgkvs: {
         0xa1: [
@@ -139,12 +119,14 @@ describe('applyUcFilterToSg', () => {
         ],
       },
     });
-    expect(await applyUcFilterToSg(999, 0xa1, filter, repo)).toEqual([]);
+    await expect(applyUcFilterToSg(999, 0xa1, filter, repo)).rejects.toThrow(
+      ResourceNotFoundException,
+    );
   });
 
   it('is stateless — repeated calls return equivalent results', async () => {
     const filter: UcFilter = new Map([[K1, new Set([V10])]]);
-    const repo = new InMemorySubgraphRepo({
+    const repo = inMemorySubgraphRepo({
       fileSystemId: 10,
       sgkvs: {
         0xa1: [

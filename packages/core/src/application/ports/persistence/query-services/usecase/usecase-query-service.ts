@@ -11,6 +11,7 @@ import type {UsecaseChangeDetails} from './query-models/usecase-change-details-r
 import type {UseCaseReadModel} from './query-models/usecase-read-model.js';
 import type {UsecaseFilteredTopologyData} from '../../../../services/subsystem-filtered-gkv-service.js';
 import type {UsecaseChangeDescriptor} from '../../../../usecase-designer/use-case-creator/contracts/routing-state.js';
+import type {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
 
 /** Narrows `findUseCaseReadModels`. Both fields combine with AND. */
 export interface UseCaseReadModelQuery {
@@ -35,7 +36,7 @@ export interface UseCaseQueryService {
   findUseCaseReadModels(
     fileSystemId: number,
     query?: UseCaseReadModelQuery,
-  ): Promise<BatchRead<UseCaseReadModel>>;
+  ): Promise<BatchRead<UseCaseReadModel, typeof ENTITY_TYPE.UseCase>>;
   /**
    * Builds committed-versus-session snapshots for the emitted changes, one
    * per descriptor in order. All or nothing: throws if any snapshot cannot
@@ -62,7 +63,7 @@ export interface UseCaseQueryService {
     fileSystemId: number,
     ucSystemIds: readonly number[],
     options?: ReadOptions,
-  ): Promise<BatchRead<UseCase>>;
+  ): Promise<BatchRead<UseCase, typeof ENTITY_TYPE.UseCase>>;
 
   /**
    * Returns UCs on `fileSystemId` that contain at least one of the given

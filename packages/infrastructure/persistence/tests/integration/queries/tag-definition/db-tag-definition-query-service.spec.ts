@@ -64,6 +64,7 @@ import {
   SESSION_MODE,
   SESSION_STATUS,
 } from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
+import {ENTITY_TYPE} from '@arc/core';
 
 describe('DbTagDefinitionQueryService Integration Tests', () => {
   let dataSource: DataSource;
@@ -241,6 +242,7 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
     const result = await service.findTagDefinitions(fileSystemId, [999]);
 
     expect(result).toEqual({
+      entityType: ENTITY_TYPE.TagDefinition,
       items: [],
       failed: [{systemId: 999, reason: FAILED_ENTITY_REASON.NotFound}],
     });

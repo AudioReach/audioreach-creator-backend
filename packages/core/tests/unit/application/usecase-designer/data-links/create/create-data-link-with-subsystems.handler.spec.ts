@@ -80,11 +80,19 @@ function makeSubsystemRepo(subsystemIds: number[] = []): SubsystemRepository {
   } as unknown as SubsystemRepository;
 }
 
+/** The use cases holding the given subgraphs, by their subgraph IDs. */
+type UseCasesOf = (subgraphIds: number[]) => {subgraphSystemIds: number[]}[];
+
+const oneUseCaseHoldingAll: UseCasesOf = subgraphIds => [
+  {subgraphSystemIds: subgraphIds},
+];
+
 function makeUow(
   overrides: {
     dlEditRepo?: DataLinkRepository;
     subsystemRepo?: SubsystemRepository;
     moduleRepo?: ModuleRepository;
+    useCases?: UseCasesOf;
   } = {},
 ): UnitOfWork {
   return {
@@ -112,8 +120,14 @@ function makeUow(
       .fn()
       .mockReturnValue(overrides.dlEditRepo ?? makeDlEditRepo()),
     getControlLinkRepository: jest.fn(),
-    getSubgraphRepository: jest.fn().mockReturnValue({
-      getUsecaseSystemIdForSubgraph: jest.fn().mockResolvedValue(100),
+    getUsecaseRepository: jest.fn().mockReturnValue({
+      findUseCasesBySubgraphs: jest
+        .fn()
+        .mockImplementation((_fs: number, subgraphIds: number[]) =>
+          Promise.resolve(
+            (overrides.useCases ?? oneUseCaseHoldingAll)(subgraphIds),
+          ),
+        ),
     }),
     getSubsystemRepository: jest
       .fn()
@@ -172,6 +186,53 @@ describe('CreateDataLinkWithSubsystemsHandler', () => {
         ),
       ),
     ).rejects.toThrow('same usecase');
+  });
+
+  it('throws 422 when any one of several use cases holds both endpoints', async () => {
+    const handler = new CreateDataLinkWithSubsystemsHandler(
+      makeUow({
+        useCases: ([src, dst]) => [
+          {subgraphSystemIds: [src]},
+          {subgraphSystemIds: [dst]},
+          {subgraphSystemIds: [src, dst]},
+        ],
+      }),
+      makeIdGen(),
+    );
+    await expect(
+      handler.handle(
+        new CreateDataLinkWithSubsystemsCommand(
+          DATA_LINK_TYPE.InterUsecase,
+          MOD_A,
+          PORT_SRC,
+          MOD_B,
+          PORT_DST,
+        ),
+      ),
+    ).rejects.toThrow('same usecase');
+  });
+
+  it('accepts INTER_USECASE when no single use case holds both endpoints', async () => {
+    const handler = new CreateDataLinkWithSubsystemsHandler(
+      makeUow({
+        useCases: ([src, dst]) => [
+          {subgraphSystemIds: [src]},
+          {subgraphSystemIds: [dst]},
+        ],
+      }),
+      makeIdGen(),
+    );
+    await expect(
+      handler.handle(
+        new CreateDataLinkWithSubsystemsCommand(
+          DATA_LINK_TYPE.InterUsecase,
+          MOD_A,
+          PORT_SRC,
+          MOD_B,
+          PORT_DST,
+        ),
+      ),
+    ).resolves.toBeDefined();
   });
 
   // ── Branch A (both module endpoints, FR-DLS-10) ──────────────────────────

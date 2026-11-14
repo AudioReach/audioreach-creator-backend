@@ -4,7 +4,6 @@
  */
 
 import type {DataSource} from 'typeorm';
-import {RESULT_KIND} from '@arc/core';
 import {
   setupIntegrationTest,
   teardownIntegrationTest,
@@ -21,7 +20,6 @@ import {VcpmCkvFetcher} from '../../../../src/persistence-typeorm-sqllite/fetche
 import {VcpmParameterPayloadFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/vcpm-parameter-payload-fetcher.js';
 import {VcpmModuleParameterDefinitionFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/definitions/vcpm-module-definitions/vcpm-module-parameter-definition-fetcher.js';
 import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
-import {TypeOrmSessionRepository} from '../../../../src/persistence-typeorm-sqllite/repositories/session/typeorm-session.repository.js';
 import {
   ProjectSessionSchema,
   SESSION_MODE,
@@ -117,7 +115,7 @@ function makeService(ds: DataSource): {
   );
   return {
     service: new DbSubgraphQueryService(
-      new TypeOrmSessionRepository(ds.manager),
+      ds.manager,
       keyValueService,
       new SubgraphOverlayFetcher(
         ds.manager,
@@ -167,19 +165,15 @@ describe('DbSubgraphQueryService VCPM aggregate (integration)', () => {
 
   it('returns CKVs, links, and VCPM definitions for a subgraph summary', async () => {
     const getByAggregateIdSpy = jest.spyOn(editActionsSvc, 'getByAggregateId');
-    const result = await service.getVcpmAggregateBySubgraph(
-      SUBGRAPH_ID,
-      FILE_ID,
-    );
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    expect(result.data.ckvs).toHaveLength(1);
-    expect(result.data.ckvs[0].values[0].key.naturalId).toBe(1);
-    expect(result.data.parameterCkvLinks).toEqual([
+    const result = await service.findVcpmAggregate(FILE_ID, SUBGRAPH_ID);
+    expect(result.ckvs).toHaveLength(1);
+    expect(result.ckvs[0].values[0].key.naturalId).toBe(1);
+    expect(result.parameterCkvLinks).toEqual([
       {parameterSystemId: PARAM_DEF_ID, ckvSystemIds: [CKV_ID]},
     ]);
-    expect(result.data.payloads).toEqual([]);
-    expect(result.data.parameterDefinitions[0].systemId).toBe(PARAM_DEF_ID);
-    expect(result.data.parameterDefinitions[0].paramId).toBe(1);
+    expect(result.payloads).toEqual([]);
+    expect(result.parameterDefinitions[0].systemId).toBe(PARAM_DEF_ID);
+    expect(result.parameterDefinitions[0].paramId).toBe(1);
     expect(getByAggregateIdSpy).not.toHaveBeenCalled();
   });
 
@@ -187,7 +181,7 @@ describe('DbSubgraphQueryService VCPM aggregate (integration)', () => {
     await seedActiveSession(ds);
     const getByAggregateIdSpy = jest.spyOn(editActionsSvc, 'getByAggregateId');
 
-    await service.getVcpmAggregateBySubgraph(SUBGRAPH_ID, FILE_ID);
+    await service.findVcpmAggregate(FILE_ID, SUBGRAPH_ID);
 
     expect(getByAggregateIdSpy).toHaveBeenCalledTimes(1);
   });
@@ -202,19 +196,15 @@ describe('DbSubgraphQueryService VCPM aggregate (integration)', () => {
       'fetchParameterCkvLinksBySubgraph',
     );
 
-    const result = await service.getVcpmAggregateBySubgraph(
-      SUBGRAPH_ID,
-      FILE_ID,
-      {ckvSystemId: CKV_ID, paramSystemIds: [PARAM_DEF_ID]},
-    );
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    expect(result.data.ckvs.map(ckv => ckv.systemId)).toEqual([CKV_ID]);
-    expect(result.data.payloads).toHaveLength(1);
-    expect(result.data.payloads[0].payload).toEqual(
-      new Uint8Array([1, 2, 3, 4]),
-    );
-    expect(result.data.parameterCkvLinks).toEqual([]);
-    expect(result.data.parameterDefinitions).toHaveLength(1);
+    const result = await service.findVcpmAggregate(FILE_ID, SUBGRAPH_ID, {
+      ckvSystemId: CKV_ID,
+      paramSystemIds: [PARAM_DEF_ID],
+    });
+    expect(result.ckvs.map(ckv => ckv.systemId)).toEqual([CKV_ID]);
+    expect(result.payloads).toHaveLength(1);
+    expect(result.payloads[0].payload).toEqual(new Uint8Array([1, 2, 3, 4]));
+    expect(result.parameterCkvLinks).toEqual([]);
+    expect(result.parameterDefinitions).toHaveLength(1);
     expect(fetchLinksSpy).not.toHaveBeenCalled();
   });
 
@@ -222,7 +212,7 @@ describe('DbSubgraphQueryService VCPM aggregate (integration)', () => {
     await seedActiveSession(ds);
     const getByAggregateIdSpy = jest.spyOn(editActionsSvc, 'getByAggregateId');
 
-    await service.getVcpmAggregateBySubgraph(SUBGRAPH_ID, FILE_ID, {
+    await service.findVcpmAggregate(FILE_ID, SUBGRAPH_ID, {
       ckvSystemId: CKV_ID,
       paramSystemIds: [PARAM_DEF_ID],
     });
@@ -231,13 +221,10 @@ describe('DbSubgraphQueryService VCPM aggregate (integration)', () => {
   });
 
   it('returns an empty aggregate when the requested CKV is outside the subgraph', async () => {
-    const result = await service.getVcpmAggregateBySubgraph(
-      SUBGRAPH_ID,
-      FILE_ID,
-      {ckvSystemId: 9999},
-    );
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    expect(result.data).toEqual({
+    const result = await service.findVcpmAggregate(FILE_ID, SUBGRAPH_ID, {
+      ckvSystemId: 9999,
+    });
+    expect(result).toEqual({
       ckvs: [],
       parameterCkvLinks: [],
       payloads: [],

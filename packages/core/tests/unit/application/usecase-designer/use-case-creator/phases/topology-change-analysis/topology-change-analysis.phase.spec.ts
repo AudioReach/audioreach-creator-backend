@@ -29,6 +29,8 @@ import type {
   SgkvEntry,
   SubgraphRepository,
 } from '../../../../../../../src/application/ports/persistence/repositories/subgraph/subgraph.repository.js';
+import {CONFIGURATION_INCLUDES} from '../../../../../../../src/application/ports/persistence/query-services/configuration-includes.js';
+import {findSubgraphsWithSgkvs} from '../../helpers/routing-reads.js';
 
 type UsecaseType = 'EC' | 'ISLAND' | 'LINKED';
 
@@ -194,9 +196,9 @@ function createFixture(options: FixtureOptions = {}) {
   const findAllUseCases = jest.fn(() => {
     throw new Error('Phase 2 must not read the usecase repository');
   });
-  const getSgkvs = jest.fn().mockResolvedValue([...(options.sgkvs ?? [])]);
-  const subgraphRepository = {getSgkvs} as unknown as SubgraphRepository;
-  return {context, subgraphRepository, findAllUseCases, getSgkvs};
+  const findSubgraphs = jest.fn(findSubgraphsWithSgkvs(options.sgkvs));
+  const subgraphRepository = {findSubgraphs} as unknown as SubgraphRepository;
+  return {context, subgraphRepository, findAllUseCases, findSubgraphs};
 }
 
 function runAnalysis(
@@ -1275,7 +1277,11 @@ describe('TopologyChangeAnalysisPhase', () => {
     await runAnalysis(service, fixture);
 
     expect(fixture.findAllUseCases).not.toHaveBeenCalled();
-    expect(fixture.getSgkvs).toHaveBeenCalledWith(1, [2, 3]);
+    expect(fixture.findSubgraphs).toHaveBeenCalledWith(
+      1,
+      [2, 3],
+      CONFIGURATION_INCLUDES.FullDetails,
+    );
     expect(fixture.context.topologyChangeAnalysis?.decisions[0]).toEqual({
       kind: USECASE_TOPOLOGY_DECISION_KIND.DeleteOrReconstruct,
       usecase: currentUsecase,
@@ -1328,7 +1334,11 @@ describe('TopologyChangeAnalysisPhase', () => {
 
     await runAnalysis(service, fixture);
 
-    expect(fixture.getSgkvs).toHaveBeenCalledWith(1, [2, 4]);
+    expect(fixture.findSubgraphs).toHaveBeenCalledWith(
+      1,
+      [2, 4],
+      CONFIGURATION_INCLUDES.FullDetails,
+    );
     expect(fixture.context.topologyChangeAnalysis?.decisions[0]).toEqual(
       expect.objectContaining({
         reconstructionPaths: [
@@ -1388,7 +1398,11 @@ describe('TopologyChangeAnalysisPhase', () => {
     await runAnalysis(service, fixture);
 
     expect(fixture.findAllUseCases).not.toHaveBeenCalled();
-    expect(fixture.getSgkvs).toHaveBeenCalledWith(1, [2, 3]);
+    expect(fixture.findSubgraphs).toHaveBeenCalledWith(
+      1,
+      [2, 3],
+      CONFIGURATION_INCLUDES.FullDetails,
+    );
     expect(fixture.context.topologyChangeAnalysis?.decisions[0]).toEqual(
       expect.objectContaining({
         kind: USECASE_TOPOLOGY_DECISION_KIND.DeleteOrReconstruct,
@@ -1456,8 +1470,12 @@ describe('TopologyChangeAnalysisPhase', () => {
 
     await runAnalysis(service, fixture);
 
-    expect(fixture.getSgkvs).toHaveBeenCalledTimes(1);
-    expect(fixture.getSgkvs).toHaveBeenCalledWith(1, [2, 3]);
+    expect(fixture.findSubgraphs).toHaveBeenCalledTimes(1);
+    expect(fixture.findSubgraphs).toHaveBeenCalledWith(
+      1,
+      [2, 3],
+      CONFIGURATION_INCLUDES.FullDetails,
+    );
     expect(fixture.context.topologyChangeAnalysis?.decisions[0]).toEqual({
       kind: USECASE_TOPOLOGY_DECISION_KIND.DeleteOrReconstruct,
       usecase: legacyUsecase,
@@ -1495,7 +1513,7 @@ describe('TopologyChangeAnalysisPhase', () => {
 
     await runAnalysis(service, fixture);
 
-    expect(fixture.getSgkvs).not.toHaveBeenCalled();
+    expect(fixture.findSubgraphs).not.toHaveBeenCalled();
   });
 
   it('publishes one stable decision per impacted committed UC across every outcome', async () => {
@@ -1652,13 +1670,13 @@ describe('TopologyChangeAnalysisPhase', () => {
       routableDataLinks: [dataLink(1102, 1, 3), dataLink(1103, 3, 2)],
       mdfSubgraphIds: [3],
     });
-    fixture.getSgkvs.mockImplementation(() => {
+    fixture.findSubgraphs.mockImplementation(() => {
       throw new Error('non-EC Phase 2 must not read SGKVs');
     });
 
     const result = await runAnalysis(service, fixture);
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
-    expect(fixture.getSgkvs).not.toHaveBeenCalled();
+    expect(fixture.findSubgraphs).not.toHaveBeenCalled();
   });
 });

@@ -42,6 +42,7 @@ import {
   afterAll,
   beforeEach,
 } from '@jest/globals';
+import {ENTITY_TYPE} from '@arc/core';
 
 const FILE_ID = 100;
 const USECASE_ID = 900;
@@ -79,6 +80,7 @@ describe('DbUseCaseQueryService.findUseCaseChangeDetails (integration)', () => {
         findKeyValuePairs: async (_fileId: number, valueIds: number[]) => {
           const found = valueIds.includes(700) && knownGkvValueIds.has(700);
           return {
+            entityType: ENTITY_TYPE.ValueDefinition,
             items: found
               ? [
                   {

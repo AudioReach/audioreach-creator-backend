@@ -22,6 +22,7 @@ import {
 } from '../../../../../../src/application/shared/result/result.js';
 import {DATA_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
 import {PORT_IO_TYPE} from '../../../../../../src/domain/entities/common/enums/port-io-type.js';
+import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
 
 // =============================================================================
 // Fixed IDs — mirrors the build-subsystem-tree.spec.ts topology.
@@ -231,7 +232,7 @@ function makeServices(overrides: ServiceOverrides = {}): QueryServices {
     useCaseQueryService: {
       findUseCaseReadModels: jest
         .fn()
-        .mockResolvedValue({items: usecases, failed: failedUsecases}),
+        .mockResolvedValue({entityType: ENTITY_TYPE.UseCase, items: usecases, failed: failedUsecases}),
     },
     spfModuleQueryService: {
       findByUsecaseIds: jest.fn().mockResolvedValue(Result.ok(modules)),

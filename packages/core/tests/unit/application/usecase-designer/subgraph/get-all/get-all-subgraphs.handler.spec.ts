@@ -9,10 +9,11 @@ import {GetAllSubgraphsQuery} from '../../../../../../src/application/usecase-de
 import type {QueryServices} from '../../../../../../src/application/ports/persistence/query-services/query-services.js';
 import type {SubgraphReadModel} from '../../../../../../src/application/ports/persistence/query-services/subgraph/subgraph-read-model.js';
 import {CONFIGURATION_INCLUDES} from '../../../../../../src/application/ports/persistence/query-services/configuration-includes.js';
-import {
-  Result,
-  RESULT_KIND,
-} from '../../../../../../src/application/shared/result/result.js';
+import {RESULT_KIND} from '../../../../../../src/application/shared/result/result.js';
+import {FAILED_ENTITY_REASON} from '../../../../../../src/application/ports/persistence/batch-read.js';
+import {ISSUE_CODE} from '../../../../../../src/shared/issues/operational-codes.js';
+import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
+import {batchOf} from '../../../../../helpers/index.js';
 
 const FILE_SYSTEM_ID = 42;
 
@@ -43,17 +44,20 @@ const readModels: SubgraphReadModel[] = [
   },
 ];
 
+type SubgraphBatch = Awaited<
+  ReturnType<QueryServices['subgraphQueryService']['findSubgraphs']>
+>;
+
 function makeServices(
-  result: Awaited<
-    ReturnType<QueryServices['subgraphQueryService']['getAllSubgraphs']>
-  > = Result.ok(readModels),
+  batch: SubgraphBatch = batchOf(ENTITY_TYPE.Subgraph, readModels),
 ): QueryServices {
   return {
     projectQueryService: {
       getFileIdByProjectId: jest.fn().mockResolvedValue(FILE_SYSTEM_ID),
     },
     subgraphQueryService: {
-      getAllSubgraphs: jest.fn().mockResolvedValue(result),
+      findAllSubgraphs: jest.fn().mockResolvedValue(batch),
+      findSubgraphs: jest.fn().mockResolvedValue(batch),
     },
   } as unknown as QueryServices;
 }
@@ -71,10 +75,9 @@ describe('GetAllSubgraphsHandler', () => {
     expect(
       services.projectQueryService.getFileIdByProjectId,
     ).toHaveBeenCalledWith(7);
-    expect(services.subgraphQueryService.getAllSubgraphs).toHaveBeenCalledWith(
+    expect(services.subgraphQueryService.findAllSubgraphs).toHaveBeenCalledWith(
       FILE_SYSTEM_ID,
       CONFIGURATION_INCLUDES.FullDetails,
-      undefined,
     );
     expect(result.data).toEqual([
       {
@@ -104,36 +107,81 @@ describe('GetAllSubgraphsHandler', () => {
     ]);
   });
 
-  it('forwards requested subgraph system IDs to the persistence service', async () => {
-    const services = makeServices(Result.ok([readModels[1]]));
+  it('loads only the requested subgraphs', async () => {
+    const services = makeServices(
+      batchOf(ENTITY_TYPE.Subgraph, [readModels[1]]),
+    );
     const result = await new GetAllSubgraphsHandler(services).handle(
-      new GetAllSubgraphsQuery(7, 'client-1', [20, 999]),
+      new GetAllSubgraphsQuery(7, 'client-1', [20]),
     );
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0].systemId).toBe('20');
-    expect(services.subgraphQueryService.getAllSubgraphs).toHaveBeenCalledWith(
+    expect(result.data.map(dto => dto.systemId)).toEqual(['20']);
+    expect(services.subgraphQueryService.findSubgraphs).toHaveBeenCalledWith(
       FILE_SYSTEM_ID,
+      [20],
       CONFIGURATION_INCLUDES.FullDetails,
-      [20, 999],
     );
   });
 
-  it('propagates failure results from the subgraph query service', async () => {
+  it('returns the loaded subgraphs with an issue for each missing one', async () => {
     const services = makeServices(
-      Result.fail({
-        code: 'DB_QUERY_FAILED',
-        message: 'failed',
-        severity: 'Error' as any,
-      }),
+      batchOf(
+        ENTITY_TYPE.Subgraph,
+        [readModels[1]],
+        [{systemId: 999, reason: FAILED_ENTITY_REASON.NotFound}],
+      ),
+    );
+    const result = await new GetAllSubgraphsHandler(services).handle(
+      new GetAllSubgraphsQuery(7, 'client-1', [20, 999]),
     );
 
+    expect(result.kind).toBe(RESULT_KIND.Partial);
+    if (result.kind !== RESULT_KIND.Partial) return;
+    expect(result.data.map(dto => dto.systemId)).toEqual(['20']);
+    expect(result.issues.map(issue => issue.code)).toEqual([
+      ISSUE_CODE.ENTITY_NOT_FOUND,
+    ]);
+  });
+
+  it('names a subgraph skipped for an unresolved key value', async () => {
+    const services = makeServices(
+      batchOf(
+        ENTITY_TYPE.Subgraph,
+        [readModels[0]],
+        [
+          {
+            systemId: 20,
+            reason: FAILED_ENTITY_REASON.UnresolvedReference,
+            identity: {name: 'SG A', naturalId: 200},
+            missingRef: {entityType: ENTITY_TYPE.ValueDefinition, systemId: 50},
+          },
+        ],
+      ),
+    );
     const result = await new GetAllSubgraphsHandler(services).handle(
       new GetAllSubgraphsQuery(7, 'client-1'),
     );
 
-    expect(result.kind).toBe(RESULT_KIND.Fail);
+    expect(result.kind).toBe(RESULT_KIND.Partial);
+    if (result.kind !== RESULT_KIND.Partial) return;
+    expect(result.data.map(dto => dto.systemId)).toEqual(['10']);
+    expect(result.issues).toHaveLength(1);
+    expect(result.issues[0].code).toBe(ISSUE_CODE.ENTITY_UNRESOLVED_REFERENCE);
+    expect(result.issues[0].message).toContain("Subgraph 'SG A'");
+  });
+
+  it('propagates infrastructure errors from the subgraph query service', async () => {
+    const services = makeServices();
+    jest
+      .mocked(services.subgraphQueryService.findAllSubgraphs)
+      .mockRejectedValue(new Error('db down'));
+
+    await expect(
+      new GetAllSubgraphsHandler(services).handle(
+        new GetAllSubgraphsQuery(7, 'client-1'),
+      ),
+    ).rejects.toThrow('db down');
   });
 });

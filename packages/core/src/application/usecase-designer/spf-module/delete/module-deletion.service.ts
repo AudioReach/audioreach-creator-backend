@@ -4,6 +4,7 @@
  */
 
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
+import {requireOne} from '../../../shared/result/require-one.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
 import {DomainRuleViolationException} from '../../../../shared/exceptions/domain-rule-violation.exception.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
@@ -97,17 +98,12 @@ export class ModuleDeletionService {
       );
     }
 
-    const subgraphs = await this.uow
-      .getSubgraphRepository()
-      .getAggregates([module.subgraphSystemId], fileSystemId);
-    const subgraphRepo = subgraphs.get(module.subgraphSystemId);
-    if (!subgraphRepo) {
-      throw new ResourceNotFoundException(
-        `Subgraph ${module.subgraphSystemId} was not found.`,
-        [IssueFactory.notFound(ENTITY_TYPE.Subgraph, module.subgraphSystemId)],
-      );
-    }
-    if (subgraphRepo.isImported) {
+    const subgraph = requireOne(
+      await this.uow
+        .getSubgraphRepository()
+        .findSubgraphAggregates(fileSystemId, [module.subgraphSystemId]),
+    );
+    if (subgraph.isImported) {
       throw new DomainRuleViolationException([
         IssueFactory.moduleInImportedSubgraph(moduleSystemId),
       ]);

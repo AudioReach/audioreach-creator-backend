@@ -3,19 +3,20 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {
-  UnitOfWork,
-  IdGenerationPort,
-  NaturalIdGenerationPort,
-} from '@arc/core';
-import {ResourceNotFoundException, NaturalIdType} from '@arc/core';
+import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
+import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
+import type {NaturalIdGenerationPort} from '../../../ports/id-generation/natural-id-generation.port.js';
+import {NaturalIdType} from '../../../../domain/services/natural-id-generator/natural-id-type.js';
+import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
+import {requireOne} from '../../../shared/result/require-one.js';
 import {SpfModule} from '../../../../domain/entities/usecase-data/module/spf-module.js';
 import {DataPort} from '../../../../domain/entities/usecase-data/node/entities/data-port.js';
 import {ControlPort} from '../../../../domain/entities/usecase-data/node/entities/control-port.js';
 import {buildSubgraphWithDefaults} from '../../subgraph/build-subgraph-with-defaults.js';
 import {buildContainerWithDefaults} from '../../container/build-container-with-defaults.js';
 import type {CreateModuleCommand} from './create-module.command.js';
+import {CONFIGURATION_INCLUDES} from '../../../ports/persistence/query-services/configuration-includes.js';
 
 export class CreateModuleHandler implements CommandHandler<
   CreateModuleCommand,
@@ -181,15 +182,13 @@ export class CreateModuleHandler implements CommandHandler<
       await subgraphRepo.createSubgraph(subgraph);
       return subgraphSystemId;
     }
-    const found = await subgraphRepo.subgraphExists(
-      command.subgraphSystemId,
-      fileSystemId,
+    requireOne(
+      await subgraphRepo.findSubgraphs(
+        fileSystemId,
+        [command.subgraphSystemId],
+        CONFIGURATION_INCLUDES.Summary,
+      ),
     );
-    if (!found) {
-      throw new ResourceNotFoundException(
-        `Subgraph ${command.subgraphSystemId} not found.`,
-      );
-    }
     return command.subgraphSystemId;
   }
 

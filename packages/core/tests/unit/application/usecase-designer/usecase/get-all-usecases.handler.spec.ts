@@ -13,6 +13,7 @@ import {
 import {USECASE_TYPE} from '../../../../../src/domain/entities/usecase-data/usecase/usecase-type.js';
 import type {QueryServices} from '../../../../../src/application/ports/persistence/query-services/query-services.js';
 import {UseCaseReadModel} from '../../../../../src/application/ports/persistence/query-services/usecase/query-models/usecase-read-model.js';
+import {ENTITY_TYPE} from '../../../../../src/shared/entity-type.js';
 
 describe('GetAllUseCasesHandler', () => {
   function buildServices(useCases: UseCaseReadModel[] = []) {
@@ -23,7 +24,7 @@ describe('GetAllUseCasesHandler', () => {
       useCaseQueryService: {
         findUseCaseReadModels: jest
           .fn()
-          .mockResolvedValue({items: useCases, failed: []}),
+          .mockResolvedValue({entityType: ENTITY_TYPE.UseCase, items: useCases, failed: []}),
       },
     } as unknown as jest.Mocked<QueryServices>;
   }
@@ -31,6 +32,7 @@ describe('GetAllUseCasesHandler', () => {
   it('returns the loaded use cases with an issue per use case that could not be resolved', async () => {
     const qs = buildServices([new UseCaseReadModel(7, [])]);
     qs.useCaseQueryService.findUseCaseReadModels.mockResolvedValue({
+      entityType: ENTITY_TYPE.UseCase,
       items: [new UseCaseReadModel(7, [])],
       failed: [
         {

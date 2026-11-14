@@ -15,6 +15,7 @@ import {
 } from '../../../../domain/entities/definitions/subgraph/subgraph-ids.js';
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
+import {requireOne} from '../../../shared/result/require-one.js';
 import type {SetSubgraphVsidCommand} from './set-subgraph-vsid.command.js';
 import type {VsidUpdateDto} from '../dto/subgraph-write-result-types.js';
 import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/subgraph.js';
@@ -34,16 +35,11 @@ export class SetSubgraphVsidHandler implements CommandHandler<
     const subgraphRepository = this.uow.getSubgraphRepository();
     const usecaseRepository = this.uow.getUsecaseRepository();
 
-    const subgraphs = await subgraphRepository.getAggregates(
-      [command.subgraphSystemId],
-      fileSystemId,
+    const subgraph = requireOne(
+      await subgraphRepository.findSubgraphAggregates(fileSystemId, [
+        command.subgraphSystemId,
+      ]),
     );
-    const subgraph = subgraphs.get(command.subgraphSystemId);
-    if (!subgraph) {
-      throw new ResourceNotFoundException(
-        `Subgraph ${command.subgraphSystemId} not found`,
-      );
-    }
 
     const definitions =
       await subgraphRepository.getPropertyDefinitions(fileSystemId);
@@ -134,15 +130,12 @@ export class SetSubgraphVsidHandler implements CommandHandler<
 
     // Pass 2: batch-fetch properties for linked subgraphs only (startId already fetched)
     const linkedIds = [...reachableIds].filter(id => id !== startId);
-    const subgraphMap =
-      linkedIds.length > 0
-        ? await subgraphRepository.getAggregates(linkedIds, fileSystemId)
-        : new Map<number, Subgraph>();
+    const {items: linkedSubgraphs} =
+      await subgraphRepository.findSubgraphAggregates(fileSystemId, linkedIds);
 
     // Pass 3: filter — determine which IDs need a VSID write
     const toWrite = new Set<number>([startId]);
-    for (const [id, sg] of subgraphMap) {
-      if (id === startId) continue;
+    for (const sg of linkedSubgraphs) {
       if (
         this.canUpdateVsid(
           sg,
@@ -151,7 +144,7 @@ export class SetSubgraphVsidHandler implements CommandHandler<
           requestedVsid,
         )
       ) {
-        toWrite.add(id);
+        toWrite.add(sg.systemId);
       }
     }
     return toWrite;

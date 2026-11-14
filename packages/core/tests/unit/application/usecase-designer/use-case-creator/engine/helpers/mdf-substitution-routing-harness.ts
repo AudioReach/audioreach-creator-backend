@@ -5,7 +5,6 @@
 
 import {Result} from '../../../../../../../src/application/shared/result/result.js';
 import type {ActiveManualUsecaseEdit} from '../../../../../../../src/application/ports/persistence/repositories/usecase/usecase.repository.js';
-import type {KvPair} from '../../../../../../../src/application/ports/persistence/repositories/shared/kv-pair.js';
 import {RoutingContext} from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
 import {
   createAutoRoutingInput,
@@ -44,6 +43,10 @@ import {Subgraph} from '../../../../../../../src/domain/entities/usecase-data/su
 import {DataLink} from '../../../../../../../src/domain/entities/usecase-data/links/data-link.js';
 import {DATA_LINK_TYPE} from '../../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
 import {UseCase} from '../../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
+import {
+  keyValuePairsOf,
+  subgraphsWithSgkvs,
+} from '../../helpers/routing-reads.js';
 
 export interface CommittedUsecaseTopology {
   readonly systemId: number;
@@ -483,23 +486,26 @@ export function createMdfSubstitutionRoutingHarness(
     item => item.subgraph.systemId,
   );
   const subgraphRepository = {
-    getSgkvs: async (_fileSystemId: number, ids: readonly number[]) => {
+    findSubgraphs: async (_fileSystemId: number, ids: readonly number[]) => {
       if (ids.length !== allRoutingSubgraphIds.length)
         repositoryReadCounts.legacyEcSgkv += 1;
-      return ids.map(sgSystemId => ({
-        sgSystemId,
-        sgkvSystemId: 0,
-        keyValues: [] as KvPair[],
-      }));
+      return subgraphsWithSgkvs(
+        ids,
+        ids.map(sgSystemId => ({sgSystemId, sgkvSystemId: 0, keyValues: []})),
+      );
     },
-    resolveKeyValues: async (
+  };
+  const keyValueDefinitionRepository = {
+    findKeyValuePairs: async (
       _fileSystemId: number,
       valueSystemIds: readonly number[],
     ) =>
-      valueSystemIds.map(valueDefSystemId => ({
-        keyDefSystemId: 1,
-        valueDefSystemId,
-      })),
+      keyValuePairsOf(
+        valueSystemIds.map(valueDefSystemId => ({
+          keyDefSystemId: 1,
+          valueDefSystemId,
+        })),
+      ),
   };
   const subsystemRepository = {
     findOrphanSubsystemSystemIds: async () => [],
@@ -542,6 +548,7 @@ export function createMdfSubstitutionRoutingHarness(
   };
   const unitOfWork = {
     getSubgraphRepository: () => subgraphRepository,
+    getKeyValueDefinitionRepository: () => keyValueDefinitionRepository,
     getSubsystemRepository: () => subsystemRepository,
     getUsecaseRepository: () => usecaseRepository,
     getWriteContext: () => ({groupId: 'pure-mdf-group'}),

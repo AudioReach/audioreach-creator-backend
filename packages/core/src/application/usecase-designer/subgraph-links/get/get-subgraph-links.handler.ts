@@ -7,7 +7,6 @@ import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handl
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import {Result, RESULT_KIND} from '../../../shared/result/result.js';
 import {failedToIssues} from '../../../shared/result/failed-to-issues.js';
-import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
 import type {SubgraphLinksDto} from '../dto/subgraph-links-dto.js';
 import {
@@ -76,10 +75,12 @@ export class GetSubgraphLinksHandler implements QueryHandler<
         fileSystemId,
       );
     const referencedIds = new Set(usecaseIds);
-    const usecaseIssues = failedToIssues(
-      ENTITY_TYPE.UseCase,
-      usecases.failed.filter(entity => referencedIds.has(entity.systemId)),
-    );
+    const usecaseIssues = failedToIssues({
+      ...usecases,
+      failed: usecases.failed.filter(entity =>
+        referencedIds.has(entity.systemId),
+      ),
+    });
 
     const usecasesById = new Map(
       usecases.items.map(usecase => [usecase.systemId, mapUseCase(usecase)]),

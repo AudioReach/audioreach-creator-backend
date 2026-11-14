@@ -5,14 +5,13 @@
 
 import {GetVcpmCkvHandler} from '../../../../src/application/usecase-designer/subgraph/get-vcpm-ckv/get-vcpm-ckv.handler.js';
 import {GetVcpmCkvQuery} from '../../../../src/application/usecase-designer/subgraph/get-vcpm-ckv/get-vcpm-ckv.query.js';
-import {
-  Result,
-  RESULT_KIND,
-} from '../../../../src/application/shared/result/result.js';
+import {RESULT_KIND} from '../../../../src/application/shared/result/result.js';
 import {ResourceNotFoundException} from '../../../../src/shared/exceptions/resource-not-found.exception.js';
 import {ParameterDefinitionMissingError} from '../../../../src/shared/errors/parameter.errors.js';
 import type {QueryServices} from '../../../../src/application/ports/persistence/query-services/query-services.js';
 import {describe, it, expect, jest} from '@jest/globals';
+import {ENTITY_TYPE} from '../../../../src/shared/entity-type.js';
+import {batchOf, notFoundBatch} from '../../../helpers/index.js';
 
 const FILE_ID = 10;
 const SUBGRAPH_ID = 1;
@@ -45,17 +44,25 @@ function makeQuery() {
 
 function makeServices(
   aggregate = MOCK_AGGREGATE,
-  subgraphResult = Result.ok({systemId: SUBGRAPH_ID}),
+  subgraph: 'found' | 'missing' | Error = 'found',
 ): QueryServices {
+  const findSubgraphs =
+    subgraph instanceof Error
+      ? jest.fn().mockRejectedValue(subgraph)
+      : jest
+          .fn()
+          .mockResolvedValue(
+            subgraph === 'found'
+              ? batchOf(ENTITY_TYPE.Subgraph, [{systemId: SUBGRAPH_ID}])
+              : notFoundBatch(ENTITY_TYPE.Subgraph, SUBGRAPH_ID),
+          );
   return {
     projectQueryService: {
       getFileIdByProjectId: jest.fn().mockResolvedValue(FILE_ID),
     },
     subgraphQueryService: {
-      findPropertyPayloads: jest.fn().mockResolvedValue(subgraphResult),
-      getVcpmAggregateBySubgraph: jest
-        .fn()
-        .mockResolvedValue(Result.ok(aggregate)),
+      findSubgraphs,
+      findVcpmAggregate: jest.fn().mockResolvedValue(aggregate),
     },
   } as unknown as QueryServices;
 }
@@ -63,23 +70,16 @@ function makeServices(
 describe('GetVcpmCkvHandler', () => {
   it('throws when the subgraph does not exist', async () => {
     const handler = new GetVcpmCkvHandler(
-      makeServices(MOCK_AGGREGATE, Result.ok(null)),
+      makeServices(MOCK_AGGREGATE, 'missing'),
     );
     await expect(handler.handle(makeQuery())).rejects.toThrow(
       ResourceNotFoundException,
     );
   });
 
-  it('does not map a subgraph query failure to ResourceNotFoundException', async () => {
+  it('does not map an infrastructure error to ResourceNotFoundException', async () => {
     const handler = new GetVcpmCkvHandler(
-      makeServices(
-        MOCK_AGGREGATE,
-        Result.fail({
-          code: 'INTERNAL_ERROR',
-          message: 'Database unavailable',
-          severity: 'ERROR',
-        }),
-      ),
+      makeServices(MOCK_AGGREGATE, new Error('Database unavailable')),
     );
 
     const error = await handler.handle(makeQuery()).catch(error => error);

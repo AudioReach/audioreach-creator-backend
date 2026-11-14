@@ -7,10 +7,11 @@ import type {BatchRead, FailedEntity, EntityType} from '@arc/core';
 import {FAILED_ENTITY_REASON} from '@arc/core';
 
 /**
- * Appends `NOT_FOUND` entries for every requested systemId that is neither
- * loaded nor already failed.
+ * Builds the `BatchRead` for `entityType`, appending `NOT_FOUND` entries
+ * for every requested systemId that is neither loaded nor already failed.
  */
-export function withNotFound<T, E extends EntityType = EntityType>(
+export function withNotFound<T, E extends EntityType>(
+  entityType: E,
   requestedIds: readonly number[],
   items: T[],
   getSystemId: (item: T) => number,
@@ -26,5 +27,5 @@ export function withNotFound<T, E extends EntityType = EntityType>(
       notFound.push({systemId: id, reason: FAILED_ENTITY_REASON.NotFound});
     }
   }
-  return {items, failed: [...failed, ...notFound]};
+  return {entityType, items, failed: [...failed, ...notFound]};
 }

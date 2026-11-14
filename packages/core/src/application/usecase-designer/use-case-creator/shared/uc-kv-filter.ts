@@ -9,10 +9,10 @@
  * No current production caller was found; the capability is retained for the
  * Phase 2/Phase 4 filtering contract and covered by `uc-kv-filter.spec.ts`.
  */
-import type {
-  SgkvEntry,
-  SubgraphRepository,
-} from '../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
+import type {SubgraphRepository} from '../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
+import {CONFIGURATION_INCLUDES} from '../../../ports/persistence/query-services/configuration-includes.js';
+import {requireAll} from '../../../shared/result/require-all.js';
+import {type SgkvEntry, toSgkvEntries} from './sgkv-entries.js';
 
 /**
  * UC-filter map: KeyDefSystemId → Set<ValueDefSystemId>.
@@ -36,7 +36,15 @@ export async function applyUcFilterToSg(
   ucFilter: UcFilter,
   subgraphRepo: SubgraphRepository,
 ): Promise<SgkvEntry[]> {
-  const all = await subgraphRepo.getSgkvs(fileSystemId, [sgSystemId]);
+  const all = toSgkvEntries(
+    requireAll(
+      await subgraphRepo.findSubgraphs(
+        fileSystemId,
+        [sgSystemId],
+        CONFIGURATION_INCLUDES.FullDetails,
+      ),
+    ),
+  );
   const result: SgkvEntry[] = [];
   for (const entry of all) {
     const retained = entry.keyValues.filter(kv => {

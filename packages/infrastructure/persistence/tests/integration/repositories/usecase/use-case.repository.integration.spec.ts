@@ -42,6 +42,7 @@ import {
   beforeEach,
   afterEach,
 } from '@jest/globals';
+import {ENTITY_TYPE} from '@arc/core';
 
 const FILE_ID = 100;
 const SG_ID_1 = 500;
@@ -202,6 +203,7 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
     it('returns [] when ucSystemIds is empty', async () => {
       const repo = makeRepo(qr.manager, sessionId);
       expect(await repo.findUseCases(FILE_ID, [])).toEqual({
+        entityType: ENTITY_TYPE.UseCase,
         items: [],
         failed: [],
       });
@@ -235,10 +237,12 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       await qr.commitTransaction();
 
       await expect(repo.findUseCases(FILE_ID, [9001])).resolves.toEqual({
+        entityType: ENTITY_TYPE.UseCase,
         items: [expect.objectContaining({systemId: 9001})],
         failed: [],
       });
       await expect(repo.findUseCases(FILE_ID, [9002])).resolves.toEqual({
+        entityType: ENTITY_TYPE.UseCase,
         items: [],
         failed: [{systemId: 9002, reason: FAILED_ENTITY_REASON.NotFound}],
       });
@@ -495,6 +499,7 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       await qr.rollbackTransaction();
 
       expect(result).toEqual({
+        entityType: ENTITY_TYPE.UseCase,
         items: [
           expect.objectContaining({systemId: 9001, alias: 'uncommitted'}),
         ],

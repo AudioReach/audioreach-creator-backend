@@ -33,6 +33,7 @@ export {TypeOrmModuleDefinitionRepository} from './repositories/module/module-de
 export {TypeOrmDataLinkRepository} from './repositories/data-link/data-link.repository.js';
 export {TypeOrmControlLinkRepository} from './repositories/control-link/control-link.repository.js';
 export {TypeOrmSubgraphRepository} from './repositories/subgraph/subgraph.repository.js';
+export {TypeOrmKeyValueDefinitionRepository} from './repositories/key-value/key-value-definition.repository.js';
 export {TypeOrmSubsystemRepository} from './repositories/subsystem/subsystem.repository.js';
 export {TypeOrmUsecaseRepository} from './repositories/usecase/use-case.repository.js';
 export {TypeOrmVcpmDefinitionRepository} from './repositories/vcpm-definition/vcpm-definition.repository.js';

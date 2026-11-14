@@ -5,6 +5,7 @@
 
 import {RESULT_KIND, Result} from '../../../shared/result/result.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
+import {requireOne} from '../../../shared/result/require-one.js';
 import {parseParameterData} from '../../shared/parse-elements.js';
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
@@ -25,24 +26,14 @@ export class GetSubgraphPropertyHandler implements QueryHandler<
         query.projectId,
       );
 
-    const payloadsResult =
-      await this.queryServices.subgraphQueryService.findPropertyPayloads(
-        query.subgraphSystemId,
+    const {properties} = requireOne(
+      await this.queryServices.subgraphQueryService.findSubgraphPropertyPayloads(
         fileSystemId,
-      );
-    if (payloadsResult.kind === RESULT_KIND.Fail) {
-      throw new Error(
-        payloadsResult.issues[0]?.message ??
-          'Failed to load subgraph properties',
-      );
-    }
-    if (payloadsResult.data === null) {
-      throw new ResourceNotFoundException(
-        `Subgraph ${query.subgraphSystemId} not found`,
-      );
-    }
+        [query.subgraphSystemId],
+      ),
+    );
 
-    const parameterPayload = payloadsResult.data.find(
+    const parameterPayload = properties.find(
       p => p.propertySystemId === query.propertySystemId,
     );
     if (!parameterPayload) {

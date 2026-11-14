@@ -9,6 +9,8 @@ import {CHANGE_OPERATION} from '../../../../../../src/application/shared/change-
 import {READ_MODE} from '../../../../../../src/application/ports/persistence/repositories/usecase/usecase.repository.js';
 import {emptyGraphEdits} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
 import {RoutingGraphSnapshotBuilder} from '../../../../../../src/application/usecase-designer/use-case-creator/services/routing-graph-snapshot-builder.js';
+import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
+import {batchOf} from '../../../../../helpers/index.js';
 
 function subgraph(systemId: number) {
   return {systemId} as never;
@@ -63,14 +65,8 @@ function createUow(options: {
   committedUsecases?: readonly unknown[];
   committedDataLinks?: readonly unknown[];
 }) {
-  const getAggregates = jest.fn(
-    async () =>
-      new Map(
-        options.subgraphs.map(value => {
-          const systemId = (value as {systemId: number}).systemId;
-          return [systemId, value];
-        }),
-      ),
+  const findSubgraphAggregates = jest.fn(async () =>
+    batchOf(ENTITY_TYPE.Subgraph, [...options.subgraphs]),
   );
   const findDataLinks = jest.fn(
     async (_fileId: number, opts?: {readMode?: string}) =>
@@ -84,7 +80,7 @@ function createUow(options: {
   ]);
   return {
     uow: {
-      getSubgraphRepository: () => ({getAggregates}),
+      getSubgraphRepository: () => ({findSubgraphAggregates}),
       getDataLinkRepository: () => ({
         findIntraUcLinksByFile: findDataLinks,
       }),
@@ -93,7 +89,7 @@ function createUow(options: {
       }),
       getUsecaseRepository: () => ({findAllUseCases}),
     },
-    getAggregates,
+    findSubgraphAggregates,
     findDataLinks,
     findControlLinks,
     findAllUseCases,
@@ -135,7 +131,7 @@ describe('RoutingGraphSnapshotBuilder', () => {
         ],
       }),
     );
-    expect(catalog.getAggregates).not.toHaveBeenCalled();
+    expect(catalog.findSubgraphAggregates).not.toHaveBeenCalled();
     expect(catalog.findDataLinks).not.toHaveBeenCalled();
     expect(catalog.findControlLinks).not.toHaveBeenCalled();
     expect(catalog.findAllUseCases).not.toHaveBeenCalled();
@@ -176,7 +172,7 @@ describe('RoutingGraphSnapshotBuilder', () => {
     const result = await builder.build(input, catalog.uow as never);
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
-    expect(catalog.getAggregates).toHaveBeenCalledTimes(1);
+    expect(catalog.findSubgraphAggregates).toHaveBeenCalledTimes(1);
     expect(catalog.findDataLinks).toHaveBeenCalledTimes(2);
     expect(catalog.findControlLinks).toHaveBeenCalledTimes(1);
     expect(catalog.findAllUseCases).toHaveBeenCalledWith(7, {
@@ -255,7 +251,10 @@ describe('RoutingGraphSnapshotBuilder', () => {
     );
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
-    expect(catalog.getAggregates).toHaveBeenCalledWith([10, 20, 30], 7);
+    expect(catalog.findSubgraphAggregates).toHaveBeenCalledWith(
+      7,
+      [10, 20, 30],
+    );
     expect(classifyMdfSubgraphs).toHaveBeenCalledWith(
       [subgraph(10)],
       [],
@@ -299,7 +298,10 @@ describe('RoutingGraphSnapshotBuilder', () => {
     );
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
-    expect(catalog.getAggregates).toHaveBeenCalledWith([10, 40, 50], 7);
+    expect(catalog.findSubgraphAggregates).toHaveBeenCalledWith(
+      7,
+      [10, 40, 50],
+    );
     expect(classifyMdfSubgraphs).toHaveBeenCalledWith(
       [subgraph(10)],
       [],

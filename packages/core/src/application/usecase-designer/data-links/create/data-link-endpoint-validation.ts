@@ -131,7 +131,6 @@ export async function validateLinkType(
   dstSubgraphId: number,
   fileSystemId: number,
 ): Promise<void> {
-  const subgraphRepo = uow.getSubgraphRepository();
   if (linkType === DATA_LINK_TYPE.Ec) {
     if (srcSubgraphId === dstSubgraphId) {
       throw new DomainRuleViolationException([
@@ -143,14 +142,16 @@ export async function validateLinkType(
     }
     return;
   }
-  const [srcUsecaseId, dstUsecaseId] = await Promise.all([
-    subgraphRepo.getUsecaseSystemIdForSubgraph(srcSubgraphId, fileSystemId),
-    subgraphRepo.getUsecaseSystemIdForSubgraph(dstSubgraphId, fileSystemId),
-  ]);
-  const sameUsecase =
-    srcUsecaseId !== null &&
-    dstUsecaseId !== null &&
-    srcUsecaseId === dstUsecaseId;
+  // A subgraph may belong to several use cases; the link is intra-use-case
+  // when any one of them holds both endpoints.
+  const useCases = await uow
+    .getUsecaseRepository()
+    .findUseCasesBySubgraphs(fileSystemId, [srcSubgraphId, dstSubgraphId]);
+  const sameUsecase = useCases.some(
+    useCase =>
+      useCase.subgraphSystemIds.includes(srcSubgraphId) &&
+      useCase.subgraphSystemIds.includes(dstSubgraphId),
+  );
 
   if (linkType === DATA_LINK_TYPE.InterUsecase && sameUsecase) {
     throw new DomainRuleViolationException([

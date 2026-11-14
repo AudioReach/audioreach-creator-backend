@@ -5,6 +5,7 @@
 
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
+import {requireOne} from '../../../shared/result/require-one.js';
 import {
   DomainRuleViolationException,
   InvalidOperationException,
@@ -23,6 +24,7 @@ import {
   type MoveSubsystemImpact,
 } from './subsystem-move-route-rebuilder.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
+import {CONFIGURATION_INCLUDES} from '../../../ports/persistence/query-services/configuration-includes.js';
 
 export type MoveSubsystemComponentsResult = {
   groupId: string;
@@ -139,15 +141,15 @@ export class MoveSubsystemComponentsHandler implements CommandHandler<
       const subgraphSystemIds: number[] = [];
       const modulesBySubgraph = new Map<number, Array<{systemId: number}>>();
       for (const subgraphSystemId of command.subgraphSystemIds) {
-        const exists = await this.uow
-          .getSubgraphRepository()
-          .subgraphExists(subgraphSystemId, command.fileSystemId);
-        if (!exists) {
-          throw new ResourceNotFoundException(
-            `Subgraph ${subgraphSystemId} not found.`,
-            [IssueFactory.notFound(ENTITY_TYPE.Subgraph, subgraphSystemId)],
-          );
-        }
+        requireOne(
+          await this.uow
+            .getSubgraphRepository()
+            .findSubgraphs(
+              command.fileSystemId,
+              [subgraphSystemId],
+              CONFIGURATION_INCLUDES.Summary,
+            ),
+        );
         const modules = await this.uow
           .getModuleRepository()
           .findModulesBySubgraphIds([subgraphSystemId], command.fileSystemId);

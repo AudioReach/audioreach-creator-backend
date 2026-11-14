@@ -14,6 +14,8 @@ import {
   RESULT_KIND,
 } from '../../../../../../src/application/shared/result/result.js';
 import {ISSUE_CODE} from '../../../../../../src/shared/issues/operational-codes.js';
+import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
+import {batchOf, notFoundBatch} from '../../../../../helpers/index.js';
 
 const FILE_SYSTEM_ID = 7;
 const SUBGRAPH_SYSTEM_ID = 20;
@@ -48,9 +50,7 @@ const mockPayload: PropertyPayloadReadModel = {
 function makeServices(
   overrides: {
     fileId?: number;
-    payloadsResult?: Awaited<
-      ReturnType<QueryServices['subgraphQueryService']['findPropertyPayloads']>
-    >;
+    payloads?: PropertyPayloadReadModel[] | null;
     definitionsResult?: Awaited<
       ReturnType<
         QueryServices['subgraphPropertyDefQueryService']['getSubgraphPropertiesWithElements']
@@ -60,7 +60,7 @@ function makeServices(
 ): QueryServices {
   const {
     fileId = FILE_SYSTEM_ID,
-    payloadsResult = Result.ok([mockPayload]),
+    payloads = [mockPayload],
     definitionsResult = Result.ok([mockDef]),
   } = overrides;
 
@@ -69,7 +69,15 @@ function makeServices(
       getFileIdByProjectId: jest.fn().mockResolvedValue(fileId),
     },
     subgraphQueryService: {
-      findPropertyPayloads: jest.fn().mockResolvedValue(payloadsResult),
+      findSubgraphPropertyPayloads: jest
+        .fn()
+        .mockResolvedValue(
+          payloads === null
+            ? notFoundBatch(ENTITY_TYPE.Subgraph, SUBGRAPH_SYSTEM_ID)
+            : batchOf(ENTITY_TYPE.Subgraph, [
+                {subgraphSystemId: SUBGRAPH_SYSTEM_ID, properties: payloads},
+              ]),
+        ),
     },
     subgraphPropertyDefQueryService: {
       getSubgraphPropertiesWithElements: jest
@@ -100,15 +108,15 @@ describe('GetSubgraphPropertiesHandler', () => {
     expect(result.data!.properties[0].elements).not.toHaveLength(0);
   });
 
-  it('subgraph not found — throws ResourceNotFoundException when findPropertyPayloads returns ok(null)', async () => {
+  it('subgraph not found — throws ResourceNotFoundException when the subgraph is not found', async () => {
     const handler = new GetSubgraphPropertiesHandler(
-      makeServices({payloadsResult: Result.ok(null)}),
+      makeServices({payloads: null}),
     );
     await expect(handler.handle(makeQuery())).rejects.toThrow(
       ResourceNotFoundException,
     );
     await expect(handler.handle(makeQuery())).rejects.toThrow(
-      `Subgraph with systemId ${SUBGRAPH_SYSTEM_ID} not found`,
+      'Could not load Subgraph with systemId: 0x00000014',
     );
   });
 
@@ -118,7 +126,7 @@ describe('GetSubgraphPropertiesHandler', () => {
       payload: null,
     };
     const handler = new GetSubgraphPropertiesHandler(
-      makeServices({payloadsResult: Result.ok([nullPayload])}),
+      makeServices({payloads: [nullPayload]}),
     );
     const result = await handler.handle(makeQuery());
 
@@ -130,7 +138,7 @@ describe('GetSubgraphPropertiesHandler', () => {
   it('no payload for definition — returns partial result with PROPERTY_PAYLOAD_NOT_FOUND issue', async () => {
     const handler = new GetSubgraphPropertiesHandler(
       makeServices({
-        payloadsResult: Result.ok([]),
+        payloads: [],
         definitionsResult: Result.ok([mockDef]),
       }),
     );

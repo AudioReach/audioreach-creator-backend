@@ -8,11 +8,13 @@ import type {QueryServices} from '../../../ports/persistence/query-services/quer
 import type {GetVcpmCalDataQuery} from './get-vcpm-cal-data.query.js';
 import type {CkvCalDataDto} from '../../spf-module/get-cal-data/ckv-cal-data-dto.js';
 import type {ParameterDto} from '../../spf-module/dto/parameter-dto.js';
-import {Result, RESULT_KIND} from '../../../shared/result/result.js';
+import {Result} from '../../../shared/result/result.js';
+import {requireOne} from '../../../shared/result/require-one.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
 import {ParameterDefinitionMissingError} from '../../../../shared/errors/parameter.errors.js';
 import {parseParameterData} from '../../shared/parse-elements.js';
 import {mapElements} from '../../spf-module/get-cal-data/ckv-cal-data-dto.js';
+import {CONFIGURATION_INCLUDES} from '../../../ports/persistence/query-services/configuration-includes.js';
 
 export class GetVcpmCalDataHandler implements QueryHandler<
   GetVcpmCalDataQuery,
@@ -26,37 +28,24 @@ export class GetVcpmCalDataHandler implements QueryHandler<
         query.projectId,
       );
 
-    const subgraphResult =
-      await this.queryServices.subgraphQueryService.findPropertyPayloads(
-        query.subgraphSystemId,
+    const {subgraphQueryService} = this.queryServices;
+    requireOne(
+      await subgraphQueryService.findSubgraphs(
         fileSystemId,
-      );
-    if (subgraphResult.kind === RESULT_KIND.Fail) {
-      throw new Error(
-        subgraphResult.issues[0]?.message ?? 'Failed to load subgraph',
-      );
-    }
-    if (subgraphResult.data === null) {
-      throw new ResourceNotFoundException(
-        `Subgraph ${query.subgraphSystemId} not found`,
-      );
-    }
+        [query.subgraphSystemId],
+        CONFIGURATION_INCLUDES.Summary,
+      ),
+    );
 
-    const aggregateResult =
-      await this.queryServices.subgraphQueryService.getVcpmAggregateBySubgraph(
-        query.subgraphSystemId,
-        fileSystemId,
-        {
-          ckvSystemId: query.ckvSystemId,
-          paramSystemIds:
-            query.paramSystemIds.length > 0 ? query.paramSystemIds : undefined,
-        },
-      );
-    if (aggregateResult.kind === RESULT_KIND.Fail) {
-      throw new Error('Failed to load VCPM aggregate');
-    }
-
-    const aggregate = aggregateResult.data;
+    const aggregate = await subgraphQueryService.findVcpmAggregate(
+      fileSystemId,
+      query.subgraphSystemId,
+      {
+        ckvSystemId: query.ckvSystemId,
+        paramSystemIds:
+          query.paramSystemIds.length > 0 ? query.paramSystemIds : undefined,
+      },
+    );
     const ckv = aggregate.ckvs.find(
       candidate => candidate.systemId === query.ckvSystemId,
     );

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {EntityType} from '../../shared/entity-type.js';
+import type {ENTITY_TYPE, EntityType} from '../../shared/entity-type.js';
 
 /**
  * The natural identity of an entity: the fields that tell a user which entity
@@ -31,7 +31,9 @@ export interface PortIdentity {
 
 /** One end of a link: the node it connects to and the port it uses. */
 export interface LinkEndpoint {
-  readonly node: EntityRef<'SpfModule'> | EntityRef<'Subsystem'>;
+  readonly node:
+    | EntityRef<typeof ENTITY_TYPE.SpfModule>
+    | EntityRef<typeof ENTITY_TYPE.Subsystem>;
   readonly port: PortIdentity;
 }
 

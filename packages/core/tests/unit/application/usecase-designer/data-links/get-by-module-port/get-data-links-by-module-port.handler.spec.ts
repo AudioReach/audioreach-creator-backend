@@ -11,6 +11,7 @@ import {
 } from '../../../../../../src/application/shared/result/result.js';
 import {GetDataLinksByModulePortHandler} from '../../../../../../src/application/usecase-designer/data-links/get-by-module-port/get-data-links-by-module-port.handler.js';
 import {GetDataLinksByModulePortQuery} from '../../../../../../src/application/usecase-designer/data-links/get-by-module-port/get-data-links-by-module-port.query.js';
+import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
 
 describe('GetDataLinksByModulePortHandler', () => {
   it('maps module-port data links and hydrates their associated usecases', async () => {
@@ -41,6 +42,7 @@ describe('GetDataLinksByModulePortHandler', () => {
       },
       useCaseQueryService: {
         findUseCaseReadModels: jest.fn().mockResolvedValue({
+          entityType: ENTITY_TYPE.UseCase,
           items: [
             {
               systemId: 404,
@@ -114,6 +116,7 @@ describe('GetDataLinksByModulePortHandler', () => {
       },
       useCaseQueryService: {
         findUseCaseReadModels: jest.fn().mockResolvedValue({
+          entityType: ENTITY_TYPE.UseCase,
           items: [],
           failed: [
             {
