@@ -5,7 +5,7 @@
 
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {GetKeyDefinitionQuery} from './get-key-definition.query.js';
 import {Result} from '../../../shared/result/result.js';
 import {requireOne} from '../../../shared/result/require-one.js';
@@ -31,11 +31,7 @@ export class GetKeyDefinitionHandler implements QueryHandler<
         fileId,
         [query.keySystemId],
       );
-    const key = requireOne(
-      ISSUE_ENTITY_TYPE.KeyDefinition,
-      query.keySystemId,
-      keys,
-    );
+    const key = requireOne(ENTITY_TYPE.KeyDefinition, query.keySystemId, keys);
 
     return Result.ok(mapKeyDefinition(key));
   }

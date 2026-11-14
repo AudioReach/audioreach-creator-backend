@@ -18,8 +18,8 @@ import type {Issue} from '../../../../../shared/issues/index.js';
 import {
   IssueCategory,
   IssueSeverity,
-  ISSUE_ENTITY_TYPE,
 } from '../../../../../shared/issues/index.js';
+import {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
 import {CONTAINER_PROP_ID_PROC_DOMAIN} from '../../../../../domain/entities/definitions/spf-ids.js';
 
@@ -189,7 +189,7 @@ export class ContainerBuilder {
           severity: IssueSeverity.Warning,
           category: IssueCategory.DataLoss,
           impactedEntity: {
-            entityType: ISSUE_ENTITY_TYPE.Container,
+            entityType: ENTITY_TYPE.Container,
             systemId: acdbContainer.containerId,
           },
         });
@@ -239,7 +239,7 @@ export class ContainerBuilder {
       message: errorMessage,
       severity: IssueSeverity.Error,
       impactedEntity: {
-        entityType: ISSUE_ENTITY_TYPE.Container,
+        entityType: ENTITY_TYPE.Container,
         systemId: containerId ?? 0,
       },
     };

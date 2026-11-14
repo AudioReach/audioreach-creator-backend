@@ -30,10 +30,8 @@ import {StaticIntentDefinition} from '../../../../../domain/entities/definitions
 import {DynamicIntentDefinition} from '../../../../../domain/entities/definitions/spf-module/value-objects/dynamic-intent-definition.js';
 import type {BuildResult} from '../../types/issue-collection.js';
 import type {Issue} from '../../../../../shared/issues/index.js';
-import {
-  IssueSeverity,
-  ISSUE_ENTITY_TYPE,
-} from '../../../../../shared/issues/index.js';
+import {IssueSeverity} from '../../../../../shared/issues/index.js';
+import {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
 
 /**
@@ -468,7 +466,7 @@ export class SpfModuleDefinitionBuilder {
       message,
       severity: IssueSeverity.Error,
       impactedEntity: {
-        entityType: ISSUE_ENTITY_TYPE.SpfModuleDefinition,
+        entityType: ENTITY_TYPE.SpfModuleDefinition,
         systemId: 0,
       },
     };

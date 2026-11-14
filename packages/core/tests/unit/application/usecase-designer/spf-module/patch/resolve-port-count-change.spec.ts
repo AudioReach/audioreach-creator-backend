@@ -6,7 +6,7 @@
 import {resolvePortCountChange} from '../../../../../../src/application/usecase-designer/shared/resolve-port-count-change.js';
 import {RESULT_KIND} from '../../../../../../src/application/shared/result/result.js';
 import {ISSUE_CODE} from '../../../../../../src/shared/issues/operational-codes.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../../../src/shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
 
 describe('resolvePortCountChange', () => {
   it('returns no-op when requested equals current count', () => {
@@ -15,7 +15,7 @@ describe('resolvePortCountChange', () => {
       2,
       4,
       [],
-      ISSUE_ENTITY_TYPE.DataPort,
+      ENTITY_TYPE.DataPort,
       10,
     );
     expect(result.kind).toBe(RESULT_KIND.Ok);
@@ -28,7 +28,7 @@ describe('resolvePortCountChange', () => {
       5,
       3,
       [],
-      ISSUE_ENTITY_TYPE.DataPort,
+      ENTITY_TYPE.DataPort,
       10,
     );
     expect(result.kind).toBe(RESULT_KIND.Fail);
@@ -43,7 +43,7 @@ describe('resolvePortCountChange', () => {
       3,
       4,
       [],
-      ISSUE_ENTITY_TYPE.DataPort,
+      ENTITY_TYPE.DataPort,
       10,
     );
     expect(result.kind).toBe(RESULT_KIND.Ok);
@@ -56,7 +56,7 @@ describe('resolvePortCountChange', () => {
       1,
       4,
       [],
-      ISSUE_ENTITY_TYPE.DataPort,
+      ENTITY_TYPE.DataPort,
       10,
     );
     expect(result.kind).toBe(RESULT_KIND.Ok);
@@ -73,7 +73,7 @@ describe('resolvePortCountChange', () => {
       1,
       4,
       links,
-      ISSUE_ENTITY_TYPE.DataPort,
+      ENTITY_TYPE.DataPort,
       10,
     );
     expect(result.kind).toBe(RESULT_KIND.Fail);
@@ -96,7 +96,7 @@ describe('resolvePortCountChange', () => {
       0,
       2,
       links,
-      ISSUE_ENTITY_TYPE.DataPort,
+      ENTITY_TYPE.DataPort,
       10,
     );
     expect(result.kind).toBe(RESULT_KIND.Fail);
@@ -110,12 +110,12 @@ describe('resolvePortCountChange', () => {
       0,
       2,
       links,
-      ISSUE_ENTITY_TYPE.ControlPort,
+      ENTITY_TYPE.ControlPort,
       10,
     );
     expect(result.kind).toBe(RESULT_KIND.Fail);
     expect(result.issues[0].impactedEntity!.entityType).toBe(
-      ISSUE_ENTITY_TYPE.ControlPort,
+      ENTITY_TYPE.ControlPort,
     );
   });
 
@@ -126,7 +126,7 @@ describe('resolvePortCountChange', () => {
       1,
       4,
       links,
-      ISSUE_ENTITY_TYPE.DataPort,
+      ENTITY_TYPE.DataPort,
       10,
     );
     expect(result.kind).toBe(RESULT_KIND.Ok);

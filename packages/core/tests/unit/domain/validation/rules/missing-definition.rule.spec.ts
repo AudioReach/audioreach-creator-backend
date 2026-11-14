@@ -7,8 +7,8 @@ import {MissingDefinitionRule} from '../../../../../src/domain/validation/rules/
 import {
   IssueCategory,
   IssueSeverity,
-  ISSUE_ENTITY_TYPE,
 } from '../../../../../src/shared/issues/index.js';
+import {ENTITY_TYPE} from '../../../../../src/shared/entity-type.js';
 import {VALIDATION_RULE_GROUP} from '../../../../../src/domain/validation/validation-rule.js';
 import {EMPTY_PREFERENCES} from '../../../../../src/domain/validation/validation-preferences.js';
 import type {ModuleValidationContext} from '../../../../../src/domain/validation/validation-context.js';
@@ -43,10 +43,8 @@ describe('MissingDefinitionRule', () => {
   });
 
   it('should require SpfModule and SpfModuleDefinition entity types', () => {
-    expect(rule.requiredEntityTypes).toContain(ISSUE_ENTITY_TYPE.SpfModule);
-    expect(rule.requiredEntityTypes).toContain(
-      ISSUE_ENTITY_TYPE.SpfModuleDefinition,
-    );
+    expect(rule.requiredEntityTypes).toContain(ENTITY_TYPE.SpfModule);
+    expect(rule.requiredEntityTypes).toContain(ENTITY_TYPE.SpfModuleDefinition);
   });
 
   it('should return no issues when all modules have definitions', () => {
@@ -68,9 +66,7 @@ describe('MissingDefinitionRule', () => {
     expect(issues[0].code).toBe('ARC-MOD-001');
     expect(issues[0].severity).toBe(IssueSeverity.Error);
     expect(issues[0].category).toBe(IssueCategory.Blocking);
-    expect(issues[0].impactedEntity?.entityType).toBe(
-      ISSUE_ENTITY_TYPE.SpfModule,
-    );
+    expect(issues[0].impactedEntity?.entityType).toBe(ENTITY_TYPE.SpfModule);
     expect(issues[0].impactedEntity?.systemId).toBe(1);
     expect(issues[0].impactedEntity?.displayName).toBe('TestModule');
   });

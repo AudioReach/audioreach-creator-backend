@@ -5,10 +5,10 @@
 
 import {ApiProperty} from '@nestjs/swagger';
 import {
-  ISSUE_ENTITY_TYPE,
+  ENTITY_TYPE,
   IssueSeverity,
   IssueCategory,
-  type IssueEntityType,
+  type EntityType,
 } from '@arc/core';
 import {ApiFixOptionDto} from './api-fix-option.dto.js';
 
@@ -21,10 +21,10 @@ import {ApiFixOptionDto} from './api-fix-option.dto.js';
 export class ApiImpactedEntityDto {
   @ApiProperty({
     description: 'The type of entity this issue applies to.',
-    enum: ISSUE_ENTITY_TYPE,
+    enum: ENTITY_TYPE,
     enumName: 'IssueEntityType',
   })
-  entityType!: IssueEntityType;
+  entityType!: EntityType;
 
   @ApiProperty({
     description: 'System-level identifier of the impacted entity.',

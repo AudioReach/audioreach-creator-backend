@@ -3,10 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {
-  IssueSeverity,
-  IssueEntityType,
-} from '../../shared/issues/index.js';
+import type {IssueSeverity} from '../../shared/issues/index.js';
+import type {EntityType} from '../../shared/entity-type.js';
 import type {ValidationIssue} from './issue.js';
 import type {
   BaseValidationContext,
@@ -67,6 +65,6 @@ export interface ValidationRule<
    *   Subgraph            → subgraphs + subgraphsBySystemId
    *   SpfModuleDefinition → definitions
    */
-  readonly requiredEntityTypes: ReadonlyArray<IssueEntityType>;
+  readonly requiredEntityTypes: ReadonlyArray<EntityType>;
   validate(context: TContext): ValidationIssue[];
 }

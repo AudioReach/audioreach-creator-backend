@@ -14,7 +14,7 @@ import type {
   TagDefinitionReadModel,
   TagKeyDefinitionReadModel,
 } from '@arc/core';
-import {FAILED_ENTITY_REASON, ISSUE_ENTITY_TYPE} from '@arc/core';
+import {FAILED_ENTITY_REASON, ENTITY_TYPE} from '@arc/core';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
 import {withNotFound} from '../../utils/with-not-found.js';
@@ -111,7 +111,7 @@ export class DbTagDefinitionQueryService implements TagDefinitionQueryService {
           reason: FAILED_ENTITY_REASON.UnresolvedReference,
           identity: {name: tag.name, naturalId: tag.naturalId},
           missingRef: {
-            entityType: ISSUE_ENTITY_TYPE.KeyDefinition,
+            entityType: ENTITY_TYPE.KeyDefinition,
             systemId: missingKeyId,
           },
         });

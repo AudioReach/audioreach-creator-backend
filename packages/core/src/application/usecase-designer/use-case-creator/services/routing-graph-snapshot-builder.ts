@@ -8,7 +8,7 @@ import type {DataLink} from '../../../../domain/entities/usecase-data/links/data
 import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/subgraph.js';
 import {Result} from '../../../shared/result/result.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {READ_MODE} from '../../../ports/persistence/repositories/shared/read-options.js';
 import type {ActiveManualUsecaseEdit} from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
@@ -118,7 +118,7 @@ export class RoutingGraphSnapshotBuilder {
     const missingIssues = selections
       .filter(selection => !subgraphsById.has(selection.systemId))
       .map(selection =>
-        IssueFactory.notFound(ISSUE_ENTITY_TYPE.Subgraph, selection.systemId),
+        IssueFactory.notFound(ENTITY_TYPE.Subgraph, selection.systemId),
       );
     const integrityIssues = overlayDataLinks
       .filter(link => isInScope(link, effectiveIds))

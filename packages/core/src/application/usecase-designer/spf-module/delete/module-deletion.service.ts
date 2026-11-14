@@ -7,7 +7,7 @@ import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
 import {DomainRuleViolationException} from '../../../../shared/exceptions/domain-rule-violation.exception.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {DataLinkDeletionService} from '../../data-links/delete/data-link-deletion.service.js';
 import {ControlLinkDeletionService} from '../../control-links/delete/control-link-deletion.service.js';
 import {ContainerLifecycleService} from '../../container/delete/container-lifecycle.service.js';
@@ -93,7 +93,7 @@ export class ModuleDeletionService {
     if (!module) {
       throw new ResourceNotFoundException(
         `SPF module ${moduleSystemId} was not found.`,
-        [IssueFactory.notFound(ISSUE_ENTITY_TYPE.SpfModule, moduleSystemId)],
+        [IssueFactory.notFound(ENTITY_TYPE.SpfModule, moduleSystemId)],
       );
     }
 
@@ -104,12 +104,7 @@ export class ModuleDeletionService {
     if (!subgraphRepo) {
       throw new ResourceNotFoundException(
         `Subgraph ${module.subgraphSystemId} was not found.`,
-        [
-          IssueFactory.notFound(
-            ISSUE_ENTITY_TYPE.Subgraph,
-            module.subgraphSystemId,
-          ),
-        ],
+        [IssueFactory.notFound(ENTITY_TYPE.Subgraph, module.subgraphSystemId)],
       );
     }
     if (subgraphRepo.isImported) {

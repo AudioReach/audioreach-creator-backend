@@ -8,7 +8,7 @@ import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {DeleteControlLinkCommand} from './delete-control-link.command.js';
 import type {DeleteControlLinkResult} from '../dto/delete-control-link.dto.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {ControlLinkDeletionService} from './control-link-deletion.service.js';
 
@@ -37,7 +37,7 @@ export class DeleteControlLinkHandler implements CommandHandler<
           `ControlLink ${command.controlLinkSystemId} was not found.`,
           [
             IssueFactory.notFound(
-              ISSUE_ENTITY_TYPE.ControlLink,
+              ENTITY_TYPE.ControlLink,
               command.controlLinkSystemId,
             ),
           ],

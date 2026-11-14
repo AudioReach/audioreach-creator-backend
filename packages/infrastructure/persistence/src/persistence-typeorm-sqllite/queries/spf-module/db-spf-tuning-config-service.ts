@@ -22,7 +22,7 @@ import {
   CONFIGURATION_INCLUDES,
   IssueSeverity,
   RESULT_KIND,
-  ISSUE_ENTITY_TYPE,
+  ENTITY_TYPE,
   failedToIssues,
 } from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
@@ -423,10 +423,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
     );
     if (pairs.failed.length === 0) return Result.ok(pairs.items);
 
-    const issues = failedToIssues(
-      ISSUE_ENTITY_TYPE.ValueDefinition,
-      pairs.failed,
-    );
+    const issues = failedToIssues(ENTITY_TYPE.ValueDefinition, pairs.failed);
     return pairs.items.length > 0
       ? Result.partial(pairs.items, issues)
       : Result.fail(...issues);

@@ -9,7 +9,7 @@ import type {GetControlLinksQuery} from './get-control-links.query.js';
 import type {ControlLinkDto} from '../../usecase/dto/component-collection-dto.js';
 import {Result, RESULT_KIND} from '../../../shared/result/result.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {mapControlLink} from '../../usecase/dto/component-collection-dto.js';
 
 export class GetControlLinksHandler implements QueryHandler<
@@ -45,7 +45,7 @@ export class GetControlLinksHandler implements QueryHandler<
 
     const missingIssues = systemIds
       .filter(id => !foundIds.has(id))
-      .map(id => IssueFactory.notFound(ISSUE_ENTITY_TYPE.ControlLink, id));
+      .map(id => IssueFactory.notFound(ENTITY_TYPE.ControlLink, id));
 
     const dtos = found.map(l => mapControlLink(l));
 

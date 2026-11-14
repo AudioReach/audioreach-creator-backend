@@ -14,7 +14,7 @@ import {
   InvalidOperationException,
   ResourceNotFoundException,
 } from '../../../../shared/exceptions/index.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import type {CreateSubsystemCommand} from './create-subsystem.command.js';
 import {
@@ -81,7 +81,7 @@ export class CreateSubsystemHandler implements CommandHandler<
             `Subsystem ${command.parentSystemId} not found.`,
             [
               IssueFactory.notFound(
-                ISSUE_ENTITY_TYPE.Subsystem,
+                ENTITY_TYPE.Subsystem,
                 command.parentSystemId,
               ),
             ],

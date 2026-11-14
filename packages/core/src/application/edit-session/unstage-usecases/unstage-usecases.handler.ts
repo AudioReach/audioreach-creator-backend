@@ -11,7 +11,7 @@ import {DomainRuleViolationException} from '../../../shared/exceptions/index.js'
 import {ISSUE_CODE} from '../../../shared/issues/operational-codes.js';
 import {IssueSeverity} from '../../../shared/issues/severity.js';
 import {BinaryUtils} from '../../../shared/utilities/binary-utils.js';
-import {ISSUE_ENTITY_TYPE} from '../../../shared/issues/index.js';
+import {ENTITY_TYPE} from '../../../shared/entity-type.js';
 import type {UnstageUsecasesCommand} from './unstage-usecases.command.js';
 import type {UsecaseChangesetResult} from '../stage-usecases/stage-usecases-result.dto.js';
 
@@ -31,7 +31,7 @@ export class UnstageUsecasesHandler implements CommandHandler<
         .getSessionRepository()
         .updateChangeStatusByEntitySystemIds(
           ctx.session.sessionId,
-          ISSUE_ENTITY_TYPE.UseCase,
+          ENTITY_TYPE.UseCase,
           command.systemIds,
           CHANGE_STATUS.Unstaged,
         );

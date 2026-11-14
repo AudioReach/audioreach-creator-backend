@@ -8,7 +8,7 @@ import type {QueryServices} from '../../../ports/persistence/query-services/quer
 import type {Result} from '../../../shared/result/result.js';
 import {Result as ResultUtil} from '../../../shared/result/result.js';
 import {failedToIssues} from '../../../shared/result/failed-to-issues.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {GetAllUseCasesQuery} from './get-all-usecases.query.js';
 import type {UseCaseDto} from '../dto/usecase-dto.js';
 import {mapUseCase} from '../dto/usecase-dto.js';
@@ -35,7 +35,7 @@ export class GetAllUseCasesHandler implements QueryHandler<
     return usecases.failed.length > 0
       ? ResultUtil.partial(
           dtos,
-          failedToIssues(ISSUE_ENTITY_TYPE.UseCase, usecases.failed),
+          failedToIssues(ENTITY_TYPE.UseCase, usecases.failed),
         )
       : ResultUtil.ok(dtos);
   }

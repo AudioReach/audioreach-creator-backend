@@ -10,7 +10,7 @@ import {
   InvalidOperationException,
   ResourceNotFoundException,
 } from '../../../../shared/exceptions/index.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
 import type {MoveSubsystemComponentsCommand} from './move-subsystem-components.command.js';
@@ -72,7 +72,7 @@ export class MoveSubsystemComponentsHandler implements CommandHandler<
         if (!subsystemIds.has(systemId)) {
           throw new ResourceNotFoundException(
             `Subsystem ${systemId} not found.`,
-            [IssueFactory.notFound(ISSUE_ENTITY_TYPE.Subsystem, systemId)],
+            [IssueFactory.notFound(ENTITY_TYPE.Subsystem, systemId)],
           );
         }
         const subsystem = subsystems.find(item => item.systemId === systemId)!;
@@ -81,10 +81,7 @@ export class MoveSubsystemComponentsHandler implements CommandHandler<
           (subsystem.parentSystemId ?? null) === null
         ) {
           issues.push(
-            IssueFactory.duplicateRootMove(
-              ISSUE_ENTITY_TYPE.Subsystem,
-              systemId,
-            ),
+            IssueFactory.duplicateRootMove(ENTITY_TYPE.Subsystem, systemId),
           );
           continue;
         }
@@ -98,7 +95,7 @@ export class MoveSubsystemComponentsHandler implements CommandHandler<
           `Subsystem ${command.targetSubsystemSystemId} not found.`,
           [
             IssueFactory.notFound(
-              ISSUE_ENTITY_TYPE.Subsystem,
+              ENTITY_TYPE.Subsystem,
               command.targetSubsystemSystemId,
             ),
           ],
@@ -148,12 +145,7 @@ export class MoveSubsystemComponentsHandler implements CommandHandler<
         if (!exists) {
           throw new ResourceNotFoundException(
             `Subgraph ${subgraphSystemId} not found.`,
-            [
-              IssueFactory.notFound(
-                ISSUE_ENTITY_TYPE.Subgraph,
-                subgraphSystemId,
-              ),
-            ],
+            [IssueFactory.notFound(ENTITY_TYPE.Subgraph, subgraphSystemId)],
           );
         }
         const modules = await this.uow
@@ -234,7 +226,7 @@ export class MoveSubsystemComponentsHandler implements CommandHandler<
           ) {
             issues.push(
               IssueFactory.duplicateRootMove(
-                ISSUE_ENTITY_TYPE.SpfModule,
+                ENTITY_TYPE.SpfModule,
                 module.systemId,
               ),
             );

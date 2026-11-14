@@ -8,10 +8,8 @@ import {UploadFileOrchestrator} from '../../../../../../src/application/file-ope
 import {EntityBuilderService} from '../../../../../../src/application/file-operations/upload-file/services/entity-builder-service.js';
 import {KeyDefinition} from '../../../../../../src/domain/entities/definitions/key-value/key-definition.js';
 import {ERROR_CODES} from '../../../../../../src/shared/errors/error-codes.js';
-import {
-  ISSUE_ENTITY_TYPE,
-  IssueSeverity,
-} from '../../../../../../src/shared/issues/index.js';
+import {IssueSeverity} from '../../../../../../src/shared/issues/index.js';
+import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
 import type {UnitOfWork} from '../../../../../../src/application/ports/persistence/unit-of-work.js';
 import type {BulkImportRepository} from '../../../../../../src/application/ports/persistence/repositories/bulk-import/bulk-import.repository.js';
 import type {IdGenerationPort} from '../../../../../../src/application/ports/id-generation/id-generation.port.js';
@@ -610,7 +608,7 @@ describe('UploadFileOrchestrator', () => {
                   code: ERROR_CODES.INVALID_ENTITY_DATA,
                   message: 'Invalid module definition',
                   impactedEntity: {
-                    entityType: ISSUE_ENTITY_TYPE.SpfModuleDefinition,
+                    entityType: ENTITY_TYPE.SpfModuleDefinition,
                     systemId: 0,
                   },
                 },

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {IssueEntityType} from '../../shared/issues/impacted-entity.js';
+import type {EntityType} from '../../shared/entity-type.js';
 
 /**
  * The natural identity of an entity: the fields that tell a user which entity
@@ -60,7 +60,7 @@ export interface EntityIdentityMap {
 }
 
 /** The identity of entity type `T`, or `never` if `T` has none. */
-export type IdentityFor<T extends IssueEntityType> =
+export type IdentityFor<T extends EntityType> =
   T extends keyof EntityIdentityMap ? EntityIdentityMap[T] : never;
 
 /**
@@ -68,7 +68,7 @@ export type IdentityFor<T extends IssueEntityType> =
  * commands); `identity` is what text shows. `identity` is missing when the
  * entity was not found or its identity could not be read.
  */
-export type EntityRef<T extends IssueEntityType = IssueEntityType> = {
+export type EntityRef<T extends EntityType = EntityType> = {
   [K in T]: {
     readonly entityType: K;
     readonly systemId: number;

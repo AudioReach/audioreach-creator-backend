@@ -9,11 +9,11 @@ import type {
   NamedNaturalId,
   PortIdentity,
 } from '../../domain/identity/entity-identity.js';
-import type {IssueEntityType} from '../../shared/issues/impacted-entity.js';
+import type {EntityType} from '../../shared/entity-type.js';
 import {BinaryUtils} from '../../shared/utilities/binary-utils.js';
 
 /** Text labels that differ from the entity type name. */
-const LABELS: Partial<Record<IssueEntityType, string>> = {
+const LABELS: Partial<Record<EntityType, string>> = {
   SpfModule: 'Module',
   KeyDefinition: 'Key',
   ValueDefinition: 'Value',

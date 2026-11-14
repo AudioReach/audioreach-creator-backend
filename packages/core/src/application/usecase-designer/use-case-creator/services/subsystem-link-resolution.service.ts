@@ -17,7 +17,7 @@ import {ControlChainResolutionService} from '../../../../domain/services/subsyst
 import {v4 as uuidv4} from 'uuid';
 import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 
 /**
  * Resolves subsystem link chains needed before routing input construction.
@@ -95,14 +95,14 @@ export class SubsystemLinkResolutionService {
       if (sourceModule === null)
         return Result.fail(
           IssueFactory.notFound(
-            ISSUE_ENTITY_TYPE.SpfModule,
+            ENTITY_TYPE.SpfModule,
             chain.sourceModuleSystemId,
           ),
         );
       if (destinationModule === null)
         return Result.fail(
           IssueFactory.notFound(
-            ISSUE_ENTITY_TYPE.SpfModule,
+            ENTITY_TYPE.SpfModule,
             chain.destModuleSystemId,
           ),
         );
@@ -155,14 +155,14 @@ export class SubsystemLinkResolutionService {
       if (peerAModule === null)
         return Result.fail(
           IssueFactory.notFound(
-            ISSUE_ENTITY_TYPE.SpfModule,
+            ENTITY_TYPE.SpfModule,
             chain.peerAModuleSystemId,
           ),
         );
       if (peerBModule === null)
         return Result.fail(
           IssueFactory.notFound(
-            ISSUE_ENTITY_TYPE.SpfModule,
+            ENTITY_TYPE.SpfModule,
             chain.peerBModuleSystemId,
           ),
         );

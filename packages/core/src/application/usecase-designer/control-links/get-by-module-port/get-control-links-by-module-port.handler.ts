@@ -7,7 +7,7 @@ import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handl
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import {Result, RESULT_KIND} from '../../../shared/result/result.js';
 import {failedToIssues} from '../../../shared/result/failed-to-issues.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
 import type {ControlLinkWithUsecasesDto} from '../../subgraph/dto/subgraph-pair-dto.js';
 import {mapControlLink} from '../../usecase/dto/component-collection-dto.js';
@@ -55,7 +55,7 @@ export class GetControlLinksByModulePortHandler implements QueryHandler<
       );
     const referencedIds = new Set(usecaseIds);
     const usecaseIssues = failedToIssues(
-      ISSUE_ENTITY_TYPE.UseCase,
+      ENTITY_TYPE.UseCase,
       usecases.failed.filter(entity => referencedIds.has(entity.systemId)),
     );
 

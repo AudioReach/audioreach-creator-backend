@@ -738,11 +738,9 @@ export type {Issue} from './shared/issues/issue.js';
 export {IssueFactory} from './shared/issues/factories.js';
 export {ISSUE_CODE} from './shared/issues/operational-codes.js';
 export type {IssueCode} from './shared/issues/operational-codes.js';
-export {ISSUE_ENTITY_TYPE} from './shared/issues/impacted-entity.js';
-export type {
-  IssueEntityType,
-  ImpactedEntity,
-} from './shared/issues/impacted-entity.js';
+export {ENTITY_TYPE} from './shared/entity-type.js';
+export type {ImpactedEntity} from './shared/issues/impacted-entity.js';
+export type {EntityType} from './shared/entity-type.js';
 export {IssueSeverity, IssueCategory} from './shared/issues/severity.js';
 export {CLIENT_INPUT_TYPE} from './shared/issues/fix-option.js';
 export type {ClientInputType} from './shared/issues/fix-option.js';

@@ -5,7 +5,7 @@
 
 import type {FilterExpression} from '../../shared/filter/filter-expression.js';
 import {IssueFactory} from '../../shared/issues/factories.js';
-import {ISSUE_ENTITY_TYPE} from '../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../shared/entity-type.js';
 import {failedToIssues} from '../shared/result/failed-to-issues.js';
 import {
   RESULT_KIND,
@@ -126,7 +126,7 @@ export class SubsystemFilteredGkvService {
     return usecases.failed.length > 0
       ? Result.partial(
           groupsResult.data,
-          failedToIssues(ISSUE_ENTITY_TYPE.UseCase, usecases.failed),
+          failedToIssues(ENTITY_TYPE.UseCase, usecases.failed),
         )
       : groupsResult;
   }

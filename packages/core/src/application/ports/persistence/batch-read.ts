@@ -7,7 +7,7 @@ import type {
   EntityRef,
   IdentityFor,
 } from '../../../domain/identity/entity-identity.js';
-import type {IssueEntityType} from '../../../shared/issues/impacted-entity.js';
+import type {EntityType} from '../../../shared/entity-type.js';
 
 /**
  * Why a requested entity could not be loaded by a batch read.
@@ -25,7 +25,7 @@ export type FailedEntityReason =
   (typeof FAILED_ENTITY_REASON)[keyof typeof FAILED_ENTITY_REASON];
 
 /** One entity a batch read could not load. */
-export interface FailedEntity<E extends IssueEntityType = IssueEntityType> {
+export interface FailedEntity<E extends EntityType = EntityType> {
   readonly systemId: number;
   readonly reason: FailedEntityReason;
   /**
@@ -47,7 +47,7 @@ export interface FailedEntity<E extends IssueEntityType = IssueEntityType> {
  * thrown, never reported here. `E` is the entity type of the items; it
  * types the identity carried by `failed`.
  */
-export interface BatchRead<T, E extends IssueEntityType = IssueEntityType> {
+export interface BatchRead<T, E extends EntityType = EntityType> {
   readonly items: T[];
   readonly failed: FailedEntity<E>[];
 }
