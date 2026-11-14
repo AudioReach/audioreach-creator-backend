@@ -5,6 +5,7 @@
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
+import type {Logger} from '../../../../shared/types/logger.interface.js';
 import {Result} from '../../../shared/result/result.js';
 import type {RemoveCkvParametersCommand} from './remove-ckv-parameters.command.js';
 import {createZeroCkv} from '../shared/kv-seed-helpers.js';
@@ -28,6 +29,7 @@ export class RemoveCkvParametersHandler implements CommandHandler<
   constructor(
     private readonly uow: UnitOfWork,
     private readonly idGeneration: IdGenerationPort,
+    private readonly logger?: Logger,
   ) {}
 
   async handle(
@@ -101,6 +103,7 @@ export class RemoveCkvParametersHandler implements CommandHandler<
           moduleRepo,
           defRepo,
           this.idGeneration,
+          this.logger,
         );
       }
 

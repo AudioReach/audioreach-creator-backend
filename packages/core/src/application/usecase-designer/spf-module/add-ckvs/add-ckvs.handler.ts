@@ -5,6 +5,7 @@
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
+import type {Logger} from '../../../../shared/types/logger.interface.js';
 import {Result} from '../../../shared/result/result.js';
 import {KvData} from '../../../../domain/entities/common/entities/kv-data.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
@@ -23,6 +24,7 @@ export class AddCkvsHandler implements CommandHandler<
   constructor(
     private readonly uow: UnitOfWork,
     private readonly idGeneration: IdGenerationPort,
+    private readonly logger?: Logger,
   ) {}
 
   async handle(command: AddCkvsCommand): Promise<Result<AddCkvsResult>> {
@@ -105,7 +107,7 @@ export class AddCkvsHandler implements CommandHandler<
       valueDefinitionSystemIds: item.valueDefinitionSystemIds,
       uiPersistence: null,
     });
-    buildDefaultPayloads(kvData, paramDefs);
+    buildDefaultPayloads(kvData, paramDefs, this.logger);
     await moduleRepo.createCkv(kvData, moduleSystemId);
     return ckvSystemId;
   }

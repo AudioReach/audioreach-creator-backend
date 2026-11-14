@@ -45,6 +45,10 @@ type SerializeResult =
   | {ok: true; value: Uint8Array}
   | {ok: false; error: string};
 
+type DefaultDataSerializeResult =
+  | {ok: true; value: Uint8Array; warnings: string[]}
+  | {ok: false; error: string};
+
 export function serializeParameterData(
   definition: {elementsStructure: string},
   inputElements: ElementData[],
@@ -431,7 +435,7 @@ function serializeStructArray(
 export function serializeDefaultParameterData(definition: {
   systemId: number;
   elementsStructure: string;
-}): SerializeResult {
+}): DefaultDataSerializeResult {
   let schema: DefinitionElement[];
   try {
     schema = convertParamDefinition(definition.elementsStructure);
@@ -440,12 +444,15 @@ export function serializeDefaultParameterData(definition: {
   }
   try {
     const parsedSoFar = new Map<string, number>();
-    const defaultInputs = buildDefaultElements(schema, parsedSoFar);
+    const warnings: string[] = [];
+    const defaultInputs = buildDefaultElements(schema, parsedSoFar, warnings);
     const syntheticDef = {
       systemId: definition.systemId,
       elementsStructure: definition.elementsStructure,
     };
-    return serializeParameterData(syntheticDef, defaultInputs);
+    const result = serializeParameterData(syntheticDef, defaultInputs);
+    if (!result.ok) return result;
+    return {...result, warnings};
   } catch (error) {
     return {
       ok: false,
@@ -457,20 +464,86 @@ export function serializeDefaultParameterData(definition: {
 function buildDefaultElements(
   schema: DefinitionElement[],
   parsedSoFar: Map<string, number>,
+  warnings: string[],
 ): ElementData[] {
-  return schema.map(def => buildDefaultElement(def, parsedSoFar));
+  return schema.map(def => buildDefaultElement(def, parsedSoFar, warnings));
+}
+
+function enforceElementBounds(
+  def: ConfigElement,
+  value: string,
+  warnings: string[],
+): string {
+  if (def.dataType === DATA_TYPE.Int64 || def.dataType === DATA_TYPE.UInt64) {
+    let v: bigint;
+    try {
+      v = BigInt(value);
+    } catch {
+      warnings.push(
+        `Element '${def.name}': value '${value}' is not a valid integer; bounds check skipped.`,
+      );
+      return value;
+    }
+    const min = parseBigIntBound(def.min);
+    const max = parseBigIntBound(def.max);
+    if (min !== undefined && v < min)
+      return addWarning(def, value, min, warnings);
+    if (max !== undefined && v > max)
+      return addWarning(def, value, max, warnings);
+    return value;
+  }
+
+  const v = Number(value);
+  if (!Number.isFinite(v)) {
+    warnings.push(
+      `Element '${def.name}': value '${value}' is not a valid number; bounds check skipped.`,
+    );
+    return value;
+  }
+  const min = parseMinMax(def.min, def.dataType);
+  const max = parseMinMax(def.max, def.dataType);
+  if (min !== undefined && v < min)
+    return addWarning(def, value, min, warnings);
+  if (max !== undefined && v > max)
+    return addWarning(def, value, max, warnings);
+  return value;
+}
+
+function addWarning(
+  def: ConfigElement,
+  original: string,
+  bound: number | bigint,
+  warnings: string[],
+): string {
+  warnings.push(
+    `Element "${def.name ?? ''}": defaultValue ${original} out of range; clamped to ${bound}`,
+  );
+  return String(bound);
+}
+
+function parseBigIntBound(bound: string | undefined): bigint | undefined {
+  if (bound === undefined) return undefined;
+  try {
+    return BigInt(bound);
+  } catch {
+    return undefined;
+  }
 }
 
 function buildDefaultElement(
   def: DefinitionElement,
   parsedSoFar: Map<string, number>,
+  warnings: string[],
 ): ElementData {
   switch (def.elementType) {
     case PARAMETER_ELEMENT_TYPE.ConfigElement: {
       if (def.defaultValue === undefined) {
         throw new Error(`Missing defaultValue for element "${def.name ?? ''}"`);
       }
-      const value = def.defaultValue;
+      let value = def.defaultValue;
+      if (def.dataType !== DATA_TYPE.RawData) {
+        value = enforceElementBounds(def, value, warnings);
+      }
       if (def.name !== undefined) {
         const numericValue = Number(value);
         if (Number.isFinite(numericValue)) {
@@ -485,7 +558,7 @@ function buildDefaultElement(
     case PARAMETER_ELEMENT_TYPE.Struct: {
       return {
         type: PARAMETER_ELEMENT_TYPE.Struct,
-        value: buildDefaultElements(def.elements, parsedSoFar),
+        value: buildDefaultElements(def.elements, parsedSoFar, warnings),
       } as StructData;
     }
     case PARAMETER_ELEMENT_TYPE.ElementArray:
@@ -494,7 +567,7 @@ function buildDefaultElement(
       return {
         type: PARAMETER_ELEMENT_TYPE.ElementArray,
         value: Array.from({length}, () =>
-          buildDefaultElement(def.template, parsedSoFar),
+          buildDefaultElement(def.template, parsedSoFar, warnings),
         ),
       } as ElementArrayData;
     }

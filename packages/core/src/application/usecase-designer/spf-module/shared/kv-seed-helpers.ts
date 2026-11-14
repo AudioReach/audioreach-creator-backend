@@ -16,6 +16,7 @@ import {ModuleParameterData} from '../../../../domain/entities/common/value-obje
 import {TOOL_POLICY} from '../../../../domain/entities/definitions/common/types/tool-policy-type.js';
 import {asSystemId} from '../../../../shared/types/branded-ids.js';
 import {serializeDefaultParameterData} from '../../shared/serialize-elements.js';
+import type {Logger} from '../../../../shared/types/logger.interface.js';
 
 /**
  * Determines which parameter definitions a new CKV/TKV should be seeded
@@ -62,6 +63,7 @@ export async function getParamDefinitionsForKv(
 export function buildDefaultPayloads(
   kvData: KvData,
   paramDefs: readonly ModuleParameterDefinition[],
+  logger?: Logger,
 ): void {
   for (const def of paramDefs) {
     const serialized = serializeDefaultParameterData(def);
@@ -69,6 +71,14 @@ export function buildDefaultPayloads(
       throw new Error(
         `Failed to serialize default data for parameter ${def.systemId}: ${serialized.error}`,
       );
+    }
+    for (const w of serialized.warnings) {
+      logger?.logWarn({
+        eventName: 'kv.build.defaultClamped',
+        description: `Parameter ${def.systemId}: ${w}`,
+        component: 'buildDefaultPayloads',
+        tag: 'calibration',
+      });
     }
     const paramData = new ModuleParameterData(
       asSystemId(def.systemId),
@@ -90,6 +100,7 @@ export async function createZeroCkv(
   moduleRepo: ModuleRepository,
   defRepo: ModuleDefinitionRepository,
   idGeneration: IdGenerationPort,
+  logger?: Logger,
 ): Promise<number> {
   const allDefs = await defRepo.getParameterDefinitions(definitionSystemId);
   const calibrationDefs = allDefs.filter(
@@ -101,7 +112,7 @@ export async function createZeroCkv(
     valueDefinitionSystemIds: [],
     uiPersistence: null,
   });
-  buildDefaultPayloads(kvData, calibrationDefs);
+  buildDefaultPayloads(kvData, calibrationDefs, logger);
   await moduleRepo.createCkv(kvData, moduleSystemId);
   return zeroCkvSystemId;
 }

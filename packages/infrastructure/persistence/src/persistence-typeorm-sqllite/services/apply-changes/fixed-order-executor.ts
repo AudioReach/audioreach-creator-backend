@@ -936,8 +936,8 @@ async function executeTableActions(
 }
 
 const SPF_RUNTIME_TABLES = [
-  ENTITY_NAMES.SpfModule,
   ENTITY_NAMES.Node,
+  ENTITY_NAMES.SpfModule,
   ENTITY_NAMES.SpfModulePropertiesData,
   ENTITY_NAMES.DataPort,
   ENTITY_NAMES.ControlPort,

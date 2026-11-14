@@ -151,8 +151,7 @@ export class PortOverlayFetcher {
     );
     const effective = this.overlay
       .applyToCollection(base, actions, {
-        matchesEffective: row =>
-          row.systemId === portSystemId && row.fileSystemId === fileSystemId,
+        matchesEffective: row => row.systemId === portSystemId,
       })
       .map(row => ({...row.effective, fileSystemId}));
 

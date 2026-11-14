@@ -7,6 +7,7 @@ import {Subgraph} from '../../../domain/entities/usecase-data/subgraph/subgraph.
 import {SubgraphPropertyData} from '../../../domain/entities/usecase-data/subgraph/value-objects/subgraph-property.js';
 import type {SubgraphPropertyDefinition} from '../../../domain/entities/definitions/subgraph/subgraph-property-definitions.js';
 import {serializeDefaultParameterData} from '../shared/serialize-elements.js';
+import type {Logger} from '../../../shared/types/logger.interface.js';
 
 export interface SubgraphInit {
   systemId: number;
@@ -18,14 +19,24 @@ export interface SubgraphInit {
 export function buildSubgraphWithDefaults(
   init: SubgraphInit,
   propertyDefinitions: SubgraphPropertyDefinition[],
+  logger?: Logger,
 ): Subgraph {
   const properties = propertyDefinitions.map(propDef => {
     const serialized = serializeDefaultParameterData(propDef);
-    return new SubgraphPropertyData(
-      0,
-      propDef.systemId,
-      serialized.ok ? serialized.value : null,
-    );
+    if (!serialized.ok) {
+      throw new Error(
+        `Failed to serialize default data for subgraph property ${propDef.systemId}: ${serialized.error}`,
+      );
+    }
+    for (const w of serialized.warnings) {
+      logger?.logWarn({
+        eventName: 'subgraph.build.defaultClamped',
+        description: `Subgraph property ${propDef.systemId}: ${w}`,
+        component: 'buildSubgraphWithDefaults',
+        tag: 'subgraph',
+      });
+    }
+    return new SubgraphPropertyData(0, propDef.systemId, serialized.value);
   });
 
   return new Subgraph({

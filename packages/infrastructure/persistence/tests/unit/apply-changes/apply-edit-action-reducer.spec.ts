@@ -324,4 +324,44 @@ describe('ApplyEditActionReducer', () => {
       }),
     ]);
   });
+
+  it('strips SubsystemDataLink linkType before physical reduction', async () => {
+    const SLS_COLUMNS = [
+      'systemId',
+      'sourceNodeSystemId',
+      'destinationNodeSystemId',
+      'sourcePortSystemId',
+      'destinationPortSystemId',
+      'dataLinkSystemId',
+      'fileSystemId',
+    ];
+    const actions = await new ApplyEditActionReducer(
+      manager(SLS_COLUMNS),
+    ).reduce([
+      row({
+        targetTable: ENTITY_NAMES.SubsystemDataLink,
+        targetSystemId: 801,
+        operation: CHANGE_OPERATION.Create,
+        fieldPath: '$',
+        newValue: {
+          sourceNodeSystemId: 10,
+          destinationNodeSystemId: 20,
+          sourcePortSystemId: 11,
+          destinationPortSystemId: 21,
+          dataLinkSystemId: 500,
+          fileSystemId: 1,
+          linkType: 'NORMAL',
+        },
+      }),
+    ]);
+
+    expect(actions).toHaveLength(1);
+    expect(actions[0].values).not.toHaveProperty('linkType');
+    expect(actions[0].values).toMatchObject({
+      sourceNodeSystemId: 10,
+      destinationNodeSystemId: 20,
+      dataLinkSystemId: 500,
+      fileSystemId: 1,
+    });
+  });
 });
