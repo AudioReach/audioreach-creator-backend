@@ -12,6 +12,9 @@ import type {
   SubsystemHierarchy,
 } from '../../../../../domain/entities/usecase-data/subsystem/subsystem.js';
 import type {NodeType} from '../../../../../domain/entities/usecase-data/node/node.js';
+import type {IdentifiedEntityRef} from '../../../../../domain/identity/entity-identity.js';
+import type {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
+import type {BatchRead} from '../../batch-read.js';
 
 /** Identifies a subsystem control port without losing its aggregate owner. */
 export interface SubsystemControlPortRef {
@@ -43,6 +46,20 @@ export interface SubsystemRepository {
   ): Promise<SubsystemKey[]>;
   subsystemExists(systemId: number, fileSystemId: number): Promise<boolean>;
   hasSubsystems(fileSystemId: number): Promise<boolean>;
+
+  /**
+   * Reads the identities of the given subsystems, with the session overlay
+   * applied. A systemId that is not a subsystem of the file is `NOT_FOUND`.
+   */
+  findSubsystemIdentities(
+    fileSystemId: number,
+    subsystemSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.Subsystem>,
+      typeof ENTITY_TYPE.Subsystem
+    >
+  >;
 
   /**
    * Returns subsystem IDs with no module in their subsystem hierarchy.

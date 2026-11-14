@@ -77,3 +77,24 @@ export type EntityRef<T extends EntityType = EntityType> = {
     readonly identity?: IdentityFor<K>;
   };
 }[T];
+
+/**
+ * An `EntityRef` whose `identity` is always present.
+ *
+ * `EntityRef.identity` is optional because a reference may point at an entity
+ * whose identity could not be read. A `find…Identities` read returns only the
+ * entities it found (the rest go to `BatchRead.failed`), so each of its items
+ * has an identity; this type says so, and callers need no `identity` check.
+ *
+ * An item can be used directly where an `EntityRef` is expected. Each item
+ * carries its own `entityType`, so refs from reads of different types (for
+ * example the SpfModule and Subsystem nodes of a chain) can be merged into
+ * one list or map without being rebuilt.
+ */
+export type IdentifiedEntityRef<T extends keyof EntityIdentityMap> = {
+  [K in T]: {
+    readonly entityType: K;
+    readonly systemId: number;
+    readonly identity: IdentityFor<K>;
+  };
+}[T];

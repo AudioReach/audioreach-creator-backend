@@ -7,8 +7,11 @@ import type {EntityManager} from 'typeorm';
 import {
   ControlPort,
   DataPort,
+  ENTITY_TYPE,
   Subsystem,
+  type BatchRead,
   type EditOptions,
+  type IdentifiedEntityRef,
   type IdGenerationPort,
   type PortIoType,
   type SubsystemControlPortRef,
@@ -28,6 +31,7 @@ import {SpfModuleOverlayFetcher} from '../../fetchers/spf-module-overlay-fetcher
 import {NodeOverlayFetcher} from '../../fetchers/node-overlay-fetcher.js';
 import {KeyValueDefinitionFetcher} from '../../fetchers/definitions/key-value/key-value-definition-fetcher.js';
 import {ValueDefinitionFetcher} from '../../fetchers/definitions/key-value/value-definition-fetcher.js';
+import {withNotFound} from '../../utils/with-not-found.js';
 
 export class TypeOrmSubsystemRepository implements SubsystemRepository {
   private readonly writer: PendingChangeWriter;
@@ -191,6 +195,41 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     const sessionId = this.uow.getWriteContext().session.sessionId;
     const rows = await this.subsystemFetcher.fetchAll(fileSystemId, sessionId);
     return rows.some(row => row.systemId === systemId);
+  }
+
+  async findSubsystemIdentities(
+    fileSystemId: number,
+    subsystemSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.Subsystem>,
+      typeof ENTITY_TYPE.Subsystem
+    >
+  > {
+    const requested = new Set(subsystemSystemIds);
+    const rows =
+      requested.size === 0
+        ? []
+        : await this.subsystemFetcher.fetchAll(
+            fileSystemId,
+            this.uow.getWriteContext().session.sessionId,
+          );
+    const items = rows
+      .filter(row => requested.has(row.systemId))
+      .map(row => ({
+        entityType: ENTITY_TYPE.Subsystem,
+        systemId: row.systemId,
+        identity: {
+          name: row.name,
+          naturalId: requireSubsystemNaturalId(row.systemId, row.subsystemId),
+        },
+      }));
+    return withNotFound(
+      ENTITY_TYPE.Subsystem,
+      subsystemSystemIds,
+      items,
+      item => item.systemId,
+    );
   }
 
   async controlPortExists(
