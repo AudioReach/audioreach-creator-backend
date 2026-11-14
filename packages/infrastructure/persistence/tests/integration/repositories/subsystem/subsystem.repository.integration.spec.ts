@@ -4,7 +4,14 @@
  */
 
 import type {DataSource, QueryRunner} from 'typeorm';
-import {CHANGE_OPERATION, DataPort, PORT_IO_TYPE, Subsystem} from '@arc/core';
+import {
+  CHANGE_OPERATION,
+  DataPort,
+  ENTITY_TYPE,
+  FAILED_ENTITY_REASON,
+  PORT_IO_TYPE,
+  Subsystem,
+} from '@arc/core';
 import {
   SESSION_MODE,
   SESSION_STATUS,
@@ -263,6 +270,61 @@ describe('TypeOrmSubsystemRepository (integration)', () => {
     expect(after.find(row => row.systemId === MODULE_ID)?.parentSystemId).toBe(
       ROOT_SUBSYSTEM_ID,
     );
+  });
+
+  describe('findSubsystemIdentities', () => {
+    it('reads names renamed in the session', async () => {
+      const repo = makeRepo(qr.manager, sessionId);
+      await repo.renameSubsystem(CHILD_SUBSYSTEM_ID, 'Renamed child');
+
+      const batch = await repo.findSubsystemIdentities(FILE_ID, [
+        ROOT_SUBSYSTEM_ID,
+        CHILD_SUBSYSTEM_ID,
+      ]);
+
+      expect(batch.items).toEqual(
+        expect.arrayContaining([
+          {
+            entityType: ENTITY_TYPE.Subsystem,
+            systemId: ROOT_SUBSYSTEM_ID,
+            identity: {name: 'Root', naturalId: 1},
+          },
+          {
+            entityType: ENTITY_TYPE.Subsystem,
+            systemId: CHILD_SUBSYSTEM_ID,
+            identity: {name: 'Renamed child', naturalId: 2},
+          },
+        ]),
+      );
+      expect(batch.items).toHaveLength(2);
+      expect(batch.failed).toEqual([]);
+    });
+
+    it('reports an ID that is not a subsystem as not found', async () => {
+      const batch = await makeRepo(
+        qr.manager,
+        sessionId,
+      ).findSubsystemIdentities(FILE_ID, [ROOT_SUBSYSTEM_ID, MODULE_ID]);
+
+      expect(batch.items.map(item => item.systemId)).toEqual([
+        ROOT_SUBSYSTEM_ID,
+      ]);
+      expect(batch.failed).toEqual([
+        {systemId: MODULE_ID, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
+    });
+
+    it('reports a subsystem of another file as not found', async () => {
+      const batch = await makeRepo(
+        qr.manager,
+        sessionId,
+      ).findSubsystemIdentities(FILE_ID + 1, [ROOT_SUBSYSTEM_ID]);
+
+      expect(batch.items).toEqual([]);
+      expect(batch.failed).toEqual([
+        {systemId: ROOT_SUBSYSTEM_ID, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
+    });
   });
 
   it('loads subsystem ports and applies staged port changes', async () => {

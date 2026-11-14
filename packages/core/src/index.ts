@@ -33,6 +33,7 @@ export * from './application/shared/base-query.js';
 export * from './application/ports/persistence/unit-of-work.js';
 export * from './application/ports/persistence/unit-of-work-factory.js';
 export * from './application/ports/persistence/batch-read.js';
+export * from './domain/identity/entity-identity.js';
 export * from './application/ports/persistence/repositories/bulk-import/bulk-insert-result-types.js';
 export * from './application/ports/persistence/repositories/bulk-import/bulk-import.repository.js';
 export * from './application/ports/persistence/repositories/project/project.repository.js';
