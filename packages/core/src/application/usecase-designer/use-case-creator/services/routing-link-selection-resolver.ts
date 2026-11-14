@@ -6,7 +6,7 @@
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {Result, RESULT_KIND} from '../../../shared/result/result.js';
 import {parseId} from '../../shared/parse-id.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import type {
   AutoRoutingCommandInput,
@@ -75,9 +75,7 @@ async function resolveLinks(
       ? uow.getDataLinkRepository()
       : uow.getControlLinkRepository();
   const entityType =
-    kind === 'data'
-      ? ISSUE_ENTITY_TYPE.DataLink
-      : ISSUE_ENTITY_TYPE.ControlLink;
+    kind === 'data' ? ENTITY_TYPE.DataLink : ENTITY_TYPE.ControlLink;
 
   const parsedIds = rawIds.map(rawId =>
     parseId(

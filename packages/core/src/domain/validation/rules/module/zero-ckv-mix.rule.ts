@@ -5,9 +5,9 @@
 
 import {
   IssueSeverity,
-  ISSUE_ENTITY_TYPE,
   deriveCategoryFromSeverity,
 } from '../../../../shared/issues/index.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import type {ValidationIssue} from '../../issue.js';
 import type {ValidationRule} from '../../validation-rule.js';
 import {VALIDATION_RULE_GROUP} from '../../validation-rule.js';
@@ -28,7 +28,7 @@ export class ZeroCkvMixRule implements ValidationRule<ModuleValidationContext> {
   readonly code = 'ARC-MOD-005';
   readonly defaultSeverity = IssueSeverity.Error;
   readonly groups = [VALIDATION_RULE_GROUP.SaveFile];
-  readonly requiredEntityTypes = [ISSUE_ENTITY_TYPE.SpfModule] as const;
+  readonly requiredEntityTypes = [ENTITY_TYPE.SpfModule] as const;
 
   validate(context: ModuleValidationContext): ValidationIssue[] {
     const issues: ValidationIssue[] = [];
@@ -63,7 +63,7 @@ export class ZeroCkvMixRule implements ValidationRule<ModuleValidationContext> {
         severity: this.defaultSeverity,
         category: deriveCategoryFromSeverity(this.defaultSeverity),
         impactedEntity: {
-          entityType: ISSUE_ENTITY_TYPE.SpfModule,
+          entityType: ENTITY_TYPE.SpfModule,
           systemId: module.systemId,
           displayName: alias,
         },

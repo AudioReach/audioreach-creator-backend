@@ -7,7 +7,7 @@ import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecas
 import {Subgraph} from '../../../../../../src/domain/entities/usecase-data/subgraph/subgraph.js';
 import {DataLink} from '../../../../../../src/domain/entities/usecase-data/links/data-link.js';
 import {RoutingIssueFactory} from '../../../../../../src/application/usecase-designer/use-case-creator/issues/routing-issue-factory.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../../../src/shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
 import {IssueSeverity} from '../../../../../../src/shared/issues/severity.js';
 import {
   SOURCE,
@@ -116,7 +116,7 @@ describe('routing contracts', () => {
     expect(issue.code).toBe('ARC-ROUTING-CYCLE-DETECTED');
     expect(issue.severity).toBe(IssueSeverity.Warning);
     expect(issue.impactedEntity).toEqual({
-      entityType: ISSUE_ENTITY_TYPE.Subgraph,
+      entityType: ENTITY_TYPE.Subgraph,
       systemId: 17,
     });
   });
@@ -143,7 +143,7 @@ describe('routing contracts', () => {
     expect(issue.code).toBe('ARC-ROUTING-DFS-08');
     expect(issue.severity).toBe(IssueSeverity.Error);
     expect(issue.impactedEntity).toEqual({
-      entityType: ISSUE_ENTITY_TYPE.Subgraph,
+      entityType: ENTITY_TYPE.Subgraph,
       systemId: 20,
     });
     expect(issue.message).toContain('keyDefinitionSystemIds: [3, 9]');

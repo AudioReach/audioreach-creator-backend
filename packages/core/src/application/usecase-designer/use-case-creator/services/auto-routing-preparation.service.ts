@@ -6,7 +6,7 @@
 import {DomainRuleViolationException} from '../../../../shared/exceptions/domain-rule-violation.exception.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
 import {failedToIssues} from '../../../shared/result/failed-to-issues.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {SOURCE} from '../../../shared/change-vocabulary.js';
 import {RESULT_KIND} from '../../../shared/result/result.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
@@ -143,7 +143,7 @@ export class AutoRoutingPreparationService {
     if (read.failed.length > 0) {
       throw new ResourceNotFoundException(
         'Selected use cases not found',
-        failedToIssues(ISSUE_ENTITY_TYPE.UseCase, read.failed),
+        failedToIssues(ENTITY_TYPE.UseCase, read.failed),
       );
     }
     return read.items;

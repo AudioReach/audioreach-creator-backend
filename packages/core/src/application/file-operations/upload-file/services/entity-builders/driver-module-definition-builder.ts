@@ -15,10 +15,8 @@ import {DriverModuleParameterDefinition} from '../../../../../domain/entities/de
 import type {DriverModuleDefinition as AwspDriverModuleDefinition} from '../../../shared/awsp-serializers/v1/definitions/index.js';
 import type {BuildResult} from '../../types/issue-collection.js';
 import type {Issue} from '../../../../../shared/issues/index.js';
-import {
-  IssueSeverity,
-  ISSUE_ENTITY_TYPE,
-} from '../../../../../shared/issues/index.js';
+import {IssueSeverity} from '../../../../../shared/issues/index.js';
+import {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
 
 /**
@@ -74,7 +72,7 @@ export class DriverModuleDefinitionBuilder {
           message: `Failed to build driver module definition ${awspDef.id}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           severity: IssueSeverity.Error,
           impactedEntity: {
-            entityType: ISSUE_ENTITY_TYPE.DriverModuleDefinition,
+            entityType: ENTITY_TYPE.DriverModuleDefinition,
             systemId: awspDef.id,
           },
         });
@@ -165,7 +163,7 @@ export class DriverModuleDefinitionBuilder {
           message: `Failed to build parameter ${awspParam.id} for driver module ${awspDef.id}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           severity: IssueSeverity.Error,
           impactedEntity: {
-            entityType: ISSUE_ENTITY_TYPE.DriverModuleDefinition,
+            entityType: ENTITY_TYPE.DriverModuleDefinition,
             systemId: awspDef.id,
           },
         });

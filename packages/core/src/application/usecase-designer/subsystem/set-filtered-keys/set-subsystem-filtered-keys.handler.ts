@@ -7,7 +7,7 @@ import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {SubsystemKey} from '../../../ports/persistence/repositories/subsystem/subsystem.repository.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/index.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import type {SetSubsystemFilteredKeysCommand} from './set-subsystem-filtered-keys.command.js';
 
@@ -36,7 +36,7 @@ export class SetSubsystemFilteredKeysHandler implements CommandHandler<
           `Subsystem ${command.subsystemSystemId} not found.`,
           [
             IssueFactory.notFound(
-              ISSUE_ENTITY_TYPE.Subsystem,
+              ENTITY_TYPE.Subsystem,
               command.subsystemSystemId,
             ),
           ],
@@ -52,7 +52,7 @@ export class SetSubsystemFilteredKeysHandler implements CommandHandler<
         if (missing !== undefined) {
           throw new ResourceNotFoundException(
             `KeyDefinition ${missing} not found.`,
-            [IssueFactory.notFound(ISSUE_ENTITY_TYPE.KeyDefinition, missing)],
+            [IssueFactory.notFound(ENTITY_TYPE.KeyDefinition, missing)],
           );
         }
       }

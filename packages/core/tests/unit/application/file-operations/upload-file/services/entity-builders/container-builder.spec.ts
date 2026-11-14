@@ -10,10 +10,8 @@ import type {AcdbContainerProperties} from '../../../../../../../src/application
 import type {Logger} from '../../../../../../../src/shared/types/logger.interface.js';
 import type {IdGenerationPort} from '../../../../../../../src/application/ports/id-generation/id-generation.port.js';
 import type {ForeignKeyMapper} from '../../../../../../../src/application/file-operations/upload-file/services/foreign-key-mapper.js';
-import {
-  ISSUE_ENTITY_TYPE,
-  IssueSeverity,
-} from '../../../../../../../src/shared/issues/index.js';
+import {IssueSeverity} from '../../../../../../../src/shared/issues/index.js';
+import {ENTITY_TYPE} from '../../../../../../../src/shared/entity-type.js';
 import {ERROR_CODES} from '../../../../../../../src/shared/errors/error-codes.js';
 import {
   createMockLogger,
@@ -317,7 +315,7 @@ describe('ContainerBuilder', () => {
         expect(result.issues).toHaveLength(1);
         expect(result.issues[0].severity).toBe(IssueSeverity.Error);
         expect(result.issues[0].impactedEntity?.entityType).toBe(
-          ISSUE_ENTITY_TYPE.Container,
+          ENTITY_TYPE.Container,
         );
       });
 

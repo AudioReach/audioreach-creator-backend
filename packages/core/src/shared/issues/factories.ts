@@ -5,8 +5,9 @@
 
 import type {Issue} from './issue.js';
 import {IssueSeverity, IssueCategory} from './severity.js';
-import type {IssueEntityType, ImpactedEntity} from './impacted-entity.js';
-import {ISSUE_ENTITY_TYPE} from './impacted-entity.js';
+import type {ImpactedEntity} from './impacted-entity.js';
+import type {EntityType} from '../entity-type.js';
+import {ENTITY_TYPE} from '../entity-type.js';
 import type {FixOption} from './fix-option.js';
 import {ISSUE_CODE} from './operational-codes.js';
 
@@ -29,7 +30,7 @@ export const IssueFactory = {
   },
 
   notFound(
-    entityType: IssueEntityType,
+    entityType: EntityType,
     systemId: number,
     displayName?: string,
   ): Issue {
@@ -90,7 +91,7 @@ export const IssueFactory = {
         `which is not in the module definition's allowed types: [${allowedTypeIds.join(', ')}].`,
       severity: IssueSeverity.Error,
       impactedEntity: {
-        entityType: ISSUE_ENTITY_TYPE.Container,
+        entityType: ENTITY_TYPE.Container,
         systemId: containerSystemId,
       },
     };
@@ -105,7 +106,7 @@ export const IssueFactory = {
         `non-structural properties, or use an empty container ID to auto-create one.`,
       severity: IssueSeverity.Error,
       impactedEntity: {
-        entityType: ISSUE_ENTITY_TYPE.Container,
+        entityType: ENTITY_TYPE.Container,
         systemId: containerSystemId,
       },
     };
@@ -117,7 +118,7 @@ export const IssueFactory = {
       message: `SPF module ${moduleSystemId} belongs to an imported subgraph.`,
       severity: IssueSeverity.Error,
       impactedEntity: {
-        entityType: ISSUE_ENTITY_TYPE.SpfModule,
+        entityType: ENTITY_TYPE.SpfModule,
         systemId: moduleSystemId,
       },
     };
@@ -129,7 +130,7 @@ export const IssueFactory = {
       message: 'Subsystem is not empty — remove all children before deleting.',
       severity: IssueSeverity.Error,
       impactedEntity: {
-        entityType: ISSUE_ENTITY_TYPE.Subsystem,
+        entityType: ENTITY_TYPE.Subsystem,
         systemId: subsystemSystemId,
       },
     };
@@ -144,7 +145,7 @@ export const IssueFactory = {
       message: `Subsystem name '${name}' is already in use.`,
       severity: IssueSeverity.Error,
       impactedEntity: {
-        entityType: ISSUE_ENTITY_TYPE.Subsystem,
+        entityType: ENTITY_TYPE.Subsystem,
         systemId: conflictingSubsystemSystemId,
         displayName: name,
       },
@@ -160,7 +161,7 @@ export const IssueFactory = {
       message: `Moving subsystem ${componentSystemId} under ${targetSystemId} would create a circular hierarchy.`,
       severity: IssueSeverity.Error,
       impactedEntity: {
-        entityType: ISSUE_ENTITY_TYPE.Subsystem,
+        entityType: ENTITY_TYPE.Subsystem,
         systemId: componentSystemId,
       },
     };
@@ -175,16 +176,13 @@ export const IssueFactory = {
       message: `Component ${componentSystemId} is already a child of subsystem ${subsystemSystemId}.`,
       severity: IssueSeverity.Error,
       impactedEntity: {
-        entityType: ISSUE_ENTITY_TYPE.Subsystem,
+        entityType: ENTITY_TYPE.Subsystem,
         systemId: subsystemSystemId,
       },
     };
   },
 
-  duplicateRootMove(
-    entityType: IssueEntityType,
-    componentSystemId: number,
-  ): Issue {
+  duplicateRootMove(entityType: EntityType, componentSystemId: number): Issue {
     return {
       code: ISSUE_CODE.SS_DUPLICATE_ROOT_MOVE,
       message: `Component ${componentSystemId} is already at root and cannot be moved to root.`,
@@ -197,7 +195,7 @@ export const IssueFactory = {
   },
 
   partialSubsystemConnection(
-    entityType: IssueEntityType,
+    entityType: EntityType,
     componentSystemId: number,
   ): Issue {
     return {
@@ -224,7 +222,7 @@ export const IssueFactory = {
         `module definition limit ${max}.`,
       severity: IssueSeverity.Error,
       impactedEntity: {
-        entityType: ISSUE_ENTITY_TYPE.SpfModule,
+        entityType: ENTITY_TYPE.SpfModule,
         systemId: moduleSystemId,
       },
     };
@@ -232,7 +230,7 @@ export const IssueFactory = {
 
   portCountDecreaseBlocked(
     portSystemId: number,
-    portEntityType: IssueEntityType,
+    portEntityType: EntityType,
     linkSystemIds: number[],
   ): Issue {
     return {
@@ -258,7 +256,7 @@ export const IssueFactory = {
         `are available (all others are already allocated). Free up intents first.`,
       severity: IssueSeverity.Error,
       impactedEntity: {
-        entityType: ISSUE_ENTITY_TYPE.SpfModule,
+        entityType: ENTITY_TYPE.SpfModule,
         systemId: moduleSystemId,
       },
     };
@@ -268,7 +266,7 @@ export const IssueFactory = {
     moduleSystemId: number,
     requested: number,
     staticCount: number,
-    portEntityType: IssueEntityType,
+    portEntityType: EntityType,
   ): Issue {
     return {
       code: ISSUE_CODE.MOD_PORT_COUNT_BELOW_STATIC_MINIMUM,

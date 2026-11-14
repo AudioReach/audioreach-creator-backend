@@ -12,7 +12,7 @@ import {
   InvalidOperationException,
   ResourceNotFoundException,
 } from '../../../../shared/exceptions/index.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {PORT_IO_TYPE} from '../../../../domain/entities/common/enums/port-io-type.js';
 import {MODULE_PORT_STRATEGIES} from '../../../../domain/entities/common/enums/module-port-strategy.js';
@@ -79,7 +79,7 @@ export class PatchSubsystemHandler implements CommandHandler<
           `Subsystem ${command.subsystemSystemId} not found.`,
           [
             IssueFactory.notFound(
-              ISSUE_ENTITY_TYPE.Subsystem,
+              ENTITY_TYPE.Subsystem,
               command.subsystemSystemId,
             ),
           ],
@@ -160,7 +160,7 @@ export class PatchSubsystemHandler implements CommandHandler<
           requested,
           Number.MAX_SAFE_INTEGER,
           links,
-          ISSUE_ENTITY_TYPE.DataPort,
+          ENTITY_TYPE.DataPort,
           command.subsystemSystemId,
         );
         if (outcome.kind === 'FAIL') {
@@ -223,7 +223,7 @@ export class PatchSubsystemHandler implements CommandHandler<
           command.controlPortCount,
           Number.MAX_SAFE_INTEGER,
           links,
-          ISSUE_ENTITY_TYPE.ControlPort,
+          ENTITY_TYPE.ControlPort,
           command.subsystemSystemId,
         );
         if (outcome.kind === 'FAIL') {

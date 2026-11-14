@@ -8,7 +8,7 @@ import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {DeleteDataLinkCommand} from './delete-data-link.command.js';
 import type {DeleteDataLinkResult} from '../dto/delete-data-link.dto.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {DataLinkDeletionService} from './data-link-deletion.service.js';
 
@@ -35,7 +35,7 @@ export class DeleteDataLinkHandler implements CommandHandler<
           `DataLink ${command.dataLinkSystemId} was not found.`,
           [
             IssueFactory.notFound(
-              ISSUE_ENTITY_TYPE.DataLink,
+              ENTITY_TYPE.DataLink,
               command.dataLinkSystemId,
             ),
           ],

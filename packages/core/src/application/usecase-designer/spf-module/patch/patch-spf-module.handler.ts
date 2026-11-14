@@ -8,7 +8,7 @@ import {
   type IdGenerationPort,
   type SpfModule,
   type PortIoType,
-  ISSUE_ENTITY_TYPE,
+  ENTITY_TYPE,
   ResourceNotFoundException,
   InvalidInputException,
   DomainRuleViolationException,
@@ -82,12 +82,7 @@ export class PatchSpfModuleHandler implements CommandHandler<
       if (module === null) {
         throw new ResourceNotFoundException(
           `SpfModule ${spfModuleSystemId} not found.`,
-          [
-            IssueFactory.notFound(
-              ISSUE_ENTITY_TYPE.SpfModule,
-              spfModuleSystemId,
-            ),
-          ],
+          [IssueFactory.notFound(ENTITY_TYPE.SpfModule, spfModuleSystemId)],
         );
       }
 
@@ -160,7 +155,7 @@ export class PatchSpfModuleHandler implements CommandHandler<
         `Existing container ${module.containerSystemId} not found.`,
         [
           IssueFactory.notFound(
-            ISSUE_ENTITY_TYPE.Container,
+            ENTITY_TYPE.Container,
             module.containerSystemId,
           ),
         ],
@@ -207,7 +202,7 @@ export class PatchSpfModuleHandler implements CommandHandler<
         `SpfModuleDefinition ${module.definitionSystemId} not found.`,
         [
           IssueFactory.notFound(
-            ISSUE_ENTITY_TYPE.SpfModuleDefinition,
+            ENTITY_TYPE.SpfModuleDefinition,
             module.definitionSystemId,
           ),
         ],
@@ -263,7 +258,7 @@ export class PatchSpfModuleHandler implements CommandHandler<
           module.systemId,
           requested,
           staticPorts.length,
-          ISSUE_ENTITY_TYPE.DataPort,
+          ENTITY_TYPE.DataPort,
         ),
       ]);
     }
@@ -283,7 +278,7 @@ export class PatchSpfModuleHandler implements CommandHandler<
         `SpfModuleDefinition ${module.definitionSystemId} not found.`,
         [
           IssueFactory.notFound(
-            ISSUE_ENTITY_TYPE.SpfModuleDefinition,
+            ENTITY_TYPE.SpfModuleDefinition,
             module.definitionSystemId,
           ),
         ],
@@ -300,7 +295,7 @@ export class PatchSpfModuleHandler implements CommandHandler<
       dynamicRequested,
       maxDynamic,
       links,
-      ISSUE_ENTITY_TYPE.DataPort,
+      ENTITY_TYPE.DataPort,
       module.systemId,
     );
     if (outcome.kind === RESULT_KIND.Fail) {
@@ -346,7 +341,7 @@ export class PatchSpfModuleHandler implements CommandHandler<
           module.systemId,
           requested,
           staticControlPorts.length,
-          ISSUE_ENTITY_TYPE.ControlPort,
+          ENTITY_TYPE.ControlPort,
         ),
       ]);
     }
@@ -366,7 +361,7 @@ export class PatchSpfModuleHandler implements CommandHandler<
         `SpfModuleDefinition ${module.definitionSystemId} not found.`,
         [
           IssueFactory.notFound(
-            ISSUE_ENTITY_TYPE.SpfModuleDefinition,
+            ENTITY_TYPE.SpfModuleDefinition,
             module.definitionSystemId,
           ),
         ],
@@ -385,7 +380,7 @@ export class PatchSpfModuleHandler implements CommandHandler<
       dynamicRequested,
       maxDynamicIntentCapacity,
       links,
-      ISSUE_ENTITY_TYPE.ControlPort,
+      ENTITY_TYPE.ControlPort,
       module.systemId,
     );
     if (outcome.kind === RESULT_KIND.Fail) {

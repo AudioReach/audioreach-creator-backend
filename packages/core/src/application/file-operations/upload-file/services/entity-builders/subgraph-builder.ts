@@ -20,10 +20,8 @@ import {
 } from '../../../../../shared/types/branded-ids.js';
 import type {BuildResult} from '../../types/issue-collection.js';
 import type {Issue} from '../../../../../shared/issues/index.js';
-import {
-  IssueSeverity,
-  ISSUE_ENTITY_TYPE,
-} from '../../../../../shared/issues/index.js';
+import {IssueSeverity} from '../../../../../shared/issues/index.js';
+import {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
 
 /**
@@ -248,7 +246,7 @@ export class SubgraphBuilder {
       message: errorMessage,
       severity: IssueSeverity.Error,
       impactedEntity: {
-        entityType: ISSUE_ENTITY_TYPE.Subgraph,
+        entityType: ENTITY_TYPE.Subgraph,
         systemId: subgraphId ?? 0,
       },
     };

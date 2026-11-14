@@ -7,8 +7,8 @@ import {ZeroCkvMixRule} from '../../../../../src/domain/validation/rules/module/
 import {
   IssueSeverity,
   IssueCategory,
-  ISSUE_ENTITY_TYPE,
 } from '../../../../../src/shared/issues/index.js';
+import {ENTITY_TYPE} from '../../../../../src/shared/entity-type.js';
 import {VALIDATION_RULE_GROUP} from '../../../../../src/domain/validation/validation-rule.js';
 import {EMPTY_PREFERENCES} from '../../../../../src/domain/validation/validation-preferences.js';
 import type {ModuleValidationContext} from '../../../../../src/domain/validation/validation-context.js';
@@ -47,7 +47,7 @@ describe('ZeroCkvMixRule', () => {
   });
 
   it('should require SpfModule entity type only', () => {
-    expect(rule.requiredEntityTypes).toContain(ISSUE_ENTITY_TYPE.SpfModule);
+    expect(rule.requiredEntityTypes).toContain(ENTITY_TYPE.SpfModule);
     expect(rule.requiredEntityTypes).toHaveLength(1);
   });
 
@@ -77,9 +77,7 @@ describe('ZeroCkvMixRule', () => {
     expect(issues[0].code).toBe('ARC-MOD-005');
     expect(issues[0].severity).toBe(IssueSeverity.Error);
     expect(issues[0].category).toBe(IssueCategory.Blocking);
-    expect(issues[0].impactedEntity?.entityType).toBe(
-      ISSUE_ENTITY_TYPE.SpfModule,
-    );
+    expect(issues[0].impactedEntity?.entityType).toBe(ENTITY_TYPE.SpfModule);
     expect(issues[0].impactedEntity?.systemId).toBe(1);
     expect(issues[0].fixOptions).toHaveLength(1);
     expect(issues[0].fixOptions![0].commandType).toBe('RemoveCkvsCommand');

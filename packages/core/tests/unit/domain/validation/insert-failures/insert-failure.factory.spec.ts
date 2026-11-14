@@ -6,10 +6,10 @@
 import {newInsertFailureIssue} from '../../../../../src/domain/validation/insert-failures/insert-failure.factory.js';
 import {INSERT_FAILURE} from '../../../../../src/domain/validation/insert-failures/insert-failure-codes.js';
 import {
-  ISSUE_ENTITY_TYPE,
   IssueSeverity,
   IssueCategory,
 } from '../../../../../src/shared/issues/index.js';
+import {ENTITY_TYPE} from '../../../../../src/shared/entity-type.js';
 
 describe('newInsertFailureIssue', () => {
   it('produces a FATAL/DATA_LOSS ValidationIssue for SpfModuleInsertFailed', () => {
@@ -29,7 +29,7 @@ describe('newInsertFailureIssue', () => {
     expect(issue.defaultSeverity).toBe(IssueSeverity.Fatal);
     expect(issue.category).toBe(IssueCategory.DataLoss);
     expect(issue.impactedEntity).toEqual({
-      entityType: ISSUE_ENTITY_TYPE.SpfModule,
+      entityType: ENTITY_TYPE.SpfModule,
       systemId: 42,
       displayName: 'MyModule',
     });
@@ -46,7 +46,7 @@ describe('newInsertFailureIssue', () => {
 
     expect(issue.code).toBe(INSERT_FAILURE.DataLinkInsertFailed.code);
     expect(issue.name).toBe(INSERT_FAILURE.DataLinkInsertFailed.name);
-    expect(issue.impactedEntity?.entityType).toBe(ISSUE_ENTITY_TYPE.DataLink);
+    expect(issue.impactedEntity?.entityType).toBe(ENTITY_TYPE.DataLink);
     expect(issue.impactedEntity?.systemId).toBe(100);
     expect(issue.impactedEntity?.displayName).toBeUndefined();
     expect(issue.severity).toBe(IssueSeverity.Fatal);
@@ -74,7 +74,7 @@ describe('newInsertFailureIssue', () => {
 
     expect(issue.code).toBe(INSERT_FAILURE.KeyDefinitionInsertFailed.code);
     expect(issue.impactedEntity).toEqual({
-      entityType: ISSUE_ENTITY_TYPE.KeyDefinition,
+      entityType: ENTITY_TYPE.KeyDefinition,
       systemId: 7,
     });
     expect(issue.fixOptions).toEqual(fixOptions);

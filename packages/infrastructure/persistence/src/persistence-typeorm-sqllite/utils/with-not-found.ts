@@ -3,14 +3,14 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {BatchRead, FailedEntity, IssueEntityType} from '@arc/core';
+import type {BatchRead, FailedEntity, EntityType} from '@arc/core';
 import {FAILED_ENTITY_REASON} from '@arc/core';
 
 /**
  * Appends `NOT_FOUND` entries for every requested systemId that is neither
  * loaded nor already failed.
  */
-export function withNotFound<T, E extends IssueEntityType = IssueEntityType>(
+export function withNotFound<T, E extends EntityType = EntityType>(
   requestedIds: readonly number[],
   items: T[],
   getSystemId: (item: T) => number,

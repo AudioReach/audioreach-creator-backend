@@ -25,10 +25,8 @@ import type {AwspPidType} from '../../../shared/awsp-serializers/v1/definitions/
 import type {AwspToolPolicy} from '../../../shared/awsp-serializers/v1/definitions/module-definition/type/tool-policy.js';
 import type {BuildResult} from '../../types/issue-collection.js';
 import type {Issue} from '../../../../../shared/issues/index.js';
-import {
-  IssueSeverity,
-  ISSUE_ENTITY_TYPE,
-} from '../../../../../shared/issues/index.js';
+import {IssueSeverity} from '../../../../../shared/issues/index.js';
+import {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
 import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
 
@@ -91,7 +89,7 @@ export class VcpmModuleDefinitionBuilder {
           message: `Failed to build VCPM module definition ${BinaryUtils.toHexString(awspDef.id)}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           severity: IssueSeverity.Error,
           impactedEntity: {
-            entityType: ISSUE_ENTITY_TYPE.VcpmModuleDefinition,
+            entityType: ENTITY_TYPE.VcpmModuleDefinition,
             systemId: awspDef.id,
           },
         });
@@ -180,7 +178,7 @@ export class VcpmModuleDefinitionBuilder {
           message: `Failed to build parameter ${BinaryUtils.toHexString(awspParam.id)} for VCPM module ${BinaryUtils.toHexString(awspDef.id)}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           severity: IssueSeverity.Error,
           impactedEntity: {
-            entityType: ISSUE_ENTITY_TYPE.VcpmModuleDefinition,
+            entityType: ENTITY_TYPE.VcpmModuleDefinition,
             systemId: awspDef.id,
           },
         });

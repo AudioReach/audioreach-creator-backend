@@ -27,7 +27,7 @@ import type {
   SubsystemRepository,
 } from '../../../ports/persistence/repositories/subsystem/subsystem.repository.js';
 import {DomainRuleViolationException} from '../../../../shared/exceptions/index.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 
 export type MoveComponent = {
@@ -212,8 +212,8 @@ export function ensureNoMovedPartialConnections(
     [...unresolvedNodeIds].map(systemId =>
       IssueFactory.partialSubsystemConnection(
         nodeTypes.get(systemId) === NodeType.Module
-          ? ISSUE_ENTITY_TYPE.SpfModule
-          : ISSUE_ENTITY_TYPE.Subsystem,
+          ? ENTITY_TYPE.SpfModule
+          : ENTITY_TYPE.Subsystem,
         systemId,
       ),
     ),

@@ -20,7 +20,7 @@ import type {IdGenerationPort} from '../../../../ports/id-generation/id-generati
 import type {WorkerPoolPort} from '../../../../ports/worker/worker-pool.port.js';
 import type {WorkerTask} from '../../../../ports/worker/worker-types.js';
 import type {Issue} from '../../../../../shared/issues/issue.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
 import {IssueSeverity} from '../../../../../shared/issues/severity.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
 import {
@@ -158,7 +158,7 @@ export class SubsystemBuilder {
           message: `AWSP subsystem '${subsystem.name}' references stale subgraph 0x${child.id.toString(16)}; no ACDB subgraph mapping exists`,
           severity: IssueSeverity.Warning,
           impactedEntity: {
-            entityType: ISSUE_ENTITY_TYPE.Subgraph,
+            entityType: ENTITY_TYPE.Subgraph,
             systemId: child.id,
           },
         });

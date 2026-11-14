@@ -4,7 +4,7 @@
  */
 
 import {Result} from '../../shared/result/result.js';
-import type {IssueEntityType} from '../../../shared/issues/impacted-entity.js';
+import type {EntityType} from '../../../shared/entity-type.js';
 import {IssueFactory} from '../../../shared/issues/factories.js';
 
 export interface PortCountChangeResult {
@@ -30,7 +30,7 @@ export function resolvePortCountChange(
   requested: number,
   maxAllowed: number,
   links: ReadonlyArray<{portSystemId: number; linkSystemId: number}>,
-  issueEntityType: IssueEntityType,
+  issueEntityType: EntityType,
   parentSystemId: number,
 ): Result<PortCountChangeResult> {
   const currentCount = currentPorts.length;

@@ -4,7 +4,7 @@
  */
 
 import type {Issue} from '../../../../shared/issues/issue.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {ISSUE_CODE} from '../../../../shared/issues/operational-codes.js';
 import {IssueSeverity} from '../../../../shared/issues/severity.js';
 import type {
@@ -314,7 +314,7 @@ export const RoutingIssueFactory = {
         `destSubgraphSystemId: ${destSubgraphSystemId}).`,
       severity: IssueSeverity.Error,
       impactedEntity: {
-        entityType: ISSUE_ENTITY_TYPE.DataLink,
+        entityType: ENTITY_TYPE.DataLink,
         systemId: dataLinkSystemId,
       },
     };
@@ -325,7 +325,7 @@ export const RoutingIssueFactory = {
       code: ISSUE_CODE.ROUTING_MDF_KV_ASSIGNED,
       severity: IssueSeverity.Error,
       impactedEntity: {
-        entityType: ISSUE_ENTITY_TYPE.Subgraph,
+        entityType: ENTITY_TYPE.Subgraph,
         systemId: subgraphSystemId,
       },
       message: `MDF subgraph ${subgraphSystemId} cannot contain requested KV values.`,
@@ -340,7 +340,7 @@ export const RoutingIssueFactory = {
         'data-link adjacency.',
       severity: IssueSeverity.Warning,
       impactedEntity: {
-        entityType: ISSUE_ENTITY_TYPE.Subgraph,
+        entityType: ENTITY_TYPE.Subgraph,
         systemId: subgraphSystemId,
       },
     };
@@ -351,7 +351,7 @@ export const RoutingIssueFactory = {
       code: ISSUE_CODE.ROUTING_CYCLE_DETECTED,
       severity: IssueSeverity.Warning,
       impactedEntity: {
-        entityType: ISSUE_ENTITY_TYPE.Subgraph,
+        entityType: ENTITY_TYPE.Subgraph,
         systemId: subgraphSystemId,
       },
       message: `DFS detected a cycle at subgraph ${subgraphSystemId}.`,
@@ -368,7 +368,7 @@ export const RoutingIssueFactory = {
       code: ISSUE_CODE.ROUTING_EC_MULTIPLE_LINKS,
       severity: IssueSeverity.Error,
       impactedEntity: {
-        entityType: ISSUE_ENTITY_TYPE.UseCase,
+        entityType: ENTITY_TYPE.UseCase,
         systemId: usecaseSystemId,
       },
       message:
@@ -386,7 +386,7 @@ export const RoutingIssueFactory = {
       code: ISSUE_CODE.ROUTING_EC_MULTIPLE_ON_PATH,
       severity: IssueSeverity.Error,
       impactedEntity: {
-        entityType: ISSUE_ENTITY_TYPE.DataLink,
+        entityType: ENTITY_TYPE.DataLink,
         systemId: secondEcDataLinkSystemId,
       },
       message:
@@ -409,7 +409,7 @@ export const RoutingIssueFactory = {
       code: ISSUE_CODE.ROUTING_EC_BRIDGE_INCOMPATIBLE,
       severity: IssueSeverity.Error,
       impactedEntity: {
-        entityType: ISSUE_ENTITY_TYPE.DataLink,
+        entityType: ENTITY_TYPE.DataLink,
         systemId: representativeDataLinkSystemId,
       },
       message:
@@ -480,7 +480,7 @@ export const RoutingIssueFactory = {
         ? {}
         : {
             impactedEntity: {
-              entityType: ISSUE_ENTITY_TYPE.Subgraph,
+              entityType: ENTITY_TYPE.Subgraph,
               systemId: details.pathSubgraphSystemIds[0],
             },
           }),
@@ -499,7 +499,7 @@ export const RoutingIssueFactory = {
         `for one key (valueDefinitionSystemIds: [${valueIds.join(', ')}]).`,
       severity: IssueSeverity.Error,
       impactedEntity: {
-        entityType: ISSUE_ENTITY_TYPE.Subgraph,
+        entityType: ENTITY_TYPE.Subgraph,
         systemId: subgraphSystemId,
       },
     };
@@ -518,7 +518,7 @@ export const RoutingIssueFactory = {
         `(valueDefinitionSystemIds: [${valueIds.join(', ')}]).`,
       severity: IssueSeverity.Error,
       impactedEntity: {
-        entityType: ISSUE_ENTITY_TYPE.Subgraph,
+        entityType: ENTITY_TYPE.Subgraph,
         systemId: subgraphSystemId,
       },
     };
@@ -589,7 +589,7 @@ export const RoutingIssueFactory = {
         `coverage was lost (dataLinkLossPairs: [${pairText}]).`,
       severity: IssueSeverity.Warning,
       impactedEntity: {
-        entityType: ISSUE_ENTITY_TYPE.UseCase,
+        entityType: ENTITY_TYPE.UseCase,
         systemId: usecaseSystemId,
       },
     };
@@ -632,7 +632,7 @@ export const RoutingIssueFactory = {
     };
     if (edit.usecase !== null) {
       issue.impactedEntity = {
-        entityType: ISSUE_ENTITY_TYPE.UseCase,
+        entityType: ENTITY_TYPE.UseCase,
         systemId: edit.usecase.systemId,
       };
     }
@@ -740,7 +740,7 @@ export const RoutingIssueFactory = {
       code: ISSUE_CODE.ROUTING_ORPHAN_SUBGRAPH,
       message: `Subgraph ${systemId} is not referenced by any projected UseCase.`,
       severity: IssueSeverity.Warning,
-      impactedEntity: {entityType: ISSUE_ENTITY_TYPE.Subgraph, systemId},
+      impactedEntity: {entityType: ENTITY_TYPE.Subgraph, systemId},
     };
   },
 
@@ -751,7 +751,7 @@ export const RoutingIssueFactory = {
         `Orphan subgraph ${systemId} still has SGKVs. ` +
         'Review it through the manual topology workflow.',
       severity: IssueSeverity.Warning,
-      impactedEntity: {entityType: ISSUE_ENTITY_TYPE.Subgraph, systemId},
+      impactedEntity: {entityType: ENTITY_TYPE.Subgraph, systemId},
     };
   },
 
@@ -760,7 +760,7 @@ export const RoutingIssueFactory = {
       code: ISSUE_CODE.ROUTING_ORPHAN_SUBSYSTEM,
       message: `Subsystem ${systemId} has no module in its hierarchy.`,
       severity: IssueSeverity.Warning,
-      impactedEntity: {entityType: ISSUE_ENTITY_TYPE.Subsystem, systemId},
+      impactedEntity: {entityType: ENTITY_TYPE.Subsystem, systemId},
     };
   },
 
@@ -769,7 +769,7 @@ export const RoutingIssueFactory = {
       code: ISSUE_CODE.ROUTING_ORPHAN_DATA_LINK,
       message: `Data link ${systemId} is not covered by any projected directed UseCase pair.`,
       severity: IssueSeverity.Warning,
-      impactedEntity: {entityType: ISSUE_ENTITY_TYPE.DataLink, systemId},
+      impactedEntity: {entityType: ENTITY_TYPE.DataLink, systemId},
     };
   },
 
@@ -778,7 +778,7 @@ export const RoutingIssueFactory = {
       code: ISSUE_CODE.ROUTING_ORPHAN_CONTROL_LINK,
       message: `Control link ${systemId} is not covered by any projected UseCase pair.`,
       severity: IssueSeverity.Warning,
-      impactedEntity: {entityType: ISSUE_ENTITY_TYPE.ControlLink, systemId},
+      impactedEntity: {entityType: ENTITY_TYPE.ControlLink, systemId},
     };
   },
 

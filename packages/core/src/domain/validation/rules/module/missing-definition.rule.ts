@@ -5,9 +5,9 @@
 
 import {
   IssueSeverity,
-  ISSUE_ENTITY_TYPE,
   deriveCategoryFromSeverity,
 } from '../../../../shared/issues/index.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import type {ValidationIssue} from '../../issue.js';
 import type {ValidationRule} from '../../validation-rule.js';
 import {VALIDATION_RULE_GROUP} from '../../validation-rule.js';
@@ -28,8 +28,8 @@ export class MissingDefinitionRule implements ValidationRule<ModuleValidationCon
   readonly defaultSeverity = IssueSeverity.Error;
   readonly groups = [VALIDATION_RULE_GROUP.UploadFile];
   readonly requiredEntityTypes = [
-    ISSUE_ENTITY_TYPE.SpfModule,
-    ISSUE_ENTITY_TYPE.SpfModuleDefinition,
+    ENTITY_TYPE.SpfModule,
+    ENTITY_TYPE.SpfModuleDefinition,
   ] as const;
 
   validate(context: ModuleValidationContext): ValidationIssue[] {
@@ -54,7 +54,7 @@ export class MissingDefinitionRule implements ValidationRule<ModuleValidationCon
           category: deriveCategoryFromSeverity(this.defaultSeverity),
           fixOptions: [],
           impactedEntity: {
-            entityType: ISSUE_ENTITY_TYPE.SpfModule,
+            entityType: ENTITY_TYPE.SpfModule,
             systemId: module.systemId,
             displayName: module.alias,
           },

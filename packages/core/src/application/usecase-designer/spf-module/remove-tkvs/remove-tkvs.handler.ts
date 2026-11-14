@@ -7,7 +7,7 @@ import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/index.js';
 import {Result} from '../../../shared/result/result.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
 import type {RemoveTkvsCommand} from './remove-tkvs.command.js';
 import {getModuleWriteContext} from '../shared/module-handler-helpers.js';
@@ -45,7 +45,7 @@ export class RemoveTkvsHandler implements CommandHandler<
     const toRemove: Array<(typeof existingTkvs)[number]> = [];
     for (const tkvSystemId of new Set(command.tkvSystemIds)) {
       if (!existingTkvMap.has(tkvSystemId)) {
-        issues.push(IssueFactory.notFound(ISSUE_ENTITY_TYPE.Tkv, tkvSystemId));
+        issues.push(IssueFactory.notFound(ENTITY_TYPE.Tkv, tkvSystemId));
       } else {
         toRemove.push(existingTkvMap.get(tkvSystemId)!);
       }

@@ -23,7 +23,7 @@ import type {
 import {
   CHANGE_OPERATION,
   FAILED_ENTITY_REASON,
-  ISSUE_ENTITY_TYPE,
+  ENTITY_TYPE,
   READ_MODE,
   USECASE_TYPE,
   UseCase,
@@ -159,7 +159,7 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
           reason: FAILED_ENTITY_REASON.UnresolvedReference,
           // No identity: a UseCase's identity includes the missing GKV pair.
           missingRef: {
-            entityType: ISSUE_ENTITY_TYPE.ValueDefinition,
+            entityType: ENTITY_TYPE.ValueDefinition,
             systemId: missingRef,
           },
         });

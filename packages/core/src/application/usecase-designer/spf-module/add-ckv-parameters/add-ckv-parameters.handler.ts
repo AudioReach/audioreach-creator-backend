@@ -14,7 +14,7 @@ import type {ParameterDefinitionBase} from '../../../ports/persistence/repositor
 import {Result} from '../../../shared/result/result.js';
 import {KvData} from '../../../../domain/entities/common/entities/kv-data.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
 import {serializeDefaultParameterData} from '../../shared/serialize-elements.js';
 import type {AddCkvParametersCommand} from './add-ckv-parameters.command.js';
@@ -73,7 +73,7 @@ export class AddCkvParametersHandler implements CommandHandler<
         if (!defMap.has(parameterSystemId)) {
           issues.push(
             IssueFactory.notFound(
-              ISSUE_ENTITY_TYPE.SpfModuleParameterDefinition,
+              ENTITY_TYPE.SpfModuleParameterDefinition,
               parameterSystemId,
             ),
           );

@@ -7,8 +7,8 @@ import {applyPreferences} from '../../../../src/application/validation/preferenc
 import {
   IssueCategory,
   IssueSeverity,
-  ISSUE_ENTITY_TYPE,
 } from '../../../../src/shared/issues/index.js';
+import {ENTITY_TYPE} from '../../../../src/shared/entity-type.js';
 import {
   EMPTY_PREFERENCES,
   buildSuppressionKey,
@@ -25,7 +25,7 @@ function makeIssue(overrides: Partial<ValidationIssue> = {}): ValidationIssue {
     severity: IssueSeverity.Warning,
     category: IssueCategory.NonBlocking,
     fixOptions: [],
-    impactedEntity: {entityType: ISSUE_ENTITY_TYPE.SpfModule, systemId: 1},
+    impactedEntity: {entityType: ENTITY_TYPE.SpfModule, systemId: 1},
     impactedUsecases: [],
     ...overrides,
   };
@@ -102,13 +102,13 @@ describe('applyPreferences', () => {
   it('should suppress a specific NON_BLOCKING issue instance', () => {
     const issue = makeIssue({
       impactedEntity: {
-        entityType: ISSUE_ENTITY_TYPE.DataLink,
+        entityType: ENTITY_TYPE.DataLink,
         systemId: 8388625,
       },
     });
     const key = buildSuppressionKey(
       'ARC-TEST-001',
-      ISSUE_ENTITY_TYPE.DataLink,
+      ENTITY_TYPE.DataLink,
       8388625,
     );
     const prefs: ValidationPreferences = {
@@ -124,15 +124,11 @@ describe('applyPreferences', () => {
       severity: IssueSeverity.Error,
       category: IssueCategory.Blocking,
       impactedEntity: {
-        entityType: ISSUE_ENTITY_TYPE.SpfModule,
+        entityType: ENTITY_TYPE.SpfModule,
         systemId: 1,
       },
     });
-    const key = buildSuppressionKey(
-      'ARC-TEST-001',
-      ISSUE_ENTITY_TYPE.SpfModule,
-      1,
-    );
+    const key = buildSuppressionKey('ARC-TEST-001', ENTITY_TYPE.SpfModule, 1);
     const prefs: ValidationPreferences = {
       overrides: {},
       suppressions: {[key]: {}},
@@ -146,11 +142,7 @@ describe('applyPreferences', () => {
       severity: IssueSeverity.Warning,
       category: IssueCategory.NonBlocking,
     });
-    const key = buildSuppressionKey(
-      'ARC-TEST-001',
-      ISSUE_ENTITY_TYPE.SpfModule,
-      1,
-    );
+    const key = buildSuppressionKey('ARC-TEST-001', ENTITY_TYPE.SpfModule, 1);
     const prefs: ValidationPreferences = {
       overrides: {
         'ARC-TEST-001': {severityOverride: IssueSeverity.Error, disabled: true},

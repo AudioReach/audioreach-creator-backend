@@ -9,7 +9,7 @@ import type {
   ValidationRuleGroup,
 } from '../../domain/validation/validation-rule.js';
 import type {FileValidationContext} from '../../domain/validation/validation-context.js';
-import type {IssueEntityType} from '../../shared/issues/index.js';
+import type {EntityType} from '../../shared/entity-type.js';
 import type {ValidationIssue} from '../../domain/validation/issue.js';
 import {applyPreferences} from './preference-enforcer.js';
 
@@ -32,7 +32,7 @@ export class ValidationEngine {
    * Returns the union of requiredEntityTypes across all rules in the given group.
    * Pass this to ValidationContextBuilder.fromDb() to load only the needed DB tables.
    */
-  getRequiredEntityTypes(group: ValidationRuleGroup): Set<IssueEntityType> {
+  getRequiredEntityTypes(group: ValidationRuleGroup): Set<EntityType> {
     return new Set(
       this.rules
         .filter(r => r.groups.includes(group))

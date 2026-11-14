@@ -5,7 +5,7 @@
 
 import type {BatchRead} from '../../ports/persistence/batch-read.js';
 import {FAILED_ENTITY_REASON} from '../../ports/persistence/batch-read.js';
-import type {IssueEntityType} from '../../../shared/issues/impacted-entity.js';
+import type {EntityType} from '../../../shared/entity-type.js';
 import {ResourceNotFoundException} from '../../../shared/exceptions/resource-not-found.exception.js';
 import {failedToIssues} from './failed-to-issues.js';
 
@@ -17,7 +17,7 @@ import {failedToIssues} from './failed-to-issues.js';
  * loaded, whether it is missing or references a missing entity; the issue
  * says which.
  */
-export function requireOne<T, E extends IssueEntityType>(
+export function requireOne<T, E extends EntityType>(
   entityType: E,
   systemId: number,
   batch: BatchRead<T, E>,

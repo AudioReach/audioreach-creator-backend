@@ -6,7 +6,7 @@ import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {Result} from '../../../shared/result/result.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
 import {serializeDefaultParameterData} from '../../shared/serialize-elements.js';
 import type {AddTkvParametersCommand} from './add-tkv-parameters.command.js';
@@ -65,7 +65,7 @@ export class AddTkvParametersHandler implements CommandHandler<
       spfModuleSystemId,
     );
     if (!tkv) {
-      return [IssueFactory.notFound(ISSUE_ENTITY_TYPE.Tkv, tkvSystemId)];
+      return [IssueFactory.notFound(ENTITY_TYPE.Tkv, tkvSystemId)];
     }
 
     const allDefs = await defRepo.getParameterDefinitions(
@@ -86,7 +86,7 @@ export class AddTkvParametersHandler implements CommandHandler<
       if (!def) {
         issues.push(
           IssueFactory.notFound(
-            ISSUE_ENTITY_TYPE.SpfModuleParameterDefinition,
+            ENTITY_TYPE.SpfModuleParameterDefinition,
             parameterSystemId,
           ),
         );

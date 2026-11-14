@@ -5,7 +5,7 @@
 
 import {
   CLIENT_INPUT_TYPE,
-  ISSUE_ENTITY_TYPE,
+  ENTITY_TYPE,
   IssueCategory,
   IssueSeverity,
   type Issue,
@@ -47,7 +47,7 @@ describe('api-issue-item.mapper', () => {
         defaultSeverity: IssueSeverity.Error,
         category: IssueCategory.Blocking,
         impactedEntity: {
-          entityType: ISSUE_ENTITY_TYPE.SpfModule,
+          entityType: ENTITY_TYPE.SpfModule,
           systemId: 1001,
           displayName: 'PCM Decoder',
         },
@@ -77,7 +77,7 @@ describe('api-issue-item.mapper', () => {
         message: 'boom',
         severity: IssueSeverity.Error,
         impactedEntity: {
-          entityType: ISSUE_ENTITY_TYPE.Container,
+          entityType: ENTITY_TYPE.Container,
           systemId: 601,
         },
       };
@@ -85,7 +85,7 @@ describe('api-issue-item.mapper', () => {
       const dto = toApiIssueItem(issue);
 
       expect(dto.impactedEntity).toBeInstanceOf(ApiImpactedEntityDto);
-      expect(dto.impactedEntity?.entityType).toBe(ISSUE_ENTITY_TYPE.Container);
+      expect(dto.impactedEntity?.entityType).toBe(ENTITY_TYPE.Container);
       expect(dto.impactedEntity?.systemId).toBe('601');
       expect(dto.impactedEntity?.displayName).toBeUndefined();
     });
@@ -97,7 +97,7 @@ describe('api-issue-item.mapper', () => {
         severity: IssueSeverity.Warning,
         category: IssueCategory.DataLoss,
         impactedEntity: {
-          entityType: ISSUE_ENTITY_TYPE.DataLink,
+          entityType: ENTITY_TYPE.DataLink,
           systemId: 4001,
         },
         fixOptions: [

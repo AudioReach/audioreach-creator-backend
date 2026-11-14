@@ -6,7 +6,7 @@ import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {Result} from '../../../shared/result/result.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
 import type {RemoveTkvParametersCommand} from './remove-tkv-parameters.command.js';
 import {getModuleWriteContext} from '../shared/module-handler-helpers.js';
@@ -40,9 +40,7 @@ export class RemoveTkvParametersHandler implements CommandHandler<
           command.spfModuleSystemId,
         );
         if (!tkv) {
-          issues.push(
-            IssueFactory.notFound(ISSUE_ENTITY_TYPE.Tkv, tkvSystemId),
-          );
+          issues.push(IssueFactory.notFound(ENTITY_TYPE.Tkv, tkvSystemId));
           continue;
         }
 

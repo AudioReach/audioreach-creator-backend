@@ -8,9 +8,9 @@ import {VALIDATION_RULE_GROUP} from '../../../../src/domain/validation/validatio
 import {
   IssueCategory,
   IssueSeverity,
-  ISSUE_ENTITY_TYPE,
 } from '../../../../src/shared/issues/index.js';
-import type {IssueEntityType} from '../../../../src/shared/issues/index.js';
+import {ENTITY_TYPE} from '../../../../src/shared/entity-type.js';
+import type {EntityType} from '../../../../src/shared/entity-type.js';
 import {EMPTY_PREFERENCES} from '../../../../src/domain/validation/validation-preferences.js';
 import type {ValidationRule} from '../../../../src/domain/validation/validation-rule.js';
 import type {FileValidationContext} from '../../../../src/domain/validation/validation-context.js';
@@ -46,7 +46,7 @@ function makeIssue(code: string): ValidationIssue {
     severity: IssueSeverity.Warning,
     category: IssueCategory.NonBlocking,
     fixOptions: [],
-    impactedEntity: {entityType: ISSUE_ENTITY_TYPE.SpfModule, systemId: 1},
+    impactedEntity: {entityType: ENTITY_TYPE.SpfModule, systemId: 1},
     impactedUsecases: [],
   };
 }
@@ -55,7 +55,7 @@ function makeRule(
   code: string,
   groups: ValidationRuleGroup[],
   issues: ValidationIssue[],
-  requiredEntityTypes: IssueEntityType[] = [],
+  requiredEntityTypes: EntityType[] = [],
 ): ValidationRule<FileValidationContext> {
   return {
     code,

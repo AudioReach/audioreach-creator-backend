@@ -13,10 +13,8 @@ import {
 import {DriverModule} from '../../../../../domain/entities/driver-module-data/driver-module.js';
 import type {BuildResult} from '../../types/issue-collection.js';
 import type {Issue} from '../../../../../shared/issues/index.js';
-import {
-  IssueSeverity,
-  ISSUE_ENTITY_TYPE,
-} from '../../../../../shared/issues/index.js';
+import {IssueSeverity} from '../../../../../shared/issues/index.js';
+import {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
 import type {ParsedAcdb} from '../../models/parsed-acdb.js';
 import {DriverCalibrationDataBuilder} from './driver-calibration-data-builder.js';
@@ -76,7 +74,7 @@ export class DriverModuleBuilder {
             message: `No driver module definition systemId mapping found for moduleDefinitionId ${moduleDefinitionId}`,
             severity: IssueSeverity.Error,
             impactedEntity: {
-              entityType: ISSUE_ENTITY_TYPE.DriverModule,
+              entityType: ENTITY_TYPE.DriverModule,
               systemId: moduleDefinitionId,
             },
           });
@@ -103,7 +101,7 @@ export class DriverModuleBuilder {
           message: `Failed to build driver module for definition ${moduleDefinitionId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           severity: IssueSeverity.Error,
           impactedEntity: {
-            entityType: ISSUE_ENTITY_TYPE.DriverModule,
+            entityType: ENTITY_TYPE.DriverModule,
             systemId: moduleDefinitionId,
           },
         });

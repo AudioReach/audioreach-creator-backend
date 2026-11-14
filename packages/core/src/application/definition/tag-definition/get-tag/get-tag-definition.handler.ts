@@ -5,7 +5,7 @@
 
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {GetTagDefinitionQuery} from './get-tag-definition.query.js';
 import {Result} from '../../../shared/result/result.js';
 import {requireOne} from '../../../shared/result/require-one.js';
@@ -31,11 +31,7 @@ export class GetTagDefinitionHandler implements QueryHandler<
         fileId,
         [query.tagSystemId],
       );
-    const tag = requireOne(
-      ISSUE_ENTITY_TYPE.TagDefinition,
-      query.tagSystemId,
-      tags,
-    );
+    const tag = requireOne(ENTITY_TYPE.TagDefinition, query.tagSystemId, tags);
 
     return Result.ok(mapTagDefinition(tag));
   }

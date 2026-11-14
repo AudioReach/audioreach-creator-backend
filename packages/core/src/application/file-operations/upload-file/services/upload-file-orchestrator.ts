@@ -29,11 +29,8 @@ import {
   type MemorySnapshot,
 } from '../../../../shared/profiling/profiler-types.js';
 import {IssueCollector} from '../types/issue-collection.js';
-import {
-  type Issue,
-  ISSUE_ENTITY_TYPE,
-  type IssueEntityType,
-} from '../../../../shared/issues/index.js';
+import {type Issue} from '../../../../shared/issues/index.js';
+import {ENTITY_TYPE, type EntityType} from '../../../../shared/entity-type.js';
 import type {ValidationIssue} from '../../../../domain/validation/issue.js';
 import {newInsertFailureIssue} from '../../../../domain/validation/insert-failures/insert-failure.factory.js';
 import type {InsertFailureType} from '../../../../domain/validation/insert-failures/insert-failure-codes.js';
@@ -559,10 +556,7 @@ export class UploadFileOrchestrator {
       const insertResult = await bulkRepo.insertKeyDefinitions(result.entities);
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(
-        insertResult,
-        ISSUE_ENTITY_TYPE.KeyDefinition,
-      );
+      this.collectInsertionErrors(insertResult, ENTITY_TYPE.KeyDefinition);
 
       // Log based on actual insertion result
       if (insertResult.ok) {
@@ -591,7 +585,7 @@ export class UploadFileOrchestrator {
 
   private collectInsertionErrors(
     insertResult: BulkInsertResult,
-    entityType: IssueEntityType,
+    entityType: EntityType,
   ): void {
     if (insertResult.ok) return;
 
@@ -619,39 +613,39 @@ export class UploadFileOrchestrator {
 
   private resolveInsertFailureType(entityType: string): InsertFailureType {
     switch (entityType) {
-      case ISSUE_ENTITY_TYPE.SpfModule:
+      case ENTITY_TYPE.SpfModule:
         return 'SpfModuleInsertFailed';
-      case ISSUE_ENTITY_TYPE.DataLink:
+      case ENTITY_TYPE.DataLink:
         return 'DataLinkInsertFailed';
-      case ISSUE_ENTITY_TYPE.KeyDefinition:
+      case ENTITY_TYPE.KeyDefinition:
         return 'KeyDefinitionInsertFailed';
-      case ISSUE_ENTITY_TYPE.TagDefinition:
+      case ENTITY_TYPE.TagDefinition:
         return 'TagDefinitionInsertFailed';
-      case ISSUE_ENTITY_TYPE.ProcessorDefinition:
+      case ENTITY_TYPE.ProcessorDefinition:
         return 'ProcessorDefinitionInsertFailed';
-      case ISSUE_ENTITY_TYPE.ContainerType:
+      case ENTITY_TYPE.ContainerType:
         return 'ContainerTypeInsertFailed';
-      case ISSUE_ENTITY_TYPE.SpfModuleDefinition:
+      case ENTITY_TYPE.SpfModuleDefinition:
         return 'SpfModuleDefinitionInsertFailed';
-      case ISSUE_ENTITY_TYPE.DriverModuleDefinition:
+      case ENTITY_TYPE.DriverModuleDefinition:
         return 'DriverModuleDefinitionInsertFailed';
-      case ISSUE_ENTITY_TYPE.VcpmModuleDefinition:
+      case ENTITY_TYPE.VcpmModuleDefinition:
         return 'VcpmModuleDefinitionInsertFailed';
-      case ISSUE_ENTITY_TYPE.SubgraphPropertyDefinition:
+      case ENTITY_TYPE.SubgraphPropertyDefinition:
         return 'SubgraphPropertyDefinitionInsertFailed';
-      case ISSUE_ENTITY_TYPE.ContainerPropertyDefinition:
+      case ENTITY_TYPE.ContainerPropertyDefinition:
         return 'ContainerPropertyDefinitionInsertFailed';
-      case ISSUE_ENTITY_TYPE.ModuleManagerData:
+      case ENTITY_TYPE.ModuleManagerData:
         return 'ModuleManagerDataInsertFailed';
-      case ISSUE_ENTITY_TYPE.Subgraph:
+      case ENTITY_TYPE.Subgraph:
         return 'SubgraphInsertFailed';
-      case ISSUE_ENTITY_TYPE.Container:
+      case ENTITY_TYPE.Container:
         return 'ContainerInsertFailed';
-      case ISSUE_ENTITY_TYPE.DriverModule:
+      case ENTITY_TYPE.DriverModule:
         return 'DriverModuleInsertFailed';
-      case ISSUE_ENTITY_TYPE.ControlLink:
+      case ENTITY_TYPE.ControlLink:
         return 'ControlLinkInsertFailed';
-      case ISSUE_ENTITY_TYPE.UseCase:
+      case ENTITY_TYPE.UseCase:
         return 'UseCaseInsertFailed';
       default:
         return 'UnknownEntityInsertFailed';
@@ -685,10 +679,7 @@ export class UploadFileOrchestrator {
       const insertResult = await bulkRepo.insertTagDefinitions(allEntities);
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(
-        insertResult,
-        ISSUE_ENTITY_TYPE.TagDefinition,
-      );
+      this.collectInsertionErrors(insertResult, ENTITY_TYPE.TagDefinition);
 
       // Log based on actual insertion result
       if (insertResult.ok) {
@@ -780,7 +771,7 @@ export class UploadFileOrchestrator {
       // Collect insertion errors from the insert result
       this.collectInsertionErrors(
         insertResult,
-        ISSUE_ENTITY_TYPE.ProcessorDefinition,
+        ENTITY_TYPE.ProcessorDefinition,
       );
 
       // Log based on actual insertion result
@@ -830,10 +821,7 @@ export class UploadFileOrchestrator {
       );
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(
-        insertResult,
-        ISSUE_ENTITY_TYPE.ContainerType,
-      );
+      this.collectInsertionErrors(insertResult, ENTITY_TYPE.ContainerType);
 
       // Log based on actual insertion result
       if (insertResult.ok) {
@@ -893,7 +881,7 @@ export class UploadFileOrchestrator {
       // Collect insertion errors from the insert result
       this.collectInsertionErrors(
         insertResult,
-        ISSUE_ENTITY_TYPE.SpfModuleDefinition,
+        ENTITY_TYPE.SpfModuleDefinition,
       );
 
       // Log based on actual insertion result
@@ -939,10 +927,7 @@ export class UploadFileOrchestrator {
         await bulkRepo.insertModuleManagerData(moduleManagerData);
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(
-        insertResult,
-        ISSUE_ENTITY_TYPE.ModuleManagerData,
-      );
+      this.collectInsertionErrors(insertResult, ENTITY_TYPE.ModuleManagerData);
 
       // Log based on actual insertion result
       if (insertResult.ok) {
@@ -1001,7 +986,7 @@ export class UploadFileOrchestrator {
       // Collect insertion errors from the insert result
       this.collectInsertionErrors(
         insertResult,
-        ISSUE_ENTITY_TYPE.DriverModuleDefinition,
+        ENTITY_TYPE.DriverModuleDefinition,
       );
 
       // Log based on actual insertion result
@@ -1056,7 +1041,7 @@ export class UploadFileOrchestrator {
 
       this.collectInsertionErrors(
         insertResult,
-        ISSUE_ENTITY_TYPE.VcpmModuleDefinition,
+        ENTITY_TYPE.VcpmModuleDefinition,
       );
 
       if (insertResult.ok) {
@@ -1107,7 +1092,7 @@ export class UploadFileOrchestrator {
       // Collect insertion errors from the insert result
       this.collectInsertionErrors(
         insertResult,
-        ISSUE_ENTITY_TYPE.SubgraphPropertyDefinition,
+        ENTITY_TYPE.SubgraphPropertyDefinition,
       );
 
       // Log based on actual insertion result
@@ -1159,7 +1144,7 @@ export class UploadFileOrchestrator {
       // Collect insertion errors from the insert result
       this.collectInsertionErrors(
         insertResult,
-        ISSUE_ENTITY_TYPE.ContainerPropertyDefinition,
+        ENTITY_TYPE.ContainerPropertyDefinition,
       );
 
       // Log based on actual insertion result
@@ -1201,7 +1186,7 @@ export class UploadFileOrchestrator {
 
       this.collectInsertionErrors(
         insertResult,
-        ISSUE_ENTITY_TYPE.DriverPropertyDefinition,
+        ENTITY_TYPE.DriverPropertyDefinition,
       );
 
       if (insertResult.ok) {
@@ -1252,7 +1237,7 @@ export class UploadFileOrchestrator {
       const insertResult = await bulkRepo.insertSubgraphs(result.entities);
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult, ISSUE_ENTITY_TYPE.Subgraph);
+      this.collectInsertionErrors(insertResult, ENTITY_TYPE.Subgraph);
 
       // Log based on actual insertion result
       if (insertResult.ok) {
@@ -1299,7 +1284,7 @@ export class UploadFileOrchestrator {
       const insertResult = await bulkRepo.insertContainers(result.entities);
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult, ISSUE_ENTITY_TYPE.Container);
+      this.collectInsertionErrors(insertResult, ENTITY_TYPE.Container);
 
       // Log based on actual insertion result
       if (insertResult.ok) {
@@ -1463,7 +1448,7 @@ export class UploadFileOrchestrator {
       );
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult, ISSUE_ENTITY_TYPE.SpfModule);
+      this.collectInsertionErrors(insertResult, ENTITY_TYPE.SpfModule);
 
       // Log based on actual insertion result
       if (insertResult.ok) {
@@ -1511,7 +1496,7 @@ export class UploadFileOrchestrator {
       const insertResult = await bulkRepo.insertDriverModules(result.entities);
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult, ISSUE_ENTITY_TYPE.DriverModule);
+      this.collectInsertionErrors(insertResult, ENTITY_TYPE.DriverModule);
 
       // Log based on actual insertion result
       if (insertResult.ok) {
@@ -1580,7 +1565,7 @@ export class UploadFileOrchestrator {
   ): Promise<void> {
     if (subsystems.length === 0) return;
     const insertResult = await bulkRepo.insertSubsystems(subsystems);
-    this.collectInsertionErrors(insertResult, ISSUE_ENTITY_TYPE.Subsystem);
+    this.collectInsertionErrors(insertResult, ENTITY_TYPE.Subsystem);
     if (insertResult.ok) {
       this.logger?.logInfo({
         eventName: 'subsystems_persisted',
@@ -1618,7 +1603,7 @@ export class UploadFileOrchestrator {
     this.logMemorySnapshot(
       this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_DATA_LINK_INSERT),
     );
-    this.collectInsertionErrors(insertResult, ISSUE_ENTITY_TYPE.DataLink);
+    this.collectInsertionErrors(insertResult, ENTITY_TYPE.DataLink);
     if (insertResult.ok) {
       this.logger?.logInfo({
         eventName: 'data_links_persisted',
@@ -1657,7 +1642,7 @@ export class UploadFileOrchestrator {
     this.logMemorySnapshot(
       this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_CONTROL_LINK_INSERT),
     );
-    this.collectInsertionErrors(insertResult, ISSUE_ENTITY_TYPE.ControlLink);
+    this.collectInsertionErrors(insertResult, ENTITY_TYPE.ControlLink);
     if (insertResult.ok) {
       this.logger?.logInfo({
         eventName: 'control_links_persisted',
@@ -1724,7 +1709,7 @@ export class UploadFileOrchestrator {
       );
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult, ISSUE_ENTITY_TYPE.UseCase);
+      this.collectInsertionErrors(insertResult, ENTITY_TYPE.UseCase);
 
       // Log based on actual insertion result
       if (insertResult.ok) {

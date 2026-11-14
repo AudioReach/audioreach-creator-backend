@@ -25,7 +25,7 @@ import {
   ERROR_CODES,
   IssueSeverity,
   CONFIGURATION_INCLUDES,
-  ISSUE_ENTITY_TYPE,
+  ENTITY_TYPE,
   failedToIssues,
 } from '@arc/core';
 
@@ -118,7 +118,7 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
         allValueDefIds,
       );
       const itemErrors = failedToIssues(
-        ISSUE_ENTITY_TYPE.ValueDefinition,
+        ENTITY_TYPE.ValueDefinition,
         pairs.failed,
       );
       const kvPairsByValueId = new Map(

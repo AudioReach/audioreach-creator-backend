@@ -9,7 +9,7 @@ import {
   DomainRuleViolationException,
   ResourceNotFoundException,
 } from '../../../../shared/exceptions/index.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import type {DeleteSubsystemCommand} from './delete-subsystem.command.js';
 
@@ -45,7 +45,7 @@ export class DeleteSubsystemHandler implements CommandHandler<
           `Subsystem ${command.subsystemSystemId} not found.`,
           [
             IssueFactory.notFound(
-              ISSUE_ENTITY_TYPE.Subsystem,
+              ENTITY_TYPE.Subsystem,
               command.subsystemSystemId,
             ),
           ],

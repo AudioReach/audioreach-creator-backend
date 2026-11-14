@@ -7,7 +7,7 @@ import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 import {Result} from '../../../shared/result/result.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
-import {ISSUE_ENTITY_TYPE} from '../../../../shared/issues/impacted-entity.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
 import type {RemoveCkvsCommand} from './remove-ckvs.command.js';
 import {createZeroCkv} from '../shared/kv-seed-helpers.js';
@@ -42,7 +42,7 @@ export class RemoveCkvsHandler implements CommandHandler<
     const toRemove: Array<(typeof existingCkvs)[number]> = [];
     for (const ckvSystemId of new Set(command.ckvSystemIds)) {
       if (!existingCkvMap.has(ckvSystemId)) {
-        issues.push(IssueFactory.notFound(ISSUE_ENTITY_TYPE.Ckv, ckvSystemId));
+        issues.push(IssueFactory.notFound(ENTITY_TYPE.Ckv, ckvSystemId));
       } else {
         toRemove.push(existingCkvMap.get(ckvSystemId)!);
       }
