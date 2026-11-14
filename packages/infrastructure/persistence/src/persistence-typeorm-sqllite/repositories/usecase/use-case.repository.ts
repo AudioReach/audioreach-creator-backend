@@ -23,6 +23,7 @@ import type {
   UsecaseChangeDetails,
   UsecaseFilteredTopologyData,
   UseCase,
+  ENTITY_TYPE,
 } from '@arc/core';
 import {CHANGE_OPERATION} from '@arc/core';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
@@ -63,7 +64,7 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
   findUseCaseReadModels(
     fileSystemId: number,
     query?: UseCaseReadModelQuery,
-  ): Promise<BatchRead<UseCaseReadModel>> {
+  ): Promise<BatchRead<UseCaseReadModel, typeof ENTITY_TYPE.UseCase>> {
     return this.queries.findUseCaseReadModels(fileSystemId, query);
   }
 
@@ -84,7 +85,7 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     fileSystemId: number,
     ucSystemIds: readonly number[],
     options?: ReadOptions,
-  ): Promise<BatchRead<UseCase>> {
+  ): Promise<BatchRead<UseCase, typeof ENTITY_TYPE.UseCase>> {
     return this.queries.findUseCases(fileSystemId, ucSystemIds, options);
   }
 

@@ -10,6 +10,8 @@ import type {UnitOfWork} from '../../../../../../src/application/ports/persisten
 import {DataLinkDeletionService} from '../../../../../../src/application/usecase-designer/data-links/delete/data-link-deletion.service.js';
 import {ControlLinkDeletionService} from '../../../../../../src/application/usecase-designer/control-links/delete/control-link-deletion.service.js';
 import {ModuleDeletionService} from '../../../../../../src/application/usecase-designer/spf-module/delete/module-deletion.service.js';
+import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
+import {batchOf, notFoundBatch} from '../../../../../helpers/index.js';
 
 function createFixture(options?: {
   imported?: boolean;
@@ -75,19 +77,16 @@ function createFixture(options?: {
     }),
   };
   const subgraphRepository = {
-    getAggregates: jest.fn().mockResolvedValue(
-      new Map([
-        [
-          300,
-          {
-            systemId: 300,
-            naturalId: 1,
-            name: 'sg',
-            isImported: options?.imported ?? false,
-            fileSystemId: 7,
-            properties: [],
-          },
-        ],
+    findSubgraphAggregates: jest.fn().mockResolvedValue(
+      batchOf(ENTITY_TYPE.Subgraph, [
+        {
+          systemId: 300,
+          naturalId: 1,
+          name: 'sg',
+          isImported: options?.imported ?? false,
+          fileSystemId: 7,
+          properties: [],
+        },
       ]),
     ),
     deleteSubgraph: jest.fn(),

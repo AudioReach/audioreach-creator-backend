@@ -12,6 +12,8 @@ import {
 import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
 import {InvalidInputException} from '../../../../../../src/shared/exceptions/invalid-input.exception.js';
 import {InvalidOperationException} from '../../../../../../src/shared/exceptions/invalid-operation.exception.js';
+import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
+import {batchOf, notFoundBatch} from '../../../../../helpers/index.js';
 
 const SESSION = {sessionId: 1, fileSystemId: 7};
 const ELEMENTS_STRUCTURE = JSON.stringify([
@@ -38,7 +40,15 @@ function makeUow(exists: boolean, definition: any = makeDef(0x1234)) {
       .fn()
       .mockReturnValue({session: SESSION, groupId: 'g1'}),
     getSubgraphRepository: jest.fn().mockReturnValue({
-      subgraphExists: jest.fn().mockResolvedValue(exists),
+      findSubgraphs: jest
+        .fn()
+        .mockImplementation((_fs: number, ids: number[]) =>
+          Promise.resolve(
+            exists
+              ? batchOf(ENTITY_TYPE.Subgraph, [{systemId: ids[0]}])
+              : notFoundBatch(ENTITY_TYPE.Subgraph, ...ids),
+          ),
+        ),
       setPropertyData,
       getPropertyDefinitions: jest
         .fn()

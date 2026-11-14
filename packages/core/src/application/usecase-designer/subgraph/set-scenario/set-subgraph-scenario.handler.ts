@@ -22,6 +22,7 @@ import {
 } from '../../../../domain/entities/definitions/subgraph/subgraph-ids.js';
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
+import {requireOne} from '../../../shared/result/require-one.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 import type {SetSubgraphScenarioCommand} from './set-subgraph-scenario.command.js';
 import type {ScenarioChangeDto} from '../dto/subgraph-write-result-types.js';
@@ -64,16 +65,11 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
     const subgraphRepository = this.uow.getSubgraphRepository();
     const usecaseRepository = this.uow.getUsecaseRepository();
 
-    const subgraphs = await subgraphRepository.getAggregates(
-      [command.subgraphSystemId],
-      fileSystemId,
+    const subgraph = requireOne(
+      await subgraphRepository.findSubgraphAggregates(fileSystemId, [
+        command.subgraphSystemId,
+      ]),
     );
-    const subgraph = subgraphs.get(command.subgraphSystemId);
-    if (!subgraph) {
-      throw new ResourceNotFoundException(
-        `Subgraph ${command.subgraphSystemId} not found`,
-      );
-    }
 
     const allDefs =
       await subgraphRepository.getPropertyDefinitions(fileSystemId);
@@ -492,14 +488,14 @@ export class SetSubgraphScenarioHandler implements CommandHandler<
     if (reachableIds.size === 0) return new Set();
 
     // Pass 2: batch-fetch properties in 2 queries
-    const subgraphMap = await subgraphRepository.getAggregates(
-      [...reachableIds],
-      fileSystemId,
-    );
+    const {items: linkedSubgraphs} =
+      await subgraphRepository.findSubgraphAggregates(fileSystemId, [
+        ...reachableIds,
+      ]);
 
     // Pass 3: collect VSIDs from Voice subgraphs only
     const foundVsids = new Set<number>();
-    for (const [, sg] of subgraphMap) {
+    for (const sg of linkedSubgraphs) {
       if (scenarioDefSystemId !== undefined) {
         const scenarioProp = sg.properties.find(
           p => p.propertyDefinitionSystemId === scenarioDefSystemId,

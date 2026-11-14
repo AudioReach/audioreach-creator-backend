@@ -14,7 +14,9 @@ import {
 } from '../../../../domain/entities/definitions/subgraph/subgraph-ids.js';
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
+import {requireOne} from '../../../shared/result/require-one.js';
 import type {SetSubgraphPropertyCommand} from './set-subgraph-property.command.js';
+import {CONFIGURATION_INCLUDES} from '../../../ports/persistence/query-services/configuration-includes.js';
 
 export class SetSubgraphPropertyHandler implements CommandHandler<
   SetSubgraphPropertyCommand,
@@ -26,15 +28,13 @@ export class SetSubgraphPropertyHandler implements CommandHandler<
     const {session} = this.uow.getWriteContext();
     const subgraphRepository = this.uow.getSubgraphRepository();
 
-    const exists = await subgraphRepository.subgraphExists(
-      command.subgraphSystemId,
-      session.fileSystemId,
+    requireOne(
+      await subgraphRepository.findSubgraphs(
+        session.fileSystemId,
+        [command.subgraphSystemId],
+        CONFIGURATION_INCLUDES.Summary,
+      ),
     );
-    if (!exists) {
-      throw new ResourceNotFoundException(
-        `Subgraph ${command.subgraphSystemId} not found`,
-      );
-    }
 
     const propertyDefinitions = await subgraphRepository.getPropertyDefinitions(
       session.fileSystemId,

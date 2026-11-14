@@ -29,6 +29,8 @@ import {
 } from '@arc/core';
 import {DbKeyValueDefQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/key-value/db-key-value-def-query-service.js';
 import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
+import {PendingChangeWriter} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
+import {PendingChangeCache} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
 import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {
   KeyDefinitionSchema,
@@ -56,6 +58,7 @@ import {
   SESSION_MODE,
   SESSION_STATUS,
 } from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
+import {ENTITY_TYPE} from '@arc/core';
 
 describe('DbKeyValueDefQueryService Integration Tests', () => {
   let dataSource: DataSource;
@@ -389,7 +392,11 @@ describe('DbKeyValueDefQueryService Integration Tests', () => {
 
       await expect(
         service.findKeyDefinitions(fileSystemId, []),
-      ).resolves.toEqual({items: [], failed: []});
+      ).resolves.toEqual({
+        entityType: ENTITY_TYPE.KeyDefinition,
+        items: [],
+        failed: [],
+      });
     });
   });
 
@@ -469,6 +476,53 @@ describe('DbKeyValueDefQueryService Integration Tests', () => {
       expect(result.items).toEqual([]);
       expect(result.failed).toEqual([
         {systemId: 11, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
+    });
+
+    it('reports a value of another file as not found', async () => {
+      const {fileSystemId} = await createFileDependency('Project A');
+      const other = await createFileDependency('Project B');
+      await seedKeyWithValues(other.fileSystemId);
+
+      const result = await service.findKeyValuePairs(fileSystemId, [11]);
+
+      expect(result.items).toEqual([]);
+      expect(result.failed).toEqual([
+        {systemId: 11, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
+    });
+
+    it('pairs a value with the key it was moved to in the session', async () => {
+      const {fileSystemId} = await createFileDependency();
+      await seedKeyWithValues(fileSystemId);
+      await keyDefinitionRepository.save({
+        systemId: 2,
+        fileSystemId,
+        naturalId: 200,
+        name: 'Mic',
+      });
+      const session = await createSession(fileSystemId);
+      await new PendingChangeWriter(
+        new EditActionsQueryService(dataSource.manager),
+        new PendingChangeCache(),
+      ).writeDelta(
+        {
+          targetTable: ENTITY_NAMES.ValueDefinition,
+          targetSystemId: 11,
+          aggregateId: 11,
+          delta: {keySystemId: 2},
+        },
+        session.sessionId,
+        dataSource.manager,
+      );
+
+      const result = await service.findKeyValuePairs(fileSystemId, [11]);
+
+      expect(result.items).toEqual([
+        {
+          key: expect.objectContaining({systemId: 2, name: 'Mic'}),
+          value: expect.objectContaining({systemId: 11, name: 'Left'}),
+        },
       ]);
     });
   });

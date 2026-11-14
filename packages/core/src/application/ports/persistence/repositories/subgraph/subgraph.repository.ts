@@ -4,22 +4,21 @@
  */
 
 import type {EditOptions} from '../../edit-options.js';
+import type {BatchRead} from '../../batch-read.js';
 import type {Subgraph} from '../../../../../domain/entities/usecase-data/subgraph/subgraph.js';
 import type {VcpmInstance} from '../../../../../domain/entities/usecase-data/subgraph/entities/vcpm-module-instance.js';
 import type {SubgraphPropertyDefinition} from '../../../../../domain/entities/definitions/subgraph/subgraph-property-definitions.js';
-import type {KvPair} from '../shared/kv-pair.js';
 import type {SessionChanged} from '../shared/session-changed.js';
+import type {SubgraphQueryService} from '../../query-services/subgraph/subgraph-query-service.js';
+import type {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
 
-/** A subgraph key/value instance with its resolved key and value definitions. */
-export interface SgkvEntry {
-  sgSystemId: number;
-  sgkvSystemId: number;
-  keyValues: KvPair[];
-}
-
-export interface SubgraphRepository {
-  subgraphExists(systemId: number, fileSystemId: number): Promise<boolean>;
-
+/**
+ * `Subgraph` writes, plus the reads that only commands need.
+ *
+ * Inherits every `SubgraphQueryService` read so commands run them inside
+ * their own transaction and see their uncommitted writes.
+ */
+export interface SubgraphRepository extends SubgraphQueryService {
   nameExists(
     name: string,
     fileSystemId: number,
@@ -31,22 +30,6 @@ export interface SubgraphRepository {
     fileSystemId: number,
     options?: EditOptions,
   ): Promise<void>;
-
-  /** Returns SGKV instances for the requested subgraphs. */
-  getSgkvs(
-    fileSystemId: number,
-    sgSystemIds: readonly number[],
-  ): Promise<SgkvEntry[]>;
-
-  /**
-   * Returns the usecaseSystemId that owns the given subgraph (via
-   * use_case_subgraphs). Returns null if not found.
-   * Used to validate INTER_USECASE links (FR-DL-09).
-   */
-  getUsecaseSystemIdForSubgraph(
-    subgraphSystemId: number,
-    fileSystemId: number,
-  ): Promise<number | null>;
 
   /**
    * Stages CREATE rows for the Subgraph aggregate root and all its
@@ -62,15 +45,14 @@ export interface SubgraphRepository {
   ): Promise<SubgraphPropertyDefinition[]>;
 
   /**
-   * Returns subgraphs with overlay-aware property rows.
-   * Returns a map of subgraphSystemId → hydrated Subgraph.
-   * Missing subgraphs are absent from the map (not null entries).
-   * Uses 2 queries total regardless of how many IDs are passed.
+   * Loads the requested subgraphs as aggregates, with their property rows,
+   * for commands that change them. Missing IDs are reported in `failed` as
+   * `NOT_FOUND`.
    */
-  getAggregates(
-    subgraphSystemIds: number[],
+  findSubgraphAggregates(
     fileSystemId: number,
-  ): Promise<Map<number, Subgraph>>;
+    subgraphSystemIds: readonly number[],
+  ): Promise<BatchRead<Subgraph, typeof ENTITY_TYPE.Subgraph>>;
 
   /** Stages a new SubgraphPropertyData row with a prepared payload. */
   addProperty(
@@ -109,15 +91,6 @@ export interface SubgraphRepository {
     instance: VcpmInstance,
     payloadSystemIdsByParameterSystemId: ReadonlyMap<number, number>,
   ): Promise<void>;
-
-  /**
-   * Resolves requested Value Definitions to their owning Keys in the
-   * effective, file-scoped definition overlay. Missing values are omitted.
-   */
-  resolveKeyValues(
-    fileSystemId: number,
-    valueDefSystemIds: readonly number[],
-  ): Promise<KvPair[]>;
 
   /**
    * Returns Subgraphs added or deleted in the current session — a

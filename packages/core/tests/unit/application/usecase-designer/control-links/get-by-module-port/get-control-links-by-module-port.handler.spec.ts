@@ -11,6 +11,7 @@ import {
 } from '../../../../../../src/application/shared/result/result.js';
 import {GetControlLinksByModulePortHandler} from '../../../../../../src/application/usecase-designer/control-links/get-by-module-port/get-control-links-by-module-port.handler.js';
 import {GetControlLinksByModulePortQuery} from '../../../../../../src/application/usecase-designer/control-links/get-by-module-port/get-control-links-by-module-port.query.js';
+import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
 
 describe('GetControlLinksByModulePortHandler', () => {
   it('maps module-port control links and hydrates their associated usecases', async () => {
@@ -42,6 +43,7 @@ describe('GetControlLinksByModulePortHandler', () => {
       },
       useCaseQueryService: {
         findUseCaseReadModels: jest.fn().mockResolvedValue({
+          entityType: ENTITY_TYPE.UseCase,
           items: [
             {
               systemId: 404,

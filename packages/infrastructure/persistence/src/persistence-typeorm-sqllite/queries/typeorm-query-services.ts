@@ -27,6 +27,7 @@ import type {
 } from '@arc/core';
 import {DataSource} from 'typeorm';
 import {createUseCaseQueryService} from './usecase/index.js';
+import {createSubgraphQueryService} from './subgraph/create-subgraph-query-service.js';
 import {DbProjectQueryService} from './db-project-query-service.js';
 import {TypeOrmValidationQueryRepository} from '../repositories/validation/typeorm-validation-query.repository.js';
 import {TypeOrmBulkReadQueryService} from './bulk-read/typeorm-bulk-read-query-service.js';
@@ -37,7 +38,6 @@ import {DbKeyValueDefQueryService} from './key-value/db-key-value-def-query-serv
 import {DbTagDefinitionQueryService} from './tag-definition/db-tag-definition-query-service.js';
 import {DbSpfTuningConfigService} from './spf-module/db-spf-tuning-config-service.js';
 import {DbContainerQueryService} from './container/db-container-query-service.js';
-import {DbSubgraphQueryService} from './subgraph/db-subgraph-query-service.js';
 import {DbContainerPropertyDefQueryService} from './container-property-definition/db-container-property-def-query-service.js';
 import {DbSubgraphPropertyDefQueryService} from './subgraph-property-definition/db-subgraph-property-def-query-service.js';
 import {TypeOrmSessionRepository} from '../repositories/session/typeorm-session.repository.js';
@@ -52,19 +52,12 @@ import {UsecaseOverlayFetcher} from '../fetchers/usecase-overlay-fetcher.js';
 import {LinkOverlayFetcher} from '../fetchers/link-overlay-fetcher.js';
 import {PortOverlayFetcher} from '../fetchers/port-overlay-fetcher.js';
 import {IntentFetcher} from '../fetchers/intent-fetcher.js';
-import {SubgraphOverlayFetcher} from '../fetchers/subgraph-overlay-fetcher.js';
-import {SubgraphPropertyDataFetcher} from '../fetchers/subgraph-property-data-fetcher.js';
-import {SubgraphSgkvFetcher} from '../fetchers/subgraph-sgkv-fetcher.js';
 import {CkvParameterPayloadFetcher} from '../fetchers/ckv-parameter-payload-fetcher.js';
 import {CkvOverlayFetcher} from '../fetchers/ckv-overlay-fetcher.js';
 import {TkvParameterPayloadFetcher} from '../fetchers/tkv-parameter-payload-fetcher.js';
 import {TkvOverlayFetcher} from '../fetchers/tkv-overlay-fetcher.js';
 import {SpfModuleOverlayFetcher} from '../fetchers/spf-module-overlay-fetcher.js';
 import {SpfModuleParameterDefinitionFetcher} from '../fetchers/definitions/spf-module-definitions/spf-module-parameter-definition-fetcher.js';
-import {VcpmInstanceFetcher} from '../fetchers/vcpm-instance-fetcher.js';
-import {VcpmCkvFetcher} from '../fetchers/vcpm-ckv-fetcher.js';
-import {VcpmParameterPayloadFetcher} from '../fetchers/vcpm-parameter-payload-fetcher.js';
-import {VcpmModuleParameterDefinitionFetcher} from '../fetchers/definitions/vcpm-module-definitions/vcpm-module-parameter-definition-fetcher.js';
 import {SubsystemOverlayFetcher} from '../fetchers/subsystem-overlay-fetcher.js';
 import {NodeOverlayFetcher} from '../fetchers/node-overlay-fetcher.js';
 import {KeyValueDefinitionFetcher} from '../fetchers/definitions/key-value/key-value-definition-fetcher.js';
@@ -107,20 +100,6 @@ export class DbQueryServices implements QueryServices {
     const usecaseGkvValuesFetcher = new UsecaseGkvValuesFetcher(
       dataSource.manager,
       editActionsQueryService,
-    );
-    const subgraphPropertyDataFetcher = new SubgraphPropertyDataFetcher(
-      dataSource.manager,
-      editActionsQueryService,
-    );
-    const subgraphSgkvFetcher = new SubgraphSgkvFetcher(
-      dataSource.manager,
-      editActionsQueryService,
-    );
-    const subgraphOverlayFetcher = new SubgraphOverlayFetcher(
-      dataSource.manager,
-      editActionsQueryService,
-      subgraphPropertyDataFetcher,
-      subgraphSgkvFetcher,
     );
     const usecaseOverlayFetcher = new UsecaseOverlayFetcher(
       dataSource.manager,
@@ -193,17 +172,6 @@ export class DbQueryServices implements QueryServices {
       editActionsQueryService,
     );
 
-    const vcpmInstanceFetcher = new VcpmInstanceFetcher(dataSource.manager);
-    const vcpmCkvFetcher = new VcpmCkvFetcher(
-      dataSource.manager,
-      vcpmInstanceFetcher,
-    );
-    const vcpmParameterPayloadFetcher = new VcpmParameterPayloadFetcher(
-      dataSource.manager,
-    );
-    const vcpmParameterDefinitionFetcher =
-      new VcpmModuleParameterDefinitionFetcher(dataSource.manager);
-
     this.tagDefinitionQueryService = new DbTagDefinitionQueryService(
       dataSource.manager,
       editActionsQueryService,
@@ -245,15 +213,7 @@ export class DbQueryServices implements QueryServices {
       sessionRepo,
     );
 
-    this.subgraphQueryService = new DbSubgraphQueryService(
-      sessionRepo,
-      this.keyValueDefQueryService,
-      subgraphOverlayFetcher,
-      editActionsQueryService,
-      vcpmCkvFetcher,
-      vcpmParameterPayloadFetcher,
-      vcpmParameterDefinitionFetcher,
-    );
+    this.subgraphQueryService = createSubgraphQueryService(dataSource.manager);
 
     this.driverModuleDefinitionQueryService =
       new DbDriverModuleDefinitionQueryService(

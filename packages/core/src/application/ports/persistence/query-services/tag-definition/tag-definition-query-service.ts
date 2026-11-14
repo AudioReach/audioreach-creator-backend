@@ -5,6 +5,7 @@
 
 import type {TagDefinitionReadModel} from './tag-definition-read-model.js';
 import type {BatchRead} from '../../batch-read.js';
+import type {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
 
 /** Narrows `findAllTagDefinitions` to the tags that match every field. */
 export interface TagDefinitionFilter {
@@ -22,7 +23,9 @@ export interface TagDefinitionQueryService {
   findAllTagDefinitions(
     fileSystemId: number,
     filter?: TagDefinitionFilter,
-  ): Promise<BatchRead<TagDefinitionReadModel, 'TagDefinition'>>;
+  ): Promise<
+    BatchRead<TagDefinitionReadModel, typeof ENTITY_TYPE.TagDefinition>
+  >;
 
   /**
    * The requested tag definitions. Missing IDs are reported in `failed` as
@@ -31,5 +34,7 @@ export interface TagDefinitionQueryService {
   findTagDefinitions(
     fileSystemId: number,
     tagSystemIds: readonly number[],
-  ): Promise<BatchRead<TagDefinitionReadModel, 'TagDefinition'>>;
+  ): Promise<
+    BatchRead<TagDefinitionReadModel, typeof ENTITY_TYPE.TagDefinition>
+  >;
 }

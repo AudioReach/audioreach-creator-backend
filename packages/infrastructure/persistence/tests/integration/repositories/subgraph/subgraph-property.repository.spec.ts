@@ -12,6 +12,7 @@ import {
   beforeEach,
 } from '@jest/globals';
 import type {DataSource} from 'typeorm';
+import {FAILED_ENTITY_REASON} from '@arc/core';
 import {
   setupIntegrationTest,
   teardownIntegrationTest,
@@ -206,30 +207,31 @@ describe('TypeOrmSubgraphRepository — addProperty', () => {
   });
 });
 
-describe('TypeOrmSubgraphRepository — getAggregates', () => {
+describe('TypeOrmSubgraphRepository — findSubgraphAggregates', () => {
   it('returns subgraph with property rows from base data', async () => {
     const ds = getTestDataSource();
     await seedBase(ds);
     const sessionId = await seedSession(ds);
     const repo = makeRepo(ds, sessionId);
 
-    const result = await repo.getAggregates([SG_ID], FILE_ID);
-    expect(result.get(SG_ID)?.systemId).toBe(SG_ID);
-    expect(result.get(SG_ID)?.properties).toHaveLength(1);
+    const result = await repo.findSubgraphAggregates(FILE_ID, [SG_ID]);
+    expect(result.items.map(subgraph => subgraph.systemId)).toEqual([SG_ID]);
+    expect(result.items[0].properties).toHaveLength(1);
   });
 
-  it('omits a subgraph that does not exist', async () => {
+  it('reports a subgraph that does not exist as not found', async () => {
     const ds = getTestDataSource();
     await seedBase(ds);
     const sessionId = await seedSession(ds);
     const repo = makeRepo(ds, sessionId);
 
-    const result = await repo.getAggregates([9999], FILE_ID);
-    expect(result).toEqual(new Map());
+    const result = await repo.findSubgraphAggregates(FILE_ID, [9999]);
+    expect(result.items).toEqual([]);
+    expect(result.failed).toEqual([
+      {systemId: 9999, reason: FAILED_ENTITY_REASON.NotFound},
+    ]);
   });
-});
 
-describe('TypeOrmSubgraphRepository — getAggregates', () => {
   it('returns each requested subgraph with its properties', async () => {
     const ds = getTestDataSource();
     await seedBase(ds);
@@ -248,12 +250,13 @@ describe('TypeOrmSubgraphRepository — getAggregates', () => {
     const sessionId = await seedSession(ds);
     const repo = makeRepo(ds, sessionId);
 
-    const result = await repo.getAggregates([SG_ID, 51], FILE_ID);
+    const result = await repo.findSubgraphAggregates(FILE_ID, [SG_ID, 51]);
+    const byId = new Map(result.items.map(item => [item.systemId, item]));
 
-    expect(result.get(SG_ID)?.properties).toEqual([
+    expect(byId.get(SG_ID)?.properties).toEqual([
       expect.objectContaining({systemId: PROP_DATA_SYS_ID}),
     ]);
-    expect(result.get(51)?.properties).toEqual([
+    expect(byId.get(51)?.properties).toEqual([
       expect.objectContaining({
         systemId: 302,
         propertyDefinitionSystemId: 102,

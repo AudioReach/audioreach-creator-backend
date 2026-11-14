@@ -10,6 +10,7 @@ import {ResourceNotFoundException} from '../../../../../src/shared/exceptions/re
 import {FAILED_ENTITY_REASON} from '../../../../../src/application/ports/persistence/batch-read.js';
 import type {QueryServices} from '../../../../../src/application/ports/persistence/query-services/query-services.js';
 import type {KeyDefinitionReadModel} from '../../../../../src/application/ports/persistence/query-services/key-value/key-value-definition-read-model.js';
+import {ENTITY_TYPE} from '../../../../../src/shared/entity-type.js';
 
 describe('GetKeyDefinitionHandler', () => {
   const buildQueryServices = (): jest.Mocked<QueryServices> =>
@@ -36,7 +37,7 @@ describe('GetKeyDefinitionHandler', () => {
     };
     (
       queryServices.keyValueDefQueryService.findKeyDefinitions as jest.Mock
-    ).mockResolvedValue({items: [key], failed: []});
+    ).mockResolvedValue({entityType: ENTITY_TYPE.KeyDefinition, items: [key], failed: []});
 
     const handler = new GetKeyDefinitionHandler(queryServices);
     const query = new GetKeyDefinitionQuery(7, 1, 'client-id');
@@ -65,6 +66,7 @@ describe('GetKeyDefinitionHandler', () => {
     (
       queryServices.keyValueDefQueryService.findKeyDefinitions as jest.Mock
     ).mockResolvedValue({
+      entityType: ENTITY_TYPE.KeyDefinition,
       items: [],
       failed: [{systemId: 0x3e7, reason: FAILED_ENTITY_REASON.NotFound}],
     });

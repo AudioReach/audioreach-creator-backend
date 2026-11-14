@@ -10,6 +10,7 @@ import {ResourceNotFoundException} from '../../../../../src/shared/exceptions/re
 import {FAILED_ENTITY_REASON} from '../../../../../src/application/ports/persistence/batch-read.js';
 import type {QueryServices} from '../../../../../src/application/ports/persistence/query-services/query-services.js';
 import type {TagDefinitionReadModel} from '../../../../../src/application/ports/persistence/query-services/tag-definition/tag-definition-read-model.js';
+import {ENTITY_TYPE} from '../../../../../src/shared/entity-type.js';
 
 describe('GetTagDefinitionHandler', () => {
   const buildQueryServices = (): jest.Mocked<QueryServices> =>
@@ -37,7 +38,7 @@ describe('GetTagDefinitionHandler', () => {
     };
     (
       queryServices.tagDefinitionQueryService.findTagDefinitions as jest.Mock
-    ).mockResolvedValue({items: [tag], failed: []});
+    ).mockResolvedValue({entityType: ENTITY_TYPE.TagDefinition, items: [tag], failed: []});
 
     const handler = new GetTagDefinitionHandler(queryServices);
     const query = new GetTagDefinitionQuery(7, 1, 'client-id');
@@ -65,6 +66,7 @@ describe('GetTagDefinitionHandler', () => {
     (
       queryServices.tagDefinitionQueryService.findTagDefinitions as jest.Mock
     ).mockResolvedValue({
+      entityType: ENTITY_TYPE.TagDefinition,
       items: [],
       failed: [{systemId: 0x3e7, reason: FAILED_ENTITY_REASON.NotFound}],
     });
@@ -94,6 +96,7 @@ describe('GetTagDefinitionHandler', () => {
     (
       queryServices.tagDefinitionQueryService.findTagDefinitions as jest.Mock
     ).mockResolvedValue({
+      entityType: ENTITY_TYPE.TagDefinition,
       items: [],
       failed: [
         {

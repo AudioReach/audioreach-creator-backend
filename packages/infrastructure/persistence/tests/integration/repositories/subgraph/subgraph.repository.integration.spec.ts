@@ -40,6 +40,9 @@ import {
   Subgraph,
   SubgraphPropertyDefinition,
   asSystemId,
+  CONFIGURATION_INCLUDES,
+  ENTITY_TYPE,
+  FAILED_ENTITY_REASON,
 } from '@arc/core';
 
 const FILE_ID = 100;
@@ -50,7 +53,6 @@ const KEY_A = 1001;
 const KEY_B = 1002;
 const VALUE_A = 1101;
 const VALUE_B = 1102;
-const OTHER_FILE_VALUE = 2101;
 
 async function seedProjectAndFile(ds: DataSource): Promise<void> {
   await getTestRepository(ProjectSchema).save({
@@ -202,50 +204,26 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
     }
   });
 
-  // ── getSgkvs ────────────────────────────────────────────────────────────────
+  // ── findSubgraphs (inherited query) ────────────────────────────────────────
 
-  describe('getSgkvs', () => {
-    it('returns [] when sgSystemIds is empty', async () => {
-      expect(await makeRepo(qr.manager).getSgkvs(FILE_ID, [])).toEqual([]);
-    });
-
-    it('groups rows by sgkvSystemId with keyValues', async () => {
-      await seedSgkv(ds, 500, SG_A);
-      await ds.query(
-        `INSERT OR IGNORE INTO arc_keys (system_id, name, key_id, file_system_id) VALUES (1, 'K1', 256, ?)`,
-        [FILE_ID],
-      );
-      await ds.query(
-        `INSERT OR IGNORE INTO arc_values (system_id, name, value_id, keys_system_id) VALUES (10, 'V10', 1, 1)`,
-      );
-      await ds.query(
-        `INSERT INTO sgkv_values (system_id, sgkv_system_id, value_def_system_id) VALUES (501, 500, 10)`,
-      );
-
-      const result = await makeRepo(qr.manager).getSgkvs(FILE_ID, [SG_A]);
-      expect(result).toHaveLength(1);
-      expect(result[0].sgSystemId).toBe(SG_A);
-      expect(result[0].sgkvSystemId).toBe(500);
-      expect(result[0].keyValues).toEqual([
-        {keyDefSystemId: 1, valueDefSystemId: 10},
-      ]);
-    });
-
-    it('applies SGKV value actions by relationship system ID', async () => {
+  describe('findSubgraphs', () => {
+    it('reads SGKV values through the session overlay', async () => {
       await seedSgkv(ds, 500, SG_A);
       await ds.query(
         `INSERT INTO arc_keys (system_id, name, key_id, file_system_id)
-         VALUES (1, 'K1', 1, ?), (2, 'K2', 2, ?)`,
-        [FILE_ID, FILE_ID],
+         VALUES (?, 'K1', 1, ?), (?, 'K2', 2, ?)`,
+        [KEY_A, FILE_ID, KEY_B, FILE_ID],
       );
       await ds.query(
         `INSERT INTO arc_values (system_id, name, value_id, keys_system_id)
-         VALUES (10, 'V1', 1, 1), (11, 'V2', 2, 2)`,
+         VALUES (?, 'V1', 1, ?), (?, 'V2', 2, ?)`,
+        [VALUE_A, KEY_A, VALUE_B, KEY_B],
       );
       await ds.query(
         `INSERT INTO sgkv_values
            (system_id, sgkv_system_id, value_def_system_id)
-         VALUES (501, 500, 10)`,
+         VALUES (501, 500, ?)`,
+        [VALUE_A],
       );
       const sessionId = await seedSession(ds);
       const writer = new PendingChangeWriter(
@@ -266,54 +244,47 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
           targetTable: ENTITY_NAMES.SgkvValues,
           targetSystemId: 502,
           aggregateId: SG_A,
-          payload: {sgkvSystemId: 500, valueDefSystemId: 11},
+          payload: {sgkvSystemId: 500, valueDefSystemId: VALUE_B},
         },
         sessionId,
         qr.manager,
       );
 
-      await expect(
-        makeRepo(qr.manager, sessionId).getSgkvs(FILE_ID, [SG_A]),
-      ).resolves.toEqual([
+      const result = await makeRepo(qr.manager, sessionId).findSubgraphs(
+        FILE_ID,
+        [SG_A],
+        CONFIGURATION_INCLUDES.FullDetails,
+      );
+
+      expect(result.failed).toEqual([]);
+      expect(result.items[0].sgkvs).toEqual([
         {
-          sgSystemId: SG_A,
-          sgkvSystemId: 500,
-          keyValues: [{keyDefSystemId: 2, valueDefSystemId: 11}],
+          systemId: 500,
+          keyValuePairs: [
+            {
+              key: expect.objectContaining({systemId: KEY_B}),
+              value: expect.objectContaining({systemId: VALUE_B}),
+            },
+          ],
         },
       ]);
     });
 
-    it('returns empty keyValues for SGKV with no linked arc_values', async () => {
+    it('returns an SGKV with no values as an empty pair list', async () => {
       await seedSgkv(ds, 500, SG_A);
-      const result = await makeRepo(qr.manager).getSgkvs(FILE_ID, [SG_A]);
-      expect(result).toHaveLength(1);
-      expect(result[0].keyValues).toEqual([]);
-    });
 
-    it('scopes to fileSystemId', async () => {
-      await getTestRepository(ArcDbFileSchema).save({
-        systemId: 200,
-        projectSystemId: 1,
-        fileName: 'f2.acdb',
-        description: '',
-        metadata: '{}',
-        isTarget: false,
-        lastReservedId: 0,
-      });
-      await ds.query(
-        `INSERT INTO subgraphs (system_id, name, subgraph_id, is_imported, file_system_id) VALUES (9999, 'sg-x', 99, 0, 200)`,
-      );
-      await ds.query(
-        `INSERT INTO sgkv (system_id, subgraph_system_id) VALUES (700, 9999)`,
+      const result = await makeRepo(qr.manager).findSubgraphs(
+        FILE_ID,
+        [SG_A],
+        CONFIGURATION_INCLUDES.FullDetails,
       );
 
-      const result = await makeRepo(qr.manager).getSgkvs(FILE_ID, [SG_A, 9999]);
-      expect(result.map(s => s.sgkvSystemId)).not.toContain(700);
+      expect(result.items[0].sgkvs).toEqual([
+        {systemId: 500, keyValuePairs: []},
+      ]);
     });
-  });
 
-  describe('resolveKeyValues', () => {
-    it('resolves arbitrary same-file values in one deterministic batch', async () => {
+    it('reports a subgraph of another file as not found', async () => {
       await getTestRepository(ArcDbFileSchema).save({
         systemId: OTHER_FILE_ID,
         projectSystemId: 1,
@@ -324,61 +295,20 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
         lastReservedId: 0,
       });
       await ds.query(
-        `INSERT INTO arc_keys (system_id, name, key_id, file_system_id)
-         VALUES (?, 'K1', 1, ?), (?, 'K2', 2, ?), (?, 'K-other', 3, ?)`,
-        [KEY_A, FILE_ID, KEY_B, FILE_ID, 2001, OTHER_FILE_ID],
-      );
-      await ds.query(
-        `INSERT INTO arc_values (system_id, name, value_id, keys_system_id)
-         VALUES (?, 'V1', 1, ?), (?, 'V2', 2, ?), (?, 'V-other', 3, ?)`,
-        [VALUE_A, KEY_A, VALUE_B, KEY_B, OTHER_FILE_VALUE, 2001],
+        `INSERT INTO subgraphs (system_id, name, subgraph_id, is_imported, file_system_id) VALUES (9999, 'sg-x', 99, 0, ?)`,
+        [OTHER_FILE_ID],
       );
 
-      const repository = makeRepo(qr.manager);
+      const result = await makeRepo(qr.manager).findSubgraphs(
+        FILE_ID,
+        [SG_A, 9999],
+        CONFIGURATION_INCLUDES.FullDetails,
+      );
 
-      await expect(
-        repository.resolveKeyValues(FILE_ID, [VALUE_B, VALUE_A, VALUE_A]),
-      ).resolves.toEqual([
-        {keyDefSystemId: KEY_A, valueDefSystemId: VALUE_A},
-        {keyDefSystemId: KEY_B, valueDefSystemId: VALUE_B},
+      expect(result.items.map(sg => sg.systemId)).toEqual([SG_A]);
+      expect(result.failed).toEqual([
+        {systemId: 9999, reason: FAILED_ENTITY_REASON.NotFound},
       ]);
-      await expect(
-        repository.resolveKeyValues(FILE_ID, [OTHER_FILE_VALUE, 999999]),
-      ).resolves.toEqual([]);
-      await expect(repository.resolveKeyValues(FILE_ID, [])).resolves.toEqual(
-        [],
-      );
-    });
-
-    it('uses effective session value-to-key relationships', async () => {
-      await ds.query(
-        `INSERT INTO arc_keys (system_id, name, key_id, file_system_id)
-         VALUES (?, 'K1', 1, ?), (?, 'K2', 2, ?)`,
-        [KEY_A, FILE_ID, KEY_B, FILE_ID],
-      );
-      await ds.query(
-        `INSERT INTO arc_values (system_id, name, value_id, keys_system_id)
-         VALUES (?, 'V1', 1, ?)`,
-        [VALUE_A, KEY_A],
-      );
-      const sessionId = await seedSession(ds);
-      await new PendingChangeWriter(
-        new EditActionsQueryService(qr.manager),
-        new PendingChangeCache(),
-      ).writeDelta(
-        {
-          targetTable: ENTITY_NAMES.ValueDefinition,
-          targetSystemId: VALUE_A,
-          aggregateId: VALUE_A,
-          delta: {keySystemId: KEY_B},
-        },
-        sessionId,
-        qr.manager,
-      );
-
-      await expect(
-        makeRepo(qr.manager, sessionId).resolveKeyValues(FILE_ID, [VALUE_A]),
-      ).resolves.toEqual([{keyDefSystemId: KEY_B, valueDefSystemId: VALUE_A}]);
     });
   });
 
@@ -490,27 +420,31 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
     });
   });
 
-  // ── getAggregates ───────────────────────────────────────────────────────────
+  // ── findSubgraphAggregates ─────────────────────────────────────────────────
 
-  describe('getAggregates', () => {
-    it('returns an empty map for empty input', async () => {
-      expect(await makeRepo(qr.manager).getAggregates([], FILE_ID)).toEqual(
-        new Map(),
-      );
+  describe('findSubgraphAggregates', () => {
+    it('returns an empty batch for empty input', async () => {
+      await expect(
+        makeRepo(qr.manager).findSubgraphAggregates(FILE_ID, []),
+      ).resolves.toEqual({
+        entityType: ENTITY_TYPE.Subgraph,
+        items: [],
+        failed: [],
+      });
     });
 
-    it('returns hydrated Subgraph objects for matching systemIds', async () => {
-      const result = await makeRepo(qr.manager).getAggregates([SG_A], FILE_ID);
-      expect(result.get(SG_A)?.systemId).toBe(SG_A);
-      expect(result.get(SG_A)?.name).toBe('sg-a');
-    });
-
-    it('silently omits missing IDs', async () => {
-      const result = await makeRepo(qr.manager).getAggregates(
-        [SG_A, 9999],
+    it('returns hydrated Subgraphs and reports missing IDs as not found', async () => {
+      const result = await makeRepo(qr.manager).findSubgraphAggregates(
         FILE_ID,
+        [SG_A, 9999],
       );
-      expect([...result.keys()]).toEqual([SG_A]);
+
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]).toBeInstanceOf(Subgraph);
+      expect(result.items[0]).toMatchObject({systemId: SG_A, name: 'sg-a'});
+      expect(result.failed).toEqual([
+        {systemId: 9999, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
     });
 
     it('includes only the requested session-created subgraph', async () => {
@@ -530,12 +464,13 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
       );
       await qr.commitTransaction();
 
-      await expect(repo.getAggregates([9001], FILE_ID)).resolves.toEqual(
-        new Map([[9001, expect.objectContaining({systemId: 9001})]]),
-      );
-      await expect(repo.getAggregates([9002], FILE_ID)).resolves.toEqual(
-        new Map(),
-      );
+      const created = await repo.findSubgraphAggregates(FILE_ID, [9001]);
+      expect(created.items.map(sg => sg.systemId)).toEqual([9001]);
+      const other = await repo.findSubgraphAggregates(FILE_ID, [9002]);
+      expect(other.items).toEqual([]);
+      expect(other.failed).toEqual([
+        {systemId: 9002, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
     });
   });
 

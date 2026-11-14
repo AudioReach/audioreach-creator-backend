@@ -95,6 +95,7 @@ export type {
   ControlLinkIdResolution,
 } from './application/ports/persistence/repositories/control-link/control-link.repository.js';
 export type {SubgraphRepository} from './application/ports/persistence/repositories/subgraph/subgraph.repository.js';
+export type {KeyValueDefinitionRepository} from './application/ports/persistence/repositories/key-value/key-value-definition.repository.js';
 export {VcpmInstance} from './domain/entities/usecase-data/subgraph/entities/vcpm-module-instance.js';
 export type {VcpmDefinitionRepository} from './application/ports/persistence/repositories/vcpm-definition/vcpm-definition.repository.js';
 export type {
@@ -786,7 +787,6 @@ export {
 
 // Use-case-creator — types shared across port surface and persistence adapters
 export type {KvPair} from './application/ports/persistence/repositories/shared/kv-pair.js';
-export type {SgkvEntry} from './application/ports/persistence/repositories/subgraph/subgraph.repository.js';
 export type {LinksForPair} from './application/ports/persistence/repositories/shared/links-for-pair.js';
 export type {SessionChanged} from './application/ports/persistence/repositories/shared/session-changed.js';
 export {READ_MODE} from './application/ports/persistence/repositories/shared/read-options.js';

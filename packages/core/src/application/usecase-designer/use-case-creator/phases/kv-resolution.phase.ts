@@ -6,10 +6,11 @@
 import {Result} from '../../../../application/shared/result/result.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
 import type {KvPair} from '../../../ports/persistence/repositories/shared/kv-pair.js';
-import type {
-  SgkvEntry,
-  SubgraphRepository,
-} from '../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
+import type {SubgraphRepository} from '../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
+import type {KeyValueDefinitionRepository} from '../../../ports/persistence/repositories/key-value/key-value-definition.repository.js';
+import {CONFIGURATION_INCLUDES} from '../../../ports/persistence/query-services/configuration-includes.js';
+import {requireAll} from '../../../shared/result/require-all.js';
+import {type SgkvEntry, toSgkvEntries} from '../shared/sgkv-entries.js';
 import type {RoutingContext} from '../contracts/routing-context.js';
 import type {RoutingSubgraph} from '../contracts/routing-input.js';
 import type {SgkvInstance, KvResolutions} from '../contracts/routing-state.js';
@@ -41,14 +42,20 @@ export class KvResolutionPhase {
   async run(
     context: RoutingContext,
     subgraphRepository: SubgraphRepository,
+    keyValueDefinitionRepository: KeyValueDefinitionRepository,
   ): Promise<Result<void>> {
     const {fileSystemId, selectedUsecases, graphSnapshot} = context.input;
     const subgraphSystemIds = graphSnapshot.subgraphs.map(
       entry => entry.subgraph.systemId,
     );
-    const baselineEntries = await subgraphRepository.getSgkvs(
-      fileSystemId,
-      subgraphSystemIds,
+    const baselineEntries = toSgkvEntries(
+      requireAll(
+        await subgraphRepository.findSubgraphs(
+          fileSystemId,
+          subgraphSystemIds,
+          CONFIGURATION_INCLUDES.FullDetails,
+        ),
+      ),
     );
     const selectedValueSystemIds = new Set(
       selectedUsecases.flatMap(usecase => usecase.keyVector.valueSystemIds),
@@ -77,12 +84,19 @@ export class KvResolutionPhase {
     const requestedValueSystemIds = sortedUniqueIds(
       graphSnapshot.subgraphs.flatMap(entry => entry.requestedSgkvs).flat(),
     );
-    const resolvedKeyValues = await subgraphRepository.resolveKeyValues(
+    // A requested value that is not found is reported per subgraph below.
+    const requestedPairs = await keyValueDefinitionRepository.findKeyValuePairs(
       fileSystemId,
       requestedValueSystemIds,
     );
-    const keyValueByValueSystemId = new Map(
-      resolvedKeyValues.map(keyValue => [keyValue.valueDefSystemId, keyValue]),
+    const keyValueByValueSystemId = new Map<number, KvPair>(
+      requestedPairs.items.map(pair => [
+        pair.value.systemId,
+        {
+          keyDefSystemId: pair.key.systemId,
+          valueDefSystemId: pair.value.systemId,
+        },
+      ]),
     );
 
     const perSg = new Map<number, readonly SgkvInstance[]>();

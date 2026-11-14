@@ -5,7 +5,6 @@
 
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
-import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {GetAllTagDefinitionsQuery} from './get-all-tag-definitions.query.js';
 import {Result} from '../../../shared/result/result.js';
 import {failedToIssues} from '../../../shared/result/failed-to-issues.js';
@@ -34,10 +33,7 @@ export class GetAllTagDefinitionsHandler implements QueryHandler<
     const dtos = tags.items.map(tag => mapTagDefinition(tag));
 
     return tags.failed.length > 0
-      ? Result.partial(
-          dtos,
-          failedToIssues(ENTITY_TYPE.TagDefinition, tags.failed),
-        )
+      ? Result.partial(dtos, failedToIssues(tags))
       : Result.ok(dtos);
   }
 }

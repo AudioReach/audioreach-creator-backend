@@ -85,6 +85,7 @@ function engineFrom(phases: ReturnType<typeof phase>[]): RoutingEngine {
 function unitOfWork() {
   return {
     getSubgraphRepository: () => ({}),
+    getKeyValueDefinitionRepository: () => ({}),
     getSubsystemRepository: () => ({
       findOrphanSubsystemSystemIds: async () => [],
     }),

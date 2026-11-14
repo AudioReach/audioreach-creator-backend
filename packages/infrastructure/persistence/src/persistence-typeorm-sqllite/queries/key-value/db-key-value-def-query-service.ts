@@ -13,6 +13,7 @@ import type {
 } from '@arc/core';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
+import {ENTITY_TYPE} from '@arc/core';
 import {withNotFound} from '../../utils/with-not-found.js';
 import {KeyValueDefinitionFetcher} from '../../fetchers/definitions/key-value/key-value-definition-fetcher.js';
 import {ValueDefinitionFetcher} from '../../fetchers/definitions/key-value/value-definition-fetcher.js';
@@ -59,8 +60,11 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
   async findKeyDefinitions(
     fileSystemId: number,
     keySystemIds: readonly number[],
-  ): Promise<BatchRead<KeyDefinitionReadModel, 'KeyDefinition'>> {
-    if (keySystemIds.length === 0) return {items: [], failed: []};
+  ): Promise<
+    BatchRead<KeyDefinitionReadModel, typeof ENTITY_TYPE.KeyDefinition>
+  > {
+    if (keySystemIds.length === 0)
+      return {entityType: ENTITY_TYPE.KeyDefinition, items: [], failed: []};
 
     const sessionId = await resolveActiveSessionId(this.manager, fileSystemId);
     const keys = await this.kvFetcher.fetchMany(
@@ -74,7 +78,12 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
       return key === undefined ? [] : [toKeyDefinitionReadModel(key)];
     });
 
-    return withNotFound(keySystemIds, items, key => key.systemId);
+    return withNotFound(
+      ENTITY_TYPE.KeyDefinition,
+      keySystemIds,
+      items,
+      key => key.systemId,
+    );
   }
 
   /**
@@ -85,8 +94,11 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
   async findKeyValuePairs(
     fileSystemId: number,
     valueDefSystemIds: readonly number[],
-  ): Promise<BatchRead<KeyValuePairReadModel, 'ValueDefinition'>> {
-    if (valueDefSystemIds.length === 0) return {items: [], failed: []};
+  ): Promise<
+    BatchRead<KeyValuePairReadModel, typeof ENTITY_TYPE.ValueDefinition>
+  > {
+    if (valueDefSystemIds.length === 0)
+      return {entityType: ENTITY_TYPE.ValueDefinition, items: [], failed: []};
 
     const sessionId = await resolveActiveSessionId(this.manager, fileSystemId);
     const values = await this.valueFetcher.fetchMany(
@@ -99,30 +111,40 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
         ? []
         : await this.kvFetcher.fetchMany(keySystemIds, fileSystemId, sessionId);
 
-    const pairsByValueId = new Map<number, KeyValuePairReadModel>();
-    for (const key of keys.map(row => toKeyDefinitionReadModel(row))) {
-      for (const value of key.values) {
-        pairsByValueId.set(value.systemId, {
-          key: {
-            systemId: key.systemId,
-            naturalId: key.naturalId,
-            name: key.name,
-            description: key.description,
+    // Pair by each value's effective keySystemId: a key's own `values` are
+    // loaded by the stored key column, so they miss values moved in session.
+    const keysById = new Map(keys.map(key => [key.systemId, key]));
+    const valuesById = new Map(values.map(value => [value.systemId, value]));
+    const items = [...new Set(valueDefSystemIds)].flatMap(
+      (id): KeyValuePairReadModel[] => {
+        const value = valuesById.get(id);
+        const key =
+          value === undefined ? undefined : keysById.get(value.keySystemId);
+        if (value === undefined || key === undefined) return [];
+        return [
+          {
+            key: {
+              systemId: key.systemId,
+              naturalId: key.naturalId,
+              name: key.name,
+              description: key.description,
+            },
+            value: {
+              systemId: value.systemId,
+              naturalId: value.naturalId,
+              name: value.name,
+              description: value.description,
+            },
           },
-          value: {
-            systemId: value.systemId,
-            naturalId: value.naturalId,
-            name: value.name,
-            description: value.description,
-          },
-        });
-      }
-    }
-    const items = [...new Set(valueDefSystemIds)].flatMap(id => {
-      const pair = pairsByValueId.get(id);
-      return pair === undefined ? [] : [pair];
-    });
+        ];
+      },
+    );
 
-    return withNotFound(valueDefSystemIds, items, pair => pair.value.systemId);
+    return withNotFound(
+      ENTITY_TYPE.ValueDefinition,
+      valueDefSystemIds,
+      items,
+      pair => pair.value.systemId,
+    );
   }
 }

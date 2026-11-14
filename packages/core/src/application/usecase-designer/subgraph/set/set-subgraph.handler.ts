@@ -3,11 +3,12 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
 import {ConflictException} from '../../../../shared/exceptions/conflict.exception.js';
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
+import {requireOne} from '../../../shared/result/require-one.js';
 import type {SetSubgraphCommand} from './set-subgraph.command.js';
+import {CONFIGURATION_INCLUDES} from '../../../ports/persistence/query-services/configuration-includes.js';
 
 export class SetSubgraphHandler implements CommandHandler<
   SetSubgraphCommand,
@@ -19,15 +20,13 @@ export class SetSubgraphHandler implements CommandHandler<
     const {session, groupId} = this.uow.getWriteContext();
     const subgraphRepository = this.uow.getSubgraphRepository();
 
-    const exists = await subgraphRepository.subgraphExists(
-      command.subgraphSystemId,
-      session.fileSystemId,
+    requireOne(
+      await subgraphRepository.findSubgraphs(
+        session.fileSystemId,
+        [command.subgraphSystemId],
+        CONFIGURATION_INCLUDES.Summary,
+      ),
     );
-    if (!exists) {
-      throw new ResourceNotFoundException(
-        `Subgraph ${command.subgraphSystemId} not found`,
-      );
-    }
 
     if (command.name !== undefined) {
       const nameExists = await subgraphRepository.nameExists(

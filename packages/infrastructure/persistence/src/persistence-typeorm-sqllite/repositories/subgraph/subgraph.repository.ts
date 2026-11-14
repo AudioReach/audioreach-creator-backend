@@ -5,16 +5,21 @@
 
 import type {EntityManager} from 'typeorm';
 import type {
+  BatchRead,
   SubgraphRepository,
   IdGenerationPort,
   UnitOfWork,
   EditOptions,
   SessionChanged,
-  SgkvEntry,
-  KvPair,
+  SubgraphPropertyPayloadsReadModel,
+  SubgraphReadModel,
+  ConfigurationIncludes,
+  VcpmAggregateOptions,
+  VcpmAggregateReadModel,
   VcpmInstance,
 } from '@arc/core';
 import {
+  ENTITY_TYPE,
   Subgraph,
   SubgraphPropertyData,
   SubgraphPropertyDefinition,
@@ -24,22 +29,21 @@ import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {SubgraphOverlayFetcher} from '../../fetchers/subgraph-overlay-fetcher.js';
 import {SubgraphPropertyDataFetcher} from '../../fetchers/subgraph-property-data-fetcher.js';
 import {SubgraphSgkvFetcher} from '../../fetchers/subgraph-sgkv-fetcher.js';
-import {ValueDefinitionFetcher} from '../../fetchers/definitions/key-value/value-definition-fetcher.js';
-import {KeyValueDefinitionFetcher} from '../../fetchers/definitions/key-value/key-value-definition-fetcher.js';
 import {SubgraphPropertyDefinitionFetcher} from '../../fetchers/definitions/subgraph-property-definition-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
 import type {SubgraphBase} from '../../entity-schema/usecase-data/subgraph/subgraph.schema.js';
 import type {SubgraphPropertyDataBase} from '../../entity-schema/usecase-data/subgraph/subgraph-property-data.js';
 import {SubgraphVcpmDataFetcher} from '../../fetchers/subgraph-vcpm-data-fetcher.js';
+import type {DbSubgraphQueryService} from '../../queries/subgraph/db-subgraph-query-service.js';
+import {createSubgraphQueryService} from '../../queries/subgraph/create-subgraph-query-service.js';
+import {withNotFound} from '../../utils/with-not-found.js';
 
 export class TypeOrmSubgraphRepository implements SubgraphRepository {
   private readonly subgraphFetcher: SubgraphOverlayFetcher;
-  private readonly sgkvFetcher: SubgraphSgkvFetcher;
-  private readonly valueDefFetcher: ValueDefinitionFetcher;
-  private readonly keyValueDefinitionFetcher: KeyValueDefinitionFetcher;
   private readonly propertyDefinitionFetcher: SubgraphPropertyDefinitionFetcher;
-  private readonly propertyDataFetcher: SubgraphPropertyDataFetcher;
   private readonly vcpmDataFetcher: SubgraphVcpmDataFetcher;
+  /** Query reads, run on the unit-of-work manager. */
+  private readonly queries: DbSubgraphQueryService;
 
   constructor(
     private readonly writer: PendingChangeWriter,
@@ -48,45 +52,66 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     private readonly idGeneration: IdGenerationPort,
   ) {
     const editActionsQs = new EditActionsQueryService(manager);
-    this.sgkvFetcher = new SubgraphSgkvFetcher(manager, editActionsQs);
-    this.propertyDataFetcher = new SubgraphPropertyDataFetcher(
-      manager,
-      editActionsQs,
-    );
     this.subgraphFetcher = new SubgraphOverlayFetcher(
       manager,
       editActionsQs,
-      this.propertyDataFetcher,
-      this.sgkvFetcher,
-    );
-    this.valueDefFetcher = new ValueDefinitionFetcher(manager, editActionsQs);
-    this.keyValueDefinitionFetcher = new KeyValueDefinitionFetcher(
-      manager,
-      editActionsQs,
-      this.valueDefFetcher,
+      new SubgraphPropertyDataFetcher(manager, editActionsQs),
+      new SubgraphSgkvFetcher(manager, editActionsQs),
     );
     this.propertyDefinitionFetcher = new SubgraphPropertyDefinitionFetcher(
       manager,
       editActionsQs,
     );
     this.vcpmDataFetcher = new SubgraphVcpmDataFetcher(manager, editActionsQs);
+    this.queries = createSubgraphQueryService(manager);
+  }
+
+  // ── Query reads (SubgraphQueryService) ──────────────────────────────────────
+
+  findSubgraphs(
+    fileSystemId: number,
+    subgraphSystemIds: readonly number[],
+    includes: ConfigurationIncludes,
+  ): Promise<BatchRead<SubgraphReadModel, typeof ENTITY_TYPE.Subgraph>> {
+    return this.queries.findSubgraphs(
+      fileSystemId,
+      subgraphSystemIds,
+      includes,
+    );
+  }
+
+  findAllSubgraphs(
+    fileSystemId: number,
+    includes: ConfigurationIncludes,
+  ): Promise<BatchRead<SubgraphReadModel, typeof ENTITY_TYPE.Subgraph>> {
+    return this.queries.findAllSubgraphs(fileSystemId, includes);
+  }
+
+  findSubgraphPropertyPayloads(
+    fileSystemId: number,
+    subgraphSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<SubgraphPropertyPayloadsReadModel, typeof ENTITY_TYPE.Subgraph>
+  > {
+    return this.queries.findSubgraphPropertyPayloads(
+      fileSystemId,
+      subgraphSystemIds,
+    );
+  }
+
+  findVcpmAggregate(
+    fileSystemId: number,
+    subgraphSystemId: number,
+    options?: VcpmAggregateOptions,
+  ): Promise<VcpmAggregateReadModel> {
+    return this.queries.findVcpmAggregate(
+      fileSystemId,
+      subgraphSystemId,
+      options,
+    );
   }
 
   // ── Reads ────────────────────────────────────────────────────────────────────
-
-  async subgraphExists(
-    systemId: number,
-    fileSystemId: number,
-  ): Promise<boolean> {
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-    return (
-      (await this.subgraphFetcher.fetchOne(
-        systemId,
-        fileSystemId,
-        sessionId,
-      )) !== null
-    );
-  }
 
   async nameExists(
     name: string,
@@ -118,7 +143,7 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     if (!subgraph) return;
 
     const [sgkvs, vcpmData] = await Promise.all([
-      this.sgkvFetcher.fetchMany(session.fileSystemId, session.sessionId, [
+      this.subgraphFetcher.getSgkvs(session.fileSystemId, session.sessionId, [
         subgraphSystemId,
       ]),
       this.vcpmDataFetcher.fetchForSubgraph(
@@ -170,77 +195,6 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     );
   }
 
-  async getSgkvs(
-    fileSystemId: number,
-    sgSystemIds: readonly number[],
-  ): Promise<SgkvEntry[]> {
-    if (sgSystemIds.length === 0) return [];
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-
-    const sgkvRows = await this.sgkvFetcher.fetchMany(fileSystemId, sessionId, [
-      ...sgSystemIds,
-    ]);
-    if (sgkvRows.length === 0) return [];
-
-    const allValueDefIds = [
-      ...new Set(
-        sgkvRows.flatMap(sg => sg.values.map(v => v.valueDefSystemId)),
-      ),
-    ];
-    const valueDefs = await this.valueDefFetcher.fetchMany(
-      allValueDefIds,
-      sessionId,
-    );
-    const valueToKeyMap = new Map(
-      valueDefs.map(v => [v.systemId, v.keySystemId]),
-    );
-
-    return sgkvRows.map(sgkv => ({
-      sgSystemId: sgkv.subgraphSystemId,
-      sgkvSystemId: sgkv.systemId,
-      keyValues: sgkv.values
-        .filter(v => valueToKeyMap.has(v.valueDefSystemId))
-        .map(v => ({
-          keyDefSystemId: valueToKeyMap.get(v.valueDefSystemId)!,
-          valueDefSystemId: v.valueDefSystemId,
-        })),
-    }));
-  }
-
-  async resolveKeyValues(
-    fileSystemId: number,
-    valueDefSystemIds: readonly number[],
-  ): Promise<KvPair[]> {
-    const requestedIds = [...new Set(valueDefSystemIds)].sort(
-      (left, right) => left - right,
-    );
-    if (requestedIds.length === 0) return [];
-
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-    const keyDefinitions = await this.keyValueDefinitionFetcher.fetchMany(
-      'all',
-      fileSystemId,
-      sessionId,
-      undefined,
-      {systemId: requestedIds},
-    );
-    const requestedIdSet = new Set(requestedIds);
-    const pairs: KvPair[] = [];
-    for (const keyDefinition of keyDefinitions) {
-      for (const valueDefinition of keyDefinition.values) {
-        if (requestedIdSet.has(valueDefinition.systemId)) {
-          pairs.push({
-            keyDefSystemId: keyDefinition.systemId,
-            valueDefSystemId: valueDefinition.systemId,
-          });
-        }
-      }
-    }
-    return pairs.toSorted(
-      (left, right) => left.valueDefSystemId - right.valueDefSystemId,
-    );
-  }
-
   async getPropertyDefinitions(
     fileSystemId: number,
   ): Promise<SubgraphPropertyDefinition[]> {
@@ -264,25 +218,6 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
             isVoice: Boolean(definition.isVoice),
           }),
       );
-  }
-
-  async getUsecaseSystemIdForSubgraph(
-    subgraphSystemId: number,
-    fileSystemId: number,
-  ): Promise<number | null> {
-    const row = await this.manager
-      .createQueryBuilder()
-      .select('ucs.usecase_system_id', 'usecaseSystemId')
-      .from(ENTITY_NAMES.UseCaseSubgraph, 'ucs')
-      .innerJoin(
-        ENTITY_NAMES.UseCase,
-        'uc',
-        'uc.systemId = ucs.usecaseSystemId AND uc.fileSystemId = :fileSystemId',
-        {fileSystemId},
-      )
-      .where('ucs.subgraphSystemId = :subgraphSystemId', {subgraphSystemId})
-      .getRawOne<{usecaseSystemId: number}>();
-    return row ? Number(row.usecaseSystemId) : null;
   }
 
   async findChangedInSession(
@@ -343,36 +278,27 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     }
   }
 
-  async getAggregates(
-    subgraphSystemIds: number[],
+  async findSubgraphAggregates(
     fileSystemId: number,
-  ): Promise<Map<number, Subgraph>> {
-    if (subgraphSystemIds.length === 0) return new Map();
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-
-    const rows = await this.subgraphFetcher.fetchMany(fileSystemId, sessionId, {
-      systemId: subgraphSystemIds,
-    });
-    const allProperties = await this.propertyDataFetcher.fetchMany(
-      rows.map(row => row.systemId),
-      sessionId,
+    subgraphSystemIds: readonly number[],
+  ): Promise<BatchRead<Subgraph, typeof ENTITY_TYPE.Subgraph>> {
+    const requestedIds = [...new Set(subgraphSystemIds)];
+    const rows = await this.subgraphFetcher.fetchManyWithProperties(
+      fileSystemId,
+      this.uow.getWriteContext().session.sessionId,
+      requestedIds,
     );
-    const propertiesBySubgraph = new Map<number, SubgraphPropertyDataBase[]>();
-    for (const property of allProperties) {
-      const properties =
-        propertiesBySubgraph.get(property.subgraphSystemId) ?? [];
-      properties.push(property);
-      propertiesBySubgraph.set(property.subgraphSystemId, properties);
-    }
-
-    const result = new Map<number, Subgraph>();
-    for (const row of rows) {
-      result.set(
-        row.systemId,
-        this.hydrate(row, propertiesBySubgraph.get(row.systemId) ?? []),
-      );
-    }
-    return result;
+    const byId = new Map(rows.map(row => [row.systemId, row]));
+    const items = requestedIds
+      .map(id => byId.get(id))
+      .filter((row): row is NonNullable<typeof row> => row !== undefined)
+      .map(row => this.hydrate(row, row.properties));
+    return withNotFound(
+      ENTITY_TYPE.Subgraph,
+      requestedIds,
+      items,
+      subgraph => subgraph.systemId,
+    );
   }
 
   async addProperty(

@@ -31,6 +31,8 @@ import {PatchSubsystemHandler} from '../../../../../src/application/usecase-desi
 import {PatchSubsystemCommand} from '../../../../../src/application/usecase-designer/subsystem/patch/patch-subsystem.command.js';
 import {SetSubsystemFilteredKeysHandler} from '../../../../../src/application/usecase-designer/subsystem/set-filtered-keys/set-subsystem-filtered-keys.handler.js';
 import {SetSubsystemFilteredKeysCommand} from '../../../../../src/application/usecase-designer/subsystem/set-filtered-keys/set-subsystem-filtered-keys.command.js';
+import {ENTITY_TYPE} from '../../../../../src/shared/entity-type.js';
+import {batchOf, notFoundBatch} from '../../../../helpers/index.js';
 
 const FILE_ID = 10;
 const GROUP_ID = 'test-group';
@@ -145,7 +147,16 @@ function makeUow(
       ...options.moduleRepository,
     }),
     getSubgraphRepository: jest.fn().mockReturnValue({
-      subgraphExists: jest.fn().mockResolvedValue(true),
+      findSubgraphs: jest
+        .fn()
+        .mockImplementation((_fs: number, ids: number[]) =>
+          Promise.resolve(
+            batchOf(
+              ENTITY_TYPE.Subgraph,
+              ids.map(systemId => ({systemId})),
+            ),
+          ),
+        ),
       ...options.subgraphRepository,
     }),
   } as unknown as UnitOfWork;

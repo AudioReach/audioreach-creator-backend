@@ -7,7 +7,7 @@ import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handl
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import type {GetSubgraphPropertiesQuery} from './get-subgraph-properties.query.js';
 import {buildPropertyModels} from '../../shared/build-property-models.js';
-import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
+import {requireOne} from '../../../shared/result/require-one.js';
 import {Result, RESULT_KIND} from '../../../shared/result/result.js';
 import {mapPropertyToDto} from '../../shared/dto/property.dto.js';
 import {
@@ -29,24 +29,12 @@ export class GetSubgraphPropertiesHandler implements QueryHandler<
         query.projectId,
       );
 
-    const payloadsResult =
-      await this.queryServices.subgraphQueryService.findPropertyPayloads(
-        query.subgraphSystemId,
+    const {properties: payloads} = requireOne(
+      await this.queryServices.subgraphQueryService.findSubgraphPropertyPayloads(
         fileSystemId,
-      );
-
-    if (payloadsResult.kind === RESULT_KIND.Fail) {
-      throw new Error(
-        payloadsResult.issues[0]?.message ??
-          'Failed to load subgraph properties',
-      );
-    }
-    if (payloadsResult.data === null) {
-      throw new ResourceNotFoundException(
-        `Subgraph with systemId ${query.subgraphSystemId} not found`,
-      );
-    }
-    const payloads = payloadsResult.data;
+        [query.subgraphSystemId],
+      ),
+    );
 
     const definitionsResult =
       await this.queryServices.subgraphPropertyDefQueryService.getSubgraphPropertiesWithElements(

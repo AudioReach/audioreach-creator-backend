@@ -3,313 +3,296 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {SubgraphOverlayFetcher} from '../../fetchers/subgraph-overlay-fetcher.js';
+import type {EntityManager} from 'typeorm';
+import type {SubgraphOverlayFetcher} from '../../fetchers/subgraph-overlay-fetcher.js';
+import type {SubgraphBase} from '../../entity-schema/usecase-data/subgraph/subgraph.schema.js';
 import type {VcpmQueryContext} from '../../fetchers/vcpm-query-context.js';
 import type {VcpmCkvFetcher} from '../../fetchers/vcpm-ckv-fetcher.js';
 import type {VcpmParameterPayloadFetcher} from '../../fetchers/vcpm-parameter-payload-fetcher.js';
 import type {VcpmModuleParameterDefinitionFetcher} from '../../fetchers/definitions/vcpm-module-definitions/vcpm-module-parameter-definition-fetcher.js';
 import type {VcpmCkvBase} from '../../entity-schema/usecase-data/subgraph/subgraph-vcpm-data.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
+import {resolveActiveSessionId} from '../shared/session-resolver.js';
+import {withNotFound} from '../../utils/with-not-found.js';
 import {
-  type SubgraphQueryService,
-  type SubgraphReadModel,
-  type PropertyPayloadReadModel,
-  type ISessionRepository,
+  type BatchRead,
+  type FailedEntity,
   type KeyValueDefQueryService,
   type KeyValuePairListReadModel,
+  type SubgraphPropertyPayloadsReadModel,
+  type SubgraphQueryService,
+  type SubgraphReadModel,
   type ConfigurationIncludes,
   type VcpmAggregateOptions,
   type VcpmAggregateReadModel,
   type VcpmCkvReadModel,
-  Result,
-  ERROR_CODES,
-  IssueSeverity,
   CONFIGURATION_INCLUDES,
+  FAILED_ENTITY_REASON,
   ENTITY_TYPE,
-  failedToIssues,
 } from '@arc/core';
 
+type SubgraphBatch = BatchRead<SubgraphReadModel, typeof ENTITY_TYPE.Subgraph>;
+
 /**
- * Database implementation of SubgraphQueryService.
- *
- * All overlay delegated to SubgraphOverlayFetcher (FR-3):
- *   applyToSubgraphs — subgraph root rows with session overlay
- *   applyToSgkvs     — SGKV (subgraph key-value bins) with session overlay
- *   fetchOne         — single subgraph with property payload rows
- *
- * Key-value pair resolution is cross-aggregate enrichment delegated to
- * KeyValueDefQueryService (FR-4). All valueDefIds from all SGKV bins across
- * all subgraphs are collected into a single batch call (FR-5 — no per-bin
- * individual calls) and the results mapped back to bins in memory.
+ * Database implementation of SubgraphQueryService. Reads run on the given
+ * EntityManager with the file's active session overlay; built by
+ * `createSubgraphQueryService`.
  */
 export class DbSubgraphQueryService implements SubgraphQueryService {
-  private readonly subgraphFetcher: SubgraphOverlayFetcher;
-
   constructor(
-    private readonly sessionRepo: ISessionRepository,
+    private readonly manager: EntityManager,
     private readonly keyValueDefSvc: KeyValueDefQueryService,
-    subgraphFetcher: SubgraphOverlayFetcher,
+    private readonly subgraphFetcher: SubgraphOverlayFetcher,
     private readonly editActionsQuerySvc: EditActionsQueryService,
     private readonly vcpmCkvFetcher: VcpmCkvFetcher,
     private readonly parameterPayloadFetcher: VcpmParameterPayloadFetcher,
     private readonly parameterDefinitionFetcher: VcpmModuleParameterDefinitionFetcher,
-  ) {
-    this.subgraphFetcher = subgraphFetcher;
+  ) {}
+
+  async findSubgraphs(
+    fileSystemId: number,
+    subgraphSystemIds: readonly number[],
+    includes: ConfigurationIncludes,
+  ): Promise<SubgraphBatch> {
+    const requestedIds = [...new Set(subgraphSystemIds)];
+    if (requestedIds.length === 0)
+      return {entityType: ENTITY_TYPE.Subgraph, items: [], failed: []};
+    const sessionId = await resolveActiveSessionId(this.manager, fileSystemId);
+    const rows = await this.subgraphFetcher.fetchMany(fileSystemId, sessionId, {
+      systemId: requestedIds,
+    });
+    const read = await this.toReadModels(
+      fileSystemId,
+      sessionId,
+      inRequestOrder(requestedIds, rows),
+      includes,
+    );
+    return withNotFound(
+      ENTITY_TYPE.Subgraph,
+      requestedIds,
+      read.items,
+      subgraph => subgraph.systemId,
+      read.failed,
+    );
   }
 
-  async getAllSubgraphs(
+  async findAllSubgraphs(
     fileSystemId: number,
     includes: ConfigurationIncludes,
-    systemIds?: number[],
-  ): Promise<Result<SubgraphReadModel[]>> {
-    try {
-      const session =
-        await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
-      const sessionId = session?.sessionId ?? null;
-      const filters =
-        systemIds === undefined || systemIds.length === 0
-          ? undefined
-          : {systemId: systemIds};
-
-      const subgraphs = await this.subgraphFetcher.fetchMany(
-        fileSystemId,
-        sessionId,
-        filters,
-      );
-
-      // Summary — no SGKV data needed.
-      if (includes !== CONFIGURATION_INCLUDES.FullDetails) {
-        return Result.ok(
-          subgraphs.map(s => ({
-            systemId: s.systemId,
-            naturalId: s.naturalId,
-            name: s.name,
-            isImported: s.isImported,
-            sgkvs: null,
-          })),
-        );
-      }
-
-      // FullDetails — load all SGKV bins with overlay (one fetcher call).
-      const allSgkvs = await this.subgraphFetcher.getSgkvs(
-        fileSystemId,
-        sessionId,
-        systemIds,
-      );
-      const sgkvsBySubgraph = new Map<number, typeof allSgkvs>();
-      for (const sgkv of allSgkvs) {
-        const list = sgkvsBySubgraph.get(sgkv.subgraphSystemId) ?? [];
-        list.push(sgkv);
-        sgkvsBySubgraph.set(sgkv.subgraphSystemId, list);
-      }
-
-      // Collect ALL valueDefIds from ALL bins across ALL subgraphs into one
-      // batch — avoids per-bin individual calls (FR-5). Results are mapped
-      // back to bins in memory using the valueDefId → key/value lookup below.
-      const allValueDefIds = [
-        ...new Set(
-          allSgkvs.flatMap(sgkv => sgkv.values.map(v => v.valueDefSystemId)),
-        ),
-      ];
-
-      // Single batch call for all key-value definitions (FR-4 + FR-5).
-      const pairs = await this.keyValueDefSvc.findKeyValuePairs(
-        fileSystemId,
-        allValueDefIds,
-      );
-      const itemErrors = failedToIssues(
-        ENTITY_TYPE.ValueDefinition,
-        pairs.failed,
-      );
-      const kvPairsByValueId = new Map(
-        pairs.items.map(pair => [pair.value.systemId, pair]),
-      );
-
-      // Assemble SubgraphReadModel[] in memory — no further DB calls.
-      const results: SubgraphReadModel[] = subgraphs.map(s => {
-        const bins = sgkvsBySubgraph.get(s.systemId) ?? [];
-        const sgkvs: KeyValuePairListReadModel[] = bins.map(bin => ({
-          systemId: bin.systemId,
-          keyValuePairs: bin.values
-            .map(v => kvPairsByValueId.get(v.valueDefSystemId))
-            .filter(
-              (pair): pair is NonNullable<typeof pair> => pair !== undefined,
-            ),
-        }));
-
-        return {
-          systemId: s.systemId,
-          naturalId: s.naturalId,
-          name: s.name,
-          isImported: s.isImported,
-          sgkvs,
-        };
-      });
-
-      return itemErrors.length > 0
-        ? Result.partial(results, itemErrors)
-        : Result.ok(results);
-    } catch (error) {
-      return Result.fail({
-        code: ERROR_CODES.INTERNAL_ERROR,
-        message:
-          error instanceof Error ? error.message : 'Failed to query subgraphs',
-        severity: IssueSeverity.Error,
-      });
-    }
+  ): Promise<SubgraphBatch> {
+    const sessionId = await resolveActiveSessionId(this.manager, fileSystemId);
+    const rows = await this.subgraphFetcher.fetchMany(fileSystemId, sessionId);
+    return this.toReadModels(fileSystemId, sessionId, rows, includes);
   }
 
-  async findPropertyPayloads(
-    subgraphSystemId: number,
+  async findSubgraphPropertyPayloads(
     fileSystemId: number,
-  ): Promise<Result<PropertyPayloadReadModel[] | null>> {
-    try {
-      const session =
-        await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
-      const overlaid = await this.subgraphFetcher.fetchOne(
+    subgraphSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<SubgraphPropertyPayloadsReadModel, typeof ENTITY_TYPE.Subgraph>
+  > {
+    const requestedIds = [...new Set(subgraphSystemIds)];
+    const sessionId = await resolveActiveSessionId(this.manager, fileSystemId);
+    const subgraphs = await this.subgraphFetcher.fetchManyWithProperties(
+      fileSystemId,
+      sessionId,
+      requestedIds,
+    );
+    const items = inRequestOrder(requestedIds, subgraphs).map(subgraph => ({
+      subgraphSystemId: subgraph.systemId,
+      properties: subgraph.properties.map(property => ({
+        systemId: property.systemId,
+        propertySystemId: property.propertySystemId,
+        payload: property.payload,
+      })),
+    }));
+    return withNotFound(
+      ENTITY_TYPE.Subgraph,
+      requestedIds,
+      items,
+      item => item.subgraphSystemId,
+    );
+  }
+
+  /**
+   * `SUMMARY` maps the rows as they are. `FULL_DETAILS` resolves every SGKV
+   * value with one key/value read; a subgraph with an unresolved value is
+   * reported as `UNRESOLVED_REFERENCE` instead of returned without it.
+   */
+  private async toReadModels(
+    fileSystemId: number,
+    sessionId: number | null,
+    rows: readonly SubgraphBase[],
+    includes: ConfigurationIncludes,
+  ): Promise<SubgraphBatch> {
+    if (includes === CONFIGURATION_INCLUDES.Summary) {
+      return {
+        entityType: ENTITY_TYPE.Subgraph,
+        items: rows.map(row => toReadModel(row, null)),
+        failed: [],
+      };
+    }
+    if (rows.length === 0)
+      return {entityType: ENTITY_TYPE.Subgraph, items: [], failed: []};
+
+    const sgkvRows = await this.subgraphFetcher.getSgkvs(
+      fileSystemId,
+      sessionId,
+      rows.map(row => row.systemId),
+    );
+    const sgkvsBySubgraph = new Map<number, typeof sgkvRows>();
+    for (const sgkv of sgkvRows) {
+      const list = sgkvsBySubgraph.get(sgkv.subgraphSystemId) ?? [];
+      list.push(sgkv);
+      sgkvsBySubgraph.set(sgkv.subgraphSystemId, list);
+    }
+
+    const pairs = await this.keyValueDefSvc.findKeyValuePairs(fileSystemId, [
+      ...new Set(
+        sgkvRows.flatMap(sgkv => sgkv.values.map(v => v.valueDefSystemId)),
+      ),
+    ]);
+    const pairByValueId = new Map(
+      pairs.items.map(pair => [pair.value.systemId, pair]),
+    );
+
+    const items: SubgraphReadModel[] = [];
+    const failed: FailedEntity<typeof ENTITY_TYPE.Subgraph>[] = [];
+    for (const row of rows) {
+      const bins = sgkvsBySubgraph.get(row.systemId) ?? [];
+      const missingValueId = bins
+        .flatMap(bin => bin.values)
+        .map(value => value.valueDefSystemId)
+        .find(valueId => !pairByValueId.has(valueId));
+      if (missingValueId !== undefined) {
+        failed.push({
+          systemId: row.systemId,
+          reason: FAILED_ENTITY_REASON.UnresolvedReference,
+          identity: {name: row.name, naturalId: row.naturalId},
+          missingRef: {
+            entityType: ENTITY_TYPE.ValueDefinition,
+            systemId: missingValueId,
+          },
+        });
+        continue;
+      }
+      const sgkvs: KeyValuePairListReadModel[] = bins.map(bin => ({
+        systemId: bin.systemId,
+        keyValuePairs: bin.values.map(
+          value => pairByValueId.get(value.valueDefSystemId)!,
+        ),
+      }));
+      items.push(toReadModel(row, sgkvs));
+    }
+    return {entityType: ENTITY_TYPE.Subgraph, items, failed};
+  }
+
+  async findVcpmAggregate(
+    fileSystemId: number,
+    subgraphSystemId: number,
+    options: VcpmAggregateOptions = {},
+  ): Promise<VcpmAggregateReadModel> {
+    const sessionId = await resolveActiveSessionId(this.manager, fileSystemId);
+    const context: VcpmQueryContext = {
+      sessionId,
+      editActions:
+        sessionId === null
+          ? []
+          : await this.editActionsQuerySvc.getByAggregateId(
+              sessionId,
+              subgraphSystemId,
+            ),
+    };
+
+    const selectedCkv =
+      options.ckvSystemId === undefined
+        ? null
+        : await this.vcpmCkvFetcher.fetchOne(
+            options.ckvSystemId,
+            subgraphSystemId,
+            fileSystemId,
+            context,
+          );
+    let ckvRows: VcpmCkvBase[];
+    if (options.ckvSystemId === undefined) {
+      ckvRows = await this.vcpmCkvFetcher.fetchMany(
         subgraphSystemId,
         fileSystemId,
-        session?.sessionId ?? null,
+        context,
       );
-      if (!overlaid) return Result.ok(null);
-      return Result.ok(
-        overlaid.properties.map(p => ({
-          systemId: p.systemId,
-          propertySystemId: p.propertySystemId,
-          payload: p.payload,
-        })),
-      );
-    } catch (error) {
-      return Result.fail({
-        code: ERROR_CODES.INTERNAL_ERROR,
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to load subgraph properties',
-        severity: IssueSeverity.Error,
-      });
+    } else if (selectedCkv === null) {
+      ckvRows = [];
+    } else {
+      ckvRows = [selectedCkv];
     }
-  }
+    const effectiveCkvSystemIds = new Set(ckvRows.map(ckv => ckv.systemId));
 
-  async getVcpmAggregateBySubgraph(
-    subgraphSystemId: number,
-    fileSystemId: number,
-    options: VcpmAggregateOptions = {},
-  ): Promise<Result<VcpmAggregateReadModel>> {
-    try {
-      const session =
-        await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
-      const sessionId = session?.sessionId ?? null;
-      const context: VcpmQueryContext = {
-        sessionId,
-        editActions:
-          sessionId === null
-            ? []
-            : await this.editActionsQuerySvc.getByAggregateId(
-                sessionId,
-                subgraphSystemId,
-              ),
-      };
+    const [ckvs, linkRows] = await Promise.all([
+      this.resolveVcpmCkvValues(ckvRows, fileSystemId),
+      options.ckvSystemId === undefined
+        ? this.parameterPayloadFetcher.fetchParameterCkvLinksBySubgraph(
+            subgraphSystemId,
+            fileSystemId,
+            context,
+            effectiveCkvSystemIds,
+          )
+        : Promise.resolve([]),
+    ]);
 
-      const selectedCkv =
-        options.ckvSystemId === undefined
-          ? null
-          : await this.vcpmCkvFetcher.fetchOne(
-              options.ckvSystemId,
-              subgraphSystemId,
-              fileSystemId,
-              context,
-            );
-      let ckvRows: VcpmCkvBase[];
-      if (options.ckvSystemId === undefined) {
-        ckvRows = await this.vcpmCkvFetcher.fetchMany(
-          subgraphSystemId,
-          fileSystemId,
-          context,
-        );
-      } else if (selectedCkv === null) {
-        ckvRows = [];
-      } else {
-        ckvRows = [selectedCkv];
-      }
-      const effectiveCkvSystemIds = new Set(ckvRows.map(ckv => ckv.systemId));
+    const linksByParameter = new Map<number, Set<number>>();
+    for (const link of linkRows) {
+      const ckvIds =
+        linksByParameter.get(link.parameterSystemId) ?? new Set<number>();
+      ckvIds.add(link.ckvSystemId);
+      linksByParameter.set(link.parameterSystemId, ckvIds);
+    }
 
-      const [ckvs, linkRows] = await Promise.all([
-        this.resolveVcpmCkvValues(ckvRows, fileSystemId),
-        options.ckvSystemId === undefined
-          ? this.parameterPayloadFetcher.fetchParameterCkvLinksBySubgraph(
-              subgraphSystemId,
-              fileSystemId,
-              context,
-              effectiveCkvSystemIds,
-            )
-          : Promise.resolve([]),
-      ]);
+    const payloadRows =
+      options.ckvSystemId === undefined || selectedCkv === null
+        ? []
+        : await this.parameterPayloadFetcher.fetchMany(
+            options.ckvSystemId,
+            subgraphSystemId,
+            fileSystemId,
+            context,
+            effectiveCkvSystemIds,
+            options.paramSystemIds,
+          );
+    const payloads = payloadRows.map(row => ({
+      systemId: row.systemId,
+      vcpmParameterSystemId: row.vcpmParameterSystemId,
+      vcpmCkvSystemId: row.vcpmCkvSystemId,
+      payload: new Uint8Array(row.payload),
+    }));
 
-      const linksByParameter = new Map<number, Set<number>>();
-      for (const link of linkRows) {
-        const ckvIds =
-          linksByParameter.get(link.parameterSystemId) ?? new Set<number>();
-        ckvIds.add(link.ckvSystemId);
-        linksByParameter.set(link.parameterSystemId, ckvIds);
-      }
+    const parameterSystemIds = [
+      ...new Set([
+        ...linkRows.map(row => row.parameterSystemId),
+        ...payloads.map(row => row.vcpmParameterSystemId),
+      ]),
+    ];
+    const definitionRows = await this.parameterDefinitionFetcher.fetchMany(
+      parameterSystemIds,
+      fileSystemId,
+    );
 
-      const payloadRows =
-        options.ckvSystemId === undefined || selectedCkv === null
-          ? []
-          : await this.parameterPayloadFetcher.fetchMany(
-              options.ckvSystemId,
-              subgraphSystemId,
-              fileSystemId,
-              context,
-              effectiveCkvSystemIds,
-              options.paramSystemIds,
-            );
-      const payloads = payloadRows.map(row => ({
+    return {
+      ckvs,
+      parameterCkvLinks: [...linksByParameter].map(
+        ([parameterSystemId, ckvSystemIds]) => ({
+          parameterSystemId,
+          ckvSystemIds: [...ckvSystemIds],
+        }),
+      ),
+      payloads,
+      parameterDefinitions: definitionRows.map(row => ({
         systemId: row.systemId,
-        vcpmParameterSystemId: row.vcpmParameterSystemId,
-        vcpmCkvSystemId: row.vcpmCkvSystemId,
-        payload: new Uint8Array(row.payload),
-      }));
-
-      const parameterSystemIds = [
-        ...new Set([
-          ...linkRows.map(row => row.parameterSystemId),
-          ...payloads.map(row => row.vcpmParameterSystemId),
-        ]),
-      ];
-      const definitionRows = await this.parameterDefinitionFetcher.fetchMany(
-        parameterSystemIds,
-        fileSystemId,
-      );
-
-      return Result.ok({
-        ckvs,
-        parameterCkvLinks: [...linksByParameter].map(
-          ([parameterSystemId, ckvSystemIds]) => ({
-            parameterSystemId,
-            ckvSystemIds: [...ckvSystemIds],
-          }),
-        ),
-        payloads,
-        parameterDefinitions: definitionRows.map(row => ({
-          systemId: row.systemId,
-          paramId: row.paramId,
-          name: row.name ?? '',
-          isReadOnly: row.isReadOnly,
-          elementsStructure: row.elementsStructure ?? '',
-        })),
-      });
-    } catch (error) {
-      return Result.fail({
-        code: ERROR_CODES.INTERNAL_ERROR,
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to query VCPM aggregate',
-        severity: IssueSeverity.Error,
-      });
-    }
+        paramId: row.paramId,
+        name: row.name ?? '',
+        isReadOnly: row.isReadOnly,
+        elementsStructure: row.elementsStructure ?? '',
+      })),
+    };
   }
 
   private async resolveVcpmCkvValues(
@@ -364,4 +347,28 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
       }),
     }));
   }
+}
+
+/** Rows reordered to match `requestedIds`; missing IDs are skipped. */
+function inRequestOrder<T extends {systemId: number}>(
+  requestedIds: readonly number[],
+  rows: readonly T[],
+): T[] {
+  const byId = new Map(rows.map(row => [row.systemId, row]));
+  return requestedIds
+    .map(id => byId.get(id))
+    .filter((row): row is T => row !== undefined);
+}
+
+function toReadModel(
+  row: SubgraphBase,
+  sgkvs: KeyValuePairListReadModel[] | null,
+): SubgraphReadModel {
+  return {
+    systemId: row.systemId,
+    naturalId: row.naturalId,
+    name: row.name,
+    isImported: row.isImported,
+    sgkvs,
+  };
 }

@@ -9,7 +9,6 @@ import {
   CHANGE_STATUS,
   SOURCE,
   FAILED_ENTITY_REASON,
-  RESULT_KIND,
   CONFIGURATION_INCLUDES,
 } from '@arc/core';
 import type {KeyValueDefQueryService} from '@arc/core';
@@ -25,7 +24,6 @@ import {
   getTestRepository,
 } from '../../helpers/test-database-setup.js';
 import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
-import {TypeOrmSessionRepository} from '../../../../src/persistence-typeorm-sqllite/repositories/session/typeorm-session.repository.js';
 import {DbSubgraphQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/subgraph/db-subgraph-query-service.js';
 import {SubgraphOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/subgraph-overlay-fetcher.js';
 import {SubgraphPropertyDataFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/subgraph-property-data-fetcher.js';
@@ -50,6 +48,7 @@ import {
   afterAll,
   beforeEach,
 } from '@jest/globals';
+import {ENTITY_TYPE} from '@arc/core';
 
 const FILE_ID = 100;
 const SUBGRAPH_SYSTEM_ID = 42;
@@ -173,7 +172,7 @@ function buildService(
   const editActionsSvc = new EditActionsQueryService(ds.manager);
   const vcpmInstanceFetcher = new VcpmInstanceFetcher(ds.manager);
   return new DbSubgraphQueryService(
-    new TypeOrmSessionRepository(ds.manager),
+    ds.manager,
     keyValueDefSvc as KeyValueDefQueryService,
     new SubgraphOverlayFetcher(
       ds.manager,
@@ -188,7 +187,20 @@ function buildService(
   );
 }
 
-describe('DbSubgraphQueryService.findPropertyPayloads (integration)', () => {
+const noKeyValuePairs = {
+  findKeyValuePairs: async () => ({
+    entityType: ENTITY_TYPE.ValueDefinition,
+    items: [],
+    failed: [],
+  }),
+};
+
+const notFound = (systemId: number) => ({
+  systemId,
+  reason: FAILED_ENTITY_REASON.NotFound,
+});
+
+describe('DbSubgraphQueryService (integration)', () => {
   let ds: DataSource;
   let svc: DbSubgraphQueryService;
 
@@ -202,227 +214,279 @@ describe('DbSubgraphQueryService.findPropertyPayloads (integration)', () => {
     await setupEachTest();
     ds = getTestDataSource();
     await seedProjectAndFile(ds);
-    svc = buildService(ds, {
-      findKeyValuePairs: async () => ({items: [], failed: []}),
-    });
+    svc = buildService(ds, noKeyValuePairs);
   });
 
-  it('returns null when subgraph does not exist and no session', async () => {
-    const result = await svc.findPropertyPayloads(SUBGRAPH_SYSTEM_ID, FILE_ID);
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    expect(result.data).toBeNull();
-  });
+  describe('findSubgraphPropertyPayloads', () => {
+    it('reports a subgraph that does not exist as not found', async () => {
+      const result = await svc.findSubgraphPropertyPayloads(FILE_ID, [
+        SUBGRAPH_SYSTEM_ID,
+      ]);
+      expect(result.items).toEqual([]);
+      expect(result.failed).toEqual([notFound(SUBGRAPH_SYSTEM_ID)]);
+    });
 
-  it('returns empty PropertyPayloadReadModel[] when subgraph exists with no properties', async () => {
-    await seedSubgraph(ds);
-    const result = await svc.findPropertyPayloads(SUBGRAPH_SYSTEM_ID, FILE_ID);
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    expect(result.data).toEqual([]);
-  });
+    it('returns no properties for a subgraph that has none', async () => {
+      await seedSubgraph(ds);
+      const result = await svc.findSubgraphPropertyPayloads(FILE_ID, [
+        SUBGRAPH_SYSTEM_ID,
+      ]);
+      expect(result.items).toEqual([
+        {subgraphSystemId: SUBGRAPH_SYSTEM_ID, properties: []},
+      ]);
+      expect(result.failed).toEqual([]);
+    });
 
-  it('returns PropertyPayloadReadModel[] with correct payloads (no session)', async () => {
-    await seedSubgraph(ds);
-    await seedSubgraphPropertyData(ds, {
-      systemId: 200,
-      subgraphPropertySystemId: 7,
+    it('returns the stored property payloads (no session)', async () => {
+      await seedSubgraph(ds);
+      await seedSubgraphPropertyData(ds, {
+        systemId: 200,
+        subgraphPropertySystemId: 7,
+      });
+      const result = await svc.findSubgraphPropertyPayloads(FILE_ID, [
+        SUBGRAPH_SYSTEM_ID,
+      ]);
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].properties).toEqual([
+        expect.objectContaining({systemId: 200, propertySystemId: 7}),
+      ]);
     });
-    const result = await svc.findPropertyPayloads(SUBGRAPH_SYSTEM_ID, FILE_ID);
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    expect(result.data).toHaveLength(1);
-    expect(result.data![0].systemId).toBe(200);
-    expect(result.data![0].propertySystemId).toBe(7);
-  });
 
-  it('returns null when session has DELETE-staged subgraph', async () => {
-    await seedSubgraph(ds);
-    const sessionId = await seedSession(ds);
-    await seedEditAction(ds, {
-      sessionId,
-      aggregateId: SUBGRAPH_SYSTEM_ID,
-      targetSystemId: SUBGRAPH_SYSTEM_ID,
-      targetTable: ENTITY_NAMES.Subgraph,
-      operation: CHANGE_OPERATION.Delete,
-      newValue: '{}',
+    it('reports a subgraph deleted in the session as not found', async () => {
+      await seedSubgraph(ds);
+      const sessionId = await seedSession(ds);
+      await seedEditAction(ds, {
+        sessionId,
+        aggregateId: SUBGRAPH_SYSTEM_ID,
+        targetSystemId: SUBGRAPH_SYSTEM_ID,
+        targetTable: ENTITY_NAMES.Subgraph,
+        operation: CHANGE_OPERATION.Delete,
+        newValue: '{}',
+      });
+      const result = await svc.findSubgraphPropertyPayloads(FILE_ID, [
+        SUBGRAPH_SYSTEM_ID,
+      ]);
+      expect(result.items).toEqual([]);
+      expect(result.failed).toEqual([notFound(SUBGRAPH_SYSTEM_ID)]);
     });
-    const result = await svc.findPropertyPayloads(SUBGRAPH_SYSTEM_ID, FILE_ID);
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    expect(result.data).toBeNull();
-  });
 
-  it('reflects pending UPDATE on property payload when session active', async () => {
-    await seedSubgraph(ds);
-    await seedSubgraphPropertyData(ds, {
-      systemId: 200,
-      subgraphPropertySystemId: 7,
+    it('reflects a pending UPDATE on a property payload', async () => {
+      await seedSubgraph(ds);
+      await seedSubgraphPropertyData(ds, {
+        systemId: 200,
+        subgraphPropertySystemId: 7,
+      });
+      const sessionId = await seedSession(ds);
+      await seedEditAction(ds, {
+        sessionId,
+        aggregateId: SUBGRAPH_SYSTEM_ID,
+        targetSystemId: 200,
+        targetTable: ENTITY_NAMES.SubgraphPropertyData,
+        operation: CHANGE_OPERATION.Update,
+        fieldPath: 'payload',
+        newValue: JSON.stringify([1, 2, 3]),
+      });
+      const result = await svc.findSubgraphPropertyPayloads(FILE_ID, [
+        SUBGRAPH_SYSTEM_ID,
+      ]);
+      expect(result.items[0].properties).toHaveLength(1);
     });
-    const sessionId = await seedSession(ds);
-    await seedEditAction(ds, {
-      sessionId,
-      aggregateId: SUBGRAPH_SYSTEM_ID,
-      targetSystemId: 200,
-      targetTable: ENTITY_NAMES.SubgraphPropertyData,
-      operation: CHANGE_OPERATION.Update,
-      fieldPath: 'payload',
-      newValue: JSON.stringify([1, 2, 3]),
-    });
-    const result = await svc.findPropertyPayloads(SUBGRAPH_SYSTEM_ID, FILE_ID);
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    expect(result.data).toHaveLength(1);
-  });
 
-  it('returns property payloads assembled from CREATE action (new subgraph staged in session)', async () => {
-    const sessionId = await seedSession(ds);
-    await seedEditAction(ds, {
-      sessionId,
-      aggregateId: SUBGRAPH_SYSTEM_ID,
-      targetSystemId: SUBGRAPH_SYSTEM_ID,
-      targetTable: ENTITY_NAMES.Subgraph,
-      operation: CHANGE_OPERATION.Create,
-      newValue: JSON.stringify({
-        naturalId: 1,
-        name: 'sg-new',
-        isImported: false,
-        fileSystemId: FILE_ID,
-      }),
-    });
-    await seedEditAction(ds, {
-      sessionId,
-      aggregateId: SUBGRAPH_SYSTEM_ID,
-      targetSystemId: 300,
-      targetTable: ENTITY_NAMES.SubgraphPropertyData,
-      operation: CHANGE_OPERATION.Create,
-      newValue: JSON.stringify({
-        subgraphSystemId: SUBGRAPH_SYSTEM_ID,
-        propertySystemId: 7,
-        payload: null,
-      }),
-    });
-    const result = await svc.findPropertyPayloads(SUBGRAPH_SYSTEM_ID, FILE_ID);
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    expect(result.data).toHaveLength(1);
-    expect(result.data![0].propertySystemId).toBe(7);
-  });
-
-  it('filters subgraphs and SGKVs by requested system IDs', async () => {
-    await seedSubgraph(ds, {
-      systemId: SUBGRAPH_SYSTEM_ID,
-      naturalId: 1,
-      name: 'sg-a',
-    });
-    await seedSubgraph(ds, {
-      systemId: 43,
-      naturalId: 2,
-      name: 'sg-b',
-    });
-    await seedSgkv(ds, {
-      systemId: 501,
-      subgraphSystemId: SUBGRAPH_SYSTEM_ID,
-    });
-    await seedSgkv(ds, {systemId: 502, subgraphSystemId: 43});
-
-    const result = await svc.getAllSubgraphs(
-      FILE_ID,
-      CONFIGURATION_INCLUDES.FullDetails,
-      [43],
-    );
-
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0]).toMatchObject({
-      systemId: 43,
-      name: 'sg-b',
-      sgkvs: [{systemId: 502, keyValuePairs: []}],
-    });
-  });
-
-  it('treats an empty system ID list as no filter', async () => {
-    await seedSubgraph(ds, {
-      systemId: SUBGRAPH_SYSTEM_ID,
-      naturalId: 1,
-      name: 'sg-a',
-    });
-    await seedSubgraph(ds, {
-      systemId: 43,
-      naturalId: 2,
-      name: 'sg-b',
-    });
-    await seedSgkv(ds, {
-      systemId: 501,
-      subgraphSystemId: SUBGRAPH_SYSTEM_ID,
-    });
-    await seedSgkv(ds, {systemId: 502, subgraphSystemId: 43});
-
-    const result = await svc.getAllSubgraphs(
-      FILE_ID,
-      CONFIGURATION_INCLUDES.FullDetails,
-      [],
-    );
-
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data).toHaveLength(2);
-    expect(result.data).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          systemId: SUBGRAPH_SYSTEM_ID,
-          sgkvs: [{systemId: 501, keyValuePairs: []}],
+    it('returns the properties of a subgraph created in the session', async () => {
+      const sessionId = await seedSession(ds);
+      await seedEditAction(ds, {
+        sessionId,
+        aggregateId: SUBGRAPH_SYSTEM_ID,
+        targetSystemId: SUBGRAPH_SYSTEM_ID,
+        targetTable: ENTITY_NAMES.Subgraph,
+        operation: CHANGE_OPERATION.Create,
+        newValue: JSON.stringify({
+          naturalId: 1,
+          name: 'sg-new',
+          isImported: false,
+          fileSystemId: FILE_ID,
         }),
+      });
+      await seedEditAction(ds, {
+        sessionId,
+        aggregateId: SUBGRAPH_SYSTEM_ID,
+        targetSystemId: 300,
+        targetTable: ENTITY_NAMES.SubgraphPropertyData,
+        operation: CHANGE_OPERATION.Create,
+        newValue: JSON.stringify({
+          subgraphSystemId: SUBGRAPH_SYSTEM_ID,
+          propertySystemId: 7,
+          payload: null,
+        }),
+      });
+      const result = await svc.findSubgraphPropertyPayloads(FILE_ID, [
+        SUBGRAPH_SYSTEM_ID,
+      ]);
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].properties).toEqual([
+        expect.objectContaining({propertySystemId: 7}),
+      ]);
+    });
+  });
+
+  describe('findSubgraphs / findAllSubgraphs', () => {
+    async function seedTwoSubgraphs() {
+      await seedSubgraph(ds, {
+        systemId: SUBGRAPH_SYSTEM_ID,
+        naturalId: 1,
+        name: 'sg-a',
+      });
+      await seedSubgraph(ds, {systemId: 43, naturalId: 2, name: 'sg-b'});
+      await seedSgkv(ds, {
+        systemId: 501,
+        subgraphSystemId: SUBGRAPH_SYSTEM_ID,
+      });
+      await seedSgkv(ds, {systemId: 502, subgraphSystemId: 43});
+    }
+
+    it('returns only the requested subgraphs with their SGKVs', async () => {
+      await seedTwoSubgraphs();
+
+      const result = await svc.findSubgraphs(
+        FILE_ID,
+        [43],
+        CONFIGURATION_INCLUDES.FullDetails,
+      );
+
+      expect(result.items).toEqual([
         expect.objectContaining({
           systemId: 43,
+          name: 'sg-b',
           sgkvs: [{systemId: 502, keyValuePairs: []}],
         }),
-      ]),
-    );
-  });
-
-  it('returns a partial result naming each SGKV value that could not be loaded', async () => {
-    await seedSubgraph(ds, {systemId: SUBGRAPH_SYSTEM_ID, name: 'sg-a'});
-    await seedSgkv(ds, {systemId: 501, subgraphSystemId: SUBGRAPH_SYSTEM_ID});
-    await getTestRepository(KeyDefinitionSchema).save({
-      systemId: 70,
-      fileSystemId: FILE_ID,
-      naturalId: 7,
-      name: 'Device',
-    });
-    await getTestRepository(ValueDefinitionSchema).save([
-      {systemId: 700, keySystemId: 70, naturalId: 1, name: 'Speaker'},
-      {systemId: 0x2bd, keySystemId: 70, naturalId: 2, name: 'Handset'},
-    ]);
-    await getTestRepository(SgkvValuesSchema).save([
-      {systemId: 601, sgkvSystemId: 501, valueDefSystemId: 700},
-      {systemId: 602, sgkvSystemId: 501, valueDefSystemId: 0x2bd},
-    ]);
-    const speaker = {
-      key: {systemId: 70, naturalId: 7, name: 'Device'},
-      value: {systemId: 700, naturalId: 1, name: 'Speaker'},
-    };
-    const service = buildService(ds, {
-      findKeyValuePairs: async () => ({
-        items: [speaker],
-        failed: [{systemId: 0x2bd, reason: FAILED_ENTITY_REASON.NotFound}],
-      }),
+      ]);
+      expect(result.failed).toEqual([]);
     });
 
-    const result = await service.getAllSubgraphs(
-      FILE_ID,
-      CONFIGURATION_INCLUDES.FullDetails,
-    );
+    it('returns nothing for an empty ID list', async () => {
+      await seedTwoSubgraphs();
 
-    expect(result.kind).toBe(RESULT_KIND.Partial);
-    if (result.kind !== RESULT_KIND.Partial) return;
-    expect(result.data).toEqual([
-      expect.objectContaining({
-        systemId: SUBGRAPH_SYSTEM_ID,
-        sgkvs: [{systemId: 501, keyValuePairs: [speaker]}],
-      }),
-    ]);
-    expect(result.issues).toEqual([
-      expect.objectContaining({
-        code: 'ENTITY_NOT_FOUND',
-        message:
-          'Value with systemId: 0x000002BD was not found in this project.',
-      }),
-    ]);
+      const result = await svc.findSubgraphs(
+        FILE_ID,
+        [],
+        CONFIGURATION_INCLUDES.FullDetails,
+      );
+
+      expect(result.items).toEqual([]);
+      expect(result.failed).toEqual([]);
+    });
+
+    it('reports a requested subgraph that does not exist as not found', async () => {
+      await seedTwoSubgraphs();
+
+      const result = await svc.findSubgraphs(
+        FILE_ID,
+        [43, 999],
+        CONFIGURATION_INCLUDES.Summary,
+      );
+
+      expect(result.items.map(item => item.systemId)).toEqual([43]);
+      expect(result.failed).toEqual([notFound(999)]);
+    });
+
+    it('returns every subgraph of the file', async () => {
+      await seedTwoSubgraphs();
+
+      const result = await svc.findAllSubgraphs(
+        FILE_ID,
+        CONFIGURATION_INCLUDES.FullDetails,
+      );
+
+      expect(result.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            systemId: SUBGRAPH_SYSTEM_ID,
+            sgkvs: [{systemId: 501, keyValuePairs: []}],
+          }),
+          expect.objectContaining({
+            systemId: 43,
+            sgkvs: [{systemId: 502, keyValuePairs: []}],
+          }),
+        ]),
+      );
+      expect(result.items).toHaveLength(2);
+    });
+
+    describe('with an SGKV value that cannot be loaded', () => {
+      const speaker = {
+        key: {systemId: 70, naturalId: 7, name: 'Device'},
+        value: {systemId: 700, naturalId: 1, name: 'Speaker'},
+      };
+
+      beforeEach(async () => {
+        await seedSubgraph(ds, {
+          systemId: SUBGRAPH_SYSTEM_ID,
+          naturalId: 5,
+          name: 'SG A',
+        });
+        await seedSgkv(ds, {
+          systemId: 501,
+          subgraphSystemId: SUBGRAPH_SYSTEM_ID,
+        });
+        await getTestRepository(KeyDefinitionSchema).save({
+          systemId: 70,
+          fileSystemId: FILE_ID,
+          naturalId: 7,
+          name: 'Device',
+        });
+        await getTestRepository(ValueDefinitionSchema).save([
+          {systemId: 700, keySystemId: 70, naturalId: 1, name: 'Speaker'},
+          {systemId: 0x2bd, keySystemId: 70, naturalId: 2, name: 'Handset'},
+        ]);
+        await getTestRepository(SgkvValuesSchema).save([
+          {systemId: 601, sgkvSystemId: 501, valueDefSystemId: 700},
+          {systemId: 602, sgkvSystemId: 501, valueDefSystemId: 0x2bd},
+        ]);
+        svc = buildService(ds, {
+          findKeyValuePairs: async () => ({
+            entityType: ENTITY_TYPE.ValueDefinition,
+            items: [speaker],
+            failed: [notFound(0x2bd)],
+          }),
+        });
+      });
+
+      it('reports the subgraph as an unresolved reference under FULL_DETAILS', async () => {
+        const result = await svc.findAllSubgraphs(
+          FILE_ID,
+          CONFIGURATION_INCLUDES.FullDetails,
+        );
+
+        expect(result.items).toEqual([]);
+        expect(result.failed).toEqual([
+          {
+            systemId: SUBGRAPH_SYSTEM_ID,
+            reason: FAILED_ENTITY_REASON.UnresolvedReference,
+            identity: {name: 'SG A', naturalId: 5},
+            missingRef: {
+              entityType: ENTITY_TYPE.ValueDefinition,
+              systemId: 0x2bd,
+            },
+          },
+        ]);
+      });
+
+      it('still loads the subgraph under SUMMARY', async () => {
+        const result = await svc.findSubgraphs(
+          FILE_ID,
+          [SUBGRAPH_SYSTEM_ID],
+          CONFIGURATION_INCLUDES.Summary,
+        );
+
+        expect(result.items).toEqual([
+          expect.objectContaining({
+            systemId: SUBGRAPH_SYSTEM_ID,
+            name: 'SG A',
+            sgkvs: null,
+          }),
+        ]);
+        expect(result.failed).toEqual([]);
+      });
+    });
   });
 });

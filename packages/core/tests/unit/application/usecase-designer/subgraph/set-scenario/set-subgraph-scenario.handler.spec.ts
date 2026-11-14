@@ -12,6 +12,8 @@ import {
   SUB_GRAPH_PROP_ID_SCENARIO_VALUE_VOICE_CALL,
   SUB_GRAPH_PROP_ID_VSID,
 } from '../../../../../../src/domain/entities/definitions/subgraph/subgraph-ids.js';
+import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
+import {batchOf, notFoundBatch} from '../../../../../helpers/index.js';
 
 const SESSION = {sessionId: 1, fileSystemId: 7};
 const GROUP_ID = 'g1';
@@ -97,7 +99,22 @@ function makeUow(subgraph: any, vcpmDefs: any[] = []) {
       .fn()
       .mockReturnValue({session: SESSION, groupId: GROUP_ID}),
     getSubgraphRepository: jest.fn().mockReturnValue({
-      getAggregates: jest.fn().mockResolvedValue(aggregates),
+      findSubgraphAggregates: jest
+        .fn()
+        .mockImplementation((_fs: number, ids: number[]) =>
+          Promise.resolve(
+            batchOf(
+              ENTITY_TYPE.Subgraph,
+              ids
+                .filter(id => aggregates.has(id))
+                .map(id => aggregates.get(id)),
+              notFoundBatch(
+                ENTITY_TYPE.Subgraph,
+                ...ids.filter(id => !aggregates.has(id)),
+              ).failed,
+            ),
+          ),
+        ),
       setPropertyData,
       addProperty: jest.fn().mockResolvedValue(999),
       deleteProperty: jest.fn().mockResolvedValue(undefined),

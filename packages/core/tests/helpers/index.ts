@@ -56,3 +56,6 @@ export {
   createMockFileSystem,
   createMockFileSystemWithOverrides,
 } from './mock-file-system.js';
+
+// Batch read results
+export {batchOf, notFoundBatch} from './batch-read.js';

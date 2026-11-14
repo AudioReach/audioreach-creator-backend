@@ -92,13 +92,14 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
   async findUseCaseReadModels(
     fileSystemId: number,
     query?: UseCaseReadModelQuery,
-  ): Promise<BatchRead<UseCaseReadModel>> {
+  ): Promise<BatchRead<UseCaseReadModel, typeof ENTITY_TYPE.UseCase>> {
     const ids = query?.ids === undefined ? undefined : [...new Set(query.ids)];
-    if (ids?.length === 0) return {items: [], failed: []};
+    if (ids?.length === 0)
+      return {entityType: ENTITY_TYPE.UseCase, items: [], failed: []};
     const sessionId = await resolveActiveSessionId(this.manager, fileSystemId);
 
     let usecases: OverlaidUseCase[];
-    let notFound: FailedEntity[] = [];
+    let notFound: FailedEntity<typeof ENTITY_TYPE.UseCase>[] = [];
     if (ids) {
       // Load the requested IDs first so missing ones can be reported, then
       // drop the ones that exist but do not match the filter.
@@ -107,7 +108,12 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
         sessionId,
         ids,
       );
-      notFound = withNotFound(ids, usecases, uc => uc.systemId).failed;
+      notFound = withNotFound(
+        ENTITY_TYPE.UseCase,
+        ids,
+        usecases,
+        uc => uc.systemId,
+      ).failed;
       if (query?.filter && usecases.length > 0) {
         const matching = await this.findIdsMatchingFilter(
           fileSystemId,
@@ -141,7 +147,7 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
       fileSystemId,
     );
     const items: UseCaseReadModel[] = [];
-    const failed: FailedEntity[] = [...notFound];
+    const failed: FailedEntity<typeof ENTITY_TYPE.UseCase>[] = [...notFound];
     for (const uc of usecases) {
       const missingRef = this.findUnresolvedGkvValue(uc, gkvDefsByValueId);
       if (missingRef === undefined) {
@@ -165,7 +171,7 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
         });
       }
     }
-    return {items, failed};
+    return {entityType: ENTITY_TYPE.UseCase, items, failed};
   }
 
   async findUseCaseFilteredTopologyData(
@@ -327,8 +333,9 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
     fileSystemId: number,
     ucSystemIds: readonly number[],
     options?: ReadOptions,
-  ): Promise<BatchRead<UseCase>> {
-    if (ucSystemIds.length === 0) return {items: [], failed: []};
+  ): Promise<BatchRead<UseCase, typeof ENTITY_TYPE.UseCase>> {
+    if (ucSystemIds.length === 0)
+      return {entityType: ENTITY_TYPE.UseCase, items: [], failed: []};
     const sessionId = await this.resolveSessionId(fileSystemId, options);
     const overlaid = await this.usecaseFetcher.getUsecases(
       fileSystemId,
@@ -336,6 +343,7 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
       [...new Set(ucSystemIds)],
     );
     return withNotFound(
+      ENTITY_TYPE.UseCase,
       ucSystemIds,
       overlaid.map(uc => UseCaseQueryMappers.toUseCase(uc)),
       uc => uc.systemId,

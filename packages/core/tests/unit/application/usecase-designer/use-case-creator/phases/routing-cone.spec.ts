@@ -10,6 +10,7 @@ import type {DataLink} from '../../../../../../src/domain/entities/usecase-data/
 import {DATA_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
 import {Subgraph} from '../../../../../../src/domain/entities/usecase-data/subgraph/subgraph.js';
 import {RESULT_KIND} from '../../../../../../src/application/shared/result/result.js';
+import type {KeyValueDefinitionRepository} from '../../../../../../src/application/ports/persistence/repositories/key-value/key-value-definition.repository.js';
 import type {SubgraphRepository} from '../../../../../../src/application/ports/persistence/repositories/subgraph/subgraph.repository.js';
 import {
   createAutoRoutingInput,
@@ -21,6 +22,7 @@ import {RoutingContext} from '../../../../../../src/application/usecase-designer
 import {ConeComputationPhase} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/cone-computation.phase.js';
 import {KvResolutionPhase} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/kv-resolution.phase.js';
 import {SeedDetectionPhase} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/seed-detection.phase.js';
+import {keyValuePairsOf, subgraphsWithSgkvs} from '../helpers/routing-reads.js';
 
 const FILE_ID = 1;
 
@@ -153,25 +155,33 @@ function makeContext(options: ContextOptions): RoutingContext {
   );
 }
 
-function makeRepository(options: RepositoryOptions): {
-  readonly repository: SubgraphRepository;
-  readonly getSgkvs: jest.Mock;
-  readonly resolveKeyValues: jest.Mock;
-} {
-  const getSgkvs = jest.fn().mockResolvedValue(options.baseline);
-  const resolveKeyValues = jest.fn().mockResolvedValue(options.resolved);
+function makeRepository(options: RepositoryOptions) {
+  const findSubgraphs = jest.fn(
+    async (_fileSystemId: number, ids: readonly number[]) =>
+      subgraphsWithSgkvs(ids, options.baseline),
+  );
+  const findKeyValuePairs = jest.fn(async () =>
+    keyValuePairsOf(options.resolved),
+  );
   return {
-    repository: {getSgkvs, resolveKeyValues} as unknown as SubgraphRepository,
-    getSgkvs,
-    resolveKeyValues,
+    subgraphRepository: {findSubgraphs} as unknown as SubgraphRepository,
+    keyValueDefinitionRepository: {
+      findKeyValuePairs,
+    } as unknown as KeyValueDefinitionRepository,
+    findSubgraphs,
+    findKeyValuePairs,
   };
 }
 
 async function runPhaseChain(
   context: RoutingContext,
-  repository: SubgraphRepository,
+  repository: ReturnType<typeof makeRepository>,
 ) {
-  const phase4 = await new KvResolutionPhase().run(context, repository);
+  const phase4 = await new KvResolutionPhase().run(
+    context,
+    repository.subgraphRepository,
+    repository.keyValueDefinitionRepository,
+  );
   if (phase4.kind === RESULT_KIND.Fail)
     return {phase4, phase5: null, phase6: null};
 
@@ -215,11 +225,11 @@ describe('Routing cone pipeline', () => {
       ],
     });
 
-    const results = await runPhaseChain(context, repository.repository);
+    const results = await runPhaseChain(context, repository);
 
     expectSuccessfulChain(results);
-    expect(repository.getSgkvs).toHaveBeenCalledTimes(1);
-    expect(repository.resolveKeyValues).toHaveBeenCalledTimes(1);
+    expect(repository.findSubgraphs).toHaveBeenCalledTimes(1);
+    expect(repository.findKeyValuePairs).toHaveBeenCalledTimes(1);
     expect(context.kvResolutions?.perSg.get(10)).toEqual([
       {keyValues: [{keyDefSystemId: 502, valueDefSystemId: 102}]},
     ]);
@@ -252,7 +262,7 @@ describe('Routing cone pipeline', () => {
       resolved: [],
     });
 
-    const results = await runPhaseChain(context, repository.repository);
+    const results = await runPhaseChain(context, repository);
 
     expectSuccessfulChain(results);
     expect(context.kvResolutions?.ucFilteredBaseline.get(10)).toEqual([]);
@@ -298,7 +308,7 @@ describe('Routing cone pipeline', () => {
       resolved: [{keyDefSystemId: 601, valueDefSystemId: 202}],
     });
 
-    const results = await runPhaseChain(context, repository.repository);
+    const results = await runPhaseChain(context, repository);
 
     expectSuccessfulChain(results);
     expect(context.kvResolutions?.perSg.get(10)).toEqual([
@@ -322,7 +332,7 @@ describe('Routing cone pipeline', () => {
       resolved: [{keyDefSystemId: 601, valueDefSystemId: 202}],
     });
 
-    const results = await runPhaseChain(context, repository.repository);
+    const results = await runPhaseChain(context, repository);
 
     expect(results.phase4.kind).toBe(RESULT_KIND.Fail);
     expect(results.phase4).toEqual(
@@ -358,7 +368,7 @@ describe('Routing cone pipeline', () => {
       ],
     });
 
-    const results = await runPhaseChain(context, repository.repository);
+    const results = await runPhaseChain(context, repository);
 
     expect(results.phase4.kind).toBe(RESULT_KIND.Fail);
     expect(results.phase4).toEqual(
@@ -409,7 +419,7 @@ describe('Routing cone pipeline', () => {
       ],
     });
 
-    const results = await runPhaseChain(context, repository.repository);
+    const results = await runPhaseChain(context, repository);
 
     expectSuccessfulChain(results);
     expect(context.seeds).toEqual({
@@ -453,7 +463,7 @@ describe('Routing cone pipeline', () => {
       ],
     });
 
-    const results = await runPhaseChain(context, repository.repository);
+    const results = await runPhaseChain(context, repository);
 
     expectSuccessfulChain(results);
     expect(context.seeds).toEqual({
@@ -509,7 +519,7 @@ describe('Routing cone pipeline', () => {
       ],
     });
 
-    const results = await runPhaseChain(context, repository.repository);
+    const results = await runPhaseChain(context, repository);
 
     expectSuccessfulChain(results);
     expect(context.cones).toEqual({
@@ -547,7 +557,7 @@ describe('Routing cone pipeline', () => {
       ],
     });
 
-    const results = await runPhaseChain(context, repository.repository);
+    const results = await runPhaseChain(context, repository);
 
     expectSuccessfulChain(results);
     expect(context.seeds).toEqual({

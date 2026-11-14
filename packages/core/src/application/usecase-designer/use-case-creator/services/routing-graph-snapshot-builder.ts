@@ -107,10 +107,11 @@ export class RoutingGraphSnapshotBuilder {
       for (const subgraphSystemId of edit.usecase?.subgraphSystemIds ?? [])
         catalogSubgraphIds.add(subgraphSystemId);
     }
-    const subgraphData = await uow
+    // A committed or pending UseCase may reference a subgraph deleted in the
+    // session; only the selected and in-scope ones must exist (checked below).
+    const {items: catalogSubgraphs} = await uow
       .getSubgraphRepository()
-      .getAggregates([...catalogSubgraphIds], input.fileSystemId);
-    const catalogSubgraphs = [...subgraphData.values()];
+      .findSubgraphAggregates(input.fileSystemId, [...catalogSubgraphIds]);
 
     const subgraphsById = new Map(
       catalogSubgraphs.map(subgraph => [subgraph.systemId, subgraph]),

@@ -6,7 +6,8 @@
 import {describe, it, expect, jest, beforeEach} from '@jest/globals';
 import {CreateModuleHandler} from '../../../../../../src/application/usecase-designer/spf-module/create-module/create-module.handler.js';
 import {CreateModuleCommand} from '../../../../../../src/application/usecase-designer/spf-module/create-module/create-module.command.js';
-import {PropertyDefinition, ResourceNotFoundException} from '@arc/core';
+import {PropertyDefinition} from '@arc/core';
+import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
 import type {
   UnitOfWork,
   ModuleRepository,
@@ -17,6 +18,8 @@ import type {
   IdGenerationPort,
   NaturalIdGenerationPort,
 } from '@arc/core';
+import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
+import {batchOf, notFoundBatch} from '../../../../../helpers/index.js';
 const FILE_ID = 10;
 const GROUP_ID = 'test-group-uuid';
 const MODULE_DEF_SYSTEM_ID = 200;
@@ -55,7 +58,14 @@ function makeDefRepo(definition = makeDefinition()) {
 
 function makeSubgraphRepo(): SubgraphRepository {
   return {
-    subgraphExists: jest.fn().mockResolvedValue(true),
+    findSubgraphs: jest.fn().mockImplementation((_fs: number, ids: number[]) =>
+      Promise.resolve(
+        batchOf(
+          ENTITY_TYPE.Subgraph,
+          ids.map(systemId => ({systemId})),
+        ),
+      ),
+    ),
     createSubgraph: jest.fn().mockResolvedValue(undefined),
     getPropertyDefinitions: jest.fn().mockResolvedValue([]),
   };
@@ -293,8 +303,8 @@ describe('CreateModuleHandler — Variant 2 (provided subgraph, auto-create cont
   it('validates that the provided subgraph exists', async () => {
     const subgraphRepo = makeSubgraphRepo();
     (
-      subgraphRepo.subgraphExists as ReturnType<typeof jest.fn>
-    ).mockResolvedValue(false);
+      subgraphRepo.findSubgraphs as ReturnType<typeof jest.fn>
+    ).mockResolvedValue(notFoundBatch(ENTITY_TYPE.Subgraph, 999));
     const uow = makeUow({subgraphRepo});
     const handler = new CreateModuleHandler(
       uow,

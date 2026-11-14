@@ -11,6 +11,7 @@ import {
 } from '../../../../../../src/application/shared/result/result.js';
 import {GetSubgraphLinksHandler} from '../../../../../../src/application/usecase-designer/subgraph-links/get/get-subgraph-links.handler.js';
 import {GetSubgraphLinksQuery} from '../../../../../../src/application/usecase-designer/subgraph-links/get/get-subgraph-links.query.js';
+import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
 
 describe('GetSubgraphLinksHandler', () => {
   it('returns data and control links with associated usecases', async () => {
@@ -59,6 +60,7 @@ describe('GetSubgraphLinksHandler', () => {
       },
       useCaseQueryService: {
         findUseCaseReadModels: jest.fn().mockResolvedValue({
+          entityType: ENTITY_TYPE.UseCase,
           items: [
             {
               systemId: 404,

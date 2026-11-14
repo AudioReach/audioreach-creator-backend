@@ -44,10 +44,14 @@ export interface FailedEntity<E extends EntityType = EntityType> {
  *
  * Each entity is either fully loaded into `items` or listed in `failed`;
  * one failure never affects the other entities. Infrastructure errors are
- * thrown, never reported here. `E` is the entity type of the items; it
- * types the identity carried by `failed`.
+ * thrown, never reported here.
  */
-export interface BatchRead<T, E extends EntityType = EntityType> {
+export interface BatchRead<T, E extends EntityType> {
+  /**
+   * The entity type of the items, set by the adapter. Consumers use it to
+   * name failed entities in issues; it also types `failed[].identity`.
+   */
+  readonly entityType: E;
   readonly items: T[];
   readonly failed: FailedEntity<E>[];
 }

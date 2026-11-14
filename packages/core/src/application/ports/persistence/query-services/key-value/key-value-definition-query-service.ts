@@ -6,6 +6,7 @@
 import type {KeyDefinitionReadModel} from './key-value-definition-read-model.js';
 import type {KeyValuePairReadModel} from '../usecase/query-models/key-vector-read-model.js';
 import type {BatchRead} from '../../batch-read.js';
+import type {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
 
 /** Narrows `findAllKeyDefinitions` to the keys that match every field. */
 export interface KeyDefinitionFilter {
@@ -30,7 +31,9 @@ export interface KeyValueDefQueryService {
   findKeyDefinitions(
     fileSystemId: number,
     keySystemIds: readonly number[],
-  ): Promise<BatchRead<KeyDefinitionReadModel, 'KeyDefinition'>>;
+  ): Promise<
+    BatchRead<KeyDefinitionReadModel, typeof ENTITY_TYPE.KeyDefinition>
+  >;
 
   /**
    * One key/value summary pair per requested value definition, in request
@@ -40,5 +43,7 @@ export interface KeyValueDefQueryService {
   findKeyValuePairs(
     fileSystemId: number,
     valueDefSystemIds: readonly number[],
-  ): Promise<BatchRead<KeyValuePairReadModel, 'ValueDefinition'>>;
+  ): Promise<
+    BatchRead<KeyValuePairReadModel, typeof ENTITY_TYPE.ValueDefinition>
+  >;
 }

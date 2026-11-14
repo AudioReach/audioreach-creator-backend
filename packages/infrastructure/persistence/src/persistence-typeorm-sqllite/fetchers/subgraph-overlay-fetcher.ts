@@ -146,6 +146,38 @@ export class SubgraphOverlayFetcher {
   }
 
   /**
+   * Returns the requested subgraphs (scalars + properties) with session
+   * overlay, in database order. Missing IDs are omitted.
+   */
+  async fetchManyWithProperties(
+    fileSystemId: number,
+    sessionId: number | null,
+    subgraphSystemIds: readonly number[],
+  ): Promise<OverlaidSubgraph[]> {
+    if (subgraphSystemIds.length === 0) return [];
+    const rows = await this.fetchMany(fileSystemId, sessionId, {
+      systemId: [...subgraphSystemIds],
+    });
+    if (rows.length === 0 || !this.propertyDataFetcher) {
+      return rows.map(row => ({...row, properties: []}));
+    }
+    const properties = await this.propertyDataFetcher.fetchMany(
+      rows.map(row => row.systemId),
+      sessionId,
+    );
+    const propertiesBySubgraph = new Map<number, SubgraphPropertyDataBase[]>();
+    for (const property of properties) {
+      const list = propertiesBySubgraph.get(property.subgraphSystemId) ?? [];
+      list.push(property);
+      propertiesBySubgraph.set(property.subgraphSystemId, list);
+    }
+    return rows.map(row => ({
+      ...row,
+      properties: propertiesBySubgraph.get(row.systemId) ?? [],
+    }));
+  }
+
+  /**
    * Returns SGKV rows for the given file and optional subgraph IDs with
    * session overlay.
    * Delegates to the injected SubgraphSgkvFetcher.

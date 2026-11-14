@@ -15,6 +15,7 @@ import {TopologyChangeAnalysisPhase} from '../../../../../../../src/application/
 import type {DataLink} from '../../../../../../../src/domain/entities/usecase-data/links/data-link.js';
 import {DATA_LINK_TYPE} from '../../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
 import {UseCase} from '../../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
+import {findSubgraphsWithSgkvs} from '../../helpers/routing-reads.js';
 
 function dataLink(
   systemId: number,
@@ -111,7 +112,7 @@ function createFixture(options: {
 
 async function analyze(context: RoutingContext) {
   return new TopologyChangeAnalysisPhase().run(context, {
-    getSgkvs: async () => [],
+    findSubgraphs: findSubgraphsWithSgkvs(),
   } as never);
 }
 

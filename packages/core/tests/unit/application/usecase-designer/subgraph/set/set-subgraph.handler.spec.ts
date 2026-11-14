@@ -7,6 +7,8 @@ import {SetSubgraphHandler} from '../../../../../../src/application/usecase-desi
 import {SetSubgraphCommand} from '../../../../../../src/application/usecase-designer/subgraph/set/set-subgraph.command.js';
 import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
 import {ConflictException} from '../../../../../../src/shared/exceptions/conflict.exception.js';
+import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
+import {batchOf, notFoundBatch} from '../../../../../helpers/index.js';
 
 const SESSION = {
   sessionId: 1,
@@ -25,7 +27,15 @@ function makeUow(exists: boolean) {
       .fn()
       .mockReturnValue({session: SESSION, groupId: GROUP_ID}),
     getSubgraphRepository: jest.fn().mockReturnValue({
-      subgraphExists: jest.fn().mockResolvedValue(exists),
+      findSubgraphs: jest
+        .fn()
+        .mockImplementation((_fs: number, ids: number[]) =>
+          Promise.resolve(
+            exists
+              ? batchOf(ENTITY_TYPE.Subgraph, [{systemId: ids[0]}])
+              : notFoundBatch(ENTITY_TYPE.Subgraph, ...ids),
+          ),
+        ),
       nameExists,
       rename,
     }),

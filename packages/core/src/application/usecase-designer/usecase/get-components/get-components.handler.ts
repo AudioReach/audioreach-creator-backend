@@ -8,7 +8,6 @@ import type {QueryServices} from '../../../ports/persistence/query-services/quer
 import type {ComponentsReadModel} from '../../../ports/persistence/query-services/usecase/query-models/components-read-model.js';
 import {Result, RESULT_KIND} from '../../../shared/result/result.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
-import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {FAILED_ENTITY_REASON} from '../../../ports/persistence/batch-read.js';
 import {failedToIssues} from '../../../shared/result/failed-to-issues.js';
 import {
@@ -88,7 +87,7 @@ export class GetComponentsHandler implements QueryHandler<
     if (notFound.length > 0)
       throw new ResourceNotFoundException(
         `UseCase ${notFound.map(entity => entity.systemId).join(', ')} not found`,
-        failedToIssues(ENTITY_TYPE.UseCase, notFound),
+        failedToIssues({...usecases, failed: notFound}),
       );
   }
 

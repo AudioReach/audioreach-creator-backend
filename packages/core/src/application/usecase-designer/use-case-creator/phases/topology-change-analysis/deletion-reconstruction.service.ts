@@ -4,10 +4,11 @@
  */
 
 import {Result} from '../../../../../application/shared/result/result.js';
-import type {
-  SgkvEntry,
-  SubgraphRepository,
-} from '../../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
+import type {SubgraphRepository} from '../../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
+import {FAILED_ENTITY_REASON} from '../../../../ports/persistence/batch-read.js';
+import {CONFIGURATION_INCLUDES} from '../../../../ports/persistence/query-services/configuration-includes.js';
+import {requireAll} from '../../../../shared/result/require-all.js';
+import {type SgkvEntry, toSgkvEntries} from '../../shared/sgkv-entries.js';
 import type {RoutingInput} from '../../contracts/routing-input.js';
 import {ROUTING_MODE} from '../../contracts/routing-input.js';
 import {
@@ -324,13 +325,11 @@ export class DeletionReconstructionService {
         ),
       ),
     ].sort((left, right) => left - right);
-    const baselineEntries =
-      legacyEndpointIds.length === 0
-        ? []
-        : await subgraphRepository.getSgkvs(
-            request.input.fileSystemId,
-            legacyEndpointIds,
-          );
+    const baselineEntries = await this.findLegacyEndpointSgkvs(
+      request.input.fileSystemId,
+      legacyEndpointIds,
+      subgraphRepository,
+    );
     const baselineBySubgraph = new Map<number, SgkvEntry[]>();
     for (const entry of baselineEntries) {
       const entries = baselineBySubgraph.get(entry.sgSystemId) ?? [];
@@ -367,5 +366,30 @@ export class DeletionReconstructionService {
       return {...decision, reconstructionPaths: paths};
     });
     return Result.ok(reconstructed);
+  }
+
+  /**
+   * A legacy endpoint may have been deleted in the session; it then has no
+   * SGKVs. Any other failed read stops routing.
+   */
+  private async findLegacyEndpointSgkvs(
+    fileSystemId: number,
+    endpointSystemIds: readonly number[],
+    subgraphRepository: SubgraphRepository,
+  ): Promise<SgkvEntry[]> {
+    if (endpointSystemIds.length === 0) return [];
+    const read = await subgraphRepository.findSubgraphs(
+      fileSystemId,
+      endpointSystemIds,
+      CONFIGURATION_INCLUDES.FullDetails,
+    );
+    return toSgkvEntries(
+      requireAll({
+        ...read,
+        failed: read.failed.filter(
+          entity => entity.reason !== FAILED_ENTITY_REASON.NotFound,
+        ),
+      }),
+    );
   }
 }

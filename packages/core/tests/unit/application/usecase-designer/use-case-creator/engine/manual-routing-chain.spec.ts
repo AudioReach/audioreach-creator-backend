@@ -28,6 +28,12 @@ import {
   USECASE_TYPE,
   type UsecaseType,
 } from '../../../../../../src/domain/entities/usecase-data/usecase/usecase-type.js';
+import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
+import {batchOf} from '../../../../../helpers/index.js';
+import {
+  findSubgraphsWithSgkvs,
+  keyValuePairsOf,
+} from '../helpers/routing-reads.js';
 
 const FILE_ID = 1;
 
@@ -224,6 +230,7 @@ function createManualRoutingFixture(seed: FixtureSeed) {
       _fileSystemId: number,
       systemIds: readonly number[],
     ) => ({
+      entityType: ENTITY_TYPE.UseCase,
       items: systemIds
         .map(systemId => effectiveUsecase(systemId))
         .filter((item): item is UseCase => item !== undefined),
@@ -289,25 +296,28 @@ function createManualRoutingFixture(seed: FixtureSeed) {
 
   const subgraphRepository = {
     findChangedInSession: async () => ({added: [], deleted: []}),
-    getAggregates: async (
-      systemIds: readonly number[],
+    findSubgraphAggregates: async (
       _fileSystemId: number,
+      systemIds: readonly number[],
     ) =>
-      new Map(
-        seed.subgraphs
-          .filter(item => systemIds.includes(item.systemId))
-          .map(subgraph => [subgraph.systemId, subgraph] as const),
+      batchOf(
+        ENTITY_TYPE.Subgraph,
+        seed.subgraphs.filter(item => systemIds.includes(item.systemId)),
       ),
-    getSgkvs: async () => [],
-    resolveKeyValues: async (
+    findSubgraphs: findSubgraphsWithSgkvs(),
+  };
+  const keyValueDefinitionRepository = {
+    findKeyValuePairs: async (
       _fileSystemId: number,
       valueDefinitionSystemIds: readonly number[],
     ) =>
-      valueDefinitionSystemIds.map(valueDefSystemId => ({
-        keyDefSystemId:
-          seed.valueKeyDefinitions?.[valueDefSystemId] ?? valueDefSystemId,
-        valueDefSystemId,
-      })),
+      keyValuePairsOf(
+        valueDefinitionSystemIds.map(valueDefSystemId => ({
+          keyDefSystemId:
+            seed.valueKeyDefinitions?.[valueDefSystemId] ?? valueDefSystemId,
+          valueDefSystemId,
+        })),
+      ),
   };
   const dataLinkRepository = {
     getAllLinks: async () => ({
@@ -365,6 +375,7 @@ function createManualRoutingFixture(seed: FixtureSeed) {
       groupId: 'manual-routing-group',
     }),
     getSubgraphRepository: () => subgraphRepository,
+    getKeyValueDefinitionRepository: () => keyValueDefinitionRepository,
     getDataLinkRepository: () => dataLinkRepository,
     getControlLinkRepository: () => controlLinkRepository,
     getUsecaseRepository: () => usecaseRepository,

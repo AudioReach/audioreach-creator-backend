@@ -7,6 +7,8 @@ import {SetSubgraphVsidHandler} from '../../../../../../src/application/usecase-
 import {SetSubgraphVsidCommand} from '../../../../../../src/application/usecase-designer/subgraph/set-vsid/set-subgraph-vsid.command.js';
 import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
 import {InvalidInputException} from '../../../../../../src/shared/exceptions/invalid-input.exception.js';
+import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
+import {batchOf, notFoundBatch} from '../../../../../helpers/index.js';
 
 const SESSION = {sessionId: 1, fileSystemId: 7};
 const GROUP_ID = 'g1';
@@ -56,36 +58,59 @@ function makeSubgraph(systemId: number, vsidValue?: number) {
   };
 }
 
-function makeUow(opts: {subgraph?: any; linkedIds?: number[]} = {}) {
+interface UseCaseLink {
+  valueSystemIds: number[];
+  subgraphSystemIds: number[];
+}
+
+function makeUow(
+  opts: {subgraph?: any; linked?: any[]; usecases?: UseCaseLink[]} = {},
+) {
   const setPropertyData = jest.fn().mockResolvedValue(undefined);
   const startTransaction = jest.fn().mockResolvedValue(undefined);
   const commit = jest.fn().mockResolvedValue(undefined);
   const rollback = jest.fn().mockResolvedValue(undefined);
   const isInTransaction = jest.fn().mockReturnValue(false);
-  const {subgraph = makeSubgraph(10, 100), linkedIds = []} = opts;
+  const {subgraph = makeSubgraph(10, 100), linked = [], usecases = []} = opts;
+  const subgraphs = new Map<number, any>(
+    [subgraph, ...linked].filter(Boolean).map(sg => [sg.systemId, sg]),
+  );
 
   return {
     getWriteContext: jest
       .fn()
       .mockReturnValue({session: SESSION, groupId: GROUP_ID}),
     getSubgraphRepository: jest.fn().mockReturnValue({
-      getAggregates: jest.fn().mockImplementation((ids: number[]) => {
-        const map = new Map<number, any>();
-        for (const id of ids) {
-          if (id === 10 && subgraph) map.set(id, subgraph);
-        }
-        return Promise.resolve(map);
-      }),
+      findSubgraphAggregates: jest
+        .fn()
+        .mockImplementation((_fs: number, ids: number[]) => {
+          const found = ids.filter(id => subgraphs.has(id));
+          return Promise.resolve(
+            batchOf(
+              ENTITY_TYPE.Subgraph,
+              found.map(id => subgraphs.get(id)),
+              notFoundBatch(
+                ENTITY_TYPE.Subgraph,
+                ...ids.filter(id => !subgraphs.has(id)),
+              ).failed,
+            ),
+          );
+        }),
       setPropertyData,
       getPropertyDefinitions: jest.fn().mockResolvedValue([makeVsidDef()]),
     }),
     getUsecaseRepository: jest.fn().mockReturnValue({
       findUseCasesBySubgraphs: jest
         .fn()
-        .mockResolvedValue(
-          linkedIds.length > 0
-            ? [{keyVector: {valueSystemIds: [1]}, subgraphSystemIds: linkedIds}]
-            : [],
+        .mockImplementation((_fs: number, ids: number[]) =>
+          Promise.resolve(
+            usecases
+              .filter(uc => uc.subgraphSystemIds.some(id => ids.includes(id)))
+              .map(uc => ({
+                keyVector: {valueSystemIds: uc.valueSystemIds},
+                subgraphSystemIds: uc.subgraphSystemIds,
+              })),
+          ),
         ),
     }),
     startTransaction,
@@ -144,7 +169,6 @@ describe('SetSubgraphVsidHandler', () => {
   it('writes only target subgraph when no linked subgraphs', async () => {
     const uow = makeUow({
       subgraph: makeSubgraph(10, 100),
-      linkedIds: [],
     }) as any;
     const handler = new SetSubgraphVsidHandler(uow);
     const result = await handler.handle(
@@ -153,6 +177,52 @@ describe('SetSubgraphVsidHandler', () => {
     expect(uow._setPropertyData).toHaveBeenCalledTimes(1);
     expect(result.affectedSubgraphSystemIds).toContain('10');
     expect(uow._commit).toHaveBeenCalled();
+  });
+
+  it('updates every subgraph reachable through use cases with key values', async () => {
+    const uow = makeUow({
+      subgraph: makeSubgraph(10, 100),
+      linked: [
+        makeSubgraph(20, 100),
+        makeSubgraph(30, 100),
+        makeSubgraph(40, 100),
+      ],
+      usecases: [
+        {valueSystemIds: [1], subgraphSystemIds: [10, 20]},
+        {valueSystemIds: [2], subgraphSystemIds: [20, 30]},
+        {valueSystemIds: [], subgraphSystemIds: [30, 40]},
+      ],
+    }) as any;
+    const handler = new SetSubgraphVsidHandler(uow);
+
+    const result = await handler.handle(
+      new SetSubgraphVsidCommand(10, VSID_DEF_SYS_ID, ELEMENTS),
+    );
+
+    expect([...result.affectedSubgraphSystemIds].sort()).toEqual([
+      '10',
+      '20',
+      '30',
+    ]);
+    expect(uow._setPropertyData).toHaveBeenCalledTimes(3);
+  });
+
+  it('skips a linked subgraph that already has the requested VSID', async () => {
+    const uow = makeUow({
+      subgraph: makeSubgraph(10, 100),
+      linked: [makeSubgraph(20, 200), makeSubgraph(30, 100)],
+      usecases: [
+        {valueSystemIds: [1], subgraphSystemIds: [10, 20]},
+        {valueSystemIds: [1], subgraphSystemIds: [10, 30]},
+      ],
+    }) as any;
+    const handler = new SetSubgraphVsidHandler(uow);
+
+    const result = await handler.handle(
+      new SetSubgraphVsidCommand(10, VSID_DEF_SYS_ID, ELEMENTS),
+    );
+
+    expect([...result.affectedSubgraphSystemIds].sort()).toEqual(['10', '30']);
   });
 
   it('rolls back and rethrows when setPropertyData throws', async () => {

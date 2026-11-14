@@ -22,6 +22,8 @@ import {DeletionReconstructionService} from '../../../../../../../src/applicatio
 import type {SubgraphRepository} from '../../../../../../../src/application/ports/persistence/repositories/subgraph/subgraph.repository.js';
 import type {DataLink} from '../../../../../../../src/domain/entities/usecase-data/links/data-link.js';
 import {DATA_LINK_TYPE} from '../../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
+import {CONFIGURATION_INCLUDES} from '../../../../../../../src/application/ports/persistence/query-services/configuration-includes.js';
+import {findSubgraphsWithSgkvs} from '../../helpers/routing-reads.js';
 
 function usecase(
   systemId: number,
@@ -166,7 +168,7 @@ describe('DeletionReconstructionService', () => {
         ),
         decisions,
       },
-      {getSgkvs: jest.fn()} as unknown as SubgraphRepository,
+      {findSubgraphs: jest.fn()} as unknown as SubgraphRepository,
     );
 
     expect(result.kind).toBe('OK');
@@ -203,7 +205,7 @@ describe('DeletionReconstructionService', () => {
         ),
         decisions: [decision],
       },
-      {getSgkvs: jest.fn()} as unknown as SubgraphRepository,
+      {findSubgraphs: jest.fn()} as unknown as SubgraphRepository,
     );
 
     expect(result).toEqual({kind: 'OK', data: [decision]});
@@ -233,18 +235,20 @@ describe('DeletionReconstructionService', () => {
       links,
       {2: [[10]], 3: [[20]]},
     );
-    const getSgkvs = jest.fn(async () => [
-      {
-        sgSystemId: 2,
-        sgkvSystemId: 2,
-        keyValues: [{keyDefSystemId: 1, valueDefSystemId: 10}],
-      },
-      {
-        sgSystemId: 3,
-        sgkvSystemId: 3,
-        keyValues: [{keyDefSystemId: 1, valueDefSystemId: 20}],
-      },
-    ]);
+    const findSubgraphs = jest.fn(
+      findSubgraphsWithSgkvs([
+        {
+          sgSystemId: 2,
+          sgkvSystemId: 2,
+          keyValues: [{keyDefSystemId: 1, valueDefSystemId: 10}],
+        },
+        {
+          sgSystemId: 3,
+          sgkvSystemId: 3,
+          keyValues: [{keyDefSystemId: 1, valueDefSystemId: 20}],
+        },
+      ]),
+    );
     const result = await new DeletionReconstructionService().run(
       {
         input: routingInput,
@@ -259,10 +263,14 @@ describe('DeletionReconstructionService', () => {
         ),
         decisions: [deleteDecision(currentUsecase)],
       },
-      {getSgkvs} as unknown as SubgraphRepository,
+      {findSubgraphs} as unknown as SubgraphRepository,
     );
 
     expect(result.kind).toBe('OK');
-    expect(getSgkvs).toHaveBeenCalledWith(1, [2, 3]);
+    expect(findSubgraphs).toHaveBeenCalledWith(
+      1,
+      [2, 3],
+      CONFIGURATION_INCLUDES.FullDetails,
+    );
   });
 });

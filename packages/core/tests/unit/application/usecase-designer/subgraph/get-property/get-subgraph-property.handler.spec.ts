@@ -11,6 +11,8 @@ import {
   RESULT_KIND,
 } from '../../../../../../src/application/shared/result/result.js';
 import type {QueryServices} from '../../../../../../src/application/ports/persistence/query-services/query-services.js';
+import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
+import {batchOf, notFoundBatch} from '../../../../../helpers/index.js';
 
 const FILE_ID = 7;
 const SG_ID = 20;
@@ -46,13 +48,13 @@ const mockPayload = {
 function makeServices(
   overrides: {
     fileId?: number;
-    payloadsResult?: any;
+    payloads?: (typeof mockPayload)[] | null;
     definitionsResult?: any;
   } = {},
 ): QueryServices {
   const {
     fileId = FILE_ID,
-    payloadsResult = Result.ok([mockPayload]),
+    payloads = [mockPayload],
     definitionsResult = Result.ok([mockDef]),
   } = overrides;
 
@@ -61,7 +63,15 @@ function makeServices(
       getFileIdByProjectId: jest.fn().mockResolvedValue(fileId),
     },
     subgraphQueryService: {
-      findPropertyPayloads: jest.fn().mockResolvedValue(payloadsResult),
+      findSubgraphPropertyPayloads: jest
+        .fn()
+        .mockResolvedValue(
+          payloads === null
+            ? notFoundBatch(ENTITY_TYPE.Subgraph, SG_ID)
+            : batchOf(ENTITY_TYPE.Subgraph, [
+                {subgraphSystemId: SG_ID, properties: payloads},
+              ]),
+        ),
     },
     subgraphPropertyDefQueryService: {
       getSubgraphPropertiesWithElements: jest
@@ -80,7 +90,7 @@ describe('GetSubgraphPropertyHandler', () => {
   );
 
   it('throws ResourceNotFoundException when subgraph not found', async () => {
-    const svc = makeServices({payloadsResult: Result.ok(null)});
+    const svc = makeServices({payloads: null});
     const handler = new GetSubgraphPropertyHandler(svc);
     await expect(handler.handle(query)).rejects.toBeInstanceOf(
       ResourceNotFoundException,
@@ -88,7 +98,7 @@ describe('GetSubgraphPropertyHandler', () => {
   });
 
   it('throws ResourceNotFoundException when property not on subgraph', async () => {
-    const svc = makeServices({payloadsResult: Result.ok([])});
+    const svc = makeServices({payloads: []});
     const handler = new GetSubgraphPropertyHandler(svc);
     await expect(handler.handle(query)).rejects.toBeInstanceOf(
       ResourceNotFoundException,

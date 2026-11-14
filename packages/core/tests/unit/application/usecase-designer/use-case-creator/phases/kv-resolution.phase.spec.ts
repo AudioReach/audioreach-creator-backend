@@ -4,6 +4,20 @@
  */
 
 import {jest} from '@jest/globals';
+import {
+  FAILED_ENTITY_REASON,
+  type BatchRead,
+} from '../../../../../../src/application/ports/persistence/batch-read.js';
+import {CONFIGURATION_INCLUDES} from '../../../../../../src/application/ports/persistence/query-services/configuration-includes.js';
+import type {KeyValueDefinitionRepository} from '../../../../../../src/application/ports/persistence/repositories/key-value/key-value-definition.repository.js';
+import type {SubgraphReadModel} from '../../../../../../src/application/ports/persistence/query-services/subgraph/subgraph-read-model.js';
+import type {KvPair} from '../../../../../../src/application/ports/persistence/repositories/shared/kv-pair.js';
+import type {SgkvEntry} from '../../../../../../src/application/usecase-designer/use-case-creator/shared/sgkv-entries.js';
+import {ISSUE_CODE} from '../../../../../../src/shared/issues/operational-codes.js';
+import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
+import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
+import {batchOf} from '../../../../../helpers/index.js';
+import {keyValuePairsOf, subgraphsWithSgkvs} from '../helpers/routing-reads.js';
 import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
 import {Subgraph} from '../../../../../../src/domain/entities/usecase-data/subgraph/subgraph.js';
 import {RESULT_KIND} from '../../../../../../src/application/shared/result/result.js';
@@ -90,23 +104,39 @@ function makeContext(
 }
 
 function createRepository(options: {
-  readonly baseline: readonly {
-    sgSystemId: number;
-    sgkvSystemId: number;
-    keyValues: readonly {
-      keyDefSystemId: number;
-      valueDefSystemId: number;
-    }[];
-  }[];
-  readonly resolved: readonly {
-    keyDefSystemId: number;
-    valueDefSystemId: number;
-  }[];
+  readonly baseline: readonly SgkvEntry[];
+  readonly resolved: readonly KvPair[];
+  readonly subgraphs?: BatchRead<
+    SubgraphReadModel,
+    typeof ENTITY_TYPE.Subgraph
+  >;
 }) {
+  const findSubgraphs = jest.fn(
+    async (_fileSystemId: number, ids: readonly number[]) =>
+      options.subgraphs ?? subgraphsWithSgkvs(ids, options.baseline),
+  );
+  const findKeyValuePairs = jest.fn(async () =>
+    keyValuePairsOf(options.resolved),
+  );
   return {
-    getSgkvs: jest.fn().mockResolvedValue(options.baseline),
-    resolveKeyValues: jest.fn().mockResolvedValue(options.resolved),
-  } as unknown as SubgraphRepository;
+    subgraphRepository: {findSubgraphs} as unknown as SubgraphRepository,
+    keyValueDefinitionRepository: {
+      findKeyValuePairs,
+    } as unknown as KeyValueDefinitionRepository,
+    findSubgraphs,
+    findKeyValuePairs,
+  };
+}
+
+function runPhase(
+  context: RoutingContext,
+  repository: ReturnType<typeof createRepository>,
+) {
+  return new KvResolutionPhase().run(
+    context,
+    repository.subgraphRepository,
+    repository.keyValueDefinitionRepository,
+  );
 }
 
 describe('KvResolutionPhase', () => {
@@ -144,13 +174,17 @@ describe('KvResolutionPhase', () => {
       ],
     };
 
-    const result = await new KvResolutionPhase().run(context, repository);
+    const result = await runPhase(context, repository);
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
-    expect(repository.getSgkvs).toHaveBeenCalledTimes(1);
-    expect(repository.getSgkvs).toHaveBeenCalledWith(FILE_ID, [10, 20]);
-    expect(repository.resolveKeyValues).toHaveBeenCalledTimes(1);
-    expect(repository.resolveKeyValues).toHaveBeenCalledWith(
+    expect(repository.findSubgraphs).toHaveBeenCalledTimes(1);
+    expect(repository.findSubgraphs).toHaveBeenCalledWith(
+      FILE_ID,
+      [10, 20],
+      CONFIGURATION_INCLUDES.FullDetails,
+    );
+    expect(repository.findKeyValuePairs).toHaveBeenCalledTimes(1);
+    expect(repository.findKeyValuePairs).toHaveBeenCalledWith(
       FILE_ID,
       [101, 102],
     );
@@ -173,6 +207,39 @@ describe('KvResolutionPhase', () => {
     );
   });
 
+  it('names a subgraph whose SGKVs cannot be read', async () => {
+    const repository = createRepository({
+      baseline: [],
+      resolved: [],
+      subgraphs: batchOf(
+        ENTITY_TYPE.Subgraph,
+        [],
+        [
+          {
+            systemId: 10,
+            reason: FAILED_ENTITY_REASON.UnresolvedReference,
+            identity: {name: 'SG A', naturalId: 1010},
+            missingRef: {entityType: ENTITY_TYPE.ValueDefinition, systemId: 50},
+          },
+        ],
+      ),
+    });
+    const context = makeContext([makeSubgraph(10, [])]);
+
+    const failure = await runPhase(context, repository).catch(
+      (error: unknown) => error,
+    );
+
+    expect(failure).toBeInstanceOf(ResourceNotFoundException);
+    expect((failure as ResourceNotFoundException).issues).toEqual([
+      expect.objectContaining({
+        code: ISSUE_CODE.ENTITY_UNRESOLVED_REFERENCE,
+        message: expect.stringContaining("Subgraph 'SG A'"),
+      }),
+    ]);
+    expect(context.kvResolutions).toBeNull();
+  });
+
   it('accepts a same-file value absent from every persisted SGKV', async () => {
     const repository = createRepository({
       baseline: [],
@@ -180,7 +247,7 @@ describe('KvResolutionPhase', () => {
     });
     const context = makeContext([makeSubgraph(10, [[202]])]);
 
-    const result = await new KvResolutionPhase().run(context, repository);
+    const result = await runPhase(context, repository);
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     expect(context.kvResolutions?.perSg.get(10)).toEqual([
@@ -198,7 +265,7 @@ describe('KvResolutionPhase', () => {
     });
     const context = makeContext([makeSubgraph(10, [[201, 202]])]);
 
-    const result = await new KvResolutionPhase().run(context, repository);
+    const result = await runPhase(context, repository);
 
     expect(result.kind).toBe(RESULT_KIND.Fail);
     expect(result).toEqual(
@@ -224,7 +291,7 @@ describe('KvResolutionPhase', () => {
       makeSubgraph(20, [[999]]),
     ]);
 
-    const result = await new KvResolutionPhase().run(context, repository);
+    const result = await runPhase(context, repository);
 
     expect(result.kind).toBe(RESULT_KIND.Fail);
     expect(result).toEqual(
@@ -254,7 +321,7 @@ describe('KvResolutionPhase', () => {
     });
     const context = makeContext([makeSubgraph(10, [])], [], [10]);
 
-    const result = await new KvResolutionPhase().run(context, repository);
+    const result = await runPhase(context, repository);
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     expect(context.kvResolutions?.ucFilteredBaseline.get(10)).toEqual([]);
@@ -266,7 +333,7 @@ describe('KvResolutionPhase', () => {
       const repository = createRepository({baseline: [], resolved: []});
       const context = makeContext([makeSubgraph(10, [[]])], [], [10]);
 
-      const result = await new KvResolutionPhase().run(context, repository);
+      const result = await runPhase(context, repository);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       expect(context.kvResolutions?.perSg.get(10)).toEqual([{keyValues: []}]);
@@ -276,7 +343,7 @@ describe('KvResolutionPhase', () => {
       const repository = createRepository({baseline: [], resolved: []});
       const context = makeContext([makeSubgraph(10, [[], []])], [], [10]);
 
-      const result = await new KvResolutionPhase().run(context, repository);
+      const result = await runPhase(context, repository);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       expect(context.kvResolutions?.perSg.get(10)).toEqual([{keyValues: []}]);
@@ -290,7 +357,7 @@ describe('KvResolutionPhase', () => {
         [10],
       );
 
-      const result = await new KvResolutionPhase().run(context, repository);
+      const result = await runPhase(context, repository);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       expect(context.kvResolutions?.perSg.get(10)).toEqual([{keyValues: []}]);
@@ -304,7 +371,7 @@ describe('KvResolutionPhase', () => {
       const repository = createRepository({baseline: [], resolved: []});
       const context = makeContext([makeSubgraph(10, [[101, 102]])], [], [10]);
 
-      const result = await new KvResolutionPhase().run(context, repository);
+      const result = await runPhase(context, repository);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       expect(context.kvResolutions?.perSg.get(10)).toEqual([{keyValues: []}]);
@@ -321,7 +388,7 @@ describe('KvResolutionPhase', () => {
         [10],
       );
 
-      const result = await new KvResolutionPhase().run(context, repository);
+      const result = await runPhase(context, repository);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       expect(context.kvResolutions?.perSg.get(10)).toEqual([{keyValues: []}]);
@@ -338,7 +405,7 @@ describe('KvResolutionPhase', () => {
         [10],
       );
 
-      const result = await new KvResolutionPhase().run(context, repository);
+      const result = await runPhase(context, repository);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       expect(context.kvResolutions?.perSg.get(10)).toEqual([{keyValues: []}]);
