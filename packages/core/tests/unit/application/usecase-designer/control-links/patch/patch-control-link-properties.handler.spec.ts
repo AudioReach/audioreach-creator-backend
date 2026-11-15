@@ -8,6 +8,8 @@ import {PatchControlLinkPropertiesHandler} from '../../../../../../src/applicati
 import {PatchControlLinkPropertiesCommand} from '../../../../../../src/application/usecase-designer/control-links/patch/patch-control-link-properties.command.js';
 import {ControlLink} from '../../../../../../src/domain/entities/usecase-data/links/control-link.js';
 import {CONTROL_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/control-link-type.js';
+import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
+import {batchOf} from '../../../../../helpers/batch-read.js';
 import type {UnitOfWork} from '../../../../../../src/application/ports/persistence/unit-of-work.js';
 
 describe('PatchControlLinkPropertiesHandler', () => {
@@ -37,15 +39,20 @@ describe('PatchControlLinkPropertiesHandler', () => {
       1,
     );
     const repo = {
-      findBySystemIds: jest
+      findControlLinks: jest
         .fn()
-        .mockImplementation((ids: number[]) =>
-          Promise.resolve(ids.map(id => (id === 1 ? target : connected))),
+        .mockImplementation((_fileSystemId: number, ids: number[]) =>
+          Promise.resolve(
+            batchOf(
+              ENTITY_TYPE.ControlLink,
+              ids.map(id => (id === 1 ? target : connected)),
+            ),
+          ),
         ),
       findSubsystemControlRouteContext: jest.fn().mockResolvedValue({
         subsystemControlLinks: [],
       }),
-      getLinksByPortSystemIds: jest
+      findLinkIdsByPorts: jest
         .fn()
         .mockResolvedValue([{linkSystemId: 2, portSystemId: 102}]),
       updateHeapId: jest.fn().mockResolvedValue(undefined),

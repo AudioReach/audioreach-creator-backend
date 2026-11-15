@@ -16,9 +16,9 @@ import {DbSubsystemQueryService} from '../../../../src/persistence-typeorm-sqlli
 import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 import {SubsystemOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/subsystem-overlay-fetcher.js';
 import {NodeOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/node-overlay-fetcher.js';
-import {UsecaseOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/usecase-overlay-fetcher.js';
+import {createDataLinkQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/link/create-data-link-query-service.js';
+import {createControlLinkQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/link/create-control-link-query-service.js';
 import {LinkOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/link-overlay-fetcher.js';
-import {NodeOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/node-overlay-fetcher.js';
 import {PortOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/port-overlay-fetcher.js';
 import {IntentFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/intent-fetcher.js';
 import {KeyValueDefinitionFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/definitions/key-value/key-value-definition-fetcher.js';
@@ -310,7 +310,6 @@ describe('DbSubsystemQueryService segment queries (integration)', () => {
       ds,
       new SubsystemOverlayFetcher(ds.manager, editActions),
       new NodeOverlayFetcher(ds.manager, editActions),
-      new UsecaseOverlayFetcher(ds.manager, editActions),
       new LinkOverlayFetcher(ds.manager, editActions),
       new PortOverlayFetcher(
         ds.manager,
@@ -325,20 +324,23 @@ describe('DbSubsystemQueryService segment queries (integration)', () => {
     );
   });
 
-  it('returns data and control segments for effective usecase membership', async () => {
+  it('link query services return data and control segments for effective usecase membership', async () => {
     await seedUsecaseGraph(ds);
 
-    const [controlResult, dataResult] = await Promise.all([
-      service.findControlLinkSegmentsByUsecaseIds([USECASE_ID], FILE_ID),
-      service.findDataLinkSegmentsByUsecaseIds([USECASE_ID], FILE_ID),
+    const [controlSegments, dataSegments] = await Promise.all([
+      createControlLinkQueryService(ds.manager).findSegmentsByUsecaseIds(
+        FILE_ID,
+        [USECASE_ID],
+      ),
+      createDataLinkQueryService(ds.manager).findSegmentsByUsecaseIds(FILE_ID, [
+        USECASE_ID,
+      ]),
     ]);
 
-    expect(controlResult.kind).toBe(RESULT_KIND.Ok);
-    expect(controlResult.data).toEqual([
+    expect(controlSegments).toEqual([
       expect.objectContaining({systemId: CONTROL_SEGMENT_ID}),
     ]);
-    expect(dataResult.kind).toBe(RESULT_KIND.Ok);
-    expect(dataResult.data).toEqual([
+    expect(dataSegments).toEqual([
       expect.objectContaining({systemId: DATA_SEGMENT_ID}),
     ]);
   });

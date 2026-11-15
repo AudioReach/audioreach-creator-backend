@@ -24,22 +24,20 @@ describe('GetControlLinksByModulePortHandler', () => {
         getFileIdByProjectId: jest.fn().mockResolvedValue(55),
       },
       controlLinkQueryService: {
-        findByModulePort: jest.fn().mockResolvedValue(
-          Result.ok([
-            {
-              link: {
-                systemId: 303,
-                peerNodeASystemId: 101,
-                peerNodeBSystemId: 102,
-                nodeAPortSystemId: 202,
-                nodeBPortSystemId: 204,
-                heapId: 0,
-                linkType: 'INTER_USECASE',
-              },
-              usecaseSystemIds: [404],
+        findSubgraphPeerLinks: jest.fn().mockResolvedValue([
+          {
+            link: {
+              systemId: 303,
+              peerNodeASystemId: 101,
+              peerNodeBSystemId: 102,
+              nodeAPortSystemId: 202,
+              nodeBPortSystemId: 204,
+              heapId: 0,
+              linkType: 'INTER_USECASE',
             },
-          ]),
-        ),
+            usecaseSystemIds: [404],
+          },
+        ]),
       },
       useCaseQueryService: {
         findUseCaseReadModels: jest.fn().mockResolvedValue({
@@ -63,8 +61,8 @@ describe('GetControlLinksByModulePortHandler', () => {
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind !== RESULT_KIND.Ok) return;
     expect(
-      services.controlLinkQueryService.findByModulePort,
-    ).toHaveBeenCalledWith(filter, 55);
+      services.controlLinkQueryService.findSubgraphPeerLinks,
+    ).toHaveBeenCalledWith(55, filter);
     expect(result.data[0]).toEqual({
       link: {
         systemId: '303',

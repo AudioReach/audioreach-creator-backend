@@ -5,70 +5,44 @@
 
 import type {EntityManager} from 'typeorm';
 import type {
-  DataLinkRepository,
-  UnitOfWork,
-  SubgraphPair,
-  LinksForPair,
-  SessionChanged,
-  EditOptions,
-  DataLinkTopology,
-  DataLinkIdResolution,
+  BatchRead,
   BoundaryPortPayload,
-  ReadOptions,
-} from '@arc/core';
-import {
-  CHANGE_OPERATION,
   DataLink,
-  DATA_LINK_TYPE,
+  DataLinkReadModel,
+  DataLinkRepository,
+  DataLinkTopology,
+  DataLinkWithUsecaseIdsReadModel,
+  EditOptions,
+  ENTITY_TYPE,
+  LinksForPair,
+  ReadOptions,
+  SessionChanged,
+  SubgraphPair,
+  SubgraphPeerLinkFilter,
   SubsystemDataLink,
-  READ_MODE,
+  SubsystemDataLinkReadModel,
+  UnitOfWork,
 } from '@arc/core';
-import type {DataLinkBase} from '../../entity-schema/usecase-data/Links/data-link.js';
+import {DATA_LINK_TYPE} from '@arc/core';
 import type {EffectiveSubsystemDataLinkRow} from '../../fetchers/link-overlay-fetcher.js';
 import {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
+import type {DbDataLinkQueryService} from '../../queries/link/db-data-link-query-service.js';
+import {createDataLinkQueryService} from '../../queries/link/create-data-link-query-service.js';
+import {
+  toDataLink,
+  toSubsystemDataLink,
+} from '../../queries/link/link-entity-mappers.js';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
-
-function baseToSubsystemDataLink(
-  r: EffectiveSubsystemDataLinkRow,
-): SubsystemDataLink {
-  return new SubsystemDataLink({
-    systemId: r.systemId,
-    sourceNodeSystemId: r.sourceNodeSystemId,
-    destinationNodeSystemId: r.destinationNodeSystemId,
-    sourcePortSystemId: r.sourcePortSystemId,
-    destinationPortSystemId: r.destinationPortSystemId,
-    dataLinkSystemId: r.dataLinkSystemId,
-    fileSystemId: r.fileSystemId,
-    linkType: r.linkType,
-  });
-}
-
-function baseToDataLink(
-  r: DataLinkBase,
-  subsystemDataLinks: SubsystemDataLink[] = [],
-): DataLink {
-  return new DataLink({
-    systemId: r.systemId,
-    sourceNodeSystemId: r.sourceNodeSystemId,
-    destinationNodeSystemId: r.destinationNodeSystemId,
-    sourcePortSystemId: r.sourcePortSystemId,
-    destinationPortSystemId: r.destinationPortSystemId,
-    linkType: r.linkType,
-    sourceSubgraphSystemId: r.sourceSubgraphSystemId,
-    destSubgraphSystemId: r.destSubgraphSystemId,
-    fileSystemId: r.fileSystemId,
-    subsystemDataLinks,
-  });
-}
 
 export class TypeOrmDataLinkRepository implements DataLinkRepository {
   private readonly linkFetcher: LinkOverlayFetcher;
   private readonly writer: PendingChangeWriter;
   private readonly manager: EntityManager;
   private readonly uow: UnitOfWork;
-  private readonly editActionsQueryService: EditActionsQueryService;
+  /** Query reads, run on the unit-of-work manager. */
+  private readonly queries: DbDataLinkQueryService;
 
   constructor(
     writer: PendingChangeWriter,
@@ -78,10 +52,86 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     this.writer = writer;
     this.manager = manager;
     this.uow = uow;
-    const editActions = new EditActionsQueryService(this.manager);
-    this.editActionsQueryService = editActions;
-    this.linkFetcher = new LinkOverlayFetcher(this.manager, editActions);
+    this.linkFetcher = new LinkOverlayFetcher(
+      this.manager,
+      new EditActionsQueryService(this.manager),
+    );
+    this.queries = createDataLinkQueryService(this.manager);
   }
+
+  // ── Query reads (DataLinkQueryService) ──────────────────────────────────────
+
+  findByUsecaseIds(
+    fileSystemId: number,
+    usecaseSystemIds: readonly number[],
+  ): Promise<DataLinkReadModel[]> {
+    return this.queries.findByUsecaseIds(fileSystemId, usecaseSystemIds);
+  }
+
+  findBySubgraphIds(
+    fileSystemId: number,
+    subgraphSystemIds: readonly number[],
+  ): Promise<DataLinkReadModel[]> {
+    return this.queries.findBySubgraphIds(fileSystemId, subgraphSystemIds);
+  }
+
+  findSubgraphPeerLinks(
+    fileSystemId: number,
+    filter: SubgraphPeerLinkFilter,
+  ): Promise<DataLinkWithUsecaseIdsReadModel[]> {
+    return this.queries.findSubgraphPeerLinks(fileSystemId, filter);
+  }
+
+  findSegmentsByUsecaseIds(
+    fileSystemId: number,
+    usecaseSystemIds: readonly number[],
+  ): Promise<SubsystemDataLinkReadModel[]> {
+    return this.queries.findSegmentsByUsecaseIds(
+      fileSystemId,
+      usecaseSystemIds,
+    );
+  }
+
+  findCanonicalLinks(
+    fileSystemId: number,
+    systemIds: readonly number[],
+  ): Promise<BatchRead<DataLink, typeof ENTITY_TYPE.DataLink>> {
+    return this.queries.findCanonicalLinks(fileSystemId, systemIds);
+  }
+
+  findIntraUcLinks(
+    fileSystemId: number,
+    options?: ReadOptions,
+  ): Promise<DataLink[]> {
+    return this.queries.findIntraUcLinks(fileSystemId, options);
+  }
+
+  findChangedInSession(
+    fileSystemId: number,
+  ): Promise<SessionChanged<DataLink>> {
+    return this.queries.findChangedInSession(fileSystemId);
+  }
+
+  findLinkIdsByPorts(
+    fileSystemId: number,
+    portSystemIds: readonly number[],
+  ): Promise<{linkSystemId: number; portSystemId: number}[]> {
+    return this.queries.findLinkIdsByPorts(fileSystemId, portSystemIds);
+  }
+
+  findByPortPair(
+    fileSystemId: number,
+    sourcePortSystemId: number,
+    destinationPortSystemId: number,
+  ): Promise<{systemId: number; isDeleted: boolean} | null> {
+    return this.queries.findByPortPair(
+      fileSystemId,
+      sourcePortSystemId,
+      destinationPortSystemId,
+    );
+  }
+
+  // ── Reads ────────────────────────────────────────────────────────────────────
 
   async findLinksConnectedToModule(
     moduleSystemId: number,
@@ -107,11 +157,11 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     for (const segment of segments) {
       if (segment.dataLinkSystemId === null) continue;
       const list = segmentsByLink.get(segment.dataLinkSystemId) ?? [];
-      list.push(baseToSubsystemDataLink(segment));
+      list.push(toSubsystemDataLink(segment));
       segmentsByLink.set(segment.dataLinkSystemId, list);
     }
     return rows.map(row =>
-      baseToDataLink(row, segmentsByLink.get(row.systemId) ?? []),
+      toDataLink(row, segmentsByLink.get(row.systemId) ?? []),
     );
   }
 
@@ -156,7 +206,7 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     }
     return rows
       .filter(row => visitedLinks.has(row.systemId))
-      .map(row => baseToSubsystemDataLink(row));
+      .map(row => toSubsystemDataLink(row));
   }
 
   async getAllLinks(fileSystemId: number): Promise<DataLinkTopology> {
@@ -168,7 +218,7 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     const segmentsByLinkId = new Map<number, SubsystemDataLink[]>();
     const unresolvedSubsystemDataLinks: SubsystemDataLink[] = [];
     for (const row of rows) {
-      const segment = baseToSubsystemDataLink(row);
+      const segment = toSubsystemDataLink(row);
       if (segment.dataLinkSystemId === null) {
         unresolvedSubsystemDataLinks.push(segment);
         continue;
@@ -180,7 +230,7 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
 
     return {
       dataLinks: dataLinkRows.map(row =>
-        baseToDataLink(row, segmentsByLinkId.get(row.systemId) ?? []),
+        toDataLink(row, segmentsByLinkId.get(row.systemId) ?? []),
       ),
       unresolvedSubsystemDataLinks,
     };
@@ -222,44 +272,6 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     }
   }
 
-  async getLinksByPortSystemIds(
-    portSystemIds: number[],
-    fileSystemId: number,
-  ): Promise<{linkSystemId: number; portSystemId: number}[]> {
-    if (portSystemIds.length === 0) return [];
-
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-    const filters = {
-      $or: [
-        {sourcePortSystemId: portSystemIds},
-        {destinationPortSystemId: portSystemIds},
-      ],
-    };
-    const [links, subsystemLinks] = await Promise.all([
-      this.linkFetcher.loadDataLinkRows(fileSystemId, sessionId, filters),
-      this.linkFetcher.loadSubsystemDataLinkRows(
-        fileSystemId,
-        sessionId,
-        filters,
-      ),
-    ]);
-    const portSet = new Set(portSystemIds);
-    const entries: {linkSystemId: number; portSystemId: number}[] = [];
-    for (const link of [...links, ...subsystemLinks]) {
-      if (portSet.has(link.sourcePortSystemId))
-        entries.push({
-          linkSystemId: link.systemId,
-          portSystemId: link.sourcePortSystemId,
-        });
-      if (portSet.has(link.destinationPortSystemId))
-        entries.push({
-          linkSystemId: link.systemId,
-          portSystemId: link.destinationPortSystemId,
-        });
-    }
-    return entries;
-  }
-
   async findIntraUcLinksForGivenSgPair(
     fileSystemId: number,
     pairs: readonly SubgraphPair[],
@@ -291,26 +303,9 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
       const idx = pairIndex.get(
         `${row.sourceSubgraphSystemId}:${row.destSubgraphSystemId}`,
       );
-      if (idx !== undefined) result[idx].links.push(baseToDataLink(row));
+      if (idx !== undefined) result[idx].links.push(toDataLink(row));
     }
     return result;
-  }
-
-  async findIntraUcLinksByFile(
-    fileSystemId: number,
-    options?: ReadOptions,
-  ): Promise<DataLink[]> {
-    const mode = options?.readMode ?? READ_MODE.Overlay;
-    const sessionId =
-      mode === READ_MODE.Committed
-        ? null
-        : this.uow.getWriteContext().session.sessionId;
-    const rows = await this.linkFetcher.loadDataLinkRows(
-      fileSystemId,
-      sessionId,
-      {linkType: DATA_LINK_TYPE.Normal},
-    );
-    return rows.map(row => baseToDataLink(row));
   }
 
   async findBySystemId(
@@ -323,75 +318,7 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
       sessionId,
       {systemId},
     );
-    return rows.length > 0 ? baseToDataLink(rows[0]) : null;
-  }
-
-  async findCanonicalLinksByAnySystemIds(
-    systemIds: readonly number[],
-    fileSystemId: number,
-  ): Promise<DataLinkIdResolution[]> {
-    if (systemIds.length === 0) return [];
-
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-    const requestedIds = [...systemIds];
-    const [canonicalRows, segmentRows] = await Promise.all([
-      this.linkFetcher.loadDataLinkRows(fileSystemId, sessionId, {
-        systemId: requestedIds,
-      }),
-      this.linkFetcher.loadSubsystemDataLinkRows(fileSystemId, sessionId, {
-        systemId: requestedIds,
-      }),
-    ]);
-    const canonicalBySystemId = new Map(
-      canonicalRows.map(row => [row.systemId, row]),
-    );
-    const segmentBySystemId = new Map(
-      segmentRows.map(row => [row.systemId, row]),
-    );
-    const missingParentIds = [
-      ...new Set(
-        segmentRows
-          .map(segment => segment.dataLinkSystemId)
-          .filter(
-            (systemId): systemId is number =>
-              systemId !== null && !canonicalBySystemId.has(systemId),
-          ),
-      ),
-    ];
-    if (missingParentIds.length > 0) {
-      const parentRows = await this.linkFetcher.loadDataLinkRows(
-        fileSystemId,
-        sessionId,
-        {systemId: missingParentIds},
-      );
-      for (const row of parentRows) {
-        canonicalBySystemId.set(row.systemId, row);
-      }
-    }
-
-    return systemIds.map(requestedSystemId => {
-      const canonical = canonicalBySystemId.get(requestedSystemId);
-      if (canonical) {
-        return {
-          requestedSystemId,
-          isSegment: false,
-          canonicalLink: baseToDataLink(canonical),
-        };
-      }
-      const segment = segmentBySystemId.get(requestedSystemId);
-      if (!segment) {
-        return {requestedSystemId, isSegment: false, canonicalLink: null};
-      }
-      const parent =
-        segment.dataLinkSystemId === null
-          ? undefined
-          : canonicalBySystemId.get(segment.dataLinkSystemId);
-      return {
-        requestedSystemId,
-        isSegment: true,
-        canonicalLink: parent ? baseToDataLink(parent) : null,
-      };
-    });
+    return rows.length > 0 ? toDataLink(rows[0]) : null;
   }
 
   async resolveSubsystemDataLinks(
@@ -498,7 +425,7 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
         );
       if (remainingSegments.length > 0) {
         await this.detachRemainingSubsystemDataLinks(
-          remainingSegments.map(segment => baseToSubsystemDataLink(segment)),
+          remainingSegments.map(segment => toSubsystemDataLink(segment)),
           options,
         );
       }
@@ -524,20 +451,6 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
         this.manager,
       );
     }
-  }
-
-  async findChangedInSession(
-    fileSystemId: number,
-  ): Promise<SessionChanged<DataLink>> {
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-    const changed = await this.linkFetcher.fetchChangedDataLinks(
-      fileSystemId,
-      sessionId,
-    );
-    return {
-      added: changed.added.map(row => baseToDataLink(row)),
-      deleted: changed.deleted.map(row => baseToDataLink(row)),
-    };
   }
 
   async createDataLink(
@@ -650,69 +563,6 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
         this.manager,
       );
     }
-  }
-
-  async findByPortPair(
-    sourcePortSystemId: number,
-    destPortSystemId: number,
-    fileSystemId: number,
-  ): Promise<{
-    systemId: number;
-    isDeleted: boolean;
-    payload: Record<string, unknown>;
-  } | null> {
-    const {session} = this.uow.getWriteContext();
-    const sessionId = session.sessionId;
-
-    const baseRow = await this.manager
-      .createQueryBuilder()
-      .select('dl.systemId')
-      .from(ENTITY_NAMES.DataLink, 'dl')
-      .where(
-        'dl.sourcePortSystemId = :srcPort AND dl.destinationPortSystemId = :dstPort AND dl.fileSystemId = :fileSystemId',
-        {srcPort: sourcePortSystemId, dstPort: destPortSystemId, fileSystemId},
-      )
-      .getRawOne<{dl_system_id: number}>();
-
-    if (baseRow) {
-      const systemId = Number(baseRow.dl_system_id);
-      const actions = await this.editActionsQueryService.getByTable(
-        sessionId,
-        ENTITY_NAMES.DataLink,
-      );
-      const isDeleted = actions.some(
-        a =>
-          a.targetSystemId === systemId &&
-          a.operation === CHANGE_OPERATION.Delete,
-      );
-      return {
-        systemId,
-        isDeleted,
-        payload: {
-          sourcePortSystemId,
-          destinationPortSystemId: destPortSystemId,
-          fileSystemId,
-        },
-      };
-    }
-
-    const actions = await this.editActionsQueryService.getByTable(
-      sessionId,
-      ENTITY_NAMES.DataLink,
-    );
-    for (const action of actions) {
-      if (action.operation !== CHANGE_OPERATION.Create) continue;
-      const p = action.newValue as Record<string, unknown>;
-      if (
-        Number(p['sourcePortSystemId']) === sourcePortSystemId &&
-        Number(p['destinationPortSystemId']) === destPortSystemId &&
-        Number(p['fileSystemId']) === fileSystemId
-      ) {
-        return {systemId: action.targetSystemId, isDeleted: false, payload: p};
-      }
-    }
-
-    return null;
   }
 
   async createSubsystemDataLink(

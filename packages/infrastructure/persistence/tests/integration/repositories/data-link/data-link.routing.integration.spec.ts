@@ -252,7 +252,7 @@ describe('TypeOrmDataLinkRepository — routing methods (integration)', () => {
     });
   });
 
-  describe('findIntraUcLinksByFile — readMode', () => {
+  describe('findIntraUcLinks — readMode', () => {
     it('overlay mode (default) excludes a session-deleted base link; committed mode returns it', async () => {
       await seedDataLink(ds, 1001, DATA_LINK_TYPE.Normal, SG_1, SG_2);
       const sessionId = await seedSession(ds);
@@ -260,10 +260,10 @@ describe('TypeOrmDataLinkRepository — routing methods (integration)', () => {
 
       await repo.deleteAggregate(1001, FILE_ID);
 
-      const overlay = await repo.findIntraUcLinksByFile(FILE_ID);
+      const overlay = await repo.findIntraUcLinks(FILE_ID);
       expect(overlay).toHaveLength(0);
 
-      const committed = await repo.findIntraUcLinksByFile(FILE_ID, {
+      const committed = await repo.findIntraUcLinks(FILE_ID, {
         readMode: READ_MODE.Committed,
       });
       expect(committed).toHaveLength(1);
@@ -271,16 +271,15 @@ describe('TypeOrmDataLinkRepository — routing methods (integration)', () => {
     });
   });
 
-  describe('findIntraUcLinksByFile', () => {
+  describe('findIntraUcLinks', () => {
     it('returns all intra-usecase data links in the file', async () => {
       await seedDataLink(ds, 1001, DATA_LINK_TYPE.Normal, SG_1, SG_2);
       await seedDataLink(ds, 1002, DATA_LINK_TYPE.Normal, SG_2, SG_1);
       const sessionId = await seedSession(ds);
-      const result = await makeRepo(
-        qr.manager,
-        sessionId,
-      ).findIntraUcLinksByFile(FILE_ID);
-      // findIntraUcLinksByFile has no ORDER BY, so row order from the DB is
+      const result = await makeRepo(qr.manager, sessionId).findIntraUcLinks(
+        FILE_ID,
+      );
+      // findIntraUcLinks has no ORDER BY, so row order from the DB is
       // not guaranteed; sort numerically before comparing so the assertion
       // checks the returned set rather than relying on default (lexicographic)
       // Array.prototype.sort(), which silently breaks for values like [10, 9].
@@ -293,19 +292,17 @@ describe('TypeOrmDataLinkRepository — routing methods (integration)', () => {
       await seedDataLink(ds, 1001, DATA_LINK_TYPE.Normal, SG_1, SG_2);
       await seedDataLink(ds, 1002, DATA_LINK_TYPE.InterUsecase, SG_1, SG_2);
       const sessionId = await seedSession(ds);
-      const result = await makeRepo(
-        qr.manager,
-        sessionId,
-      ).findIntraUcLinksByFile(FILE_ID);
+      const result = await makeRepo(qr.manager, sessionId).findIntraUcLinks(
+        FILE_ID,
+      );
       expect(result.map(l => l.systemId)).toEqual([1001]);
     });
 
     it('returns [] when file has no intra-usecase links', async () => {
       const sessionId = await seedSession(ds);
-      const result = await makeRepo(
-        qr.manager,
-        sessionId,
-      ).findIntraUcLinksByFile(FILE_ID);
+      const result = await makeRepo(qr.manager, sessionId).findIntraUcLinks(
+        FILE_ID,
+      );
       expect(result).toEqual([]);
     });
   });

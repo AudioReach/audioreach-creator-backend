@@ -80,7 +80,7 @@ function makeDataLinkRepository(
   overrides: Record<string, unknown> = {},
 ): DataLinkRepository {
   return {
-    getLinksByPortSystemIds: jest.fn().mockResolvedValue([]),
+    findLinkIdsByPorts: jest.fn().mockResolvedValue([]),
     getAllLinks: jest.fn().mockResolvedValue({
       dataLinks: [],
       unresolvedSubsystemDataLinks: [],
@@ -97,7 +97,7 @@ function makeControlLinkRepository(
   overrides: Record<string, unknown> = {},
 ): ControlLinkRepository {
   return {
-    getLinksByPortSystemIds: jest.fn().mockResolvedValue([]),
+    findLinkIdsByPorts: jest.fn().mockResolvedValue([]),
     getAllLinks: jest.fn().mockResolvedValue({
       controlLinks: [],
       unresolvedSubsystemControlLinks: [],
@@ -393,7 +393,7 @@ describe('PatchSubsystemHandler', () => {
         .mockResolvedValue(makeSubsystem({dataPorts: ports})),
     });
     const dataLinks = makeDataLinkRepository({
-      getLinksByPortSystemIds: jest.fn().mockResolvedValue([
+      findLinkIdsByPorts: jest.fn().mockResolvedValue([
         {portSystemId: 101, linkSystemId: 700},
         {portSystemId: 103, linkSystemId: 701},
       ]),
@@ -466,7 +466,7 @@ describe('PatchSubsystemHandler', () => {
         .mockResolvedValue(makeSubsystem({dataPorts: ports})),
     });
     const dataLinks = makeDataLinkRepository({
-      getLinksByPortSystemIds: jest.fn().mockResolvedValue([
+      findLinkIdsByPorts: jest.fn().mockResolvedValue([
         {portSystemId: 101, linkSystemId: 700},
         {portSystemId: 102, linkSystemId: 701},
       ]),
@@ -520,7 +520,7 @@ describe('PatchSubsystemHandler', () => {
       getSubsystem: jest.fn().mockResolvedValue(makeSubsystem({controlPorts})),
     });
     const controlLinks = makeControlLinkRepository({
-      getLinksByPortSystemIds: jest.fn().mockResolvedValue([
+      findLinkIdsByPorts: jest.fn().mockResolvedValue([
         {portSystemId: 201, linkSystemId: 800},
         {portSystemId: 202, linkSystemId: 801},
       ]),

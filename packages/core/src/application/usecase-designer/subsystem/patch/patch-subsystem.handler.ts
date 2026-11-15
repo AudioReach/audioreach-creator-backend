@@ -149,12 +149,10 @@ export class PatchSubsystemHandler implements CommandHandler<
         const current = subsystem.dataPorts.filter(
           port => port.portIoType === direction,
         );
-        const links = await this.uow
-          .getDataLinkRepository()
-          .getLinksByPortSystemIds(
-            current.map(port => port.systemId),
-            command.fileSystemId,
-          );
+        const links = await this.uow.getDataLinkRepository().findLinkIdsByPorts(
+          command.fileSystemId,
+          current.map(port => port.systemId),
+        );
         const outcome = resolvePortCountChange(
           current,
           requested,
@@ -214,9 +212,9 @@ export class PatchSubsystemHandler implements CommandHandler<
         const current = subsystem.controlPorts;
         const links = await this.uow
           .getControlLinkRepository()
-          .getLinksByPortSystemIds(
-            current.map(port => port.systemId),
+          .findLinkIdsByPorts(
             command.fileSystemId,
+            current.map(port => port.systemId),
           );
         const outcome = resolvePortCountChange(
           current,

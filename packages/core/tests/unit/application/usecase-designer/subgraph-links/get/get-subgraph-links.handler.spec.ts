@@ -24,39 +24,35 @@ describe('GetSubgraphLinksHandler', () => {
         getFileIdByProjectId: jest.fn().mockResolvedValue(55),
       },
       dataLinkQueryService: {
-        findBySubgraph: jest.fn().mockResolvedValue(
-          Result.ok([
-            {
-              link: {
-                systemId: 303,
-                sourceNodeSystemId: 101,
-                destinationNodeSystemId: 102,
-                sourcePortSystemId: 202,
-                destinationPortSystemId: 204,
-                linkType: 'NORMAL',
-              },
-              usecaseSystemIds: [404],
+        findSubgraphPeerLinks: jest.fn().mockResolvedValue([
+          {
+            link: {
+              systemId: 303,
+              sourceNodeSystemId: 101,
+              destinationNodeSystemId: 102,
+              sourcePortSystemId: 202,
+              destinationPortSystemId: 204,
+              linkType: 'NORMAL',
             },
-          ]),
-        ),
+            usecaseSystemIds: [404],
+          },
+        ]),
       },
       controlLinkQueryService: {
-        findBySubgraph: jest.fn().mockResolvedValue(
-          Result.ok([
-            {
-              link: {
-                systemId: 305,
-                peerNodeASystemId: 103,
-                peerNodeBSystemId: 104,
-                nodeAPortSystemId: 206,
-                nodeBPortSystemId: 208,
-                heapId: 0,
-                linkType: 'INTER_USECASE',
-              },
-              usecaseSystemIds: [404],
+        findSubgraphPeerLinks: jest.fn().mockResolvedValue([
+          {
+            link: {
+              systemId: 305,
+              peerNodeASystemId: 103,
+              peerNodeBSystemId: 104,
+              nodeAPortSystemId: 206,
+              nodeBPortSystemId: 208,
+              heapId: 0,
+              linkType: 'INTER_USECASE',
             },
-          ]),
-        ),
+            usecaseSystemIds: [404],
+          },
+        ]),
       },
       useCaseQueryService: {
         findUseCaseReadModels: jest.fn().mockResolvedValue({
@@ -82,13 +78,12 @@ describe('GetSubgraphLinksHandler', () => {
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind !== RESULT_KIND.Ok) return;
-    expect(services.dataLinkQueryService.findBySubgraph).toHaveBeenCalledWith(
-      filter,
-      55,
-    );
     expect(
-      services.controlLinkQueryService.findBySubgraph,
-    ).toHaveBeenCalledWith(filter, 55);
+      services.dataLinkQueryService.findSubgraphPeerLinks,
+    ).toHaveBeenCalledWith(55, filter);
+    expect(
+      services.controlLinkQueryService.findSubgraphPeerLinks,
+    ).toHaveBeenCalledWith(55, filter);
     expect(result.data).toEqual({
       dataLinks: [
         {
@@ -143,10 +138,10 @@ describe('GetSubgraphLinksHandler', () => {
         getFileIdByProjectId: jest.fn().mockResolvedValue(55),
       },
       dataLinkQueryService: {
-        findBySubgraph: jest.fn().mockResolvedValue(Result.ok([])),
+        findSubgraphPeerLinks: jest.fn().mockResolvedValue([]),
       },
       controlLinkQueryService: {
-        findBySubgraph: jest.fn().mockResolvedValue(Result.ok([])),
+        findSubgraphPeerLinks: jest.fn().mockResolvedValue([]),
       },
       useCaseQueryService: {
         findUseCaseReadModels: jest.fn(),

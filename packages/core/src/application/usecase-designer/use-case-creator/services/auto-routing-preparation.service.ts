@@ -44,18 +44,12 @@ export class AutoRoutingPreparationService {
     idGeneration: IdGenerationPort,
   ): Promise<AutoRoutingInput> {
     await this.resolveSubsystemChains(uow, idGeneration);
-    const selectionResult = await this.resolveRoutingSelection(
+    const selection = await this.resolveRoutingSelection(
       fileSystemId,
       input,
       uow,
     );
-    if (selectionResult.kind === RESULT_KIND.Fail)
-      throw new DomainRuleViolationException(selectionResult.issues);
-    return this.prepareCanonicalSelection(
-      fileSystemId,
-      selectionResult.data,
-      uow,
-    );
+    return this.prepareCanonicalSelection(fileSystemId, selection, uow);
   }
 
   /** Prepares a canonical selection persisted for same-GKV collision replay. */

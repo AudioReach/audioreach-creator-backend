@@ -45,12 +45,12 @@ export class GetComponentsHandler implements QueryHandler<
             fileId,
           ),
           svc.dataLinkQueryService.findByUsecaseIds(
-            query.scope.systemIds,
             fileId,
+            query.scope.systemIds,
           ),
           svc.controlLinkQueryService.findByUsecaseIds(
-            query.scope.systemIds,
             fileId,
+            query.scope.systemIds,
           ),
         );
 
@@ -60,14 +60,12 @@ export class GetComponentsHandler implements QueryHandler<
             query.scope.systemId,
             fileId,
           ),
-          svc.dataLinkQueryService.findBySubgraphId(
+          svc.dataLinkQueryService.findBySubgraphIds(fileId, [
             query.scope.systemId,
-            fileId,
-          ),
-          svc.controlLinkQueryService.findBySubgraphId(
+          ]),
+          svc.controlLinkQueryService.findBySubgraphIds(fileId, [
             query.scope.systemId,
-            fileId,
-          ),
+          ]),
         );
     }
   }
@@ -93,31 +91,22 @@ export class GetComponentsHandler implements QueryHandler<
 
   private async loadAndMapComponents(
     modulesPromise: Promise<Result<ComponentsReadModel['modules']>>,
-    dataLinksPromise: Promise<Result<ComponentsReadModel['dataLinks']>>,
-    controlLinksPromise: Promise<Result<ComponentsReadModel['controlLinks']>>,
+    dataLinksPromise: Promise<ComponentsReadModel['dataLinks']>,
+    controlLinksPromise: Promise<ComponentsReadModel['controlLinks']>,
   ): Promise<Result<ComponentCollectionDto>> {
-    const [modulesResult, dataLinksResult, controlLinksResult] =
-      await Promise.all([
-        modulesPromise,
-        dataLinksPromise,
-        controlLinksPromise,
-      ]);
+    const [modulesResult, dataLinks, controlLinks] = await Promise.all([
+      modulesPromise,
+      dataLinksPromise,
+      controlLinksPromise,
+    ]);
     if (modulesResult.kind === RESULT_KIND.Fail)
       throw new Error(
         modulesResult.issues[0]?.message ?? 'Failed to load modules',
       );
-    if (dataLinksResult.kind === RESULT_KIND.Fail)
-      throw new Error(
-        dataLinksResult.issues[0]?.message ?? 'Failed to load data links',
-      );
-    if (controlLinksResult.kind === RESULT_KIND.Fail)
-      throw new Error(
-        controlLinksResult.issues[0]?.message ?? 'Failed to load control links',
-      );
     const flat: ComponentsReadModel = {
       modules: modulesResult.data,
-      dataLinks: dataLinksResult.data,
-      controlLinks: controlLinksResult.data,
+      dataLinks,
+      controlLinks,
     };
     return Result.ok(mapComponentCollection(flat));
   }

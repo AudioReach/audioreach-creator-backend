@@ -5,64 +5,40 @@
 
 import type {EntityManager} from 'typeorm';
 import type {
+  BatchRead,
+  ControlLink,
+  ControlLinkReadModel,
   ControlLinkRepository,
   ControlLinkTopology,
-  UnitOfWork,
-  SessionChanged,
+  ControlLinkWithUsecaseIdsReadModel,
   EditOptions,
-  ControlLinkIdResolution,
+  ENTITY_TYPE,
+  SessionChanged,
+  SubgraphPeerLinkFilter,
+  SubsystemControlLink,
+  UnitOfWork,
 } from '@arc/core';
-import {ControlLink, CONTROL_LINK_TYPE, SubsystemControlLink} from '@arc/core';
-import type {ControlLinkBase} from '../../entity-schema/usecase-data/Links/control-link.js';
-import type {ControlPortRow} from '../../entity-schema/usecase-data/node/control-port.js';
+import {CONTROL_LINK_TYPE} from '@arc/core';
 import {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
 import type {EffectiveSubsystemControlLinkRow} from '../../fetchers/link-overlay-fetcher.js';
-import {IntentFetcher} from '../../fetchers/intent-fetcher.js';
 import {NodeOverlayFetcher} from '../../fetchers/node-overlay-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
+import type {DbControlLinkQueryService} from '../../queries/link/db-control-link-query-service.js';
+import {createControlLinkQueryService} from '../../queries/link/create-control-link-query-service.js';
+import {findControlPortOwner} from '../../queries/link/find-control-port-owner.js';
+import {
+  toControlLink,
+  toSubsystemControlLink,
+} from '../../queries/link/link-entity-mappers.js';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
-
-function baseToSubsystemControlLink(
-  r: EffectiveSubsystemControlLinkRow,
-): SubsystemControlLink {
-  return new SubsystemControlLink(
-    r.systemId,
-    r.peerNodeASystemId,
-    r.peerNodeBSystemId,
-    r.nodeAPortSystemId,
-    r.nodeBPortSystemId,
-    r.controlLinkSystemId,
-    r.fileSystemId,
-    r.linkType,
-    r.version,
-  );
-}
-
-function baseToControlLink(
-  r: ControlLinkBase,
-  subsystemControlLinks: SubsystemControlLink[] = [],
-): ControlLink {
-  return new ControlLink(
-    r.systemId,
-    r.fileSystemId,
-    r.peerNodeASystemId,
-    r.peerNodeBSystemId,
-    r.nodeAPortSystemId,
-    r.nodeBPortSystemId,
-    r.heapId,
-    r.linkType,
-    r.sourceSubgraphSystemId,
-    r.destSubgraphSystemId,
-    subsystemControlLinks,
-  );
-}
 
 export class TypeOrmControlLinkRepository implements ControlLinkRepository {
   private readonly linkFetcher: LinkOverlayFetcher;
   private readonly nodeFetcher: NodeOverlayFetcher;
   private readonly editActionsQs: EditActionsQueryService;
-  private readonly intentFetcher: IntentFetcher;
+  /** Query reads, run on the unit-of-work manager. */
+  private readonly queries: DbControlLinkQueryService;
 
   constructor(
     private readonly writer: PendingChangeWriter,
@@ -72,8 +48,100 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
     this.editActionsQs = new EditActionsQueryService(manager);
     this.linkFetcher = new LinkOverlayFetcher(manager, this.editActionsQs);
     this.nodeFetcher = new NodeOverlayFetcher(manager, this.editActionsQs);
-    this.intentFetcher = new IntentFetcher(manager, this.editActionsQs);
+    this.queries = createControlLinkQueryService(manager);
   }
+
+  // ── Query reads (ControlLinkQueryService) ───────────────────────────────────
+
+  findByUsecaseIds(
+    fileSystemId: number,
+    usecaseSystemIds: readonly number[],
+  ): Promise<ControlLinkReadModel[]> {
+    return this.queries.findByUsecaseIds(fileSystemId, usecaseSystemIds);
+  }
+
+  findBySubgraphIds(
+    fileSystemId: number,
+    subgraphSystemIds: readonly number[],
+  ): Promise<ControlLinkReadModel[]> {
+    return this.queries.findBySubgraphIds(fileSystemId, subgraphSystemIds);
+  }
+
+  findSubgraphPeerLinks(
+    fileSystemId: number,
+    filter: SubgraphPeerLinkFilter,
+  ): Promise<ControlLinkWithUsecaseIdsReadModel[]> {
+    return this.queries.findSubgraphPeerLinks(fileSystemId, filter);
+  }
+
+  findControlLinks(
+    fileSystemId: number,
+    systemIds: readonly number[],
+  ): Promise<BatchRead<ControlLink, typeof ENTITY_TYPE.ControlLink>> {
+    return this.queries.findControlLinks(fileSystemId, systemIds);
+  }
+
+  findControlLinkSegments(
+    fileSystemId: number,
+    linkSystemIds: readonly number[],
+  ): Promise<ControlLinkReadModel[]> {
+    return this.queries.findControlLinkSegments(fileSystemId, linkSystemIds);
+  }
+
+  findSegmentsByUsecaseIds(
+    fileSystemId: number,
+    usecaseSystemIds: readonly number[],
+  ): Promise<ControlLinkReadModel[]> {
+    return this.queries.findSegmentsByUsecaseIds(
+      fileSystemId,
+      usecaseSystemIds,
+    );
+  }
+
+  findCanonicalLinks(
+    fileSystemId: number,
+    systemIds: readonly number[],
+  ): Promise<BatchRead<ControlLink, typeof ENTITY_TYPE.ControlLink>> {
+    return this.queries.findCanonicalLinks(fileSystemId, systemIds);
+  }
+
+  findIntraUcLinks(fileSystemId: number): Promise<ControlLink[]> {
+    return this.queries.findIntraUcLinks(fileSystemId);
+  }
+
+  findChangedInSession(
+    fileSystemId: number,
+  ): Promise<SessionChanged<ControlLink>> {
+    return this.queries.findChangedInSession(fileSystemId);
+  }
+
+  findLinkIdsByPorts(
+    fileSystemId: number,
+    portSystemIds: readonly number[],
+  ): Promise<{linkSystemId: number; portSystemId: number}[]> {
+    return this.queries.findLinkIdsByPorts(fileSystemId, portSystemIds);
+  }
+
+  findByPortPair(
+    fileSystemId: number,
+    portASystemId: number,
+    portBSystemId: number,
+  ): Promise<{systemId: number; isDeleted: boolean} | null> {
+    return this.queries.findByPortPair(
+      fileSystemId,
+      portASystemId,
+      portBSystemId,
+    );
+  }
+
+  findAllocatedIntents(
+    fileSystemId: number,
+    controlPortSystemId: number,
+  ): Promise<{intentSystemId: number; intentId: number}[]> {
+    return this.queries.findAllocatedIntents(fileSystemId, controlPortSystemId);
+  }
+
+  // ── Reads ────────────────────────────────────────────────────────────────────
 
   async findLinksConnectedToModule(
     moduleSystemId: number,
@@ -99,11 +167,11 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
     for (const segment of segments) {
       if (segment.controlLinkSystemId === null) continue;
       const list = segmentsByLink.get(segment.controlLinkSystemId) ?? [];
-      list.push(baseToSubsystemControlLink(segment));
+      list.push(toSubsystemControlLink(segment));
       segmentsByLink.set(segment.controlLinkSystemId, list);
     }
     return rows.map(row =>
-      baseToControlLink(row, segmentsByLink.get(row.systemId) ?? []),
+      toControlLink(row, segmentsByLink.get(row.systemId) ?? []),
     );
   }
 
@@ -148,7 +216,7 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
     }
     return rows
       .filter(row => visitedLinks.has(row.systemId))
-      .map(row => baseToSubsystemControlLink(row));
+      .map(row => toSubsystemControlLink(row));
   }
 
   async getAllLinks(fileSystemId: number): Promise<ControlLinkTopology> {
@@ -160,7 +228,7 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
     const segmentsByLinkId = new Map<number, SubsystemControlLink[]>();
     const unresolvedSubsystemControlLinks: SubsystemControlLink[] = [];
     for (const row of rows) {
-      const segment = baseToSubsystemControlLink(row);
+      const segment = toSubsystemControlLink(row);
       if (segment.controlLinkSystemId === null) {
         unresolvedSubsystemControlLinks.push(segment);
         continue;
@@ -172,7 +240,7 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
 
     return {
       controlLinks: controlLinkRows.map(row =>
-        baseToControlLink(row, segmentsByLinkId.get(row.systemId) ?? []),
+        toControlLink(row, segmentsByLinkId.get(row.systemId) ?? []),
       ),
       unresolvedSubsystemControlLinks,
     };
@@ -198,7 +266,7 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
       this.sessionId(),
     );
     return {
-      subsystemControlLinks: rows.map(row => baseToSubsystemControlLink(row)),
+      subsystemControlLinks: rows.map(row => toSubsystemControlLink(row)),
       nodeTypeBySystemId: new Map(
         nodes.map(node => [node.systemId, node.type]),
       ),
@@ -271,44 +339,6 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
     );
   }
 
-  async getLinksByPortSystemIds(
-    portSystemIds: number[],
-    fileSystemId: number,
-  ): Promise<{linkSystemId: number; portSystemId: number}[]> {
-    if (portSystemIds.length === 0) return [];
-
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-    const filters = {
-      $or: [
-        {nodeAPortSystemId: portSystemIds},
-        {nodeBPortSystemId: portSystemIds},
-      ],
-    };
-    const [links, subsystemLinks] = await Promise.all([
-      this.linkFetcher.loadControlLinkRows(fileSystemId, sessionId, filters),
-      this.linkFetcher.loadSubsystemControlLinkRows(
-        fileSystemId,
-        sessionId,
-        filters,
-      ),
-    ]);
-    const portSet = new Set(portSystemIds);
-    const entries: {linkSystemId: number; portSystemId: number}[] = [];
-    for (const link of [...links, ...subsystemLinks]) {
-      if (portSet.has(link.nodeAPortSystemId))
-        entries.push({
-          linkSystemId: link.systemId,
-          portSystemId: link.nodeAPortSystemId,
-        });
-      if (portSet.has(link.nodeBPortSystemId))
-        entries.push({
-          linkSystemId: link.systemId,
-          portSystemId: link.nodeBPortSystemId,
-        });
-    }
-    return entries;
-  }
-
   async findIntraUcLinksForGivenSgPair(
     fileSystemId: number,
     peerASystemId: number,
@@ -333,85 +363,7 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
         ],
       },
     );
-    return rows.map(row => baseToControlLink(row));
-  }
-
-  async findIntraUcLinksByFile(fileSystemId: number): Promise<ControlLink[]> {
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-    const rows = await this.linkFetcher.loadControlLinkRows(
-      fileSystemId,
-      sessionId,
-      {linkType: CONTROL_LINK_TYPE.Normal},
-    );
-    return rows.map(row => baseToControlLink(row));
-  }
-
-  async findCanonicalLinksByAnySystemIds(
-    systemIds: readonly number[],
-    fileSystemId: number,
-  ): Promise<ControlLinkIdResolution[]> {
-    if (systemIds.length === 0) return [];
-
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-    const requestedIds = [...systemIds];
-    const [canonicalRows, segmentRows] = await Promise.all([
-      this.linkFetcher.loadControlLinkRows(fileSystemId, sessionId, {
-        systemId: requestedIds,
-      }),
-      this.linkFetcher.loadSubsystemControlLinkRows(fileSystemId, sessionId, {
-        systemId: requestedIds,
-      }),
-    ]);
-    const canonicalBySystemId = new Map(
-      canonicalRows.map(row => [row.systemId, row]),
-    );
-    const segmentBySystemId = new Map(
-      segmentRows.map(row => [row.systemId, row]),
-    );
-    const missingParentIds = [
-      ...new Set(
-        segmentRows
-          .map(segment => segment.controlLinkSystemId)
-          .filter(
-            (systemId): systemId is number =>
-              systemId !== null && !canonicalBySystemId.has(systemId),
-          ),
-      ),
-    ];
-    if (missingParentIds.length > 0) {
-      const parentRows = await this.linkFetcher.loadControlLinkRows(
-        fileSystemId,
-        sessionId,
-        {systemId: missingParentIds},
-      );
-      for (const row of parentRows) {
-        canonicalBySystemId.set(row.systemId, row);
-      }
-    }
-
-    return systemIds.map(requestedSystemId => {
-      const canonical = canonicalBySystemId.get(requestedSystemId);
-      if (canonical) {
-        return {
-          requestedSystemId,
-          isSegment: false,
-          canonicalLink: baseToControlLink(canonical),
-        };
-      }
-      const segment = segmentBySystemId.get(requestedSystemId);
-      if (!segment) {
-        return {requestedSystemId, isSegment: false, canonicalLink: null};
-      }
-      const parent =
-        segment.controlLinkSystemId === null
-          ? undefined
-          : canonicalBySystemId.get(segment.controlLinkSystemId);
-      return {
-        requestedSystemId,
-        isSegment: true,
-        canonicalLink: parent ? baseToControlLink(parent) : null,
-      };
-    });
+    return rows.map(row => toControlLink(row));
   }
 
   async resolveSubsystemControlLinks(
@@ -519,7 +471,7 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
         );
       if (remainingSegments.length > 0) {
         await this.detachRemainingSubsystemControlLinks(
-          remainingSegments.map(segment => baseToSubsystemControlLink(segment)),
+          remainingSegments.map(segment => toSubsystemControlLink(segment)),
           options,
         );
       }
@@ -545,92 +497,6 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
         this.manager,
       );
     }
-  }
-
-  async findChangedInSession(
-    fileSystemId: number,
-  ): Promise<SessionChanged<ControlLink>> {
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-    const changed = await this.linkFetcher.fetchChangedControlLinks(
-      fileSystemId,
-      sessionId,
-    );
-    return {
-      added: changed.added.map(row => baseToControlLink(row)),
-      deleted: changed.deleted.map(row => baseToControlLink(row)),
-    };
-  }
-
-  async findBySystemIds(
-    systemIds: number[],
-    fileSystemId: number,
-  ): Promise<ControlLink[]> {
-    if (systemIds.length === 0) return [];
-    const rows = await this.linkFetcher.loadControlLinkRows(
-      fileSystemId,
-      this.sessionId(),
-      {systemId: systemIds},
-    );
-    const segments = await this.linkFetcher.loadSubsystemControlLinkRows(
-      fileSystemId,
-      this.sessionId(),
-      {controlLinkSystemId: systemIds},
-    );
-    const segmentsByLink = new Map<number, SubsystemControlLink[]>();
-    for (const segment of segments) {
-      if (segment.controlLinkSystemId === null) continue;
-      const values = segmentsByLink.get(segment.controlLinkSystemId) ?? [];
-      values.push(baseToSubsystemControlLink(segment));
-      segmentsByLink.set(segment.controlLinkSystemId, values);
-    }
-    return rows.map(row =>
-      baseToControlLink(row, segmentsByLink.get(row.systemId) ?? []),
-    );
-  }
-
-  async findByPortPair(
-    portA: number,
-    portB: number,
-    fileSystemId: number,
-  ): Promise<{
-    systemId: number;
-    isDeleted: boolean;
-    payload: Record<string, unknown>;
-  } | null> {
-    const {session} = this.uow.getWriteContext();
-    const filter = {nodeAPortSystemId: portA, nodeBPortSystemId: portB};
-
-    const baseRows = await this.linkFetcher.loadControlLinkRows(
-      fileSystemId,
-      null,
-      filter,
-    );
-    if (baseRows.length > 0) {
-      const row = baseRows[0];
-      const actions = await this.editActionsQs.getByAggregateId(
-        session.sessionId,
-        row.systemId,
-      );
-      const isDeleted = actions.some(
-        a =>
-          a.targetTable === ENTITY_NAMES.ControlLink &&
-          a.targetSystemId === row.systemId &&
-          a.operation === 'DELETE',
-      );
-      return {systemId: row.systemId, isDeleted, payload: {...row}};
-    }
-
-    const sessionRows = await this.linkFetcher.loadControlLinkRows(
-      fileSystemId,
-      this.sessionId(),
-      filter,
-    );
-    if (sessionRows.length > 0) {
-      const row = sessionRows[0];
-      return {systemId: row.systemId, isDeleted: false, payload: {...row}};
-    }
-
-    return null;
   }
 
   async createControlLink(link: ControlLink): Promise<void> {
@@ -684,22 +550,6 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
     );
   }
 
-  async getAllocatedIntentIds(
-    portSystemId: number,
-    fileSystemId: number,
-  ): Promise<{intentSystemId: number; intentId: number}[]> {
-    const nodeSystemId = await this.getPortOwner(portSystemId, fileSystemId);
-    const rows = await this.intentFetcher.fetchMany(
-      [portSystemId],
-      nodeSystemId,
-      this.sessionId(),
-    );
-    return rows.map(row => ({
-      intentSystemId: row.systemId,
-      intentId: row.naturalId,
-    }));
-  }
-
   async updateIntents(
     controlPortSystemId: number,
     toCreate: {systemId: number; intentId: number}[],
@@ -707,7 +557,10 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
   ): Promise<void> {
     if (toCreate.length === 0 && toDelete.length === 0) return;
     const {session} = this.uow.getWriteContext();
-    const nodeSystemId = await this.getPortOwner(
+    const nodeSystemId = await findControlPortOwner(
+      this.manager,
+      this.editActionsQs,
+      session.sessionId,
       controlPortSystemId,
       session.fileSystemId,
     );
@@ -736,36 +589,5 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
         session.sessionId,
         this.manager,
       );
-  }
-
-  private async getPortOwner(
-    portSystemId: number,
-    fileSystemId: number,
-  ): Promise<number> {
-    const port = (await this.manager
-      .getRepository(ENTITY_NAMES.ControlPort)
-      .createQueryBuilder('port')
-      .innerJoin('port.node', 'node')
-      .where('port.systemId = :portSystemId', {portSystemId})
-      .andWhere('node.fileSystemId = :fileSystemId', {fileSystemId})
-      .getOne()) as ControlPortRow | null;
-    if (port !== null) return port.nodeSystemId;
-
-    const sessionId = this.sessionId();
-    if (sessionId !== null) {
-      const actions = await this.editActionsQs.getByTable(
-        sessionId,
-        ENTITY_NAMES.ControlPort,
-      );
-      const created = actions.find(
-        action =>
-          action.targetSystemId === portSystemId &&
-          action.operation === 'CREATE',
-      );
-      if (created !== undefined) return created.aggregateId;
-    }
-    throw new Error(
-      `Control port ${portSystemId} not found in file ${fileSystemId}`,
-    );
   }
 }

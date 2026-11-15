@@ -82,10 +82,10 @@ function createUow(options: {
     uow: {
       getSubgraphRepository: () => ({findSubgraphAggregates}),
       getDataLinkRepository: () => ({
-        findIntraUcLinksByFile: findDataLinks,
+        findIntraUcLinks: findDataLinks,
       }),
       getControlLinkRepository: () => ({
-        findIntraUcLinksByFile: findControlLinks,
+        findIntraUcLinks: findControlLinks,
       }),
       getUsecaseRepository: () => ({findAllUseCases}),
     },

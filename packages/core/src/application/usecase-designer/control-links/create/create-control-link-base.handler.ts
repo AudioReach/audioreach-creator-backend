@@ -405,9 +405,9 @@ export abstract class ControlLinkCreationHandler<
 
     const repository = this.uow.getControlLinkRepository();
     const portPairResult = await repository.findByPortPair(
+      fileSystemId,
       canonicalPortA,
       canonicalPortB,
-      fileSystemId,
     );
     if (portPairResult?.isDeleted === false) {
       throw new DuplicateLinkException(
@@ -715,9 +715,9 @@ export abstract class ControlLinkCreationHandler<
     fileSystemId: number,
   ): Promise<void> {
     const repository = this.uow.getControlLinkRepository();
-    const existing = await repository.getAllocatedIntentIds(
-      portSystemId,
+    const existing = await repository.findAllocatedIntents(
       fileSystemId,
+      portSystemId,
     );
     await repository.updateIntents(
       portSystemId,

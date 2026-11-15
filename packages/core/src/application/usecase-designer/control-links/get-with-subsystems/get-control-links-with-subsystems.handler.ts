@@ -27,11 +27,11 @@ export class GetControlLinksWithSubsystemsHandler implements QueryHandler<
         query.projectId,
       );
 
-    const [subsystemsResult, segmentsResult] = await Promise.all([
+    const [subsystemsResult, segments] = await Promise.all([
       this.queryServices.subsystemQueryService.findAll(fileId),
-      this.queryServices.subsystemQueryService.findControlLinkSegments(
+      this.queryServices.controlLinkQueryService.findControlLinkSegments(
         fileId,
-        query.linkSystemId,
+        [query.linkSystemId],
       ),
     ]);
 
@@ -39,16 +39,8 @@ export class GetControlLinksWithSubsystemsHandler implements QueryHandler<
       throw new Error(
         subsystemsResult.issues[0]?.message ?? 'Failed to load subsystems',
       );
-    if (segmentsResult.kind === RESULT_KIND.Fail)
-      throw new Error(
-        segmentsResult.issues[0]?.message ??
-          'Failed to load control link segments',
-      );
 
-    const tree = buildSubsystemControlLinkTree(
-      subsystemsResult.data,
-      segmentsResult.data,
-    );
+    const tree = buildSubsystemControlLinkTree(subsystemsResult.data, segments);
 
     return Result.ok(mapComponentCollectionWithSubsystems(tree));
   }

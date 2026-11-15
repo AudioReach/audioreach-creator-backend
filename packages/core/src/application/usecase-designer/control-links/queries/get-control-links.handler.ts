@@ -7,9 +7,8 @@ import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handl
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import type {GetControlLinksQuery} from './get-control-links.query.js';
 import type {ControlLinkDto} from '../../usecase/dto/component-collection-dto.js';
-import {Result, RESULT_KIND} from '../../../shared/result/result.js';
-import {IssueFactory} from '../../../../shared/issues/factories.js';
-import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
+import {Result} from '../../../shared/result/result.js';
+import {failedToIssues} from '../../../shared/result/failed-to-issues.js';
 import {mapControlLink} from '../../usecase/dto/component-collection-dto.js';
 
 export class GetControlLinksHandler implements QueryHandler<
@@ -27,32 +26,14 @@ export class GetControlLinksHandler implements QueryHandler<
       await this.queryServices.projectQueryService.getFileIdByProjectId(
         projectId,
       );
-    const result =
-      await this.queryServices.controlLinkQueryService.findBySystemIds(
-        systemIds,
+    const batch =
+      await this.queryServices.controlLinkQueryService.findControlLinks(
         fileSystemId,
+        systemIds,
       );
-
-    if (result.kind === RESULT_KIND.Fail) {
-      return Result.fail(...(result.issues ?? []));
-    }
-
-    const found =
-      result.kind === RESULT_KIND.Ok || result.kind === RESULT_KIND.Partial
-        ? result.data
-        : [];
-    const foundIds = new Set(found.map(l => l.systemId));
-
-    const missingIssues = systemIds
-      .filter(id => !foundIds.has(id))
-      .map(id => IssueFactory.notFound(ENTITY_TYPE.ControlLink, id));
-
-    const dtos = found.map(l => mapControlLink(l));
-
-    if (missingIssues.length > 0) {
-      return Result.partial(dtos, missingIssues);
-    }
-
-    return Result.ok(dtos);
+    const dtos = batch.items.map(link => mapControlLink(link));
+    return batch.failed.length > 0
+      ? Result.partial(dtos, failedToIssues(batch))
+      : Result.ok(dtos);
   }
 }

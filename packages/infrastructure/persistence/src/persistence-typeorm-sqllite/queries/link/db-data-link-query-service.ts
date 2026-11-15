@@ -3,174 +3,353 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {DataSource} from 'typeorm';
+import type {EntityManager} from 'typeorm';
 import type {
+  BatchRead,
+  DataLink,
   DataLinkQueryService,
-  Result,
   DataLinkReadModel,
   DataLinkWithUsecaseIdsReadModel,
-  ModulePortLinkFilter,
-  SubgraphLinkFilter,
+  ReadOptions,
+  SessionChanged,
   SubgraphPeerLinkFilter,
+  SubsystemDataLink,
+  SubsystemDataLinkReadModel,
 } from '@arc/core';
-import {Result as R, IssueFactory} from '@arc/core';
+import {
+  CHANGE_OPERATION,
+  DATA_LINK_TYPE,
+  ENTITY_TYPE,
+  READ_MODE,
+} from '@arc/core';
+import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
+import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
 import {UseCaseQueryMappers} from '../usecase/usecase-query-mappers.js';
-import {
+import type {
+  DataLinkFilters,
   LinkOverlayFetcher,
-  type DataLinkFilters,
 } from '../../fetchers/link-overlay-fetcher.js';
 import type {DataLinkBase} from '../../entity-schema/usecase-data/Links/data-link.js';
-import {UsecaseOverlayFetcher} from '../../fetchers/usecase-overlay-fetcher.js';
+import type {UsecaseOverlayFetcher} from '../../fetchers/usecase-overlay-fetcher.js';
+import {toDataLink, toSubsystemDataLink} from './link-entity-mappers.js';
+import {resolveCanonicalLinks} from './resolve-canonical-links.js';
 
 /**
- * Database implementation of DataLinkQueryService.
- *
- * Scoping logic (by usecase JOINs, by subgraph OR) lives here.
- * Overlay (CREATE/UPDATE/DELETE) delegated to LinkOverlayFetcher.loadBaseDataLinkRows (FR-3).
+ * Database implementation of DataLinkQueryService. Build it with
+ * createDataLinkQueryService.
  */
 export class DbDataLinkQueryService implements DataLinkQueryService {
-  private readonly linkFetcher: LinkOverlayFetcher;
-  private readonly usecaseFetcher: UsecaseOverlayFetcher;
-
   constructor(
-    private readonly dataSource: DataSource,
-    usecaseFetcher: UsecaseOverlayFetcher,
-    linkFetcher: LinkOverlayFetcher,
-  ) {
-    this.linkFetcher = linkFetcher;
-    this.usecaseFetcher = usecaseFetcher;
-  }
+    private readonly manager: EntityManager,
+    private readonly editActions: EditActionsQueryService,
+    private readonly usecaseFetcher: UsecaseOverlayFetcher,
+    private readonly linkFetcher: LinkOverlayFetcher,
+  ) {}
 
   async findByUsecaseIds(
-    usecaseSystemIds: number[],
     fileSystemId: number,
-  ): Promise<Result<DataLinkReadModel[]>> {
-    if (usecaseSystemIds.length === 0) return R.ok([]);
+    usecaseSystemIds: readonly number[],
+  ): Promise<DataLinkReadModel[]> {
+    if (usecaseSystemIds.length === 0) return [];
+    const sessionId = await this.sessionId(fileSystemId);
+    const usecases = await this.usecaseFetcher.getUsecases(
+      fileSystemId,
+      sessionId,
+      [...usecaseSystemIds],
+    );
+    const subgraphIds = [
+      ...new Set(usecases.flatMap(uc => uc.subgraphSystemIds)),
+    ];
+    return this.loadBySubgraphIds(fileSystemId, sessionId, subgraphIds);
+  }
 
-    try {
-      const sessionId = await resolveActiveSessionId(
-        this.dataSource.manager,
-        fileSystemId,
-      );
-
-      // Resolve subgraph IDs via the usecase fetcher (UseCase → Subgraph relation).
-      const usecases = await this.usecaseFetcher.getUsecases(
-        fileSystemId,
-        sessionId,
-        usecaseSystemIds,
-      );
-      const subgraphIds = [
-        ...new Set(usecases.flatMap(uc => uc.subgraphSystemIds)),
-      ];
-      if (subgraphIds.length === 0) return R.ok([]);
-
-      const links = await this.linkFetcher.loadDataLinkRows(
-        fileSystemId,
-        sessionId,
-        {
-          $or: [
-            {sourceSubgraphSystemId: subgraphIds},
-            {destSubgraphSystemId: subgraphIds},
-          ],
-        },
-      );
-      return R.ok(
-        links.map(dl =>
-          UseCaseQueryMappers.mapToComponentDataLinkReadModel(dl),
-        ),
-      );
-    } catch (error) {
-      return R.fail(
-        IssueFactory.dbError(
-          error instanceof Error
-            ? error.message
-            : 'Failed to load data links for usecases',
-        ),
-      );
-    }
+  async findBySubgraphIds(
+    fileSystemId: number,
+    subgraphSystemIds: readonly number[],
+  ): Promise<DataLinkReadModel[]> {
+    if (subgraphSystemIds.length === 0) return [];
+    return this.loadBySubgraphIds(
+      fileSystemId,
+      await this.sessionId(fileSystemId),
+      [...subgraphSystemIds],
+    );
   }
 
   async findSubgraphPeerLinks(
+    fileSystemId: number,
     filter: SubgraphPeerLinkFilter,
+  ): Promise<DataLinkWithUsecaseIdsReadModel[]> {
+    const sessionId = await this.sessionId(fileSystemId);
+    const links = await this.linkFetcher.loadDataLinkRows(
+      fileSystemId,
+      sessionId,
+      this.buildCandidateFilters(filter),
+    );
+    const matchingLinks = links.filter(link =>
+      this.matchesSubgraphPeerFilter(link, filter),
+    );
+    if (matchingLinks.length === 0) return [];
+
+    const usecases = await this.usecaseFetcher.getUsecases(
+      fileSystemId,
+      sessionId,
+    );
+    return matchingLinks.map(link => ({
+      link: UseCaseQueryMappers.mapToComponentDataLinkReadModel(link),
+      usecaseSystemIds: usecases
+        .filter(usecase =>
+          usecase.subgraphPairs.some(
+            pair =>
+              pair.sourceSubgraphSystemId === link.sourceSubgraphSystemId &&
+              pair.destSubgraphSystemId === link.destSubgraphSystemId,
+          ),
+        )
+        .map(usecase => usecase.systemId),
+    }));
+  }
+
+  async findSegmentsByUsecaseIds(
     fileSystemId: number,
-  ): Promise<Result<DataLinkWithUsecaseIdsReadModel[]>> {
-    try {
-      const sessionId = await resolveActiveSessionId(
-        this.dataSource.manager,
-        fileSystemId,
-      );
-      const links = await this.linkFetcher.loadDataLinkRows(
+    usecaseSystemIds: readonly number[],
+  ): Promise<SubsystemDataLinkReadModel[]> {
+    if (usecaseSystemIds.length === 0) return [];
+    const sessionId = await this.sessionId(fileSystemId);
+    const usecaseSubgraphIds = new Set(
+      await this.usecaseFetcher.getSubgraphSystemIdsForUsecases(
+        [...usecaseSystemIds],
+        sessionId,
+      ),
+    );
+    if (usecaseSubgraphIds.size === 0) return [];
+
+    const [dataLinks, segments] = await Promise.all([
+      this.linkFetcher.loadDataLinkRows(fileSystemId, sessionId),
+      this.linkFetcher.loadSubsystemDataLinkRows(fileSystemId, sessionId),
+    ]);
+    const dataLinkById = new Map(dataLinks.map(link => [link.systemId, link]));
+    return segments.flatMap(segment => {
+      const link =
+        segment.dataLinkSystemId === null
+          ? undefined
+          : dataLinkById.get(segment.dataLinkSystemId);
+      if (
+        link === undefined ||
+        !(
+          usecaseSubgraphIds.has(link.sourceSubgraphSystemId) ||
+          usecaseSubgraphIds.has(link.destSubgraphSystemId)
+        )
+      ) {
+        return [];
+      }
+      // The segment takes its endpoints from itself and the rest from its
+      // data link.
+      return [
+        UseCaseQueryMappers.mapToSubsystemDataLinkReadModel({
+          ...link,
+          systemId: segment.systemId,
+          sourceNodeSystemId: segment.sourceNodeSystemId,
+          destinationNodeSystemId: segment.destinationNodeSystemId,
+          sourcePortSystemId: segment.sourcePortSystemId,
+          destinationPortSystemId: segment.destinationPortSystemId,
+        }),
+      ];
+    });
+  }
+
+  async findCanonicalLinks(
+    fileSystemId: number,
+    systemIds: readonly number[],
+  ): Promise<BatchRead<DataLink, typeof ENTITY_TYPE.DataLink>> {
+    if (systemIds.length === 0)
+      return {entityType: ENTITY_TYPE.DataLink, items: [], failed: []};
+    const sessionId = await this.sessionId(fileSystemId);
+    const requestedIds = [...systemIds];
+    const [links, segments] = await Promise.all([
+      this.linkFetcher.loadDataLinkRows(fileSystemId, sessionId, {
+        systemId: requestedIds,
+      }),
+      this.linkFetcher.loadSubsystemDataLinkRows(fileSystemId, sessionId, {
+        systemId: requestedIds,
+      }),
+    ]);
+    const resolved = await resolveCanonicalLinks(
+      ENTITY_TYPE.DataLink,
+      requestedIds,
+      {
+        links,
+        segments,
+        segmentSystemId: segment => segment.systemId,
+        parentSystemId: segment => segment.dataLinkSystemId,
+        loadLinks: ids =>
+          this.linkFetcher.loadDataLinkRows(fileSystemId, sessionId, {
+            systemId: ids,
+          }),
+      },
+    );
+    return {
+      ...resolved,
+      items: await this.toDataLinks(fileSystemId, sessionId, resolved.items),
+    };
+  }
+
+  async findIntraUcLinks(
+    fileSystemId: number,
+    options?: ReadOptions,
+  ): Promise<DataLink[]> {
+    const sessionId =
+      (options?.readMode ?? READ_MODE.Overlay) === READ_MODE.Committed
+        ? null
+        : await this.sessionId(fileSystemId);
+    const rows = await this.linkFetcher.loadDataLinkRows(
+      fileSystemId,
+      sessionId,
+      {linkType: DATA_LINK_TYPE.Normal},
+    );
+    return rows.map(row => toDataLink(row));
+  }
+
+  async findChangedInSession(
+    fileSystemId: number,
+  ): Promise<SessionChanged<DataLink>> {
+    const sessionId = await this.sessionId(fileSystemId);
+    if (sessionId === null) return {added: [], deleted: []};
+    const changed = await this.linkFetcher.fetchChangedDataLinks(
+      fileSystemId,
+      sessionId,
+    );
+    return {
+      added: changed.added.map(row => toDataLink(row)),
+      deleted: changed.deleted.map(row => toDataLink(row)),
+    };
+  }
+
+  async findLinkIdsByPorts(
+    fileSystemId: number,
+    portSystemIds: readonly number[],
+  ): Promise<{linkSystemId: number; portSystemId: number}[]> {
+    if (portSystemIds.length === 0) return [];
+    const sessionId = await this.sessionId(fileSystemId);
+    const ports = [...portSystemIds];
+    const filters = {
+      $or: [{sourcePortSystemId: ports}, {destinationPortSystemId: ports}],
+    };
+    const [links, segments] = await Promise.all([
+      this.linkFetcher.loadDataLinkRows(fileSystemId, sessionId, filters),
+      this.linkFetcher.loadSubsystemDataLinkRows(
         fileSystemId,
         sessionId,
-        this.buildCandidateFilters(filter),
-      );
-      const matchingLinks = links.filter(link =>
-        this.matchesSubgraphPeerFilter(link, filter),
-      );
-      if (matchingLinks.length === 0) return R.ok([]);
+        filters,
+      ),
+    ]);
+    const portSet = new Set(ports);
+    return [...links, ...segments].flatMap(link =>
+      [link.sourcePortSystemId, link.destinationPortSystemId]
+        .filter(portSystemId => portSet.has(portSystemId))
+        .map(portSystemId => ({linkSystemId: link.systemId, portSystemId})),
+    );
+  }
 
-      const usecases = await this.usecaseFetcher.getUsecases(
-        fileSystemId,
-        sessionId,
-      );
+  async findByPortPair(
+    fileSystemId: number,
+    sourcePortSystemId: number,
+    destinationPortSystemId: number,
+  ): Promise<{systemId: number; isDeleted: boolean} | null> {
+    const filter = {sourcePortSystemId, destinationPortSystemId};
+    const sessionId = await this.sessionId(fileSystemId);
 
-      return R.ok(
-        matchingLinks.map(link => ({
-          link: UseCaseQueryMappers.mapToComponentDataLinkReadModel(link),
-          usecaseSystemIds: usecases
-            .filter(usecase =>
-              usecase.subgraphPairs.some(
-                pair =>
-                  pair.sourceSubgraphSystemId === link.sourceSubgraphSystemId &&
-                  pair.destSubgraphSystemId === link.destSubgraphSystemId,
-              ),
-            )
-            .map(usecase => usecase.systemId),
-        })),
+    // A committed link wins, even when the session deleted it.
+    const committedRows = await this.linkFetcher.loadDataLinkRows(
+      fileSystemId,
+      null,
+      filter,
+    );
+    const committed = committedRows.at(0);
+    if (committed !== undefined) {
+      const actions =
+        sessionId === null
+          ? []
+          : await this.editActions.getByTable(sessionId, ENTITY_NAMES.DataLink);
+      const isDeleted = actions.some(
+        action =>
+          action.targetSystemId === committed.systemId &&
+          action.operation === CHANGE_OPERATION.Delete,
       );
-    } catch (error) {
-      return R.fail(
-        IssueFactory.dbError(
-          error instanceof Error
-            ? error.message
-            : 'Failed to load subgraph-peer data links',
-        ),
-      );
+      return {systemId: committed.systemId, isDeleted};
     }
+
+    if (sessionId === null) return null;
+    const sessionRows = await this.linkFetcher.loadDataLinkRows(
+      fileSystemId,
+      sessionId,
+      filter,
+    );
+    const created = sessionRows.at(0);
+    return created === undefined
+      ? null
+      : {systemId: created.systemId, isDeleted: false};
   }
 
-  async findByModulePort(
-    filter: ModulePortLinkFilter,
+  /** Maps link rows to DataLinks, each with its subsystem segments. */
+  private async toDataLinks(
     fileSystemId: number,
-  ): Promise<Result<DataLinkWithUsecaseIdsReadModel[]>> {
-    return this.findSubgraphPeerLinks(
-      {
-        moduleSystemId: filter.moduleSystemId,
-        portSystemId: filter.portSystemId,
-      },
+    sessionId: number | null,
+    links: readonly DataLinkBase[],
+  ): Promise<DataLink[]> {
+    if (links.length === 0) return [];
+    const segments = await this.linkFetcher.loadSubsystemDataLinkRows(
       fileSystemId,
+      sessionId,
+      {dataLinkSystemId: links.map(link => link.systemId)},
+    );
+    const segmentsByLink = new Map<number, SubsystemDataLink[]>();
+    for (const segment of segments) {
+      if (segment.dataLinkSystemId === null) continue;
+      const list = segmentsByLink.get(segment.dataLinkSystemId) ?? [];
+      list.push(toSubsystemDataLink(segment));
+      segmentsByLink.set(segment.dataLinkSystemId, list);
+    }
+    return links.map(link =>
+      toDataLink(link, segmentsByLink.get(link.systemId)),
     );
   }
 
-  async findBySubgraph(
-    filter: SubgraphLinkFilter,
+  private sessionId(fileSystemId: number): Promise<number | null> {
+    return resolveActiveSessionId(this.manager, fileSystemId);
+  }
+
+  /**
+   * Links with an endpoint in one of the subgraphs, including links to
+   * other subgraphs.
+   */
+  private async loadBySubgraphIds(
     fileSystemId: number,
-  ): Promise<Result<DataLinkWithUsecaseIdsReadModel[]>> {
-    return this.findSubgraphPeerLinks(
-      {
-        subgraphSystemId: filter.subgraphSystemId,
-        subgraphPeerSystemId: filter.subgraphPeerSystemId,
-      },
+    sessionId: number | null,
+    subgraphIds: number[],
+  ): Promise<DataLinkReadModel[]> {
+    if (subgraphIds.length === 0) return [];
+    const links = await this.linkFetcher.loadDataLinkRows(
       fileSystemId,
+      sessionId,
+      {
+        $or: [
+          {sourceSubgraphSystemId: subgraphIds},
+          {destSubgraphSystemId: subgraphIds},
+        ],
+      },
+    );
+    return links.map(link =>
+      UseCaseQueryMappers.mapToComponentDataLinkReadModel(link),
     );
   }
 
+  /**
+   * A broad OR prefilter for the database query; matchesSubgraphPeerFilter
+   * applies the exact subgraph and module-port match.
+   */
   private buildCandidateFilters(
     filter: SubgraphPeerLinkFilter,
   ): DataLinkFilters | undefined {
-    // Build a broad OR prefilter for the database query. The final subgraph
-    // and module-port intersection is applied by matchesSubgraphPeerFilter.
     const {subgraphSystemId, moduleSystemId, portSystemId} = filter;
     const candidateFilters: DataLinkFilters[] = [];
 
@@ -211,9 +390,7 @@ export class DbDataLinkQueryService implements DataLinkQueryService {
             link.destinationPortSystemId === filter.portSystemId)
         : !hasModulePortFilter;
 
-    const matchesSubgraph = this.matchesSubgraphFilter(link, filter);
-
-    return matchesSubgraph && matchesModulePort;
+    return this.matchesSubgraphFilter(link, filter) && matchesModulePort;
   }
 
   private matchesSubgraphFilter(
@@ -239,44 +416,4 @@ export class DbDataLinkQueryService implements DataLinkQueryService {
         link.destSubgraphSystemId === selectedSubgraph)
     );
   }
-
-  async findBySubgraphId(
-    subgraphId: number,
-    fileSystemId: number,
-  ): Promise<Result<DataLinkReadModel[]>> {
-    try {
-      const sessionId = await resolveActiveSessionId(
-        this.dataSource.manager,
-        fileSystemId,
-      );
-
-      // Single $or call covers source OR destination subgraph in one SQL query.
-      const links = await this.linkFetcher.loadDataLinkRows(
-        fileSystemId,
-        sessionId,
-        {
-          $or: [
-            {sourceSubgraphSystemId: subgraphId},
-            {destSubgraphSystemId: subgraphId},
-          ],
-        },
-      );
-
-      return R.ok(
-        links.map(dl =>
-          UseCaseQueryMappers.mapToComponentDataLinkReadModel(dl),
-        ),
-      );
-    } catch (error) {
-      return R.fail(
-        IssueFactory.dbError(
-          error instanceof Error
-            ? error.message
-            : 'Failed to load data links for subgraph',
-        ),
-      );
-    }
-  }
-
-  // ── Private helpers ────────────────────────────────────────────────────────
 }

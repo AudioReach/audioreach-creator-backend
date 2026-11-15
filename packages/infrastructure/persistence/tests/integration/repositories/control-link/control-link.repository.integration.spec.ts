@@ -11,6 +11,8 @@ import {
   ControlLink,
   SOURCE,
   SubsystemControlLink,
+  ENTITY_TYPE,
+  FAILED_ENTITY_REASON,
 } from '@arc/core';
 import {
   SESSION_MODE,
@@ -236,13 +238,13 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
 
   it('returns [] when portSystemIds is empty', async () => {
     const repo = makeRepo(qr, sessionId);
-    expect(await repo.getLinksByPortSystemIds([], FILE_ID)).toEqual([]);
+    expect(await repo.findLinkIdsByPorts(FILE_ID, [])).toEqual([]);
   });
 
   it('returns links whose port is in the list', async () => {
     await seedControlLink(ds, 888, PORT_CP_A, PORT_CP_B);
     const repo = makeRepo(qr, sessionId);
-    const result = await repo.getLinksByPortSystemIds([PORT_CP_A], FILE_ID);
+    const result = await repo.findLinkIdsByPorts(FILE_ID, [PORT_CP_A]);
     expect(result).toHaveLength(1);
     expect(result[0].linkSystemId).toBe(888);
     expect(result[0].portSystemId).toBe(PORT_CP_A);
@@ -258,10 +260,10 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
       PORT_SEGMENT_B,
     );
 
-    const result = await makeRepo(qr, sessionId).getLinksByPortSystemIds(
-      [PORT_SEGMENT_A, PORT_SEGMENT_B],
-      FILE_ID,
-    );
+    const result = await makeRepo(qr, sessionId).findLinkIdsByPorts(FILE_ID, [
+      PORT_SEGMENT_A,
+      PORT_SEGMENT_B,
+    ]);
 
     expect(result).toEqual([
       {linkSystemId: 801, portSystemId: PORT_SEGMENT_A},
@@ -298,13 +300,13 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
       ]),
     );
     await expect(
-      repo.getAllocatedIntentIds(PORT_CP_A, FILE_ID),
+      repo.findAllocatedIntents(FILE_ID, PORT_CP_A),
     ).resolves.toEqual([{intentSystemId: 910, intentId: 7}]);
   });
 
   it('returns [] when no links exist for the given ports', async () => {
     const repo = makeRepo(qr, sessionId);
-    expect(await repo.getLinksByPortSystemIds([9999], FILE_ID)).toEqual([]);
+    expect(await repo.findLinkIdsByPorts(FILE_ID, [9999])).toEqual([]);
   });
 
   it('groups attached and standalone subsystem control links', async () => {
@@ -524,51 +526,57 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
   });
 
   describe('Phase-0 subsystem-link resolution', () => {
-    it('normalizes canonical and segment IDs in request order', async () => {
+    it('resolves link and segment IDs to one canonical link and reports unknown IDs', async () => {
       await seedControlLink(ds, 800, PORT_CP_A, PORT_CP_B);
       await seedSubsystemControlLink(ds, 801, 800);
 
-      const resolutions = await makeRepo(
-        qr,
-        sessionId,
-      ).findCanonicalLinksByAnySystemIds([800, 801, 999], FILE_ID);
+      const batch = await makeRepo(qr, sessionId).findCanonicalLinks(
+        FILE_ID,
+        [800, 801, 999],
+      );
 
-      expect(
-        resolutions.map(resolution => resolution.requestedSystemId),
-      ).toEqual([800, 801, 999]);
-      expect(resolutions[0]).toMatchObject({
-        isSegment: false,
-        canonicalLink: {systemId: 800},
-      });
-      expect(resolutions[1]).toMatchObject({
-        isSegment: true,
-        canonicalLink: {systemId: 800},
-      });
-      expect(resolutions[2]).toMatchObject({
-        isSegment: false,
-        canonicalLink: null,
-      });
+      expect(batch.entityType).toBe(ENTITY_TYPE.ControlLink);
+      expect(batch.items.map(link => link.systemId)).toEqual([800]);
+      expect(batch.failed).toEqual([
+        {systemId: 999, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
     });
 
-    it('identifies an unresolved session-created segment without a canonical parent', async () => {
+    it('resolves a segment ID alone by loading its parent link', async () => {
+      await seedControlLink(ds, 800, PORT_CP_A, PORT_CP_B);
+      await seedSubsystemControlLink(ds, 801, 800);
+
+      const batch = await makeRepo(qr, sessionId).findCanonicalLinks(
+        FILE_ID,
+        [801],
+      );
+
+      expect(batch.items.map(link => link.systemId)).toEqual([800]);
+      expect(batch.failed).toEqual([]);
+    });
+
+    it('reports an unresolved session-created segment as not found', async () => {
       await seedUnresolvedSubsystemControlLink(qr, sessionId, 803);
 
-      const [resolution] = await makeRepo(
-        qr,
-        sessionId,
-      ).findCanonicalLinksByAnySystemIds([803], FILE_ID);
+      const batch = await makeRepo(qr, sessionId).findCanonicalLinks(
+        FILE_ID,
+        [803],
+      );
 
-      expect(resolution).toMatchObject({
-        requestedSystemId: 803,
-        isSegment: true,
-        canonicalLink: null,
-      });
+      expect(batch.items).toEqual([]);
+      expect(batch.failed).toEqual([
+        {systemId: 803, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
     });
 
-    it('short-circuits canonical-ID normalization for empty input', async () => {
+    it('returns an empty batch for empty input', async () => {
       await expect(
-        makeRepo(qr, sessionId).findCanonicalLinksByAnySystemIds([], FILE_ID),
-      ).resolves.toEqual([]);
+        makeRepo(qr, sessionId).findCanonicalLinks(FILE_ID, []),
+      ).resolves.toEqual({
+        entityType: ENTITY_TYPE.ControlLink,
+        items: [],
+        failed: [],
+      });
     });
 
     it('writes an UPDATE delta for a committed segment and exposes its new parent in the overlay', async () => {

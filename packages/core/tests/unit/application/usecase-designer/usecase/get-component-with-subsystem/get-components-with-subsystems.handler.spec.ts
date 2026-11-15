@@ -170,7 +170,7 @@ function makeSub(
 //   L5_RAW  (9):  m4→m5   boundary-crossing raw into SS1 — DROPPED
 //   L7_RAW  (8):  m5→m6   non-boundary raw inside SS1 — placed at SS1 dataLinks
 //
-// SLS segments (from subsystemQueryService.findDataLinkSegmentsByUsecaseIds):
+// SLS segments (from dataLinkQueryService.findSegmentsByUsecaseIds):
 //   SLS_L2_OUT (3):  m2→SS   outside SLS — placed at root subsystemDataLinks
 //   SLS_L3_IN  (4):  SS→m3   inside SLS  — placed at SS subsystemDataLinks
 //   SLS_L5_OUT (6):  m4→SS1  outside SLS for SS1 — placed at SS subsystemDataLinks
@@ -232,25 +232,27 @@ function makeServices(overrides: ServiceOverrides = {}): QueryServices {
     useCaseQueryService: {
       findUseCaseReadModels: jest
         .fn()
-        .mockResolvedValue({entityType: ENTITY_TYPE.UseCase, items: usecases, failed: failedUsecases}),
+        .mockResolvedValue({
+          entityType: ENTITY_TYPE.UseCase,
+          items: usecases,
+          failed: failedUsecases,
+        }),
     },
     spfModuleQueryService: {
       findByUsecaseIds: jest.fn().mockResolvedValue(Result.ok(modules)),
     },
     subsystemQueryService: {
       findAll: jest.fn().mockResolvedValue(Result.ok(subsystems)),
-      findDataLinkSegmentsByUsecaseIds: jest
-        .fn()
-        .mockResolvedValue(Result.ok(virtualDataLinks)),
-      findControlLinkSegmentsByUsecaseIds: jest
-        .fn()
-        .mockResolvedValue(Result.ok(virtualControlLinks)),
     },
     dataLinkQueryService: {
-      findByUsecaseIds: jest.fn().mockResolvedValue(Result.ok(rawDataLinks)),
+      findByUsecaseIds: jest.fn().mockResolvedValue(rawDataLinks),
+      findSegmentsByUsecaseIds: jest.fn().mockResolvedValue(virtualDataLinks),
     },
     controlLinkQueryService: {
-      findByUsecaseIds: jest.fn().mockResolvedValue(Result.ok(rawControlLinks)),
+      findByUsecaseIds: jest.fn().mockResolvedValue(rawControlLinks),
+      findSegmentsByUsecaseIds: jest
+        .fn()
+        .mockResolvedValue(virtualControlLinks),
     },
   } as unknown as QueryServices;
 }
@@ -365,24 +367,24 @@ describe('GetComponentsWithSubsystemsHandler', () => {
       );
       expect(
         services.dataLinkQueryService.findByUsecaseIds,
-      ).toHaveBeenCalledWith([UC], FILE_ID);
+      ).toHaveBeenCalledWith(FILE_ID, [UC]);
     });
 
-    it('does NOT call findDataLinkSegmentsByUsecaseIds when no subsystems exist', async () => {
+    it('does NOT call dataLinkQueryService.findSegmentsByUsecaseIds when no subsystems exist', async () => {
       await new GetComponentsWithSubsystemsHandler(services).handle(
         makeQuery(),
       );
       expect(
-        services.subsystemQueryService.findDataLinkSegmentsByUsecaseIds,
+        services.dataLinkQueryService.findSegmentsByUsecaseIds,
       ).not.toHaveBeenCalled();
     });
 
-    it('does NOT call findControlLinkSegmentsByUsecaseIds when no subsystems exist', async () => {
+    it('does NOT call controlLinkQueryService.findSegmentsByUsecaseIds when no subsystems exist', async () => {
       await new GetComponentsWithSubsystemsHandler(services).handle(
         makeQuery(),
       );
       expect(
-        services.subsystemQueryService.findControlLinkSegmentsByUsecaseIds,
+        services.controlLinkQueryService.findSegmentsByUsecaseIds,
       ).not.toHaveBeenCalled();
     });
 
@@ -445,16 +447,16 @@ describe('GetComponentsWithSubsystemsHandler', () => {
       );
     });
 
-    it('calls findDataLinkSegmentsByUsecaseIds because subsystems exist (QWS-04)', () => {
+    it('calls dataLinkQueryService.findSegmentsByUsecaseIds because subsystems exist (QWS-04)', () => {
       expect(
-        services.subsystemQueryService.findDataLinkSegmentsByUsecaseIds,
-      ).toHaveBeenCalledWith([UC], FILE_ID);
+        services.dataLinkQueryService.findSegmentsByUsecaseIds,
+      ).toHaveBeenCalledWith(FILE_ID, [UC]);
     });
 
-    it('calls findControlLinkSegmentsByUsecaseIds because subsystems exist', () => {
+    it('calls controlLinkQueryService.findSegmentsByUsecaseIds because subsystems exist', () => {
       expect(
-        services.subsystemQueryService.findControlLinkSegmentsByUsecaseIds,
-      ).toHaveBeenCalledWith([UC], FILE_ID);
+        services.controlLinkQueryService.findSegmentsByUsecaseIds,
+      ).toHaveBeenCalledWith(FILE_ID, [UC]);
     });
 
     it('returns Result.ok', () => {
@@ -537,7 +539,7 @@ describe('GetComponentsWithSubsystemsHandler', () => {
   // After the edit session overlay has run:
   //   - subsystemQueryService.findAll() returns [SS, SS1(parentId=SS)]
   //   - spfModuleQueryService returns m1..m6 (m5,m6 inside SS1)
-  //   - findDataLinkSegmentsByUsecaseIds() returns all 4 SLS segments
+  //   - dataLinkQueryService.findSegmentsByUsecaseIds() returns all 4 SLS segments
   //
   // buildSubsystemTree places links:
   //   Root dataLinks:         L1_RAW

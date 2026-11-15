@@ -265,9 +265,9 @@ export class PatchSpfModuleHandler implements CommandHandler<
 
     const dynamicRequested = requested - staticPorts.length;
 
-    const links = await uow.getDataLinkRepository().getLinksByPortSystemIds(
-      dynamicPorts.map(p => p.systemId),
+    const links = await uow.getDataLinkRepository().findLinkIdsByPorts(
       fileSystemId,
+      dynamicPorts.map(p => p.systemId),
     );
 
     const definition = await uow
@@ -348,9 +348,9 @@ export class PatchSpfModuleHandler implements CommandHandler<
 
     const dynamicRequested = requested - staticControlPorts.length;
 
-    const links = await uow.getControlLinkRepository().getLinksByPortSystemIds(
-      dynamicControlPorts.map(p => p.systemId),
+    const links = await uow.getControlLinkRepository().findLinkIdsByPorts(
       fileSystemId,
+      dynamicControlPorts.map(p => p.systemId),
     );
 
     const definition = await uow

@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
+import {batchOf, notFoundBatch} from '../../../../../helpers/batch-read.js';
 import {describe, expect, it, jest} from '@jest/globals';
 import {Result} from '../../../../../../src/application/shared/result/result.js';
 import {
@@ -55,23 +57,20 @@ function createUow(events: string[]) {
       findChangedInSession: jest.fn(async () => ({added: [], deleted: []})),
     }),
     getDataLinkRepository: () => ({
-      findCanonicalLinksByAnySystemIds: jest.fn(async (systemIds: number[]) => {
-        events.push('data-link:resolve');
-        return systemIds.map(requestedSystemId => ({
-          requestedSystemId,
-          isSegment: false,
-          canonicalLink: requestedSystemId === 801 ? dataLink : null,
-        }));
-      }),
+      findCanonicalLinks: jest.fn(
+        async (_fileSystemId: number, systemIds: number[]) => {
+          events.push('data-link:resolve');
+          return systemIds.includes(801)
+            ? batchOf(ENTITY_TYPE.DataLink, [dataLink])
+            : notFoundBatch(ENTITY_TYPE.DataLink, ...systemIds);
+        },
+      ),
       findChangedInSession: jest.fn(async () => ({added: [], deleted: []})),
     }),
     getControlLinkRepository: () => ({
-      findCanonicalLinksByAnySystemIds: jest.fn(async (systemIds: number[]) =>
-        systemIds.map(requestedSystemId => ({
-          requestedSystemId,
-          isSegment: false,
-          canonicalLink: null,
-        })),
+      findCanonicalLinks: jest.fn(
+        async (_fileSystemId: number, systemIds: number[]) =>
+          notFoundBatch(ENTITY_TYPE.ControlLink, ...systemIds),
       ),
       findChangedInSession: jest.fn(async () => ({added: [], deleted: []})),
     }),

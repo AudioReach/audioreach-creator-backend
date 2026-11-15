@@ -248,15 +248,14 @@ describe('TypeOrmControlLinkRepository — routing methods (integration)', () =>
     });
   });
 
-  describe('findIntraUcLinksByFile', () => {
+  describe('findIntraUcLinks', () => {
     it('returns all intra-usecase control links in the file', async () => {
       await seedControlLink(ds, 2001, CONTROL_LINK_TYPE.Normal, SG_1, SG_2);
       await seedControlLink(ds, 2002, CONTROL_LINK_TYPE.Normal, SG_2, SG_1);
       const sessionId = await seedSession(ds);
-      const result = await makeRepo(
-        qr.manager,
-        sessionId,
-      ).findIntraUcLinksByFile(FILE_ID);
+      const result = await makeRepo(qr.manager, sessionId).findIntraUcLinks(
+        FILE_ID,
+      );
       expect(result.map(l => l.systemId).sort()).toEqual([2001, 2002]);
     });
 
@@ -270,19 +269,17 @@ describe('TypeOrmControlLinkRepository — routing methods (integration)', () =>
         SG_2,
       );
       const sessionId = await seedSession(ds);
-      const result = await makeRepo(
-        qr.manager,
-        sessionId,
-      ).findIntraUcLinksByFile(FILE_ID);
+      const result = await makeRepo(qr.manager, sessionId).findIntraUcLinks(
+        FILE_ID,
+      );
       expect(result.map(l => l.systemId)).toEqual([2001]);
     });
 
     it('returns [] when file has no intra-usecase control links', async () => {
       const sessionId = await seedSession(ds);
-      const result = await makeRepo(
-        qr.manager,
-        sessionId,
-      ).findIntraUcLinksByFile(FILE_ID);
+      const result = await makeRepo(qr.manager, sessionId).findIntraUcLinks(
+        FILE_ID,
+      );
       expect(result).toEqual([]);
     });
   });

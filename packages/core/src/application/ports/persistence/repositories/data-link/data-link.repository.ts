@@ -8,27 +8,11 @@ import type {SubsystemDataLink} from '../../../../../domain/entities/usecase-dat
 import type {PortIoType} from '../../../../../domain/entities/common/enums/port-io-type.js';
 import type {EditOptions} from '../../edit-options.js';
 import type {LinksForPair, SubgraphPair} from '../shared/links-for-pair.js';
-import type {SessionChanged} from '../shared/session-changed.js';
-import type {ReadOptions} from '../shared/read-options.js';
+import type {DataLinkQueryService} from '../../query-services/link/data-link-query-service.js';
 
 export interface DataLinkTopology {
   dataLinks: DataLink[];
   unresolvedSubsystemDataLinks: SubsystemDataLink[];
-}
-
-/**
- * Result shape for batched Phase-0 request-ID normalization.
- * One entry per requested system ID, in input order.
- */
-export interface DataLinkIdResolution {
-  requestedSystemId: number;
-  /** True when the supplied ID identifies a SubsystemDataLink segment. */
-  isSegment: boolean;
-  /**
-   * Null when the ID is unknown, the segment is unresolved, or its canonical
-   * parent is absent from the effective overlay.
-   */
-  canonicalLink: DataLink | null;
 }
 
 export interface BoundaryPortPayload {
@@ -40,7 +24,12 @@ export interface BoundaryPortPayload {
   fileSystemId: number;
 }
 
-export interface DataLinkRepository {
+/**
+ * Loads and changes data links in a unit of work. The reads are inherited
+ * from `DataLinkQueryService`; the methods here load links a command then
+ * changes, and stage the changes.
+ */
+export interface DataLinkRepository extends DataLinkQueryService {
   findLinksConnectedToModule(
     moduleSystemId: number,
     fileSystemId: number,
@@ -65,15 +54,6 @@ export interface DataLinkRepository {
   ): Promise<DataLink | null>;
 
   /**
-   * Resolves canonical DataLink IDs and SubsystemDataLink segment IDs to their
-   * effective canonical links. Empty input returns [] without querying.
-   */
-  findCanonicalLinksByAnySystemIds(
-    systemIds: readonly number[],
-    fileSystemId: number,
-  ): Promise<DataLinkIdResolution[]>;
-
-  /**
    * Resolves existing unresolved subsystem segments by setting their canonical
    * DataLink ID in the current session overlay. Empty input is a no-op.
    */
@@ -94,16 +74,6 @@ export interface DataLinkRepository {
   ): Promise<void>;
 
   /**
-   * Returns canonical data links and subsystem segments whose src or dst port
-   * is in portSystemIds. linkSystemId identifies the matching link or segment.
-   * Empty input short-circuits — returns [] without querying the DB.
-   */
-  getLinksByPortSystemIds(
-    portSystemIds: number[],
-    fileSystemId: number,
-  ): Promise<{linkSystemId: number; portSystemId: number}[]>;
-
-  /**
    * Returns NORMAL data links matching the given `pairs` — batched,
    * strictly directional. One `LinksForPair<DataLink>` entry per input pair,
    * in the same order as the input; `entry.links` is empty when no data
@@ -118,25 +88,6 @@ export interface DataLinkRepository {
     fileSystemId: number,
     pairs: readonly SubgraphPair[],
   ): Promise<LinksForPair<DataLink>[]>;
-
-  /**
-   * Returns ALL NORMAL data links in the file.
-   *
-   * Defaults to `ReadMode.Overlay` — session-created links included,
-   * session-deleted links excluded, session-updated links reflect
-   * their post-update state.
-   *
-   * Pass `{ readMode: READ_MODE.Committed }` to bypass the session overlay
-   * and read base-table state only. Required by the reverse MDF collapse
-   * analyzer, which must inspect committed links after session deletions
-   * have already been staged.
-   *
-   * Empty file → [].
-   */
-  findIntraUcLinksByFile(
-    fileSystemId: number,
-    options?: ReadOptions,
-  ): Promise<DataLink[]>;
 
   createSubsystemDataLinks(
     subsystemDataLinks: readonly SubsystemDataLink[],
@@ -156,20 +107,6 @@ export interface DataLinkRepository {
   ): Promise<void>;
 
   /**
-   * Returns DataLinks added or deleted in the current session — a
-   * `SessionChanged<DataLink>` split. No `source` filter is applied; MANUAL
-   * and DIFF_TOOL edit_actions are both included, and routing itself never
-   * writes DataLinks so AUTO_ROUTING is inherently absent from this table.
-   *
-   * UPDATE-shaped edit_actions are excluded from both buckets — this method
-   * surfaces topology-level additions and removals only.
-   *
-   * Consumer: routing engine graphEdits assembly (addedDataLinks /
-   * deletedDataLinks).
-   */
-  findChangedInSession(fileSystemId: number): Promise<SessionChanged<DataLink>>;
-
-  /**
    * Writes CREATE edit_action rows for the DataLink, all its SubsystemDataLinks,
    * and all auto-created boundary DataPorts. FK order: DataPort(s) → DataLink →
    * SubsystemDataLink(s). Boundary ports attach to subsystem nodes that already
@@ -181,22 +118,6 @@ export interface DataLinkRepository {
     boundaryPortPayloads: BoundaryPortPayload[],
     options?: EditOptions,
   ): Promise<void>;
-
-  /**
-   * Looks up a DataLink by (sourcePortSystemId, destinationPortSystemId) in the
-   * session overlay (base data_links table + active edit_actions).
-   *
-   * Returns null if not found. Returns { systemId, isDeleted: true } if soft-deleted.
-   */
-  findByPortPair(
-    sourcePortSystemId: number,
-    destPortSystemId: number,
-    fileSystemId: number,
-  ): Promise<{
-    systemId: number;
-    isDeleted: boolean;
-    payload: Record<string, unknown>;
-  } | null>;
 
   /**
    * Writes a single unresolved SLS (dataLinkSystemId = null) CREATE row to

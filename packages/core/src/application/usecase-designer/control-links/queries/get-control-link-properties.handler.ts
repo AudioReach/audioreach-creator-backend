@@ -7,8 +7,8 @@ import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handl
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import type {GetControlLinkPropertiesQuery} from './get-control-link-properties.query.js';
 import type {ControlLinkPropertiesDto} from '../dto/control-link-properties-dto.js';
-import {ResourceNotFoundException} from '../../../../shared/exceptions/index.js';
 import {RESULT_KIND} from '../../../shared/result/result.js';
+import {requireOne} from '../../../shared/result/require-one.js';
 import {CONFIGURATION_INCLUDES} from '../../../ports/persistence/query-services/configuration-includes.js';
 
 const INTENTS_PROP_ID = 0x08_00_10_62;
@@ -41,28 +41,14 @@ export class GetControlLinkPropertiesHandler implements QueryHandler<
       );
 
     // FR-GCL-02: link existence
-    const result =
-      await this.queryServices.controlLinkQueryService.findBySystemIds(
-        [controlLinkSystemId],
-        fileSystemId,
-      );
-    if (result.kind === RESULT_KIND.Fail || result.data.length === 0) {
-      throw new ResourceNotFoundException(
-        `ControlLink ${controlLinkSystemId} not found`,
-      );
-    }
-
-    const link = result.data[0];
-
-    const segmentsResult =
-      await this.queryServices.controlLinkQueryService.findSubsystemSegments(
-        controlLinkSystemId,
-        fileSystemId,
-      );
-    const routeLinks = [
-      link,
-      ...(segmentsResult.kind === RESULT_KIND.Fail ? [] : segmentsResult.data),
-    ];
+    const links = this.queryServices.controlLinkQueryService;
+    const link = requireOne(
+      await links.findControlLinks(fileSystemId, [controlLinkSystemId]),
+    );
+    const segments = await links.findControlLinkSegments(fileSystemId, [
+      controlLinkSystemId,
+    ]);
+    const routeLinks = [link, ...segments];
     const endpoints = new Map<number, number>();
     for (const routeLink of routeLinks) {
       endpoints.set(routeLink.peerNodeASystemId, routeLink.nodeAPortSystemId);

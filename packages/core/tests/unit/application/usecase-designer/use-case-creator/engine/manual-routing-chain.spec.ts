@@ -3,6 +3,9 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import {FAILED_ENTITY_REASON} from '../../../../../../src/application/ports/persistence/batch-read.js';
+import type {EntityType} from '../../../../../../src/shared/entity-type.js';
+import {batchOf} from '../../../../../helpers/batch-read.js';
 import {describe, expect, it} from '@jest/globals';
 import {
   CHANGE_OPERATION,
@@ -64,6 +67,26 @@ interface FixtureSeed {
 interface CommandSubgraph {
   readonly systemId: number;
   readonly sgkvs?: readonly (readonly number[])[];
+}
+
+/** The seeded links among `systemIds`, with the rest reported NOT_FOUND. */
+function seededBatch<T extends {systemId: number}, E extends EntityType>(
+  entityType: E,
+  links: readonly T[] | undefined,
+  systemIds: readonly number[],
+) {
+  const found = (links ?? []).filter(link => systemIds.includes(link.systemId));
+  const missing = systemIds.filter(
+    id => !found.some(link => link.systemId === id),
+  );
+  return batchOf(
+    entityType,
+    found,
+    missing.map(systemId => ({
+      systemId,
+      reason: FAILED_ENTITY_REASON.NotFound,
+    })),
+  );
 }
 
 function subgraph(systemId: number): Subgraph {
@@ -324,15 +347,12 @@ function createManualRoutingFixture(seed: FixtureSeed) {
       dataLinks: [...(seed.dataLinks ?? [])],
       unresolvedSubsystemDataLinks: [],
     }),
-    findCanonicalLinksByAnySystemIds: async (systemIds: readonly number[]) =>
-      systemIds.map(systemId => ({
-        requestedSystemId: systemId,
-        isSegment: false,
-        canonicalLink:
-          seed.dataLinks?.find(link => link.systemId === systemId) ?? null,
-      })),
+    findCanonicalLinks: async (
+      _fileSystemId: number,
+      systemIds: readonly number[],
+    ) => seededBatch(ENTITY_TYPE.DataLink, seed.dataLinks, systemIds),
     findChangedInSession: async () => ({added: [], deleted: []}),
-    findIntraUcLinksByFile: async () => [...(seed.dataLinks ?? [])],
+    findIntraUcLinks: async () => [...(seed.dataLinks ?? [])],
     findBySystemId: async (systemId: number) =>
       seed.dataLinks?.find(link => link.systemId === systemId) ?? null,
   };
@@ -341,15 +361,12 @@ function createManualRoutingFixture(seed: FixtureSeed) {
       controlLinks: [...(seed.controlLinks ?? [])],
       unresolvedSubsystemControlLinks: [],
     }),
-    findCanonicalLinksByAnySystemIds: async (systemIds: readonly number[]) =>
-      systemIds.map(systemId => ({
-        requestedSystemId: systemId,
-        isSegment: false,
-        canonicalLink:
-          seed.controlLinks?.find(link => link.systemId === systemId) ?? null,
-      })),
+    findCanonicalLinks: async (
+      _fileSystemId: number,
+      systemIds: readonly number[],
+    ) => seededBatch(ENTITY_TYPE.ControlLink, seed.controlLinks, systemIds),
     findChangedInSession: async () => ({added: [], deleted: []}),
-    findIntraUcLinksByFile: async () => [...(seed.controlLinks ?? [])],
+    findIntraUcLinks: async () => [...(seed.controlLinks ?? [])],
     findBySystemId: async (systemId: number) =>
       seed.controlLinks?.find(link => link.systemId === systemId) ?? null,
   };
