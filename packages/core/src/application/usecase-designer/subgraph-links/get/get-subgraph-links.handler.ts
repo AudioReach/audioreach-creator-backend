@@ -5,9 +5,8 @@
 
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
-import {Result, RESULT_KIND} from '../../../shared/result/result.js';
+import {Result} from '../../../shared/result/result.js';
 import {failedToIssues} from '../../../shared/result/failed-to-issues.js';
-import type {Issue} from '../../../../shared/issues/issue.js';
 import type {SubgraphLinksDto} from '../dto/subgraph-links-dto.js';
 import {
   mapControlLink,
@@ -29,46 +28,35 @@ export class GetSubgraphLinksHandler implements QueryHandler<
       await this.queryServices.projectQueryService.getFileIdByProjectId(
         query.projectId,
       );
-    const [dataLinksResult, controlLinksResult] = await Promise.all([
-      this.queryServices.dataLinkQueryService.findBySubgraph(
-        query.filter,
+    const [dataLinks, controlLinks] = await Promise.all([
+      this.queryServices.dataLinkQueryService.findSubgraphPeerLinks(
         fileSystemId,
+        query.filter,
       ),
-      this.queryServices.controlLinkQueryService.findBySubgraph(
-        query.filter,
+      this.queryServices.controlLinkQueryService.findSubgraphPeerLinks(
         fileSystemId,
+        query.filter,
       ),
     ]);
 
-    if (dataLinksResult.kind === RESULT_KIND.Fail)
-      return Result.fail(...dataLinksResult.issues);
-    if (controlLinksResult.kind === RESULT_KIND.Fail)
-      return Result.fail(...controlLinksResult.issues);
-
     const usecaseIds = [
       ...new Set([
-        ...dataLinksResult.data.flatMap(link => [...link.usecaseSystemIds]),
-        ...controlLinksResult.data.flatMap(link => [...link.usecaseSystemIds]),
+        ...dataLinks.flatMap(link => [...link.usecaseSystemIds]),
+        ...controlLinks.flatMap(link => [...link.usecaseSystemIds]),
       ]),
     ];
 
     if (usecaseIds.length === 0)
-      return this.withIssues(
-        {
-          dataLinks: dataLinksResult.data.map(link => ({
-            link: mapDataLink(link.link),
-            usecases: [],
-          })),
-          controlLinks: controlLinksResult.data.map(link => ({
-            link: mapControlLink(link.link),
-            usecases: [],
-          })),
-        },
-        [
-          ...(dataLinksResult.issues ?? []),
-          ...(controlLinksResult.issues ?? []),
-        ],
-      );
+      return Result.ok({
+        dataLinks: dataLinks.map(link => ({
+          link: mapDataLink(link.link),
+          usecases: [],
+        })),
+        controlLinks: controlLinks.map(link => ({
+          link: mapControlLink(link.link),
+          usecases: [],
+        })),
+      });
 
     const usecases =
       await this.queryServices.useCaseQueryService.findUseCaseReadModels(
@@ -86,7 +74,7 @@ export class GetSubgraphLinksHandler implements QueryHandler<
       usecases.items.map(usecase => [usecase.systemId, mapUseCase(usecase)]),
     );
     const data = {
-      dataLinks: dataLinksResult.data.map(link => ({
+      dataLinks: dataLinks.map(link => ({
         link: mapDataLink(link.link),
         usecases: [...link.usecaseSystemIds]
           .map(systemId => usecasesById.get(systemId))
@@ -95,7 +83,7 @@ export class GetSubgraphLinksHandler implements QueryHandler<
               usecase !== undefined,
           ),
       })),
-      controlLinks: controlLinksResult.data.map(link => ({
+      controlLinks: controlLinks.map(link => ({
         link: mapControlLink(link.link),
         usecases: [...link.usecaseSystemIds]
           .map(systemId => usecasesById.get(systemId))
@@ -106,19 +94,8 @@ export class GetSubgraphLinksHandler implements QueryHandler<
       })),
     };
 
-    return this.withIssues(data, [
-      ...(dataLinksResult.issues ?? []),
-      ...(controlLinksResult.issues ?? []),
-      ...usecaseIssues,
-    ]);
-  }
-
-  private withIssues(
-    data: SubgraphLinksDto,
-    issues: readonly Issue[] | undefined,
-  ): Result<SubgraphLinksDto> {
-    return issues && issues.length > 0
-      ? Result.partial(data, issues)
+    return usecaseIssues.length > 0
+      ? Result.partial(data, usecaseIssues)
       : Result.ok(data);
   }
 }

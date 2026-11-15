@@ -9,11 +9,9 @@ import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.
 import type {PatchControlLinkPropertiesCommand} from './patch-control-link-properties.command.js';
 import type {ControlLinkDto} from '../../usecase/dto/component-collection-dto.js';
 import type {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
-import {
-  ResourceNotFoundException,
-  DomainRuleViolationException,
-} from '../../../../shared/exceptions/index.js';
+import {DomainRuleViolationException} from '../../../../shared/exceptions/index.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
+import {requireOne} from '../../../shared/result/require-one.js';
 import {mapControlLink} from '../../usecase/dto/component-collection-dto.js';
 
 export class PatchControlLinkPropertiesHandler implements CommandHandler<
@@ -60,15 +58,9 @@ export class PatchControlLinkPropertiesHandler implements CommandHandler<
     const repo = this.uow.getControlLinkRepository();
 
     // FR-PCL-02: link existence
-    const [controlLink = null] = await repo.findBySystemIds(
-      [command.controlLinkSystemId],
-      fileSystemId,
+    const controlLink = requireOne(
+      await repo.findControlLinks(fileSystemId, [command.controlLinkSystemId]),
     );
-    if (controlLink === null) {
-      throw new ResourceNotFoundException(
-        `ControlLink ${command.controlLinkSystemId} not found`,
-      );
-    }
 
     const modifiedLinks = new Map<number, ControlLinkDto>();
 
@@ -125,9 +117,9 @@ export class PatchControlLinkPropertiesHandler implements CommandHandler<
   ): Promise<void> {
     const repo = this.uow.getControlLinkRepository();
     for (const portId of visitedPorts) {
-      const existingIntents = await repo.getAllocatedIntentIds(
-        portId,
+      const existingIntents = await repo.findAllocatedIntents(
         fileSystemId,
+        portId,
       );
       const newIntentRows = await Promise.all(
         newIntentIds.map(async intentId => ({
@@ -203,11 +195,11 @@ export class PatchControlLinkPropertiesHandler implements CommandHandler<
       ),
     ];
     if (segmentParentIds.length > 0) {
-      const parentLinks = await repo.findBySystemIds(
-        segmentParentIds,
+      const parentLinks = await repo.findControlLinks(
         fileSystemId,
+        segmentParentIds,
       );
-      for (const link of parentLinks) links.set(link.systemId, link);
+      for (const link of parentLinks.items) links.set(link.systemId, link);
     }
     return {ports, links, portOwners};
   }
@@ -247,14 +239,13 @@ export class PatchControlLinkPropertiesHandler implements CommandHandler<
     fileSystemId: number,
   ): Promise<void> {
     const repo = this.uow.getControlLinkRepository();
-    const entries = await repo.getLinksByPortSystemIds(
-      [currentPort],
-      fileSystemId,
-    );
+    const entries = await repo.findLinkIdsByPorts(fileSystemId, [currentPort]);
     const linkIds = [...new Set(entries.map(entry => entry.linkSystemId))];
     if (linkIds.length === 0) return;
-    const foundLinks = await repo.findBySystemIds(linkIds, fileSystemId);
-    for (const link of foundLinks) {
+    // Entries include subsystem segments; findControlLinks reports those as
+    // failed, so only canonical links touching the port are followed here.
+    const foundLinks = await repo.findControlLinks(fileSystemId, linkIds);
+    for (const link of foundLinks.items) {
       links.set(link.systemId, link);
       portOwners.set(link.nodeAPortSystemId, link.peerNodeASystemId);
       portOwners.set(link.nodeBPortSystemId, link.peerNodeBSystemId);

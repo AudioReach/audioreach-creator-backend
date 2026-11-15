@@ -3,180 +3,143 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {describe, expect, it} from '@jest/globals';
+import {describe, expect, it, jest} from '@jest/globals';
 import type {
   ControlLink,
   DataLink,
 } from '../../../../../../src/domain/index.js';
-import {RESULT_KIND} from '../../../../../../src/application/shared/result/result.js';
+import type {BatchRead} from '../../../../../../src/application/ports/persistence/batch-read.js';
 import {resolveRoutingLinkSelection} from '../../../../../../src/application/usecase-designer/use-case-creator/services/routing-link-selection-resolver.js';
+import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
+import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
+import {batchOf, notFoundBatch} from '../../../../../helpers/batch-read.js';
 
-type LinkResolution<TLink> = {
-  isSegment: boolean;
-  canonicalLink: TLink | null;
-};
+type DataBatch = BatchRead<DataLink, typeof ENTITY_TYPE.DataLink>;
+type ControlBatch = BatchRead<ControlLink, typeof ENTITY_TYPE.ControlLink>;
 
 function makeUow(
-  dataLinks: Map<number, LinkResolution<DataLink>>,
-  controlLinks: Map<number, LinkResolution<ControlLink>>,
+  dataBatch: DataBatch = batchOf(ENTITY_TYPE.DataLink, []),
+  controlBatch: ControlBatch = batchOf(ENTITY_TYPE.ControlLink, []),
 ) {
-  return {
-    getDataLinkRepository: () => ({
-      findCanonicalLinksByAnySystemIds: async (ids: readonly number[]) =>
-        ids.map(requestedSystemId => ({
-          requestedSystemId,
-          ...(dataLinks.get(requestedSystemId) ?? {
-            isSegment: false,
-            canonicalLink: null,
-          }),
-        })),
-    }),
-    getControlLinkRepository: () => ({
-      findCanonicalLinksByAnySystemIds: async (ids: readonly number[]) =>
-        ids.map(requestedSystemId => ({
-          requestedSystemId,
-          ...(controlLinks.get(requestedSystemId) ?? {
-            isSegment: false,
-            canonicalLink: null,
-          }),
-        })),
-    }),
+  const dataRepo = {
+    findCanonicalLinks: jest.fn(async () => dataBatch),
+  };
+  const controlRepo = {
+    findCanonicalLinks: jest.fn(async () => controlBatch),
+  };
+  const uow = {
+    getDataLinkRepository: () => dataRepo,
+    getControlLinkRepository: () => controlRepo,
   } as never;
+  return {uow, dataRepo, controlRepo};
 }
 
-function canonicalDataLink(id: number): DataLink {
+function dataLink(id: number): DataLink {
   return {systemId: id, fileSystemId: 1} as DataLink;
 }
 
-function canonicalControlLink(id: number): ControlLink {
+function controlLink(id: number): ControlLink {
   return {systemId: id, fileSystemId: 1} as ControlLink;
-}
-
-function canonicalResolution<TLink>(link: TLink): LinkResolution<TLink> {
-  return {isSegment: false, canonicalLink: link};
 }
 
 describe('resolveRoutingLinkSelection', () => {
   it('parses string IDs and returns a canonical RoutingSelection', async () => {
-    const result = await resolveRoutingLinkSelection(
+    const {uow, dataRepo, controlRepo} = makeUow(
+      batchOf(ENTITY_TYPE.DataLink, [dataLink(801)]),
+      batchOf(ENTITY_TYPE.ControlLink, [controlLink(901)]),
+    );
+
+    const selection = await resolveRoutingLinkSelection(
       1,
       {
         activeSubgraphs: [{systemId: '10', valueSystemIds: []}],
         includedDataLinkSystemIds: ['801'],
         includedControlLinkSystemIds: ['901'],
       },
-      makeUow(
-        new Map([[801, canonicalResolution(canonicalDataLink(801))]]),
-        new Map([[901, canonicalResolution(canonicalControlLink(901))]]),
-      ),
+      uow,
     );
 
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind === RESULT_KIND.Fail) throw new Error('Expected success');
-    expect(result.data.includedDataLinkSystemIds).toEqual([801]);
-    expect(result.data.includedControlLinkSystemIds).toEqual([901]);
-    expect(result.data.activeSubgraphs[0]?.systemId).toBe(10);
+    expect(dataRepo.findCanonicalLinks).toHaveBeenCalledWith(1, [801]);
+    expect(controlRepo.findCanonicalLinks).toHaveBeenCalledWith(1, [901]);
+    expect(selection.includedDataLinkSystemIds).toEqual([801]);
+    expect(selection.includedControlLinkSystemIds).toEqual([901]);
+    expect(selection.activeSubgraphs[0]?.systemId).toBe(10);
   });
 
-  it('deduplicates repeated canonical IDs', async () => {
-    const result = await resolveRoutingLinkSelection(
-      1,
-      {
-        activeSubgraphs: [],
-        includedDataLinkSystemIds: ['801', '801'],
-        includedControlLinkSystemIds: [],
-      },
-      makeUow(
-        new Map([[801, canonicalResolution(canonicalDataLink(801))]]),
-        new Map(),
-      ),
-    );
+  it('selects the canonical links returned for segment IDs', async () => {
+    const {uow} = makeUow(batchOf(ENTITY_TYPE.DataLink, [dataLink(801)]));
 
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind === RESULT_KIND.Fail) throw new Error('Expected success');
-    expect(result.data.includedDataLinkSystemIds).toEqual([801]);
-  });
-
-  it('maps a data-link segment ID to its canonical parent', async () => {
-    const result = await resolveRoutingLinkSelection(
+    const selection = await resolveRoutingLinkSelection(
       1,
       {
         activeSubgraphs: [],
         includedDataLinkSystemIds: ['802'],
         includedControlLinkSystemIds: [],
       },
-      makeUow(
-        new Map([
-          [802, {isSegment: true, canonicalLink: canonicalDataLink(801)}],
-        ]),
-        new Map(),
-      ),
+      uow,
     );
 
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind === RESULT_KIND.Fail) throw new Error('Expected success');
-    expect(result.data.includedDataLinkSystemIds).toEqual([801]);
+    expect(selection.includedDataLinkSystemIds).toEqual([801]);
   });
 
-  it('deduplicates canonical and segment IDs resolving to one data link', async () => {
-    const canonical = canonicalDataLink(801);
-    const result = await resolveRoutingLinkSelection(
+  it('does not read links when none are selected', async () => {
+    const {uow, dataRepo, controlRepo} = makeUow();
+
+    const selection = await resolveRoutingLinkSelection(
       1,
       {
         activeSubgraphs: [],
-        includedDataLinkSystemIds: ['801', '802'],
+        includedDataLinkSystemIds: [],
         includedControlLinkSystemIds: [],
       },
-      makeUow(
-        new Map([
-          [801, canonicalResolution(canonical)],
-          [802, {isSegment: true, canonicalLink: canonical}],
-        ]),
-        new Map(),
-      ),
+      uow,
     );
 
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind === RESULT_KIND.Fail) throw new Error('Expected success');
-    expect(result.data.includedDataLinkSystemIds).toEqual([801]);
+    expect(dataRepo.findCanonicalLinks).not.toHaveBeenCalled();
+    expect(controlRepo.findCanonicalLinks).not.toHaveBeenCalled();
+    expect(selection.includedDataLinkSystemIds).toEqual([]);
+    expect(selection.includedControlLinkSystemIds).toEqual([]);
   });
 
-  it('fails when an ID is not a canonical link or a resolved segment', async () => {
-    const result = await resolveRoutingLinkSelection(
-      1,
-      {
-        activeSubgraphs: [],
-        includedDataLinkSystemIds: ['555'],
-        includedControlLinkSystemIds: [],
-      },
-      makeUow(
-        new Map([[555, {isSegment: false, canonicalLink: null}]]),
-        new Map(),
-      ),
-    );
+  it('throws ResourceNotFoundException when a data link is not found', async () => {
+    const {uow} = makeUow(notFoundBatch(ENTITY_TYPE.DataLink, 555));
 
-    expect(result.kind).toBe(RESULT_KIND.Fail);
+    await expect(
+      resolveRoutingLinkSelection(
+        1,
+        {
+          activeSubgraphs: [],
+          includedDataLinkSystemIds: ['555'],
+          includedControlLinkSystemIds: [],
+        },
+        uow,
+      ),
+    ).rejects.toThrow(ResourceNotFoundException);
   });
 
-  it('fails when a supplied segment is unresolved', async () => {
-    const result = await resolveRoutingLinkSelection(
-      1,
-      {
-        activeSubgraphs: [],
-        includedDataLinkSystemIds: ['802'],
-        includedControlLinkSystemIds: [],
-      },
-      makeUow(
-        new Map([[802, {isSegment: true, canonicalLink: null}]]),
-        new Map(),
-      ),
+  it('throws ResourceNotFoundException when a control link is not found', async () => {
+    const {uow} = makeUow(
+      undefined,
+      notFoundBatch(ENTITY_TYPE.ControlLink, 902),
     );
 
-    expect(result.kind).toBe(RESULT_KIND.Fail);
+    await expect(
+      resolveRoutingLinkSelection(
+        1,
+        {
+          activeSubgraphs: [],
+          includedDataLinkSystemIds: [],
+          includedControlLinkSystemIds: ['902'],
+        },
+        uow,
+      ),
+    ).rejects.toThrow(ResourceNotFoundException);
   });
 
   it('preserves optional usecaseSystemIds', async () => {
-    const result = await resolveRoutingLinkSelection(
+    const {uow} = makeUow();
+
+    const selection = await resolveRoutingLinkSelection(
       1,
       {
         activeSubgraphs: [],
@@ -184,11 +147,9 @@ describe('resolveRoutingLinkSelection', () => {
         includedControlLinkSystemIds: [],
         usecaseSystemIds: ['67890'],
       },
-      makeUow(new Map(), new Map()),
+      uow,
     );
 
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind === RESULT_KIND.Fail) throw new Error('Expected success');
-    expect(result.data.selectedUsecaseSystemIds).toEqual([67890]);
+    expect(selection.selectedUsecaseSystemIds).toEqual([67890]);
   });
 });

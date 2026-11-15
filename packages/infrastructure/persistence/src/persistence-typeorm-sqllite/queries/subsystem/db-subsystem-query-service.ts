@@ -4,15 +4,9 @@
  */
 
 import type {DataSource} from 'typeorm';
-import type {
-  SubsystemQueryService,
-  SubsystemReadModel,
-  ControlLinkReadModel,
-  SubsystemDataLinkReadModel,
-} from '@arc/core';
+import type {SubsystemQueryService, SubsystemReadModel} from '@arc/core';
 import {Result, IssueFactory} from '@arc/core';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
-import {UseCaseQueryMappers} from '../usecase/usecase-query-mappers.js';
 import {SubsystemOverlayFetcher} from '../../fetchers/subsystem-overlay-fetcher.js';
 import {NodeOverlayFetcher} from '../../fetchers/node-overlay-fetcher.js';
 import {
@@ -20,13 +14,7 @@ import {
   type OverlaidControlPort,
   type OverlaidDataPort,
 } from '../../fetchers/port-overlay-fetcher.js';
-import type {ControlLinkBase} from '../../entity-schema/usecase-data/Links/control-link.js';
-import type {DataLinkBase} from '../../entity-schema/usecase-data/Links/data-link.js';
-import type {UsecaseOverlayFetcher} from '../../fetchers/usecase-overlay-fetcher.js';
-import type {
-  LinkOverlayFetcher,
-  EffectiveSubsystemControlLinkRow,
-} from '../../fetchers/link-overlay-fetcher.js';
+import type {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
 import {NODE_TYPE} from '../../entity-schema/usecase-data/node/node.schema.js';
 import type {KeyValueDefinitionFetcher} from '../../fetchers/definitions/key-value/key-value-definition-fetcher.js';
 
@@ -41,7 +29,6 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
     private readonly dataSource: DataSource,
     private readonly subsystemFetcher: SubsystemOverlayFetcher,
     private readonly nodeFetcher: NodeOverlayFetcher,
-    private readonly usecaseFetcher: UsecaseOverlayFetcher,
     private readonly linkFetcher: LinkOverlayFetcher,
     private readonly portFetcher: PortOverlayFetcher,
     private readonly keyValueDefinitionFetcher: KeyValueDefinitionFetcher,
@@ -243,222 +230,5 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
       }
     }
     return counts;
-  }
-
-  /**
-   * Returns virtual control-link segments from subsystem_control_links for
-   * the given usecases. One endpoint may be a subsystem node rather than a
-   * module, representing a boundary crossing. Overlay applied via
-   * LinkOverlayFetcher (FR-3).
-   */
-  async findControlLinkSegmentsByUsecaseIds(
-    usecaseSystemIds: number[],
-    fileSystemId: number,
-  ): Promise<Result<ControlLinkReadModel[]>> {
-    if (usecaseSystemIds.length === 0) return Result.ok([]);
-    try {
-      const sessionId = await resolveActiveSessionId(
-        this.dataSource.manager,
-        fileSystemId,
-      );
-
-      const usecaseSubgraphIds =
-        await this.usecaseFetcher.getSubgraphSystemIdsForUsecases(
-          usecaseSystemIds,
-          sessionId,
-        );
-      if (usecaseSubgraphIds.length === 0) return Result.ok([]);
-
-      const [controlLinks, segments] = await Promise.all([
-        this.linkFetcher.loadControlLinkRows(fileSystemId, sessionId),
-        this.linkFetcher.loadSubsystemControlLinkRows(fileSystemId, sessionId),
-      ]);
-      const usecaseSubgraphIdSet = new Set(usecaseSubgraphIds);
-      const controlLinkBySystemId = new Map(
-        controlLinks.map(link => [link.systemId, link]),
-      );
-      const links: ControlLinkBase[] = segments.flatMap(segment => {
-        const link =
-          segment.controlLinkSystemId === null
-            ? undefined
-            : controlLinkBySystemId.get(segment.controlLinkSystemId);
-        if (
-          link === undefined ||
-          !this.isLinkInUsecaseScope(link, usecaseSubgraphIdSet)
-        ) {
-          return [];
-        }
-        return [
-          {
-            ...link,
-            systemId: segment.systemId,
-            peerNodeASystemId: segment.peerNodeASystemId,
-            peerNodeBSystemId: segment.peerNodeBSystemId,
-            nodeAPortSystemId: segment.nodeAPortSystemId,
-            nodeBPortSystemId: segment.nodeBPortSystemId,
-          },
-        ];
-      });
-      return Result.ok(
-        links.map(cl =>
-          UseCaseQueryMappers.mapToComponentControlLinkReadModel(cl),
-        ),
-      );
-    } catch (error) {
-      return Result.fail(
-        IssueFactory.dbError(
-          error instanceof Error
-            ? error.message
-            : 'Failed to load subsystem control link segments',
-        ),
-      );
-    }
-  }
-
-  /**
-   * Returns virtual data-link segments from subsystem_data_links for the given usecases.
-   * Same scoping and overlay pattern as findControlLinkSegmentsByUsecaseIds.
-   * Returns SubsystemDataLinkReadModel (not DataLinkReadModel) so callers get the
-   * dataLinkSystemId parent reference and the correct type.
-   */
-  async findDataLinkSegmentsByUsecaseIds(
-    usecaseSystemIds: number[],
-    fileSystemId: number,
-  ): Promise<Result<SubsystemDataLinkReadModel[]>> {
-    if (usecaseSystemIds.length === 0) return Result.ok([]);
-    try {
-      const sessionId = await resolveActiveSessionId(
-        this.dataSource.manager,
-        fileSystemId,
-      );
-
-      const usecaseSubgraphIds =
-        await this.usecaseFetcher.getSubgraphSystemIdsForUsecases(
-          usecaseSystemIds,
-          sessionId,
-        );
-      if (usecaseSubgraphIds.length === 0) return Result.ok([]);
-
-      const [dataLinks, segments] = await Promise.all([
-        this.linkFetcher.loadDataLinkRows(fileSystemId, sessionId),
-        this.linkFetcher.loadSubsystemDataLinkRows(fileSystemId, sessionId),
-      ]);
-      const usecaseSubgraphIdSet = new Set(usecaseSubgraphIds);
-      const dataLinkBySystemId = new Map(
-        dataLinks.map(link => [link.systemId, link]),
-      );
-      const links: DataLinkBase[] = segments.flatMap(segment => {
-        const link =
-          segment.dataLinkSystemId === null
-            ? undefined
-            : dataLinkBySystemId.get(segment.dataLinkSystemId);
-        if (
-          link === undefined ||
-          !this.isLinkInUsecaseScope(link, usecaseSubgraphIdSet)
-        ) {
-          return [];
-        }
-        return [
-          {
-            ...link,
-            systemId: segment.systemId,
-            sourceNodeSystemId: segment.sourceNodeSystemId,
-            destinationNodeSystemId: segment.destinationNodeSystemId,
-            sourcePortSystemId: segment.sourcePortSystemId,
-            destinationPortSystemId: segment.destinationPortSystemId,
-          },
-        ];
-      });
-      return Result.ok(
-        links.map(dl =>
-          UseCaseQueryMappers.mapToSubsystemDataLinkReadModel(dl),
-        ),
-      );
-    } catch (error) {
-      return Result.fail(
-        IssueFactory.dbError(
-          error instanceof Error
-            ? error.message
-            : 'Failed to load subsystem data link segments',
-        ),
-      );
-    }
-  }
-
-  async findControlLinkSegments(
-    fileSystemId: number,
-    linkSystemId: number,
-  ): Promise<Result<ControlLinkReadModel[]>> {
-    try {
-      const {segments, controlLinkBySystemId} =
-        await this.loadSegmentsWithLinks(fileSystemId);
-      const relevant = segments.filter(
-        s =>
-          s.controlLinkSystemId === linkSystemId || s.systemId === linkSystemId,
-      );
-      return Result.ok(
-        this.buildControlLinkReadModels(relevant, controlLinkBySystemId),
-      );
-    } catch (error) {
-      return Result.fail(
-        IssueFactory.dbError(
-          error instanceof Error
-            ? error.message
-            : 'Failed to load subsystem control link segments for created link',
-        ),
-      );
-    }
-  }
-
-  private async loadSegmentsWithLinks(fileSystemId: number): Promise<{
-    segments: EffectiveSubsystemControlLinkRow[];
-    controlLinkBySystemId: Map<number, ControlLinkBase>;
-  }> {
-    const sessionId = await resolveActiveSessionId(
-      this.dataSource.manager,
-      fileSystemId,
-    );
-    const [controlLinks, segments] = await Promise.all([
-      this.linkFetcher.loadControlLinkRows(fileSystemId, sessionId),
-      this.linkFetcher.loadSubsystemControlLinkRows(fileSystemId, sessionId),
-    ]);
-    const controlLinkBySystemId = new Map(
-      controlLinks.map(link => [link.systemId, link]),
-    );
-    return {segments, controlLinkBySystemId};
-  }
-
-  private buildControlLinkReadModels(
-    segments: EffectiveSubsystemControlLinkRow[],
-    controlLinkBySystemId: Map<number, ControlLinkBase>,
-  ): ControlLinkReadModel[] {
-    return segments.map(segment => {
-      const canonicalLink =
-        segment.controlLinkSystemId === null
-          ? undefined
-          : controlLinkBySystemId.get(segment.controlLinkSystemId);
-      return {
-        systemId: segment.systemId,
-        peerNodeASystemId: segment.peerNodeASystemId,
-        peerNodeBSystemId: segment.peerNodeBSystemId,
-        nodeAPortSystemId: segment.nodeAPortSystemId,
-        nodeBPortSystemId: segment.nodeBPortSystemId,
-        heapId: canonicalLink?.heapId ?? 1,
-        linkType: segment.linkType,
-      };
-    });
-  }
-
-  private isLinkInUsecaseScope(
-    link: Pick<
-      DataLinkBase | ControlLinkBase,
-      'sourceSubgraphSystemId' | 'destSubgraphSystemId'
-    >,
-    usecaseSubgraphIds: ReadonlySet<number>,
-  ): boolean {
-    return (
-      usecaseSubgraphIds.has(link.sourceSubgraphSystemId) ||
-      usecaseSubgraphIds.has(link.destSubgraphSystemId)
-    );
   }
 }

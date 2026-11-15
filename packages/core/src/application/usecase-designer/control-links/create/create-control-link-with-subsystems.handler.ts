@@ -227,9 +227,9 @@ export class CreateControlLinkWithSubsystemsHandler
       context.fileSystemId,
     );
     const portPairResult = await repository.findByPortPair(
+      context.fileSystemId,
       completed.peerAPortSystemId,
       completed.peerBPortSystemId,
-      context.fileSystemId,
     );
     if (portPairResult !== null && !portPairResult.isDeleted)
       throw new DuplicateLinkException(

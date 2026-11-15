@@ -147,7 +147,7 @@ describe('CreateUsecasesHandler', () => {
       includedDataLinkSystemIds: [],
       includedControlLinkSystemIds: [],
     };
-    const resolve = jest.fn(async () => Result.ok(canonicalSelection));
+    const resolve = jest.fn(async () => canonicalSelection);
     const preparation = new AutoRoutingPreparationService(
       {resolveAllChains: jest.fn(async () => Result.ok())} as never,
       {build: jest.fn(async () => Result.ok(snapshot()))} as never,

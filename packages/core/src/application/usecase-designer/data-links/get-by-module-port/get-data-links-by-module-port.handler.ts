@@ -5,9 +5,8 @@
 
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
-import {Result, RESULT_KIND} from '../../../shared/result/result.js';
+import {Result} from '../../../shared/result/result.js';
 import {failedToIssues} from '../../../shared/result/failed-to-issues.js';
-import type {Issue} from '../../../../shared/issues/issue.js';
 import type {DataLinkWithUsecasesDto} from '../../subgraph/dto/subgraph-pair-dto.js';
 import {mapDataLink} from '../../usecase/dto/component-collection-dto.js';
 import {mapUseCase} from '../../usecase/dto/usecase-dto.js';
@@ -26,26 +25,22 @@ export class GetDataLinksByModulePortHandler implements QueryHandler<
       await this.queryServices.projectQueryService.getFileIdByProjectId(
         query.projectId,
       );
-    const linksResult =
-      await this.queryServices.dataLinkQueryService.findByModulePort(
-        query.filter,
+    const links =
+      await this.queryServices.dataLinkQueryService.findSubgraphPeerLinks(
         fileSystemId,
+        query.filter,
       );
-
-    if (linksResult.kind === RESULT_KIND.Fail)
-      return Result.fail(...linksResult.issues);
-    if (linksResult.data.length === 0) return Result.ok([], linksResult.issues);
+    if (links.length === 0) return Result.ok([]);
 
     const usecaseIds = [
-      ...new Set(linksResult.data.flatMap(link => [...link.usecaseSystemIds])),
+      ...new Set(links.flatMap(link => [...link.usecaseSystemIds])),
     ];
     if (usecaseIds.length === 0)
-      return this.withIssues(
-        linksResult.data.map(link => ({
+      return Result.ok(
+        links.map(link => ({
           link: mapDataLink(link.link),
           usecases: [],
         })),
-        linksResult.issues,
       );
 
     const usecases =
@@ -63,7 +58,7 @@ export class GetDataLinksByModulePortHandler implements QueryHandler<
     const usecasesById = new Map(
       usecases.items.map(usecase => [usecase.systemId, mapUseCase(usecase)]),
     );
-    const data = linksResult.data.map(link => ({
+    const data = links.map(link => ({
       link: mapDataLink(link.link),
       usecases: [...link.usecaseSystemIds]
         .map(systemId => usecasesById.get(systemId))
@@ -73,18 +68,8 @@ export class GetDataLinksByModulePortHandler implements QueryHandler<
         ),
     }));
 
-    return this.withIssues(data, [
-      ...(linksResult.issues ?? []),
-      ...usecaseIssues,
-    ]);
-  }
-
-  private withIssues(
-    data: DataLinkWithUsecasesDto[],
-    issues: readonly Issue[] | undefined,
-  ): Result<DataLinkWithUsecasesDto[]> {
-    return issues && issues.length > 0
-      ? Result.partial(data, issues)
+    return usecaseIssues.length > 0
+      ? Result.partial(data, usecaseIssues)
       : Result.ok(data);
   }
 }

@@ -42,13 +42,10 @@ import {DbContainerPropertyDefQueryService} from './container-property-definitio
 import {DbSubgraphPropertyDefQueryService} from './subgraph-property-definition/db-subgraph-property-def-query-service.js';
 import {TypeOrmSessionRepository} from '../repositories/session/typeorm-session.repository.js';
 import {DbDriverModuleDefinitionQueryService} from './driver-module-definition/db-driver-module-definition-query-service.js';
-import {DbDataLinkQueryService} from './link/db-data-link-query-service.js';
-import {DbControlLinkQueryService} from './link/db-control-link-query-service.js';
+import {createDataLinkQueryService} from './link/create-data-link-query-service.js';
+import {createControlLinkQueryService} from './link/create-control-link-query-service.js';
 import {DbSubsystemQueryService} from './subsystem/db-subsystem-query-service.js';
 import {DbNodeQueryService} from './node/db-node-query-service.js';
-import {UseCaseCategoryFetcher} from '../fetchers/usecase-category-fetcher.js';
-import {UsecaseGkvValuesFetcher} from '../fetchers/usecase-gkv-values-fetcher.js';
-import {UsecaseOverlayFetcher} from '../fetchers/usecase-overlay-fetcher.js';
 import {LinkOverlayFetcher} from '../fetchers/link-overlay-fetcher.js';
 import {PortOverlayFetcher} from '../fetchers/port-overlay-fetcher.js';
 import {IntentFetcher} from '../fetchers/intent-fetcher.js';
@@ -93,20 +90,6 @@ export class DbQueryServices implements QueryServices {
     const sessionRepo = new TypeOrmSessionRepository(dataSource.manager);
 
     // ── Shared fetchers — created once, injected into all services that need them ─
-    const usecaseCategoryFetcher = new UseCaseCategoryFetcher(
-      dataSource.manager,
-      editActionsQueryService,
-    );
-    const usecaseGkvValuesFetcher = new UsecaseGkvValuesFetcher(
-      dataSource.manager,
-      editActionsQueryService,
-    );
-    const usecaseOverlayFetcher = new UsecaseOverlayFetcher(
-      dataSource.manager,
-      editActionsQueryService,
-      usecaseCategoryFetcher,
-      usecaseGkvValuesFetcher,
-    );
     const linkOverlayFetcher = new LinkOverlayFetcher(
       dataSource.manager,
       editActionsQueryService,
@@ -238,21 +221,14 @@ export class DbQueryServices implements QueryServices {
     this.useCaseQueryService = createUseCaseQueryService(dataSource.manager);
 
     // Individual link + subsystem query services
-    this.dataLinkQueryService = new DbDataLinkQueryService(
-      dataSource,
-      usecaseOverlayFetcher,
-      linkOverlayFetcher,
-    );
-    this.controlLinkQueryService = new DbControlLinkQueryService(
-      dataSource,
-      usecaseOverlayFetcher,
-      linkOverlayFetcher,
+    this.dataLinkQueryService = createDataLinkQueryService(dataSource.manager);
+    this.controlLinkQueryService = createControlLinkQueryService(
+      dataSource.manager,
     );
     this.subsystemQueryService = new DbSubsystemQueryService(
       dataSource,
       subsystemOverlayFetcher,
       nodeOverlayFetcher,
-      usecaseOverlayFetcher,
       linkOverlayFetcher,
       portOverlayFetcher,
       keyValueDefinitionFetcher,

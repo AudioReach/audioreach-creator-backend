@@ -83,7 +83,7 @@ function makeRepository(
       controlLinks: [],
       unresolvedSubsystemControlLinks: [],
     }),
-    getAllocatedIntentIds: jest.fn().mockResolvedValue([]),
+    findAllocatedIntents: jest.fn().mockResolvedValue([]),
     updateIntents: jest.fn().mockResolvedValue(undefined),
     ...overrides,
   } as ControlLinkRepository;

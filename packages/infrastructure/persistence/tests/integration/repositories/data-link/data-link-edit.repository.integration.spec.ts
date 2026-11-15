@@ -167,14 +167,14 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
 
   it('findByPortPair returns null when no link exists', async () => {
     const repo = makeRepo(qr, sessionId);
-    const result = await repo.findByPortPair(PORT_SRC, PORT_DST, FILE_ID);
+    const result = await repo.findByPortPair(FILE_ID, PORT_SRC, PORT_DST);
     expect(result).toBeNull();
   });
 
   it('findByPortPair returns {isDeleted: true} when a base link has a DELETE edit_action', async () => {
     await seedDeletedDataLink(ds, sessionId, 'grp1');
     const repo = makeRepo(qr, sessionId);
-    const result = await repo.findByPortPair(PORT_SRC, PORT_DST, FILE_ID);
+    const result = await repo.findByPortPair(FILE_ID, PORT_SRC, PORT_DST);
     expect(result).not.toBeNull();
     expect(result!.isDeleted).toBe(true);
     expect(result!.systemId).toBe(DATA_LINK_ID);

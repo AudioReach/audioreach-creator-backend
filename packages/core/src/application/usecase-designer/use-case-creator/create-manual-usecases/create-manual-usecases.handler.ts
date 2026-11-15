@@ -71,14 +71,11 @@ export class CreateManualUsecasesHandler implements CommandHandler<
         );
       if (resolution.kind === RESULT_KIND.Fail)
         throw new DomainRuleViolationException(resolution.issues);
-      const selectionResult = await resolveRoutingLinkSelection(
+      const selection = await resolveRoutingLinkSelection(
         command.fileSystemId,
         command.input,
         this.uow,
       );
-      if (selectionResult.kind === RESULT_KIND.Fail)
-        throw new DomainRuleViolationException(selectionResult.issues);
-      const selection = selectionResult.data;
       const graphEdits = await readRoutingGraphEdits(
         this.uow,
         command.fileSystemId,

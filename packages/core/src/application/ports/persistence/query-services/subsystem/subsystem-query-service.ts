@@ -5,8 +5,6 @@
 
 import type {Result} from '../../../../shared/result/result.js';
 import type {SubsystemReadModel} from './subsystem-read-model.js';
-import type {ControlLinkReadModel} from '../link/control-link-read-model.js';
-import type {SubsystemDataLinkReadModel} from '../usecase/query-models/subsystem-data-link-read-model.js';
 
 export interface SubsystemQueryService {
   /**
@@ -20,38 +18,4 @@ export interface SubsystemQueryService {
     fileSystemId: number,
     systemIds?: number[],
   ): Promise<Result<SubsystemReadModel[]>>;
-
-  /**
-   * Returns virtual control-link segments (subsystem_control_links) for the given usecases.
-   *
-   * Unlike raw control_links, virtual segments pre-compute subsystem boundary crossings:
-   *   - Non-boundary link (M3↔M4, both in SS): one segment with both module IDs.
-   *   - Boundary-crossing link (M1 in SS2, M4 in SS child of SS2):
-   *       Outside segment — peerNodeA=M1,          peerNodeB=SS.systemId  (placed at SS2 level)
-   *       Inside  segment — peerNodeA=SS.systemId, peerNodeB=M4           (placed at SS  level)
-   *
-   * Scoped via subsystem_control_links → control_links → use_case_subgraph_pairs.
-   * Overlay applied: session-deleted segments are removed before returning.
-   * Returns the same ControlLinkReadModel DTO — no new type needed.
-   */
-  findControlLinkSegmentsByUsecaseIds(
-    usecaseSystemIds: number[],
-    fileSystemId: number,
-  ): Promise<Result<ControlLinkReadModel[]>>;
-
-  /**
-   * Returns only the SCS segments that belong to the newly created link chain.
-   * linkSystemId is either a canonical ControlLink systemId (resolved
-   * chain, filter by controlLinkSystemId) or a SubsystemControlLink segment
-   * systemId (unresolved chain, filter by segment systemId).
-   */
-  findControlLinkSegments(
-    fileSystemId: number,
-    linkSystemId: number,
-  ): Promise<Result<ControlLinkReadModel[]>>;
-
-  findDataLinkSegmentsByUsecaseIds(
-    usecaseSystemIds: number[],
-    fileSystemId: number,
-  ): Promise<Result<SubsystemDataLinkReadModel[]>>;
 }

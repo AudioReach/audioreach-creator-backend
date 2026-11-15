@@ -4,12 +4,14 @@
  */
 
 import {describe, expect, it, jest} from '@jest/globals';
-import type {DataSource} from 'typeorm';
+import type {EntityManager} from 'typeorm';
 import {
   CONTROL_LINK_TYPE,
   DATA_LINK_TYPE,
   type SubgraphPeerLinkFilter,
 } from '@arc/core';
+import type {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
+import type {IntentFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/intent-fetcher.js';
 import type {LinkOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/link-overlay-fetcher.js';
 import type {UsecaseOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/usecase-overlay-fetcher.js';
 import type {DataLinkBase} from '../../../../src/persistence-typeorm-sqllite/entity-schema/usecase-data/Links/data-link.js';
@@ -19,7 +21,7 @@ import {DbControlLinkQueryService} from '../../../../src/persistence-typeorm-sql
 
 const FILE_ID = 55;
 
-function createDataSource(): DataSource {
+function createManager(): EntityManager {
   const queryBuilder = {
     select: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
@@ -27,12 +29,10 @@ function createDataSource(): DataSource {
     getOne: jest.fn().mockResolvedValue(null),
   };
   return {
-    manager: {
-      getRepository: jest.fn().mockReturnValue({
-        createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
-      }),
-    },
-  } as unknown as DataSource;
+    getRepository: jest.fn().mockReturnValue({
+      createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
+    }),
+  } as unknown as EntityManager;
 }
 
 function dataLink(
@@ -108,19 +108,19 @@ describe('project link query services', () => {
         .mockResolvedValue([usecase(1001, 10, 20), usecase(1002, 20, 10)]),
     };
     const service = new DbDataLinkQueryService(
-      createDataSource(),
+      createManager(),
+      {} as EditActionsQueryService,
       usecaseFetcher as unknown as UsecaseOverlayFetcher,
       linkFetcher as unknown as LinkOverlayFetcher,
     );
 
-    const result = await service.findSubgraphPeerLinks(
-      {subgraphSystemId: 10},
-      FILE_ID,
-    );
+    const result = await service.findSubgraphPeerLinks(FILE_ID, {
+      subgraphSystemId: 10,
+    });
 
-    expect(result.data.map(link => link.link.systemId)).toEqual([1, 2]);
-    expect(result.data[0].usecaseSystemIds).toEqual([1001]);
-    expect(result.data[1].usecaseSystemIds).toEqual([1002]);
+    expect(result.map(link => link.link.systemId)).toEqual([1, 2]);
+    expect(result[0].usecaseSystemIds).toEqual([1001]);
+    expect(result[1].usecaseSystemIds).toEqual([1002]);
     expect(linkFetcher.loadDataLinkRows).toHaveBeenCalledWith(FILE_ID, null, {
       $or: [{sourceSubgraphSystemId: 10}, {destSubgraphSystemId: 10}],
     });
@@ -139,7 +139,8 @@ describe('project link query services', () => {
       getUsecases: jest.fn().mockResolvedValue([]),
     };
     const service = new DbDataLinkQueryService(
-      createDataSource(),
+      createManager(),
+      {} as EditActionsQueryService,
       usecaseFetcher as unknown as UsecaseOverlayFetcher,
       linkFetcher as unknown as LinkOverlayFetcher,
     );
@@ -149,9 +150,9 @@ describe('project link query services', () => {
       moduleSystemId: 101,
       portSystemId: 201,
     };
-    const result = await service.findSubgraphPeerLinks(filter, FILE_ID);
+    const result = await service.findSubgraphPeerLinks(FILE_ID, filter);
 
-    expect(result.data.map(link => link.link.systemId)).toEqual([1, 2]);
+    expect(result.map(link => link.link.systemId)).toEqual([1, 2]);
     expect(linkFetcher.loadDataLinkRows).toHaveBeenCalledWith(FILE_ID, null, {
       $or: [
         {sourceSubgraphSystemId: 10},
@@ -176,17 +177,18 @@ describe('project link query services', () => {
       getUsecases: jest.fn().mockResolvedValue([]),
     };
     const service = new DbDataLinkQueryService(
-      createDataSource(),
+      createManager(),
+      {} as EditActionsQueryService,
       usecaseFetcher as unknown as UsecaseOverlayFetcher,
       linkFetcher as unknown as LinkOverlayFetcher,
     );
 
-    const result = await service.findByModulePort(
-      {moduleSystemId: 101, portSystemId: 201},
-      FILE_ID,
-    );
+    const result = await service.findSubgraphPeerLinks(FILE_ID, {
+      moduleSystemId: 101,
+      portSystemId: 201,
+    });
 
-    expect(result.data.map(link => link.link.systemId)).toEqual([1, 2, 3]);
+    expect(result.map(link => link.link.systemId)).toEqual([1, 2, 3]);
     expect(linkFetcher.loadDataLinkRows).toHaveBeenCalledWith(FILE_ID, null, {
       $or: [
         {sourceNodeSystemId: 101, sourcePortSystemId: 201},
@@ -211,19 +213,20 @@ describe('project link query services', () => {
         .mockResolvedValue([usecase(1001, 10, 20), usecase(1002, 20, 10)]),
     };
     const service = new DbDataLinkQueryService(
-      createDataSource(),
+      createManager(),
+      {} as EditActionsQueryService,
       usecaseFetcher as unknown as UsecaseOverlayFetcher,
       linkFetcher as unknown as LinkOverlayFetcher,
     );
 
-    const result = await service.findBySubgraph(
-      {subgraphSystemId: 10, subgraphPeerSystemId: 20},
-      FILE_ID,
-    );
+    const result = await service.findSubgraphPeerLinks(FILE_ID, {
+      subgraphSystemId: 10,
+      subgraphPeerSystemId: 20,
+    });
 
-    expect(result.data.map(link => link.link.systemId)).toEqual([1, 2]);
-    expect(result.data[0].usecaseSystemIds).toEqual([1001]);
-    expect(result.data[1].usecaseSystemIds).toEqual([1002]);
+    expect(result.map(link => link.link.systemId)).toEqual([1, 2]);
+    expect(result[0].usecaseSystemIds).toEqual([1001]);
+    expect(result[1].usecaseSystemIds).toEqual([1002]);
     expect(linkFetcher.loadDataLinkRows).toHaveBeenCalledWith(FILE_ID, null, {
       $or: [{sourceSubgraphSystemId: 10}, {destSubgraphSystemId: 10}],
     });
@@ -242,19 +245,20 @@ describe('project link query services', () => {
       getUsecases: jest.fn().mockResolvedValue([usecase(2001, 10, 20)]),
     };
     const service = new DbControlLinkQueryService(
-      createDataSource(),
+      createManager(),
+      {} as EditActionsQueryService,
       usecaseFetcher as unknown as UsecaseOverlayFetcher,
       linkFetcher as unknown as LinkOverlayFetcher,
+      {} as IntentFetcher,
     );
 
-    const result = await service.findSubgraphPeerLinks(
-      {subgraphSystemId: 10},
-      FILE_ID,
-    );
+    const result = await service.findSubgraphPeerLinks(FILE_ID, {
+      subgraphSystemId: 10,
+    });
 
-    expect(result.data.map(link => link.link.systemId)).toEqual([11, 12]);
-    expect(result.data[0].usecaseSystemIds).toEqual([2001]);
-    expect(result.data[1].usecaseSystemIds).toEqual([2001]);
+    expect(result.map(link => link.link.systemId)).toEqual([11, 12]);
+    expect(result[0].usecaseSystemIds).toEqual([2001]);
+    expect(result[1].usecaseSystemIds).toEqual([2001]);
   });
 
   it('matches control-link module ports on either peer and returns empty usecase associations', async () => {
@@ -270,20 +274,20 @@ describe('project link query services', () => {
       getUsecases: jest.fn().mockResolvedValue([]),
     };
     const service = new DbControlLinkQueryService(
-      createDataSource(),
+      createManager(),
+      {} as EditActionsQueryService,
       usecaseFetcher as unknown as UsecaseOverlayFetcher,
       linkFetcher as unknown as LinkOverlayFetcher,
+      {} as IntentFetcher,
     );
 
-    const result = await service.findSubgraphPeerLinks(
-      {moduleSystemId: 101, portSystemId: 201},
-      FILE_ID,
-    );
+    const result = await service.findSubgraphPeerLinks(FILE_ID, {
+      moduleSystemId: 101,
+      portSystemId: 201,
+    });
 
-    expect(result.data.map(link => link.link.systemId)).toEqual([11, 12]);
-    expect(result.data.every(link => link.usecaseSystemIds.length === 0)).toBe(
-      true,
-    );
+    expect(result.map(link => link.link.systemId)).toEqual([11, 12]);
+    expect(result.every(link => link.usecaseSystemIds.length === 0)).toBe(true);
   });
 
   it('returns control links by module-port when either stored peer endpoint matches', async () => {
@@ -300,17 +304,19 @@ describe('project link query services', () => {
       getUsecases: jest.fn().mockResolvedValue([]),
     };
     const service = new DbControlLinkQueryService(
-      createDataSource(),
+      createManager(),
+      {} as EditActionsQueryService,
       usecaseFetcher as unknown as UsecaseOverlayFetcher,
       linkFetcher as unknown as LinkOverlayFetcher,
+      {} as IntentFetcher,
     );
 
-    const result = await service.findByModulePort(
-      {moduleSystemId: 101, portSystemId: 201},
-      FILE_ID,
-    );
+    const result = await service.findSubgraphPeerLinks(FILE_ID, {
+      moduleSystemId: 101,
+      portSystemId: 201,
+    });
 
-    expect(result.data.map(link => link.link.systemId)).toEqual([11, 12, 13]);
+    expect(result.map(link => link.link.systemId)).toEqual([11, 12, 13]);
     expect(linkFetcher.loadControlLinkRows).toHaveBeenCalledWith(
       FILE_ID,
       null,
@@ -337,19 +343,21 @@ describe('project link query services', () => {
       getUsecases: jest.fn().mockResolvedValue([usecase(2001, 10, 20)]),
     };
     const service = new DbControlLinkQueryService(
-      createDataSource(),
+      createManager(),
+      {} as EditActionsQueryService,
       usecaseFetcher as unknown as UsecaseOverlayFetcher,
       linkFetcher as unknown as LinkOverlayFetcher,
+      {} as IntentFetcher,
     );
 
-    const result = await service.findBySubgraph(
-      {subgraphSystemId: 10, subgraphPeerSystemId: 20},
-      FILE_ID,
-    );
+    const result = await service.findSubgraphPeerLinks(FILE_ID, {
+      subgraphSystemId: 10,
+      subgraphPeerSystemId: 20,
+    });
 
-    expect(result.data.map(link => link.link.systemId)).toEqual([11, 12]);
-    expect(result.data[0].usecaseSystemIds).toEqual([2001]);
-    expect(result.data[1].usecaseSystemIds).toEqual([2001]);
+    expect(result.map(link => link.link.systemId)).toEqual([11, 12]);
+    expect(result[0].usecaseSystemIds).toEqual([2001]);
+    expect(result[1].usecaseSystemIds).toEqual([2001]);
     expect(linkFetcher.loadControlLinkRows).toHaveBeenCalledWith(
       FILE_ID,
       null,

@@ -30,6 +30,53 @@ const eventNameRules = [
   },
 ];
 
+/**
+ * Persistence reads return plain data or BatchRead<T>, and throw on
+ * infrastructure errors. Result<T> is for query and command handlers.
+ * One option set for the core ports, one for the persistence package.
+ */
+const noResultInPersistencePorts = {
+  patterns: [
+    {
+      group: ['**/shared/result/**'],
+      message:
+        'Persistence ports must not use Result; return plain data or BatchRead<T> and throw on errors.',
+    },
+  ],
+};
+const noResultInPersistence = {
+  paths: [
+    {
+      name: '@arc/core',
+      importNames: ['Result', 'RESULT_KIND', 'ResultKind'],
+      message:
+        'Persistence must not use Result; return plain data or BatchRead<T> and throw on errors.',
+    },
+  ],
+};
+
+/**
+ * Areas already converted under item 2a, where the rule is an error so they
+ * cannot regress. Paths are relative to PORTS_ROOT and PERSISTENCE_ROOT.
+ */
+const PORTS_ROOT = 'packages/core/src/application/ports/persistence';
+const PERSISTENCE_ROOT =
+  'packages/infrastructure/persistence/src/persistence-typeorm-sqllite';
+const convertedPortAreas = [
+  'query-services/link',
+  'query-services/subgraph',
+  'repositories/data-link',
+  'repositories/control-link',
+  'repositories/subgraph',
+];
+const convertedPersistenceAreas = [
+  'queries/link',
+  'queries/subgraph',
+  'repositories/data-link',
+  'repositories/control-link',
+  'repositories/subgraph',
+];
+
 export default [
   {
     ignores: [
@@ -538,43 +585,28 @@ export default [
       ],
     },
   },
-  // Persistence reads return plain data or BatchRead<T>, and throw on
-  // infrastructure errors. Result<T> is for query and command handlers.
-  // TODO(item 2a): switch to 'error' once every service is converted.
+  // No Result in persistence (see noResultInPersistence above).
+  // TODO(item 2a): switch to 'error' once every service is converted, then
+  // delete the converted-areas blocks below.
   {
-    files: ['packages/core/src/application/ports/persistence/**/*.ts'],
-    rules: {
-      'no-restricted-imports': [
-        'warn',
-        {
-          patterns: [
-            {
-              group: ['**/shared/result/**'],
-              message:
-                'Persistence ports must not use Result; return plain data or BatchRead<T> and throw on errors.',
-            },
-          ],
-        },
-      ],
-    },
+    files: [`${PORTS_ROOT}/**/*.ts`],
+    rules: {'no-restricted-imports': ['warn', noResultInPersistencePorts]},
   },
   {
     files: ['packages/infrastructure/persistence/src/**/*.ts'],
-    rules: {
-      'no-restricted-imports': [
-        'warn',
-        {
-          paths: [
-            {
-              name: '@arc/core',
-              importNames: ['Result', 'RESULT_KIND', 'ResultKind'],
-              message:
-                'Persistence must not use Result; return plain data or BatchRead<T> and throw on errors.',
-            },
-          ],
-        },
-      ],
-    },
+    rules: {'no-restricted-imports': ['warn', noResultInPersistence]},
+  },
+  // Converted areas: an error, so they cannot regress. Add each area to
+  // convertedPortAreas / convertedPersistenceAreas as it converts.
+  {
+    files: convertedPortAreas.map(area => `${PORTS_ROOT}/${area}/**/*.ts`),
+    rules: {'no-restricted-imports': ['error', noResultInPersistencePorts]},
+  },
+  {
+    files: convertedPersistenceAreas.map(
+      area => `${PERSISTENCE_ROOT}/${area}/**/*.ts`,
+    ),
+    rules: {'no-restricted-imports': ['error', noResultInPersistence]},
   },
 
   // Prettier integration - must be last

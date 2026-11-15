@@ -4,10 +4,10 @@
  */
 
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
-import {Result, RESULT_KIND} from '../../../shared/result/result.js';
+import type {DataLinkRepository} from '../../../ports/persistence/repositories/data-link/data-link.repository.js';
+import type {ControlLinkRepository} from '../../../ports/persistence/repositories/control-link/control-link.repository.js';
+import {requireAll} from '../../../shared/result/require-all.js';
 import {parseId} from '../../shared/parse-id.js';
-import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
-import {IssueFactory} from '../../../../shared/issues/factories.js';
 import type {
   AutoRoutingCommandInput,
   RoutingCommandInput,
@@ -16,13 +16,14 @@ import type {RoutingSelection} from '../contracts/routing-input.js';
 
 /**
  * Phase 0: parses request IDs and normalizes canonical and subsystem-segment
- * IDs to their effective canonical links.
+ * IDs to their effective canonical links. Throws ResourceNotFoundException
+ * when a requested link does not exist.
  */
 export async function resolveRoutingLinkSelection(
   fileSystemId: number,
   input: RoutingCommandInput | AutoRoutingCommandInput,
   uow: UnitOfWork,
-): Promise<Result<RoutingSelection>> {
+): Promise<RoutingSelection> {
   const activeSubgraphs = input.activeSubgraphs.map(subgraph => ({
     systemId: parseId(subgraph.systemId, 'activeSubgraphs.systemId'),
     sgkvs: subgraph.valueSystemIds.map(values =>
@@ -30,71 +31,47 @@ export async function resolveRoutingLinkSelection(
     ),
   }));
 
-  const dataResult = await resolveLinks(
-    fileSystemId,
-    input.includedDataLinkSystemIds,
-    'data',
-    uow,
-  );
-  if (dataResult.kind === RESULT_KIND.Fail)
-    return Result.fail(...dataResult.issues);
-
-  const controlResult = await resolveLinks(
-    fileSystemId,
-    input.includedControlLinkSystemIds,
-    'control',
-    uow,
-  );
-  if (controlResult.kind === RESULT_KIND.Fail)
-    return Result.fail(...controlResult.issues);
+  const [includedDataLinkSystemIds, includedControlLinkSystemIds] =
+    await Promise.all([
+      resolveLinks(
+        uow.getDataLinkRepository(),
+        fileSystemId,
+        input.includedDataLinkSystemIds,
+        'includedDataLinkSystemIds',
+      ),
+      resolveLinks(
+        uow.getControlLinkRepository(),
+        fileSystemId,
+        input.includedControlLinkSystemIds,
+        'includedControlLinkSystemIds',
+      ),
+    ]);
 
   const selectedUsecaseSystemIds =
     'usecaseSystemIds' in input && input.usecaseSystemIds?.length
       ? input.usecaseSystemIds.map(id => parseId(id, 'usecaseSystemIds'))
       : undefined;
 
-  return Result.ok({
+  return {
     activeSubgraphs,
-    includedDataLinkSystemIds: dataResult.data,
-    includedControlLinkSystemIds: controlResult.data,
+    includedDataLinkSystemIds,
+    includedControlLinkSystemIds,
     ...(selectedUsecaseSystemIds !== undefined && {selectedUsecaseSystemIds}),
-  });
+  };
 }
 
+/** Parses raw link IDs and returns the IDs of their canonical links. */
 async function resolveLinks(
+  repository: DataLinkRepository | ControlLinkRepository,
   fileSystemId: number,
   rawIds: readonly string[],
-  kind: 'data' | 'control',
-  uow: UnitOfWork,
-): Promise<Result<readonly number[]>> {
-  if (rawIds.length === 0) return Result.ok([]);
-
-  const canonical = new Set<number>();
-  const repository =
-    kind === 'data'
-      ? uow.getDataLinkRepository()
-      : uow.getControlLinkRepository();
-  const entityType =
-    kind === 'data' ? ENTITY_TYPE.DataLink : ENTITY_TYPE.ControlLink;
-
-  const parsedIds = rawIds.map(rawId =>
-    parseId(
-      rawId,
-      `included${kind === 'data' ? 'Data' : 'Control'}LinkSystemIds`,
-    ),
-  );
-  const resolutions = await repository.findCanonicalLinksByAnySystemIds(
-    parsedIds,
-    fileSystemId,
-  );
-  for (const resolution of resolutions) {
-    if (resolution.canonicalLink === null) {
-      return Result.fail(
-        IssueFactory.notFound(entityType, resolution.requestedSystemId),
-      );
-    }
-    canonical.add(resolution.canonicalLink.systemId);
-  }
-
-  return Result.ok([...canonical]);
+  fieldName: string,
+): Promise<readonly number[]> {
+  if (rawIds.length === 0) return [];
+  const ids = rawIds.map(rawId => parseId(rawId, fieldName));
+  const batch = await repository.findCanonicalLinks(fileSystemId, ids);
+  // Explicit type args: the repository union yields a union of batch types.
+  return requireAll<{readonly systemId: number}, typeof batch.entityType>(
+    batch,
+  ).map(link => link.systemId);
 }

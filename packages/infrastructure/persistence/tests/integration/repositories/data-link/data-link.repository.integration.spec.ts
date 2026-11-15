@@ -11,6 +11,8 @@ import {
   PORT_IO_TYPE,
   SOURCE,
   SubsystemDataLink,
+  ENTITY_TYPE,
+  FAILED_ENTITY_REASON,
 } from '@arc/core';
 import {
   SESSION_MODE,
@@ -244,13 +246,13 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
 
   it('returns [] when portSystemIds is empty', async () => {
     const repo = makeRepo(qr, sessionId);
-    expect(await repo.getLinksByPortSystemIds([], FILE_ID)).toEqual([]);
+    expect(await repo.findLinkIdsByPorts(FILE_ID, [])).toEqual([]);
   });
 
   it('returns links whose src port is in the list', async () => {
     await seedDataLink(ds, 999, PORT_SRC, PORT_DST);
     const repo = makeRepo(qr, sessionId);
-    const result = await repo.getLinksByPortSystemIds([PORT_SRC], FILE_ID);
+    const result = await repo.findLinkIdsByPorts(FILE_ID, [PORT_SRC]);
     expect(result).toHaveLength(1);
     expect(result[0].linkSystemId).toBe(999);
     expect(result[0].portSystemId).toBe(PORT_SRC);
@@ -266,10 +268,10 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
       PORT_SEGMENT_DST,
     );
 
-    const result = await makeRepo(qr, sessionId).getLinksByPortSystemIds(
-      [PORT_SEGMENT_SRC, PORT_SEGMENT_DST],
-      FILE_ID,
-    );
+    const result = await makeRepo(qr, sessionId).findLinkIdsByPorts(FILE_ID, [
+      PORT_SEGMENT_SRC,
+      PORT_SEGMENT_DST,
+    ]);
 
     expect(result).toEqual([
       {linkSystemId: 701, portSystemId: PORT_SEGMENT_SRC},
@@ -279,7 +281,7 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
 
   it('returns [] when no links exist for the given ports', async () => {
     const repo = makeRepo(qr, sessionId);
-    expect(await repo.getLinksByPortSystemIds([9999], FILE_ID)).toEqual([]);
+    expect(await repo.findLinkIdsByPorts(FILE_ID, [9999])).toEqual([]);
   });
 
   it('groups attached and standalone subsystem data links', async () => {
@@ -459,51 +461,57 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
   });
 
   describe('Phase-0 subsystem-link resolution', () => {
-    it('normalizes canonical and segment IDs in request order', async () => {
+    it('resolves link and segment IDs to one canonical link and reports unknown IDs', async () => {
       await seedDataLink(ds, 500, PORT_SRC, PORT_DST);
       await seedSubsystemDataLink(ds, 701, 500);
 
-      const resolutions = await makeRepo(
-        qr,
-        sessionId,
-      ).findCanonicalLinksByAnySystemIds([500, 701, 999], FILE_ID);
+      const batch = await makeRepo(qr, sessionId).findCanonicalLinks(
+        FILE_ID,
+        [500, 701, 999],
+      );
 
-      expect(
-        resolutions.map(resolution => resolution.requestedSystemId),
-      ).toEqual([500, 701, 999]);
-      expect(resolutions[0]).toMatchObject({
-        isSegment: false,
-        canonicalLink: {systemId: 500},
-      });
-      expect(resolutions[1]).toMatchObject({
-        isSegment: true,
-        canonicalLink: {systemId: 500},
-      });
-      expect(resolutions[2]).toMatchObject({
-        isSegment: false,
-        canonicalLink: null,
-      });
+      expect(batch.entityType).toBe(ENTITY_TYPE.DataLink);
+      expect(batch.items.map(link => link.systemId)).toEqual([500]);
+      expect(batch.failed).toEqual([
+        {systemId: 999, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
     });
 
-    it('identifies an unresolved session-created segment without a canonical parent', async () => {
+    it('resolves a segment ID alone by loading its parent link', async () => {
+      await seedDataLink(ds, 500, PORT_SRC, PORT_DST);
+      await seedSubsystemDataLink(ds, 701, 500);
+
+      const batch = await makeRepo(qr, sessionId).findCanonicalLinks(
+        FILE_ID,
+        [701],
+      );
+
+      expect(batch.items.map(link => link.systemId)).toEqual([500]);
+      expect(batch.failed).toEqual([]);
+    });
+
+    it('reports an unresolved session-created segment as not found', async () => {
       await seedUnresolvedSubsystemDataLink(qr, sessionId, 703);
 
-      const [resolution] = await makeRepo(
-        qr,
-        sessionId,
-      ).findCanonicalLinksByAnySystemIds([703], FILE_ID);
+      const batch = await makeRepo(qr, sessionId).findCanonicalLinks(
+        FILE_ID,
+        [703],
+      );
 
-      expect(resolution).toMatchObject({
-        requestedSystemId: 703,
-        isSegment: true,
-        canonicalLink: null,
-      });
+      expect(batch.items).toEqual([]);
+      expect(batch.failed).toEqual([
+        {systemId: 703, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
     });
 
-    it('short-circuits canonical-ID normalization for empty input', async () => {
+    it('returns an empty batch for empty input', async () => {
       await expect(
-        makeRepo(qr, sessionId).findCanonicalLinksByAnySystemIds([], FILE_ID),
-      ).resolves.toEqual([]);
+        makeRepo(qr, sessionId).findCanonicalLinks(FILE_ID, []),
+      ).resolves.toEqual({
+        entityType: ENTITY_TYPE.DataLink,
+        items: [],
+        failed: [],
+      });
     });
 
     it('writes an UPDATE delta for a committed segment and exposes its new parent in the overlay', async () => {

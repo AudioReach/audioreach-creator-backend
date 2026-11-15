@@ -154,9 +154,9 @@ export class CreateDataLinkWithSubsystemsHandler implements CommandHandler<
 
     const dlEditRepo = uow.getDataLinkRepository();
     const existing = await dlEditRepo.findByPortPair(
+      fileSystemId,
       srcPortId,
       dstPortId,
-      fileSystemId,
     );
     if (existing !== null && !existing.isDeleted) {
       throw new ConflictException(

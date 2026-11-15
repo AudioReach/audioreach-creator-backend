@@ -162,7 +162,7 @@ function linkIds(links: Array<{systemId: number}>): number[] {
 // Link constants for the primary topology
 //
 // Raw links come from dataLinkQueryService.findByUsecaseIds — always module-to-module.
-// SLS segments come from subsystemQueryService.findDataLinkSegmentsByUsecaseIds —
+// SLS segments come from dataLinkQueryService.findSegmentsByUsecaseIds —
 // typed as SubsystemDataLinkReadModel[], passed to buildSubsystemTree as the 3rd arg.
 //
 // Raw link ID map:

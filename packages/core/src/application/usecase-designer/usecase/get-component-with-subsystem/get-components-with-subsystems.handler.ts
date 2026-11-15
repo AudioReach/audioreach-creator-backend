@@ -69,20 +69,10 @@ export class GetComponentsWithSubsystemsHandler implements QueryHandler<
     const hasSubsystems = subsystemsResult.data.length > 0;
 
     // Pass 2a: always load raw links in parallel (source of truth for all connections — QWS-04).
-    const [rawDataLinksResult, rawControlLinksResult] = await Promise.all([
-      svc.dataLinkQueryService.findByUsecaseIds(systemIds, fileId),
-      svc.controlLinkQueryService.findByUsecaseIds(systemIds, fileId),
+    const [rawDataLinks, rawControlLinks] = await Promise.all([
+      svc.dataLinkQueryService.findByUsecaseIds(fileId, systemIds),
+      svc.controlLinkQueryService.findByUsecaseIds(fileId, systemIds),
     ]);
-
-    if (rawDataLinksResult.kind === RESULT_KIND.Fail)
-      throw new Error(
-        rawDataLinksResult.issues[0]?.message ?? 'Failed to load data links',
-      );
-    if (rawControlLinksResult.kind === RESULT_KIND.Fail)
-      throw new Error(
-        rawControlLinksResult.issues[0]?.message ??
-          'Failed to load control links',
-      );
 
     // Build subsystem ID set to identify boundary-crossing virtual segments.
     // A virtual segment is boundary-crossing when one endpoint is a subsystem node (not a module).
@@ -98,30 +88,15 @@ export class GetComponentsWithSubsystemsHandler implements QueryHandler<
     const extraControlLinks: ControlLinkReadModel[] = [];
 
     if (hasSubsystems) {
-      const [vDataResult, vControlResult] = await Promise.all([
-        svc.subsystemQueryService.findDataLinkSegmentsByUsecaseIds(
-          systemIds,
-          fileId,
-        ),
-        svc.subsystemQueryService.findControlLinkSegmentsByUsecaseIds(
-          systemIds,
-          fileId,
-        ),
+      const [dataSegments, controlSegments] = await Promise.all([
+        svc.dataLinkQueryService.findSegmentsByUsecaseIds(fileId, systemIds),
+        svc.controlLinkQueryService.findSegmentsByUsecaseIds(fileId, systemIds),
       ]);
-      if (vDataResult.kind === RESULT_KIND.Fail)
-        throw new Error(
-          vDataResult.issues[0]?.message ?? 'Failed to load virtual data links',
-        );
-      if (vControlResult.kind === RESULT_KIND.Fail)
-        throw new Error(
-          vControlResult.issues[0]?.message ??
-            'Failed to load virtual control links',
-        );
 
-      slsSegments = vDataResult.data;
+      slsSegments = dataSegments;
 
       extraControlLinks.push(
-        ...vControlResult.data.filter(
+        ...controlSegments.filter(
           cl =>
             subsystemIds.has(cl.peerNodeASystemId) ||
             subsystemIds.has(cl.peerNodeBSystemId),
@@ -131,8 +106,8 @@ export class GetComponentsWithSubsystemsHandler implements QueryHandler<
 
     const flat: ComponentsReadModel = {
       modules: modulesResult.data,
-      dataLinks: rawDataLinksResult.data,
-      controlLinks: [...rawControlLinksResult.data, ...extraControlLinks],
+      dataLinks: rawDataLinks,
+      controlLinks: [...rawControlLinks, ...extraControlLinks],
     };
     const tree: ComponentsWithSubsystemsReadModel = buildSubsystemTree(
       flat,
