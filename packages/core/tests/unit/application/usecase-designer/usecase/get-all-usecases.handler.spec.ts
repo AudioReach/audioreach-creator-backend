@@ -22,9 +22,11 @@ describe('GetAllUseCasesHandler', () => {
         getFileIdByProjectId: jest.fn().mockResolvedValue(42),
       },
       useCaseQueryService: {
-        findUseCaseReadModels: jest
-          .fn()
-          .mockResolvedValue({entityType: ENTITY_TYPE.UseCase, items: useCases, failed: []}),
+        findUseCaseReadModels: jest.fn().mockResolvedValue({
+          entityType: ENTITY_TYPE.UseCase,
+          items: useCases,
+          failed: [],
+        }),
       },
     } as unknown as jest.Mocked<QueryServices>;
   }

@@ -310,9 +310,11 @@ describe('SubsystemFilteredGkvService.resolveFilteredGroups', () => {
   ): jest.Mocked<UseCaseQueryService> {
     return {
       findUseCaseFilteredTopologyData: jest.fn().mockResolvedValue(topology),
-      findUseCaseReadModels: jest
-        .fn()
-        .mockResolvedValue({entityType: ENTITY_TYPE.UseCase, items: usecases, failed: []}),
+      findUseCaseReadModels: jest.fn().mockResolvedValue({
+        entityType: ENTITY_TYPE.UseCase,
+        items: usecases,
+        failed: [],
+      }),
     } as unknown as jest.Mocked<UseCaseQueryService>;
   }
 

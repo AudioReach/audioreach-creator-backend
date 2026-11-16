@@ -93,6 +93,15 @@ export interface DataLinkQueryService {
   ): Promise<{linkSystemId: number; portSystemId: number}[]>;
 
   /**
+   * Returns the subsystem segments, resolved or not, with a source or
+   * destination port in `portSystemIds`.
+   */
+  findSegmentsByPorts(
+    fileSystemId: number,
+    portSystemIds: readonly number[],
+  ): Promise<SubsystemDataLinkReadModel[]>;
+
+  /**
    * Returns the data link from the source port to the destination port, or
    * null. `isDeleted` is true when the session deleted it.
    */

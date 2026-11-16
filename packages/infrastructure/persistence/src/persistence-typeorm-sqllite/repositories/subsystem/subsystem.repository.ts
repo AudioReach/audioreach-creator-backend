@@ -470,38 +470,6 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     return port?.portIoType ?? null;
   }
 
-  async isPortOccupiedAsSource(
-    portSystemId: number,
-    fileSystemId: number,
-  ): Promise<boolean> {
-    const count = await this.manager
-      .createQueryBuilder()
-      .select('1')
-      .from(ENTITY_NAMES.SubsystemDataLink, 'sls')
-      .where(
-        'sls.sourcePortSystemId = :portSystemId AND sls.fileSystemId = :fileSystemId',
-        {portSystemId, fileSystemId},
-      )
-      .getCount();
-    return count > 0;
-  }
-
-  async isPortOccupiedAsDest(
-    portSystemId: number,
-    fileSystemId: number,
-  ): Promise<boolean> {
-    const count = await this.manager
-      .createQueryBuilder()
-      .select('1')
-      .from(ENTITY_NAMES.SubsystemDataLink, 'sls')
-      .where(
-        'sls.destinationPortSystemId = :portSystemId AND sls.fileSystemId = :fileSystemId',
-        {portSystemId, fileSystemId},
-      )
-      .getCount();
-    return count > 0;
-  }
-
   async portExists(
     portSystemId: number,
     fileSystemId: number,

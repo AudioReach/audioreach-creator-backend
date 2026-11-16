@@ -284,6 +284,86 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
     expect(await repo.findLinkIdsByPorts(FILE_ID, [9999])).toEqual([]);
   });
 
+  describe('findSegmentsByPorts', () => {
+    it('returns [] when portSystemIds is empty', async () => {
+      await seedDataLink(ds, 500, PORT_SRC, PORT_DST);
+      await seedSubsystemDataLink(ds, 701, 500);
+
+      expect(
+        await makeRepo(qr, sessionId).findSegmentsByPorts(FILE_ID, []),
+      ).toEqual([]);
+    });
+
+    it('returns segments whose source or destination port is in the list', async () => {
+      await seedDataLink(ds, 500, PORT_SRC, PORT_DST);
+      await seedSubsystemDataLink(ds, 701, 500, PORT_SRC, PORT_SEGMENT_DST);
+      await seedSubsystemDataLink(ds, 702, 500, PORT_SEGMENT_SRC, PORT_DST);
+      await seedSubsystemDataLink(
+        ds,
+        703,
+        500,
+        PORT_SEGMENT_SRC,
+        PORT_SEGMENT_DST,
+      );
+
+      const result = await makeRepo(qr, sessionId).findSegmentsByPorts(
+        FILE_ID,
+        [PORT_SRC, PORT_DST],
+      );
+
+      expect(result.map(segment => segment.systemId).sort()).toEqual([
+        701, 702,
+      ]);
+      expect(result.find(segment => segment.systemId === 701)).toMatchObject({
+        sourcePortSystemId: PORT_SRC,
+        destinationPortSystemId: PORT_SEGMENT_DST,
+        dataLinkSystemId: 500,
+      });
+    });
+
+    it('includes a segment created earlier in the session', async () => {
+      await seedUnresolvedSubsystemDataLink(qr, sessionId, 703);
+
+      const result = await makeRepo(qr, sessionId).findSegmentsByPorts(
+        FILE_ID,
+        [PORT_SRC],
+      );
+
+      expect(result.map(segment => segment.systemId)).toEqual([703]);
+    });
+
+    it('excludes a segment deleted earlier in the session', async () => {
+      await seedDataLink(ds, 500, PORT_SRC, PORT_DST);
+      await seedSubsystemDataLink(
+        ds,
+        701,
+        500,
+        PORT_SEGMENT_SRC,
+        PORT_SEGMENT_DST,
+      );
+      const repo = makeRepo(qr, sessionId);
+      await repo.deleteSubsystemDataLinks(
+        [
+          new SubsystemDataLink({
+            systemId: 701,
+            linkType: DATA_LINK_TYPE.Normal,
+            sourceNodeSystemId: NODE_A,
+            destinationNodeSystemId: NODE_B,
+            sourcePortSystemId: PORT_SEGMENT_SRC,
+            destinationPortSystemId: PORT_SEGMENT_DST,
+            dataLinkSystemId: 500,
+            fileSystemId: FILE_ID,
+          }),
+        ],
+        FILE_ID,
+      );
+
+      expect(
+        await repo.findSegmentsByPorts(FILE_ID, [PORT_SEGMENT_SRC]),
+      ).toEqual([]);
+    });
+  });
+
   it('groups attached and standalone subsystem data links', async () => {
     await seedDataLink(ds, 500, PORT_SRC, PORT_DST);
     await seedSubsystemDataLink(ds, 701, 500);

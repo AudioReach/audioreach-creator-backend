@@ -57,24 +57,6 @@ export interface ControlLinkRepository extends ControlLinkQueryService {
     options?: EditOptions,
   ): Promise<void>;
 
-  /**
-   * Returns NORMAL control links between the two peer SGs
-   * (`peerASystemId`, `peerBSystemId`) — order-independent. Control links
-   * are undirected in the routing domain; the `source_sg` / `dest_sg`
-   * columns in the DB are a storage artifact canonicalized by port-ID
-   * ordering (`nodeA_port < nodeB_port`), not a domain-meaningful direction.
-   *
-   * The method matches rows where
-   * `(source_sg = peerA AND dest_sg = peerB) OR (source_sg = peerB AND
-   * dest_sg = peerA)`. Callers pass the two peer SGs; the adapter handles
-   * both stored directions.
-   */
-  findIntraUcLinksForGivenSgPair(
-    fileSystemId: number,
-    peerSgASystemId: number,
-    peerSgBSystemId: number,
-  ): Promise<ControlLink[]>;
-
   createSubsystemControlLinks(
     subsystemControlLinks: readonly SubsystemControlLink[],
     fileSystemId: number,

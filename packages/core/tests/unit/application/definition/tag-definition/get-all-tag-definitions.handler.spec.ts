@@ -40,7 +40,11 @@ describe('GetAllTagDefinitionsHandler', () => {
     ];
     (
       queryServices.tagDefinitionQueryService.findAllTagDefinitions as jest.Mock
-    ).mockResolvedValue({entityType: ENTITY_TYPE.TagDefinition, items: tags, failed: []});
+    ).mockResolvedValue({
+      entityType: ENTITY_TYPE.TagDefinition,
+      items: tags,
+      failed: [],
+    });
 
     const handler = new GetAllTagDefinitionsHandler(queryServices);
     const query = new GetAllTagDefinitionsQuery(7, undefined, 'client-id');
@@ -70,7 +74,11 @@ describe('GetAllTagDefinitionsHandler', () => {
     ).mockResolvedValue(42);
     (
       queryServices.tagDefinitionQueryService.findAllTagDefinitions as jest.Mock
-    ).mockResolvedValue({entityType: ENTITY_TYPE.TagDefinition, items: [], failed: []});
+    ).mockResolvedValue({
+      entityType: ENTITY_TYPE.TagDefinition,
+      items: [],
+      failed: [],
+    });
 
     const handler = new GetAllTagDefinitionsHandler(queryServices);
     const query = new GetAllTagDefinitionsQuery(7, 123, 'client-id');

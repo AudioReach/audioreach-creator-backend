@@ -12,7 +12,12 @@ const id = (item: Item) => item.systemId;
 
 describe('withNotFound', () => {
   it('reports requested ids that were not loaded as NOT_FOUND', () => {
-    const read = withNotFound(ENTITY_TYPE.Subgraph, [1, 2, 3], [{systemId: 2}], id);
+    const read = withNotFound(
+      ENTITY_TYPE.Subgraph,
+      [1, 2, 3],
+      [{systemId: 2}],
+      id,
+    );
 
     expect(read.entityType).toBe(ENTITY_TYPE.Subgraph);
     expect(read.items).toEqual([{systemId: 2}]);
@@ -29,7 +34,9 @@ describe('withNotFound', () => {
       missingRef: {entityType: ENTITY_TYPE.ValueDefinition, systemId: 9},
     };
 
-    const read = withNotFound(ENTITY_TYPE.Subgraph, [1, 1, 2], [], id, [unresolved]);
+    const read = withNotFound(ENTITY_TYPE.Subgraph, [1, 1, 2], [], id, [
+      unresolved,
+    ]);
 
     expect(read.failed).toEqual([
       unresolved,
@@ -38,6 +45,8 @@ describe('withNotFound', () => {
   });
 
   it('returns no failures when every id was loaded', () => {
-    expect(withNotFound(ENTITY_TYPE.Subgraph, [1], [{systemId: 1}], id).failed).toEqual([]);
+    expect(
+      withNotFound(ENTITY_TYPE.Subgraph, [1], [{systemId: 1}], id).failed,
+    ).toEqual([]);
   });
 });

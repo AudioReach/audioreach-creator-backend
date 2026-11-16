@@ -37,7 +37,11 @@ describe('GetKeyDefinitionHandler', () => {
     };
     (
       queryServices.keyValueDefQueryService.findKeyDefinitions as jest.Mock
-    ).mockResolvedValue({entityType: ENTITY_TYPE.KeyDefinition, items: [key], failed: []});
+    ).mockResolvedValue({
+      entityType: ENTITY_TYPE.KeyDefinition,
+      items: [key],
+      failed: [],
+    });
 
     const handler = new GetKeyDefinitionHandler(queryServices);
     const query = new GetKeyDefinitionQuery(7, 1, 'client-id');

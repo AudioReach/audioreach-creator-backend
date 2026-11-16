@@ -232,6 +232,11 @@ export class CreateDataLinkWithSubsystemsHandler implements CommandHandler<
   ): Promise<ComponentCollectionWithSubsystemsDto> {
     // Subsystem-endpoint case (FR-DLS-11): at least one endpoint is a subsystem
     // FR-DLS-03 + FR-DLS-08 + FR-DLS-07: validate subsystem-side ports
+    const dlEditRepo = uow.getDataLinkRepository();
+    const segmentsOnPorts = await dlEditRepo.findSegmentsByPorts(fileSystemId, [
+      srcPortId,
+      dstPortId,
+    ]);
     if (srcIsSubsystem) {
       const srcPortType = await subsystemRepo.getPortIoType(
         srcPortId,
@@ -251,11 +256,11 @@ export class CreateDataLinkWithSubsystemsHandler implements CommandHandler<
           },
         ]);
       }
-      const occupied = await subsystemRepo.isPortOccupiedAsSource(
-        srcPortId,
-        fileSystemId,
-      );
-      if (occupied) {
+      if (
+        segmentsOnPorts.some(
+          segment => segment.sourcePortSystemId === srcPortId,
+        )
+      ) {
         throw new DomainRuleViolationException([
           {
             code: 'PORT_ALREADY_OCCUPIED',
@@ -284,11 +289,11 @@ export class CreateDataLinkWithSubsystemsHandler implements CommandHandler<
           },
         ]);
       }
-      const occupied = await subsystemRepo.isPortOccupiedAsDest(
-        dstPortId,
-        fileSystemId,
-      );
-      if (occupied) {
+      if (
+        segmentsOnPorts.some(
+          segment => segment.destinationPortSystemId === dstPortId,
+        )
+      ) {
         throw new DomainRuleViolationException([
           {
             code: 'PORT_ALREADY_OCCUPIED',
@@ -311,7 +316,6 @@ export class CreateDataLinkWithSubsystemsHandler implements CommandHandler<
       linkType: command.linkType,
     });
 
-    const dlEditRepo = uow.getDataLinkRepository();
     await dlEditRepo.createSubsystemDataLink(sls);
     await uow.commit();
     // FR-DLS-14: return the persisted SLS in the response

@@ -230,13 +230,11 @@ function makeServices(overrides: ServiceOverrides = {}): QueryServices {
       getFileIdByProjectId: jest.fn().mockResolvedValue(fileId),
     },
     useCaseQueryService: {
-      findUseCaseReadModels: jest
-        .fn()
-        .mockResolvedValue({
-          entityType: ENTITY_TYPE.UseCase,
-          items: usecases,
-          failed: failedUsecases,
-        }),
+      findUseCaseReadModels: jest.fn().mockResolvedValue({
+        entityType: ENTITY_TYPE.UseCase,
+        items: usecases,
+        failed: failedUsecases,
+      }),
     },
     spfModuleQueryService: {
       findByUsecaseIds: jest.fn().mockResolvedValue(Result.ok(modules)),
