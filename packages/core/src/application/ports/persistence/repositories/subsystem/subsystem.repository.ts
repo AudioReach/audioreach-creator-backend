@@ -109,24 +109,6 @@ export interface SubsystemRepository {
   ): Promise<PortIoType | null>;
 
   /**
-   * Returns true if portSystemId is the source port of any non-deleted SLS
-   * in the session (base table only — overlay awareness deferred).
-   */
-  isPortOccupiedAsSource(
-    portSystemId: number,
-    fileSystemId: number,
-  ): Promise<boolean>;
-
-  /**
-   * Returns true if portSystemId is the dest port of any non-deleted SLS
-   * in the session (base table only — overlay awareness deferred).
-   */
-  isPortOccupiedAsDest(
-    portSystemId: number,
-    fileSystemId: number,
-  ): Promise<boolean>;
-
-  /**
    * Returns true if a DataPort with the given systemId exists in the file
    * (session overlay + base table). Used to distinguish 404 (port missing)
    * from 422 (port belongs to wrong module).

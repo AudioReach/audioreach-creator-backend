@@ -83,8 +83,6 @@ function makeSubsystemRepo(subsystemIds: number[] = []): SubsystemRepository {
       {systemId: 202, parentSystemId: null, type: 'module'},
     ]),
     getPortIoType: jest.fn().mockResolvedValue(null),
-    isPortOccupiedAsSource: jest.fn().mockResolvedValue(false),
-    isPortOccupiedAsDest: jest.fn().mockResolvedValue(false),
     portExists: jest.fn().mockResolvedValue(true),
   } as unknown as SubsystemRepository;
 }

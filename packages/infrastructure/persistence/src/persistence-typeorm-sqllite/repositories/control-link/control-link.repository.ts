@@ -18,10 +18,8 @@ import type {
   SubsystemControlLink,
   UnitOfWork,
 } from '@arc/core';
-import {CONTROL_LINK_TYPE} from '@arc/core';
 import {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
 import type {EffectiveSubsystemControlLinkRow} from '../../fetchers/link-overlay-fetcher.js';
-import {NodeOverlayFetcher} from '../../fetchers/node-overlay-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
 import type {DbControlLinkQueryService} from '../../queries/link/db-control-link-query-service.js';
 import {createControlLinkQueryService} from '../../queries/link/create-control-link-query-service.js';
@@ -35,7 +33,6 @@ import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 
 export class TypeOrmControlLinkRepository implements ControlLinkRepository {
   private readonly linkFetcher: LinkOverlayFetcher;
-  private readonly nodeFetcher: NodeOverlayFetcher;
   private readonly editActionsQs: EditActionsQueryService;
   /** Query reads, run on the unit-of-work manager. */
   private readonly queries: DbControlLinkQueryService;
@@ -47,7 +44,6 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
   ) {
     this.editActionsQs = new EditActionsQueryService(manager);
     this.linkFetcher = new LinkOverlayFetcher(manager, this.editActionsQs);
-    this.nodeFetcher = new NodeOverlayFetcher(manager, this.editActionsQs);
     this.queries = createControlLinkQueryService(manager);
   }
 
@@ -246,33 +242,6 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
     };
   }
 
-  private sessionId(): number | null {
-    return this.uow.getWriteContext().session.sessionId;
-  }
-
-  async findSubsystemControlRouteContext(fileSystemId: number) {
-    const rows = await this.linkFetcher.loadSubsystemControlLinkRows(
-      fileSystemId,
-      this.sessionId(),
-    );
-    const nodeIds = [
-      ...new Set(
-        rows.flatMap(row => [row.peerNodeASystemId, row.peerNodeBSystemId]),
-      ),
-    ];
-    const nodes = await this.nodeFetcher.fetchMany(
-      nodeIds,
-      fileSystemId,
-      this.sessionId(),
-    );
-    return {
-      subsystemControlLinks: rows.map(row => toSubsystemControlLink(row)),
-      nodeTypeBySystemId: new Map(
-        nodes.map(node => [node.systemId, node.type]),
-      ),
-    };
-  }
-
   async deleteAggregate(
     controlLinkSystemId: number,
     fileSystemId: number,
@@ -337,33 +306,6 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
       session.sessionId,
       this.manager,
     );
-  }
-
-  async findIntraUcLinksForGivenSgPair(
-    fileSystemId: number,
-    peerASystemId: number,
-    peerBSystemId: number,
-  ): Promise<ControlLink[]> {
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-    // Control links are undirected — match both stored directions.
-    const rows = await this.linkFetcher.loadControlLinkRows(
-      fileSystemId,
-      sessionId,
-      {
-        linkType: CONTROL_LINK_TYPE.Normal,
-        $or: [
-          {
-            sourceSubgraphSystemId: peerASystemId,
-            destSubgraphSystemId: peerBSystemId,
-          },
-          {
-            sourceSubgraphSystemId: peerBSystemId,
-            destSubgraphSystemId: peerASystemId,
-          },
-        ],
-      },
-    );
-    return rows.map(row => toControlLink(row));
   }
 
   async resolveSubsystemControlLinks(

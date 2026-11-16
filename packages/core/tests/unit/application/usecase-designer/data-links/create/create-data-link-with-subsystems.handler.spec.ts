@@ -13,6 +13,7 @@ import type {
   SubsystemRepository,
   ModuleRepository,
   PortIoType,
+  SubsystemDataLinkReadModel,
 } from '@arc/core';
 import {DATA_LINK_TYPE} from '@arc/core';
 
@@ -29,8 +30,25 @@ function makeDlEditRepo(): DataLinkRepository {
   return {
     createDataLink: jest.fn().mockResolvedValue(undefined),
     findByPortPair: jest.fn().mockResolvedValue(null),
+    findSegmentsByPorts: jest.fn().mockResolvedValue([]),
     createSubsystemDataLink: jest.fn().mockResolvedValue(undefined),
   } as unknown as DataLinkRepository;
+}
+
+/** An existing subsystem segment between the two ports. */
+function segmentBetween(
+  sourcePortSystemId: number,
+  destinationPortSystemId: number,
+): SubsystemDataLinkReadModel {
+  return {
+    systemId: 900,
+    sourceNodeSystemId: 1,
+    destinationNodeSystemId: 2,
+    sourcePortSystemId,
+    destinationPortSystemId,
+    dataLinkSystemId: null,
+    linkType: DATA_LINK_TYPE.Normal,
+  };
 }
 
 function makeModuleRepo(
@@ -75,8 +93,6 @@ function makeSubsystemRepo(subsystemIds: number[] = []): SubsystemRepository {
       {systemId: 202, parentSystemId: null, type: 'module'},
     ]),
     getPortIoType: jest.fn().mockResolvedValue(null),
-    isPortOccupiedAsSource: jest.fn().mockResolvedValue(false),
-    isPortOccupiedAsDest: jest.fn().mockResolvedValue(false),
   } as unknown as SubsystemRepository;
 }
 
@@ -326,8 +342,6 @@ describe('CreateDataLinkWithSubsystemsHandler', () => {
           {systemId: 502, parentSystemId: null, type: 'subsystem'},
         ]),
         getPortIoType: jest.fn(),
-        isPortOccupiedAsSource: jest.fn(),
-        isPortOccupiedAsDest: jest.fn(),
       } as unknown as SubsystemRepository;
       const uow = makeUow({
         dlEditRepo: dlRepo,
@@ -419,8 +433,8 @@ describe('CreateDataLinkWithSubsystemsHandler', () => {
         subsysRepo.getPortIoType as ReturnType<typeof jest.fn>
       ).mockResolvedValue('INPUT_OUTPUT');
       (
-        subsysRepo.isPortOccupiedAsSource as ReturnType<typeof jest.fn>
-      ).mockResolvedValue(true);
+        dlRepo.findSegmentsByPorts as ReturnType<typeof jest.fn>
+      ).mockResolvedValue([segmentBetween(Number(PORT_SUBSYS_OUT), 999)]);
       const handler = new CreateDataLinkWithSubsystemsHandler(
         makeUow({dlEditRepo: dlRepo, subsystemRepo: subsysRepo}),
         makeIdGen(),
@@ -436,6 +450,34 @@ describe('CreateDataLinkWithSubsystemsHandler', () => {
           ),
         ),
       ).rejects.toThrow('occupied');
+      expect(dlRepo.createSubsystemDataLink).not.toHaveBeenCalled();
+    });
+
+    it('accepts a source subsystem port that is only the destination of an existing segment', async () => {
+      const dlRepo = makeDlEditRepo();
+      const subsysRepo = makeSubsystemRepo([Number(SUBSYS_A)]);
+      (
+        subsysRepo.getPortIoType as ReturnType<typeof jest.fn>
+      ).mockResolvedValue('INPUT_OUTPUT');
+      (
+        dlRepo.findSegmentsByPorts as ReturnType<typeof jest.fn>
+      ).mockResolvedValue([segmentBetween(999, Number(PORT_SUBSYS_OUT))]);
+      const handler = new CreateDataLinkWithSubsystemsHandler(
+        makeUow({dlEditRepo: dlRepo, subsystemRepo: subsysRepo}),
+        makeIdGen(),
+      );
+
+      await handler.handle(
+        new CreateDataLinkWithSubsystemsCommand(
+          DATA_LINK_TYPE.Normal,
+          SUBSYS_A,
+          PORT_SUBSYS_OUT,
+          MOD_B,
+          PORT_DST,
+        ),
+      );
+
+      expect(dlRepo.createSubsystemDataLink).toHaveBeenCalledTimes(1);
     });
 
     it('throws 422 when source subsystem port has wrong portIoType (FR-DLS-08)', async () => {

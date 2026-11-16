@@ -786,7 +786,6 @@ export {
 
 // Use-case-creator — types shared across port surface and persistence adapters
 export type {KvPair} from './application/ports/persistence/repositories/shared/kv-pair.js';
-export type {LinksForPair} from './application/ports/persistence/repositories/shared/links-for-pair.js';
 export type {SessionChanged} from './application/ports/persistence/repositories/shared/session-changed.js';
 export {READ_MODE} from './application/ports/persistence/repositories/shared/read-options.js';
 export type {

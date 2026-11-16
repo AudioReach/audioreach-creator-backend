@@ -97,10 +97,15 @@ export const UseCaseQueryMappers = {
   },
 
   mapToSubsystemDataLinkReadModel(
-    dl: DataLinkBase & {
-      dataLinkSystemId?: number | null;
-      linkType: DataLinkBase['linkType'];
-    },
+    dl: Pick<
+      DataLinkBase,
+      | 'systemId'
+      | 'sourceNodeSystemId'
+      | 'destinationNodeSystemId'
+      | 'sourcePortSystemId'
+      | 'destinationPortSystemId'
+      | 'linkType'
+    > & {dataLinkSystemId?: number | null},
   ): SubsystemDataLinkReadModel {
     return {
       systemId: dl.systemId,

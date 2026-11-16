@@ -49,9 +49,6 @@ describe('PatchControlLinkPropertiesHandler', () => {
             ),
           ),
         ),
-      findSubsystemControlRouteContext: jest.fn().mockResolvedValue({
-        subsystemControlLinks: [],
-      }),
       findLinkIdsByPorts: jest
         .fn()
         .mockResolvedValue([{linkSystemId: 2, portSystemId: 102}]),

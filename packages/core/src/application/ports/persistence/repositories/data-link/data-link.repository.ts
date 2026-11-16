@@ -7,7 +7,6 @@ import type {DataLink} from '../../../../../domain/entities/usecase-data/links/d
 import type {SubsystemDataLink} from '../../../../../domain/entities/usecase-data/links/subsystem-data-link.js';
 import type {PortIoType} from '../../../../../domain/entities/common/enums/port-io-type.js';
 import type {EditOptions} from '../../edit-options.js';
-import type {LinksForPair, SubgraphPair} from '../shared/links-for-pair.js';
 import type {DataLinkQueryService} from '../../query-services/link/data-link-query-service.js';
 
 export interface DataLinkTopology {
@@ -43,17 +42,6 @@ export interface DataLinkRepository extends DataLinkQueryService {
   getAllLinks(fileSystemId: number): Promise<DataLinkTopology>;
 
   /**
-   * Looks up a canonical DataLink by system ID in the effective session overlay.
-   * Returns null when no row matches — either the ID does not exist in this file
-   * or it belongs to a subsystem segment rather than a canonical link.
-   * Subsystem segment resolution is handled separately (PR 9.5).
-   */
-  findBySystemId(
-    systemId: number,
-    fileSystemId: number,
-  ): Promise<DataLink | null>;
-
-  /**
    * Resolves existing unresolved subsystem segments by setting their canonical
    * DataLink ID in the current session overlay. Empty input is a no-op.
    */
@@ -72,22 +60,6 @@ export interface DataLinkRepository extends DataLinkQueryService {
     fileSystemId: number,
     options?: EditOptions,
   ): Promise<void>;
-
-  /**
-   * Returns NORMAL data links matching the given `pairs` — batched,
-   * strictly directional. One `LinksForPair<DataLink>` entry per input pair,
-   * in the same order as the input; `entry.links` is empty when no data
-   * links match that specific `(source_sg, dest_sg)` direction.
-   *
-   * Empty `pairs` short-circuits — returns [] without querying the DB.
-   *
-   * Callers construct `pairs` from their own scope model:
-   *   - Selected UCs' pair sets → one directional pair per UC pair.
-   */
-  findIntraUcLinksForGivenSgPair(
-    fileSystemId: number,
-    pairs: readonly SubgraphPair[],
-  ): Promise<LinksForPair<DataLink>[]>;
 
   createSubsystemDataLinks(
     subsystemDataLinks: readonly SubsystemDataLink[],

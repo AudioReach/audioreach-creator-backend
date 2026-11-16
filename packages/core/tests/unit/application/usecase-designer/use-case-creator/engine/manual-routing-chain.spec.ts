@@ -353,8 +353,6 @@ function createManualRoutingFixture(seed: FixtureSeed) {
     ) => seededBatch(ENTITY_TYPE.DataLink, seed.dataLinks, systemIds),
     findChangedInSession: async () => ({added: [], deleted: []}),
     findIntraUcLinks: async () => [...(seed.dataLinks ?? [])],
-    findBySystemId: async (systemId: number) =>
-      seed.dataLinks?.find(link => link.systemId === systemId) ?? null,
   };
   const controlLinkRepository = {
     getAllLinks: async () => ({
@@ -367,8 +365,6 @@ function createManualRoutingFixture(seed: FixtureSeed) {
     ) => seededBatch(ENTITY_TYPE.ControlLink, seed.controlLinks, systemIds),
     findChangedInSession: async () => ({added: [], deleted: []}),
     findIntraUcLinks: async () => [...(seed.controlLinks ?? [])],
-    findBySystemId: async (systemId: number) =>
-      seed.controlLinks?.find(link => link.systemId === systemId) ?? null,
   };
   const uow = {
     startTransaction: async () => {

@@ -14,16 +14,13 @@ import type {
   DataLinkWithUsecaseIdsReadModel,
   EditOptions,
   ENTITY_TYPE,
-  LinksForPair,
   ReadOptions,
   SessionChanged,
-  SubgraphPair,
   SubgraphPeerLinkFilter,
   SubsystemDataLink,
   SubsystemDataLinkReadModel,
   UnitOfWork,
 } from '@arc/core';
-import {DATA_LINK_TYPE} from '@arc/core';
 import type {EffectiveSubsystemDataLinkRow} from '../../fetchers/link-overlay-fetcher.js';
 import {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
@@ -117,6 +114,13 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     portSystemIds: readonly number[],
   ): Promise<{linkSystemId: number; portSystemId: number}[]> {
     return this.queries.findLinkIdsByPorts(fileSystemId, portSystemIds);
+  }
+
+  findSegmentsByPorts(
+    fileSystemId: number,
+    portSystemIds: readonly number[],
+  ): Promise<SubsystemDataLinkReadModel[]> {
+    return this.queries.findSegmentsByPorts(fileSystemId, portSystemIds);
   }
 
   findByPortPair(
@@ -270,55 +274,6 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
         this.manager,
       );
     }
-  }
-
-  async findIntraUcLinksForGivenSgPair(
-    fileSystemId: number,
-    pairs: readonly SubgraphPair[],
-  ): Promise<LinksForPair<DataLink>[]> {
-    if (pairs.length === 0) return [];
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-    const rows = await this.linkFetcher.loadDataLinkRows(
-      fileSystemId,
-      sessionId,
-      {
-        linkType: DATA_LINK_TYPE.Normal,
-        $or: pairs.map(p => ({
-          sourceSubgraphSystemId: p.sourceSubgraphSystemId,
-          destSubgraphSystemId: p.destSubgraphSystemId,
-        })),
-      },
-    );
-    const result: LinksForPair<DataLink>[] = pairs.map(pair => ({
-      pair,
-      links: [],
-    }));
-    const pairIndex = new Map(
-      pairs.map((p, i) => [
-        `${p.sourceSubgraphSystemId}:${p.destSubgraphSystemId}`,
-        i,
-      ]),
-    );
-    for (const row of rows) {
-      const idx = pairIndex.get(
-        `${row.sourceSubgraphSystemId}:${row.destSubgraphSystemId}`,
-      );
-      if (idx !== undefined) result[idx].links.push(toDataLink(row));
-    }
-    return result;
-  }
-
-  async findBySystemId(
-    systemId: number,
-    fileSystemId: number,
-  ): Promise<DataLink | null> {
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-    const rows = await this.linkFetcher.loadDataLinkRows(
-      fileSystemId,
-      sessionId,
-      {systemId},
-    );
-    return rows.length > 0 ? toDataLink(rows[0]) : null;
   }
 
   async resolveSubsystemDataLinks(

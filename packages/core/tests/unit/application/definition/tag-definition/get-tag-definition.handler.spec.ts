@@ -38,7 +38,11 @@ describe('GetTagDefinitionHandler', () => {
     };
     (
       queryServices.tagDefinitionQueryService.findTagDefinitions as jest.Mock
-    ).mockResolvedValue({entityType: ENTITY_TYPE.TagDefinition, items: [tag], failed: []});
+    ).mockResolvedValue({
+      entityType: ENTITY_TYPE.TagDefinition,
+      items: [tag],
+      failed: [],
+    });
 
     const handler = new GetTagDefinitionHandler(queryServices);
     const query = new GetTagDefinitionQuery(7, 1, 'client-id');

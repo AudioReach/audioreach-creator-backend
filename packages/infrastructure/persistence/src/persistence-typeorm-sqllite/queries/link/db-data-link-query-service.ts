@@ -250,6 +250,22 @@ export class DbDataLinkQueryService implements DataLinkQueryService {
     );
   }
 
+  async findSegmentsByPorts(
+    fileSystemId: number,
+    portSystemIds: readonly number[],
+  ): Promise<SubsystemDataLinkReadModel[]> {
+    if (portSystemIds.length === 0) return [];
+    const ports = [...portSystemIds];
+    const segments = await this.linkFetcher.loadSubsystemDataLinkRows(
+      fileSystemId,
+      await this.sessionId(fileSystemId),
+      {$or: [{sourcePortSystemId: ports}, {destinationPortSystemId: ports}]},
+    );
+    return segments.map(segment =>
+      UseCaseQueryMappers.mapToSubsystemDataLinkReadModel(segment),
+    );
+  }
+
   async findByPortPair(
     fileSystemId: number,
     sourcePortSystemId: number,
