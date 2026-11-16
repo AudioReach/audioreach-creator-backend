@@ -196,7 +196,7 @@ describe('TypeOrmModuleRepository — TKV cal data methods', () => {
   describe('tagExists', () => {
     it('returns true when the tag map row is in DB', async () => {
       const repo = makeRepo(qr, sessionId);
-      expect(await repo.tagExists(MODULE_ID, TAG_DEF_ID)).toBe(true);
+      expect(await repo.tagExists(MODULE_ID, TAG_MAP_ID)).toBe(true);
     });
 
     it('returns false when spfModuleSystemId does not match', async () => {
