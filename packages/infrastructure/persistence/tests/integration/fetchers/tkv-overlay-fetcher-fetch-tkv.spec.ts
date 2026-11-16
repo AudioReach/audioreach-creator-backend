@@ -186,7 +186,7 @@ describe('TkvOverlayFetcher.fetchModuleTagIdMap', () => {
     const ds = getTestDataSource();
     await seedBase(ds);
     const result = await makeFetcher(ds).fetchModuleTagIdMap(
-      TAG_DEF_ID,
+      TAG_MAP_ID,
       MODULE_ID,
       null,
     );

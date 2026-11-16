@@ -265,7 +265,7 @@ export class TkvOverlayFetcher {
       .getMany()) as ModuleTagIdMapRow[];
 
     if (sessionId === null) {
-      return baseRows.some(row => row.tagDefinitionSystemId === tagSystemId);
+      return baseRows.some(row => row.systemId === tagSystemId);
     }
 
     const actions = await this.editActionsSvc.getByAggregateAndTable(
@@ -277,7 +277,7 @@ export class TkvOverlayFetcher {
       this.overlay.applyToCollection(baseRows, actions, {
         matchesEffective: row =>
           row.spfModuleSystemId === spfModuleSystemId &&
-          row.tagDefinitionSystemId === tagSystemId,
+          row.systemId === tagSystemId,
       }).length > 0
     );
   }
