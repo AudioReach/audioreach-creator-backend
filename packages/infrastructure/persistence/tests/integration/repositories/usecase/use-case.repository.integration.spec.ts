@@ -33,6 +33,8 @@ import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-s
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 import {ProjectSessionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
+import {KeyDefinitionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/definitions/key-value/key-definition.schema.js';
+import {ValueDefinitionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/definitions/key-value/value-definition.schema.js';
 import {
   describe,
   it,
@@ -505,6 +507,91 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
         ],
         failed: [],
       });
+    });
+  });
+
+  // ── findUseCaseIdentities (inherited query read) ────────────────────────────
+
+  describe('findUseCaseIdentities', () => {
+    async function seedGkv(ucId: number, valueDefSystemId: number) {
+      await ds.query(
+        `INSERT INTO usecase_gkv_values (system_id, usecase_system_id, value_def_system_id) VALUES (?, ?, ?)`,
+        [nextRelationshipId++, ucId, valueDefSystemId],
+      );
+    }
+
+    beforeEach(async () => {
+      await getTestRepository(KeyDefinitionSchema).save({
+        systemId: 70,
+        fileSystemId: FILE_ID,
+        naturalId: 7,
+        name: 'Device',
+      });
+      await getTestRepository(ValueDefinitionSchema).save({
+        systemId: 700,
+        keySystemId: 70,
+        naturalId: 70,
+        name: 'Speaker',
+      });
+    });
+
+    it('returns the alias and GKV pairs of each use case in request order', async () => {
+      await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
+      await seedUseCase(ds, 1001, 2, '', USECASE_TYPE.Island);
+      await seedGkv(1000, 700);
+      await seedGkv(1001, 700);
+
+      const result = await makeRepo(
+        qr.manager,
+        sessionId,
+      ).findUseCaseIdentities(FILE_ID, [1001, 1000, 4242]);
+
+      const gkv = [
+        {
+          key: {name: 'Device', naturalId: 7},
+          value: {name: 'Speaker', naturalId: 70},
+        },
+      ];
+      expect(result.items).toEqual([
+        {entityType: ENTITY_TYPE.UseCase, systemId: 1001, identity: {gkv}},
+        {
+          entityType: ENTITY_TYPE.UseCase,
+          systemId: 1000,
+          identity: {alias: 'uc-a', gkv},
+        },
+      ]);
+      expect(result.failed).toEqual([
+        {systemId: 4242, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
+    });
+
+    it('reports a use case whose GKV value was deleted in the session as unresolved', async () => {
+      await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
+      await seedGkv(1000, 700);
+      await makeWriter(qr.manager).writeDelete(
+        {
+          targetTable: ENTITY_NAMES.ValueDefinition,
+          targetSystemId: 700,
+          aggregateId: 700,
+          source: SOURCE.Manual,
+        },
+        sessionId,
+        qr.manager,
+      );
+
+      const result = await makeRepo(
+        qr.manager,
+        sessionId,
+      ).findUseCaseIdentities(FILE_ID, [1000]);
+
+      expect(result.items).toEqual([]);
+      expect(result.failed).toEqual([
+        {
+          systemId: 1000,
+          reason: FAILED_ENTITY_REASON.UnresolvedReference,
+          missingRef: {entityType: ENTITY_TYPE.ValueDefinition, systemId: 700},
+        },
+      ]);
     });
   });
 

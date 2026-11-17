@@ -329,6 +329,62 @@ describe('DbSubgraphQueryService (integration)', () => {
     });
   });
 
+  describe('findSubgraphIdentities', () => {
+    it('returns the name and natural ID of each requested subgraph', async () => {
+      await seedSubgraph(ds, {
+        systemId: SUBGRAPH_SYSTEM_ID,
+        naturalId: 5,
+        name: 'SG A',
+      });
+      await seedSubgraph(ds, {systemId: 43, naturalId: 6, name: 'SG B'});
+
+      const result = await svc.findSubgraphIdentities(FILE_ID, [43]);
+
+      expect(result.items).toEqual([
+        {
+          entityType: ENTITY_TYPE.Subgraph,
+          systemId: 43,
+          identity: {name: 'SG B', naturalId: 6},
+        },
+      ]);
+      expect(result.failed).toEqual([]);
+    });
+
+    it('reports a subgraph that does not exist as not found', async () => {
+      await seedSubgraph(ds);
+
+      const result = await svc.findSubgraphIdentities(FILE_ID, [
+        SUBGRAPH_SYSTEM_ID,
+        999,
+      ]);
+
+      expect(result.items.map(item => item.systemId)).toEqual([
+        SUBGRAPH_SYSTEM_ID,
+      ]);
+      expect(result.failed).toEqual([notFound(999)]);
+    });
+
+    it('reports a subgraph deleted in the session as not found', async () => {
+      await seedSubgraph(ds);
+      const sessionId = await seedSession(ds);
+      await seedEditAction(ds, {
+        sessionId,
+        aggregateId: SUBGRAPH_SYSTEM_ID,
+        targetSystemId: SUBGRAPH_SYSTEM_ID,
+        targetTable: ENTITY_NAMES.Subgraph,
+        operation: CHANGE_OPERATION.Delete,
+        newValue: '{}',
+      });
+
+      const result = await svc.findSubgraphIdentities(FILE_ID, [
+        SUBGRAPH_SYSTEM_ID,
+      ]);
+
+      expect(result.items).toEqual([]);
+      expect(result.failed).toEqual([notFound(SUBGRAPH_SYSTEM_ID)]);
+    });
+  });
+
   describe('findSubgraphs / findAllSubgraphs', () => {
     async function seedTwoSubgraphs() {
       await seedSubgraph(ds, {

@@ -526,4 +526,144 @@ describe('DbKeyValueDefQueryService Integration Tests', () => {
       ]);
     });
   });
+
+  describe('findKeyDefinitionIdentities', () => {
+    it('returns the name and natural ID of each key in request order', async () => {
+      const {fileSystemId} = await createFileDependency();
+      await seedKeyWithValues(fileSystemId);
+      await keyDefinitionRepository.save({
+        systemId: 2,
+        fileSystemId,
+        naturalId: 200,
+        name: 'Mic',
+      });
+
+      const result = await service.findKeyDefinitionIdentities(
+        fileSystemId,
+        [2, 1, 99],
+      );
+
+      expect(result.items).toEqual([
+        {
+          entityType: ENTITY_TYPE.KeyDefinition,
+          systemId: 2,
+          identity: {name: 'Mic', naturalId: 200},
+        },
+        {
+          entityType: ENTITY_TYPE.KeyDefinition,
+          systemId: 1,
+          identity: {name: 'Speaker', naturalId: 100},
+        },
+      ]);
+      expect(result.failed).toEqual([
+        {systemId: 99, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
+    });
+
+    it('shows a key renamed in the session by its new name', async () => {
+      const {fileSystemId} = await createFileDependency();
+      await seedKeyWithValues(fileSystemId);
+      const session = await createSession(fileSystemId);
+      await new PendingChangeWriter(
+        new EditActionsQueryService(dataSource.manager),
+        new PendingChangeCache(),
+      ).writeDelta(
+        {
+          targetTable: ENTITY_NAMES.KeyDefinition,
+          targetSystemId: 1,
+          aggregateId: 1,
+          delta: {name: 'Loudspeaker'},
+        },
+        session.sessionId,
+        dataSource.manager,
+      );
+
+      const result = await service.findKeyDefinitionIdentities(
+        fileSystemId,
+        [1],
+      );
+
+      expect(result.items.map(item => item.identity)).toEqual([
+        {name: 'Loudspeaker', naturalId: 100},
+      ]);
+    });
+  });
+
+  describe('findValueDefinitionIdentities', () => {
+    it('returns each value with its key in request order', async () => {
+      const {fileSystemId} = await createFileDependency();
+      await seedKeyWithValues(fileSystemId);
+
+      const result = await service.findValueDefinitionIdentities(
+        fileSystemId,
+        [12, 11, 99],
+      );
+
+      expect(result.items).toEqual([
+        {
+          entityType: ENTITY_TYPE.ValueDefinition,
+          systemId: 12,
+          identity: {
+            key: {name: 'Speaker', naturalId: 100},
+            value: {name: 'Right', naturalId: 2},
+          },
+        },
+        {
+          entityType: ENTITY_TYPE.ValueDefinition,
+          systemId: 11,
+          identity: {
+            key: {name: 'Speaker', naturalId: 100},
+            value: {name: 'Left', naturalId: 1},
+          },
+        },
+      ]);
+      expect(result.failed).toEqual([
+        {systemId: 99, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
+    });
+
+    it('reports a value as not found when its key was deleted in the session', async () => {
+      const {fileSystemId} = await createFileDependency();
+      await seedKeyWithValues(fileSystemId);
+      const session = await createSession(fileSystemId);
+      await editActionRepository.save({
+        targetSystemId: 1,
+        aggregateId: 1,
+        sessionId: session.sessionId,
+        targetTable: ENTITY_NAMES.KeyDefinition,
+        operation: CHANGE_OPERATION.Delete,
+        fieldPath: '$',
+        newValue: {},
+        source: SOURCE.Manual,
+        changeStatus: CHANGE_STATUS.Staged,
+        linkedEntityGroupId: null,
+      });
+
+      const result = await service.findValueDefinitionIdentities(
+        fileSystemId,
+        [11],
+      );
+
+      expect(result.items).toEqual([]);
+      expect(result.failed).toEqual([
+        {systemId: 11, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
+    });
+
+    it('reports a value of another file as not found', async () => {
+      const {fileSystemId} = await createFileDependency('Project A');
+      const other = await createFileDependency('Project B');
+      await seedKeyWithValues(other.fileSystemId);
+
+      const result = await service.findValueDefinitionIdentities(
+        fileSystemId,
+        [11],
+      );
+
+      expect(result.items).toEqual([]);
+      expect(result.failed).toEqual([
+        {systemId: 11, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
+    });
+  });
 });

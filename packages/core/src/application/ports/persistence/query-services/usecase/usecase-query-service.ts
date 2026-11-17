@@ -12,6 +12,7 @@ import type {UseCaseReadModel} from './query-models/usecase-read-model.js';
 import type {UsecaseFilteredTopologyData} from '../../../../services/subsystem-filtered-gkv-service.js';
 import type {UsecaseChangeDescriptor} from '../../../../usecase-designer/use-case-creator/contracts/routing-state.js';
 import type {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
+import type {IdentifiedEntityRef} from '../../../../../domain/identity/entity-identity.js';
 
 /** Narrows `findUseCaseReadModels`. Both fields combine with AND. */
 export interface UseCaseReadModelQuery {
@@ -37,6 +38,22 @@ export interface UseCaseQueryService {
     fileSystemId: number,
     query?: UseCaseReadModelQuery,
   ): Promise<BatchRead<UseCaseReadModel, typeof ENTITY_TYPE.UseCase>>;
+
+  /**
+   * The alias and GKV pairs of each requested use case, in request order.
+   * Missing IDs are reported in `failed` as `NOT_FOUND`; a use case whose
+   * GKV value definition is missing, as `UNRESOLVED_REFERENCE`.
+   */
+  findUseCaseIdentities(
+    fileSystemId: number,
+    ucSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.UseCase>,
+      typeof ENTITY_TYPE.UseCase
+    >
+  >;
+
   /**
    * Builds committed-versus-session snapshots for the emitted changes, one
    * per descriptor in order. All or nothing: throws if any snapshot cannot

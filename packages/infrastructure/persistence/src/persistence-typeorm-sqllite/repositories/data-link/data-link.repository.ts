@@ -13,6 +13,7 @@ import type {
   DataLinkTopology,
   DataLinkWithUsecaseIdsReadModel,
   EditOptions,
+  IdentifiedEntityRef,
   ENTITY_TYPE,
   ReadOptions,
   SessionChanged,
@@ -94,6 +95,18 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     systemIds: readonly number[],
   ): Promise<BatchRead<DataLink, typeof ENTITY_TYPE.DataLink>> {
     return this.queries.findCanonicalLinks(fileSystemId, systemIds);
+  }
+
+  findDataLinkIdentities(
+    fileSystemId: number,
+    systemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.DataLink>,
+      typeof ENTITY_TYPE.DataLink
+    >
+  > {
+    return this.queries.findDataLinkIdentities(fileSystemId, systemIds);
   }
 
   findIntraUcLinks(

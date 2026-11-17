@@ -29,9 +29,12 @@ import {PortOverlayFetcher} from '../../fetchers/port-overlay-fetcher.js';
 import {SubsystemOverlayFetcher} from '../../fetchers/subsystem-overlay-fetcher.js';
 import {SpfModuleOverlayFetcher} from '../../fetchers/spf-module-overlay-fetcher.js';
 import {NodeOverlayFetcher} from '../../fetchers/node-overlay-fetcher.js';
+import {
+  NodeIdentityReader,
+  requireSubsystemNaturalId,
+} from '../../queries/shared/node-identity-reader.js';
 import {KeyValueDefinitionFetcher} from '../../fetchers/definitions/key-value/key-value-definition-fetcher.js';
 import {ValueDefinitionFetcher} from '../../fetchers/definitions/key-value/value-definition-fetcher.js';
-import {withNotFound} from '../../utils/with-not-found.js';
 
 export class TypeOrmSubsystemRepository implements SubsystemRepository {
   private readonly writer: PendingChangeWriter;
@@ -43,6 +46,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
   private readonly nodeFetcher: NodeOverlayFetcher;
   private readonly keyDefinitionFetcher: KeyValueDefinitionFetcher;
   private readonly editActionsQs: EditActionsQueryService;
+  private readonly nodeIdentities: NodeIdentityReader;
 
   constructor(
     writer: PendingChangeWriter,
@@ -64,6 +68,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     this.subsystemFetcher = new SubsystemOverlayFetcher(manager, editActionsQs);
     this.moduleFetcher = new SpfModuleOverlayFetcher(manager, editActionsQs);
     this.nodeFetcher = new NodeOverlayFetcher(manager, editActionsQs);
+    this.nodeIdentities = new NodeIdentityReader(manager, editActionsQs);
     this.keyDefinitionFetcher = new KeyValueDefinitionFetcher(
       manager,
       editActionsQs,
@@ -206,29 +211,10 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
       typeof ENTITY_TYPE.Subsystem
     >
   > {
-    const requested = new Set(subsystemSystemIds);
-    const rows =
-      requested.size === 0
-        ? []
-        : await this.subsystemFetcher.fetchAll(
-            fileSystemId,
-            this.uow.getWriteContext().session.sessionId,
-          );
-    const items = rows
-      .filter(row => requested.has(row.systemId))
-      .map(row => ({
-        entityType: ENTITY_TYPE.Subsystem,
-        systemId: row.systemId,
-        identity: {
-          name: row.name,
-          naturalId: requireSubsystemNaturalId(row.systemId, row.subsystemId),
-        },
-      }));
-    return withNotFound(
-      ENTITY_TYPE.Subsystem,
+    return this.nodeIdentities.readSubsystems(
+      fileSystemId,
+      this.uow.getWriteContext().session.sessionId,
       subsystemSystemIds,
-      items,
-      item => item.systemId,
     );
   }
 
@@ -794,14 +780,4 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
       this.manager,
     );
   }
-}
-
-function requireSubsystemNaturalId(
-  systemId: number,
-  naturalId: number | null | undefined,
-): number {
-  if (naturalId === null || naturalId === undefined) {
-    throw new Error(`Subsystem ${systemId} is missing subsystem_id.`);
-  }
-  return naturalId;
 }

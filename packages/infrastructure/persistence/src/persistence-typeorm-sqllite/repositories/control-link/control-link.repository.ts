@@ -12,6 +12,7 @@ import type {
   ControlLinkTopology,
   ControlLinkWithUsecaseIdsReadModel,
   EditOptions,
+  IdentifiedEntityRef,
   ENTITY_TYPE,
   SessionChanged,
   SubgraphPeerLinkFilter,
@@ -75,6 +76,18 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
     systemIds: readonly number[],
   ): Promise<BatchRead<ControlLink, typeof ENTITY_TYPE.ControlLink>> {
     return this.queries.findControlLinks(fileSystemId, systemIds);
+  }
+
+  findControlLinkIdentities(
+    fileSystemId: number,
+    systemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.ControlLink>,
+      typeof ENTITY_TYPE.ControlLink
+    >
+  > {
+    return this.queries.findControlLinkIdentities(fileSystemId, systemIds);
   }
 
   findControlLinkSegments(

@@ -6,6 +6,7 @@
 import type {DataLink} from '../../../../../domain/entities/usecase-data/links/data-link.js';
 import type {BatchRead} from '../../batch-read.js';
 import type {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
+import type {IdentifiedEntityRef} from '../../../../../domain/identity/entity-identity.js';
 import type {ReadOptions} from '../../repositories/shared/read-options.js';
 import type {SessionChanged} from '../../repositories/shared/session-changed.js';
 import type {DataLinkReadModel} from './data-link-read-model.js';
@@ -114,4 +115,20 @@ export interface DataLinkQueryService {
     sourcePortSystemId: number,
     destinationPortSystemId: number,
   ): Promise<{systemId: number; isDeleted: boolean} | null>;
+
+  /**
+   * The source and destination endpoints (node and port) of each requested
+   * data link, in request order. Subsystem segment IDs and missing IDs are
+   * `NOT_FOUND`; a link whose node, module definition, or port is missing
+   * is `UNRESOLVED_REFERENCE`.
+   */
+  findDataLinkIdentities(
+    fileSystemId: number,
+    systemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.DataLink>,
+      typeof ENTITY_TYPE.DataLink
+    >
+  >;
 }

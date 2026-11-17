@@ -10,6 +10,7 @@ import type {
   IdGenerationPort,
   UnitOfWork,
   EditOptions,
+  IdentifiedEntityRef,
   SessionChanged,
   SubgraphPropertyPayloadsReadModel,
   SubgraphReadModel,
@@ -78,6 +79,18 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
       subgraphSystemIds,
       includes,
     );
+  }
+
+  findSubgraphIdentities(
+    fileSystemId: number,
+    subgraphSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.Subgraph>,
+      typeof ENTITY_TYPE.Subgraph
+    >
+  > {
+    return this.queries.findSubgraphIdentities(fileSystemId, subgraphSystemIds);
   }
 
   findAllSubgraphs(

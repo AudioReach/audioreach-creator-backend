@@ -14,9 +14,11 @@ import type {VcpmCkvBase} from '../../entity-schema/usecase-data/subgraph/subgra
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
 import {withNotFound} from '../../utils/with-not-found.js';
+import {inRequestOrder} from '../../utils/in-request-order.js';
 import {
   type BatchRead,
   type FailedEntity,
+  type IdentifiedEntityRef,
   type KeyValueDefQueryService,
   type KeyValuePairListReadModel,
   type SubgraphPropertyPayloadsReadModel,
@@ -73,6 +75,35 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
       read.items,
       subgraph => subgraph.systemId,
       read.failed,
+    );
+  }
+
+  async findSubgraphIdentities(
+    fileSystemId: number,
+    subgraphSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.Subgraph>,
+      typeof ENTITY_TYPE.Subgraph
+    >
+  > {
+    const requestedIds = [...new Set(subgraphSystemIds)];
+    if (requestedIds.length === 0)
+      return {entityType: ENTITY_TYPE.Subgraph, items: [], failed: []};
+    const sessionId = await resolveActiveSessionId(this.manager, fileSystemId);
+    const rows = await this.subgraphFetcher.fetchMany(fileSystemId, sessionId, {
+      systemId: requestedIds,
+    });
+    const items = inRequestOrder(requestedIds, rows).map(row => ({
+      entityType: ENTITY_TYPE.Subgraph,
+      systemId: row.systemId,
+      identity: {name: row.name, naturalId: row.naturalId},
+    }));
+    return withNotFound(
+      ENTITY_TYPE.Subgraph,
+      requestedIds,
+      items,
+      item => item.systemId,
     );
   }
 
@@ -347,17 +378,6 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
       }),
     }));
   }
-}
-
-/** Rows reordered to match `requestedIds`; missing IDs are skipped. */
-function inRequestOrder<T extends {systemId: number}>(
-  requestedIds: readonly number[],
-  rows: readonly T[],
-): T[] {
-  const byId = new Map(rows.map(row => [row.systemId, row]));
-  return requestedIds
-    .map(id => byId.get(id))
-    .filter((row): row is T => row !== undefined);
 }
 
 function toReadModel(
