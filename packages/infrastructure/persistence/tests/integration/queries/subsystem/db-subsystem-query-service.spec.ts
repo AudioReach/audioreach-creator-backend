@@ -97,8 +97,8 @@ async function seedUsecaseGraph(ds: DataSource): Promise<void> {
   await ds.query(
     `INSERT INTO use_case_subgraphs
        (system_id, usecase_system_id, subgraph_system_id)
-     VALUES (201, ?, ?)`,
-    [USECASE_ID, SOURCE_SUBGRAPH_ID],
+     VALUES (201, ?, ?), (202, ?, ?)`,
+    [USECASE_ID, SOURCE_SUBGRAPH_ID, USECASE_ID, DEST_SUBGRAPH_ID],
   );
   await ds.query(
     `INSERT INTO nodes (system_id, type, parent_id, file_system_id)
@@ -343,6 +343,69 @@ describe('DbSubsystemQueryService segment queries (integration)', () => {
     expect(dataSegments).toEqual([
       expect.objectContaining({systemId: DATA_SEGMENT_ID}),
     ]);
+  });
+
+  it.each([
+    {membership: 'source only', removedSubgraphIds: [DEST_SUBGRAPH_ID]},
+    {membership: 'destination only', removedSubgraphIds: [SOURCE_SUBGRAPH_ID]},
+    {
+      membership: 'neither endpoint',
+      removedSubgraphIds: [SOURCE_SUBGRAPH_ID, DEST_SUBGRAPH_ID],
+    },
+  ])(
+    'excludes segments for $membership membership',
+    async ({removedSubgraphIds}) => {
+      await seedUsecaseGraph(ds);
+      for (const subgraphSystemId of removedSubgraphIds) {
+        await ds.getRepository(ENTITY_NAMES.UseCaseSubgraph).delete({
+          usecaseSystemId: USECASE_ID,
+          subgraphSystemId,
+        });
+      }
+
+      const [controlSegments, dataSegments] = await Promise.all([
+        createControlLinkQueryService(ds.manager).findSegmentsByUsecaseIds(
+          FILE_ID,
+          [USECASE_ID],
+        ),
+        createDataLinkQueryService(ds.manager).findSegmentsByUsecaseIds(
+          FILE_ID,
+          [USECASE_ID],
+        ),
+      ]);
+
+      expect(controlSegments).toEqual([]);
+      expect(dataSegments).toEqual([]);
+    },
+  );
+
+  it('excludes segments when session changes remove an endpoint subgraph from the usecase', async () => {
+    await seedUsecaseGraph(ds);
+    const sessionId = await seedSession(ds);
+    await ds.getRepository(ENTITY_NAMES.EditAction).save({
+      sessionId,
+      aggregateId: USECASE_ID,
+      targetSystemId: 202,
+      targetTable: ENTITY_NAMES.UseCaseSubgraph,
+      operation: CHANGE_OPERATION.Delete,
+      fieldPath: null,
+      newValue: {},
+      source: SOURCE.Manual,
+      changeStatus: CHANGE_STATUS.Staged,
+    });
+
+    const [controlSegments, dataSegments] = await Promise.all([
+      createControlLinkQueryService(ds.manager).findSegmentsByUsecaseIds(
+        FILE_ID,
+        [USECASE_ID],
+      ),
+      createDataLinkQueryService(ds.manager).findSegmentsByUsecaseIds(FILE_ID, [
+        USECASE_ID,
+      ]),
+    ]);
+
+    expect(controlSegments).toEqual([]);
+    expect(dataSegments).toEqual([]);
   });
 
   it('returns subsystem natural IDs, owned ports, intents, and segment counts', async () => {

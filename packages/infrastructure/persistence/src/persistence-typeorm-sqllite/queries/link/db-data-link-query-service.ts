@@ -61,7 +61,18 @@ export class DbDataLinkQueryService implements DataLinkQueryService {
     const subgraphIds = [
       ...new Set(usecases.flatMap(uc => uc.subgraphSystemIds)),
     ];
-    return this.loadBySubgraphIds(fileSystemId, sessionId, subgraphIds);
+    if (subgraphIds.length === 0) return [];
+    const links = await this.linkFetcher.loadDataLinkRows(
+      fileSystemId,
+      sessionId,
+      {
+        sourceSubgraphSystemId: subgraphIds,
+        destSubgraphSystemId: subgraphIds,
+      },
+    );
+    return links.map(link =>
+      UseCaseQueryMappers.mapToComponentDataLinkReadModel(link),
+    );
   }
 
   async findBySubgraphIds(
@@ -136,7 +147,7 @@ export class DbDataLinkQueryService implements DataLinkQueryService {
       if (
         link === undefined ||
         !(
-          usecaseSubgraphIds.has(link.sourceSubgraphSystemId) ||
+          usecaseSubgraphIds.has(link.sourceSubgraphSystemId) &&
           usecaseSubgraphIds.has(link.destSubgraphSystemId)
         )
       ) {

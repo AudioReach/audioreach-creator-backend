@@ -20,8 +20,8 @@ import type {SubsystemDataLinkReadModel} from '../usecase/query-models/subsystem
  */
 export interface DataLinkQueryService {
   /**
-   * Returns the data links with an endpoint in a subgraph of the given
-   * usecases, including links to subgraphs outside them.
+   * Returns data links whose source and destination subgraphs both belong
+   * to the combined subgraph membership of the given usecases.
    */
   findByUsecaseIds(
     fileSystemId: number,
@@ -50,8 +50,8 @@ export interface DataLinkQueryService {
   ): Promise<DataLinkWithUsecaseIdsReadModel[]>;
 
   /**
-   * Returns the subsystem segments of the data links that have an endpoint
-   * in a subgraph of the given usecases.
+   * Returns the subsystem segments of data links whose source and destination
+   * subgraphs both belong to the combined membership of the given usecases.
    */
   findSegmentsByUsecaseIds(
     fileSystemId: number,
