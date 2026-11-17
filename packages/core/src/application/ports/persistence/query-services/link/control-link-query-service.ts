@@ -18,8 +18,8 @@ import type {ControlLinkWithUsecaseIdsReadModel} from './control-link-with-useca
  */
 export interface ControlLinkQueryService {
   /**
-   * Returns the control links with an endpoint in a subgraph of the given
-   * usecases, including links to subgraphs outside them.
+   * Returns control links whose source and destination subgraphs both belong
+   * to the combined subgraph membership of the given usecases.
    */
   findByUsecaseIds(
     fileSystemId: number,
@@ -68,8 +68,8 @@ export interface ControlLinkQueryService {
   ): Promise<ControlLinkReadModel[]>;
 
   /**
-   * Returns the subsystem segments of the control links that have an
-   * endpoint in a subgraph of the given usecases.
+   * Returns the subsystem segments of control links whose source and destination
+   * subgraphs both belong to the combined membership of the given usecases.
    */
   findSegmentsByUsecaseIds(
     fileSystemId: number,
