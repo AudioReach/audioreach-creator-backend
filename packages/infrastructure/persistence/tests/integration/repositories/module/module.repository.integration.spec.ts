@@ -7,6 +7,8 @@ import type {DataSource, QueryRunner} from 'typeorm';
 import {
   CHANGE_OPERATION,
   CHANGE_STATUS,
+  ENTITY_TYPE,
+  FAILED_ENTITY_REASON,
   SOURCE,
   SpfModuleDefinition,
 } from '@arc/core';
@@ -303,6 +305,111 @@ describe('TypeOrmModuleRepository (integration)', () => {
         naturalId: 1,
         stackSize: 12,
       });
+    });
+  });
+
+  describe('findSpfModuleIdentities', () => {
+    const UNNAMED_MODULE_ID = 51;
+
+    async function seedUnnamedModule() {
+      await ds.query(
+        `INSERT INTO nodes (system_id, type, parent_id, file_system_id) VALUES (?, 'module', NULL, ?)`,
+        [UNNAMED_MODULE_ID, FILE_ID],
+      );
+      await ds.query(
+        `INSERT INTO spf_modules (system_id, instance_id, alias, definition_system_id, container_system_id, subgraph_system_id, file_system_id) VALUES (?, 2, '', ?, ?, ?, ?)`,
+        [UNNAMED_MODULE_ID, DEF_ID, CONTAINER_ID, SUBGRAPH_ID, FILE_ID],
+      );
+    }
+
+    it('reads aliases renamed in the session and the definition name', async () => {
+      await seedModule(ds);
+      await seedUnnamedModule();
+      const sessionId = await seedSession(ds);
+      const repo = makeRepo(qr.manager, sessionId);
+      await repo.renameModule(MODULE_ID, 'renamed');
+
+      const batch = await repo.findSpfModuleIdentities(FILE_ID, [
+        MODULE_ID,
+        UNNAMED_MODULE_ID,
+      ]);
+
+      expect(batch.items).toEqual(
+        expect.arrayContaining([
+          {
+            entityType: ENTITY_TYPE.SpfModule,
+            systemId: MODULE_ID,
+            identity: {alias: 'renamed', definitionName: 'def', naturalId: 1},
+          },
+          {
+            entityType: ENTITY_TYPE.SpfModule,
+            systemId: UNNAMED_MODULE_ID,
+            identity: {definitionName: 'def', naturalId: 2},
+          },
+        ]),
+      );
+      expect(batch.items).toHaveLength(2);
+      expect(
+        batch.items.find(item => item.systemId === UNNAMED_MODULE_ID)?.identity,
+      ).not.toHaveProperty('alias');
+      expect(batch.failed).toEqual([]);
+    });
+
+    it('reports an ID that is not a module of the file as not found', async () => {
+      await seedModule(ds);
+      const sessionId = await seedSession(ds);
+      const repo = makeRepo(qr.manager, sessionId);
+
+      const batch = await repo.findSpfModuleIdentities(FILE_ID, [
+        MODULE_ID,
+        SUBGRAPH_ID,
+      ]);
+      const otherFile = await repo.findSpfModuleIdentities(FILE_ID + 1, [
+        MODULE_ID,
+      ]);
+
+      expect(batch.items.map(item => item.systemId)).toEqual([MODULE_ID]);
+      expect(batch.failed).toEqual([
+        {systemId: SUBGRAPH_ID, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
+      expect(otherFile.items).toEqual([]);
+      expect(otherFile.failed).toEqual([
+        {systemId: MODULE_ID, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
+    });
+
+    it('reports a module whose definition is deleted in the session as unresolved', async () => {
+      await seedModule(ds);
+      const sessionId = await seedSession(ds);
+      await qr.manager.getRepository(EditActionSchema).insert({
+        sessionId,
+        aggregateId: DEF_ID,
+        targetSystemId: DEF_ID,
+        targetTable: ENTITY_NAMES.SpfModuleDefinition,
+        operation: CHANGE_OPERATION.Delete,
+        fieldPath: null,
+        newValue: {},
+        source: SOURCE.Manual,
+        changeStatus: CHANGE_STATUS.Unstaged,
+        linkedEntityGroupId: null,
+      });
+
+      const batch = await makeRepo(
+        qr.manager,
+        sessionId,
+      ).findSpfModuleIdentities(FILE_ID, [MODULE_ID]);
+
+      expect(batch.items).toEqual([]);
+      expect(batch.failed).toEqual([
+        {
+          systemId: MODULE_ID,
+          reason: FAILED_ENTITY_REASON.UnresolvedReference,
+          missingRef: {
+            entityType: ENTITY_TYPE.SpfModuleDefinition,
+            systemId: DEF_ID,
+          },
+        },
+      ]);
     });
   });
 

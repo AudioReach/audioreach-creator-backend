@@ -13,6 +13,9 @@ import type {ControlPort} from '../../../../../domain/entities/usecase-data/node
 import type {KvData} from '../../../../../domain/entities/common/entities/kv-data.js';
 import type {PortIoType} from '../../../../../domain/entities/common/enums/port-io-type.js';
 import type {ReadOptions} from '../shared/read-options.js';
+import type {IdentifiedEntityRef} from '../../../../../domain/identity/entity-identity.js';
+import type {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
+import type {BatchRead} from '../../batch-read.js';
 
 export type {SpfModuleBase} from '../../../../../domain/entities/usecase-data/module/spf-module.js';
 
@@ -70,6 +73,21 @@ export interface ModuleRepository {
     fileSystemId: number,
     options?: ReadOptions,
   ): Promise<SpfModuleBase[]>;
+
+  /**
+   * Reads the identities of the given modules, with the session overlay
+   * applied. A systemId that is not a module of the file is `NOT_FOUND`; a
+   * module whose definition is missing is `UNRESOLVED_REFERENCE`.
+   */
+  findSpfModuleIdentities(
+    fileSystemId: number,
+    spfModuleSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.SpfModule>,
+      typeof ENTITY_TYPE.SpfModule
+    >
+  >;
 
   deleteModule(
     moduleSystemId: number,

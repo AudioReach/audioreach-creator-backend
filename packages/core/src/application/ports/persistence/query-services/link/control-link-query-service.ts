@@ -6,6 +6,7 @@
 import type {ControlLink} from '../../../../../domain/entities/usecase-data/links/control-link.js';
 import type {BatchRead} from '../../batch-read.js';
 import type {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
+import type {IdentifiedEntityRef} from '../../../../../domain/identity/entity-identity.js';
 import type {SessionChanged} from '../../repositories/shared/session-changed.js';
 import type {ControlLinkReadModel} from './control-link-read-model.js';
 import type {SubgraphPeerLinkFilter} from '../shared/subgraph-peer-link-filter.js';
@@ -128,4 +129,20 @@ export interface ControlLinkQueryService {
     fileSystemId: number,
     controlPortSystemId: number,
   ): Promise<{intentSystemId: number; intentId: number}[]>;
+
+  /**
+   * The two endpoints (node and port) of each requested control link, in
+   * request order. Subsystem segment IDs and missing IDs are `NOT_FOUND`;
+   * a link whose node, module definition, or port is missing is
+   * `UNRESOLVED_REFERENCE`.
+   */
+  findControlLinkIdentities(
+    fileSystemId: number,
+    systemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.ControlLink>,
+      typeof ENTITY_TYPE.ControlLink
+    >
+  >;
 }

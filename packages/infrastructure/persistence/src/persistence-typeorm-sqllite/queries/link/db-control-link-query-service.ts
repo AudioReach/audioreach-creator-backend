@@ -6,6 +6,8 @@
 import type {EntityManager} from 'typeorm';
 import type {
   BatchRead,
+  FailedEntity,
+  IdentifiedEntityRef,
   ControlLink,
   ControlLinkQueryService,
   ControlLinkReadModel,
@@ -14,7 +16,12 @@ import type {
   SubgraphPeerLinkFilter,
   SubsystemControlLink,
 } from '@arc/core';
-import {CHANGE_OPERATION, CONTROL_LINK_TYPE, ENTITY_TYPE} from '@arc/core';
+import {
+  CHANGE_OPERATION,
+  CONTROL_LINK_TYPE,
+  ENTITY_TYPE,
+  FAILED_ENTITY_REASON,
+} from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
 import {UseCaseQueryMappers} from '../usecase/usecase-query-mappers.js';
@@ -29,6 +36,12 @@ import type {EditActionsQueryService} from '../edit-session/edit-actions-query-s
 import {withNotFound} from '../../utils/with-not-found.js';
 import {toControlLink, toSubsystemControlLink} from './link-entity-mappers.js';
 import {resolveCanonicalLinks} from './resolve-canonical-links.js';
+import {
+  NodeIdentityReader,
+  pairEndpoints,
+  type EndpointKey,
+} from '../shared/node-identity-reader.js';
+import {inRequestOrder} from '../../utils/in-request-order.js';
 import {findControlPortOwner} from './find-control-port-owner.js';
 
 /**
@@ -36,13 +49,17 @@ import {findControlPortOwner} from './find-control-port-owner.js';
  * createControlLinkQueryService.
  */
 export class DbControlLinkQueryService implements ControlLinkQueryService {
+  private readonly nodeIdentities: NodeIdentityReader;
+
   constructor(
     private readonly manager: EntityManager,
     private readonly editActions: EditActionsQueryService,
     private readonly usecaseFetcher: UsecaseOverlayFetcher,
     private readonly linkFetcher: LinkOverlayFetcher,
     private readonly intentFetcher: IntentFetcher,
-  ) {}
+  ) {
+    this.nodeIdentities = new NodeIdentityReader(manager, editActions);
+  }
 
   async findByUsecaseIds(
     fileSystemId: number,
@@ -138,6 +155,59 @@ export class DbControlLinkQueryService implements ControlLinkQueryService {
       ids,
       await this.toControlLinks(fileSystemId, sessionId, rows),
       link => link.systemId,
+    );
+  }
+
+  async findControlLinkIdentities(
+    fileSystemId: number,
+    systemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.ControlLink>,
+      typeof ENTITY_TYPE.ControlLink
+    >
+  > {
+    const requested = [...new Set(systemIds)];
+    if (requested.length === 0)
+      return {entityType: ENTITY_TYPE.ControlLink, items: [], failed: []};
+
+    const sessionId = await this.sessionId(fileSystemId);
+    const links = await this.linkFetcher.loadControlLinkRows(
+      fileSystemId,
+      sessionId,
+      {systemId: requested},
+    );
+    const endpoints = await this.nodeIdentities.readEndpoints(
+      fileSystemId,
+      sessionId,
+      'control',
+      links.flatMap(link => controlLinkEndpoints(link)),
+    );
+
+    const items: IdentifiedEntityRef<typeof ENTITY_TYPE.ControlLink>[] = [];
+    const failed: FailedEntity<typeof ENTITY_TYPE.ControlLink>[] = [];
+    for (const link of links) {
+      const pair = pairEndpoints(endpoints, ...controlLinkEndpoints(link));
+      if ('missingRef' in pair) {
+        failed.push({
+          systemId: link.systemId,
+          reason: FAILED_ENTITY_REASON.UnresolvedReference,
+          missingRef: pair.missingRef,
+        });
+        continue;
+      }
+      items.push({
+        entityType: ENTITY_TYPE.ControlLink,
+        systemId: link.systemId,
+        identity: {endpoints: pair},
+      });
+    }
+    return withNotFound(
+      ENTITY_TYPE.ControlLink,
+      requested,
+      inRequestOrder(requested, items),
+      item => item.systemId,
+      failed,
     );
   }
 
@@ -517,4 +587,20 @@ export class DbControlLinkQueryService implements ControlLinkQueryService {
         link.destSubgraphSystemId === selectedSubgraph)
     );
   }
+}
+
+/** The two endpoints of a link, as read by `NodeIdentityReader`. */
+function controlLinkEndpoints(
+  link: ControlLinkBase,
+): readonly [EndpointKey, EndpointKey] {
+  return [
+    {
+      nodeSystemId: link.peerNodeASystemId,
+      portSystemId: link.nodeAPortSystemId,
+    },
+    {
+      nodeSystemId: link.peerNodeBSystemId,
+      portSystemId: link.nodeBPortSystemId,
+    },
+  ];
 }

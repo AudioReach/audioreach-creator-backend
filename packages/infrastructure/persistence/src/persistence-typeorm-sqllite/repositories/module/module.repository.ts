@@ -9,8 +9,11 @@ import {
   SpfModule,
   DataPort,
   ControlPort,
+  ENTITY_TYPE,
   READ_MODE,
   ResourceNotFoundException,
+  type BatchRead,
+  type IdentifiedEntityRef,
   type ModuleRepository,
   type UnitOfWork,
   type EditOptions,
@@ -38,6 +41,7 @@ import {CkvParameterPayloadFetcher} from '../../fetchers/ckv-parameter-payload-f
 import {TkvOverlayFetcher} from '../../fetchers/tkv-overlay-fetcher.js';
 import {TkvParameterPayloadFetcher} from '../../fetchers/tkv-parameter-payload-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
+import {NodeIdentityReader} from '../../queries/shared/node-identity-reader.js';
 
 interface ParameterPayloadRowIdentity {
   systemId: number;
@@ -52,6 +56,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
   private readonly ckvOverlayFetcher: CkvOverlayFetcher;
   private readonly tkvOverlayFetcher: TkvOverlayFetcher;
   private readonly editActionsQs: EditActionsQueryService;
+  private readonly nodeIdentities: NodeIdentityReader;
 
   constructor(
     private readonly writer: PendingChangeWriter,
@@ -67,6 +72,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       editActionsQs,
     );
     this.nodeFetcher = new NodeOverlayFetcher(manager, editActionsQs);
+    this.nodeIdentities = new NodeIdentityReader(manager, editActionsQs);
     this.portFetcher = new PortOverlayFetcher(
       manager,
       editActionsQs,
@@ -122,6 +128,22 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       {subgraphSystemId: [...new Set(subgraphSystemIds)]},
     );
     return rows.map(row => this.toModuleBase(row));
+  }
+
+  async findSpfModuleIdentities(
+    fileSystemId: number,
+    spfModuleSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.SpfModule>,
+      typeof ENTITY_TYPE.SpfModule
+    >
+  > {
+    return this.nodeIdentities.readSpfModules(
+      fileSystemId,
+      this.uow.getWriteContext().session.sessionId,
+      spfModuleSystemIds,
+    );
   }
 
   private toModuleBase(row: {

@@ -687,4 +687,145 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
       await expect(getActiveActions(qr, sessionId)).resolves.toEqual([]);
     });
   });
+
+  describe('findDataLinkIdentities', () => {
+    const SUBSYSTEM_NODE = 210;
+    const SUBSYSTEM_PORT = 310;
+
+    /** Module rows for both nodes, and a subsystem node with one port. */
+    async function seedNodeIdentities() {
+      await ds.query(
+        `INSERT OR IGNORE INTO processor_definitions (system_id, processor_definition_id, name, file_system_id) VALUES (1, 1, 'proc', ?)`,
+        [FILE_ID],
+      );
+      await ds.query(
+        `INSERT INTO containers (system_id, container_id, container_type_system_id, file_system_id) VALUES (600, 1, 5, ?)`,
+        [FILE_ID],
+      );
+      await ds.query(
+        `INSERT INTO spf_module_definitions (system_id, module_definition_id, name, stack_size, file_system_id, is_loaded_at_bootup, processor_system_id) VALUES (601, 1, 'MFC', 0, ?, 0, 1)`,
+        [FILE_ID],
+      );
+      await ds.query(
+        `INSERT INTO spf_modules (system_id, instance_id, alias, definition_system_id, container_system_id, subgraph_system_id, file_system_id) VALUES (?, 11, 'mfc-a', 601, 600, ?, ?), (?, 12, '', 601, 600, ?, ?)`,
+        [NODE_A, SUBGRAPH_ID, FILE_ID, NODE_B, SUBGRAPH_ID, FILE_ID],
+      );
+      await ds.query(
+        `INSERT INTO nodes (system_id, type, parent_id, file_system_id) VALUES (?, 'subsystem', NULL, ?)`,
+        [SUBSYSTEM_NODE, FILE_ID],
+      );
+      await ds.query(
+        `INSERT INTO subsystems (system_id, name, subsystem_id) VALUES (?, 'Root', 7)`,
+        [SUBSYSTEM_NODE],
+      );
+      await ds.query(
+        `INSERT INTO data_ports (system_id, data_port_id, port_io_type, is_static, name, node_system_id) VALUES (?, 9, ?, 0, 'in', ?)`,
+        [SUBSYSTEM_PORT, PORT_IO_TYPE.Input, SUBSYSTEM_NODE],
+      );
+    }
+
+    const moduleA = {
+      entityType: ENTITY_TYPE.SpfModule,
+      systemId: NODE_A,
+      identity: {alias: 'mfc-a', definitionName: 'MFC', naturalId: 11},
+    };
+
+    it('names both endpoints of each link by node and port, in request order', async () => {
+      await seedNodeIdentities();
+      await seedDataLink(ds, 500, PORT_SRC, PORT_DST);
+      await ds.query(
+        `INSERT INTO data_links (system_id, source_node_system_id, destination_node_system_id, source_port_system_id, destination_port_system_id, link_type, source_subgraph_system_id, dest_subgraph_system_id, file_system_id) VALUES (501, ?, ?, ?, ?, 'NORMAL', ?, ?, ?)`,
+        [
+          NODE_A,
+          SUBSYSTEM_NODE,
+          PORT_SEGMENT_SRC,
+          SUBSYSTEM_PORT,
+          SUBGRAPH_ID,
+          SUBGRAPH_ID,
+          FILE_ID,
+        ],
+      );
+
+      const batch = await makeRepo(qr, sessionId).findDataLinkIdentities(
+        FILE_ID,
+        [501, 500, 999],
+      );
+
+      expect(batch.items).toEqual([
+        {
+          entityType: ENTITY_TYPE.DataLink,
+          systemId: 501,
+          identity: {
+            source: {node: moduleA, port: {name: null, naturalId: 3}},
+            destination: {
+              node: {
+                entityType: ENTITY_TYPE.Subsystem,
+                systemId: SUBSYSTEM_NODE,
+                identity: {name: 'Root', naturalId: 7},
+              },
+              port: {name: 'in', naturalId: 9},
+            },
+          },
+        },
+        {
+          entityType: ENTITY_TYPE.DataLink,
+          systemId: 500,
+          identity: {
+            source: {node: moduleA, port: {name: null, naturalId: 1}},
+            destination: {
+              node: {
+                entityType: ENTITY_TYPE.SpfModule,
+                systemId: NODE_B,
+                identity: {definitionName: 'MFC', naturalId: 12},
+              },
+              port: {name: null, naturalId: 2},
+            },
+          },
+        },
+      ]);
+      expect(batch.failed).toEqual([
+        {systemId: 999, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
+    });
+
+    it('reports a link whose module has no module row as unresolved', async () => {
+      await seedDataLink(ds, 500, PORT_SRC, PORT_DST);
+
+      const batch = await makeRepo(qr, sessionId).findDataLinkIdentities(
+        FILE_ID,
+        [500],
+      );
+
+      expect(batch.items).toEqual([]);
+      expect(batch.failed).toEqual([
+        {
+          systemId: 500,
+          reason: FAILED_ENTITY_REASON.UnresolvedReference,
+          missingRef: {entityType: ENTITY_TYPE.SpfModule, systemId: NODE_A},
+        },
+      ]);
+    });
+
+    it('reports a link whose port belongs to another node as unresolved', async () => {
+      await seedNodeIdentities();
+      await seedDataLink(ds, 500, PORT_SRC, PORT_SEGMENT_SRC);
+
+      const batch = await makeRepo(qr, sessionId).findDataLinkIdentities(
+        FILE_ID,
+        [500],
+      );
+
+      expect(batch.items).toEqual([]);
+      expect(batch.failed).toEqual([
+        {
+          systemId: 500,
+          reason: FAILED_ENTITY_REASON.UnresolvedReference,
+          missingRef: {
+            entityType: ENTITY_TYPE.DataPort,
+            systemId: PORT_SEGMENT_SRC,
+          },
+        },
+      ]);
+    });
+  });
 });

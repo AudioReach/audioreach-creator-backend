@@ -8,6 +8,7 @@ import type {
   BatchRead,
   FailedEntity,
   FilterExpression,
+  IdentifiedEntityRef,
   UseCaseQueryService,
   ReadOptions,
   UseCaseReadModel,
@@ -29,6 +30,7 @@ import {
   UseCase,
 } from '@arc/core';
 import {withNotFound} from '../../utils/with-not-found.js';
+import {inRequestOrder} from '../../utils/in-request-order.js';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {USECASE_PARAM_FILTER} from './usecase-param-filter.js';
@@ -325,6 +327,34 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
       return {...change, before, after};
     });
     return details;
+  }
+
+  async findUseCaseIdentities(
+    fileSystemId: number,
+    ucSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.UseCase>,
+      typeof ENTITY_TYPE.UseCase
+    >
+  > {
+    const requested = [...new Set(ucSystemIds)];
+    const readModels = await this.findUseCaseReadModels(fileSystemId, {
+      ids: requested,
+    });
+    const items = inRequestOrder(requested, readModels.items).map(uc => ({
+      entityType: ENTITY_TYPE.UseCase,
+      systemId: uc.systemId,
+      identity: {
+        // Use cases created without an alias may store ''.
+        ...(uc.alias ? {alias: uc.alias} : {}),
+        gkv: uc.gkv.map(pair => ({
+          key: {name: pair.key.name, naturalId: pair.key.naturalId},
+          value: {name: pair.value.name, naturalId: pair.value.naturalId},
+        })),
+      },
+    }));
+    return {entityType: ENTITY_TYPE.UseCase, items, failed: readModels.failed};
   }
 
   // ── Private helpers ───────────────────────────────────────────────────────────

@@ -6,6 +6,8 @@
 import type {EntityManager} from 'typeorm';
 import type {
   BatchRead,
+  FailedEntity,
+  IdentifiedEntityRef,
   DataLink,
   DataLinkQueryService,
   DataLinkReadModel,
@@ -20,6 +22,7 @@ import {
   CHANGE_OPERATION,
   DATA_LINK_TYPE,
   ENTITY_TYPE,
+  FAILED_ENTITY_REASON,
   READ_MODE,
 } from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
@@ -34,18 +37,29 @@ import type {DataLinkBase} from '../../entity-schema/usecase-data/Links/data-lin
 import type {UsecaseOverlayFetcher} from '../../fetchers/usecase-overlay-fetcher.js';
 import {toDataLink, toSubsystemDataLink} from './link-entity-mappers.js';
 import {resolveCanonicalLinks} from './resolve-canonical-links.js';
+import {
+  NodeIdentityReader,
+  pairEndpoints,
+  type EndpointKey,
+} from '../shared/node-identity-reader.js';
+import {inRequestOrder} from '../../utils/in-request-order.js';
+import {withNotFound} from '../../utils/with-not-found.js';
 
 /**
  * Database implementation of DataLinkQueryService. Build it with
  * createDataLinkQueryService.
  */
 export class DbDataLinkQueryService implements DataLinkQueryService {
+  private readonly nodeIdentities: NodeIdentityReader;
+
   constructor(
     private readonly manager: EntityManager,
     private readonly editActions: EditActionsQueryService,
     private readonly usecaseFetcher: UsecaseOverlayFetcher,
     private readonly linkFetcher: LinkOverlayFetcher,
-  ) {}
+  ) {
+    this.nodeIdentities = new NodeIdentityReader(manager, editActions);
+  }
 
   async findByUsecaseIds(
     fileSystemId: number,
@@ -202,6 +216,59 @@ export class DbDataLinkQueryService implements DataLinkQueryService {
       ...resolved,
       items: await this.toDataLinks(fileSystemId, sessionId, resolved.items),
     };
+  }
+
+  async findDataLinkIdentities(
+    fileSystemId: number,
+    systemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.DataLink>,
+      typeof ENTITY_TYPE.DataLink
+    >
+  > {
+    const requested = [...new Set(systemIds)];
+    if (requested.length === 0)
+      return {entityType: ENTITY_TYPE.DataLink, items: [], failed: []};
+
+    const sessionId = await this.sessionId(fileSystemId);
+    const links = await this.linkFetcher.loadDataLinkRows(
+      fileSystemId,
+      sessionId,
+      {systemId: requested},
+    );
+    const endpoints = await this.nodeIdentities.readEndpoints(
+      fileSystemId,
+      sessionId,
+      'data',
+      links.flatMap(link => dataLinkEndpoints(link)),
+    );
+
+    const items: IdentifiedEntityRef<typeof ENTITY_TYPE.DataLink>[] = [];
+    const failed: FailedEntity<typeof ENTITY_TYPE.DataLink>[] = [];
+    for (const link of links) {
+      const pair = pairEndpoints(endpoints, ...dataLinkEndpoints(link));
+      if ('missingRef' in pair) {
+        failed.push({
+          systemId: link.systemId,
+          reason: FAILED_ENTITY_REASON.UnresolvedReference,
+          missingRef: pair.missingRef,
+        });
+        continue;
+      }
+      items.push({
+        entityType: ENTITY_TYPE.DataLink,
+        systemId: link.systemId,
+        identity: {source: pair[0], destination: pair[1]},
+      });
+    }
+    return withNotFound(
+      ENTITY_TYPE.DataLink,
+      requested,
+      inRequestOrder(requested, items),
+      item => item.systemId,
+      failed,
+    );
   }
 
   async findIntraUcLinks(
@@ -447,4 +514,20 @@ export class DbDataLinkQueryService implements DataLinkQueryService {
         link.destSubgraphSystemId === selectedSubgraph)
     );
   }
+}
+
+/** The two endpoints of a link, as read by `NodeIdentityReader`. */
+function dataLinkEndpoints(
+  link: DataLinkBase,
+): readonly [EndpointKey, EndpointKey] {
+  return [
+    {
+      nodeSystemId: link.sourceNodeSystemId,
+      portSystemId: link.sourcePortSystemId,
+    },
+    {
+      nodeSystemId: link.destinationNodeSystemId,
+      portSystemId: link.destinationPortSystemId,
+    },
+  ];
 }

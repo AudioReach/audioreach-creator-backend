@@ -654,4 +654,98 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
       await expect(getActiveActions(qr, sessionId)).resolves.toEqual([]);
     });
   });
+
+  describe('findControlLinkIdentities', () => {
+    /** Module rows for both nodes. */
+    async function seedModules() {
+      await ds.query(
+        `INSERT OR IGNORE INTO processor_definitions (system_id, processor_definition_id, name, file_system_id) VALUES (1, 1, 'proc', ?)`,
+        [FILE_ID],
+      );
+      await ds.query(
+        `INSERT INTO containers (system_id, container_id, container_type_system_id, file_system_id) VALUES (600, 1, 5, ?)`,
+        [FILE_ID],
+      );
+      await ds.query(
+        `INSERT INTO spf_module_definitions (system_id, module_definition_id, name, stack_size, file_system_id, is_loaded_at_bootup, processor_system_id) VALUES (601, 1, 'MFC', 0, ?, 0, 1)`,
+        [FILE_ID],
+      );
+      await ds.query(
+        `INSERT INTO spf_modules (system_id, instance_id, alias, definition_system_id, container_system_id, subgraph_system_id, file_system_id) VALUES (?, 11, 'mfc-a', 601, 600, ?, ?), (?, 12, 'mfc-b', 601, 600, ?, ?)`,
+        [NODE_A, SUBGRAPH_ID, FILE_ID, NODE_B, SUBGRAPH_ID, FILE_ID],
+      );
+    }
+
+    it('names both peers of each link by module and port, in request order', async () => {
+      await seedModules();
+      await seedControlLink(ds, 500, PORT_CP_A, PORT_CP_B);
+      await seedControlLink(ds, 501, PORT_SEGMENT_A, PORT_SEGMENT_B);
+
+      const batch = await makeRepo(qr, sessionId).findControlLinkIdentities(
+        FILE_ID,
+        [501, 500, 999],
+      );
+
+      const peer = (
+        systemId: number,
+        alias: string,
+        naturalId: number,
+        portId: number,
+      ) => ({
+        node: {
+          entityType: ENTITY_TYPE.SpfModule,
+          systemId,
+          identity: {alias, definitionName: 'MFC', naturalId},
+        },
+        port: {name: null, naturalId: portId},
+      });
+      expect(batch.items).toEqual([
+        {
+          entityType: ENTITY_TYPE.ControlLink,
+          systemId: 501,
+          identity: {
+            endpoints: [
+              peer(NODE_A, 'mfc-a', 11, 3),
+              peer(NODE_B, 'mfc-b', 12, 4),
+            ],
+          },
+        },
+        {
+          entityType: ENTITY_TYPE.ControlLink,
+          systemId: 500,
+          identity: {
+            endpoints: [
+              peer(NODE_A, 'mfc-a', 11, 1),
+              peer(NODE_B, 'mfc-b', 12, 2),
+            ],
+          },
+        },
+      ]);
+      expect(batch.failed).toEqual([
+        {systemId: 999, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
+    });
+
+    it('reports a link whose port belongs to another node as unresolved', async () => {
+      await seedModules();
+      await seedControlLink(ds, 500, PORT_CP_A, PORT_SEGMENT_A);
+
+      const batch = await makeRepo(qr, sessionId).findControlLinkIdentities(
+        FILE_ID,
+        [500],
+      );
+
+      expect(batch.items).toEqual([]);
+      expect(batch.failed).toEqual([
+        {
+          systemId: 500,
+          reason: FAILED_ENTITY_REASON.UnresolvedReference,
+          missingRef: {
+            entityType: ENTITY_TYPE.ControlPort,
+            systemId: PORT_SEGMENT_A,
+          },
+        },
+      ]);
+    });
+  });
 });

@@ -12,6 +12,7 @@ import type {
   VcpmAggregateReadModel,
 } from '../vcpm/vcpm-read-model.js';
 import type {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
+import type {IdentifiedEntityRef} from '../../../../../domain/identity/entity-identity.js';
 
 /** The property payload rows of one subgraph. */
 export interface SubgraphPropertyPayloadsReadModel {
@@ -38,6 +39,20 @@ export interface SubgraphQueryService {
     subgraphSystemIds: readonly number[],
     includes: ConfigurationIncludes,
   ): Promise<BatchRead<SubgraphReadModel, typeof ENTITY_TYPE.Subgraph>>;
+
+  /**
+   * Reads the identities of the given subgraphs. A systemId that is not a
+   * subgraph of the file is `NOT_FOUND`.
+   */
+  findSubgraphIdentities(
+    fileSystemId: number,
+    subgraphSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.Subgraph>,
+      typeof ENTITY_TYPE.Subgraph
+    >
+  >;
 
   /**
    * Every subgraph in the file. `failed` holds only `UNRESOLVED_REFERENCE`

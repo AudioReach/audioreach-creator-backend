@@ -17,6 +17,7 @@ import type {
   UsecaseType,
   IdGenerationPort,
   BatchRead,
+  IdentifiedEntityRef,
   UseCaseReadModel,
   UseCaseReadModelQuery,
   UsecaseChangeDescriptor,
@@ -66,6 +67,18 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     query?: UseCaseReadModelQuery,
   ): Promise<BatchRead<UseCaseReadModel, typeof ENTITY_TYPE.UseCase>> {
     return this.queries.findUseCaseReadModels(fileSystemId, query);
+  }
+
+  findUseCaseIdentities(
+    fileSystemId: number,
+    ucSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.UseCase>,
+      typeof ENTITY_TYPE.UseCase
+    >
+  > {
+    return this.queries.findUseCaseIdentities(fileSystemId, ucSystemIds);
   }
 
   findUseCaseChangeDetails(
