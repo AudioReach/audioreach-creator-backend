@@ -204,9 +204,13 @@ export class DbDataLinkQueryService implements DataLinkQueryService {
     const rows = await this.linkFetcher.loadDataLinkRows(
       fileSystemId,
       sessionId,
-      {linkType: DATA_LINK_TYPE.Normal},
+      {linkType: [DATA_LINK_TYPE.Normal, DATA_LINK_TYPE.Ec]},
     );
-    return rows.map(row => toDataLink(row));
+    // A column filter cannot compare two columns, so links inside one
+    // subgraph are dropped here.
+    return rows
+      .filter(row => row.sourceSubgraphSystemId !== row.destSubgraphSystemId)
+      .map(row => toDataLink(row));
   }
 
   async findChangedInSession(

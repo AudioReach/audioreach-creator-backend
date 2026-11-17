@@ -23,6 +23,7 @@ import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqlli
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 import {ProjectSessionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
+import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {
   describe,
   it,
@@ -90,8 +91,8 @@ async function seedFkDependencies(ds: DataSource): Promise<void> {
     `INSERT INTO nodes (system_id, type, parent_id, file_system_id) VALUES (?, 'module', NULL, ?)`,
     [NODE_B, FILE_ID],
   );
-  // Seed enough ports for 4 links (each link needs 2 unique ports)
-  for (let i = 0; i < 4; i++) {
+  // Seed enough ports for 6 links (each link needs 2 unique ports)
+  for (let i = 0; i < 6; i++) {
     const srcPort = PORT_SRC_1 + i * 2;
     const dstPort = PORT_DST_1 + i * 2;
     await ds.query(
@@ -131,6 +132,44 @@ async function seedDataLink(
       FILE_ID,
     ],
   );
+}
+
+/** Stages a CREATE of a data link in the session; no base-table row. */
+async function stageCreatedDataLink(
+  manager: QueryRunner['manager'],
+  sessionId: number,
+  systemId: number,
+  linkType: string,
+  srcSg: number,
+  destSg: number,
+): Promise<void> {
+  const writer = new PendingChangeWriter(
+    new EditActionsQueryService(manager),
+    new PendingChangeCache(),
+  );
+  await writer.writeCreate(
+    {
+      targetTable: ENTITY_NAMES.DataLink,
+      targetSystemId: systemId,
+      aggregateId: systemId,
+      payload: {
+        sourceNodeSystemId: NODE_A,
+        destinationNodeSystemId: NODE_B,
+        sourcePortSystemId: PORT_SRC_1,
+        destinationPortSystemId: PORT_DST_1,
+        linkType,
+        sourceSubgraphSystemId: srcSg,
+        destSubgraphSystemId: destSg,
+        fileSystemId: FILE_ID,
+      },
+    },
+    sessionId,
+    manager,
+  );
+}
+
+function sortedIds(links: readonly {systemId: number}[]): number[] {
+  return links.map(l => l.systemId).sort((left, right) => left - right);
 }
 
 function makeRepo(
@@ -203,9 +242,10 @@ describe('TypeOrmDataLinkRepository — routing methods (integration)', () => {
   });
 
   describe('findIntraUcLinks', () => {
-    it('returns all intra-usecase data links in the file', async () => {
+    it('returns NORMAL and EC data links between different subgraphs', async () => {
       await seedDataLink(ds, 1001, DATA_LINK_TYPE.Normal, SG_1, SG_2);
       await seedDataLink(ds, 1002, DATA_LINK_TYPE.Normal, SG_2, SG_1);
+      await seedDataLink(ds, 1003, DATA_LINK_TYPE.Ec, SG_1, SG_2);
       const sessionId = await seedSession(ds);
       const result = await makeRepo(qr.manager, sessionId).findIntraUcLinks(
         FILE_ID,
@@ -216,7 +256,81 @@ describe('TypeOrmDataLinkRepository — routing methods (integration)', () => {
       // Array.prototype.sort(), which silently breaks for values like [10, 9].
       expect(
         result.map(l => l.systemId).sort((left, right) => left - right),
-      ).toEqual([1001, 1002]);
+      ).toEqual([1001, 1002, 1003]);
+    });
+
+    it('excludes NORMAL and EC links whose source and destination subgraph are the same', async () => {
+      await seedDataLink(ds, 1001, DATA_LINK_TYPE.Normal, SG_1, SG_2);
+      await seedDataLink(ds, 1002, DATA_LINK_TYPE.Normal, SG_1, SG_1);
+      await seedDataLink(ds, 1003, DATA_LINK_TYPE.Ec, SG_2, SG_2);
+      const sessionId = await seedSession(ds);
+      const result = await makeRepo(qr.manager, sessionId).findIntraUcLinks(
+        FILE_ID,
+      );
+      expect(result.map(l => l.systemId)).toEqual([1001]);
+    });
+
+    it('applies the same rules in committed mode', async () => {
+      await seedDataLink(ds, 1001, DATA_LINK_TYPE.Normal, SG_1, SG_2);
+      await seedDataLink(ds, 1002, DATA_LINK_TYPE.Ec, SG_2, SG_1);
+      await seedDataLink(ds, 1003, DATA_LINK_TYPE.InterUsecase, SG_1, SG_2);
+      await seedDataLink(ds, 1004, DATA_LINK_TYPE.Normal, SG_1, SG_1);
+      await seedDataLink(ds, 1005, DATA_LINK_TYPE.Ec, SG_2, SG_2);
+      const sessionId = await seedSession(ds);
+      const result = await makeRepo(qr.manager, sessionId).findIntraUcLinks(
+        FILE_ID,
+        {readMode: READ_MODE.Committed},
+      );
+      expect(sortedIds(result)).toEqual([1001, 1002]);
+    });
+
+    it('applies the same rules to links created in the session', async () => {
+      await seedDataLink(ds, 1001, DATA_LINK_TYPE.Normal, SG_1, SG_2);
+      const sessionId = await seedSession(ds);
+      await stageCreatedDataLink(
+        qr.manager,
+        sessionId,
+        1101,
+        DATA_LINK_TYPE.Ec,
+        SG_1,
+        SG_2,
+      );
+      await stageCreatedDataLink(
+        qr.manager,
+        sessionId,
+        1102,
+        DATA_LINK_TYPE.Normal,
+        SG_1,
+        SG_1,
+      );
+      await stageCreatedDataLink(
+        qr.manager,
+        sessionId,
+        1103,
+        DATA_LINK_TYPE.Ec,
+        SG_2,
+        SG_2,
+      );
+      await stageCreatedDataLink(
+        qr.manager,
+        sessionId,
+        1104,
+        DATA_LINK_TYPE.InterUsecase,
+        SG_1,
+        SG_2,
+      );
+      const repo = makeRepo(qr.manager, sessionId);
+
+      expect(sortedIds(await repo.findIntraUcLinks(FILE_ID))).toEqual([
+        1001, 1101,
+      ]);
+      expect(
+        sortedIds(
+          await repo.findIntraUcLinks(FILE_ID, {
+            readMode: READ_MODE.Committed,
+          }),
+        ),
+      ).toEqual([1001]);
     });
 
     it('excludes non-intra-usecase link types', async () => {

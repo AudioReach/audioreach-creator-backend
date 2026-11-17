@@ -38,6 +38,9 @@ export interface ControlLinkQueryService {
   /**
    * Returns the links between subgraphs that match the filter, each with
    * the usecases that contain its subgraph pair.
+   *
+   * TODO: split into `findByModulePort` and `findBySubgraph`; see
+   * `subgraph-peer-link-filter.ts` for why it is one method today.
    */
   findSubgraphPeerLinks(
     fileSystemId: number,
@@ -84,7 +87,11 @@ export interface ControlLinkQueryService {
     systemIds: readonly number[],
   ): Promise<BatchRead<ControlLink, typeof ENTITY_TYPE.ControlLink>>;
 
-  /** Returns every NORMAL control link in the file. */
+  /**
+   * Returns the control links between two different subgraphs that are not
+   * INTER_USECASE: NORMAL control links. Links inside one subgraph are not
+   * returned.
+   */
   findIntraUcLinks(fileSystemId: number): Promise<ControlLink[]>;
 
   /**
