@@ -62,7 +62,8 @@ export interface RoutingGraphSnapshot {
   readonly committedUsecases: readonly UseCase[];
   readonly sessionEdits: GraphEditSummary;
   /**
-   * All NORMAL data links in committed (base-table) state for this file.
+   * The intra-use-case data links (NORMAL and EC, between two different
+   * subgraphs) in committed (base-table) state for this file.
    * Populated by RoutingGraphSnapshotBuilder via READ_MODE.Committed.
    * Consumers derive lookup sets locally; do not mutate.
    */

@@ -56,6 +56,12 @@ export function parseSubgraphLinkFilter(
   };
 }
 
+/**
+ * Unused outside its spec: left over from the combined link endpoint.
+ *
+ * TODO: remove with the `GetSubgraphPeer*LinksQuery` queries; see
+ * `subgraph-peer-link-filter.ts` in core.
+ */
 export function parseSubgraphPeerLinkFilter(
   values: SubgraphPeerLinkFilterValues,
 ): SubgraphPeerLinkFilter {

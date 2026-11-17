@@ -40,6 +40,9 @@ export interface DataLinkQueryService {
   /**
    * Returns the links between subgraphs that match the filter, each with
    * the usecases that contain its source/destination subgraph pair.
+   *
+   * TODO: split into `findByModulePort` and `findBySubgraph`; see
+   * `subgraph-peer-link-filter.ts` for why it is one method today.
    */
   findSubgraphPeerLinks(
     fileSystemId: number,
@@ -67,9 +70,10 @@ export interface DataLinkQueryService {
   ): Promise<BatchRead<DataLink, typeof ENTITY_TYPE.DataLink>>;
 
   /**
-   * Returns every NORMAL data link in the file. Pass
-   * `{readMode: READ_MODE.Committed}` to read the committed state without
-   * the session's edits.
+   * Returns the data links between two different subgraphs that are not
+   * INTER_USECASE: NORMAL and EC data links. Links inside one subgraph are
+   * not returned. Pass `{readMode: READ_MODE.Committed}` to read the
+   * committed state without the session's edits.
    */
   findIntraUcLinks(
     fileSystemId: number,

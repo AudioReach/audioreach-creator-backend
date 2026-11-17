@@ -262,7 +262,11 @@ export class DbControlLinkQueryService implements ControlLinkQueryService {
       await this.sessionId(fileSystemId),
       {linkType: CONTROL_LINK_TYPE.Normal},
     );
-    return rows.map(row => toControlLink(row));
+    // A column filter cannot compare two columns, so links inside one
+    // subgraph are dropped here.
+    return rows
+      .filter(row => row.sourceSubgraphSystemId !== row.destSubgraphSystemId)
+      .map(row => toControlLink(row));
   }
 
   async findChangedInSession(

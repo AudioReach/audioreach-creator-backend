@@ -198,6 +198,16 @@ describe('TypeOrmControlLinkRepository — routing methods (integration)', () =>
       expect(result.map(l => l.systemId)).toEqual([2001]);
     });
 
+    it('excludes a NORMAL link whose source and destination subgraph are the same', async () => {
+      await seedControlLink(ds, 2001, CONTROL_LINK_TYPE.Normal, SG_1, SG_2);
+      await seedControlLink(ds, 2002, CONTROL_LINK_TYPE.Normal, SG_1, SG_1);
+      const sessionId = await seedSession(ds);
+      const result = await makeRepo(qr.manager, sessionId).findIntraUcLinks(
+        FILE_ID,
+      );
+      expect(result.map(l => l.systemId)).toEqual([2001]);
+    });
+
     it('returns [] when file has no intra-usecase control links', async () => {
       const sessionId = await seedSession(ds);
       const result = await makeRepo(qr.manager, sessionId).findIntraUcLinks(
