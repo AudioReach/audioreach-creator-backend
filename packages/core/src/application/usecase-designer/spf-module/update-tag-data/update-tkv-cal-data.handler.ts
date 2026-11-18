@@ -9,7 +9,7 @@ import {
   ResourceNotFoundException,
   InvalidInputException,
   InvalidOperationException,
-} from '../../../../shared/exceptions/index.js';
+} from '../../../shared/exceptions/index.js';
 import type {UpdateTkvCalDataCommand} from './update-tkv-cal-data.command.js';
 import type {UpdateTkvCalDataResult} from './update-tkv-cal-data-result.js';
 import {serializeParameterData} from '../../shared/serialize-elements.js';

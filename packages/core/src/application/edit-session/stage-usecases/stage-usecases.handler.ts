@@ -7,7 +7,7 @@ import {CHANGE_STATUS} from '../../shared/change-vocabulary.js';
 import type {CommandHandler} from '../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../ports/persistence/unit-of-work.js';
 import {Result} from '../../shared/result/result.js';
-import {DomainRuleViolationException} from '../../../shared/exceptions/index.js';
+import {DomainRuleViolationException} from '../../shared/exceptions/index.js';
 import {ISSUE_CODE} from '../../../shared/issues/operational-codes.js';
 import {IssueSeverity} from '../../../shared/issues/severity.js';
 import {BinaryUtils} from '../../../shared/utilities/binary-utils.js';

@@ -15,7 +15,7 @@ import {
   NullPayloadError,
   ParameterDefinitionMissingError,
 } from '../../../../../../src/shared/errors/parameter.errors.js';
-import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../../../../src/application/shared/exceptions/resource-not-found.exception.js';
 import {
   Result,
   RESULT_KIND,

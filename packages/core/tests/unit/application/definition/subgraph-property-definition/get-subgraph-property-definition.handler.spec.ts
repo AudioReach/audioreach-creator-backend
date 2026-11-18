@@ -6,7 +6,7 @@
 import {jest} from '@jest/globals';
 import {GetSubgraphPropertyDefinitionHandler} from '../../../../../src/application/definition/subgraph-property-definition/get-property/get-subgraph-property-definition.handler.js';
 import {GetSubgraphPropertyDefinitionQuery} from '../../../../../src/application/definition/subgraph-property-definition/get-property/get-subgraph-property-definition.query.js';
-import {ResourceNotFoundException} from '../../../../../src/shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../../../src/application/shared/exceptions/resource-not-found.exception.js';
 import {Result} from '../../../../../src/application/shared/result/result.js';
 import {IssueSeverity} from '../../../../../src/shared/issues/severity.js';
 import type {QueryServices} from '../../../../../src/application/ports/persistence/query-services/query-services.js';

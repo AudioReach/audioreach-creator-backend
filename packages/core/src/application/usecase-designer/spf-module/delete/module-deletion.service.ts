@@ -5,8 +5,8 @@
 
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {requireOne} from '../../../shared/result/require-one.js';
-import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
-import {DomainRuleViolationException} from '../../../../shared/exceptions/domain-rule-violation.exception.js';
+import {ResourceNotFoundException} from '../../../shared/exceptions/resource-not-found.exception.js';
+import {DomainRuleViolationException} from '../../../shared/exceptions/domain-rule-violation.exception.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {DataLinkDeletionService} from '../../data-links/delete/data-link-deletion.service.js';

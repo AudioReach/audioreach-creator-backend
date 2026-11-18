@@ -5,8 +5,8 @@
 import {jest, describe, it, expect} from '@jest/globals';
 import {SetSubgraphHandler} from '../../../../../../src/application/usecase-designer/subgraph/set/set-subgraph.handler.js';
 import {SetSubgraphCommand} from '../../../../../../src/application/usecase-designer/subgraph/set/set-subgraph.command.js';
-import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
-import {ConflictException} from '../../../../../../src/shared/exceptions/conflict.exception.js';
+import {ResourceNotFoundException} from '../../../../../../src/application/shared/exceptions/resource-not-found.exception.js';
+import {ConflictException} from '../../../../../../src/application/shared/exceptions/conflict.exception.js';
 import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
 import {batchOf, notFoundBatch} from '../../../../../helpers/index.js';
 

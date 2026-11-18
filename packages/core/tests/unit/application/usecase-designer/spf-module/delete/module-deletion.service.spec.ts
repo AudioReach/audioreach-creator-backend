@@ -5,7 +5,7 @@
 
 import {describe, expect, it, jest} from '@jest/globals';
 import {LINK_DELETION_MODE} from '@arc/core';
-import {DomainRuleViolationException} from '../../../../../../src/shared/exceptions/domain-rule-violation.exception.js';
+import {DomainRuleViolationException} from '../../../../../../src/application/shared/exceptions/domain-rule-violation.exception.js';
 import type {UnitOfWork} from '../../../../../../src/application/ports/persistence/unit-of-work.js';
 import {DataLinkDeletionService} from '../../../../../../src/application/usecase-designer/data-links/delete/data-link-deletion.service.js';
 import {ControlLinkDeletionService} from '../../../../../../src/application/usecase-designer/control-links/delete/control-link-deletion.service.js';

@@ -6,7 +6,7 @@ import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {ModuleRepository} from '../../../ports/persistence/repositories/module/module.repository.js';
 import type {ModuleDefinitionRepository} from '../../../ports/persistence/repositories/module/module-definition.repository.js';
 import type {SpfModuleBase} from '../../../../domain/entities/usecase-data/module/spf-module.js';
-import {ResourceNotFoundException} from '../../../../shared/exceptions/index.js';
+import {ResourceNotFoundException} from '../../../shared/exceptions/index.js';
 
 export interface ModuleWriteContext {
   uow: UnitOfWork;

@@ -11,7 +11,7 @@ import {
 import {FAILED_ENTITY_REASON} from '../../../../../../src/application/ports/persistence/batch-read.js';
 import type {SubgraphRepository} from '../../../../../../src/application/ports/persistence/repositories/subgraph/subgraph.repository.js';
 import type {SgkvEntry} from '../../../../../../src/application/usecase-designer/use-case-creator/shared/sgkv-entries.js';
-import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../../../../src/application/shared/exceptions/resource-not-found.exception.js';
 import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
 import {batchOf} from '../../../../../helpers/index.js';
 import {subgraphsWithSgkvs} from '../helpers/routing-reads.js';

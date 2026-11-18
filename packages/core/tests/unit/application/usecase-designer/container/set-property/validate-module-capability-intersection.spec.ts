@@ -5,7 +5,7 @@
 
 import {describe, it, expect} from '@jest/globals';
 import {validateModuleCapabilityIntersection} from '../../../../../../src/application/usecase-designer/container/set-property/validate-module-capability-intersection.js';
-import {DomainRuleViolationException} from '../../../../../../src/shared/exceptions/domain-rule-violation.exception.js';
+import {DomainRuleViolationException} from '../../../../../../src/application/shared/exceptions/domain-rule-violation.exception.js';
 import {SpfModuleDefinition} from '../../../../../../src/domain/entities/definitions/spf-module/spf-module-definition.js';
 
 function definition(

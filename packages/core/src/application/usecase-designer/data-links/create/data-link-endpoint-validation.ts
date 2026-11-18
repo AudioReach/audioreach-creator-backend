@@ -10,7 +10,7 @@ import {PORT_IO_TYPE} from '../../../../domain/entities/common/enums/port-io-typ
 import {
   DomainRuleViolationException,
   ResourceNotFoundException,
-} from '../../../../shared/exceptions/index.js';
+} from '../../../shared/exceptions/index.js';
 import {IssueSeverity} from '../../../../shared/issues/severity.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {BinaryUtils} from '../../../../shared/utilities/binary-utils.js';

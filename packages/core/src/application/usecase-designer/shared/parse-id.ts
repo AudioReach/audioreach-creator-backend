@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {InvalidInputException} from '../../../shared/exceptions/invalid-input.exception.js';
+import {InvalidInputException} from '../../shared/exceptions/invalid-input.exception.js';
 
 export function parseId(value: string, paramName: string): number {
   const trimmed = value.trim();

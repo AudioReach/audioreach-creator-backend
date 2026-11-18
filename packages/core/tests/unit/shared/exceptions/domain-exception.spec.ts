@@ -9,7 +9,7 @@ import {
   InvalidInputException,
   InvalidOperationException,
   DomainNotImplementedException,
-} from '../../../../src/shared/exceptions/index.js';
+} from '../../../../src/application/shared/exceptions/index.js';
 
 describe('DomainException hierarchy', () => {
   describe('DomainException (base)', () => {

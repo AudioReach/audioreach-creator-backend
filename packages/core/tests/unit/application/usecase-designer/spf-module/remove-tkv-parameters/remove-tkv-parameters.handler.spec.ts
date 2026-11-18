@@ -4,7 +4,7 @@
  */
 import {describe, it, expect, jest} from '@jest/globals';
 import type {UnitOfWork, ModuleRepository} from '@arc/core';
-import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/index.js';
+import {ResourceNotFoundException} from '../../../../../../src/application/shared/exceptions/index.js';
 import {RemoveTkvParametersHandler} from '../../../../../../src/application/usecase-designer/spf-module/remove-tkv-parameters/remove-tkv-parameters.handler.js';
 import {RemoveTkvParametersCommand} from '../../../../../../src/application/usecase-designer/spf-module/remove-tkv-parameters/remove-tkv-parameters.command.js';
 

@@ -6,7 +6,7 @@
 import type {SpfModuleDefinition} from '../../../../domain/entities/definitions/spf-module/spf-module-definition.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
 import {IssueSeverity} from '../../../../shared/issues/severity.js';
-import {DomainRuleViolationException} from '../../../../shared/exceptions/domain-rule-violation.exception.js';
+import {DomainRuleViolationException} from '../../../shared/exceptions/domain-rule-violation.exception.js';
 
 /**
  * For each module in `modules`, checks whether `containerTypeIds ∩ capabilityIds`

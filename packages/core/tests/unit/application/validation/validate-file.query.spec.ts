@@ -5,7 +5,7 @@
 
 import {ValidateFileQuery} from '../../../../src/application/validation/queries/validate-file.query.js';
 import {VALIDATION_RULE_GROUP} from '../../../../src/domain/validation/validation-rule.js';
-import {InvalidInputException} from '../../../../src/shared/exceptions/invalid-input.exception.js';
+import {InvalidInputException} from '../../../../src/application/shared/exceptions/invalid-input.exception.js';
 
 describe('ValidateFileQuery', () => {
   it('parses a decimal projectId string to a number', () => {

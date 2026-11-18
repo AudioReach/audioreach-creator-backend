@@ -5,7 +5,7 @@
 
 import type {BatchRead} from '../../ports/persistence/batch-read.js';
 import type {EntityType} from '../../../shared/entity-type.js';
-import {ResourceNotFoundException} from '../../../shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../exceptions/resource-not-found.exception.js';
 import {failedToIssues} from './failed-to-issues.js';
 
 /**

@@ -6,7 +6,7 @@ import {BaseCommand} from '../../../shared/base-command.js';
 import {SESSION_MODE} from '../../../shared/change-vocabulary.js';
 import type {SessionMode} from '../../../shared/change-vocabulary.js';
 import {parseId} from '../../shared/parse-id.js';
-import {InvalidInputException} from '../../../../shared/exceptions/invalid-input.exception.js';
+import {InvalidInputException} from '../../../shared/exceptions/invalid-input.exception.js';
 
 export class RemoveCkvsCommand extends BaseCommand {
   static override readonly requiresSession = true;

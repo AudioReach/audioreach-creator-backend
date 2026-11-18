@@ -10,7 +10,7 @@ import type {QueryServices} from '../../../../../src/application/ports/persisten
 import type {SpfModuleDefinitionSummaryReadModel} from '../../../../../src/application/ports/persistence/query-services/spf-module-definition/spf-module-definition-read-model.js';
 import type {CustomModuleMetadataReadModel} from '../../../../../src/application/ports/persistence/query-services/spf-module-definition/custom-module-metadata-read-model.js';
 import {Result} from '../../../../../src/application/shared/result/result.js';
-import {ResourceNotFoundException} from '../../../../../src/shared/exceptions/index.js';
+import {ResourceNotFoundException} from '../../../../../src/application/shared/exceptions/index.js';
 
 const createReadModel = (
   overrides?: Partial<SpfModuleDefinitionSummaryReadModel>,

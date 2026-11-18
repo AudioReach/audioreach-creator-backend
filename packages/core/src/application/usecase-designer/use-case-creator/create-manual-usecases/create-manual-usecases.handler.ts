@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {DomainRuleViolationException} from '../../../../shared/exceptions/domain-rule-violation.exception.js';
+import {DomainRuleViolationException} from '../../../shared/exceptions/domain-rule-violation.exception.js';
 import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
 import {RESULT_KIND} from '../../../shared/result/result.js';
 import type {Result} from '../../../shared/result/result.js';

@@ -4,7 +4,7 @@
  */
 import {describe, it, expect, jest} from '@jest/globals';
 import type {UnitOfWork, ModuleRepository} from '@arc/core';
-import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/index.js';
+import {ResourceNotFoundException} from '../../../../../../src/application/shared/exceptions/index.js';
 import {RemoveTagsHandler} from '../../../../../../src/application/usecase-designer/spf-module/remove-tags/remove-tags.handler.js';
 import {RemoveTagsCommand} from '../../../../../../src/application/usecase-designer/spf-module/remove-tags/remove-tags.command.js';
 

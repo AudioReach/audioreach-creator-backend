@@ -10,7 +10,7 @@ import type {ComponentsReadModel} from '../../../ports/persistence/query-service
 import type {ControlLinkReadModel} from '../../../ports/persistence/query-services/link/control-link-read-model.js';
 import type {SubsystemDataLinkReadModel} from '../../../ports/persistence/query-services/usecase/query-models/subsystem-data-link-read-model.js';
 import {Result, RESULT_KIND} from '../../../shared/result/result.js';
-import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../shared/exceptions/resource-not-found.exception.js';
 import {FAILED_ENTITY_REASON} from '../../../ports/persistence/batch-read.js';
 import {failedToIssues} from '../../../shared/result/failed-to-issues.js';
 import {GetComponentsWithSubsystemsQuery} from './get-components-with-subsystems.query.js';

@@ -5,8 +5,8 @@
 import {jest, describe, it, expect} from '@jest/globals';
 import {SetSubgraphVsidHandler} from '../../../../../../src/application/usecase-designer/subgraph/set-vsid/set-subgraph-vsid.handler.js';
 import {SetSubgraphVsidCommand} from '../../../../../../src/application/usecase-designer/subgraph/set-vsid/set-subgraph-vsid.command.js';
-import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
-import {InvalidInputException} from '../../../../../../src/shared/exceptions/invalid-input.exception.js';
+import {ResourceNotFoundException} from '../../../../../../src/application/shared/exceptions/resource-not-found.exception.js';
+import {InvalidInputException} from '../../../../../../src/application/shared/exceptions/invalid-input.exception.js';
 import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
 import {batchOf, notFoundBatch} from '../../../../../helpers/index.js';
 

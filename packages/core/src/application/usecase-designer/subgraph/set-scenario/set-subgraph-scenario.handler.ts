@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
-import {InvalidInputException} from '../../../../shared/exceptions/invalid-input.exception.js';
-import {InvalidOperationException} from '../../../../shared/exceptions/invalid-operation.exception.js';
-import {DomainRuleViolationException} from '../../../../shared/exceptions/domain-rule-violation.exception.js';
+import {ResourceNotFoundException} from '../../../shared/exceptions/resource-not-found.exception.js';
+import {InvalidInputException} from '../../../shared/exceptions/invalid-input.exception.js';
+import {InvalidOperationException} from '../../../shared/exceptions/invalid-operation.exception.js';
+import {DomainRuleViolationException} from '../../../shared/exceptions/domain-rule-violation.exception.js';
 import {IssueSeverity} from '../../../../shared/issues/severity.js';
 import {
   serializeDefaultParameterData,

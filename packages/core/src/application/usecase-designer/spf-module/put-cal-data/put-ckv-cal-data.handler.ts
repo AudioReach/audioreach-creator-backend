@@ -9,7 +9,7 @@ import {
   ResourceNotFoundException,
   InvalidInputException,
   InvalidOperationException,
-} from '../../../../shared/exceptions/index.js';
+} from '../../../shared/exceptions/index.js';
 import type {PutCkvCalDataCommand} from './put-ckv-cal-data.command.js';
 import type {PutCkvCalDataResult} from './put-ckv-cal-data-result.js';
 import {serializeParameterData} from '../../shared/serialize-elements.js';

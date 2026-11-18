@@ -4,7 +4,7 @@
  */
 import {describe, it, expect} from '@jest/globals';
 import {GetTkvCalibrationDataQuery} from '../../../../../../src/application/usecase-designer/spf-module/get-tag-data/get-tkv-cal-data.query.js';
-import {InvalidInputException} from '../../../../../../src/shared/exceptions/invalid-input.exception.js';
+import {InvalidInputException} from '../../../../../../src/application/shared/exceptions/invalid-input.exception.js';
 
 describe('GetTkvCalibrationDataQuery', () => {
   it('parses all decimal IDs correctly', () => {

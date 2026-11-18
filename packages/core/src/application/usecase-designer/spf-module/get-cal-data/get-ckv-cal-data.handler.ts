@@ -6,7 +6,7 @@ import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handl
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import type {GetCkvCalibrationDataQuery} from './get-ckv-cal-data.query.js';
 import type {ParameterPayloadReadModel} from '../../../ports/persistence/query-services/spf-module/ckv/ckv-read-model.js';
-import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../shared/exceptions/resource-not-found.exception.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import {Result, RESULT_KIND} from '../../../shared/result/result.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';

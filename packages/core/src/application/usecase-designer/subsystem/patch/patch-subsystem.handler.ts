@@ -11,7 +11,7 @@ import {
   DomainRuleViolationException,
   InvalidOperationException,
   ResourceNotFoundException,
-} from '../../../../shared/exceptions/index.js';
+} from '../../../shared/exceptions/index.js';
 import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {PORT_IO_TYPE} from '../../../../domain/entities/common/enums/port-io-type.js';

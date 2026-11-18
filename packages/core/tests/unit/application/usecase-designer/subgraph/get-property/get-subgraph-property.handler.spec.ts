@@ -5,7 +5,7 @@
 import {jest, describe, it, expect} from '@jest/globals';
 import {GetSubgraphPropertyHandler} from '../../../../../../src/application/usecase-designer/subgraph/get-property/get-subgraph-property.handler.js';
 import {GetSubgraphPropertyQuery} from '../../../../../../src/application/usecase-designer/subgraph/get-property/get-subgraph-property.query.js';
-import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../../../../src/application/shared/exceptions/resource-not-found.exception.js';
 import {
   Result,
   RESULT_KIND,

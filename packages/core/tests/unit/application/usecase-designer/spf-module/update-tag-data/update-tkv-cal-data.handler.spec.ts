@@ -13,7 +13,7 @@ import {
   ResourceNotFoundException,
   InvalidInputException,
   InvalidOperationException,
-} from '../../../../../../src/shared/exceptions/index.js';
+} from '../../../../../../src/application/shared/exceptions/index.js';
 import {UpdateTkvCalDataHandler} from '../../../../../../src/application/usecase-designer/spf-module/update-tag-data/update-tkv-cal-data.handler.js';
 import {UpdateTkvCalDataCommand} from '../../../../../../src/application/usecase-designer/spf-module/update-tag-data/update-tkv-cal-data.command.js';
 

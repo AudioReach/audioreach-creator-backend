@@ -26,6 +26,7 @@ export type {SessionResult} from './application/edit-session/session-types.js';
 
 // Shared errors
 export * from './shared/errors/index.js';
+export * from './application/shared/exceptions/index.js';
 
 // Shared utilities and base classes
 export * from './application/shared/base-command.js';

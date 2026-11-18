@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {DomainRuleViolationException} from '../../../../shared/exceptions/domain-rule-violation.exception.js';
+import {DomainRuleViolationException} from '../../../shared/exceptions/domain-rule-violation.exception.js';
 import {RESULT_KIND, Result} from '../../../shared/result/result.js';
 import type {Result as ResultType} from '../../../shared/result/result.js';
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';

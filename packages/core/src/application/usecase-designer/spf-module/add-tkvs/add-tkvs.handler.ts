@@ -8,7 +8,7 @@ import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import {Result} from '../../../shared/result/result.js';
 import {KvData} from '../../../../domain/entities/common/entities/kv-data.js';
-import {ResourceNotFoundException} from '../../../../shared/exceptions/index.js';
+import {ResourceNotFoundException} from '../../../shared/exceptions/index.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
 import type {AddTkvsCommand} from './add-tkvs.command.js';
 import {buildDefaultPayloads} from '../shared/kv-seed-helpers.js';

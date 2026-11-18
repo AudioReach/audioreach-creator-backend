@@ -7,7 +7,7 @@ import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handl
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import {GetAllContainerPropertyDefinitionsQuery} from './get-all-container-property-definitions.query.js';
 import {Result, RESULT_KIND} from '../../../shared/result/result.js';
-import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../shared/exceptions/resource-not-found.exception.js';
 import {
   mapContainerPropertyDefinitionSummary,
   type ContainerPropertyDefinitionSummaryDto,

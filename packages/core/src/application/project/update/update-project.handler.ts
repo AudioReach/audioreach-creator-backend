@@ -6,8 +6,8 @@
 import type {CommandHandler} from '../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../ports/persistence/unit-of-work.js';
 import type {UpdateProjectCommand} from './update-project.command.js';
-import {ResourceNotFoundException} from '../../../shared/exceptions/resource-not-found.exception.js';
-import {InvalidOperationException} from '../../../shared/exceptions/invalid-operation.exception.js';
+import {ResourceNotFoundException} from '../../shared/exceptions/resource-not-found.exception.js';
+import {InvalidOperationException} from '../../shared/exceptions/invalid-operation.exception.js';
 
 export class UpdateProjectHandler implements CommandHandler<
   UpdateProjectCommand,

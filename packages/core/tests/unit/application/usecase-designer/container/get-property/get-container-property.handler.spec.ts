@@ -8,7 +8,7 @@ import {GetContainerPropertyQuery} from '../../../../../../src/application/useca
 import type {QueryServices} from '../../../../../../src/application/ports/persistence/query-services/query-services.js';
 import type {PropertyPayloadReadModel} from '../../../../../../src/application/ports/persistence/query-services/shared/property-payload-read-model.js';
 import type {ContainerPropertyDefinitionWithElementsReadModel} from '../../../../../../src/application/ports/persistence/query-services/container-property-definition/container-property-definition-with-elements-read-model.js';
-import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../../../../src/application/shared/exceptions/resource-not-found.exception.js';
 import {
   Result,
   RESULT_KIND,

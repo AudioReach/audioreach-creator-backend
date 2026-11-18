@@ -7,7 +7,7 @@ import {describe, it, expect} from '@jest/globals';
 import {requireOne} from '../../../../../src/application/shared/result/require-one.js';
 import {requireAll} from '../../../../../src/application/shared/result/require-all.js';
 import {FAILED_ENTITY_REASON} from '../../../../../src/application/ports/persistence/batch-read.js';
-import {ResourceNotFoundException} from '../../../../../src/shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../../../src/application/shared/exceptions/resource-not-found.exception.js';
 import {ENTITY_TYPE} from '../../../../../src/shared/entity-type.js';
 
 const unresolvedSpeaker = {

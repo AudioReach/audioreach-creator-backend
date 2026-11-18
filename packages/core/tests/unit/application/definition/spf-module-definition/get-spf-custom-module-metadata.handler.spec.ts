@@ -14,7 +14,7 @@ import {Result} from '../../../../../src/application/shared/result/result.js';
 import {
   ResourceNotFoundException,
   InvalidOperationException,
-} from '../../../../../src/shared/exceptions/index.js';
+} from '../../../../../src/application/shared/exceptions/index.js';
 
 const createReadModel = (
   overrides?: Partial<SpfModuleDefinitionSummaryReadModel>,

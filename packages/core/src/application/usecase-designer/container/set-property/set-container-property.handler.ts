@@ -10,7 +10,7 @@ import {
   ResourceNotFoundException,
   InvalidInputException,
   InvalidOperationException,
-} from '../../../../shared/exceptions/index.js';
+} from '../../../shared/exceptions/index.js';
 import {
   mapToElementData,
   serializeParameterData,

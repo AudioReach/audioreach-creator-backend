@@ -14,7 +14,7 @@ import type {SubgraphReadModel} from '../../../../../../src/application/ports/pe
 import type {KvPair} from '../../../../../../src/application/ports/persistence/repositories/shared/kv-pair.js';
 import type {SgkvEntry} from '../../../../../../src/application/usecase-designer/use-case-creator/shared/sgkv-entries.js';
 import {ISSUE_CODE} from '../../../../../../src/shared/issues/operational-codes.js';
-import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../../../../src/application/shared/exceptions/resource-not-found.exception.js';
 import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
 import {batchOf} from '../../../../../helpers/index.js';
 import {keyValuePairsOf, subgraphsWithSgkvs} from '../helpers/routing-reads.js';

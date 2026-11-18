@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {DomainRuleViolationException} from '../../../../shared/exceptions/domain-rule-violation.exception.js';
-import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
+import {DomainRuleViolationException} from '../../../shared/exceptions/domain-rule-violation.exception.js';
+import {ResourceNotFoundException} from '../../../shared/exceptions/resource-not-found.exception.js';
 import {failedToIssues} from '../../../shared/result/failed-to-issues.js';
 import {SOURCE} from '../../../shared/change-vocabulary.js';
 import {RESULT_KIND} from '../../../shared/result/result.js';

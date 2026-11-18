@@ -9,7 +9,7 @@ import type {EndSessionCommand} from './end-session.command.js';
 import type {Result} from '../../shared/result/result.js';
 import {Result as ResultFactory} from '../../shared/result/result.js';
 import type {SessionResult} from '../session-types.js';
-import {StagedChangesExistException} from '../../../shared/exceptions/staged-changes-exist.exception.js';
+import {StagedChangesExistException} from '../../shared/exceptions/staged-changes-exist.exception.js';
 import type {NaturalIdGenerationPort} from '../../ports/id-generation/natural-id-generation.port.js';
 import {SESSION_MODE} from '../../shared/change-vocabulary.js';
 

@@ -15,7 +15,7 @@ import {CreateUsecasesCommand} from '../../../../../../src/application/usecase-d
 import {CreateUsecasesHandler} from '../../../../../../src/application/usecase-designer/use-case-creator/create-usecases/create-usecases.handler.js';
 import {RoutingIssueFactory} from '../../../../../../src/application/usecase-designer/use-case-creator/issues/routing-issue-factory.js';
 import {AutoRoutingPreparationService} from '../../../../../../src/application/usecase-designer/use-case-creator/services/auto-routing-preparation.service.js';
-import {DomainRuleViolationException} from '../../../../../../src/shared/exceptions/domain-rule-violation.exception.js';
+import {DomainRuleViolationException} from '../../../../../../src/application/shared/exceptions/domain-rule-violation.exception.js';
 import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
 
 function snapshot(): RoutingGraphSnapshot {

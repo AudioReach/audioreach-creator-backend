@@ -4,7 +4,7 @@
  */
 
 import {parseId} from '../../../../../src/application/usecase-designer/shared/parse-id.js';
-import {InvalidInputException} from '../../../../../src/shared/exceptions/invalid-input.exception.js';
+import {InvalidInputException} from '../../../../../src/application/shared/exceptions/invalid-input.exception.js';
 
 describe('parseId', () => {
   it.each([

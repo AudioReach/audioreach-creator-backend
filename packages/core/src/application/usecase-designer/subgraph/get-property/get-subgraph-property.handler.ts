@@ -4,7 +4,7 @@
  */
 
 import {RESULT_KIND, Result} from '../../../shared/result/result.js';
-import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../shared/exceptions/resource-not-found.exception.js';
 import {requireOne} from '../../../shared/result/require-one.js';
 import {parseParameterData} from '../../shared/parse-elements.js';
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';

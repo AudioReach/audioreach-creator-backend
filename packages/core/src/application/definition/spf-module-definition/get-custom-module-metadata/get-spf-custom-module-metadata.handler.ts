@@ -9,7 +9,7 @@ import type {GetSpfCustomModuleMetadataQuery} from './get-spf-custom-module-meta
 import {
   ResourceNotFoundException,
   InvalidOperationException,
-} from '../../../../shared/exceptions/index.js';
+} from '../../../shared/exceptions/index.js';
 import {RESULT_KIND} from '../../../shared/result/result.js';
 import {
   mapCustomModuleMetadata,

@@ -8,7 +8,7 @@ import {GetComponentsWithSubsystemsHandler} from '../../../../../../src/applicat
 import {GetComponentsWithSubsystemsQuery} from '../../../../../../src/application/usecase-designer/usecase/get-component-with-subsystem/get-components-with-subsystems.query.js';
 import {COMPONENT_SCOPE_TYPE} from '../../../../../../src/application/usecase-designer/usecase/get-components/component-scope-type.js';
 import type {FailedEntity} from '../../../../../../src/application/ports/persistence/batch-read.js';
-import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../../../../src/application/shared/exceptions/resource-not-found.exception.js';
 import type {QueryServices} from '../../../../../../src/application/ports/persistence/query-services/query-services.js';
 import type {SpfModuleReadModel} from '../../../../../../src/application/ports/persistence/query-services/spf-module/spf-module-read-model.js';
 import type {DataLinkReadModel} from '../../../../../../src/application/ports/persistence/query-services/link/data-link-read-model.js';

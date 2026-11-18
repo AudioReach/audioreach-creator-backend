@@ -6,7 +6,7 @@
 import {jest} from '@jest/globals';
 import {GetKeyDefinitionHandler} from '../../../../../src/application/definition/key-definition/get-key/get-key-definition.handler.js';
 import {GetKeyDefinitionQuery} from '../../../../../src/application/definition/key-definition/get-key/get-key-definition.query.js';
-import {ResourceNotFoundException} from '../../../../../src/shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../../../src/application/shared/exceptions/resource-not-found.exception.js';
 import {FAILED_ENTITY_REASON} from '../../../../../src/application/ports/persistence/batch-read.js';
 import type {QueryServices} from '../../../../../src/application/ports/persistence/query-services/query-services.js';
 import type {KeyDefinitionReadModel} from '../../../../../src/application/ports/persistence/query-services/key-value/key-value-definition-read-model.js';
