@@ -66,6 +66,7 @@ export class GetComponentsHandler implements QueryHandler<
           svc.controlLinkQueryService.findBySubgraphIds(fileId, [
             query.scope.systemId,
           ]),
+          true,
         );
     }
   }
@@ -93,18 +94,41 @@ export class GetComponentsHandler implements QueryHandler<
     modulesPromise: Promise<Result<ComponentsReadModel['modules']>>,
     dataLinksPromise: Promise<ComponentsReadModel['dataLinks']>,
     controlLinksPromise: Promise<ComponentsReadModel['controlLinks']>,
+    restrictLinksToModules = false,
   ): Promise<Result<ComponentCollectionDto>> {
-    const [modulesResult, dataLinks, controlLinks] = await Promise.all([
-      modulesPromise,
-      dataLinksPromise,
-      controlLinksPromise,
-    ]);
+    const [modulesResult, loadedDataLinks, loadedControlLinks] =
+      await Promise.all([
+        modulesPromise,
+        dataLinksPromise,
+        controlLinksPromise,
+      ]);
     if (modulesResult.kind === RESULT_KIND.Fail)
       throw new Error(
         modulesResult.issues[0]?.message ?? 'Failed to load modules',
       );
+
+    const modules = modulesResult.data;
+    let dataLinks = loadedDataLinks;
+    let controlLinks = loadedControlLinks;
+
+    if (restrictLinksToModules) {
+      const moduleIds = new Set(modules.map(module => module.systemId));
+
+      dataLinks = dataLinks.filter(
+        link =>
+          moduleIds.has(link.sourceNodeSystemId) &&
+          moduleIds.has(link.destinationNodeSystemId),
+      );
+
+      controlLinks = controlLinks.filter(
+        link =>
+          moduleIds.has(link.peerNodeASystemId) &&
+          moduleIds.has(link.peerNodeBSystemId),
+      );
+    }
+
     const flat: ComponentsReadModel = {
-      modules: modulesResult.data,
+      modules,
       dataLinks,
       controlLinks,
     };
