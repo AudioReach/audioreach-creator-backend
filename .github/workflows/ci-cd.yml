@@ -5,11 +5,21 @@ on:
     branches: [main, 'feature/*', 'task/*']
   push:
     branches: [main, 'feature/*', 'task/*']
+  schedule:
+    - cron: '0 0 * * *'
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Validation to run
+        type: choice
+        default: full
+        options:
+          - full
+          - nightly
 
 # Cancel in-progress runs when a new commit is pushed to the same PR
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name == 'schedule' && 'nightly' || inputs.mode || 'full' }}
   cancel-in-progress: true
 
 permissions:
@@ -44,6 +54,7 @@ jobs:
         run: corepack enable
 
       - name: 🔧 Environment Setup
+        id: environment
         env:
           REF_NAME: ${{ github.ref_name }}
           RUN_NUMBER: ${{ github.run_number }}
@@ -72,23 +83,29 @@ jobs:
           fi
 
       - name: 📦 Install Dependencies
+        id: install
         run: |
           echo "📦 Installing dependencies..."
           pnpm install
 
       - name: 🎨 Format Check
+        id: format
+        if: github.event_name != 'schedule' && inputs.mode != 'nightly'
         run: |
           echo "🎨 Checking code formatting..."
           pnpm format:check
         continue-on-error: false
 
       - name: 🔍 Lint
+        id: lint
+        if: github.event_name != 'schedule' && inputs.mode != 'nightly'
         run: |
           echo "🔍 Running linting checks..."
           pnpm lint
         continue-on-error: false
 
       - name: 🏗️ Build
+        id: build
         run: |
           echo "🏗️ Building all packages..."
           pnpm build
@@ -100,6 +117,13 @@ jobs:
           ls -la packages/infrastructure/persistence/dist || echo "⚠️ packages/infrastructure/persistence/dist not found"
         continue-on-error: false
 
+      - name: Install XML report dependency
+        run: |
+          python3 -m venv "$RUNNER_TEMP/report-tools"
+          "$RUNNER_TEMP/report-tools/bin/python" -m pip install \
+            --disable-pip-version-check -r .github/scripts/requirements.txt
+          echo "$RUNNER_TEMP/report-tools/bin" >> "$GITHUB_PATH"
+
       - name: 🧪 Test
         id: test
         run: |
@@ -107,35 +131,50 @@ jobs:
           pnpm coverage
         continue-on-error: false
 
+      - name: Merge Jest reports by package
+        if: always() && (steps.test.outcome == 'success' || steps.test.outcome == 'failure')
+        run: |
+          python3 .github/scripts/junit_reports.py \
+            --name audioreach-creator-backend \
+            --report api=packages/api/test-results/merged-results.xml \
+            --report core=packages/core/test-results/merged-results.xml \
+            --report persistence=packages/infrastructure/persistence/test-results/merged-results.xml \
+            --output test-results/merged-results.xml
+
       - name: 📊 Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
-        if: always() && steps.test.outcome != 'skipped'
+        if: always() && (steps.test.outcome == 'success' || steps.test.outcome == 'failure')
         with:
           files: 'test-results/merged-results.xml'
           check_name: Test Results
           comment_mode: off
 
+      - name: 📁 Prepare Test Artifacts
+        if: always() && (steps.test.outcome == 'success' || steps.test.outcome == 'failure')
+        env:
+          ARTIFACT_DIR: ${{ runner.temp }}/backend-test-artifacts
+        run: |
+          if [[ -f test-results/merged-results.xml ]]; then
+            mkdir -p "$ARTIFACT_DIR/test-results"
+            cp test-results/merged-results.xml "$ARTIFACT_DIR/test-results/merged-results.xml"
+          else
+            echo "::warning::Merged Jest report missing"
+          fi
+
+          python3 .github/scripts/merge_coverage.py \
+            --package api=packages/api \
+            --package core=packages/core \
+            --package persistence=packages/infrastructure/persistence \
+            --output "$ARTIFACT_DIR/coverage/clover.xml"
+
       - name: 📤 Upload Test Artifacts
         uses: actions/upload-artifact@v4
-        if: always() && steps.test.outcome != 'skipped'
+        if: always() && (steps.test.outcome == 'success' || steps.test.outcome == 'failure')
         with:
-          name: test-results
-          path: |
-            packages/*/test-results/*.xml
-          retention-days: 14
-          if-no-files-found: warn
-
-      - name: 📤 Upload Coverage Artifacts
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage-report
-          path: |
-            coverage/merged/**/*
-            packages/api/coverage/**/*
-            packages/core/coverage/**/*
-            packages/infrastructure/persistence/coverage/**/*
-          retention-days: 14
+          name: backend-test-reports-${{ github.run_id }}
+          path: ${{ runner.temp }}/backend-test-artifacts
+          compression-level: 9
+          retention-days: 3
           if-no-files-found: warn
 
       - name: ✅ Pipeline Summary
@@ -153,11 +192,11 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Environment Setup | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| Install Dependencies | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| Format Check | ${{ job.status == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Lint | ${{ job.status == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Build | ${{ job.status == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment Setup | ${{ steps.environment.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Install Dependencies | ${{ steps.install.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Format Check | ${{ steps.format.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Lint | ${{ steps.lint.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build | ${{ steps.build.outcome }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Test | ${{ steps.test.outcome == 'success' && '✅' || steps.test.outcome == 'failure' && '❌' || '⚠️' }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ "$EVENT_NAME" == "pull_request" ]; then
