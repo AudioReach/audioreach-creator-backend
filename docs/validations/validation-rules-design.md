@@ -753,44 +753,33 @@ For each module in context.modules:
 **Class:** `MissingContainerPropertyRule`  
 **File:** `packages/core/src/domain/validation/rules/container/missing-container-property.rule.ts`  
 **Severity:** `ERROR`  
-**Groups:** `UPLOAD_FILE`, `SAVE_FILE`  
+**Groups:** `SAVE_FILE`  
 **Required entity types:** `Container`, `ContainerPropertyDefinition`  
 **Context profile:** `ContainerValidationContext`  
 **QACT Code:** E107  
 **Description:** A container is missing one or more property data entries that are required by its container property definitions.  
-**Fix:** Yes — add the missing container property with default data  
+**Fix:** No for now (detect only) — a fix that adds the missing property with default data is blocked, see "Fix" below  
 **DB Constraint:** No
 
-**Prerequisite:** §1.2 and §1.3 must be complete.
+**Prerequisite:** the loaders in §5.2 and §5.3 (done).
 
-> **UPLOAD_FILE path gap (OQ-002):** `FileEntities` (the in-memory bag used by `fromEntities()`) currently does not include `containers` or `containerPropertyDefinitions`. Until `FileEntities` is extended with these fields and the upload orchestrator populates them, ARC-CON-001 cannot run on the `UPLOAD_FILE` path. The `SAVE_FILE` path is unblocked once §1.2–1.3 are complete.
+> **UPLOAD_FILE deferred:** the upload path does not yet pass containers or container property definitions to the rule (OQ-002, OQ-003), so the rule runs in `SAVE_FILE` only. `UPLOAD_FILE` is added when the upload path is wired.
 
 **Algorithm:**
 
 ```
 For each container in context.containers:
-  requiredDefs = context.containerPropertyDefinitionsByTypeId
-                   .get(container.containerTypeSystemId) ?? []
-
-  For each propDef in requiredDefs:
+  For each propDef in context.propDefBySystemId.values():
     if !container.properties.has(propDef.systemId):
       → emit issue
 ```
 
-> **Outdated:** `containerPropertyDefinitionsByTypeId` was removed (see §5.3). Definitions are not grouped by container type; every definition applies to every container. The algorithm will be revised in the ARC-CON-001 task, likely to iterate `context.propDefBySystemId.values()`.
+Every definition in the file is required for every container: definitions are not grouped by container type (§5.3), and `buildContainerWithDefaults` seeds a row for every definition on every new container. A property row whose payload is `null` counts as present; a null payload is how defaults are seeded today, and parse validity is ARC-CON-002's concern.
 
-**Fix option:**
-```typescript
-{
-  systemId: 'add-missing-container-property',
-  commandType: 'AddContainerPropertyWithDefaultCommand',
-  commandPayload: {
-    containerSystemId: container.systemId,
-    propertyDefinitionSystemId: propDef.systemId,
-  },
-  requiredClientInputs: [],
-}
-```
+**Fix — BLOCKED (`fixOptions: []`).** The fix cannot be built because these functions do not exist yet:
+- `ContainerRepository.addPropertyData()` — missing. Nothing can insert a `container_property_data` row on an existing container: `setPropertyData` only updates and throws for a missing row, and rows are only inserted by `createContainer`. The property-row `writeCreate` loop in `createContainer` can be shared with the new method.
+- `AddContainerPropertyWithDefaultCommand` and its handler and registry entry — missing.
+- `serializeDefaultParameterData()` — missing (still a TODO in `buildContainerWithDefaults`). Without it the fix could only insert a null placeholder payload, not real default data.
 
 **Issue structure:**
 ```typescript
@@ -801,17 +790,25 @@ For each container in context.containers:
            `'${propDef.name}' (${hex(propDef.naturalId)}).`,
   severity: ERROR,
   impactedEntity: { entityType: Container, systemId: container.systemId },
-  impactedUsecases: [...],  // derived from modules in this container → usecasesByModuleSystemId
-  fixOptions: [/* add-missing-property option */],
+  impactedUsecases: [],
+  fixOptions: [],
 }
 ```
 
-**Note on impactedUsecases:** To derive impacted use cases for a container, find all modules whose `containerSystemId == container.systemId`, then look up each module in `usecasesByModuleSystemId`. This requires adding `modules` and `usecasesByModuleSystemId` to the context profile (i.e., also extending `ModuleValidationContext`).
+> **impactedUsecases — BLOCKED (always `[]`).** Deriving it means container → modules (`module.containerSystemId`) → `usecasesByModuleSystemId`, which is built from the loaded use cases. This function is missing:
+> - `findUsecasesByFile()` in `TypeOrmValidationQueryRepository` — a stub that returns `[]`, so a derived list would always be empty at runtime.
+>
+> `ZeroCkvMixRule` (ARC-MOD-005) and ARC-CON-002 return `[]` for the same reason. Revisit all three together once `findUsecasesByFile()` is implemented.
 
 **Unit tests:**
-- Container with all required properties → no issue
-- Container missing one property → one issue with add fix option
-- Container with unknown type (no defs in map) → no issue (skip)
+- Container with every definition → no issue
+- Container missing one property → one issue
+- Container missing two properties → one issue per missing property
+- Property row with a null payload → counts as present, no issue
+- No definitions in the file → no issues
+- Two containers, only one incomplete → one issue, on the incomplete container
+
+> **Status: done (detect only)** — rule, registration and e2e tests implemented (not yet committed). The fix and `impactedUsecases` stay blocked as described above.
 
 ---
 
