@@ -50,6 +50,8 @@ export interface SubsystemRepository {
   /**
    * Reads the identities of the given subsystems, with the session overlay
    * applied. A systemId that is not a subsystem of the file is `NOT_FOUND`.
+   * An entity deleted in the session is read from committed data, so it
+   * is named as the user last saw it; this is not an existence check.
    */
   findSubsystemIdentities(
     fileSystemId: number,

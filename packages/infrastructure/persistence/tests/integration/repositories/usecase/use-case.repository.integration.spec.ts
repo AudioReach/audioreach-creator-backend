@@ -565,7 +565,33 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       ]);
     });
 
-    it('reports a use case whose GKV value was deleted in the session as unresolved', async () => {
+    it('names a use case deleted in the session from committed data', async () => {
+      await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
+      await seedGkv(1000, 700);
+      const repo = makeRepo(qr.manager, sessionId);
+      await repo.delete(1000);
+
+      const result = await repo.findUseCaseIdentities(FILE_ID, [1000]);
+
+      expect(result.items).toEqual([
+        {
+          entityType: ENTITY_TYPE.UseCase,
+          systemId: 1000,
+          identity: {
+            alias: 'uc-a',
+            gkv: [
+              {
+                key: {name: 'Device', naturalId: 7},
+                value: {name: 'Speaker', naturalId: 70},
+              },
+            ],
+          },
+        },
+      ]);
+      expect(result.failed).toEqual([]);
+    });
+
+    it('names a use case whose GKV value was deleted in the session from committed data', async () => {
       await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
       await seedGkv(1000, 700);
       await makeWriter(qr.manager).writeDelete(
@@ -584,14 +610,22 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
         sessionId,
       ).findUseCaseIdentities(FILE_ID, [1000]);
 
-      expect(result.items).toEqual([]);
-      expect(result.failed).toEqual([
+      expect(result.items).toEqual([
         {
+          entityType: ENTITY_TYPE.UseCase,
           systemId: 1000,
-          reason: FAILED_ENTITY_REASON.UnresolvedReference,
-          missingRef: {entityType: ENTITY_TYPE.ValueDefinition, systemId: 700},
+          identity: {
+            alias: 'uc-a',
+            gkv: [
+              {
+                key: {name: 'Device', naturalId: 7},
+                value: {name: 'Speaker', naturalId: 70},
+              },
+            ],
+          },
         },
       ]);
+      expect(result.failed).toEqual([]);
     });
   });
 

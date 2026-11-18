@@ -17,6 +17,7 @@ import {resolveActiveSessionId} from '../shared/session-resolver.js';
 import {ENTITY_TYPE} from '@arc/core';
 import {withNotFound} from '../../utils/with-not-found.js';
 import {inRequestOrder} from '../../utils/in-request-order.js';
+import {withCommittedFallback} from '../../utils/with-committed-fallback.js';
 import {KeyValueDefinitionFetcher} from '../../fetchers/definitions/key-value/key-value-definition-fetcher.js';
 import {ValueDefinitionFetcher} from '../../fetchers/definitions/key-value/value-definition-fetcher.js';
 import {toKeyDefinitionReadModel} from './key-definition-row-mapper.js';
@@ -163,25 +164,30 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
     if (requested.length === 0)
       return {entityType: ENTITY_TYPE.KeyDefinition, items: [], failed: []};
 
-    const sessionId = await resolveActiveSessionId(this.manager, fileSystemId);
-    const keys = await this.kvFetcher.fetchMany(
+    return withCommittedFallback(
+      await resolveActiveSessionId(this.manager, fileSystemId),
       requested,
-      fileSystemId,
-      sessionId,
-    );
-    const items = inRequestOrder(
-      requested,
-      keys.map(key => ({
-        entityType: ENTITY_TYPE.KeyDefinition,
-        systemId: key.systemId,
-        identity: {name: key.name, naturalId: key.naturalId},
-      })),
-    );
-    return withNotFound(
-      ENTITY_TYPE.KeyDefinition,
-      requested,
-      items,
-      item => item.systemId,
+      async (sessionId, ids) => {
+        const keys = await this.kvFetcher.fetchMany(
+          [...ids],
+          fileSystemId,
+          sessionId,
+        );
+        const items = inRequestOrder(
+          ids,
+          keys.map(key => ({
+            entityType: ENTITY_TYPE.KeyDefinition,
+            systemId: key.systemId,
+            identity: {name: key.name, naturalId: key.naturalId},
+          })),
+        );
+        return withNotFound(
+          ENTITY_TYPE.KeyDefinition,
+          ids,
+          items,
+          item => item.systemId,
+        );
+      },
     );
   }
 
@@ -198,8 +204,25 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
     if (requested.length === 0)
       return {entityType: ENTITY_TYPE.ValueDefinition, items: [], failed: []};
 
-    const sessionId = await resolveActiveSessionId(this.manager, fileSystemId);
-    const values = await this.valueFetcher.fetchMany(requested, sessionId);
+    return withCommittedFallback(
+      await resolveActiveSessionId(this.manager, fileSystemId),
+      requested,
+      (sessionId, ids) =>
+        this.readValueIdentities(fileSystemId, sessionId, ids),
+    );
+  }
+
+  private async readValueIdentities(
+    fileSystemId: number,
+    sessionId: number | null,
+    requested: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.ValueDefinition>,
+      typeof ENTITY_TYPE.ValueDefinition
+    >
+  > {
+    const values = await this.valueFetcher.fetchMany([...requested], sessionId);
     const keySystemIds = [...new Set(values.map(value => value.keySystemId))];
     const keys = await this.kvFetcher.fetchMany(
       keySystemIds,

@@ -35,6 +35,7 @@ import {
 } from '../../queries/shared/node-identity-reader.js';
 import {KeyValueDefinitionFetcher} from '../../fetchers/definitions/key-value/key-value-definition-fetcher.js';
 import {ValueDefinitionFetcher} from '../../fetchers/definitions/key-value/value-definition-fetcher.js';
+import {withCommittedFallback} from '../../utils/with-committed-fallback.js';
 
 export class TypeOrmSubsystemRepository implements SubsystemRepository {
   private readonly writer: PendingChangeWriter;
@@ -211,10 +212,11 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
       typeof ENTITY_TYPE.Subsystem
     >
   > {
-    return this.nodeIdentities.readSubsystems(
-      fileSystemId,
+    return withCommittedFallback(
       this.uow.getWriteContext().session.sessionId,
       subsystemSystemIds,
+      (sessionId, ids) =>
+        this.nodeIdentities.readSubsystems(fileSystemId, sessionId, ids),
     );
   }
 

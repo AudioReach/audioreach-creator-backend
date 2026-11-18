@@ -15,6 +15,7 @@ import type {EditActionsQueryService} from '../edit-session/edit-actions-query-s
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
 import {withNotFound} from '../../utils/with-not-found.js';
 import {inRequestOrder} from '../../utils/in-request-order.js';
+import {withCommittedFallback} from '../../utils/with-committed-fallback.js';
 import {
   type BatchRead,
   type FailedEntity,
@@ -90,20 +91,27 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
     const requestedIds = [...new Set(subgraphSystemIds)];
     if (requestedIds.length === 0)
       return {entityType: ENTITY_TYPE.Subgraph, items: [], failed: []};
-    const sessionId = await resolveActiveSessionId(this.manager, fileSystemId);
-    const rows = await this.subgraphFetcher.fetchMany(fileSystemId, sessionId, {
-      systemId: requestedIds,
-    });
-    const items = inRequestOrder(requestedIds, rows).map(row => ({
-      entityType: ENTITY_TYPE.Subgraph,
-      systemId: row.systemId,
-      identity: {name: row.name, naturalId: row.naturalId},
-    }));
-    return withNotFound(
-      ENTITY_TYPE.Subgraph,
+    return withCommittedFallback(
+      await resolveActiveSessionId(this.manager, fileSystemId),
       requestedIds,
-      items,
-      item => item.systemId,
+      async (sessionId, ids) => {
+        const rows = await this.subgraphFetcher.fetchMany(
+          fileSystemId,
+          sessionId,
+          {systemId: [...ids]},
+        );
+        const items = inRequestOrder(ids, rows).map(row => ({
+          entityType: ENTITY_TYPE.Subgraph,
+          systemId: row.systemId,
+          identity: {name: row.name, naturalId: row.naturalId},
+        }));
+        return withNotFound(
+          ENTITY_TYPE.Subgraph,
+          ids,
+          items,
+          item => item.systemId,
+        );
+      },
     );
   }
 

@@ -300,6 +300,24 @@ describe('TypeOrmSubsystemRepository (integration)', () => {
       expect(batch.failed).toEqual([]);
     });
 
+    it('names a subsystem deleted in the session from committed data', async () => {
+      const repo = makeRepo(qr.manager, sessionId);
+      await repo.deleteSubsystem(CHILD_SUBSYSTEM_ID);
+
+      const batch = await repo.findSubsystemIdentities(FILE_ID, [
+        CHILD_SUBSYSTEM_ID,
+      ]);
+
+      expect(batch.items).toEqual([
+        {
+          entityType: ENTITY_TYPE.Subsystem,
+          systemId: CHILD_SUBSYSTEM_ID,
+          identity: {name: 'Child', naturalId: 2},
+        },
+      ]);
+      expect(batch.failed).toEqual([]);
+    });
+
     it('reports an ID that is not a subsystem as not found', async () => {
       const batch = await makeRepo(
         qr.manager,

@@ -51,6 +51,8 @@ export interface KeyValueDefQueryService {
   /**
    * The name and natural ID of each requested key definition, in request
    * order. Missing IDs are reported in `failed` as `NOT_FOUND`.
+   * An entity deleted in the session is read from committed data, so it
+   * is named as the user last saw it; this is not an existence check.
    */
   findKeyDefinitionIdentities(
     fileSystemId: number,
@@ -66,6 +68,8 @@ export interface KeyValueDefQueryService {
    * The key and value (name and natural ID) of each requested value
    * definition, in request order. A value that is missing, or whose key is
    * missing, is reported in `failed` as `NOT_FOUND`.
+   * An entity deleted in the session is read from committed data, so it
+   * is named as the user last saw it; this is not an existence check.
    */
   findValueDefinitionIdentities(
     fileSystemId: number,

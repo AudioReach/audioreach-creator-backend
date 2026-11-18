@@ -42,6 +42,7 @@ import {TkvOverlayFetcher} from '../../fetchers/tkv-overlay-fetcher.js';
 import {TkvParameterPayloadFetcher} from '../../fetchers/tkv-parameter-payload-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
 import {NodeIdentityReader} from '../../queries/shared/node-identity-reader.js';
+import {withCommittedFallback} from '../../utils/with-committed-fallback.js';
 
 interface ParameterPayloadRowIdentity {
   systemId: number;
@@ -139,10 +140,11 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       typeof ENTITY_TYPE.SpfModule
     >
   > {
-    return this.nodeIdentities.readSpfModules(
-      fileSystemId,
+    return withCommittedFallback(
       this.uow.getWriteContext().session.sessionId,
       spfModuleSystemIds,
+      (sessionId, ids) =>
+        this.nodeIdentities.readSpfModules(fileSystemId, sessionId, ids),
     );
   }
 
