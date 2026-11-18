@@ -5,7 +5,7 @@
 
 import type {EntityType} from '../entity-type.js';
 
-export interface ImpactedEntity {
+export interface LegacyImpactedEntity {
   /** The type of entity that has the issue. */
   entityType: EntityType;
   systemId: number;

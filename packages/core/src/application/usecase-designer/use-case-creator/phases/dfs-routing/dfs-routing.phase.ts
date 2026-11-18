@@ -12,7 +12,7 @@ import {
   type DfsPath,
   type DeleteOrReconstructDecision,
 } from '../../contracts/routing-state.js';
-import type {Issue} from '../../../../../shared/issues/issue.js';
+import type {LegacyIssue} from '../../../../../shared/issues/issue.js';
 import {DATA_LINK_TYPE} from '../../../../../domain/entities/usecase-data/links/data-link-type.js';
 import {
   DfsPathTraverser,
@@ -119,7 +119,7 @@ export class DfsRoutingPhase {
     }
 
     const discoveredPaths: DfsPath[] = [];
-    const cycleWarnings: Issue[] = [];
+    const cycleWarnings: LegacyIssue[] = [];
     const coneSubgraphSystemIds = new Set(context.cones.sgSystemIds);
     const outgoingEdgeMaps = new Map<number, Map<string, DfsTraversalEdge>>();
     const incomingNeighborSets = new Map<number, Set<number>>();

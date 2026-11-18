@@ -33,7 +33,7 @@ export interface ClientInputSpec {
   type: ClientInputType;
 }
 
-export interface FixOption {
+export interface LegacyFixOption {
   /** e.g. "delete-duplicate-link" */
   systemId: string;
   description: string;

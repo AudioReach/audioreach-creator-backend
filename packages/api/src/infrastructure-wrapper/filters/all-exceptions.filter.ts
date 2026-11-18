@@ -6,7 +6,7 @@
 import {Catch, HttpException, HttpStatus, Inject} from '@nestjs/common';
 import type {ExceptionFilter, ArgumentsHost} from '@nestjs/common';
 import type {Request, Response} from 'express';
-import type {Logger, Issue} from '@arc/core';
+import type {Logger, LegacyIssue} from '@arc/core';
 import {
   DomainException,
   ResourceNotFoundException,
@@ -146,14 +146,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
     status: number;
     errorCode: string | undefined;
     details: unknown;
-    issues: Issue[] | undefined;
+    issues: LegacyIssue[] | undefined;
   } {
     if (exception instanceof DomainRuleViolationException) {
       return {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
         errorCode: exception.errorCode,
         details: undefined,
-        issues: exception.issues as Issue[],
+        issues: exception.issues as LegacyIssue[],
       };
     }
     if (exception instanceof ConflictException) {
@@ -172,7 +172,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
           ) ?? HttpStatus.INTERNAL_SERVER_ERROR,
         errorCode: exception.errorCode,
         details: exception.details,
-        issues: exception.issues as Issue[] | undefined,
+        issues: exception.issues as LegacyIssue[] | undefined,
       };
     }
     if (exception instanceof HttpException) {
@@ -185,7 +185,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
           errorCode: (resp.errorCode as string) ?? exception.name,
           details: resp.details,
           issues: Array.isArray(resp.issues)
-            ? (resp.issues as Issue[])
+            ? (resp.issues as LegacyIssue[])
             : undefined,
         };
       }

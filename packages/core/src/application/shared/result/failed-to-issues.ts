@@ -10,7 +10,7 @@ import type {
 import {FAILED_ENTITY_REASON} from '../../ports/persistence/batch-read.js';
 import type {EntityRef} from '../../../domain/identity/entity-identity.js';
 import {IdentityFormatter} from '../../issues/identity-formatter.js';
-import type {Issue} from '../../../shared/issues/issue.js';
+import type {LegacyIssue} from '../../../shared/issues/issue.js';
 import type {EntityType} from '../../../shared/entity-type.js';
 import {ISSUE_CODE} from '../../../shared/issues/operational-codes.js';
 import {IssueSeverity} from '../../../shared/issues/severity.js';
@@ -27,7 +27,7 @@ const formatter = new IdentityFormatter();
  */
 export function failedToIssues<E extends EntityType>(
   batch: BatchRead<unknown, E>,
-): Issue[] {
+): LegacyIssue[] {
   return batch.failed.map(entity =>
     failedEntityToIssue(batch.entityType, entity),
   );
@@ -36,7 +36,7 @@ export function failedToIssues<E extends EntityType>(
 function failedEntityToIssue<E extends EntityType>(
   entityType: E,
   entity: FailedEntity<E>,
-): Issue {
+): LegacyIssue {
   const ref = {
     entityType,
     systemId: entity.systemId,

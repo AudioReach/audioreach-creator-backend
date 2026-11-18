@@ -16,7 +16,7 @@ import {Result} from '../../../shared/result/result.js';
 import {KvData} from '../../../../domain/entities/common/entities/kv-data.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
-import type {Issue} from '../../../../shared/issues/issue.js';
+import type {LegacyIssue} from '../../../../shared/issues/issue.js';
 import {serializeDefaultParameterData} from '../../shared/serialize-elements.js';
 import type {AddCkvParametersCommand} from './add-ckv-parameters.command.js';
 import {getModuleWriteContext} from '../shared/module-handler-helpers.js';
@@ -59,7 +59,7 @@ export class AddCkvParametersHandler implements CommandHandler<
       command.parameterSystemIds,
     );
     const defMap = new Map(allDefs.map(d => [d.systemId, d]));
-    const issues: Issue[] = [];
+    const issues: LegacyIssue[] = [];
     const parameterSystemIds = [...new Set(command.parameterSystemIds)];
 
     return transact(async () => {

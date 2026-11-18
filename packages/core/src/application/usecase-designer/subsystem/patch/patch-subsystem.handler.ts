@@ -6,7 +6,7 @@
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
-import type {Issue} from '../../../../shared/issues/issue.js';
+import type {LegacyIssue} from '../../../../shared/issues/issue.js';
 import {
   DomainRuleViolationException,
   InvalidOperationException,
@@ -34,7 +34,7 @@ import {
 export type PatchSubsystemResult = {
   groupId: string;
   subsystem: SubsystemPatchReadModel;
-  issues?: readonly Issue[];
+  issues?: readonly LegacyIssue[];
 };
 
 export class PatchSubsystemHandler implements CommandHandler<
@@ -116,7 +116,7 @@ export class PatchSubsystemHandler implements CommandHandler<
         succeeded = true;
       }
 
-      const issues: Issue[] = [];
+      const issues: LegacyIssue[] = [];
       const updatedDataPorts = subsystem.dataPorts.map(port => ({
         systemId: port.systemId,
         portId: port.naturalId,

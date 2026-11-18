@@ -20,14 +20,14 @@ import {
   type FileOpenStatus,
 } from '../../../domain/entities/usecase-data/project/arc-db-file.js';
 import type {ValidationReport} from '../../../domain/validation/validation-report.js';
-import type {Issue} from '../../../shared/issues/index.js';
+import type {LegacyIssue} from '../../../shared/issues/index.js';
 import {RESULT_KIND} from '../../shared/result/result.js';
 
 export type UploadFileResult = {
   projectId: string;
   projectName: string;
   projectDescription: string;
-  issues?: readonly Issue[];
+  issues?: readonly LegacyIssue[];
   openStatus: FileOpenStatus;
   /**
    * Null for now — domain validation via fromEntities() will be added
@@ -179,7 +179,7 @@ export class UploadFileHandler implements CommandHandler<
       );
     }
 
-    const dataLossResultIssues: Issue[] = uploadResult.dataLossIssues.map(
+    const dataLossResultIssues: LegacyIssue[] = uploadResult.dataLossIssues.map(
       issue => ({
         code: issue.code,
         message: issue.message,
@@ -191,7 +191,7 @@ export class UploadFileHandler implements CommandHandler<
       }),
     );
 
-    const allIssues: Issue[] = [
+    const allIssues: LegacyIssue[] = [
       ...(uploadResult.issues ?? []),
       ...dataLossResultIssues,
     ];

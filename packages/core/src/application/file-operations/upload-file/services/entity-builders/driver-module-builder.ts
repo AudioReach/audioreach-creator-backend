@@ -12,7 +12,7 @@ import {
 } from '../../../../../shared/types/branded-ids.js';
 import {DriverModule} from '../../../../../domain/entities/driver-module-data/driver-module.js';
 import type {BuildResult} from '../../types/issue-collection.js';
-import type {Issue} from '../../../../../shared/issues/index.js';
+import type {LegacyIssue} from '../../../../../shared/issues/index.js';
 import {IssueSeverity} from '../../../../../shared/issues/index.js';
 import {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
@@ -57,7 +57,7 @@ export class DriverModuleBuilder {
     });
 
     const entities: DriverModule[] = [];
-    const issues: Issue[] = [];
+    const issues: LegacyIssue[] = [];
 
     // Step 1: Build driver module entities
     for (const moduleDefinitionId of moduleDefinitionIds) {

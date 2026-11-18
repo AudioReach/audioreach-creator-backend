@@ -15,7 +15,7 @@ import {ApiFixOptionDto} from './api-fix-option.dto.js';
 /**
  * Nested DTO for the impacted-entity field on ApiIssueItem.
  *
- * Structurally mirrors core `ImpactedEntity` from
+ * Structurally mirrors core `LegacyImpactedEntity` from
  * `packages/core/src/shared/issues/impacted-entity.ts`.
  */
 export class ApiImpactedEntityDto {
@@ -44,10 +44,10 @@ export class ApiImpactedEntityDto {
  * Wire representation of a single structured issue, carried by
  * `ApiResult<T>.issues[]`.
  *
- * Structurally mirrors core `Issue` (design §6.2, FR-4.1). The mapper
+ * Structurally mirrors core `LegacyIssue` (design §6.2, FR-4.1). The mapper
  * `toApiIssueItem` performs a field-for-field projection — extra fields
  * on `ValidationIssue` (`name`, `defaultSeverity`) are deliberately not
- * projected so the wire shape stays purely `Issue`.
+ * projected so the wire shape stays purely `LegacyIssue`.
  */
 export class ApiIssueItem {
   @ApiProperty({

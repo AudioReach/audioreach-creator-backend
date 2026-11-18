@@ -13,7 +13,7 @@ import {
 } from '@arc/core';
 
 /**
- * Maps fix command type names (from FixOption.commandType) to factory functions
+ * Maps fix command type names (from LegacyFixOption.commandType) to factory functions
  * that construct the corresponding CQRS command from a payload object.
  *
  * This is the explicit opt-in registry for fix commands. The registry starts

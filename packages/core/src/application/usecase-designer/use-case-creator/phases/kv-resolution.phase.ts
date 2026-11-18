@@ -4,7 +4,7 @@
  */
 
 import {Result} from '../../../../application/shared/result/result.js';
-import type {Issue} from '../../../../shared/issues/issue.js';
+import type {LegacyIssue} from '../../../../shared/issues/issue.js';
 import type {KvPair} from '../../../ports/persistence/repositories/shared/kv-pair.js';
 import type {SubgraphRepository} from '../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
 import type {KeyValueDefinitionRepository} from '../../../ports/persistence/repositories/key-value/key-value-definition.repository.js';
@@ -100,7 +100,7 @@ export class KvResolutionPhase {
     );
 
     const perSg = new Map<number, readonly SgkvInstance[]>();
-    const issues: Issue[] = [];
+    const issues: LegacyIssue[] = [];
     for (const routingSubgraph of graphSnapshot.subgraphs) {
       const subgraphSystemId = routingSubgraph.subgraph.systemId;
       const requestedSgkvs = routingSubgraph.requestedSgkvs;

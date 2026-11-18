@@ -32,7 +32,7 @@ import {
   type SystemId,
 } from '../../../../../shared/types/branded-ids.js';
 import type {BuildResult} from '../../types/issue-collection.js';
-import type {Issue} from '../../../../../shared/issues/index.js';
+import type {LegacyIssue} from '../../../../../shared/issues/index.js';
 import {IssueSeverity} from '../../../../../shared/issues/index.js';
 import {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
@@ -464,7 +464,7 @@ export class SpfModuleBuilder {
     activeControlPortInfo: ActiveControlPortInfo,
   ): BuildResult<SpfModule> {
     const spfModules: SpfModule[] = [];
-    const issues: Issue[] = [];
+    const issues: LegacyIssue[] = [];
 
     for (const moduleInfo of spfModuleInfos) {
       const result = this.processModuleInfo(
@@ -501,10 +501,10 @@ export class SpfModuleBuilder {
     activeControlPortInfo: ActiveControlPortInfo,
   ): {
     modules: SpfModule[];
-    issues: Issue[];
+    issues: LegacyIssue[];
   } {
     const modules: SpfModule[] = [];
-    const issues: Issue[] = [];
+    const issues: LegacyIssue[] = [];
 
     for (const moduleInstance of moduleInfo.spfModules) {
       try {
@@ -567,7 +567,7 @@ export class SpfModuleBuilder {
   private convertToEntityBuildIssue(
     errorMessage: string,
     instanceId?: number,
-  ): Issue {
+  ): LegacyIssue {
     return {
       code: ERROR_CODES.INVALID_ENTITY_DATA,
       message: errorMessage,

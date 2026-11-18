@@ -4,7 +4,7 @@
  */
 
 import type {ValidationIssue} from '../issue.js';
-import type {FixOption} from '../../../shared/issues/index.js';
+import type {LegacyFixOption} from '../../../shared/issues/index.js';
 import {IssueSeverity, IssueCategory} from '../../../shared/issues/index.js';
 import {
   INSERT_FAILURE,
@@ -18,7 +18,7 @@ import {
  *   - severity=WARNING, defaultSeverity=WARNING (so preference-enforcer treats it uniformly)
  *   - category=DATA_LOSS (drives acknowledgment gate + files.data_loss_issues storage)
  *   - impactedEntity populated from the catalog entry's entityType + caller's systemId
- *   - fixOptions omitted when empty/undefined (structural equivalence with Issue base type)
+ *   - fixOptions omitted when empty/undefined (structural equivalence with LegacyIssue base type)
  *
  * @param type         Symbolic catalog key (grep-able).
  * @param systemId     The failing entity's aggregate systemId (log in hex via BinaryUtils.toHexString elsewhere).
@@ -31,7 +31,7 @@ export function newInsertFailureIssue(
   systemId: number,
   detail: string,
   displayName?: string,
-  fixOptions?: FixOption[],
+  fixOptions?: LegacyFixOption[],
 ): ValidationIssue {
   const spec = INSERT_FAILURE[type];
   return {

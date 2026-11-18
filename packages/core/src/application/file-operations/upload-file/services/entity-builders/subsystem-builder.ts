@@ -19,7 +19,7 @@ import type {Logger} from '../../../../../shared/types/logger.interface.js';
 import type {IdGenerationPort} from '../../../../ports/id-generation/id-generation.port.js';
 import type {WorkerPoolPort} from '../../../../ports/worker/worker-pool.port.js';
 import type {WorkerTask} from '../../../../ports/worker/worker-types.js';
-import type {Issue} from '../../../../../shared/issues/issue.js';
+import type {LegacyIssue} from '../../../../../shared/issues/issue.js';
 import {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
 import {IssueSeverity} from '../../../../../shared/issues/severity.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
@@ -54,7 +54,7 @@ export interface SubsystemBuildResult {
   subsystems: Subsystem[];
   dataLinks: DataLink[];
   controlLinks: ControlLink[];
-  issues: Issue[];
+  issues: LegacyIssue[];
 }
 
 // ─── Internal types ───────────────────────────────────────────────────────────
@@ -145,8 +145,8 @@ export class SubsystemBuilder {
     };
   }
 
-  private buildIssues(uiSubsystems: UiSubsystem[]): Issue[] {
-    const issues: Issue[] = [];
+  private buildIssues(uiSubsystems: UiSubsystem[]): LegacyIssue[] {
+    const issues: LegacyIssue[] = [];
     for (const subsystem of uiSubsystems) {
       for (const child of subsystem.children) {
         if (child.type !== 'Subgraph') continue;

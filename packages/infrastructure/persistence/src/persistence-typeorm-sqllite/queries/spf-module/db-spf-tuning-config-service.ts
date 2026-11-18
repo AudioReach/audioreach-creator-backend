@@ -14,7 +14,7 @@ import type {
   TagDefinitionQueryService,
   ConfigurationIncludes,
   KeyValuePairReadModel,
-  Issue,
+  LegacyIssue,
 } from '@arc/core';
 import {
   Result,
@@ -112,7 +112,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
 
       // Per CKV, resolve key-value pairs via KeyValueDefQueryService (FR-4).
       // Each CKV builds independently — failures captured per-item (FR-8 Rule 3).
-      const itemErrors: Issue[] = [];
+      const itemErrors: LegacyIssue[] = [];
       const results = await Promise.all(
         overlaidRows.map(async row => {
           try {
@@ -267,7 +267,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
 
       // Per tag map, build TKV read models.
       // Per-item failures captured without blocking the rest (FR-8 Rule 3).
-      const itemErrors: Issue[] = [];
+      const itemErrors: LegacyIssue[] = [];
       const results = await Promise.all(
         overlaidTagMaps.map(async tagMap => {
           const tagDef = tagDefMap.get(tagMap.tagDefinitionSystemId);
@@ -380,7 +380,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
     tagMap: OverlaidModuleTagIdMap,
     fileSystemId: number,
   ): Promise<Result<TkvReadModel[]>> {
-    const itemErrors: Issue[] = [];
+    const itemErrors: LegacyIssue[] = [];
     const results = await Promise.all(
       tagMap.tkvs.map(async tkv => {
         try {

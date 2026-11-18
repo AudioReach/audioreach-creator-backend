@@ -9,7 +9,7 @@ import type {Logger} from '../../../../shared/types/logger.interface.js';
 import {Result} from '../../../shared/result/result.js';
 import {KvData} from '../../../../domain/entities/common/entities/kv-data.js';
 import {ResourceNotFoundException} from '../../../shared/exceptions/index.js';
-import type {Issue} from '../../../../shared/issues/issue.js';
+import type {LegacyIssue} from '../../../../shared/issues/issue.js';
 import type {AddTkvsCommand} from './add-tkvs.command.js';
 import {buildDefaultPayloads} from '../shared/kv-seed-helpers.js';
 import {getModuleWriteContext} from '../shared/module-handler-helpers.js';
@@ -51,7 +51,7 @@ export class AddTkvsHandler implements CommandHandler<
 
     return transact(async () => {
       const addedTkvSystemIds: number[] = [];
-      const issues: Issue[] = [];
+      const issues: LegacyIssue[] = [];
 
       for (const item of command.tkvs) {
         const key = [...item.valueDefinitionSystemIds]

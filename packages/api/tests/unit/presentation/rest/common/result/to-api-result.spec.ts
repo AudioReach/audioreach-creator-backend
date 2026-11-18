@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {Issue, Result} from '@arc/core';
+import type {LegacyIssue, Result} from '@arc/core';
 import {IssueSeverity, RESULT_KIND} from '@arc/core';
 import {toApiResult} from '../../../../../../src/presentation/rest/common/result/to-api-result.js';
 
@@ -18,7 +18,7 @@ describe('toApiResult', () => {
   });
 
   it("projects an 'ok' result with WARNING issues to {data, issues[]}", () => {
-    const warning: Issue = {
+    const warning: LegacyIssue = {
       code: 'ARC-INSERT-MOD-002',
       message: 'Module dropped',
       severity: IssueSeverity.Warning,
@@ -37,7 +37,7 @@ describe('toApiResult', () => {
   });
 
   it("projects a 'partial' result with ERROR issues to {data, issues[]}", () => {
-    const errorIssue: Issue = {
+    const errorIssue: LegacyIssue = {
       code: 'ENTITY_NOT_FOUND',
       message: 'Module 9 not found',
       severity: IssueSeverity.Error,
@@ -65,7 +65,7 @@ describe('toApiResult', () => {
   });
 
   it("throws when given a 'fail' result — programming contract violation", () => {
-    const failIssue: Issue = {
+    const failIssue: LegacyIssue = {
       code: 'ENTITY_NOT_FOUND',
       message: 'Project not found',
       severity: IssueSeverity.Error,

@@ -8,7 +8,7 @@ import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.
 import {Result} from '../../../shared/result/result.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
-import type {Issue} from '../../../../shared/issues/issue.js';
+import type {LegacyIssue} from '../../../../shared/issues/issue.js';
 import type {AddTagsCommand} from './add-tags.command.js';
 import {getModuleWriteContext} from '../shared/module-handler-helpers.js';
 
@@ -40,7 +40,7 @@ export class AddTagsHandler implements CommandHandler<
 
     return transact(async () => {
       const addedTagSystemIds: number[] = [];
-      const issues: Issue[] = [];
+      const issues: LegacyIssue[] = [];
 
       for (const tagDefinitionSystemId of new Set(
         command.tagDefinitionSystemIds,

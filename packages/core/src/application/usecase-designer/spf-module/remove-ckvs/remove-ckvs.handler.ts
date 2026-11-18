@@ -9,7 +9,7 @@ import type {Logger} from '../../../../shared/types/logger.interface.js';
 import {Result} from '../../../shared/result/result.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
-import type {Issue} from '../../../../shared/issues/issue.js';
+import type {LegacyIssue} from '../../../../shared/issues/issue.js';
 import type {RemoveCkvsCommand} from './remove-ckvs.command.js';
 import {createZeroCkv} from '../shared/kv-seed-helpers.js';
 import {getModuleWriteContext} from '../shared/module-handler-helpers.js';
@@ -40,7 +40,7 @@ export class RemoveCkvsHandler implements CommandHandler<
     );
     const existingCkvMap = new Map(existingCkvs.map(c => [c.systemId, c]));
 
-    const issues: Issue[] = [];
+    const issues: LegacyIssue[] = [];
     const toRemove: Array<(typeof existingCkvs)[number]> = [];
     for (const ckvSystemId of new Set(command.ckvSystemIds)) {
       if (!existingCkvMap.has(ckvSystemId)) {

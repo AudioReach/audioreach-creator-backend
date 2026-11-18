@@ -4,7 +4,7 @@
  */
 
 import {IssueCollector} from '../../../../../../src/application/file-operations/upload-file/types/issue-collection.js';
-import type {Issue} from '../../../../../../src/shared/issues/index.js';
+import type {LegacyIssue} from '../../../../../../src/shared/issues/index.js';
 import {IssueSeverity} from '../../../../../../src/shared/issues/index.js';
 import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
 
@@ -15,14 +15,14 @@ describe('IssueCollector', () => {
     collector = new IssueCollector();
   });
 
-  const errorIssue: Issue = {
+  const errorIssue: LegacyIssue = {
     code: 'ARC-INSERT-MOD-001',
     message: 'Module insert failed',
     severity: IssueSeverity.Error,
     impactedEntity: {entityType: ENTITY_TYPE.SpfModule, systemId: 1},
   };
 
-  const warningIssue: Issue = {
+  const warningIssue: LegacyIssue = {
     code: 'ARC-INSERT-LINK-001',
     message: 'Data link duplicate',
     severity: IssueSeverity.Warning,

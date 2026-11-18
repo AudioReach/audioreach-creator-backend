@@ -12,7 +12,7 @@ import {
   type TkvQueryService,
   type KeyValueDefQueryService,
   type ISessionRepository,
-  type Issue,
+  type LegacyIssue,
   PORT_IO_TYPE,
   Result,
   ERROR_CODES,
@@ -282,7 +282,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
         return Result.fail(...rootsResult.issues);
       const roots = rootsResult.data;
 
-      const warnings: Issue[] = [];
+      const warnings: LegacyIssue[] = [];
 
       // Step 2 — definition capabilities via extracted helper (reduces complexity)
       const {defCapMap, warnings: defWarnings} =
@@ -402,10 +402,10 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
     sessionId: number | null,
   ): Promise<{
     defCapMap: Map<number, DefinitionCapabilityData>;
-    warnings: Issue[];
+    warnings: LegacyIssue[];
   }> {
     const defCapMap = new Map<number, DefinitionCapabilityData>();
-    const warnings: Issue[] = [];
+    const warnings: LegacyIssue[] = [];
 
     for (const defId of defIds) {
       try {
@@ -489,13 +489,13 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
       number,
       {dataPorts: OverlaidDataPort[]; controlPorts: OverlaidControlPort[]}
     >;
-    warnings: Issue[];
+    warnings: LegacyIssue[];
   }> {
     const portsByNode = new Map<
       number,
       {dataPorts: OverlaidDataPort[]; controlPorts: OverlaidControlPort[]}
     >();
-    const warnings: Issue[] = [];
+    const warnings: LegacyIssue[] = [];
 
     for (const nodeId of nodeIds) {
       let dataPorts: OverlaidDataPort[] = [];

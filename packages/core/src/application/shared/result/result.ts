@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {Issue} from '../../../shared/issues/index.js';
+import type {LegacyIssue} from '../../../shared/issues/index.js';
 
 /**
  * Named constants for Result<T>.kind — compare against these instead of
@@ -34,14 +34,17 @@ export type Result<T> =
   | {
       readonly kind: typeof RESULT_KIND.Ok;
       readonly data: T;
-      readonly issues?: readonly Issue[];
+      readonly issues?: readonly LegacyIssue[];
     }
   | {
       readonly kind: typeof RESULT_KIND.Partial;
       readonly data: T;
-      readonly issues: readonly Issue[];
+      readonly issues: readonly LegacyIssue[];
     }
-  | {readonly kind: typeof RESULT_KIND.Fail; readonly issues: readonly Issue[]};
+  | {
+      readonly kind: typeof RESULT_KIND.Fail;
+      readonly issues: readonly LegacyIssue[];
+    };
 
 /**
  * Factory namespace for constructing Result<T> values.
@@ -55,8 +58,8 @@ export type Result<T> =
  * Compare against RESULT_KIND's named constants, not raw string literals.
  */
 function ok(): Result<void>;
-function ok<T>(data: T, issues?: readonly Issue[]): Result<T>;
-function ok<T>(data?: T, issues?: readonly Issue[]): Result<T | void> {
+function ok<T>(data: T, issues?: readonly LegacyIssue[]): Result<T>;
+function ok<T>(data?: T, issues?: readonly LegacyIssue[]): Result<T | void> {
   if (issues && issues.length > 0) {
     return {kind: RESULT_KIND.Ok, data, issues};
   }
@@ -66,7 +69,7 @@ function ok<T>(data?: T, issues?: readonly Issue[]): Result<T | void> {
 export const Result = {
   ok,
 
-  partial<T>(data: T, issues: readonly Issue[]): Result<T> {
+  partial<T>(data: T, issues: readonly LegacyIssue[]): Result<T> {
     if (issues.length === 0) {
       throw new Error(
         'Result.partial() requires at least one issue — use Result.ok() for issue-free success',
@@ -75,7 +78,7 @@ export const Result = {
     return {kind: RESULT_KIND.Partial, data, issues};
   },
 
-  fail<T = never>(...issues: readonly Issue[]): Result<T> {
+  fail<T = never>(...issues: readonly LegacyIssue[]): Result<T> {
     if (issues.length === 0) {
       throw new Error('Result.fail() requires at least one issue');
     }

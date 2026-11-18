@@ -13,7 +13,7 @@ import {
 } from '../../../shared/exceptions/index.js';
 import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
-import type {Issue} from '../../../../shared/issues/issue.js';
+import type {LegacyIssue} from '../../../../shared/issues/issue.js';
 import type {MoveSubsystemComponentsCommand} from './move-subsystem-components.command.js';
 import {isDescendant} from '../subsystem-helpers.js';
 import {
@@ -30,7 +30,7 @@ export type MoveSubsystemComponentsResult = {
   groupId: string;
   updatedModules: Array<{systemId: number; parentSystemId: number | null}>;
   updatedSubsystems: Array<{systemId: number; parentSystemId: number | null}>;
-  issues?: readonly Issue[];
+  issues?: readonly LegacyIssue[];
 } & MoveSubsystemImpact;
 
 export class MoveSubsystemComponentsHandler implements CommandHandler<
@@ -67,7 +67,7 @@ export class MoveSubsystemComponentsHandler implements CommandHandler<
       const parentBefore = new Map(
         topology.map(node => [node.systemId, node.parentSystemId]),
       );
-      const issues: Issue[] = [];
+      const issues: LegacyIssue[] = [];
       const subsystemIds = new Set(subsystems.map(item => item.systemId));
       const subsystemSystemIds: number[] = [];
       for (const systemId of command.subsystemSystemIds) {
