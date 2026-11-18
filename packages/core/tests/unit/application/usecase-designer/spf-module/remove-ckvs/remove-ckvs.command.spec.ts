@@ -4,7 +4,7 @@
  */
 
 import {RemoveCkvsCommand} from '../../../../../../src/application/usecase-designer/spf-module/remove-ckvs/remove-ckvs.command.js';
-import {InvalidInputException} from '../../../../../../src/shared/exceptions/invalid-input.exception.js';
+import {InvalidInputException} from '../../../../../../src/application/shared/exceptions/invalid-input.exception.js';
 
 describe('RemoveCkvsCommand.fromPayload', () => {
   it('constructs command with correct ids', () => {

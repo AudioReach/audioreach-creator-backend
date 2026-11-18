@@ -6,7 +6,7 @@
 import {jest} from '@jest/globals';
 import {GetContainerPropertyDefinitionHandler} from '../../../../../src/application/definition/container-property-definition/get-property/get-container-property-definition.handler.js';
 import {GetContainerPropertyDefinitionQuery} from '../../../../../src/application/definition/container-property-definition/get-property/get-container-property-definition.query.js';
-import {ResourceNotFoundException} from '../../../../../src/shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../../../src/application/shared/exceptions/resource-not-found.exception.js';
 import {Result} from '../../../../../src/application/shared/result/result.js';
 import {IssueSeverity} from '../../../../../src/shared/issues/severity.js';
 import type {QueryServices} from '../../../../../src/application/ports/persistence/query-services/query-services.js';

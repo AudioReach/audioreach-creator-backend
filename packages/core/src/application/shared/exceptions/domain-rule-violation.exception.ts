@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {Issue} from '../issues/issue.js';
+import type {Issue} from '../../../shared/issues/issue.js';
 import {DomainException} from './domain-exception.js';
 
 /**

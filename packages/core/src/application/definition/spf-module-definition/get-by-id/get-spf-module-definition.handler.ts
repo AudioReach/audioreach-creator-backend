@@ -7,7 +7,7 @@ import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handl
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import type {GetSpfModuleDefinitionQuery} from './get-spf-module-definition.query.js';
 import type {SpfModuleDefinitionSummaryWithCustomData} from '../get-all/get-all-spf-module-definitions.handler.js';
-import {ResourceNotFoundException} from '../../../../shared/exceptions/index.js';
+import {ResourceNotFoundException} from '../../../shared/exceptions/index.js';
 import {RESULT_KIND} from '../../../shared/result/result.js';
 import {
   mapSpfModuleDefinition,

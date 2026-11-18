@@ -4,7 +4,7 @@
  */
 import {describe, it, expect, jest} from '@jest/globals';
 import type {UnitOfWork, ModuleRepository, IdGenerationPort} from '@arc/core';
-import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/index.js';
+import {ResourceNotFoundException} from '../../../../../../src/application/shared/exceptions/index.js';
 import {AddTagsHandler} from '../../../../../../src/application/usecase-designer/spf-module/add-tags/add-tags.handler.js';
 import {AddTagsCommand} from '../../../../../../src/application/usecase-designer/spf-module/add-tags/add-tags.command.js';
 

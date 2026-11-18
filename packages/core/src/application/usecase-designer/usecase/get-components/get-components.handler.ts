@@ -7,7 +7,7 @@ import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handl
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import type {ComponentsReadModel} from '../../../ports/persistence/query-services/usecase/query-models/components-read-model.js';
 import {Result, RESULT_KIND} from '../../../shared/result/result.js';
-import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../shared/exceptions/resource-not-found.exception.js';
 import {FAILED_ENTITY_REASON} from '../../../ports/persistence/batch-read.js';
 import {failedToIssues} from '../../../shared/result/failed-to-issues.js';
 import {

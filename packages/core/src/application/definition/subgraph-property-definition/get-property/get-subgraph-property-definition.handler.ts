@@ -5,7 +5,7 @@
 
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
-import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../shared/exceptions/resource-not-found.exception.js';
 import {GetSubgraphPropertyDefinitionQuery} from './get-subgraph-property-definition.query.js';
 import {RESULT_KIND} from '../../../shared/result/result.js';
 import {

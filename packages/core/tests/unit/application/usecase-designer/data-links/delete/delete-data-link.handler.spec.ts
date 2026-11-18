@@ -6,7 +6,7 @@
 import {describe, expect, it, jest} from '@jest/globals';
 import {DATA_LINK_TYPE} from '@arc/core';
 import type {DataLinkRepository, UnitOfWork} from '@arc/core';
-import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../../../../src/application/shared/exceptions/resource-not-found.exception.js';
 import {DeleteDataLinkCommand} from '../../../../../../src/application/usecase-designer/data-links/delete/delete-data-link.command.js';
 import {DeleteDataLinkHandler} from '../../../../../../src/application/usecase-designer/data-links/delete/delete-data-link.handler.js';
 

@@ -6,7 +6,7 @@
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import type {GetDriverModuleDefinitionQuery} from './get-driver-module-definition.query.js';
-import {ResourceNotFoundException} from '../../../../shared/exceptions/index.js';
+import {ResourceNotFoundException} from '../../../shared/exceptions/index.js';
 import {RESULT_KIND} from '../../../../application/shared/result/result.js';
 import {
   mapDriverModuleDefinition,

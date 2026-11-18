@@ -12,7 +12,7 @@ import {
   InvalidInputException,
   InvalidOperationException,
   DomainRuleViolationException,
-} from '../../../../../../src/shared/exceptions/index.js';
+} from '../../../../../../src/application/shared/exceptions/index.js';
 import type {
   UnitOfWork,
   ContainerRepository,

@@ -11,7 +11,7 @@ import type {
 import type {BatchRead} from '../../../../../../src/application/ports/persistence/batch-read.js';
 import {resolveRoutingLinkSelection} from '../../../../../../src/application/usecase-designer/use-case-creator/services/routing-link-selection-resolver.js';
 import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
-import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../../../../src/application/shared/exceptions/resource-not-found.exception.js';
 import {batchOf, notFoundBatch} from '../../../../../helpers/batch-read.js';
 
 type DataBatch = BatchRead<DataLink, typeof ENTITY_TYPE.DataLink>;

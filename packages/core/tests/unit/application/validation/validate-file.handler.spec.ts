@@ -18,7 +18,7 @@ import {SpfModule} from '../../../../src/domain/entities/usecase-data/module/spf
 import {KvData} from '../../../../src/domain/entities/common/entities/kv-data.js';
 import {VALIDATION_RULE_GROUP} from '../../../../src/domain/validation/validation-rule.js';
 import {EMPTY_PREFERENCES} from '../../../../src/domain/validation/validation-preferences.js';
-import {ResourceNotFoundException} from '../../../../src/shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../../src/application/shared/exceptions/resource-not-found.exception.js';
 
 const FILE_SYSTEM_ID = 5;
 

@@ -24,7 +24,7 @@ import {
 import {
   ConflictException,
   DomainRuleViolationException,
-} from '../../../../shared/exceptions/index.js';
+} from '../../../shared/exceptions/index.js';
 import {IssueSeverity} from '../../../../shared/issues/severity.js';
 import {BinaryUtils} from '../../../../shared/utilities/binary-utils.js';
 

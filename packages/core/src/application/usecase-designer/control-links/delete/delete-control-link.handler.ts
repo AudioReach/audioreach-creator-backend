@@ -7,7 +7,7 @@ import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {DeleteControlLinkCommand} from './delete-control-link.command.js';
 import type {DeleteControlLinkResult} from '../dto/delete-control-link.dto.js';
-import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../shared/exceptions/resource-not-found.exception.js';
 import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {ControlLinkDeletionService} from './control-link-deletion.service.js';

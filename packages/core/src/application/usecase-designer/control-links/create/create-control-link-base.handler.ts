@@ -14,7 +14,7 @@ import {
   ResourceNotFoundException,
   DomainRuleViolationException,
   DuplicateLinkException,
-} from '../../../../shared/exceptions/index.js';
+} from '../../../shared/exceptions/index.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {NodeType} from '../../../../domain/entities/usecase-data/node/node.js';
 import {mapControlLink} from '../../usecase/dto/component-collection-dto.js';

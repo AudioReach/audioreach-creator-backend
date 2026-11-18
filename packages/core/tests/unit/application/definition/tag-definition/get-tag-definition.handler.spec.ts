@@ -6,7 +6,7 @@
 import {jest} from '@jest/globals';
 import {GetTagDefinitionHandler} from '../../../../../src/application/definition/tag-definition/get-tag/get-tag-definition.handler.js';
 import {GetTagDefinitionQuery} from '../../../../../src/application/definition/tag-definition/get-tag/get-tag-definition.query.js';
-import {ResourceNotFoundException} from '../../../../../src/shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../../../src/application/shared/exceptions/resource-not-found.exception.js';
 import {FAILED_ENTITY_REASON} from '../../../../../src/application/ports/persistence/batch-read.js';
 import type {QueryServices} from '../../../../../src/application/ports/persistence/query-services/query-services.js';
 import type {TagDefinitionReadModel} from '../../../../../src/application/ports/persistence/query-services/tag-definition/tag-definition-read-model.js';

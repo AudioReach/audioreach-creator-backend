@@ -8,7 +8,7 @@ import type {GetProjectQuery} from './get-project.query.js';
 import type {ProjectDto} from '../dto/project-dto.js';
 import {mapProject} from '../dto/project-dto.js';
 import type {QueryServices} from '../../ports/persistence/query-services/query-services.js';
-import {ResourceNotFoundException} from '../../../shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../shared/exceptions/resource-not-found.exception.js';
 
 export class GetProjectHandler implements QueryHandler<
   GetProjectQuery,

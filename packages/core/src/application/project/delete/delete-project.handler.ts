@@ -6,7 +6,7 @@
 import type {CommandHandler} from '../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../ports/persistence/unit-of-work.js';
 import type {DeleteProjectCommand} from './delete-project.command.js';
-import {ResourceNotFoundException} from '../../../shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../shared/exceptions/resource-not-found.exception.js';
 
 export class DeleteProjectHandler implements CommandHandler<
   DeleteProjectCommand,

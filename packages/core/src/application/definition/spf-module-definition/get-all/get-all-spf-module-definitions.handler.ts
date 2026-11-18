@@ -9,7 +9,7 @@ import type {SpfModuleDefinitionSummaryReadModel} from '../../../ports/persisten
 import type {CustomModuleMetadataReadModel} from '../../../ports/persistence/query-services/spf-module-definition/custom-module-metadata-read-model.js';
 import type {GetAllSpfModuleDefinitionsQuery} from './get-all-spf-module-definitions.query.js';
 import {Result, RESULT_KIND} from '../../../shared/result/result.js';
-import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../shared/exceptions/resource-not-found.exception.js';
 import {
   mapSpfModuleDefinition,
   type SpfModuleDefinitionDto,

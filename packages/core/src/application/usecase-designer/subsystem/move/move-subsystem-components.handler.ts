@@ -10,7 +10,7 @@ import {
   DomainRuleViolationException,
   InvalidOperationException,
   ResourceNotFoundException,
-} from '../../../../shared/exceptions/index.js';
+} from '../../../shared/exceptions/index.js';
 import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import type {Issue} from '../../../../shared/issues/issue.js';

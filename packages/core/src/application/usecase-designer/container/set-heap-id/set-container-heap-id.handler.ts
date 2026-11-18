@@ -10,7 +10,7 @@ import type {SetContainerHeapIdResult} from './set-container-heap-id.result.js';
 import {
   InvalidInputException,
   ResourceNotFoundException,
-} from '../../../../shared/exceptions/index.js';
+} from '../../../shared/exceptions/index.js';
 import {
   mapToElementData,
   serializeParameterData,

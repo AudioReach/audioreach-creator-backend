@@ -10,7 +10,7 @@ import type {CkvCalDataDto} from '../../spf-module/get-cal-data/ckv-cal-data-dto
 import type {ParameterDto} from '../../spf-module/dto/parameter-dto.js';
 import {Result} from '../../../shared/result/result.js';
 import {requireOne} from '../../../shared/result/require-one.js';
-import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../shared/exceptions/resource-not-found.exception.js';
 import {ParameterDefinitionMissingError} from '../../../../shared/errors/parameter.errors.js';
 import {parseParameterData} from '../../shared/parse-elements.js';
 import {mapElements} from '../../spf-module/get-cal-data/ckv-cal-data-dto.js';

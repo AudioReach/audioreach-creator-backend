@@ -6,7 +6,7 @@
 import {describe, expect, it, jest} from '@jest/globals';
 import {CONTROL_LINK_TYPE, NodeType} from '@arc/core';
 import type {ControlLinkRepository, UnitOfWork} from '@arc/core';
-import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../../../../src/application/shared/exceptions/resource-not-found.exception.js';
 import {DeleteControlLinkCommand} from '../../../../../../src/application/usecase-designer/control-links/delete/delete-control-link.command.js';
 import {DeleteControlLinkHandler} from '../../../../../../src/application/usecase-designer/control-links/delete/delete-control-link.handler.js';
 

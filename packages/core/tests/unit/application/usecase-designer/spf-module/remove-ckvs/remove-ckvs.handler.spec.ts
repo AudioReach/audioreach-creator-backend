@@ -9,7 +9,7 @@ import type {
   ModuleDefinitionRepository,
   IdGenerationPort,
 } from '@arc/core';
-import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/index.js';
+import {ResourceNotFoundException} from '../../../../../../src/application/shared/exceptions/index.js';
 import {RemoveCkvsHandler} from '../../../../../../src/application/usecase-designer/spf-module/remove-ckvs/remove-ckvs.handler.js';
 import {RemoveCkvsCommand} from '../../../../../../src/application/usecase-designer/spf-module/remove-ckvs/remove-ckvs.command.js';
 

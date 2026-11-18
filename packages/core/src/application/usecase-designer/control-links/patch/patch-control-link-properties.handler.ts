@@ -9,7 +9,7 @@ import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.
 import type {PatchControlLinkPropertiesCommand} from './patch-control-link-properties.command.js';
 import type {ControlLinkDto} from '../../usecase/dto/component-collection-dto.js';
 import type {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
-import {DomainRuleViolationException} from '../../../../shared/exceptions/index.js';
+import {DomainRuleViolationException} from '../../../shared/exceptions/index.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {requireOne} from '../../../shared/result/require-one.js';
 import {mapControlLink} from '../../usecase/dto/component-collection-dto.js';

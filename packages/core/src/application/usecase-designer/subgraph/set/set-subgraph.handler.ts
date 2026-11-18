@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {ConflictException} from '../../../../shared/exceptions/conflict.exception.js';
+import {ConflictException} from '../../../shared/exceptions/conflict.exception.js';
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {requireOne} from '../../../shared/result/require-one.js';

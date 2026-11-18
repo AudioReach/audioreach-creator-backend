@@ -8,7 +8,7 @@ import {EndSessionHandler} from '../../../../../src/application/edit-session/end
 import {EndSessionCommand} from '../../../../../src/application/edit-session/end-session/end-session.command.js';
 import {SESSION_MODE} from '../../../../../src/application/shared/change-vocabulary.js';
 import {RESULT_KIND} from '../../../../../src/application/shared/result/result.js';
-import {StagedChangesExistException} from '../../../../../src/shared/exceptions/staged-changes-exist.exception.js';
+import {StagedChangesExistException} from '../../../../../src/application/shared/exceptions/staged-changes-exist.exception.js';
 import type {UnitOfWork} from '../../../../../src/application/ports/persistence/unit-of-work.js';
 import type {ISessionRepository} from '../../../../../src/application/ports/persistence/repositories/session/session.repository.js';
 import type {NaturalIdGenerationPort} from '../../../../../src/application/ports/id-generation/natural-id-generation.port.js';

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {DomainRuleViolationException} from '../../../../shared/exceptions/domain-rule-violation.exception.js';
+import {DomainRuleViolationException} from '../../../shared/exceptions/domain-rule-violation.exception.js';
 import {RESULT_KIND} from '../../../shared/result/result.js';
 import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';

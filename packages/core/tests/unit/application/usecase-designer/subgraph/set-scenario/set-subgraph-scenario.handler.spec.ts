@@ -5,8 +5,8 @@
 import {jest, describe, it, expect} from '@jest/globals';
 import {SetSubgraphScenarioHandler} from '../../../../../../src/application/usecase-designer/subgraph/set-scenario/set-subgraph-scenario.handler.js';
 import {SetSubgraphScenarioCommand} from '../../../../../../src/application/usecase-designer/subgraph/set-scenario/set-subgraph-scenario.command.js';
-import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
-import {InvalidInputException} from '../../../../../../src/shared/exceptions/invalid-input.exception.js';
+import {ResourceNotFoundException} from '../../../../../../src/application/shared/exceptions/resource-not-found.exception.js';
+import {InvalidInputException} from '../../../../../../src/application/shared/exceptions/invalid-input.exception.js';
 import {
   SUB_GRAPH_PROP_ID_SCENARIO_VALUE_AUDIO_PLAYBACK,
   SUB_GRAPH_PROP_ID_SCENARIO_VALUE_VOICE_CALL,

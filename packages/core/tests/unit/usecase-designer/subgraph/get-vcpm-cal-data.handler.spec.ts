@@ -6,7 +6,7 @@
 import {GetVcpmCalDataHandler} from '../../../../src/application/usecase-designer/subgraph/get-vcpm-cal-data/get-vcpm-cal-data.handler.js';
 import type {GetVcpmCalDataQuery} from '../../../../src/application/usecase-designer/subgraph/get-vcpm-cal-data/get-vcpm-cal-data.query.js';
 import {RESULT_KIND} from '../../../../src/application/shared/result/result.js';
-import {ResourceNotFoundException} from '../../../../src/shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../../src/application/shared/exceptions/resource-not-found.exception.js';
 import {ParameterDefinitionMissingError} from '../../../../src/shared/errors/parameter.errors.js';
 import type {QueryServices} from '../../../../src/application/ports/persistence/query-services/query-services.js';
 import {describe, it, expect, jest} from '@jest/globals';

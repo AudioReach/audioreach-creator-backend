@@ -6,7 +6,7 @@
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {SubsystemKey} from '../../../ports/persistence/repositories/subsystem/subsystem.repository.js';
-import {ResourceNotFoundException} from '../../../../shared/exceptions/index.js';
+import {ResourceNotFoundException} from '../../../shared/exceptions/index.js';
 import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import type {SetSubsystemFilteredKeysCommand} from './set-subsystem-filtered-keys.command.js';

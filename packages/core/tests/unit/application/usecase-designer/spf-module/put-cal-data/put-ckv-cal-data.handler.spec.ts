@@ -13,7 +13,7 @@ import {
   ResourceNotFoundException,
   InvalidInputException,
   InvalidOperationException,
-} from '../../../../../../src/shared/exceptions/index.js';
+} from '../../../../../../src/application/shared/exceptions/index.js';
 import {PutCkvCalDataHandler} from '../../../../../../src/application/usecase-designer/spf-module/put-cal-data/put-ckv-cal-data.handler.js';
 import {PutCkvCalDataCommand} from '../../../../../../src/application/usecase-designer/spf-module/put-cal-data/put-ckv-cal-data.command.js';
 

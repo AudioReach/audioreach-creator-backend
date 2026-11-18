@@ -9,7 +9,7 @@ import {
   ResourceNotFoundException,
   DomainRuleViolationException,
   DuplicateLinkException,
-} from '../../../../shared/exceptions/index.js';
+} from '../../../shared/exceptions/index.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {SubsystemControlLink} from '../../../../domain/entities/usecase-data/links/subsystem-control-link.js';
 import {ControlChainResolutionService} from '../../../../domain/services/subsystem-control-links/control-chain-resolution.service.js';

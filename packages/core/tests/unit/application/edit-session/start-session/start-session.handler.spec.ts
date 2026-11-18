@@ -8,8 +8,8 @@ import {StartSessionHandler} from '../../../../../src/application/edit-session/s
 import {StartSessionCommand} from '../../../../../src/application/edit-session/start-session/start-session.command.js';
 import {SESSION_MODE} from '../../../../../src/application/shared/change-vocabulary.js';
 import {RESULT_KIND} from '../../../../../src/application/shared/result/result.js';
-import {ResourceNotFoundException} from '../../../../../src/shared/exceptions/resource-not-found.exception.js';
-import {InvalidOperationException} from '../../../../../src/shared/exceptions/invalid-operation.exception.js';
+import {ResourceNotFoundException} from '../../../../../src/application/shared/exceptions/resource-not-found.exception.js';
+import {InvalidOperationException} from '../../../../../src/application/shared/exceptions/invalid-operation.exception.js';
 import type {UnitOfWork} from '../../../../../src/application/ports/persistence/unit-of-work.js';
 import type {ISessionRepository} from '../../../../../src/application/ports/persistence/repositories/session/session.repository.js';
 import type {NaturalIdGenerationPort} from '../../../../../src/application/ports/id-generation/natural-id-generation.port.js';

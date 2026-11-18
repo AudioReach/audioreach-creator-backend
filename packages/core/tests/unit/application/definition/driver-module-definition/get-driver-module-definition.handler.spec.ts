@@ -9,7 +9,7 @@ import {GetDriverModuleDefinitionQuery} from '../../../../../src/application/def
 import type {QueryServices} from '../../../../../src/application/ports/persistence/query-services/query-services.js';
 import type {DriverModuleDefinitionSummaryReadModel} from '../../../../../src/application/ports/persistence/query-services/driver-module-definition/driver-module-definition-read-model.js';
 import {Result} from '../../../../../src/application/shared/result/result.js';
-import {ResourceNotFoundException} from '../../../../../src/shared/exceptions/index.js';
+import {ResourceNotFoundException} from '../../../../../src/application/shared/exceptions/index.js';
 
 const createReadModel = (
   overrides?: Partial<DriverModuleDefinitionSummaryReadModel>,

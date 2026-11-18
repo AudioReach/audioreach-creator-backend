@@ -9,7 +9,7 @@ import {SetContainerHeapIdHandler} from '../../../../../../src/application/useca
 import {
   ResourceNotFoundException,
   InvalidInputException,
-} from '../../../../../../src/shared/exceptions/index.js';
+} from '../../../../../../src/application/shared/exceptions/index.js';
 import type {
   ContainerRepository,
   ModuleRepository,

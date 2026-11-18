@@ -10,7 +10,7 @@ import {NodeType} from '../../../../domain/entities/usecase-data/node/node.js';
 import {
   ResourceNotFoundException,
   DomainRuleViolationException,
-} from '../../../../shared/exceptions/index.js';
+} from '../../../shared/exceptions/index.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import type {CreateControlLinkFlatCommand} from './create-control-link.command.js';
 import {

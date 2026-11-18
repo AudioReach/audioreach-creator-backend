@@ -7,7 +7,7 @@ import {describe, it, expect, jest, beforeEach} from '@jest/globals';
 import {CreateModuleHandler} from '../../../../../../src/application/usecase-designer/spf-module/create-module/create-module.handler.js';
 import {CreateModuleCommand} from '../../../../../../src/application/usecase-designer/spf-module/create-module/create-module.command.js';
 import {PropertyDefinition} from '@arc/core';
-import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
+import {ResourceNotFoundException} from '../../../../../../src/application/shared/exceptions/resource-not-found.exception.js';
 import type {
   UnitOfWork,
   ModuleRepository,

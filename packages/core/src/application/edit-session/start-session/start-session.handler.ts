@@ -9,8 +9,8 @@ import type {StartSessionCommand} from './start-session.command.js';
 import type {Result} from '../../shared/result/result.js';
 import {Result as ResultFactory} from '../../shared/result/result.js';
 import type {SessionResult} from '../session-types.js';
-import {ResourceNotFoundException} from '../../../shared/exceptions/resource-not-found.exception.js';
-import {InvalidOperationException} from '../../../shared/exceptions/invalid-operation.exception.js';
+import {ResourceNotFoundException} from '../../shared/exceptions/resource-not-found.exception.js';
+import {InvalidOperationException} from '../../shared/exceptions/invalid-operation.exception.js';
 import type {NaturalIdGenerationPort} from '../../ports/id-generation/natural-id-generation.port.js';
 
 /**

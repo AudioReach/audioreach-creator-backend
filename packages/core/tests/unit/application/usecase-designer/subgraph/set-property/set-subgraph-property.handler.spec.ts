@@ -9,9 +9,9 @@ import {
   SUB_GRAPH_PROP_ID_SCENARIO_ID,
   SUB_GRAPH_PROP_ID_VSID,
 } from '../../../../../../src/domain/entities/definitions/subgraph/subgraph-ids.js';
-import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
-import {InvalidInputException} from '../../../../../../src/shared/exceptions/invalid-input.exception.js';
-import {InvalidOperationException} from '../../../../../../src/shared/exceptions/invalid-operation.exception.js';
+import {ResourceNotFoundException} from '../../../../../../src/application/shared/exceptions/resource-not-found.exception.js';
+import {InvalidInputException} from '../../../../../../src/application/shared/exceptions/invalid-input.exception.js';
+import {InvalidOperationException} from '../../../../../../src/application/shared/exceptions/invalid-operation.exception.js';
 import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
 import {batchOf, notFoundBatch} from '../../../../../helpers/index.js';
 

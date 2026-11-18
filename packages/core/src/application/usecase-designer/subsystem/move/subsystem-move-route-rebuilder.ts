@@ -26,7 +26,7 @@ import type {
   SubsystemNodeTopology,
   SubsystemRepository,
 } from '../../../ports/persistence/repositories/subsystem/subsystem.repository.js';
-import {DomainRuleViolationException} from '../../../../shared/exceptions/index.js';
+import {DomainRuleViolationException} from '../../../shared/exceptions/index.js';
 import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 

@@ -8,7 +8,7 @@ import type {
   ModuleRepository,
   ModuleDefinitionRepository,
 } from '@arc/core';
-import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/index.js';
+import {ResourceNotFoundException} from '../../../../../../src/application/shared/exceptions/index.js';
 import {RemoveTkvsHandler} from '../../../../../../src/application/usecase-designer/spf-module/remove-tkvs/remove-tkvs.handler.js';
 import {RemoveTkvsCommand} from '../../../../../../src/application/usecase-designer/spf-module/remove-tkvs/remove-tkvs.command.js';
 
