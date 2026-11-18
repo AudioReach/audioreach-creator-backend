@@ -38,6 +38,7 @@ logs/
 
 #Test-results
 test-results
+.github/scripts/__pycache__/
 
 # E2E test temp files
 packages/api/tests/e2e/temp/
