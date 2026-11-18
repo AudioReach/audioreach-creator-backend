@@ -355,6 +355,28 @@ describe('TypeOrmModuleRepository (integration)', () => {
       expect(batch.failed).toEqual([]);
     });
 
+    it('names a module deleted in the session from committed data', async () => {
+      await seedModule(ds);
+      const sessionId = await seedSession(ds);
+      const repo = makeRepo(qr.manager, sessionId);
+      await repo.deleteModule(MODULE_ID, FILE_ID);
+
+      const batch = await repo.findSpfModuleIdentities(FILE_ID, [MODULE_ID]);
+
+      expect(batch.items).toEqual([
+        {
+          entityType: ENTITY_TYPE.SpfModule,
+          systemId: MODULE_ID,
+          identity: {
+            alias: 'base-alias',
+            definitionName: 'def',
+            naturalId: 1,
+          },
+        },
+      ]);
+      expect(batch.failed).toEqual([]);
+    });
+
     it('reports an ID that is not a module of the file as not found', async () => {
       await seedModule(ds);
       const sessionId = await seedSession(ds);

@@ -788,6 +788,34 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
       ]);
     });
 
+    it('names a link deleted in the session from committed data', async () => {
+      await seedNodeIdentities();
+      await seedDataLink(ds, 500, PORT_SRC, PORT_DST);
+      const repo = makeRepo(qr, sessionId);
+      await repo.deleteAggregate(500, FILE_ID);
+
+      const batch = await repo.findDataLinkIdentities(FILE_ID, [500]);
+
+      expect(batch.items).toEqual([
+        {
+          entityType: ENTITY_TYPE.DataLink,
+          systemId: 500,
+          identity: {
+            source: {node: moduleA, port: {name: null, naturalId: 1}},
+            destination: {
+              node: {
+                entityType: ENTITY_TYPE.SpfModule,
+                systemId: NODE_B,
+                identity: {definitionName: 'MFC', naturalId: 12},
+              },
+              port: {name: null, naturalId: 2},
+            },
+          },
+        },
+      ]);
+      expect(batch.failed).toEqual([]);
+    });
+
     it('reports a link whose module has no module row as unresolved', async () => {
       await seedDataLink(ds, 500, PORT_SRC, PORT_DST);
 

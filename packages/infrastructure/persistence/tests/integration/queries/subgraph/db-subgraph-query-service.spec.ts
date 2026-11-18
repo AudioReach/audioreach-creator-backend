@@ -252,7 +252,7 @@ describe('DbSubgraphQueryService (integration)', () => {
       ]);
     });
 
-    it('reports a subgraph deleted in the session as not found', async () => {
+    it('names a subgraph deleted in the session from committed data', async () => {
       await seedSubgraph(ds);
       const sessionId = await seedSession(ds);
       await seedEditAction(ds, {
@@ -364,7 +364,7 @@ describe('DbSubgraphQueryService (integration)', () => {
       expect(result.failed).toEqual([notFound(999)]);
     });
 
-    it('reports a subgraph deleted in the session as not found', async () => {
+    it('names a subgraph deleted in the session from committed data', async () => {
       await seedSubgraph(ds);
       const sessionId = await seedSession(ds);
       await seedEditAction(ds, {
@@ -380,8 +380,14 @@ describe('DbSubgraphQueryService (integration)', () => {
         SUBGRAPH_SYSTEM_ID,
       ]);
 
-      expect(result.items).toEqual([]);
-      expect(result.failed).toEqual([notFound(SUBGRAPH_SYSTEM_ID)]);
+      expect(result.items).toEqual([
+        {
+          entityType: ENTITY_TYPE.Subgraph,
+          systemId: SUBGRAPH_SYSTEM_ID,
+          identity: {name: 'sg', naturalId: 1},
+        },
+      ]);
+      expect(result.failed).toEqual([]);
     });
   });
 

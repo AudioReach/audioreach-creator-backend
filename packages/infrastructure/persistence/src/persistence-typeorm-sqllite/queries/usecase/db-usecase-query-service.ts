@@ -31,6 +31,7 @@ import {
 } from '@arc/core';
 import {withNotFound} from '../../utils/with-not-found.js';
 import {inRequestOrder} from '../../utils/in-request-order.js';
+import {withCommittedFallback} from '../../utils/with-committed-fallback.js';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {USECASE_PARAM_FILTER} from './usecase-param-filter.js';
@@ -339,22 +340,70 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
     >
   > {
     const requested = [...new Set(ucSystemIds)];
-    const readModels = await this.findUseCaseReadModels(fileSystemId, {
-      ids: requested,
-    });
-    const items = inRequestOrder(requested, readModels.items).map(uc => ({
-      entityType: ENTITY_TYPE.UseCase,
-      systemId: uc.systemId,
-      identity: {
-        // Use cases created without an alias may store ''.
-        ...(uc.alias ? {alias: uc.alias} : {}),
-        gkv: uc.gkv.map(pair => ({
-          key: {name: pair.key.name, naturalId: pair.key.naturalId},
-          value: {name: pair.value.name, naturalId: pair.value.naturalId},
-        })),
-      },
-    }));
-    return {entityType: ENTITY_TYPE.UseCase, items, failed: readModels.failed};
+    if (requested.length === 0)
+      return {entityType: ENTITY_TYPE.UseCase, items: [], failed: []};
+
+    const usecases = await withCommittedFallback(
+      await resolveActiveSessionId(this.manager, fileSystemId),
+      requested,
+      async (sessionId, ids) =>
+        withNotFound(
+          ENTITY_TYPE.UseCase,
+          ids,
+          await this.usecaseFetcher.getUsecasesWithoutPairs(
+            fileSystemId,
+            sessionId,
+            [...ids],
+          ),
+          uc => uc.systemId,
+        ),
+    );
+    // Named through the value identity read, so GKV values deleted in the
+    // session are named from committed data as well.
+    const values = await this.keyValueDefQuerySvc.findValueDefinitionIdentities(
+      fileSystemId,
+      usecases.items.flatMap(uc =>
+        uc.gkvEntries.map(entry => entry.valueDefSystemId),
+      ),
+    );
+    const valuesById = new Map(
+      values.items.map(value => [value.systemId, value.identity]),
+    );
+
+    const items: IdentifiedEntityRef<typeof ENTITY_TYPE.UseCase>[] = [];
+    const failed: FailedEntity<typeof ENTITY_TYPE.UseCase>[] = [
+      ...usecases.failed,
+    ];
+    for (const uc of inRequestOrder(requested, usecases.items)) {
+      const missing = uc.gkvEntries.find(
+        entry => !valuesById.has(entry.valueDefSystemId),
+      );
+      if (missing !== undefined) {
+        failed.push({
+          systemId: uc.systemId,
+          reason: FAILED_ENTITY_REASON.UnresolvedReference,
+          // No identity: a UseCase's identity includes the missing GKV pair.
+          missingRef: {
+            entityType: ENTITY_TYPE.ValueDefinition,
+            systemId: missing.valueDefSystemId,
+          },
+        });
+        continue;
+      }
+      items.push({
+        entityType: ENTITY_TYPE.UseCase,
+        systemId: uc.systemId,
+        identity: {
+          // Use cases created without an alias may store ''.
+          ...(uc.alias ? {alias: uc.alias} : {}),
+          gkv: uc.gkvEntries.flatMap(entry => {
+            const pair = valuesById.get(entry.valueDefSystemId);
+            return pair === undefined ? [] : [pair];
+          }),
+        },
+      });
+    }
+    return {entityType: ENTITY_TYPE.UseCase, items, failed};
   }
 
   // ── Private helpers ───────────────────────────────────────────────────────────

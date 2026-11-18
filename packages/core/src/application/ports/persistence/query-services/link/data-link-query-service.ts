@@ -121,6 +121,8 @@ export interface DataLinkQueryService {
    * data link, in request order. Subsystem segment IDs and missing IDs are
    * `NOT_FOUND`; a link whose node, module definition, or port is missing
    * is `UNRESOLVED_REFERENCE`.
+   * An entity deleted in the session is read from committed data, so it
+   * is named as the user last saw it; this is not an existence check.
    */
   findDataLinkIdentities(
     fileSystemId: number,

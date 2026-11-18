@@ -43,6 +43,7 @@ import {
   type EndpointKey,
 } from '../shared/node-identity-reader.js';
 import {inRequestOrder} from '../../utils/in-request-order.js';
+import {withCommittedFallback} from '../../utils/with-committed-fallback.js';
 import {withNotFound} from '../../utils/with-not-found.js';
 
 /**
@@ -231,11 +232,27 @@ export class DbDataLinkQueryService implements DataLinkQueryService {
     if (requested.length === 0)
       return {entityType: ENTITY_TYPE.DataLink, items: [], failed: []};
 
-    const sessionId = await this.sessionId(fileSystemId);
+    return withCommittedFallback(
+      await this.sessionId(fileSystemId),
+      requested,
+      (sessionId, ids) => this.readLinkIdentities(fileSystemId, sessionId, ids),
+    );
+  }
+
+  private async readLinkIdentities(
+    fileSystemId: number,
+    sessionId: number | null,
+    requested: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.DataLink>,
+      typeof ENTITY_TYPE.DataLink
+    >
+  > {
     const links = await this.linkFetcher.loadDataLinkRows(
       fileSystemId,
       sessionId,
-      {systemId: requested},
+      {systemId: [...requested]},
     );
     const endpoints = await this.nodeIdentities.readEndpoints(
       fileSystemId,

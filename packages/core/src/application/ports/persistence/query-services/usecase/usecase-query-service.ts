@@ -43,6 +43,8 @@ export interface UseCaseQueryService {
    * The alias and GKV pairs of each requested use case, in request order.
    * Missing IDs are reported in `failed` as `NOT_FOUND`; a use case whose
    * GKV value definition is missing, as `UNRESOLVED_REFERENCE`.
+   * An entity deleted in the session is read from committed data, so it
+   * is named as the user last saw it; this is not an existence check.
    */
   findUseCaseIdentities(
     fileSystemId: number,

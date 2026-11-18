@@ -43,6 +43,8 @@ export interface SubgraphQueryService {
   /**
    * Reads the identities of the given subgraphs. A systemId that is not a
    * subgraph of the file is `NOT_FOUND`.
+   * An entity deleted in the session is read from committed data, so it
+   * is named as the user last saw it; this is not an existence check.
    */
   findSubgraphIdentities(
     fileSystemId: number,

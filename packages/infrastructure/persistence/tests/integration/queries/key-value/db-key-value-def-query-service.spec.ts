@@ -560,6 +560,38 @@ describe('DbKeyValueDefQueryService Integration Tests', () => {
       ]);
     });
 
+    it('names a key deleted in the session from committed data', async () => {
+      const {fileSystemId} = await createFileDependency();
+      await seedKeyWithValues(fileSystemId);
+      const session = await createSession(fileSystemId);
+      await editActionRepository.save({
+        targetSystemId: 1,
+        aggregateId: 1,
+        sessionId: session.sessionId,
+        targetTable: ENTITY_NAMES.KeyDefinition,
+        operation: CHANGE_OPERATION.Delete,
+        fieldPath: '$',
+        newValue: {},
+        source: SOURCE.Manual,
+        changeStatus: CHANGE_STATUS.Staged,
+        linkedEntityGroupId: null,
+      });
+
+      const result = await service.findKeyDefinitionIdentities(
+        fileSystemId,
+        [1],
+      );
+
+      expect(result.items).toEqual([
+        {
+          entityType: ENTITY_TYPE.KeyDefinition,
+          systemId: 1,
+          identity: {name: 'Speaker', naturalId: 100},
+        },
+      ]);
+      expect(result.failed).toEqual([]);
+    });
+
     it('shows a key renamed in the session by its new name', async () => {
       const {fileSystemId} = await createFileDependency();
       await seedKeyWithValues(fileSystemId);
@@ -622,7 +654,7 @@ describe('DbKeyValueDefQueryService Integration Tests', () => {
       ]);
     });
 
-    it('reports a value as not found when its key was deleted in the session', async () => {
+    it('names a value from committed data when its key was deleted in the session', async () => {
       const {fileSystemId} = await createFileDependency();
       await seedKeyWithValues(fileSystemId);
       const session = await createSession(fileSystemId);
@@ -644,10 +676,17 @@ describe('DbKeyValueDefQueryService Integration Tests', () => {
         [11],
       );
 
-      expect(result.items).toEqual([]);
-      expect(result.failed).toEqual([
-        {systemId: 11, reason: FAILED_ENTITY_REASON.NotFound},
+      expect(result.items).toEqual([
+        {
+          entityType: ENTITY_TYPE.ValueDefinition,
+          systemId: 11,
+          identity: {
+            key: {name: 'Speaker', naturalId: 100},
+            value: {name: 'Left', naturalId: 1},
+          },
+        },
       ]);
+      expect(result.failed).toEqual([]);
     });
 
     it('reports a value of another file as not found', async () => {

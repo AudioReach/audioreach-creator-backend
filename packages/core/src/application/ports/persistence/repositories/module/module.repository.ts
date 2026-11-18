@@ -78,6 +78,8 @@ export interface ModuleRepository {
    * Reads the identities of the given modules, with the session overlay
    * applied. A systemId that is not a module of the file is `NOT_FOUND`; a
    * module whose definition is missing is `UNRESOLVED_REFERENCE`.
+   * An entity deleted in the session is read from committed data, so it
+   * is named as the user last saw it; this is not an existence check.
    */
   findSpfModuleIdentities(
     fileSystemId: number,

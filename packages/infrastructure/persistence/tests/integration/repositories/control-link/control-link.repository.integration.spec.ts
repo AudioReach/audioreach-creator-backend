@@ -726,6 +726,51 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
       ]);
     });
 
+    it('names a link deleted in the session from committed data', async () => {
+      await seedModules();
+      await seedControlLink(ds, 500, PORT_CP_A, PORT_CP_B);
+      const repo = makeRepo(qr, sessionId);
+      await repo.deleteAggregate(500, FILE_ID);
+
+      const batch = await repo.findControlLinkIdentities(FILE_ID, [500]);
+
+      expect(batch.items).toEqual([
+        {
+          entityType: ENTITY_TYPE.ControlLink,
+          systemId: 500,
+          identity: {
+            endpoints: [
+              {
+                node: {
+                  entityType: ENTITY_TYPE.SpfModule,
+                  systemId: NODE_A,
+                  identity: {
+                    alias: 'mfc-a',
+                    definitionName: 'MFC',
+                    naturalId: 11,
+                  },
+                },
+                port: {name: null, naturalId: 1},
+              },
+              {
+                node: {
+                  entityType: ENTITY_TYPE.SpfModule,
+                  systemId: NODE_B,
+                  identity: {
+                    alias: 'mfc-b',
+                    definitionName: 'MFC',
+                    naturalId: 12,
+                  },
+                },
+                port: {name: null, naturalId: 2},
+              },
+            ],
+          },
+        },
+      ]);
+      expect(batch.failed).toEqual([]);
+    });
+
     it('reports a link whose port belongs to another node as unresolved', async () => {
       await seedModules();
       await seedControlLink(ds, 500, PORT_CP_A, PORT_SEGMENT_A);

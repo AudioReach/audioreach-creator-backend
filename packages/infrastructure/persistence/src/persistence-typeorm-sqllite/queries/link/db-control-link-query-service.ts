@@ -42,6 +42,7 @@ import {
   type EndpointKey,
 } from '../shared/node-identity-reader.js';
 import {inRequestOrder} from '../../utils/in-request-order.js';
+import {withCommittedFallback} from '../../utils/with-committed-fallback.js';
 import {findControlPortOwner} from './find-control-port-owner.js';
 
 /**
@@ -171,11 +172,27 @@ export class DbControlLinkQueryService implements ControlLinkQueryService {
     if (requested.length === 0)
       return {entityType: ENTITY_TYPE.ControlLink, items: [], failed: []};
 
-    const sessionId = await this.sessionId(fileSystemId);
+    return withCommittedFallback(
+      await this.sessionId(fileSystemId),
+      requested,
+      (sessionId, ids) => this.readLinkIdentities(fileSystemId, sessionId, ids),
+    );
+  }
+
+  private async readLinkIdentities(
+    fileSystemId: number,
+    sessionId: number | null,
+    requested: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.ControlLink>,
+      typeof ENTITY_TYPE.ControlLink
+    >
+  > {
     const links = await this.linkFetcher.loadControlLinkRows(
       fileSystemId,
       sessionId,
-      {systemId: requested},
+      {systemId: [...requested]},
     );
     const endpoints = await this.nodeIdentities.readEndpoints(
       fileSystemId,
