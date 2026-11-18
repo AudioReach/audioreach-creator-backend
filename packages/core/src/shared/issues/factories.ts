@@ -3,12 +3,12 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {Issue} from './issue.js';
+import type {LegacyIssue} from './issue.js';
 import {IssueSeverity, IssueCategory} from './severity.js';
-import type {ImpactedEntity} from './impacted-entity.js';
+import type {LegacyImpactedEntity} from './impacted-entity.js';
 import type {EntityType} from '../entity-type.js';
 import {ENTITY_TYPE} from '../entity-type.js';
-import type {FixOption} from './fix-option.js';
+import type {LegacyFixOption} from './fix-option.js';
 import {ISSUE_CODE} from './operational-codes.js';
 
 /**
@@ -21,7 +21,7 @@ import {ISSUE_CODE} from './operational-codes.js';
  * operational categories emerge. Design §2.6, FR-4.6.
  */
 export const IssueFactory = {
-  linkClassificationInvalid(code: string, message: string): Issue {
+  linkClassificationInvalid(code: string, message: string): LegacyIssue {
     return {
       code,
       message,
@@ -33,7 +33,7 @@ export const IssueFactory = {
     entityType: EntityType,
     systemId: number,
     displayName?: string,
-  ): Issue {
+  ): LegacyIssue {
     return {
       code: ISSUE_CODE.ENTITY_NOT_FOUND,
       message: `${entityType} not found (systemId: ${systemId})`,
@@ -46,7 +46,7 @@ export const IssueFactory = {
     };
   },
 
-  dbError(message: string, impactedEntity?: ImpactedEntity): Issue {
+  dbError(message: string, impactedEntity?: LegacyImpactedEntity): LegacyIssue {
     return {
       code: ISSUE_CODE.DB_QUERY_FAILED,
       message,
@@ -55,7 +55,7 @@ export const IssueFactory = {
     };
   },
 
-  parseError(code: string, message: string): Issue {
+  parseError(code: string, message: string): LegacyIssue {
     return {
       code,
       message,
@@ -66,9 +66,9 @@ export const IssueFactory = {
   dataLoss(
     code: string,
     message: string,
-    impactedEntity: ImpactedEntity,
-    fixOptions?: FixOption[],
-  ): Issue {
+    impactedEntity: LegacyImpactedEntity,
+    fixOptions?: LegacyFixOption[],
+  ): LegacyIssue {
     return {
       code,
       message,
@@ -83,7 +83,7 @@ export const IssueFactory = {
     containerSystemId: number,
     containerTypeSystemId: number | null,
     allowedTypeIds: number[],
-  ): Issue {
+  ): LegacyIssue {
     return {
       code: ISSUE_CODE.MOD_CONTAINER_TYPE_INCOMPATIBLE,
       message:
@@ -97,7 +97,7 @@ export const IssueFactory = {
     };
   },
 
-  containerPropMismatch(containerSystemId: number): Issue {
+  containerPropMismatch(containerSystemId: number): LegacyIssue {
     return {
       code: ISSUE_CODE.MOD_CONTAINER_PROP_MISMATCH,
       message:
@@ -112,7 +112,7 @@ export const IssueFactory = {
     };
   },
 
-  moduleInImportedSubgraph(moduleSystemId: number): Issue {
+  moduleInImportedSubgraph(moduleSystemId: number): LegacyIssue {
     return {
       code: ISSUE_CODE.MOD_SUBGRAPH_IMPORTED,
       message: `SPF module ${moduleSystemId} belongs to an imported subgraph.`,
@@ -124,7 +124,7 @@ export const IssueFactory = {
     };
   },
 
-  subsystemNotEmpty(subsystemSystemId: number): Issue {
+  subsystemNotEmpty(subsystemSystemId: number): LegacyIssue {
     return {
       code: ISSUE_CODE.SS_NOT_EMPTY,
       message: 'Subsystem is not empty — remove all children before deleting.',
@@ -139,7 +139,7 @@ export const IssueFactory = {
   duplicateSubsystemName(
     name: string,
     conflictingSubsystemSystemId: number,
-  ): Issue {
+  ): LegacyIssue {
     return {
       code: ISSUE_CODE.SS_DUPLICATE_NAME,
       message: `Subsystem name '${name}' is already in use.`,
@@ -155,7 +155,7 @@ export const IssueFactory = {
   circularSubsystemHierarchy(
     componentSystemId: number,
     targetSystemId: number,
-  ): Issue {
+  ): LegacyIssue {
     return {
       code: ISSUE_CODE.SS_CIRCULAR_HIERARCHY,
       message: `Moving subsystem ${componentSystemId} under ${targetSystemId} would create a circular hierarchy.`,
@@ -170,7 +170,7 @@ export const IssueFactory = {
   duplicateChildComponent(
     componentSystemId: number,
     subsystemSystemId: number,
-  ): Issue {
+  ): LegacyIssue {
     return {
       code: ISSUE_CODE.SS_DUPLICATE_CHILD,
       message: `Component ${componentSystemId} is already a child of subsystem ${subsystemSystemId}.`,
@@ -182,7 +182,10 @@ export const IssueFactory = {
     };
   },
 
-  duplicateRootMove(entityType: EntityType, componentSystemId: number): Issue {
+  duplicateRootMove(
+    entityType: EntityType,
+    componentSystemId: number,
+  ): LegacyIssue {
     return {
       code: ISSUE_CODE.SS_DUPLICATE_ROOT_MOVE,
       message: `Component ${componentSystemId} is already at root and cannot be moved to root.`,
@@ -197,7 +200,7 @@ export const IssueFactory = {
   partialSubsystemConnection(
     entityType: EntityType,
     componentSystemId: number,
-  ): Issue {
+  ): LegacyIssue {
     return {
       code: ISSUE_CODE.SS_PARTIAL_CONNECTION,
       message: `${entityType} ${componentSystemId} has a partial module-to-module subsystem connection and cannot be moved.`,
@@ -214,7 +217,7 @@ export const IssueFactory = {
     requested: number,
     max: number,
     moduleSystemId: number,
-  ): Issue {
+  ): LegacyIssue {
     return {
       code: ISSUE_CODE.MOD_PORT_COUNT_EXCEEDS_DEFINITION,
       message:
@@ -232,7 +235,7 @@ export const IssueFactory = {
     portSystemId: number,
     portEntityType: EntityType,
     linkSystemIds: number[],
-  ): Issue {
+  ): LegacyIssue {
     return {
       code: ISSUE_CODE.MOD_PORT_COUNT_DECREASE_BLOCKED,
       message:
@@ -248,7 +251,7 @@ export const IssueFactory = {
     moduleSystemId: number,
     toAdd: number,
     available: number,
-  ): Issue {
+  ): LegacyIssue {
     return {
       code: ISSUE_CODE.MOD_NO_AVAILABLE_INTENTS,
       message:
@@ -267,7 +270,7 @@ export const IssueFactory = {
     requested: number,
     staticCount: number,
     portEntityType: EntityType,
-  ): Issue {
+  ): LegacyIssue {
     return {
       code: ISSUE_CODE.MOD_PORT_COUNT_BELOW_STATIC_MINIMUM,
       message:
@@ -281,7 +284,7 @@ export const IssueFactory = {
     };
   },
 
-  paramPayloadNotFound(paramSystemId: number): Issue {
+  paramPayloadNotFound(paramSystemId: number): LegacyIssue {
     return {
       code: ISSUE_CODE.PARAM_PAYLOAD_NOT_FOUND,
       message: `Parameter ${paramSystemId}: no existing payload row (update-only)`,
@@ -289,7 +292,7 @@ export const IssueFactory = {
     };
   },
 
-  paramReadOnly(paramSystemId: number): Issue {
+  paramReadOnly(paramSystemId: number): LegacyIssue {
     return {
       code: ISSUE_CODE.PARAM_READ_ONLY,
       message: `Parameter ${paramSystemId}: parameter is read-only`,
@@ -297,7 +300,7 @@ export const IssueFactory = {
     };
   },
 
-  paramSerializationFailed(paramSystemId: number, error: string): Issue {
+  paramSerializationFailed(paramSystemId: number, error: string): LegacyIssue {
     return {
       code: ISSUE_CODE.PARAM_SERIALIZATION_FAILED,
       message: `Parameter ${paramSystemId}: ${error}`,
@@ -305,7 +308,7 @@ export const IssueFactory = {
     };
   },
 
-  clInvalidInput(message: string): Issue {
+  clInvalidInput(message: string): LegacyIssue {
     return {
       code: ISSUE_CODE.CL_INVALID_INPUT,
       message,
@@ -313,7 +316,7 @@ export const IssueFactory = {
     };
   },
 
-  clTopologyViolation(message: string): Issue {
+  clTopologyViolation(message: string): LegacyIssue {
     return {
       code: ISSUE_CODE.CL_TOPOLOGY_VIOLATION,
       message,
@@ -321,7 +324,7 @@ export const IssueFactory = {
     };
   },
 
-  noStagedChanges(): Issue {
+  noStagedChanges(): LegacyIssue {
     return {
       code: ISSUE_CODE.NO_STAGED_CHANGES,
       message: 'No staged changes are available to commit.',

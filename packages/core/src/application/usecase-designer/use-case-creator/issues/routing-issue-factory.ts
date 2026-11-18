@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {Issue} from '../../../../shared/issues/issue.js';
+import type {LegacyIssue} from '../../../../shared/issues/issue.js';
 import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {ISSUE_CODE} from '../../../../shared/issues/operational-codes.js';
 import {IssueSeverity} from '../../../../shared/issues/severity.js';
@@ -241,7 +241,7 @@ function describeConflict(
 export const RoutingIssueFactory = {
   duplicateActiveSubgraphSelections(
     duplicateSubgraphSystemIds: Iterable<number>,
-  ): Issue {
+  ): LegacyIssue {
     const duplicateIds = sortedIds(duplicateSubgraphSystemIds);
     return {
       code: ISSUE_CODE.ROUTING_PREVAL_DUPLICATE_ACTIVE_SUBGRAPH_SELECTION,
@@ -254,7 +254,7 @@ export const RoutingIssueFactory = {
 
   selectedScopeIncomplete(
     missingSubgraphSystemIds: ReadonlySet<number>,
-  ): Issue {
+  ): LegacyIssue {
     const missingIds = [...missingSubgraphSystemIds];
     return {
       code: ISSUE_CODE.ROUTING_PREVAL_SCOPE_INCOMPLETE,
@@ -266,7 +266,9 @@ export const RoutingIssueFactory = {
     };
   },
 
-  additionScopeConflict(details: RoutingAdditionScopeConflictDetails): Issue {
+  additionScopeConflict(
+    details: RoutingAdditionScopeConflictDetails,
+  ): LegacyIssue {
     const conflictMessages = [
       describeConflict(
         details.missingAddedSubgraphSystemIds,
@@ -305,7 +307,7 @@ export const RoutingIssueFactory = {
     dataLinkSystemId: number,
     sourceSubgraphSystemId: number,
     destSubgraphSystemId: number,
-  ): Issue {
+  ): LegacyIssue {
     return {
       code: ISSUE_CODE.ROUTING_PREVAL_DATALINK_INTEGRITY,
       message:
@@ -320,7 +322,7 @@ export const RoutingIssueFactory = {
     };
   },
 
-  mdfKvAssigned(subgraphSystemId: number): Issue {
+  mdfKvAssigned(subgraphSystemId: number): LegacyIssue {
     return {
       code: ISSUE_CODE.ROUTING_MDF_KV_ASSIGNED,
       severity: IssueSeverity.Error,
@@ -332,7 +334,7 @@ export const RoutingIssueFactory = {
     };
   },
 
-  islandDetected(subgraphSystemId: number): Issue {
+  islandDetected(subgraphSystemId: number): LegacyIssue {
     return {
       code: ISSUE_CODE.ROUTING_ISLAND_DETECTED,
       message:
@@ -346,7 +348,7 @@ export const RoutingIssueFactory = {
     };
   },
 
-  cycleDetected(subgraphSystemId: number): Issue {
+  cycleDetected(subgraphSystemId: number): LegacyIssue {
     return {
       code: ISSUE_CODE.ROUTING_CYCLE_DETECTED,
       severity: IssueSeverity.Warning,
@@ -362,7 +364,7 @@ export const RoutingIssueFactory = {
     usecaseSystemId: number,
     ecDataLinkSystemIds: readonly number[],
     pairCount: number,
-  ): Issue {
+  ): LegacyIssue {
     const linkIds = sortedIds(ecDataLinkSystemIds);
     return {
       code: ISSUE_CODE.ROUTING_EC_MULTIPLE_LINKS,
@@ -381,7 +383,7 @@ export const RoutingIssueFactory = {
     pathSubgraphSystemIds: readonly number[],
     firstEcDataLinkSystemId: number,
     secondEcDataLinkSystemId: number,
-  ): Issue {
+  ): LegacyIssue {
     return {
       code: ISSUE_CODE.ROUTING_EC_MULTIPLE_ON_PATH,
       severity: IssueSeverity.Error,
@@ -401,7 +403,7 @@ export const RoutingIssueFactory = {
     subgraphSystemIds: readonly number[],
     dataLinkSystemIds: readonly number[],
     details: UsecaseCandidateConflictDetails,
-  ): Issue {
+  ): LegacyIssue {
     const conflictingKeyIds = sortedIds(
       new Set(details.conflicts.map(conflict => conflict.keyDefSystemId)),
     );
@@ -420,7 +422,7 @@ export const RoutingIssueFactory = {
     };
   },
 
-  manualCycleDetected(cycle: DirectedCycle): Issue {
+  manualCycleDetected(cycle: DirectedCycle): LegacyIssue {
     return {
       code: ISSUE_CODE.ROUTING_MANUAL_CYCLE,
       message:
@@ -430,7 +432,7 @@ export const RoutingIssueFactory = {
     };
   },
 
-  noValidCombination(details: UsecaseCandidateConflictDetails): Issue {
+  noValidCombination(details: UsecaseCandidateConflictDetails): LegacyIssue {
     const normalized = details.conflicts.map(conflict => {
       const [firstSubgraphSystemId, secondSubgraphSystemId] =
         conflict.conflictingSubgraphSystemIds;
@@ -490,7 +492,7 @@ export const RoutingIssueFactory = {
   sgkvMalformed(
     subgraphSystemId: number,
     valueDefinitionSystemIds: Iterable<number>,
-  ): Issue {
+  ): LegacyIssue {
     const valueIds = sortedIds(new Set(valueDefinitionSystemIds));
     return {
       code: ISSUE_CODE.ROUTING_SGKV_MALFORMED,
@@ -508,7 +510,7 @@ export const RoutingIssueFactory = {
   sgkvValuesNotFound(
     subgraphSystemId: number,
     valueDefinitionSystemIds: Iterable<number>,
-  ): Issue {
+  ): LegacyIssue {
     const valueIds = sortedIds(new Set(valueDefinitionSystemIds));
     return {
       code: ISSUE_CODE.ROUTING_SGKV_VALUE_NOT_FOUND,
@@ -527,7 +529,7 @@ export const RoutingIssueFactory = {
   deletionSelectionRequired(
     fullAffectedUsecaseSystemIds: ReadonlySet<number>,
     missingUsecaseSystemIds: ReadonlySet<number>,
-  ): Issue {
+  ): LegacyIssue {
     const affectedIds = sortedIds(fullAffectedUsecaseSystemIds);
     const missingIds = sortedIds(missingUsecaseSystemIds);
     return {
@@ -547,7 +549,7 @@ export const RoutingIssueFactory = {
     missingSubgraphSystemIds: readonly number[],
     missingDataLinkSystemIds: readonly number[],
     missingControlLinkSystemIds: readonly number[],
-  ): Issue {
+  ): LegacyIssue {
     const affectedIds = sortedIds(affectedUsecaseSystemIds);
     const missingSubgraphIds = sortedIds(missingSubgraphSystemIds);
     const missingDataLinkIds = sortedIds(missingDataLinkSystemIds);
@@ -568,7 +570,7 @@ export const RoutingIssueFactory = {
   usecaseAutoIsland(
     usecaseSystemId: number,
     dataLinkLossPairs: readonly DataLinkLossPair[],
-  ): Issue {
+  ): LegacyIssue {
     const pairText = [...dataLinkLossPairs]
       .sort(
         (left, right) =>
@@ -598,7 +600,7 @@ export const RoutingIssueFactory = {
   manualUsecaseDependenciesBroken(
     edit: ActiveManualUsecaseEdit,
     missing: ManualUsecaseDependencyMissing,
-  ): Issue {
+  ): LegacyIssue {
     const missingParts = [
       missing.effectiveUsecaseMissing ? 'effective UseCase' : undefined,
       missing.referencedComponentsMissing
@@ -614,7 +616,7 @@ export const RoutingIssueFactory = {
         ? `control links [${sortedIds(missing.controlLinkSystemIds).join(', ')}]`
         : undefined,
     ].filter((part): part is string => part !== undefined);
-    const issue: Issue = {
+    const issue: LegacyIssue = {
       code: ISSUE_CODE.ROUTING_MANUAL_UC_BROKEN_DEPS,
       message:
         `Active MANUAL UseCase edit ${edit.changeId} has stale dependencies: ` +
@@ -642,7 +644,7 @@ export const RoutingIssueFactory = {
   sameGkvChoiceRequired(
     collision: SameGkvCollisionGroup,
     selection: RoutingSelection,
-  ): Issue {
+  ): LegacyIssue {
     const impactedUsecases = collision.alternatives
       .filter(
         (
@@ -657,7 +659,7 @@ export const RoutingIssueFactory = {
     const collisionAlternatives = collision.alternatives.map(alternative =>
       collisionAlternativeDetails(alternative),
     );
-    const issue: Issue = {
+    const issue: LegacyIssue = {
       code: ISSUE_CODE.ROUTING_SAME_GKV_CHOICE_REQUIRED,
       message: `Same-GKV collision ${collision.collisionId} requires a routing choice.`,
       severity: IssueSeverity.Error,
@@ -681,7 +683,9 @@ export const RoutingIssueFactory = {
     return issue;
   },
 
-  multipleManualGkvOverrides(edits: readonly ActiveManualUsecaseEdit[]): Issue {
+  multipleManualGkvOverrides(
+    edits: readonly ActiveManualUsecaseEdit[],
+  ): LegacyIssue {
     const changeIds = edits
       .map(edit => edit.changeId)
       .sort((left, right) => left - right);
@@ -702,7 +706,7 @@ export const RoutingIssueFactory = {
     gkvValueSystemIds: readonly number[],
     usecaseSystemIds: readonly number[],
     candidate: ManualUsecaseCandidate,
-  ): Issue {
+  ): LegacyIssue {
     const gkvIds = sortedIds(new Set(gkvValueSystemIds));
     const impactedUsecases = sortedIds(new Set(usecaseSystemIds));
     const memberIds = sortedIds(new Set(candidateSubgraphSystemIds(candidate)));
@@ -727,7 +731,7 @@ export const RoutingIssueFactory = {
     };
   },
 
-  sameGkvChoiceStale(collisionId: string): Issue {
+  sameGkvChoiceStale(collisionId: string): LegacyIssue {
     return {
       code: ISSUE_CODE.ROUTING_SAME_GKV_CHOICE_STALE,
       message: `Same-GKV collision ${collisionId} is no longer reproducible. Rerun routing.`,
@@ -735,7 +739,7 @@ export const RoutingIssueFactory = {
     };
   },
 
-  orphanSubgraph(systemId: number): Issue {
+  orphanSubgraph(systemId: number): LegacyIssue {
     return {
       code: ISSUE_CODE.ROUTING_ORPHAN_SUBGRAPH,
       message: `Subgraph ${systemId} is not referenced by any projected UseCase.`,
@@ -744,7 +748,7 @@ export const RoutingIssueFactory = {
     };
   },
 
-  orphanSubgraphHasKvs(systemId: number): Issue {
+  orphanSubgraphHasKvs(systemId: number): LegacyIssue {
     return {
       code: ISSUE_CODE.ROUTING_ORPHAN_SG_HAS_KVS,
       message:
@@ -755,7 +759,7 @@ export const RoutingIssueFactory = {
     };
   },
 
-  orphanSubsystem(systemId: number): Issue {
+  orphanSubsystem(systemId: number): LegacyIssue {
     return {
       code: ISSUE_CODE.ROUTING_ORPHAN_SUBSYSTEM,
       message: `Subsystem ${systemId} has no module in its hierarchy.`,
@@ -764,7 +768,7 @@ export const RoutingIssueFactory = {
     };
   },
 
-  orphanDataLink(systemId: number): Issue {
+  orphanDataLink(systemId: number): LegacyIssue {
     return {
       code: ISSUE_CODE.ROUTING_ORPHAN_DATA_LINK,
       message: `Data link ${systemId} is not covered by any projected directed UseCase pair.`,
@@ -773,7 +777,7 @@ export const RoutingIssueFactory = {
     };
   },
 
-  orphanControlLink(systemId: number): Issue {
+  orphanControlLink(systemId: number): LegacyIssue {
     return {
       code: ISSUE_CODE.ROUTING_ORPHAN_CONTROL_LINK,
       message: `Control link ${systemId} is not covered by any projected UseCase pair.`,
@@ -785,7 +789,7 @@ export const RoutingIssueFactory = {
   interUsecaseEndpointUncovered(
     linkSystemId: number,
     subgraphSystemId: number,
-  ): Issue {
+  ): LegacyIssue {
     return {
       code: ISSUE_CODE.ROUTING_INTER_USECASE_ENDPOINT_UNCOVERED,
       message:
@@ -798,7 +802,7 @@ export const RoutingIssueFactory = {
   stagingPairEndpointMissing(
     sourceSubgraphSystemId: number,
     destSubgraphSystemId: number,
-  ): Issue {
+  ): LegacyIssue {
     return {
       code: ISSUE_CODE.ROUTING_STAGING_PAIR_ENDPOINT_MISSING,
       message:
@@ -812,7 +816,7 @@ export const RoutingIssueFactory = {
     ssLinkSystemIds: readonly number[],
     startModuleSystemId: number,
     lastReachableNodeSystemId: number,
-  ): Issue {
+  ): LegacyIssue {
     return {
       code: ISSUE_CODE.ROUTING_PHASE0_INCOMPLETE_DATA_CHAIN,
       message:
@@ -827,7 +831,7 @@ export const RoutingIssueFactory = {
   incompleteControlChain(
     ssLinksSystemIds: readonly number[],
     reachableNodeIds: readonly number[],
-  ): Issue {
+  ): LegacyIssue {
     return {
       code: ISSUE_CODE.ROUTING_PHASE0_INCOMPLETE_CONTROL_CHAIN,
       message:

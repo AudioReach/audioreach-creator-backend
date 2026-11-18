@@ -9,7 +9,7 @@ import type {PropertyDataDto} from './property-read-model.js';
 import type {ElementData} from '../../../domain/entities/definitions/common/types/element-data.js';
 import {parseParameterData} from './parse-elements.js';
 import {Result} from '../../shared/result/result.js';
-import type {Issue} from '../../../shared/issues/issue.js';
+import type {LegacyIssue} from '../../../shared/issues/issue.js';
 import {ISSUE_CODE} from '../../../shared/issues/operational-codes.js';
 import {IssueSeverity} from '../../../shared/issues/severity.js';
 
@@ -19,7 +19,7 @@ export function buildPropertyModels(
 ): Result<PropertyDataDto[]> {
   const payloadMap = new Map(payloads.map(p => [p.propertySystemId, p]));
   const data: PropertyDataDto[] = [];
-  const issues: Issue[] = [];
+  const issues: LegacyIssue[] = [];
   for (const def of defMap.values()) {
     const p = payloadMap.get(def.systemId);
     if (p === undefined) {

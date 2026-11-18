@@ -10,7 +10,7 @@ import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
 import {buildProjectedUsecaseTopology} from '../shared/projected-usecase-topology.js';
 import {candidateSubgraphSystemIds} from '../shared/usecase-topology.js';
 import type {RoutingContext} from '../contracts/routing-context.js';
-import type {Issue} from '../../../../shared/issues/issue.js';
+import type {LegacyIssue} from '../../../../shared/issues/issue.js';
 import {
   ORPHAN_KIND,
   USECASE_TOPOLOGY_DECISION_KIND,
@@ -23,7 +23,7 @@ import type {SubsystemRepository} from '../../../ports/persistence/repositories/
 
 interface LocalOrphan {
   readonly candidate: OrphanCandidate;
-  readonly issues: readonly Issue[];
+  readonly issues: readonly LegacyIssue[];
   readonly order: number;
 }
 
@@ -73,7 +73,9 @@ function subgraphOrphans(
       topology.subgraphSystemIds.has(systemId)
     )
       continue;
-    const issues: Issue[] = [RoutingIssueFactory.orphanSubgraph(systemId)];
+    const issues: LegacyIssue[] = [
+      RoutingIssueFactory.orphanSubgraph(systemId),
+    ];
     if (perSg.get(systemId)?.some(instance => instance.keyValues.length > 0))
       issues.push(RoutingIssueFactory.orphanSubgraphHasKvs(systemId));
     local.push({
@@ -107,8 +109,8 @@ function coveredSubgraphSystemIds(
 function uncoveredInterUsecaseEndpointIssues(
   links: readonly LinkWithEndpoints[],
   coveredSubgraphIds: ReadonlySet<number>,
-): readonly Issue[] {
-  const issues: Issue[] = [];
+): readonly LegacyIssue[] {
+  const issues: LegacyIssue[] = [];
   for (const link of links) {
     if (!coveredSubgraphIds.has(link.sourceSubgraphSystemId))
       issues.push(
@@ -128,7 +130,9 @@ function uncoveredInterUsecaseEndpointIssues(
   return issues;
 }
 
-function interUsecaseEndpointIssues(context: RoutingContext): readonly Issue[] {
+function interUsecaseEndpointIssues(
+  context: RoutingContext,
+): readonly LegacyIssue[] {
   const covered = coveredSubgraphSystemIds(context);
   const dataLinks = context.input.graphSnapshot.overlayDataLinks.filter(
     link => link.linkType === DATA_LINK_TYPE.InterUsecase,

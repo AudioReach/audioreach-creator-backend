@@ -29,7 +29,7 @@ import {
   type MemorySnapshot,
 } from '../../../../shared/profiling/profiler-types.js';
 import {IssueCollector} from '../types/issue-collection.js';
-import {type Issue} from '../../../../shared/issues/index.js';
+import {type LegacyIssue} from '../../../../shared/issues/index.js';
 import {ENTITY_TYPE, type EntityType} from '../../../../shared/entity-type.js';
 import type {ValidationIssue} from '../../../../domain/validation/issue.js';
 import {newInsertFailureIssue} from '../../../../domain/validation/insert-failures/insert-failure.factory.js';
@@ -73,7 +73,7 @@ export interface AcdbHeaderData {
  */
 export interface UploadOrchestratorResult {
   success: boolean;
-  issues: readonly Issue[];
+  issues: readonly LegacyIssue[];
   /**
    * DATA_LOSS issues collected during bulk-insert.
    * Each entry represents an entity that failed to insert into the DB.

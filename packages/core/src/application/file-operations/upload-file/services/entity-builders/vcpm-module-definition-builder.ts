@@ -24,7 +24,7 @@ import type {AwspVcpmModuleDefinition} from '../../../shared/awsp-serializers/v1
 import type {AwspPidType} from '../../../shared/awsp-serializers/v1/definitions/module-definition/type/pid-type.js';
 import type {AwspToolPolicy} from '../../../shared/awsp-serializers/v1/definitions/module-definition/type/tool-policy.js';
 import type {BuildResult} from '../../types/issue-collection.js';
-import type {Issue} from '../../../../../shared/issues/index.js';
+import type {LegacyIssue} from '../../../../../shared/issues/index.js';
 import {IssueSeverity} from '../../../../../shared/issues/index.js';
 import {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
@@ -68,7 +68,7 @@ export class VcpmModuleDefinitionBuilder {
     });
 
     const entities: VcpmModuleDefinition[] = [];
-    const issues: Issue[] = [];
+    const issues: LegacyIssue[] = [];
 
     for (const awspDef of awspModuleDefinitions) {
       try {
@@ -138,7 +138,7 @@ export class VcpmModuleDefinitionBuilder {
     awspDef: AwspVcpmModuleDefinition,
     definition: VcpmModuleDefinition,
     fileSystemId: number,
-    issues: Issue[],
+    issues: LegacyIssue[],
   ): Promise<void> {
     if (!awspDef.parameters || awspDef.parameters.length === 0) {
       return;

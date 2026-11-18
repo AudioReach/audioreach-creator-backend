@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {Issue} from '../../../shared/issues/issue.js';
+import type {LegacyIssue} from '../../../shared/issues/issue.js';
 
 /**
  * Abstract base class for all domain exceptions.
@@ -27,9 +27,13 @@ export abstract class DomainException extends Error {
    * Optional structured issues carried from a Result.fail — surfaced as-is
    * in the API error response so callers receive the full diagnostic list.
    */
-  readonly issues?: readonly Issue[];
+  readonly issues?: readonly LegacyIssue[];
 
-  constructor(message: string, details?: unknown, issues?: readonly Issue[]) {
+  constructor(
+    message: string,
+    details?: unknown,
+    issues?: readonly LegacyIssue[],
+  ) {
     const issueLines = issues?.map((issue, i) => `${i + 1}. ${issue.message}`);
     const formattedMessage =
       issueLines && issueLines.length > 0

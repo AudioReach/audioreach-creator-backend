@@ -14,7 +14,7 @@ import {
   asSystemId,
 } from '../../../../../shared/types/branded-ids.js';
 import type {BuildResult} from '../../types/issue-collection.js';
-import type {Issue} from '../../../../../shared/issues/index.js';
+import type {LegacyIssue} from '../../../../../shared/issues/index.js';
 import {
   IssueCategory,
   IssueSeverity,
@@ -114,7 +114,7 @@ export class ContainerBuilder {
   ): ContainerBuildResult {
     // Direct conversion logic
     const containers: Container[] = [];
-    const issues: Issue[] = [];
+    const issues: LegacyIssue[] = [];
     const containerProcessorMap = new Map<number, number>();
 
     for (const acdbContainer of acdbContainerPropertyData) {
@@ -159,7 +159,7 @@ export class ContainerBuilder {
    */
   private convertAcdbContainer(acdbContainer: AcdbContainerProperties): {
     container: Container;
-    issues: Issue[];
+    issues: LegacyIssue[];
   } {
     const container = new Container(
       0, // systemId - Placeholder - will be assigned before insertion
@@ -168,7 +168,7 @@ export class ContainerBuilder {
       0, // fileSystemId - Placeholder - will be assigned before insertion
     );
 
-    const issues: Issue[] = [];
+    const issues: LegacyIssue[] = [];
 
     for (const [propertyId, propertyData] of acdbContainer.properties) {
       const propertySystemId =
@@ -233,7 +233,7 @@ export class ContainerBuilder {
   private convertToEntityBuildIssue(
     errorMessage: string,
     containerId?: number,
-  ): Issue {
+  ): LegacyIssue {
     return {
       code: ERROR_CODES.INVALID_ENTITY_DATA,
       message: errorMessage,

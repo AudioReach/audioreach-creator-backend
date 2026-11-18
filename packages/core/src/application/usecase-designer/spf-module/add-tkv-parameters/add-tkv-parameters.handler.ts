@@ -8,7 +8,7 @@ import type {Logger} from '../../../../shared/types/logger.interface.js';
 import {Result} from '../../../shared/result/result.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
-import type {Issue} from '../../../../shared/issues/issue.js';
+import type {LegacyIssue} from '../../../../shared/issues/issue.js';
 import {serializeDefaultParameterData} from '../../shared/serialize-elements.js';
 import type {AddTkvParametersCommand} from './add-tkv-parameters.command.js';
 import {getModuleWriteContext} from '../shared/module-handler-helpers.js';
@@ -33,7 +33,7 @@ export class AddTkvParametersHandler implements CommandHandler<
     const {groupId, transact, moduleRepo, defRepo, spfModule} =
       await getModuleWriteContext(this.uow, command.spfModuleSystemId);
 
-    const issues: Issue[] = [];
+    const issues: LegacyIssue[] = [];
 
     return transact(async () => {
       const tkvSystemIds: number[] = [];
@@ -63,7 +63,7 @@ export class AddTkvParametersHandler implements CommandHandler<
     spfModuleSystemId: number,
     moduleRepo: ReturnType<UnitOfWork['getModuleRepository']>,
     defRepo: ReturnType<UnitOfWork['getModuleDefinitionRepository']>,
-  ): Promise<Issue[]> {
+  ): Promise<LegacyIssue[]> {
     const tkv = await moduleRepo.getTkvBySystemId(
       tkvSystemId,
       spfModuleSystemId,
@@ -84,7 +84,7 @@ export class AddTkvParametersHandler implements CommandHandler<
     const existingParameterIds = new Set(
       existingPayloads.map(payload => payload.systemId),
     );
-    const issues: Issue[] = [];
+    const issues: LegacyIssue[] = [];
     for (const parameterSystemId of new Set(parameterSystemIds)) {
       const def = defMap.get(parameterSystemId);
       if (!def) {

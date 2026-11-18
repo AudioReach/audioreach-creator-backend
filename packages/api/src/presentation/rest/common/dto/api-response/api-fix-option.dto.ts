@@ -34,7 +34,7 @@ export class ApiClientInputSpecDto {
 
 /**
  * Client-actionable fix option carried by ApiIssueItem.fixOptions[]. Mirrors
- * core `FixOption` from `packages/core/src/shared/issues/fix-option.ts`.
+ * core `LegacyFixOption` from `packages/core/src/shared/issues/fix-option.ts`.
  */
 export class ApiFixOptionDto {
   @ApiProperty({

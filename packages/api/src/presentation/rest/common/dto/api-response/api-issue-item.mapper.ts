@@ -3,19 +3,19 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {Issue} from '@arc/core';
+import type {LegacyIssue} from '@arc/core';
 import {ApiFixOptionDto} from './api-fix-option.dto.js';
 import {ApiImpactedEntityDto, ApiIssueItem} from './api-issue-item.dto.js';
 
 /**
- * Project a core `Issue` to its API-layer wire shape.
+ * Project a core `LegacyIssue` to its API-layer wire shape.
  *
  * Field-for-field projection (design §6.4, FR-4.8). Extra fields present on
  * subtypes such as `ValidationIssue` (`name`, `defaultSeverity`) are naturally
- * dropped — they do not appear on the base `Issue` interface and therefore
+ * dropped — they do not appear on the base `LegacyIssue` interface and therefore
  * do not appear here.
  */
-export function toApiIssueItem(issue: Issue): ApiIssueItem {
+export function toApiIssueItem(issue: LegacyIssue): ApiIssueItem {
   const dto = new ApiIssueItem();
   dto.code = issue.code;
   dto.message = issue.message;
@@ -52,12 +52,12 @@ export function toApiIssueItem(issue: Issue): ApiIssueItem {
 }
 
 /**
- * Convenience wrapper — projects an optional readonly array of `Issue`,
+ * Convenience wrapper — projects an optional readonly array of `LegacyIssue`,
  * returning `undefined` for empty or missing input so `ApiResult<T>.issues`
  * stays absent rather than serialising `[]` on the wire (design §6.4).
  */
 export function toApiIssueItems(
-  issues?: readonly Issue[],
+  issues?: readonly LegacyIssue[],
 ): ApiIssueItem[] | undefined {
   if (!issues || issues.length === 0) return undefined;
   return issues.map(issue => toApiIssueItem(issue));

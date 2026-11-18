@@ -24,7 +24,7 @@ import type {ValidationPreferences} from '../../domain/validation/validation-pre
  *
  * Returns null if the issue should be hidden from the report.
  *
- * Behavioural note: the returned issue populates the base Issue `severity`
+ * Behavioural note: the returned issue populates the base LegacyIssue `severity`
  * field (renamed from the pre-refactor `effectiveSeverity`). Rules already
  * seed `severity = defaultSeverity` at construction, so the field is always
  * present on the input issue.

@@ -4,12 +4,12 @@
  */
 
 import type {FilterExpression, FilterValue} from './filter-expression.js';
-import type {Issue} from '../issues/issue.js';
+import type {LegacyIssue} from '../issues/issue.js';
 import {IssueSeverity} from '../issues/severity.js';
 
 export interface FilterParseResult {
   expression?: FilterExpression;
-  issue?: Issue;
+  issue?: LegacyIssue;
 }
 
 /**

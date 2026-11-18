@@ -14,7 +14,7 @@ import {DriverModuleDefinition} from '../../../../../domain/entities/definitions
 import {DriverModuleParameterDefinition} from '../../../../../domain/entities/definitions/driver-module/driver-module-parameter-definition.js';
 import type {DriverModuleDefinition as AwspDriverModuleDefinition} from '../../../shared/awsp-serializers/v1/definitions/index.js';
 import type {BuildResult} from '../../types/issue-collection.js';
-import type {Issue} from '../../../../../shared/issues/index.js';
+import type {LegacyIssue} from '../../../../../shared/issues/index.js';
 import {IssueSeverity} from '../../../../../shared/issues/index.js';
 import {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
@@ -51,7 +51,7 @@ export class DriverModuleDefinitionBuilder {
     });
 
     const entities: DriverModuleDefinition[] = [];
-    const issues: Issue[] = [];
+    const issues: LegacyIssue[] = [];
 
     for (const awspDef of awspModuleDefinitions) {
       try {
@@ -128,7 +128,7 @@ export class DriverModuleDefinitionBuilder {
     awspDef: AwspDriverModuleDefinition,
     definition: DriverModuleDefinition,
     fileSystemId: number,
-    issues: Issue[],
+    issues: LegacyIssue[],
   ): Promise<void> {
     if (!awspDef.parameters || awspDef.parameters.length === 0) {
       return;

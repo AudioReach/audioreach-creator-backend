@@ -8,7 +8,7 @@ import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import {Result} from '../../../shared/result/result.js';
 import {KvData} from '../../../../domain/entities/common/entities/kv-data.js';
-import type {Issue} from '../../../../shared/issues/issue.js';
+import type {LegacyIssue} from '../../../../shared/issues/issue.js';
 import type {AddCkvsCommand} from './add-ckvs.command.js';
 import type {AddCkvsResult} from './add-ckvs-result.js';
 import {
@@ -58,7 +58,7 @@ export class AddCkvsHandler implements CommandHandler<
 
     return transact(async () => {
       const addedCkvSystemIds: number[] = [];
-      const issues: Issue[] = [];
+      const issues: LegacyIssue[] = [];
       let removedZeroCkvSystemId: number | undefined;
 
       if (zeroCkv) {

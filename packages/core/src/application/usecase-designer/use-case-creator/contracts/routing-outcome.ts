@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {Issue} from '../../../../shared/issues/issue.js';
+import type {LegacyIssue} from '../../../../shared/issues/issue.js';
 import type {UsecaseChangeDescriptor} from './routing-state.js';
 import type {UsecaseChangeDetails} from '../../../ports/persistence/query-services/usecase/query-models/usecase-change-details-read-model.js';
 
@@ -11,7 +11,7 @@ export type {UsecaseChangeRef} from '../../../ports/persistence/repositories/use
 
 export interface RoutingOutcome {
   readonly emittedChanges: readonly UsecaseChangeDescriptor[];
-  readonly issues: readonly Issue[];
+  readonly issues: readonly LegacyIssue[];
   readonly groupId: string;
 }
 
@@ -27,7 +27,7 @@ export interface RoutingCommandOutcome extends RoutingOutcome {
 export function createEmptyRoutingOutcome(
   groupId: string,
   emittedChanges: readonly UsecaseChangeDescriptor[] = [],
-  issues: readonly Issue[] = [],
+  issues: readonly LegacyIssue[] = [],
 ): RoutingOutcome {
   return {emittedChanges: [...emittedChanges], issues: [...issues], groupId};
 }

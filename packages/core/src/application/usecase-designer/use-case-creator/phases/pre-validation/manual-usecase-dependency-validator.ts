@@ -9,7 +9,7 @@ import {
   RoutingIssueFactory,
   type ManualUsecaseDependencyMissing,
 } from '../../issues/routing-issue-factory.js';
-import type {Issue} from '../../../../../shared/issues/issue.js';
+import type {LegacyIssue} from '../../../../../shared/issues/issue.js';
 
 function sortedIds(ids: Iterable<number>): number[] {
   return [...new Set(ids)].sort((left, right) => left - right);
@@ -79,8 +79,8 @@ export class ManualUsecaseDependencyValidator {
   run(
     edits: readonly ActiveManualUsecaseEdit[],
     graphSnapshot: RoutingGraphSnapshot,
-  ): Issue[] {
-    const issues: Issue[] = [];
+  ): LegacyIssue[] {
+    const issues: LegacyIssue[] = [];
     for (const edit of [...edits].sort(
       (left, right) => left.changeId - right.changeId,
     )) {

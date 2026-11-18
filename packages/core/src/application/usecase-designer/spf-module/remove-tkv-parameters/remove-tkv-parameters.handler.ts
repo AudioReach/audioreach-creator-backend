@@ -7,7 +7,7 @@ import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {Result} from '../../../shared/result/result.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
-import type {Issue} from '../../../../shared/issues/issue.js';
+import type {LegacyIssue} from '../../../../shared/issues/issue.js';
 import type {RemoveTkvParametersCommand} from './remove-tkv-parameters.command.js';
 import {getModuleWriteContext} from '../shared/module-handler-helpers.js';
 
@@ -30,7 +30,7 @@ export class RemoveTkvParametersHandler implements CommandHandler<
       command.spfModuleSystemId,
     );
 
-    const issues: Issue[] = [];
+    const issues: LegacyIssue[] = [];
     const updates: RemoveTkvParametersResult['updates'] = [];
 
     return transact(async () => {

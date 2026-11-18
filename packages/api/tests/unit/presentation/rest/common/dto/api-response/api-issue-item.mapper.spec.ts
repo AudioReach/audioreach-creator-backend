@@ -8,7 +8,7 @@ import {
   ENTITY_TYPE,
   IssueCategory,
   IssueSeverity,
-  type Issue,
+  type LegacyIssue,
   type ValidationIssue,
 } from '@arc/core';
 import {
@@ -20,7 +20,7 @@ import {ApiImpactedEntityDto} from '../../../../../../../src/presentation/rest/c
 describe('api-issue-item.mapper', () => {
   describe('toApiIssueItem', () => {
     it('projects an operational Issue with only code/message/severity', () => {
-      const issue: Issue = {
+      const issue: LegacyIssue = {
         code: 'ENTITY_NOT_FOUND',
         message: 'SpfModule not found (systemId: 42)',
         severity: IssueSeverity.Error,
@@ -72,7 +72,7 @@ describe('api-issue-item.mapper', () => {
     });
 
     it('projects impactedEntity as a nested ApiImpactedEntityDto instance', () => {
-      const issue: Issue = {
+      const issue: LegacyIssue = {
         code: 'DB_QUERY_FAILED',
         message: 'boom',
         severity: IssueSeverity.Error,
@@ -91,7 +91,7 @@ describe('api-issue-item.mapper', () => {
     });
 
     it('projects fixOptions with client-input specs', () => {
-      const issue: Issue = {
+      const issue: LegacyIssue = {
         code: 'ARC-INSERT-LINK-001',
         message: 'Duplicate data link',
         severity: IssueSeverity.Warning,
@@ -142,7 +142,7 @@ describe('api-issue-item.mapper', () => {
     });
 
     it('maps a non-empty readonly array element-wise', () => {
-      const issues: readonly Issue[] = [
+      const issues: readonly LegacyIssue[] = [
         {code: 'A', message: 'a', severity: IssueSeverity.Warning},
         {code: 'B', message: 'b', severity: IssueSeverity.Error},
       ];

@@ -8,16 +8,16 @@ import {
   Result,
   RESULT_KIND,
 } from '../../../../../src/application/shared/result/result.js';
-import type {Issue} from '../../../../../src/shared/issues/issue.js';
+import type {LegacyIssue} from '../../../../../src/shared/issues/issue.js';
 import {IssueSeverity} from '../../../../../src/shared/issues/severity.js';
 
-const errIssue: Issue = {
+const errIssue: LegacyIssue = {
   code: 'TEST_ERROR',
   message: 'test error',
   severity: IssueSeverity.Error,
 };
 
-const warnIssue: Issue = {
+const warnIssue: LegacyIssue = {
   code: 'TEST_WARN',
   message: 'test warning',
   severity: IssueSeverity.Warning,
@@ -115,7 +115,7 @@ describe('Result<T>', () => {
 
       if (result.kind === RESULT_KIND.Partial) {
         const value: string = result.data;
-        const issues: readonly Issue[] = result.issues;
+        const issues: readonly LegacyIssue[] = result.issues;
         expect(value).toBe('hello');
         expect(issues).toEqual([errIssue]);
       } else {

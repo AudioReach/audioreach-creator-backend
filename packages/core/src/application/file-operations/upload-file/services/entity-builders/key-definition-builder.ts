@@ -18,7 +18,7 @@ import {ValueDefinition} from '../../../../../domain/entities/definitions/key-va
 import type {SpecialKey} from '../../../shared/awsp-serializers/v1/definitions/key-definition/type/special-key-type.js';
 import type {SpecialtyKey} from '../../../../../domain/entities/definitions/common/types/speciality-type.js';
 import type {BuildResult} from '../../types/issue-collection.js';
-import type {Issue} from '../../../../../shared/issues/index.js';
+import type {LegacyIssue} from '../../../../../shared/issues/index.js';
 import {IssueSeverity} from '../../../../../shared/issues/index.js';
 import {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
@@ -210,7 +210,7 @@ export class KeyDefinitionBuilder {
 
     // Process results and collect valid key definitions and issues
     const validKeyDefinitions: KeyDefinition[] = [];
-    const issues: Issue[] = [];
+    const issues: LegacyIssue[] = [];
 
     for (const [i, result] of results.entries()) {
       const task = tasks[i];
@@ -272,7 +272,7 @@ export class KeyDefinitionBuilder {
     });
 
     const validKeyDefinitions: KeyDefinition[] = [];
-    const issues: Issue[] = [];
+    const issues: LegacyIssue[] = [];
 
     for (const awspKeyDef of keyDefinitions) {
       try {
@@ -327,7 +327,7 @@ export class KeyDefinitionBuilder {
   /**
    * Convert builder error to Issue format
    */
-  private convertToEntityBuildIssue(message: string): Issue {
+  private convertToEntityBuildIssue(message: string): LegacyIssue {
     return {
       code: ERROR_CODES.INVALID_ENTITY_DATA,
       message,

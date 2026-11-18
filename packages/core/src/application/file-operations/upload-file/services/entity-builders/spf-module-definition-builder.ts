@@ -32,7 +32,7 @@ import {StaticControlPortDefinition} from '../../../../../domain/entities/defini
 import {StaticIntentDefinition} from '../../../../../domain/entities/definitions/spf-module/value-objects/static-intent-definition.js';
 import {DynamicIntentDefinition} from '../../../../../domain/entities/definitions/spf-module/value-objects/dynamic-intent-definition.js';
 import type {BuildResult} from '../../types/issue-collection.js';
-import type {Issue} from '../../../../../shared/issues/index.js';
+import type {LegacyIssue} from '../../../../../shared/issues/index.js';
 import {IssueSeverity} from '../../../../../shared/issues/index.js';
 import {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
@@ -351,7 +351,7 @@ export class SpfModuleDefinitionBuilder {
 
     // Process results and collect valid module definitions and issues
     const validModuleDefinitions: SpfModuleDefinition[] = [];
-    const issues: Issue[] = [];
+    const issues: LegacyIssue[] = [];
 
     for (const [i, result] of results.entries()) {
       const task = tasks[i];
@@ -414,7 +414,7 @@ export class SpfModuleDefinitionBuilder {
     });
 
     const validModuleDefinitions: SpfModuleDefinition[] = [];
-    const issues: Issue[] = [];
+    const issues: LegacyIssue[] = [];
 
     for (const awspModuleDef of moduleDefinitions) {
       const isBootUpModule = bootUpModuleIds?.has(awspModuleDef.id) ?? false;
@@ -463,7 +463,7 @@ export class SpfModuleDefinitionBuilder {
   /**
    * Convert builder error to Issue format
    */
-  private convertToEntityBuildIssue(message: string): Issue {
+  private convertToEntityBuildIssue(message: string): LegacyIssue {
     return {
       code: ERROR_CODES.INVALID_ENTITY_DATA,
       message,

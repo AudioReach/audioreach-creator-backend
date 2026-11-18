@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {Issue} from '../../../shared/issues/issue.js';
+import type {LegacyIssue} from '../../../shared/issues/issue.js';
 import {DomainException} from './domain-exception.js';
 
 /**
@@ -21,8 +21,8 @@ export class ResourceNotFoundException extends DomainException {
   // callers — only declared overloads are. Both call patterns must be listed
   // explicitly; the implementation below satisfies both.
   constructor(message: string);
-  constructor(message: string, issues: readonly Issue[]);
-  constructor(message: string, issues?: readonly Issue[]) {
+  constructor(message: string, issues: readonly LegacyIssue[]);
+  constructor(message: string, issues?: readonly LegacyIssue[]) {
     super(message, undefined, issues);
   }
 }

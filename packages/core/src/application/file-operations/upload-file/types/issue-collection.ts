@@ -3,43 +3,43 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {Issue} from '../../../../shared/issues/index.js';
+import type {LegacyIssue} from '../../../../shared/issues/index.js';
 
 /**
  * Result of building entities with issue collection.
  *
- * `issues` is a flat list of base `Issue`s (ValidationIssue is structurally
- * assignable to Issue, so validation-shaped entries flow through without
+ * `issues` is a flat list of base `LegacyIssue`s (ValidationIssue is structurally
+ * assignable to LegacyIssue, so validation-shaped entries flow through without
  * translation). Downstream consumers hand this straight to `Result.partial(data, issues)`.
  */
 export interface BuildResult<T> {
   entities: T[];
-  issues: Issue[];
+  issues: LegacyIssue[];
 }
 
 /**
- * Thin `Issue[]` accumulator used across the upload pipeline.
+ * Thin `LegacyIssue[]` accumulator used across the upload pipeline.
  *
  * Callers construct concrete Issues via:
  *   - `newInsertFailureIssue(...)` in `domain/validation/insert-failures/` (DATA_LOSS)
- *   - direct object literals for validation rule outputs (ValidationIssue extends Issue)
+ *   - direct object literals for validation rule outputs (ValidationIssue extends LegacyIssue)
  *
  * `formatForApi()` from the pre-refactor collector is removed — the collector
  * output is consumed by `Result.partial(data, collector.getIssues())` and the API
  * mapper does the wire-format projection.
  */
 export class IssueCollector {
-  private issues: Issue[] = [];
+  private issues: LegacyIssue[] = [];
 
-  addIssue(issue: Issue): void {
+  addIssue(issue: LegacyIssue): void {
     this.issues.push(issue);
   }
 
-  addIssues(issues: readonly Issue[]): void {
+  addIssues(issues: readonly LegacyIssue[]): void {
     this.issues.push(...issues);
   }
 
-  getIssues(): readonly Issue[] {
+  getIssues(): readonly LegacyIssue[] {
     return [...this.issues];
   }
 

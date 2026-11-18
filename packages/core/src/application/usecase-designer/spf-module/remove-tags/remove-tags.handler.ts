@@ -7,7 +7,7 @@ import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {Result} from '../../../shared/result/result.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
-import type {Issue} from '../../../../shared/issues/issue.js';
+import type {LegacyIssue} from '../../../../shared/issues/issue.js';
 import type {RemoveTagsCommand} from './remove-tags.command.js';
 import {getModuleWriteContext} from '../shared/module-handler-helpers.js';
 
@@ -28,7 +28,7 @@ export class RemoveTagsHandler implements CommandHandler<
       command.spfModuleSystemId,
     );
 
-    const issues: Issue[] = [];
+    const issues: LegacyIssue[] = [];
     const toRemove: number[] = [];
     for (const tagSystemId of new Set(command.tagSystemIds)) {
       const tag = await moduleRepo.getTagBySystemId(

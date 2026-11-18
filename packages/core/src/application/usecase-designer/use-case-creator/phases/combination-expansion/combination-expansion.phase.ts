@@ -4,7 +4,7 @@
  */
 
 import {Result} from '../../../../../application/shared/result/result.js';
-import type {Issue} from '../../../../../shared/issues/issue.js';
+import type {LegacyIssue} from '../../../../../shared/issues/issue.js';
 import type {RoutingContext} from '../../contracts/routing-context.js';
 import {
   ROUTING_MODE,
@@ -154,7 +154,7 @@ function expandEcBridges(
     ]),
   );
   const candidates: EcBridgeUsecaseCandidate[] = [];
-  const issues: Issue[] = [];
+  const issues: LegacyIssue[] = [];
   const expandedConnectionIds = new Set<number>();
   for (const boundaryPath of paths) {
     if (boundaryPath.termination !== PATH_TERMINATION.EcBoundary) continue;

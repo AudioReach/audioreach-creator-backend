@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {Issue} from '../../../../../shared/issues/issue.js';
+import type {LegacyIssue} from '../../../../../shared/issues/issue.js';
 import {PATH_TERMINATION, type DfsPath} from '../../contracts/routing-state.js';
 import {RoutingIssueFactory} from '../../issues/routing-issue-factory.js';
 
@@ -11,8 +11,8 @@ export interface DfsTraversalState {
   readonly outgoingEdges: ReadonlyMap<number, readonly DfsTraversalEdge[]>;
   readonly coveredSubgraphIds: Set<number>;
   readonly discoveredPaths: DfsPath[];
-  readonly cycleWarnings: Issue[];
-  readonly ecIssues: Issue[];
+  readonly cycleWarnings: LegacyIssue[];
+  readonly ecIssues: LegacyIssue[];
   readonly traversedRightSides: Set<string>;
 }
 
