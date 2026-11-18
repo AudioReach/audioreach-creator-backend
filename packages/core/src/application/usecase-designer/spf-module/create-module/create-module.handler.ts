@@ -215,9 +215,6 @@ export class CreateModuleHandler implements CommandHandler<
         ctrPropDefs,
         this.logger,
       );
-      for (const property of container.properties.values()) {
-        property.systemId = await this.idGeneration.getNextId(fileSystemId);
-      }
       await containerRepo.createContainer(container);
       return containerSystemId;
     }

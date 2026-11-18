@@ -4,7 +4,12 @@
  */
 
 import type {EntityManager} from 'typeorm';
-import type {ContainerRepository, UnitOfWork, EditOptions} from '@arc/core';
+import type {
+  ContainerRepository,
+  UnitOfWork,
+  EditOptions,
+  IdGenerationPort,
+} from '@arc/core';
 import {Container, ContainerPropertyValue, PropertyDefinition} from '@arc/core';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
@@ -21,6 +26,7 @@ export class TypeOrmContainerRepository implements ContainerRepository {
     private readonly writer: PendingChangeWriter,
     private readonly manager: EntityManager,
     private readonly uow: UnitOfWork,
+    private readonly idGeneration: IdGenerationPort,
   ) {
     const editActionsQs = new EditActionsQueryService(manager);
     this.containerFetcher = new ContainerOverlayFetcher(
@@ -105,11 +111,7 @@ export class TypeOrmContainerRepository implements ContainerRepository {
     for (const prop of overlaid.properties) {
       container.properties.set(
         prop.propertySystemId,
-        new ContainerPropertyValue(
-          prop.propertySystemId,
-          prop.payload,
-          prop.systemId,
-        ),
+        new ContainerPropertyValue(prop.propertySystemId, prop.payload),
       );
     }
     return container;
@@ -138,10 +140,13 @@ export class TypeOrmContainerRepository implements ContainerRepository {
     );
 
     for (const [propDefSystemId, propVal] of container.properties) {
+      const propRowId = await this.idGeneration.getNextId(
+        container.fileSystemId,
+      );
       await this.writer.writeCreate(
         {
           targetTable: ENTITY_NAMES.ContainerPropertyData,
-          targetSystemId: propVal.systemId,
+          targetSystemId: propRowId,
           aggregateId: container.systemId,
           payload: {
             containerSystemId: container.systemId,
