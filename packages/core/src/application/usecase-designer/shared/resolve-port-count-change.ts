@@ -6,6 +6,7 @@
 import {Result} from '../../shared/result/result.js';
 import type {EntityType} from '../../../shared/entity-type.js';
 import {IssueFactory} from '../../../shared/issues/factories.js';
+import type {LegacyIssue} from '../../../shared/issues/issue.js';
 
 export interface PortCountChangeResult {
   /** Number of new ports to add. */
@@ -32,7 +33,7 @@ export function resolvePortCountChange(
   links: ReadonlyArray<{portSystemId: number; linkSystemId: number}>,
   issueEntityType: EntityType,
   parentSystemId: number,
-): Result<PortCountChangeResult> {
+): Result<PortCountChangeResult, LegacyIssue> {
   const currentCount = currentPorts.length;
 
   if (requested === currentCount) {

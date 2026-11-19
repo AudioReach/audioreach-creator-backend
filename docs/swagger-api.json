@@ -9074,13 +9074,13 @@
           "Tkv",
           "Unknown"
         ],
-        "description": "The type of entity this issue applies to."
+        "description": "The type of the entity."
       },
-      "ApiImpactedEntityDto": {
+      "ApiEntityRef": {
         "type": "object",
         "properties": {
           "entityType": {
-            "description": "The type of entity this issue applies to.",
+            "description": "The type of the entity.",
             "allOf": [
               {
                 "$ref": "#/components/schemas/IssueEntityType"
@@ -9089,11 +9089,11 @@
           },
           "systemId": {
             "type": "string",
-            "description": "System-level identifier of the impacted entity."
+            "description": "System-level identifier of the entity."
           },
           "displayName": {
             "type": "string",
-            "description": "Human-readable name for display (e.g., module alias)."
+            "description": "The entity's natural identity for display, e.g. \"Subgraph 'Mic capture' (0x00001234)\". Absent on issues that are not yet rendered from facts."
           }
         },
         "required": [
@@ -9143,6 +9143,10 @@
             "type": "string",
             "description": "Stable identifier — e.g. \"delete-duplicate-link\"."
           },
+          "kind": {
+            "type": "string",
+            "description": "The kind of fix, e.g. SELECT_CANDIDATE. Its roles and params are listed under the issue code in ApiIssueItem.relatedEntities. Absent on fix options that are not yet rendered from facts."
+          },
           "description": {
             "type": "string",
             "description": "Human-readable description of the fix."
@@ -9161,6 +9165,25 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ApiClientInputSpecDto"
+            }
+          },
+          "relatedEntities": {
+            "type": "object",
+            "description": "Entities the fix concerns, by role; omitted when there are none. Same forms as ApiIssueItem.relatedEntities.",
+            "additionalProperties": true
+          },
+          "params": {
+            "type": "object",
+            "description": "Machine context of the fix that is not an entity; omitted when there is none.",
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
             }
           }
         },
@@ -9203,15 +9226,34 @@
             "description": "The entity this issue applies to, if any.",
             "allOf": [
               {
-                "$ref": "#/components/schemas/ApiImpactedEntityDto"
+                "$ref": "#/components/schemas/ApiEntityRef"
               }
             ]
           },
           "impactedUsecases": {
-            "description": "Use-case systemIds affected by this issue, if any.",
+            "description": "Use cases affected by this issue, if any.",
             "type": "array",
             "items": {
-              "type": "number"
+              "$ref": "#/components/schemas/ApiEntityRef"
+            }
+          },
+          "relatedEntities": {
+            "type": "object",
+            "description": "Entities the issue concerns, by role; omitted when there are none. A role holds one entity, a list of entities, or a list of groups (objects whose values are entities or lists of entities). The message names single entities; lists are given here only.\n\nRoles, params, and fix-option kinds by code (\"-\": none; codes not listed carry none):\n- ENTITY_NOT_FOUND: -\n- ARC-ROUTING-PREVAL-DUPLICATE-ACTIVE-SUBGRAPH-SELECTION: subgraphs: Subgraph[]\n- ARC-ROUTING-PREVAL-SCOPE-INCOMPLETE: subgraphs: Subgraph[]\n- ARC-ROUTING-PREVAL-ADDITION-SCOPE-CONFLICT: subgraphs: Subgraph[], dataLinks: DataLink[], controlLinks: ControlLink[]\n- ARC-ROUTING-PREVAL-DATALINK-INTEGRITY: source: Subgraph, destination: Subgraph\n- ARC-ROUTING-PHASE0-INCOMPLETE-DATA-CHAIN: startModule: SpfModule, lastReachableNode: SpfModule | Subsystem\n- ARC-ROUTING-PHASE0-INCOMPLETE-CONTROL-CHAIN: reachableNodes: (SpfModule | Subsystem)[]\n- ARC-ROUTING-MDF-01: -\n- ARC-ROUTING-ISLAND-DETECTED: -\n- ARC-ROUTING-DEL-02: unselectedUsecases: UseCase[]\n- ARC-ROUTING-DELETION-SCOPE-INCOMPLETE: subgraphs: Subgraph[], dataLinks: DataLink[], controlLinks: ControlLink[]\n- ARC-ROUTING-INTER-USECASE-ENDPOINT-UNCOVERED: subgraph: Subgraph\n- ARC-ROUTING-UC-AUTO-ISLAND: lostConnections: {source: Subgraph, destination: Subgraph, deletedDataLink: DataLink}[]\n- ARC-ROUTING-SGKV-MALFORMED: values: ValueDefinition[]\n- ARC-ROUTING-SGKV-VALUE-NOT-FOUND: values: ValueDefinition[]\n- ARC-ROUTING-CYCLE-DETECTED: -\n- ARC-ROUTING-MANUAL-CYCLE: cycle: Subgraph[], dataLinks: DataLink[]\n- ARC-ROUTING-MANUAL-GKV-CONFLICT: gkvValues: ValueDefinition[], subgraphs: Subgraph[]\n- ARC-ROUTING-DFS-08: path: Subgraph[], conflicts: {key: KeyDefinition, subgraphs: Subgraph[]}[]\n- ARC-ROUTING-EC-MULTIPLE-LINKS: ecDataLinks: DataLink[]; params: pairCount (number)\n- ARC-ROUTING-EC-05: path: Subgraph[], firstEcDataLink: DataLink, secondEcDataLink: DataLink\n- ARC-ROUTING-EC-BRIDGE-INCOMPATIBLE: path: Subgraph[], ecDataLinks: DataLink[], keys: KeyDefinition[]\n- ARC-ROUTING-MANUAL-UC-BROKEN-DEPS: subgraphs: Subgraph[], dataLinks: DataLink[], controlLinks: ControlLink[]; fix options: DELETE_STALE_EDIT\n- ARC-ROUTING-MULTIPLE-MANUAL-GKV-OVERRIDES: -\n- ARC-ROUTING-SAME-GKV-CHOICE-REQUIRED: gkvValues: ValueDefinition[]; params: collisionId (string); fix options: SELECT_CANDIDATE (usecase?: UseCase, subgraphs: Subgraph[]; params: candidateNumber (number)), KEEP_EXISTING (usecase: UseCase, subgraphs: Subgraph[]), MERGE_ALL (usecase?: UseCase, subgraphs: Subgraph[])\n- ARC-ROUTING-SAME-GKV-CHOICE-STALE: params: collisionId (string)\n- ARC-ROUTING-ORPHAN-SUBGRAPH: -\n- ARC-ROUTING-ORPHAN-SG-HAS-KVS: -\n- ARC-ROUTING-ORPHAN-SUBSYSTEM: -\n- ARC-ROUTING-ORPHAN-DATA-LINK: -\n- ARC-ROUTING-ORPHAN-CONTROL-LINK: -\n- ARC-ROUTING-STAGING-PAIR-ENDPOINT-MISSING: source: Subgraph, destination: Subgraph",
+            "additionalProperties": true
+          },
+          "params": {
+            "type": "object",
+            "description": "Machine context of the issue that is not an entity, by name; omitted when there is none. The params of each code are listed under relatedEntities.",
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
             }
           },
           "fixOptions": {

@@ -255,7 +255,7 @@ describe('E2E: DELETE /arc-api/v1/projects/:projectId/spf-modules/:spfModuleSyst
       expect.arrayContaining([
         expect.objectContaining({
           code: 'ENTITY_NOT_FOUND',
-          impactedEntity: {entityType: 'SpfModule', systemId: 99999999},
+          impactedEntity: {entityType: 'SpfModule', systemId: '99999999'},
         }),
       ]),
     );

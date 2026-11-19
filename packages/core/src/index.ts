@@ -746,6 +746,17 @@ export {IssueSeverity, IssueCategory} from './shared/issues/severity.js';
 export {CLIENT_INPUT_TYPE} from './shared/issues/fix-option.js';
 export type {ClientInputType} from './shared/issues/fix-option.js';
 
+// Rendered issues: what handlers return and the API maps to the wire.
+export type {
+  Issue,
+  RenderedEntityRef,
+  RenderedFixOption,
+} from './application/issues/issue.js';
+export type {
+  IssueFactCode,
+  ParamValue,
+} from './domain/issues/issue-context-map.js';
+
 // Validation framework — domain types
 export * from './domain/validation/issue.js';
 export * from './domain/validation/validation-preferences.js';

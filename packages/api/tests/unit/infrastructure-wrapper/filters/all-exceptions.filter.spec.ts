@@ -12,6 +12,10 @@ import {
   ResourceConflictException,
   ValidationFailedException,
   DomainNotImplementedException,
+  DomainRuleViolationException,
+  ENTITY_TYPE,
+  ISSUE_CODE,
+  IssueSeverity,
 } from '@arc/core';
 
 describe('AllExceptionsFilter', () => {
@@ -124,6 +128,83 @@ describe('AllExceptionsFilter', () => {
     const exception = new DomainNotImplementedException('getSubgraphs');
     filter.catch(exception, mockHost as any);
     expect(mockResponse.status).toHaveBeenCalledWith(501);
+  });
+
+  it('maps the issues of a domain exception to their wire shape', () => {
+    const exception = new DomainRuleViolationException([
+      {
+        code: 'ARC-INSERT-LINK-001',
+        message: 'Duplicate data link',
+        severity: IssueSeverity.Error,
+        impactedEntity: {entityType: ENTITY_TYPE.DataLink, systemId: 4001},
+        fixOptions: [
+          {
+            systemId: 'delete-duplicate-link',
+            description: 'Delete the duplicate link',
+            commandType: 'DELETE_LINK',
+            commandPayload: {linkId: 4001},
+            requiredClientInputs: [],
+          },
+        ],
+      },
+      {
+        code: ISSUE_CODE.ROUTING_PREVAL_DATALINK_INTEGRITY,
+        message: "Data link 0x20 has no source Subgraph 'Mic' (0x5)",
+        severity: IssueSeverity.Error,
+        relatedEntities: {
+          source: {
+            entityType: ENTITY_TYPE.Subgraph,
+            systemId: 5,
+            displayName: "Subgraph 'Mic' (0x5)",
+          },
+          destination: {
+            entityType: ENTITY_TYPE.Subgraph,
+            systemId: 6,
+            displayName: "Subgraph 'Speaker' (0x6)",
+          },
+        },
+        params: {},
+      },
+    ]);
+
+    filter.catch(exception, mockHost as any);
+
+    expect(mockResponse.status).toHaveBeenCalledWith(422);
+    const body = mockResponse.json.mock.calls[0][0] as {issues: unknown};
+    expect(body.issues).toEqual([
+      {
+        code: 'ARC-INSERT-LINK-001',
+        message: 'Duplicate data link',
+        severity: IssueSeverity.Error,
+        impactedEntity: {entityType: ENTITY_TYPE.DataLink, systemId: '4001'},
+        fixOptions: [
+          {
+            id: 'delete-duplicate-link',
+            description: 'Delete the duplicate link',
+            commandType: 'DELETE_LINK',
+            commandPayload: {linkId: 4001},
+            requiredClientInputs: [],
+          },
+        ],
+      },
+      {
+        code: ISSUE_CODE.ROUTING_PREVAL_DATALINK_INTEGRITY,
+        message: "Data link 0x20 has no source Subgraph 'Mic' (0x5)",
+        severity: IssueSeverity.Error,
+        relatedEntities: {
+          source: {
+            entityType: ENTITY_TYPE.Subgraph,
+            systemId: '5',
+            displayName: "Subgraph 'Mic' (0x5)",
+          },
+          destination: {
+            entityType: ENTITY_TYPE.Subgraph,
+            systemId: '6',
+            displayName: "Subgraph 'Speaker' (0x6)",
+          },
+        },
+      },
+    ]);
   });
 
   it('propagates issues[] from HttpException payload to top-level errorResponse.issues', () => {
