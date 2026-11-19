@@ -4,6 +4,7 @@
  */
 
 import type {LegacyIssue} from '../../../shared/issues/issue.js';
+import type {Issue} from '../../issues/issue.js';
 import {DomainException} from './domain-exception.js';
 
 /**
@@ -21,8 +22,8 @@ export class ResourceNotFoundException extends DomainException {
   // callers — only declared overloads are. Both call patterns must be listed
   // explicitly; the implementation below satisfies both.
   constructor(message: string);
-  constructor(message: string, issues: readonly LegacyIssue[]);
-  constructor(message: string, issues?: readonly LegacyIssue[]) {
+  constructor(message: string, issues: readonly (Issue | LegacyIssue)[]);
+  constructor(message: string, issues?: readonly (Issue | LegacyIssue)[]) {
     super(message, undefined, issues);
   }
 }
