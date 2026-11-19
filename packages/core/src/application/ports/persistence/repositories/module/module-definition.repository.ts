@@ -46,4 +46,16 @@ export interface ModuleDefinitionRepository {
     fileSystemId: number,
     tagDefinitionSystemId: number,
   ): Promise<boolean>;
+
+  getProcessorNaturalId(
+    processorSystemId: number,
+    fileSystemId: number,
+  ): Promise<number | null>;
+
+  /**
+   * Returns the SPF domain value (natural ID) for each container type system ID.
+   * ContainerType has no fileSystemId — it is a system-wide lookup table.
+   * Missing system IDs are silently omitted from the result map.
+   */
+  getContainerTypeValues(systemIds: number[]): Promise<Map<number, number>>;
 }

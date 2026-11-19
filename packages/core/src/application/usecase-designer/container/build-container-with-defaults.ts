@@ -5,7 +5,11 @@
 
 import {Container} from '../../../domain/entities/usecase-data/container/container.js';
 import {ContainerPropertyValue} from '../../../domain/entities/usecase-data/container/value-objects/container-property.js';
-import {CONTAINER_PROP_ID_STACK_SIZE} from '../../../domain/entities/definitions/spf-ids.js';
+import {
+  CONTAINER_PROP_ID_CAPABILITY_LIST,
+  CONTAINER_PROP_ID_PROC_DOMAIN,
+  CONTAINER_PROP_ID_STACK_SIZE,
+} from '../../../domain/entities/definitions/container/container-property-ids.js';
 import {encodeStackSize} from '../shared/utils/container-stack-size-codec.js';
 import type {PropertyDefinition} from '../../../domain/entities/definitions/common/entities/property-definition.js';
 import {serializeDefaultParameterData} from '../shared/serialize-elements.js';
@@ -16,16 +20,17 @@ export interface ContainerInit {
   containerNaturalId: number;
   containerTypeSystemId: number;
   fileSystemId: number;
+  procDomainNaturalId: number;
+  capabilitySystemIds: number[];
+  stackSize: number;
 }
 
 /**
  * Builds a complete Container domain object with all property defaults seeded.
  *
- * Stack size is always initialised to 0 (required for the UPDATE-only
- * setPropertyData path on future PATCH calls). All other property definitions
- * get their default blobs via serializeDefaultParameterData so that createContainer
- * stages the container row and all ContainerPropertyData rows atomically as one
- * complete aggregate.
+ * Stack size is seeded from init.stackSize so createContainer persists the
+ * container row and all ContainerPropertyData rows atomically as one aggregate,
+ * avoiding a second setPropertyData round-trip after creation.
  */
 export function buildContainerWithDefaults(
   init: ContainerInit,
@@ -48,12 +53,11 @@ export function buildContainerWithDefaults(
     );
   }
 
-  // Stack size is always 0 at creation time — recalculated on module placement.
   container.properties.set(
     stackSizeDefinition.systemId,
     new ContainerPropertyValue(
       stackSizeDefinition.systemId,
-      encodeStackSize(0),
+      encodeStackSize(init.stackSize),
     ),
   );
 
@@ -68,7 +72,7 @@ export function buildContainerWithDefaults(
     }
     for (const w of serialized.warnings) {
       logger?.logWarn({
-        eventName: 'container.build.defaultClamped',
+        eventName: 'container.build.default_clamped',
         description: `Container property ${propDef.systemId}: ${w}`,
         component: 'buildContainerWithDefaults',
         tag: 'container',
@@ -77,6 +81,37 @@ export function buildContainerWithDefaults(
     container.properties.set(
       propDef.systemId,
       new ContainerPropertyValue(propDef.systemId, serialized.value),
+    );
+  }
+
+  // Override PROC_DOMAIN with the actual processor natural ID
+  const procDomainDef = propertyDefinitions.find(
+    d => d.naturalId === CONTAINER_PROP_ID_PROC_DOMAIN,
+  );
+  if (procDomainDef) {
+    const buf = new Uint8Array(4);
+    new DataView(buf.buffer).setUint32(0, init.procDomainNaturalId >>> 0, true);
+    container.properties.set(
+      procDomainDef.systemId,
+      new ContainerPropertyValue(procDomainDef.systemId, buf),
+    );
+  }
+
+  // Override CAPABILITY_LIST with the module's container-type domain values (natural IDs, not DB system IDs)
+  const capDef = propertyDefinitions.find(
+    d => d.naturalId === CONTAINER_PROP_ID_CAPABILITY_LIST,
+  );
+  if (capDef && init.capabilitySystemIds.length > 0) {
+    const ids = init.capabilitySystemIds;
+    const capBuf = new Uint8Array((1 + ids.length) * 4);
+    const capView = new DataView(capBuf.buffer);
+    capView.setUint32(0, ids.length, true);
+    for (const [i, id] of ids.entries()) {
+      capView.setUint32((i + 1) * 4, id >>> 0, true);
+    }
+    container.properties.set(
+      capDef.systemId,
+      new ContainerPropertyValue(capDef.systemId, capBuf),
     );
   }
 

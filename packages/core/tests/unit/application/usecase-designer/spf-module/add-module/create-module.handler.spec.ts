@@ -30,11 +30,13 @@ function makeDefinition(
     containerTypesSystemIds: Set<number>;
     dataPortGroups: unknown[];
     staticControlPorts: unknown[];
+    stackSize: number;
   }> = {},
 ) {
   return {
     systemId: MODULE_DEF_SYSTEM_ID,
     naturalId: 42,
+    processorSystemId: 7,
     containerTypesSystemIds: overrides.containerTypesSystemIds ?? new Set([50]),
     dataPortGroups: overrides.dataPortGroups ?? [
       {
@@ -47,6 +49,7 @@ function makeDefinition(
       {naturalId: 1, portName: 'ctrl_0'},
     ],
     dynamicIntents: [],
+    stackSize: overrides.stackSize ?? 0,
   };
 }
 
@@ -55,6 +58,10 @@ function makeDefRepo(definition = makeDefinition()) {
     findBySystemId: jest.fn().mockResolvedValue(definition),
     findByDefIdAndProcId: jest.fn().mockResolvedValue(definition),
     getParameterDefinitions: jest.fn().mockResolvedValue([]),
+    getProcessorNaturalId: jest.fn().mockResolvedValue(2),
+    getContainerTypeValues: jest
+      .fn()
+      .mockResolvedValue(new Map([[50, 0xb001001]])),
   } as unknown as ModuleDefinitionRepository;
 }
 
@@ -218,9 +225,10 @@ describe('CreateModuleHandler — Variant 1 (auto-create subgraph + container)',
     expect(uow.rollback).not.toHaveBeenCalled();
   });
 
-  it('initialises stack size = 0 on the auto-created container', async () => {
+  it('seeds stack size from definition into the auto-created container and skips setPropertyData', async () => {
     const containerRepo = makeContainerRepo();
-    const uow = makeUow({containerRepo});
+    const definition = makeDefinition({stackSize: 4096});
+    const uow = makeUow({containerRepo, defRepo: makeDefRepo(definition)});
     const handler = new CreateModuleHandler(
       uow,
       makeIdGen(),
@@ -233,6 +241,26 @@ describe('CreateModuleHandler — Variant 1 (auto-create subgraph + container)',
       containerRepo.createContainer as ReturnType<typeof jest.fn>
     ).mock.calls[0][0];
     expect(createdContainer.properties.has(900)).toBe(true);
+    expect(containerRepo.setPropertyData).not.toHaveBeenCalled();
+  });
+
+  it('calls setPropertyData to update stack size when adding to an existing container', async () => {
+    const containerRepo = makeContainerRepo();
+    (
+      containerRepo.getContainerById as ReturnType<typeof jest.fn>
+    ).mockResolvedValue({containerTypeSystemId: 50});
+    const definition = makeDefinition({stackSize: 4096});
+    const uow = makeUow({containerRepo, defRepo: makeDefRepo(definition)});
+    const handler = new CreateModuleHandler(
+      uow,
+      makeIdGen(),
+      makeNaturalIdGen(),
+    );
+
+    await handler.handle(new CreateModuleCommand(42, 1, null, 77, 88));
+
+    expect(containerRepo.createContainer).not.toHaveBeenCalled();
+    expect(containerRepo.setPropertyData).toHaveBeenCalledTimes(1);
   });
 
   it('uses first containerTypesSystemIds entry for the new container', async () => {
@@ -414,6 +442,106 @@ describe('CreateModuleHandler — failure paths', () => {
     ).rejects.toThrow('DB error');
     expect(uow.rollback).toHaveBeenCalled();
     expect(uow.commit).not.toHaveBeenCalled();
+  });
+});
+
+describe('CreateModuleHandler — container stack size (Step 4.5)', () => {
+  beforeEach(() => {
+    idSeq = 100;
+  });
+
+  it('bakes definition.stackSize into the new container via createContainer, skips setPropertyData', async () => {
+    const containerRepo = makeContainerRepo();
+    const definition = makeDefinition({stackSize: 8192});
+    const uow = makeUow({containerRepo, defRepo: makeDefRepo(definition)});
+    const handler = new CreateModuleHandler(
+      uow,
+      makeIdGen(),
+      makeNaturalIdGen(),
+    );
+
+    await handler.handle(new CreateModuleCommand(42, 1, null, null, null));
+
+    expect(containerRepo.createContainer).toHaveBeenCalledTimes(1);
+    const created = (
+      containerRepo.createContainer as ReturnType<typeof jest.fn>
+    ).mock.calls[0][0];
+    const stackSizeProp = created.properties.get(900);
+    expect(stackSizeProp).toBeDefined();
+    expect(
+      new DataView(stackSizeProp!.getPayloadCopy()!.buffer).getUint32(0, true),
+    ).toBe(8192);
+    expect(containerRepo.setPropertyData).not.toHaveBeenCalled();
+  });
+
+  it('does not call setPropertyData for new container when definition.stackSize is 0', async () => {
+    const containerRepo = makeContainerRepo();
+    const uow = makeUow({containerRepo});
+    const handler = new CreateModuleHandler(
+      uow,
+      makeIdGen(),
+      makeNaturalIdGen(),
+    );
+
+    await handler.handle(new CreateModuleCommand(42, 1, null, null, null));
+
+    expect(containerRepo.setPropertyData).not.toHaveBeenCalled();
+  });
+
+  it('updates existing container stack size when definition.stackSize exceeds it', async () => {
+    const existingStackSizeBuf = new Uint8Array(4);
+    new DataView(existingStackSizeBuf.buffer).setUint32(0, 4096, true);
+
+    const containerRepo = makeContainerRepo();
+    (
+      containerRepo.getContainerById as ReturnType<typeof jest.fn>
+    ).mockResolvedValue({containerTypeSystemId: 50});
+    (
+      containerRepo.getPropertyData as ReturnType<typeof jest.fn>
+    ).mockResolvedValue(existingStackSizeBuf);
+
+    const definition = makeDefinition({stackSize: 8192});
+    const uow = makeUow({containerRepo, defRepo: makeDefRepo(definition)});
+    const handler = new CreateModuleHandler(
+      uow,
+      makeIdGen(),
+      makeNaturalIdGen(),
+    );
+
+    await handler.handle(new CreateModuleCommand(42, 1, null, 77, 88));
+
+    expect(containerRepo.setPropertyData).toHaveBeenCalledTimes(1);
+    const [, , encoded] = (
+      containerRepo.setPropertyData as ReturnType<typeof jest.fn>
+    ).mock.calls[0];
+    expect(
+      new DataView((encoded as Uint8Array).buffer).getUint32(0, true),
+    ).toBe(8192);
+  });
+
+  it('does not update existing container stack size when definition.stackSize does not exceed it', async () => {
+    const existingStackSizeBuf = new Uint8Array(4);
+    new DataView(existingStackSizeBuf.buffer).setUint32(0, 16384, true);
+
+    const containerRepo = makeContainerRepo();
+    (
+      containerRepo.getContainerById as ReturnType<typeof jest.fn>
+    ).mockResolvedValue({containerTypeSystemId: 50});
+    (
+      containerRepo.getPropertyData as ReturnType<typeof jest.fn>
+    ).mockResolvedValue(existingStackSizeBuf);
+
+    const definition = makeDefinition({stackSize: 8192});
+    const uow = makeUow({containerRepo, defRepo: makeDefRepo(definition)});
+    const handler = new CreateModuleHandler(
+      uow,
+      makeIdGen(),
+      makeNaturalIdGen(),
+    );
+
+    await handler.handle(new CreateModuleCommand(42, 1, null, 77, 88));
+
+    expect(containerRepo.setPropertyData).not.toHaveBeenCalled();
   });
 });
 

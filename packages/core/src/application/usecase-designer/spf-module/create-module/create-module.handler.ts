@@ -8,6 +8,8 @@ import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.
 import type {NaturalIdGenerationPort} from '../../../ports/id-generation/natural-id-generation.port.js';
 import {NaturalIdType} from '../../../../domain/services/natural-id-generator/natural-id-type.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
+import {DomainRuleViolationException} from '../../../../shared/exceptions/domain-rule-violation.exception.js';
+import {IssueFactory} from '../../../../shared/issues/factories.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import {requireOne} from '../../../shared/result/require-one.js';
@@ -19,6 +21,7 @@ import {buildContainerWithDefaults} from '../../container/build-container-with-d
 import {createZeroCkv} from '../shared/kv-seed-helpers.js';
 import type {CreateModuleCommand} from './create-module.command.js';
 import {CONFIGURATION_INCLUDES} from '../../../ports/persistence/query-services/configuration-includes.js';
+import {ContainerStackSizeService} from '../../container/services/container-stack-size.service.js';
 
 export class CreateModuleHandler implements CommandHandler<
   CreateModuleCommand,
@@ -52,6 +55,16 @@ export class CreateModuleHandler implements CommandHandler<
         );
       }
 
+      const processorNaturalId = await defRepo.getProcessorNaturalId(
+        definition.processorSystemId,
+        fileSystemId,
+      );
+      if (processorNaturalId === null) {
+        throw new ResourceNotFoundException(
+          `Processor natural ID not found for processor system ID ${definition.processorSystemId}.`,
+        );
+      }
+
       // 2. Optional parent subsystem existence check
       if (command.parentSystemId !== null) {
         const found = await uow
@@ -69,11 +82,23 @@ export class CreateModuleHandler implements CommandHandler<
         command,
         fileSystemId,
       );
-      const containerSystemId = await this.resolveContainer(
+      const {containerSystemId, isNew} = await this.resolveContainer(
         command,
         fileSystemId,
-        [...definition.containerTypesSystemIds][0],
+        processorNaturalId,
+        definition.stackSize,
+        definition.containerTypesSystemIds,
       );
+
+      // 4.5 Update the container's stack size — skipped for new containers
+      // because buildContainerWithDefaults already seeds the correct value.
+      if (!isNew) {
+        await new ContainerStackSizeService(uow).updateOnAdd(
+          containerSystemId,
+          definition.stackSize,
+          fileSystemId,
+        );
+      }
 
       // 5. Materialize static data ports from definition (IDs from definition, not NaturalIdPort)
       const dataPorts: DataPort[] = [];
@@ -189,15 +214,25 @@ export class CreateModuleHandler implements CommandHandler<
   private async resolveContainer(
     command: CreateModuleCommand,
     fileSystemId: number,
-    containerTypeSystemId: number | undefined,
-  ): Promise<number> {
+    processorNaturalId: number,
+    stackSize: number,
+    moduleContainerTypesSystemIds: Set<number>,
+  ): Promise<{containerSystemId: number; isNew: boolean}> {
     const containerRepo = this.uow.getContainerRepository();
     if (command.containerSystemId === null) {
-      if (!containerTypeSystemId) {
+      const firstContainerTypeSystemId: number | undefined =
+        moduleContainerTypesSystemIds.values().next().value;
+      if (firstContainerTypeSystemId === undefined) {
         throw new ResourceNotFoundException(
           `Module definition has no container types configured. Cannot auto-create a container.`,
         );
       }
+      // Look up the domain value (natural ID) of the first container type for
+      // CAPABILITY_LIST — the definition stores DB system IDs, SPF needs ContainerType.value.
+      const valuesMap = await this.uow
+        .getModuleDefinitionRepository()
+        .getContainerTypeValues([firstContainerTypeSystemId]);
+      const capabilityNaturalId = valuesMap.get(firstContainerTypeSystemId);
       const containerSystemId = await this.idGeneration.getNextId(fileSystemId);
       const containerNaturalId = this.naturalIdGeneration.getNextId(
         fileSystemId,
@@ -209,24 +244,37 @@ export class CreateModuleHandler implements CommandHandler<
         {
           systemId: containerSystemId,
           containerNaturalId,
-          containerTypeSystemId,
+          containerTypeSystemId: firstContainerTypeSystemId,
           fileSystemId,
+          procDomainNaturalId: processorNaturalId,
+          capabilitySystemIds:
+            capabilityNaturalId !== undefined ? [capabilityNaturalId] : [],
+          stackSize,
         },
         ctrPropDefs,
         this.logger,
       );
       await containerRepo.createContainer(container);
-      return containerSystemId;
+      return {containerSystemId, isNew: true};
     }
-    const found = await containerRepo.containerExists(
+    const container = await containerRepo.getContainerById(
       command.containerSystemId,
       fileSystemId,
     );
-    if (!found) {
+    if (!container) {
       throw new ResourceNotFoundException(
         `Container ${command.containerSystemId} not found.`,
       );
     }
-    return command.containerSystemId;
+    if (!moduleContainerTypesSystemIds.has(container.containerTypeSystemId)) {
+      throw new DomainRuleViolationException([
+        IssueFactory.containerTypeIncompatible(
+          command.containerSystemId,
+          container.containerTypeSystemId,
+          [...moduleContainerTypesSystemIds],
+        ),
+      ]);
+    }
+    return {containerSystemId: command.containerSystemId, isNew: false};
   }
 }
