@@ -28,6 +28,7 @@ import {StaticControlPortDefFetcher} from '../../fetchers/definitions/spf-module
 import {DynamicIntentDefFetcher} from '../../fetchers/definitions/spf-module-definitions/dynamic-intent-def-fetcher.js';
 import {ModuleParameterDefinitionFetcher} from '../../fetchers/definitions/spf-module-definitions/module-parameter-definition-fetcher.js';
 import {TagDefinitionFetcher} from '../../fetchers/definitions/tag-key-value/tag-definition-fetcher.js';
+import {ContainerTypeFetcher} from '../../fetchers/definitions/container/container-type-fetcher.js';
 
 export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionRepository {
   private readonly rootFetcher: SpfModuleDefinitionFetcher;
@@ -36,6 +37,7 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
   private readonly dynamicIntentFetcher: DynamicIntentDefFetcher;
   private readonly paramDefFetcher: ModuleParameterDefinitionFetcher;
   private readonly tagDefinitionFetcher: TagDefinitionFetcher;
+  private readonly containerTypeFetcher: ContainerTypeFetcher;
 
   constructor(
     private readonly manager: EntityManager,
@@ -57,6 +59,10 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
       editActionsQs,
     );
     this.tagDefinitionFetcher = new TagDefinitionFetcher(
+      manager,
+      editActionsQs,
+    );
+    this.containerTypeFetcher = new ContainerTypeFetcher(
       manager,
       editActionsQs,
     );
@@ -212,6 +218,34 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
       sessionId,
     );
     return row !== null;
+  }
+
+  async getProcessorNaturalId(
+    processorSystemId: number,
+    fileSystemId: number,
+  ): Promise<number | null> {
+    const row = await this.manager
+      .getRepository(ENTITY_NAMES.ProcessorDefinition)
+      .createQueryBuilder('proc')
+      .select('proc.naturalId')
+      .where(
+        'proc.systemId = :processorSystemId AND proc.fileSystemId = :fileSystemId',
+        {processorSystemId, fileSystemId},
+      )
+      .getOne();
+    return row ? Number((row as {naturalId: number}).naturalId) : null;
+  }
+
+  async getContainerTypeValues(
+    systemIds: number[],
+  ): Promise<Map<number, number>> {
+    if (systemIds.length === 0) return new Map();
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const rows = await this.containerTypeFetcher.fetchMany(
+      systemIds,
+      sessionId,
+    );
+    return new Map(rows.map(r => [Number(r.systemId), Number(r.value)]));
   }
 }
 
