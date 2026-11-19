@@ -4,6 +4,7 @@
  */
 
 import type {LegacyIssue} from '../../../shared/issues/index.js';
+import type {Issue} from '../../issues/issue.js';
 
 /**
  * Named constants for Result<T>.kind — compare against these instead of
@@ -28,12 +29,13 @@ export type ResultKind = (typeof RESULT_KIND)[keyof typeof RESULT_KIND];
  *              rejection with fixOptions, request-shape rejection with hints).
  *              Handlers throw a DomainException for unstructured total failures.
  *
- * `I` is the issue type. Routing carries `IssueFact` and renders it to
- * `Issue` before the result leaves the handler; other code uses the default.
+ * `I` is the issue type. Handlers return rendered issues (`Issue`) or, until
+ * their producers move to facts, `LegacyIssue`. Routing carries `IssueFact`
+ * and renders it before the result leaves the handler.
  *
  * Design §3.1, FR-2, FR-3, I-1, I-5, I-6.
  */
-export type Result<T, I = LegacyIssue> =
+export type Result<T, I = Issue | LegacyIssue> =
   | {
       readonly kind: typeof RESULT_KIND.Ok;
       readonly data: T;
@@ -84,7 +86,9 @@ export const Result = {
     return {kind: RESULT_KIND.Partial, data, issues};
   },
 
-  fail<T = never, I = LegacyIssue>(...issues: readonly I[]): Result<T, I> {
+  fail<T = never, I = Issue | LegacyIssue>(
+    ...issues: readonly I[]
+  ): Result<T, I> {
     if (issues.length === 0) {
       throw new Error('Result.fail() requires at least one issue');
     }

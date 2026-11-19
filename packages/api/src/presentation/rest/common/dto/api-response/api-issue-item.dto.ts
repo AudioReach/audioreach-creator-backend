@@ -3,37 +3,44 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {ApiProperty} from '@nestjs/swagger';
+import {ApiProperty, ApiPropertyOptional} from '@nestjs/swagger';
 import {
   ENTITY_TYPE,
   IssueSeverity,
   IssueCategory,
   type EntityType,
+  type ParamValue,
 } from '@arc/core';
 import {ApiFixOptionDto} from './api-fix-option.dto.js';
+import {
+  ISSUE_PARAMS_DESCRIPTION,
+  RELATED_ENTITIES_DESCRIPTION,
+} from './issue-context.docs.js';
 
 /**
- * Nested DTO for the impacted-entity field on ApiIssueItem.
- *
- * Structurally mirrors core `LegacyImpactedEntity` from
- * `packages/core/src/shared/issues/impacted-entity.ts`.
+ * An entity named by an issue: its type, its systemId for machines, and its
+ * display name for people. Used for `impactedEntity`, `impactedUsecases`,
+ * and every entity in `relatedEntities`.
  */
-export class ApiImpactedEntityDto {
+export class ApiEntityRef {
   @ApiProperty({
-    description: 'The type of entity this issue applies to.',
+    description: 'The type of the entity.',
     enum: ENTITY_TYPE,
     enumName: 'IssueEntityType',
   })
   entityType!: EntityType;
 
   @ApiProperty({
-    description: 'System-level identifier of the impacted entity.',
+    description: 'System-level identifier of the entity.',
     type: 'string',
   })
   systemId!: string;
 
   @ApiProperty({
-    description: 'Human-readable name for display (e.g., module alias).',
+    description:
+      "The entity's natural identity for display, e.g. " +
+      '"Subgraph \'Mic capture\' (0x00001234)". Absent on issues that are ' +
+      'not yet rendered from facts.',
     required: false,
     type: 'string',
   })
@@ -41,13 +48,30 @@ export class ApiImpactedEntityDto {
 }
 
 /**
+ * One group in a list of groups in `relatedEntities`: entities that belong
+ * together, such as a key and the subgraphs that conflict on it.
+ */
+export type ApiRelatedEntityGroup = Record<
+  string,
+  ApiEntityRef | ApiEntityRef[]
+>;
+
+/** Related entities by role: one entity, a list, or a list of groups. */
+export type ApiRelatedEntities = Record<
+  string,
+  ApiEntityRef | ApiEntityRef[] | ApiRelatedEntityGroup[]
+>;
+
+/** Machine context of an issue or fix option that is not an entity. */
+export type ApiIssueParams = Record<string, ParamValue>;
+
+/**
  * Wire representation of a single structured issue, carried by
- * `ApiResult<T>.issues[]`.
+ * `ApiResult<T>.issues[]` and by error responses.
  *
- * Structurally mirrors core `LegacyIssue` (design §6.2, FR-4.1). The mapper
- * `toApiIssueItem` performs a field-for-field projection — extra fields
- * on `ValidationIssue` (`name`, `defaultSeverity`) are deliberately not
- * projected so the wire shape stays purely `LegacyIssue`.
+ * `toApiIssueItem` projects both rendered issues and legacy issues to this
+ * shape. Extra fields on `ValidationIssue` (`name`, `defaultSeverity`) are
+ * deliberately not projected.
  */
 export class ApiIssueItem {
   @ApiProperty({
@@ -83,17 +107,31 @@ export class ApiIssueItem {
 
   @ApiProperty({
     description: 'The entity this issue applies to, if any.',
-    type: ApiImpactedEntityDto,
+    type: ApiEntityRef,
     required: false,
   })
-  impactedEntity?: ApiImpactedEntityDto;
+  impactedEntity?: ApiEntityRef;
 
   @ApiProperty({
-    description: 'Use-case systemIds affected by this issue, if any.',
-    type: [Number],
+    description: 'Use cases affected by this issue, if any.',
+    type: [ApiEntityRef],
     required: false,
   })
-  impactedUsecases?: number[];
+  impactedUsecases?: ApiEntityRef[];
+
+  @ApiPropertyOptional({
+    description: RELATED_ENTITIES_DESCRIPTION,
+    type: 'object',
+    additionalProperties: true,
+  })
+  relatedEntities?: ApiRelatedEntities;
+
+  @ApiPropertyOptional({
+    description: ISSUE_PARAMS_DESCRIPTION,
+    type: 'object',
+    additionalProperties: {oneOf: [{type: 'string'}, {type: 'number'}]},
+  })
+  params?: ApiIssueParams;
 
   @ApiProperty({
     description: 'Client-actionable fix options, if any.',

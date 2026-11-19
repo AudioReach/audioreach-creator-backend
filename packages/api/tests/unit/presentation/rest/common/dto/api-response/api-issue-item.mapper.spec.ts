@@ -6,8 +6,10 @@
 import {
   CLIENT_INPUT_TYPE,
   ENTITY_TYPE,
+  ISSUE_CODE,
   IssueCategory,
   IssueSeverity,
+  type Issue,
   type LegacyIssue,
   type ValidationIssue,
 } from '@arc/core';
@@ -15,7 +17,6 @@ import {
   toApiIssueItem,
   toApiIssueItems,
 } from '../../../../../../../src/presentation/rest/common/dto/api-response/api-issue-item.mapper.js';
-import {ApiImpactedEntityDto} from '../../../../../../../src/presentation/rest/common/dto/api-response/api-issue-item.dto.js';
 
 describe('api-issue-item.mapper', () => {
   describe('toApiIssueItem', () => {
@@ -61,7 +62,10 @@ describe('api-issue-item.mapper', () => {
       expect(dto.code).toBe('ARC-MOD-001');
       expect(dto.severity).toBe(IssueSeverity.Error);
       expect(dto.category).toBe(IssueCategory.Blocking);
-      expect(dto.impactedUsecases).toEqual([101, 102]);
+      expect(dto.impactedUsecases).toEqual([
+        {entityType: ENTITY_TYPE.UseCase, systemId: '101'},
+        {entityType: ENTITY_TYPE.UseCase, systemId: '102'},
+      ]);
       // ValidationIssue-only fields are absent
       expect((dto as unknown as {name?: unknown}).name).toBeUndefined();
       expect(
@@ -71,7 +75,7 @@ describe('api-issue-item.mapper', () => {
       expect(dto.fixOptions).toBeUndefined();
     });
 
-    it('projects impactedEntity as a nested ApiImpactedEntityDto instance', () => {
+    it('projects impactedEntity with its systemId as a string', () => {
       const issue: LegacyIssue = {
         code: 'DB_QUERY_FAILED',
         message: 'boom',
@@ -84,7 +88,6 @@ describe('api-issue-item.mapper', () => {
 
       const dto = toApiIssueItem(issue);
 
-      expect(dto.impactedEntity).toBeInstanceOf(ApiImpactedEntityDto);
       expect(dto.impactedEntity?.entityType).toBe(ENTITY_TYPE.Container);
       expect(dto.impactedEntity?.systemId).toBe('601');
       expect(dto.impactedEntity?.displayName).toBeUndefined();
@@ -121,12 +124,225 @@ describe('api-issue-item.mapper', () => {
 
       expect(dto.fixOptions).toHaveLength(1);
       expect(dto.fixOptions?.[0].id).toBe('delete-duplicate-link');
+      expect(dto.fixOptions?.[0].kind).toBeUndefined();
       expect(dto.fixOptions?.[0].commandPayload).toEqual({linkId: 4001});
       expect(dto.fixOptions?.[0].requiredClientInputs).toEqual([
         {
           field: 'confirm',
           label: 'Confirm deletion',
           type: CLIENT_INPUT_TYPE.Boolean,
+        },
+      ]);
+    });
+
+    it('projects a legacy issue without relatedEntities or params', () => {
+      const issue: LegacyIssue = {
+        code: 'A',
+        message: 'a',
+        severity: IssueSeverity.Warning,
+      };
+
+      const dto = toApiIssueItem(issue);
+
+      expect('relatedEntities' in dto).toBe(false);
+      expect('params' in dto).toBe(false);
+    });
+  });
+
+  describe('toApiIssueItem with a rendered issue', () => {
+    const subgraph = (systemId: number, alias: string) => ({
+      entityType: ENTITY_TYPE.Subgraph,
+      systemId,
+      displayName: `Subgraph '${alias}' (0x${systemId.toString(16)})`,
+    });
+
+    it('projects related entities in each form with string systemIds', () => {
+      const issue: Issue = {
+        code: ISSUE_CODE.ROUTING_DFS_NO_VALID_COMBINATION,
+        message: 'No valid combination',
+        severity: IssueSeverity.Error,
+        relatedEntities: {
+          path: [subgraph(5, 'Mic'), subgraph(6, 'Speaker')],
+          conflicts: [
+            {
+              key: {
+                entityType: ENTITY_TYPE.KeyDefinition,
+                systemId: 16,
+                displayName: "Key 'Device'",
+              },
+              subgraphs: [subgraph(5, 'Mic'), subgraph(6, 'Speaker')],
+            },
+          ],
+        },
+        params: {},
+      };
+
+      const dto = toApiIssueItem(issue);
+
+      expect(dto.relatedEntities).toEqual({
+        path: [
+          {
+            entityType: ENTITY_TYPE.Subgraph,
+            systemId: '5',
+            displayName: "Subgraph 'Mic' (0x5)",
+          },
+          {
+            entityType: ENTITY_TYPE.Subgraph,
+            systemId: '6',
+            displayName: "Subgraph 'Speaker' (0x6)",
+          },
+        ],
+        conflicts: [
+          {
+            key: {
+              entityType: ENTITY_TYPE.KeyDefinition,
+              systemId: '16',
+              displayName: "Key 'Device'",
+            },
+            subgraphs: [
+              {
+                entityType: ENTITY_TYPE.Subgraph,
+                systemId: '5',
+                displayName: "Subgraph 'Mic' (0x5)",
+              },
+              {
+                entityType: ENTITY_TYPE.Subgraph,
+                systemId: '6',
+                displayName: "Subgraph 'Speaker' (0x6)",
+              },
+            ],
+          },
+        ],
+      });
+      expect('params' in dto).toBe(false);
+    });
+
+    it('projects a single related entity and params', () => {
+      const issue: Issue = {
+        code: ISSUE_CODE.ROUTING_EC_MULTIPLE_LINKS,
+        message: 'Multiple EC links',
+        severity: IssueSeverity.Error,
+        impactedEntity: {
+          entityType: ENTITY_TYPE.UseCase,
+          systemId: 9,
+          displayName: "Use case 'Call'",
+        },
+        relatedEntities: {
+          ecDataLinks: [
+            {
+              entityType: ENTITY_TYPE.DataLink,
+              systemId: 32,
+              displayName: 'Data link 0x20',
+            },
+          ],
+        },
+        params: {pairCount: 2},
+      };
+
+      const dto = toApiIssueItem(issue);
+
+      expect(dto.impactedEntity).toEqual({
+        entityType: ENTITY_TYPE.UseCase,
+        systemId: '9',
+        displayName: "Use case 'Call'",
+      });
+      expect(dto.relatedEntities).toEqual({
+        ecDataLinks: [
+          {
+            entityType: ENTITY_TYPE.DataLink,
+            systemId: '32',
+            displayName: 'Data link 0x20',
+          },
+        ],
+      });
+      expect(dto.params).toEqual({pairCount: 2});
+    });
+
+    it('omits empty relatedEntities and params', () => {
+      const issue: Issue = {
+        code: ISSUE_CODE.ROUTING_CYCLE_DETECTED,
+        message: 'Cycle',
+        severity: IssueSeverity.Error,
+        relatedEntities: {},
+        params: {},
+      };
+
+      const dto = toApiIssueItem(issue);
+
+      expect('relatedEntities' in dto).toBe(false);
+      expect('params' in dto).toBe(false);
+    });
+
+    it('projects impactedUsecases with their display names', () => {
+      const issue: Issue = {
+        code: ISSUE_CODE.ROUTING_CYCLE_DETECTED,
+        message: 'Cycle',
+        severity: IssueSeverity.Error,
+        relatedEntities: {},
+        params: {},
+        impactedUsecases: [
+          {
+            entityType: ENTITY_TYPE.UseCase,
+            systemId: 9,
+            displayName: "Use case 'Call'",
+          },
+        ],
+      };
+
+      const dto = toApiIssueItem(issue);
+
+      expect(dto.impactedUsecases).toEqual([
+        {
+          entityType: ENTITY_TYPE.UseCase,
+          systemId: '9',
+          displayName: "Use case 'Call'",
+        },
+      ]);
+    });
+
+    it('projects fix options with kind, related entities, and params', () => {
+      const issue: Issue = {
+        code: ISSUE_CODE.ROUTING_SAME_GKV_CHOICE_REQUIRED,
+        message: 'Choose',
+        severity: IssueSeverity.Error,
+        relatedEntities: {gkvValues: []},
+        params: {collisionId: 'c-1'},
+        fixOptions: [
+          {
+            id: 'select-candidate-1',
+            kind: 'SELECT_CANDIDATE',
+            description: 'Select candidate 1',
+            relatedEntities: {subgraphs: [subgraph(5, 'Mic')]},
+            params: {candidateNumber: 1},
+            commandType: 'RESOLVE_COLLISION',
+            commandPayload: {collisionId: 'c-1'},
+            requiredClientInputs: [],
+          },
+        ],
+      };
+
+      const dto = toApiIssueItem(issue);
+
+      expect(dto.relatedEntities).toEqual({gkvValues: []});
+      expect(dto.params).toEqual({collisionId: 'c-1'});
+      expect(dto.fixOptions).toEqual([
+        {
+          id: 'select-candidate-1',
+          kind: 'SELECT_CANDIDATE',
+          description: 'Select candidate 1',
+          relatedEntities: {
+            subgraphs: [
+              {
+                entityType: ENTITY_TYPE.Subgraph,
+                systemId: '5',
+                displayName: "Subgraph 'Mic' (0x5)",
+              },
+            ],
+          },
+          params: {candidateNumber: 1},
+          commandType: 'RESOLVE_COLLISION',
+          commandPayload: {collisionId: 'c-1'},
+          requiredClientInputs: [],
         },
       ]);
     });
