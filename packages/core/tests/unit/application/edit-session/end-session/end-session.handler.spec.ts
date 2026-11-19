@@ -76,6 +76,7 @@ describe('EndSessionHandler', () => {
     sessionRepo.wipeUnstagedForSession.mockResolvedValue(0);
     sessionRepo.countCommitsForSession.mockResolvedValue(0);
     sessionRepo.deleteSession.mockResolvedValue(undefined);
+    sessionRepo.findActiveSessionByFileSystemId.mockResolvedValue(null);
     const clear = jest.fn();
     const naturalIds = {clear} as unknown as NaturalIdGenerationPort;
 
@@ -107,6 +108,7 @@ describe('EndSessionHandler', () => {
     sessionRepo.wipeUnstagedForSession.mockResolvedValue(3);
     sessionRepo.countCommitsForSession.mockResolvedValue(0);
     sessionRepo.deleteSession.mockResolvedValue(undefined);
+    sessionRepo.findActiveSessionByFileSystemId.mockResolvedValue(null);
 
     const uow = buildMockUow(sessionRepo);
     const result = await new EndSessionHandler(
@@ -120,6 +122,7 @@ describe('EndSessionHandler', () => {
     expect(uow.commit).toHaveBeenCalledTimes(1);
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind === RESULT_KIND.Ok) {
+      expect(result.data.sessionMode).toBe(SESSION_MODE.ReadOnly);
       expect(result.data.summary).toContain('no commits');
       expect(result.data.summary).toContain('3');
       expect(result.data.summary).toContain('removed');
@@ -132,6 +135,7 @@ describe('EndSessionHandler', () => {
     sessionRepo.wipeUnstagedForSession.mockResolvedValue(2);
     sessionRepo.countCommitsForSession.mockResolvedValue(4);
     sessionRepo.markSessionEnded.mockResolvedValue(undefined);
+    sessionRepo.findActiveSessionByFileSystemId.mockResolvedValue(null);
 
     const uow = buildMockUow(sessionRepo);
     const result = await new EndSessionHandler(
@@ -144,6 +148,7 @@ describe('EndSessionHandler', () => {
     expect(sessionRepo.markSessionEnded).toHaveBeenCalledWith(SESSION_ID);
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind === RESULT_KIND.Ok) {
+      expect(result.data.sessionMode).toBe(SESSION_MODE.ReadOnly);
       expect(result.data.summary).toContain('4');
       expect(result.data.summary).toContain('2');
       expect(result.data.summary).toContain('retained');

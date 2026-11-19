@@ -11,6 +11,7 @@ import {Result as ResultFactory} from '../../shared/result/result.js';
 import type {SessionResult} from '../session-types.js';
 import {StagedChangesExistException} from '../../../shared/exceptions/staged-changes-exist.exception.js';
 import type {NaturalIdGenerationPort} from '../../ports/id-generation/natural-id-generation.port.js';
+import {SESSION_MODE} from '../../shared/change-vocabulary.js';
 
 /**
  * Implements REQ-SESS-09 (wipe UNSTAGED) and REQ-SESS-10 (retain as audit). (§7b.2)
@@ -55,10 +56,14 @@ export class EndSessionHandler implements CommandHandler<
 
       await this.uow.commit();
       this.naturalIdGeneration.clear(session.fileSystemId);
+      const activeSession = await sessionRepo.findActiveSessionByFileSystemId(
+        session.fileSystemId,
+      );
+      const currentMode = activeSession?.mode ?? SESSION_MODE.ReadOnly;
       return ResultFactory.ok<SessionResult>({
         sessionId: session.sessionId,
         projectId: session.projectId,
-        sessionMode: session.mode,
+        sessionMode: currentMode,
         summary:
           commitCount > 0
             ? `Session ended with ${commitCount} commit(s). ${wipedCount} unstaged change(s) discarded. Session retained as audit history.`
