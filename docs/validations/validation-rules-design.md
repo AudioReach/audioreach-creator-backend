@@ -315,7 +315,7 @@ const propDefBySystemId = new Map(containerPropertyDefinitions.map(d => [d.syste
 
 **Blocked rules that become unblocked:** ARC-MOD-001, ARC-MOD-007, ARC-MOD-008, ARC-MOD-009, ARC-CON-001, ARC-CON-002, ARC-CON-003, ARC-LINK-010.
 
-> **Status: done** — implemented with ARC-CON-002 (not yet committed).
+> **Status: done** — implemented with ARC-CON-002.
 
 ---
 
@@ -339,7 +339,7 @@ findContainerPropertyDefinitionsByFile(fileSystemId: number): Promise<PropertyDe
 
 **Blocked rules that become unblocked:** ARC-CON-001, ARC-CON-002.
 
-> **Status: done** — implemented with ARC-CON-002 (not yet committed).
+> **Status: done** — implemented with ARC-CON-002.
 
 ---
 
@@ -808,7 +808,7 @@ Every definition in the file is required for every container: definitions are no
 - No definitions in the file → no issues
 - Two containers, only one incomplete → one issue, on the incomplete container
 
-> **Status: done (detect only)** — rule, registration and e2e tests implemented (not yet committed). The fix and `impactedUsecases` stay blocked as described above.
+> **Status: done (detect only)** — rule, registration and e2e tests implemented. The fix and `impactedUsecases` stay blocked as described above.
 
 ---
 
@@ -816,6 +816,7 @@ Every definition in the file is required for every container: definitions are no
 
 **Class:** `ContainerPropertyParseRule`  
 **File:** `packages/core/src/domain/validation/rules/container/container-property-parse.rule.ts`  
+**Constructor:** `payloadParses: PayloadParses` — a function `(payload, elementsStructure) => boolean`, see "Parse failure detection"  
 **Severity:** `ERROR`  
 **Groups:** `SAVE_FILE`  
 **Required entity types:** `Container`, `ContainerPropertyDefinition`  
@@ -836,16 +837,15 @@ For each container in context.containers:
     payload = propValue.getPayloadCopy()
     if payload is null: skip
 
-    result = parseParameterData(payload, propDef.elementsStructure)
-    if result contains any ConfigElement with dataType === DATA_TYPE.RawData:
+    if !payloadParses(payload, propDef.elementsStructure):
       → emit issue
 ```
 
-> **Parse failure detection:** `parseParameterData` never throws — on any error it returns a single fallback element with `dataType: DATA_TYPE.RawData`. `RawData` is also a valid element data type in general, but container property definitions never declare it, so any `RawData` element in the result can only come from the fallback. The rule treats it as a parse failure. The check looks at `ConfigElement` entries only, because struct elements have no `dataType`.
+> **Parse failure detection:** the parser lives in the application layer and domain code must not import it (ESLint `no-restricted-imports`: "domain must not import application"). So the rule receives `payloadParses` through its constructor. The handler passes `containerPayloadParses` from `packages/core/src/application/validation/container-payload-parses.ts`, which calls `parseParameterData`. `parseParameterData` never throws — on any error it returns a single fallback element with `dataType: DATA_TYPE.RawData`. `RawData` is also a valid element data type in general, but container property definitions never declare it, so any `RawData` element in the result can only come from the fallback. `containerPayloadParses` treats it as a parse failure. It looks at `ConfigElement` entries only, because struct elements have no `dataType`.
 
 > **Out of scope:** payloads that are too long are not detected — the parser ignores trailing bytes. A NULL `elements_structure` is loaded as an empty string and is reported as a parse failure.
 
-> **Status: done** — rule, loaders and e2e tests implemented (not yet committed).
+> **Status: done** — rule, loaders and e2e tests implemented.
 
 **Issue structure:**
 ```typescript

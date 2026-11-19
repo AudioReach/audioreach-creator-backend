@@ -13,9 +13,16 @@ import type {ValidationRule} from '../../validation-rule.js';
 import {VALIDATION_RULE_GROUP} from '../../validation-rule.js';
 import type {ContainerValidationContext} from '../../validation-context.js';
 import {BinaryUtils} from '../../../../shared/utilities/binary-utils.js';
-import {parseParameterData} from '../../../../application/usecase-designer/shared/parse-elements.js';
-import {PARAMETER_ELEMENT_TYPE} from '../../../entities/definitions/common/types/element-type.js';
-import {DATA_TYPE} from '../../../../shared/dto/element-data/element-types.js';
+
+/**
+ * Tells whether a payload parses against an `elementsStructure`. Supplied by
+ * the application layer, because the parser lives there and domain code must
+ * not import it.
+ */
+export type PayloadParses = (
+  payload: Uint8Array,
+  elementsStructure: string,
+) => boolean;
 
 /**
  * ARC-CON-002 — Container Property Payload Parse Failure
@@ -34,6 +41,8 @@ export class ContainerPropertyParseRule implements ValidationRule<ContainerValid
     ENTITY_TYPE.ContainerPropertyDefinition,
   ] as const;
 
+  constructor(private readonly payloadParses: PayloadParses) {}
+
   validate(context: ContainerValidationContext): ValidationIssue[] {
     const issues: ValidationIssue[] = [];
 
@@ -45,15 +54,7 @@ export class ContainerPropertyParseRule implements ValidationRule<ContainerValid
         const payload = propValue.getPayloadCopy();
         if (payload === null) continue;
 
-        const elements = parseParameterData(payload, propDef.elementsStructure);
-        // Container property definitions never declare RawData, so RawData here
-        // can only be parseParameterData's parse-failure fallback.
-        const parseFailed = elements.some(
-          el =>
-            el.type === PARAMETER_ELEMENT_TYPE.ConfigElement &&
-            el.dataType === DATA_TYPE.RawData,
-        );
-        if (!parseFailed) continue;
+        if (this.payloadParses(payload, propDef.elementsStructure)) continue;
 
         const containerHex = BinaryUtils.toHexString(container.naturalId);
         issues.push({

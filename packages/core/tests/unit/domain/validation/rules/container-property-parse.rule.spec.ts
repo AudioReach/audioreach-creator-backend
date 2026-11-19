@@ -4,6 +4,7 @@
  */
 
 import {ContainerPropertyParseRule} from '../../../../../src/domain/validation/rules/container/container-property-parse.rule.js';
+import {containerPayloadParses} from '../../../../../src/application/validation/container-payload-parses.js';
 import {
   IssueSeverity,
   IssueCategory,
@@ -64,7 +65,7 @@ function makeContext(
 }
 
 describe('ContainerPropertyParseRule', () => {
-  const rule = new ContainerPropertyParseRule();
+  const rule = new ContainerPropertyParseRule(containerPayloadParses);
 
   it('should be in SAVE_FILE group only', () => {
     expect(rule.groups).toEqual([VALIDATION_RULE_GROUP.SaveFile]);
