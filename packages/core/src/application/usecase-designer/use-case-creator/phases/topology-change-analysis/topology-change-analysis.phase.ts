@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {IssueFact} from '../../../../../domain/issues/issue-fact.js';
 import {
   RESULT_KIND,
   Result,
@@ -61,7 +62,7 @@ export class TopologyChangeAnalysisPhase {
   async run(
     context: RoutingContext,
     subgraphRepository: SubgraphRepository,
-  ): Promise<Result<void>> {
+  ): Promise<Result<void, IssueFact>> {
     if (context.input.mode === ROUTING_MODE.Manual) {
       context.topologyChangeAnalysis = {
         affectedUsecaseSystemIds: new Set<number>(),
@@ -152,7 +153,7 @@ export class TopologyChangeAnalysisPhase {
     inventory: TopologyImpactInventory,
     analysis: TopologyChangeAnalysis,
     subgraphRepository: SubgraphRepository,
-  ): Promise<Result<readonly UsecaseTopologyDecision[]>> {
+  ): Promise<Result<readonly UsecaseTopologyDecision[], IssueFact>> {
     const result = await this.deletionReconstruction.run(
       {
         input: context.input,

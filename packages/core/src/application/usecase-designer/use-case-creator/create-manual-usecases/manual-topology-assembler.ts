@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {IssueFact} from '../../../../domain/issues/issue-fact.js';
 import type {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
 import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
 import type {SubgraphPair} from '../../../ports/persistence/repositories/shared/links-for-pair.js';
@@ -33,7 +34,7 @@ export function assembleManualTopology(
   routableDataLinks: readonly DataLink[],
   routableControlLinks: readonly ControlLink[],
   activeSubgraphSystemIds: readonly number[],
-): Result<ManualTopology> {
+): Result<ManualTopology, IssueFact> {
   // Pass 1 — group data links by directed pair key.
   const dataByKey = new Map<
     string,

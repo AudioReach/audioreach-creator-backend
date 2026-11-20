@@ -82,12 +82,11 @@ describe('ManualUsecaseDependencyValidator', () => {
       snapshot(),
     );
 
-    expect(result).toEqual(
-      expect.objectContaining({
-        effectiveUsecaseMissing: true,
-        referencedComponentsMissing: true,
-      }),
-    );
+    expect(result).toEqual({
+      subgraphSystemIds: [],
+      dataLinkSystemIds: [],
+      controlLinkSystemIds: [],
+    });
   });
 
   it('aggregates missing and session-deleted dependencies in numeric order', () => {
@@ -115,8 +114,6 @@ describe('ManualUsecaseDependencyValidator', () => {
     );
 
     expect(result).toEqual({
-      effectiveUsecaseMissing: false,
-      referencedComponentsMissing: false,
       subgraphSystemIds: [20, 30],
       dataLinkSystemIds: [70, 90],
       controlLinkSystemIds: [60, 80],
@@ -127,8 +124,6 @@ describe('ManualUsecaseDependencyValidator', () => {
 describe('PreValidationPhase stale manual dependency check', () => {
   it('aggregates stale MANUAL dependency failures before collision classification', async () => {
     const issue = RoutingIssueFactory.manualUsecaseDependenciesBroken(edit(7), {
-      effectiveUsecaseMissing: false,
-      referencedComponentsMissing: false,
       subgraphSystemIds: [30],
       dataLinkSystemIds: [],
       controlLinkSystemIds: [],
@@ -162,8 +157,6 @@ describe('PreValidationPhase stale manual dependency check', () => {
     const staleIssue = RoutingIssueFactory.manualUsecaseDependenciesBroken(
       edit(7),
       {
-        effectiveUsecaseMissing: false,
-        referencedComponentsMissing: false,
         subgraphSystemIds: [30],
         dataLinkSystemIds: [],
         controlLinkSystemIds: [],

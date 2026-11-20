@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {IssueFact} from '../../../../../domain/issues/issue-fact.js';
 import {Result} from '../../../../../application/shared/result/result.js';
 import {DATA_LINK_TYPE} from '../../../../../domain/entities/usecase-data/links/data-link-type.js';
 import type {UseCase} from '../../../../../domain/entities/usecase-data/usecase/usecase.js';
@@ -49,7 +50,7 @@ export class PreValidationPhase {
     private readonly manualDependencyValidator: ManualUsecaseDependencyValidator = new ManualUsecaseDependencyValidator(),
   ) {}
 
-  run(context: RoutingContext): Result<void> {
+  run(context: RoutingContext): Result<void, IssueFact> {
     const {subgraphs, routableDataLinks, mdf} = context.input.graphSnapshot;
     const subgraphIds = new Set(subgraphs.map(item => item.subgraph.systemId));
     const integrityIssues = routableDataLinks

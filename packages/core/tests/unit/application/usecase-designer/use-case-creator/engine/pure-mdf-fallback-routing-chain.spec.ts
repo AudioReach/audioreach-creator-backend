@@ -33,7 +33,7 @@ describe('pure MDF fallback routing chain', () => {
         expect.arrayContaining([
           expect.objectContaining({
             code: 'ARC-ROUTING-DEL-02',
-            impactedUsecases: [700],
+            impactedUsecases: [{entityType: 'UseCase', systemId: 700}],
           }),
         ]),
       );

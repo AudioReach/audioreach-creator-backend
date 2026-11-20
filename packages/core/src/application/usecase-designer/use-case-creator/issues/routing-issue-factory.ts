@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {LegacyIssue} from '../../../../shared/issues/issue.js';
-import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
+import type {EntityRef} from '../../../../domain/identity/entity-identity.js';
+import type {IssueFact} from '../../../../domain/issues/issue-fact.js';
+import {ENTITY_TYPE, type EntityType} from '../../../../shared/entity-type.js';
 import {ISSUE_CODE} from '../../../../shared/issues/operational-codes.js';
 import {IssueSeverity} from '../../../../shared/issues/severity.js';
 import type {
@@ -25,12 +26,8 @@ import {
   candidateSubgraphSystemIds,
 } from '../shared/usecase-topology.js';
 
-/** Invalid dependencies referenced by an active manual UseCase edit. */
+/** Components referenced by an active manual UseCase edit that no longer exist. */
 export interface ManualUsecaseDependencyMissing {
-  /** The edit no longer resolves to an effective UseCase. */
-  readonly effectiveUsecaseMissing: boolean;
-  /** The edit has no component-reference metadata to validate. */
-  readonly referencedComponentsMissing: boolean;
   /** Referenced subgraphs that are absent from the effective UseCase or deleted in this session. */
   readonly subgraphSystemIds: readonly number[];
   /** Referenced data links that are absent from the session overlay or deleted in this session. */
@@ -55,8 +52,60 @@ export interface UsecaseCandidateConflictDetails {
   readonly conflicts: readonly UsecaseCandidateConflict[];
 }
 
+/** A node of a subsystem link chain: a module or a subsystem. */
+export type ChainNodeRef = EntityRef<'SpfModule'> | EntityRef<'Subsystem'>;
+
+/** The link types that can connect use cases. */
+export type InterUsecaseLinkType =
+  | typeof ENTITY_TYPE.DataLink
+  | typeof ENTITY_TYPE.ControlLink;
+
 function sortedIds(ids: Iterable<number>): number[] {
   return [...ids].sort((left, right) => left - right);
+}
+
+function subgraphRef(systemId: number): EntityRef<'Subgraph'> {
+  return {entityType: ENTITY_TYPE.Subgraph, systemId};
+}
+
+function dataLinkRef(systemId: number): EntityRef<'DataLink'> {
+  return {entityType: ENTITY_TYPE.DataLink, systemId};
+}
+
+function usecaseRef(systemId: number): EntityRef<'UseCase'> {
+  return {entityType: ENTITY_TYPE.UseCase, systemId};
+}
+
+/** Subgraph refs in the given order, e.g. a path or a cycle. */
+function subgraphPath(ids: readonly number[]): EntityRef<'Subgraph'>[] {
+  return ids.map(id => subgraphRef(id));
+}
+
+/** Subgraph refs, deduplicated and sorted by systemId. */
+function subgraphSet(ids: Iterable<number>): EntityRef<'Subgraph'>[] {
+  return sortedIds(new Set(ids)).map(id => subgraphRef(id));
+}
+
+function dataLinkSet(ids: Iterable<number>): EntityRef<'DataLink'>[] {
+  return sortedIds(new Set(ids)).map(id => dataLinkRef(id));
+}
+
+function controlLinkSet(ids: Iterable<number>): EntityRef<'ControlLink'>[] {
+  return sortedIds(new Set(ids)).map(systemId => ({
+    entityType: ENTITY_TYPE.ControlLink,
+    systemId,
+  }));
+}
+
+function valueSet(ids: Iterable<number>): EntityRef<'ValueDefinition'>[] {
+  return sortedIds(new Set(ids)).map(systemId => ({
+    entityType: ENTITY_TYPE.ValueDefinition,
+    systemId,
+  }));
+}
+
+function usecaseSet(ids: Iterable<number>): EntityRef<'UseCase'>[] {
+  return sortedIds(new Set(ids)).map(id => usecaseRef(id));
 }
 
 interface CollisionTopologyDetails {
@@ -153,43 +202,6 @@ function selectedCollisionTopology(
   }
 }
 
-function describeCollisionResolution(
-  collision: SameGkvCollisionGroup,
-  selection: CollisionResolutionSelection,
-): string {
-  const topology = selectedCollisionTopology(collision, selection);
-  const pairs = topology.subgraphPairs
-    .map(pair => `${pair.sourceSubgraphSystemId}->${pair.destSubgraphSystemId}`)
-    .join(', ');
-  const topologyDescription =
-    `SGs [${topology.subgraphSystemIds.join(', ')}]` + ` with pairs [${pairs}]`;
-  const existingUsecaseSystemId = collision.alternatives.find(
-    alternative => alternative.kind === COLLISION_ALTERNATIVE_KIND.Existing,
-  )?.usecase.systemId;
-  switch (selection.mode) {
-    case COLLISION_RESOLUTION_MODE.KeepExisting:
-      return `Keep existing UseCase ${topology.usecaseSystemId ?? 'unknown'}: ${topologyDescription}.`;
-    case COLLISION_RESOLUTION_MODE.MergeAll:
-      return existingUsecaseSystemId === undefined
-        ? `Create one UC by merging all alternatives: ${topologyDescription}.`
-        : `Update existing UseCase ${existingUsecaseSystemId} by merging all alternatives: ${topologyDescription}.`;
-    case COLLISION_RESOLUTION_MODE.SelectCandidate: {
-      const candidateIndex =
-        collision.alternatives
-          .filter(
-            alternative => alternative.kind === COLLISION_ALTERNATIVE_KIND.New,
-          )
-          .findIndex(
-            alternative =>
-              alternative.alternativeId === selection.alternativeId,
-          ) + 1;
-      return existingUsecaseSystemId === undefined
-        ? `Select candidate ${candidateIndex}: ${topologyDescription}.`
-        : `Replace existing UseCase ${existingUsecaseSystemId} with candidate ${candidateIndex}: ${topologyDescription}.`;
-    }
-  }
-}
-
 function collisionResolutionSelections(
   collision: SameGkvCollisionGroup,
 ): CollisionResolutionSelection[] {
@@ -227,79 +239,113 @@ function collisionResolutionOptionId(
   return `${collisionId}-${selection.mode}`;
 }
 
-function describeConflict(
-  ids: readonly number[] | undefined,
-  description: (formattedIds: string) => string,
-): string | undefined {
-  if (!ids || ids.length === 0) {
-    return undefined;
+/** A fix option of `ROUTING_SAME_GKV_CHOICE_REQUIRED`. */
+type CollisionFixOption = NonNullable<
+  IssueFact<typeof ISSUE_CODE.ROUTING_SAME_GKV_CHOICE_REQUIRED>['fixOptions']
+>[number];
+
+/** The fix option that applies `selection` to `collision`. */
+function collisionFixOption(
+  collision: SameGkvCollisionGroup,
+  selection: CollisionResolutionSelection,
+  replayInput: RoutingSelection,
+  collisionAlternatives: readonly CollisionTopologyDetails[],
+): CollisionFixOption {
+  const topology = selectedCollisionTopology(collision, selection);
+  const existingUsecaseSystemId = collision.alternatives.find(
+    alternative => alternative.kind === COLLISION_ALTERNATIVE_KIND.Existing,
+  )?.usecase.systemId;
+  const usecase =
+    existingUsecaseSystemId === undefined
+      ? {}
+      : {usecase: usecaseRef(existingUsecaseSystemId)};
+  const subgraphs = subgraphSet(topology.subgraphSystemIds);
+  const common = {
+    id: collisionResolutionOptionId(collision.collisionId, selection),
+    commandType: 'ResolveSameGkvCollisionCommand',
+    commandPayload: {
+      ...selection,
+      replayInput,
+      collisionAlternatives,
+      selectedTopology: topology,
+    },
+    requiredClientInputs: [],
+  };
+  switch (selection.mode) {
+    case COLLISION_RESOLUTION_MODE.SelectCandidate:
+      return {
+        ...common,
+        kind: selection.mode,
+        relatedEntities: {...usecase, subgraphs},
+        params: {
+          candidateNumber:
+            collision.alternatives
+              .filter(
+                alternative =>
+                  alternative.kind === COLLISION_ALTERNATIVE_KIND.New,
+              )
+              .findIndex(
+                alternative =>
+                  alternative.alternativeId === selection.alternativeId,
+              ) + 1,
+        },
+      };
+    case COLLISION_RESOLUTION_MODE.KeepExisting:
+      return {
+        ...common,
+        kind: selection.mode,
+        relatedEntities: {
+          usecase: usecaseRef(topology.usecaseSystemId!),
+          subgraphs,
+        },
+      };
+    case COLLISION_RESOLUTION_MODE.MergeAll:
+      return {
+        ...common,
+        kind: selection.mode,
+        relatedEntities: {...usecase, subgraphs},
+      };
   }
-  return description(`[${sortedIds(ids).join(', ')}]`);
 }
 
-/** Creates issues owned by the use-case routing workflow. */
+/** Creates issue facts owned by the use-case routing workflow. */
 export const RoutingIssueFactory = {
-  duplicateActiveSubgraphSelections(
-    duplicateSubgraphSystemIds: Iterable<number>,
-  ): LegacyIssue {
-    const duplicateIds = sortedIds(duplicateSubgraphSystemIds);
+  entityNotFound(
+    entityType: EntityType,
+    systemId: number,
+  ): IssueFact<typeof ISSUE_CODE.ENTITY_NOT_FOUND> {
     return {
-      code: ISSUE_CODE.ROUTING_PREVAL_DUPLICATE_ACTIVE_SUBGRAPH_SELECTION,
-      message:
-        'Duplicate active-subgraph selections are not allowed ' +
-        `(systemIds: [${duplicateIds.join(', ')}]).`,
+      code: ISSUE_CODE.ENTITY_NOT_FOUND,
       severity: IssueSeverity.Error,
+      impactedEntity: {entityType, systemId} as EntityRef,
     };
   },
 
-  selectedScopeIncomplete(
-    missingSubgraphSystemIds: ReadonlySet<number>,
-  ): LegacyIssue {
-    const missingIds = [...missingSubgraphSystemIds];
+  duplicateActiveSubgraphSelections(
+    duplicateSubgraphSystemIds: Iterable<number>,
+  ): IssueFact<
+    typeof ISSUE_CODE.ROUTING_PREVAL_DUPLICATE_ACTIVE_SUBGRAPH_SELECTION
+  > {
     return {
-      code: ISSUE_CODE.ROUTING_PREVAL_SCOPE_INCOMPLETE,
-      message:
-        'Every selected usecase subgraph must be included in the routing input ' +
-        'unless explicitly excluded or deleted in the current session ' +
-        `(missing subgraphSystemIds: [${missingIds.join(', ')}]).`,
+      code: ISSUE_CODE.ROUTING_PREVAL_DUPLICATE_ACTIVE_SUBGRAPH_SELECTION,
       severity: IssueSeverity.Error,
+      relatedEntities: {subgraphs: subgraphSet(duplicateSubgraphSystemIds)},
     };
   },
 
   additionScopeConflict(
     details: RoutingAdditionScopeConflictDetails,
-  ): LegacyIssue {
-    const conflictMessages = [
-      describeConflict(
-        details.missingAddedSubgraphSystemIds,
-        ids =>
-          `Subgraphs needed to include the requested additions are missing from the selected design: ${ids}. ` +
-          'Include them in the selection, or remove the related additions.',
-      ),
-      describeConflict(
-        details.missingAddedDataLinkSystemIds,
-        ids =>
-          `Data links added by the request are missing from the included routing links: ${ids}. ` +
-          'Include them in the routing input, or remove those additions.',
-      ),
-      describeConflict(
-        details.missingAddedControlLinkSystemIds,
-        ids =>
-          `Control links added by the request are missing from the included routing links: ${ids}. ` +
-          'Include them in the routing input, or remove those additions.',
-      ),
-    ].filter((message): message is string => message !== undefined);
-
-    const message = [
-      'The requested changes cannot be safely applied because the selected design does not include everything needed to validate the result.',
-      ...conflictMessages,
-      'Update the selection or remove the conflicting changes, then submit the request again.',
-    ].join(' ');
-
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_PREVAL_ADDITION_SCOPE_CONFLICT> {
     return {
       code: ISSUE_CODE.ROUTING_PREVAL_ADDITION_SCOPE_CONFLICT,
-      message,
       severity: IssueSeverity.Error,
+      relatedEntities: {
+        subgraphs: subgraphSet(details.missingAddedSubgraphSystemIds ?? []),
+        dataLinks: dataLinkSet(details.missingAddedDataLinkSystemIds ?? []),
+        controlLinks: controlLinkSet(
+          details.missingAddedControlLinkSystemIds ?? [],
+        ),
+      },
     };
   },
 
@@ -307,56 +353,45 @@ export const RoutingIssueFactory = {
     dataLinkSystemId: number,
     sourceSubgraphSystemId: number,
     destSubgraphSystemId: number,
-  ): LegacyIssue {
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_PREVAL_DATALINK_INTEGRITY> {
     return {
       code: ISSUE_CODE.ROUTING_PREVAL_DATALINK_INTEGRITY,
-      message:
-        `Intra-usecase data link ${dataLinkSystemId} references a missing endpoint ` +
-        `(sourceSubgraphSystemId: ${sourceSubgraphSystemId}, ` +
-        `destSubgraphSystemId: ${destSubgraphSystemId}).`,
       severity: IssueSeverity.Error,
-      impactedEntity: {
-        entityType: ENTITY_TYPE.DataLink,
-        systemId: dataLinkSystemId,
+      impactedEntity: dataLinkRef(dataLinkSystemId),
+      relatedEntities: {
+        source: subgraphRef(sourceSubgraphSystemId),
+        destination: subgraphRef(destSubgraphSystemId),
       },
     };
   },
 
-  mdfKvAssigned(subgraphSystemId: number): LegacyIssue {
+  mdfKvAssigned(
+    subgraphSystemId: number,
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_MDF_KV_ASSIGNED> {
     return {
       code: ISSUE_CODE.ROUTING_MDF_KV_ASSIGNED,
       severity: IssueSeverity.Error,
-      impactedEntity: {
-        entityType: ENTITY_TYPE.Subgraph,
-        systemId: subgraphSystemId,
-      },
-      message: `MDF subgraph ${subgraphSystemId} cannot contain requested KV values.`,
+      impactedEntity: subgraphRef(subgraphSystemId),
     };
   },
 
-  islandDetected(subgraphSystemId: number): LegacyIssue {
+  islandDetected(
+    subgraphSystemId: number,
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_ISLAND_DETECTED> {
     return {
       code: ISSUE_CODE.ROUTING_ISLAND_DETECTED,
-      message:
-        `Subgraph ${subgraphSystemId} has no effective intra-usecase ` +
-        'data-link adjacency.',
       severity: IssueSeverity.Warning,
-      impactedEntity: {
-        entityType: ENTITY_TYPE.Subgraph,
-        systemId: subgraphSystemId,
-      },
+      impactedEntity: subgraphRef(subgraphSystemId),
     };
   },
 
-  cycleDetected(subgraphSystemId: number): LegacyIssue {
+  cycleDetected(
+    subgraphSystemId: number,
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_CYCLE_DETECTED> {
     return {
       code: ISSUE_CODE.ROUTING_CYCLE_DETECTED,
       severity: IssueSeverity.Warning,
-      impactedEntity: {
-        entityType: ENTITY_TYPE.Subgraph,
-        systemId: subgraphSystemId,
-      },
-      message: `DFS detected a cycle at subgraph ${subgraphSystemId}.`,
+      impactedEntity: subgraphRef(subgraphSystemId),
     };
   },
 
@@ -364,18 +399,13 @@ export const RoutingIssueFactory = {
     usecaseSystemId: number,
     ecDataLinkSystemIds: readonly number[],
     pairCount: number,
-  ): LegacyIssue {
-    const linkIds = sortedIds(ecDataLinkSystemIds);
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_EC_MULTIPLE_LINKS> {
     return {
       code: ISSUE_CODE.ROUTING_EC_MULTIPLE_LINKS,
       severity: IssueSeverity.Error,
-      impactedEntity: {
-        entityType: ENTITY_TYPE.UseCase,
-        systemId: usecaseSystemId,
-      },
-      message:
-        `UseCase ${usecaseSystemId} contains more than one logical EC connection ` +
-        `(EC data-link systemIds: [${linkIds.join(', ')}], pairCount: ${pairCount}).`,
+      impactedEntity: usecaseRef(usecaseSystemId),
+      relatedEntities: {ecDataLinks: dataLinkSet(ecDataLinkSystemIds)},
+      params: {pairCount},
     };
   },
 
@@ -383,18 +413,16 @@ export const RoutingIssueFactory = {
     pathSubgraphSystemIds: readonly number[],
     firstEcDataLinkSystemId: number,
     secondEcDataLinkSystemId: number,
-  ): LegacyIssue {
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_EC_MULTIPLE_ON_PATH> {
     return {
       code: ISSUE_CODE.ROUTING_EC_MULTIPLE_ON_PATH,
       severity: IssueSeverity.Error,
-      impactedEntity: {
-        entityType: ENTITY_TYPE.DataLink,
-        systemId: secondEcDataLinkSystemId,
+      impactedEntity: dataLinkRef(secondEcDataLinkSystemId),
+      relatedEntities: {
+        path: subgraphPath(pathSubgraphSystemIds),
+        firstEcDataLink: dataLinkRef(firstEcDataLinkSystemId),
+        secondEcDataLink: dataLinkRef(secondEcDataLinkSystemId),
       },
-      message:
-        `Routing path [${pathSubgraphSystemIds.join(', ')}] crosses more than one ` +
-        `logical EC connection (first EC data link ${firstEcDataLinkSystemId}, ` +
-        `second EC data link ${secondEcDataLinkSystemId}).`,
     };
   },
 
@@ -403,144 +431,110 @@ export const RoutingIssueFactory = {
     subgraphSystemIds: readonly number[],
     dataLinkSystemIds: readonly number[],
     details: UsecaseCandidateConflictDetails,
-  ): LegacyIssue {
-    const conflictingKeyIds = sortedIds(
-      new Set(details.conflicts.map(conflict => conflict.keyDefSystemId)),
-    );
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_EC_BRIDGE_INCOMPATIBLE> {
     return {
       code: ISSUE_CODE.ROUTING_EC_BRIDGE_INCOMPATIBLE,
       severity: IssueSeverity.Error,
-      impactedEntity: {
-        entityType: ENTITY_TYPE.DataLink,
-        systemId: representativeDataLinkSystemId,
+      impactedEntity: dataLinkRef(representativeDataLinkSystemId),
+      relatedEntities: {
+        path: subgraphPath(subgraphSystemIds),
+        ecDataLinks: dataLinkSystemIds.map(id => dataLinkRef(id)),
+        keys: sortedIds(
+          new Set(details.conflicts.map(conflict => conflict.keyDefSystemId)),
+        ).map(systemId => ({entityType: ENTITY_TYPE.KeyDefinition, systemId})),
       },
-      message:
-        `EC Bridge path [${subgraphSystemIds.join(', ')}] using physical EC data links ` +
-        `[${dataLinkSystemIds.join(', ')}] has no compatible SGKV assignment because ` +
-        `its KV-contributing subgraphs conflict on key definitions ` +
-        `[${conflictingKeyIds.join(', ')}].`,
     };
   },
 
-  manualCycleDetected(cycle: DirectedCycle): LegacyIssue {
+  manualCycleDetected(
+    cycle: DirectedCycle,
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_MANUAL_CYCLE> {
     return {
       code: ISSUE_CODE.ROUTING_MANUAL_CYCLE,
-      message:
-        `Manual topology contains a data-link cycle: ${cycle.subgraphSystemIds.join(' -> ')} ` +
-        `(supporting data links: [${cycle.dataLinkSystemIds.join(', ')}]).`,
       severity: IssueSeverity.Error,
+      relatedEntities: {
+        cycle: subgraphPath(cycle.subgraphSystemIds),
+        dataLinks: cycle.dataLinkSystemIds.map(id => dataLinkRef(id)),
+      },
     };
   },
 
-  noValidCombination(details: UsecaseCandidateConflictDetails): LegacyIssue {
+  noValidCombination(
+    details: UsecaseCandidateConflictDetails,
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_DFS_NO_VALID_COMBINATION> {
     const normalized = details.conflicts.map(conflict => {
-      const [firstSubgraphSystemId, secondSubgraphSystemId] =
-        conflict.conflictingSubgraphSystemIds;
+      const [first, second] = conflict.conflictingSubgraphSystemIds;
       return {
         keyDefSystemId: conflict.keyDefSystemId,
-        conflictingSubgraphSystemIds: [
-          Math.min(firstSubgraphSystemId, secondSubgraphSystemId),
-          Math.max(firstSubgraphSystemId, secondSubgraphSystemId),
-        ] as const,
+        subgraphSystemIds: [Math.min(first, second), Math.max(first, second)],
       };
     });
     const unique = [
       ...new Map(
         normalized.map(conflict => [
-          `${conflict.keyDefSystemId}:${conflict.conflictingSubgraphSystemIds[0]}:${conflict.conflictingSubgraphSystemIds[1]}`,
+          `${conflict.keyDefSystemId}:${conflict.subgraphSystemIds.join(':')}`,
           conflict,
         ]),
       ).values(),
     ].sort(
       (left, right) =>
         left.keyDefSystemId - right.keyDefSystemId ||
-        left.conflictingSubgraphSystemIds[0] -
-          right.conflictingSubgraphSystemIds[0] ||
-        left.conflictingSubgraphSystemIds[1] -
-          right.conflictingSubgraphSystemIds[1],
+        left.subgraphSystemIds[0] - right.subgraphSystemIds[0] ||
+        left.subgraphSystemIds[1] - right.subgraphSystemIds[1],
     );
-    const keyIds = [
-      ...new Set(unique.map(conflict => conflict.keyDefSystemId)),
-    ];
-    const conflictText = unique
-      .map(
-        conflict =>
-          `key ${conflict.keyDefSystemId}: subgraphs ` +
-          `[${conflict.conflictingSubgraphSystemIds.join(', ')}]`,
-      )
-      .join('; ');
-
+    const path = details.pathSubgraphSystemIds;
     return {
       code: ISSUE_CODE.ROUTING_DFS_NO_VALID_COMBINATION,
       severity: IssueSeverity.Error,
-      message:
-        `No conflict-free SGKV combination exists for path ` +
-        `[${details.pathSubgraphSystemIds.join(', ')}]. ` +
-        `keyDefinitionSystemIds: [${keyIds.join(', ')}]. ` +
-        `Conflicts: ${conflictText}.`,
-      ...(details.pathSubgraphSystemIds.length === 0
-        ? {}
-        : {
-            impactedEntity: {
-              entityType: ENTITY_TYPE.Subgraph,
-              systemId: details.pathSubgraphSystemIds[0],
-            },
-          }),
+      ...(path.length === 0 ? {} : {impactedEntity: subgraphRef(path[0])}),
+      relatedEntities: {
+        path: subgraphPath(path),
+        conflicts: unique.map(conflict => ({
+          key: {
+            entityType: ENTITY_TYPE.KeyDefinition,
+            systemId: conflict.keyDefSystemId,
+          },
+          subgraphs: subgraphPath(conflict.subgraphSystemIds),
+        })),
+      },
     };
   },
 
   sgkvMalformed(
     subgraphSystemId: number,
     valueDefinitionSystemIds: Iterable<number>,
-  ): LegacyIssue {
-    const valueIds = sortedIds(new Set(valueDefinitionSystemIds));
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_SGKV_MALFORMED> {
     return {
       code: ISSUE_CODE.ROUTING_SGKV_MALFORMED,
-      message:
-        `SGKV input for subgraph ${subgraphSystemId} contains multiple values ` +
-        `for one key (valueDefinitionSystemIds: [${valueIds.join(', ')}]).`,
       severity: IssueSeverity.Error,
-      impactedEntity: {
-        entityType: ENTITY_TYPE.Subgraph,
-        systemId: subgraphSystemId,
-      },
+      impactedEntity: subgraphRef(subgraphSystemId),
+      relatedEntities: {values: valueSet(valueDefinitionSystemIds)},
     };
   },
 
   sgkvValuesNotFound(
     subgraphSystemId: number,
     valueDefinitionSystemIds: Iterable<number>,
-  ): LegacyIssue {
-    const valueIds = sortedIds(new Set(valueDefinitionSystemIds));
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_SGKV_VALUE_NOT_FOUND> {
     return {
       code: ISSUE_CODE.ROUTING_SGKV_VALUE_NOT_FOUND,
-      message:
-        `SGKV input for subgraph ${subgraphSystemId} references values that ` +
-        `are missing from the effective file-scoped definitions ` +
-        `(valueDefinitionSystemIds: [${valueIds.join(', ')}]).`,
       severity: IssueSeverity.Error,
-      impactedEntity: {
-        entityType: ENTITY_TYPE.Subgraph,
-        systemId: subgraphSystemId,
-      },
+      impactedEntity: subgraphRef(subgraphSystemId),
+      relatedEntities: {values: valueSet(valueDefinitionSystemIds)},
     };
   },
 
   deletionSelectionRequired(
     fullAffectedUsecaseSystemIds: ReadonlySet<number>,
     missingUsecaseSystemIds: ReadonlySet<number>,
-  ): LegacyIssue {
-    const affectedIds = sortedIds(fullAffectedUsecaseSystemIds);
-    const missingIds = sortedIds(missingUsecaseSystemIds);
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_DELETION_SELECTION_REQUIRED> {
     return {
       code: ISSUE_CODE.ROUTING_DELETION_SELECTION_REQUIRED,
-      message:
-        'Some use cases are affected by the requested changes, but they were not selected. ' +
-        `Affected use case IDs: [${affectedIds.join(', ')}]. ` +
-        `Missing from your selection: [${missingIds.join(', ')}]. ` +
-        'Select all affected use cases and submit the request again.',
       severity: IssueSeverity.Error,
-      impactedUsecases: affectedIds,
+      impactedUsecases: usecaseSet(fullAffectedUsecaseSystemIds),
+      relatedEntities: {
+        unselectedUsecases: usecaseSet(missingUsecaseSystemIds),
+      },
     };
   },
 
@@ -549,156 +543,114 @@ export const RoutingIssueFactory = {
     missingSubgraphSystemIds: readonly number[],
     missingDataLinkSystemIds: readonly number[],
     missingControlLinkSystemIds: readonly number[],
-  ): LegacyIssue {
-    const affectedIds = sortedIds(affectedUsecaseSystemIds);
-    const missingSubgraphIds = sortedIds(missingSubgraphSystemIds);
-    const missingDataLinkIds = sortedIds(missingDataLinkSystemIds);
-    const missingControlLinkIds = sortedIds(missingControlLinkSystemIds);
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_DELETION_SCOPE_INCOMPLETE> {
     return {
       code: ISSUE_CODE.ROUTING_DELETION_SCOPE_INCOMPLETE,
-      message:
-        'The routing input does not include the complete surviving topology for the affected use cases. ' +
-        `Affected use case IDs: [${affectedIds.join(', ')}]. ` +
-        `Missing subgraph IDs: [${missingSubgraphIds.join(', ')}]. ` +
-        `Missing data link IDs: [${missingDataLinkIds.join(', ')}]. ` +
-        `Missing control link IDs: [${missingControlLinkIds.join(', ')}].`,
       severity: IssueSeverity.Error,
-      impactedUsecases: affectedIds,
+      impactedUsecases: usecaseSet(affectedUsecaseSystemIds),
+      relatedEntities: {
+        subgraphs: subgraphSet(missingSubgraphSystemIds),
+        dataLinks: dataLinkSet(missingDataLinkSystemIds),
+        controlLinks: controlLinkSet(missingControlLinkSystemIds),
+      },
     };
   },
 
   usecaseAutoIsland(
     usecaseSystemId: number,
     dataLinkLossPairs: readonly DataLinkLossPair[],
-  ): LegacyIssue {
-    const pairText = [...dataLinkLossPairs]
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_UC_AUTO_ISLAND> {
+    const lostConnections = [...dataLinkLossPairs]
       .sort(
         (left, right) =>
           left.sourceSubgraphSystemId - right.sourceSubgraphSystemId ||
           left.destSubgraphSystemId - right.destSubgraphSystemId ||
           left.deletedDataLinkSystemId - right.deletedDataLinkSystemId,
       )
-      .map(
-        pair =>
-          `${pair.sourceSubgraphSystemId}->${pair.destSubgraphSystemId} ` +
-          `via deleted dataLink ${pair.deletedDataLinkSystemId}`,
-      )
-      .join(', ');
+      .map(pair => ({
+        source: subgraphRef(pair.sourceSubgraphSystemId),
+        destination: subgraphRef(pair.destSubgraphSystemId),
+        deletedDataLink: dataLinkRef(pair.deletedDataLinkSystemId),
+      }));
     return {
       code: ISSUE_CODE.ROUTING_UC_AUTO_ISLAND,
-      message:
-        `Usecase ${usecaseSystemId} changed to ISLAND because data-link ` +
-        `coverage was lost (dataLinkLossPairs: [${pairText}]).`,
       severity: IssueSeverity.Warning,
-      impactedEntity: {
-        entityType: ENTITY_TYPE.UseCase,
-        systemId: usecaseSystemId,
-      },
+      impactedEntity: usecaseRef(usecaseSystemId),
+      relatedEntities: {lostConnections},
     };
   },
 
   manualUsecaseDependenciesBroken(
     edit: ActiveManualUsecaseEdit,
     missing: ManualUsecaseDependencyMissing,
-  ): LegacyIssue {
-    const missingParts = [
-      missing.effectiveUsecaseMissing ? 'effective UseCase' : undefined,
-      missing.referencedComponentsMissing
-        ? 'referencedComponents metadata'
-        : undefined,
-      missing.subgraphSystemIds.length > 0
-        ? `subgraphs [${sortedIds(missing.subgraphSystemIds).join(', ')}]`
-        : undefined,
-      missing.dataLinkSystemIds.length > 0
-        ? `data links [${sortedIds(missing.dataLinkSystemIds).join(', ')}]`
-        : undefined,
-      missing.controlLinkSystemIds.length > 0
-        ? `control links [${sortedIds(missing.controlLinkSystemIds).join(', ')}]`
-        : undefined,
-    ].filter((part): part is string => part !== undefined);
-    const issue: LegacyIssue = {
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_MANUAL_UC_BROKEN_DEPS> {
+    return {
       code: ISSUE_CODE.ROUTING_MANUAL_UC_BROKEN_DEPS,
-      message:
-        `Active MANUAL UseCase edit ${edit.changeId} has stale dependencies: ` +
-        `${missingParts.join('; ')}. Remove the stale edit-action row and rerun routing.`,
       severity: IssueSeverity.Error,
+      ...(edit.usecase === null
+        ? {}
+        : {impactedEntity: usecaseRef(edit.usecase.systemId)}),
+      relatedEntities: {
+        subgraphs: subgraphSet(missing.subgraphSystemIds),
+        dataLinks: dataLinkSet(missing.dataLinkSystemIds),
+        controlLinks: controlLinkSet(missing.controlLinkSystemIds),
+      },
       fixOptions: [
         {
-          systemId: `delete-stale-manual-usecase-edit-${edit.changeId}`,
-          description: 'Remove the stale MANUAL UseCase edit-action row.',
+          id: `delete-stale-manual-usecase-edit-${edit.changeId}`,
+          kind: 'DELETE_STALE_EDIT',
           commandType: 'DeleteStaleManualUsecaseEditCommand',
           commandPayload: {changeIds: [edit.changeId]},
           requiredClientInputs: [],
         },
       ],
     };
-    if (edit.usecase !== null) {
-      issue.impactedEntity = {
-        entityType: ENTITY_TYPE.UseCase,
-        systemId: edit.usecase.systemId,
-      };
-    }
-    return issue;
   },
 
   sameGkvChoiceRequired(
     collision: SameGkvCollisionGroup,
     selection: RoutingSelection,
-  ): LegacyIssue {
-    const impactedUsecases = collision.alternatives
-      .filter(
-        (
-          alternative,
-        ): alternative is Extract<
-          SameGkvCollisionGroup['alternatives'][number],
-          {readonly kind: 'EXISTING'}
-        > => alternative.kind === 'EXISTING',
-      )
-      .map(alternative => alternative.usecase.systemId)
-      .sort((left, right) => left - right);
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_SAME_GKV_CHOICE_REQUIRED> {
+    const impactedUsecases = usecaseSet(
+      collision.alternatives.flatMap(alternative =>
+        alternative.kind === COLLISION_ALTERNATIVE_KIND.Existing
+          ? [alternative.usecase.systemId]
+          : [],
+      ),
+    );
     const collisionAlternatives = collision.alternatives.map(alternative =>
       collisionAlternativeDetails(alternative),
     );
-    const issue: LegacyIssue = {
+    return {
       code: ISSUE_CODE.ROUTING_SAME_GKV_CHOICE_REQUIRED,
-      message: `Same-GKV collision ${collision.collisionId} requires a routing choice.`,
       severity: IssueSeverity.Error,
-      fixOptions: collisionResolutionSelections(collision).map(resolution => ({
-        systemId: collisionResolutionOptionId(
-          collision.collisionId,
+      ...(impactedUsecases.length > 0 ? {impactedUsecases} : {}),
+      relatedEntities: {gkvValues: valueSet(collision.gkvValueSystemIds)},
+      params: {collisionId: collision.collisionId},
+      fixOptions: collisionResolutionSelections(collision).map(resolution =>
+        collisionFixOption(
+          collision,
           resolution,
-        ),
-        description: describeCollisionResolution(collision, resolution),
-        commandType: 'ResolveSameGkvCollisionCommand',
-        commandPayload: {
-          ...resolution,
-          replayInput: selection,
+          selection,
           collisionAlternatives,
-          selectedTopology: selectedCollisionTopology(collision, resolution),
-        },
-        requiredClientInputs: [],
-      })),
+        ),
+      ),
     };
-    if (impactedUsecases.length > 0) issue.impactedUsecases = impactedUsecases;
-    return issue;
   },
 
   multipleManualGkvOverrides(
+    gkvValueSystemIds: readonly number[],
     edits: readonly ActiveManualUsecaseEdit[],
-  ): LegacyIssue {
-    const changeIds = edits
-      .map(edit => edit.changeId)
-      .sort((left, right) => left - right);
-    const impactedUsecases = edits
-      .flatMap(edit => (edit.usecase === null ? [] : [edit.usecase.systemId]))
-      .sort((left, right) => left - right);
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_MULTIPLE_MANUAL_GKV_OVERRIDES> {
     return {
       code: ISSUE_CODE.ROUTING_MULTIPLE_MANUAL_GKV_OVERRIDES,
-      message:
-        'Multiple active MANUAL UseCase overrides exist for one GKV ' +
-        `(changeIds: [${changeIds.join(', ')}]).`,
       severity: IssueSeverity.Error,
-      impactedUsecases,
+      impactedUsecases: usecaseSet(
+        edits.flatMap(edit =>
+          edit.usecase === null ? [] : [edit.usecase.systemId],
+        ),
+      ),
+      relatedEntities: {gkvValues: valueSet(gkvValueSystemIds)},
     };
   },
 
@@ -706,140 +658,130 @@ export const RoutingIssueFactory = {
     gkvValueSystemIds: readonly number[],
     usecaseSystemIds: readonly number[],
     candidate: ManualUsecaseCandidate,
-  ): LegacyIssue {
-    const gkvIds = sortedIds(new Set(gkvValueSystemIds));
-    const impactedUsecases = sortedIds(new Set(usecaseSystemIds));
-    const memberIds = sortedIds(new Set(candidateSubgraphSystemIds(candidate)));
-    const pairDescriptions = [...candidatePairs(candidate)]
-      .sort(
-        (left, right) =>
-          left.sourceSubgraphSystemId - right.sourceSubgraphSystemId ||
-          left.destSubgraphSystemId - right.destSubgraphSystemId,
-      )
-      .map(
-        pair => `${pair.sourceSubgraphSystemId}->${pair.destSubgraphSystemId}`,
-      );
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_MANUAL_GKV_CONFLICT> {
+    const impactedUsecases = usecaseSet(usecaseSystemIds);
     return {
       code: ISSUE_CODE.ROUTING_MANUAL_GKV_CONFLICT,
-      message:
-        'Manual UseCase topology conflicts with another topology for GKV ' +
-        `values [${gkvIds.join(', ')}] ` +
-        `(requested members: [${memberIds.join(', ')}]; ` +
-        `requested pairs: [${pairDescriptions.join(', ')}]).`,
       severity: IssueSeverity.Error,
       ...(impactedUsecases.length > 0 ? {impactedUsecases} : {}),
+      relatedEntities: {
+        gkvValues: valueSet(gkvValueSystemIds),
+        subgraphs: subgraphSet(candidateSubgraphSystemIds(candidate)),
+      },
     };
   },
 
-  sameGkvChoiceStale(collisionId: string): LegacyIssue {
+  sameGkvChoiceStale(
+    collisionId: string,
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_SAME_GKV_CHOICE_STALE> {
     return {
       code: ISSUE_CODE.ROUTING_SAME_GKV_CHOICE_STALE,
-      message: `Same-GKV collision ${collisionId} is no longer reproducible. Rerun routing.`,
       severity: IssueSeverity.Error,
+      params: {collisionId},
     };
   },
 
-  orphanSubgraph(systemId: number): LegacyIssue {
+  orphanSubgraph(
+    systemId: number,
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_ORPHAN_SUBGRAPH> {
     return {
       code: ISSUE_CODE.ROUTING_ORPHAN_SUBGRAPH,
-      message: `Subgraph ${systemId} is not referenced by any projected UseCase.`,
       severity: IssueSeverity.Warning,
-      impactedEntity: {entityType: ENTITY_TYPE.Subgraph, systemId},
+      impactedEntity: subgraphRef(systemId),
     };
   },
 
-  orphanSubgraphHasKvs(systemId: number): LegacyIssue {
+  orphanSubgraphHasKvs(
+    systemId: number,
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_ORPHAN_SG_HAS_KVS> {
     return {
       code: ISSUE_CODE.ROUTING_ORPHAN_SG_HAS_KVS,
-      message:
-        `Orphan subgraph ${systemId} still has SGKVs. ` +
-        'Review it through the manual topology workflow.',
       severity: IssueSeverity.Warning,
-      impactedEntity: {entityType: ENTITY_TYPE.Subgraph, systemId},
+      impactedEntity: subgraphRef(systemId),
     };
   },
 
-  orphanSubsystem(systemId: number): LegacyIssue {
+  orphanSubsystem(
+    systemId: number,
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_ORPHAN_SUBSYSTEM> {
     return {
       code: ISSUE_CODE.ROUTING_ORPHAN_SUBSYSTEM,
-      message: `Subsystem ${systemId} has no module in its hierarchy.`,
       severity: IssueSeverity.Warning,
       impactedEntity: {entityType: ENTITY_TYPE.Subsystem, systemId},
     };
   },
 
-  orphanDataLink(systemId: number): LegacyIssue {
+  orphanDataLink(
+    systemId: number,
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_ORPHAN_DATA_LINK> {
     return {
       code: ISSUE_CODE.ROUTING_ORPHAN_DATA_LINK,
-      message: `Data link ${systemId} is not covered by any projected directed UseCase pair.`,
       severity: IssueSeverity.Warning,
-      impactedEntity: {entityType: ENTITY_TYPE.DataLink, systemId},
+      impactedEntity: dataLinkRef(systemId),
     };
   },
 
-  orphanControlLink(systemId: number): LegacyIssue {
+  orphanControlLink(
+    systemId: number,
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_ORPHAN_CONTROL_LINK> {
     return {
       code: ISSUE_CODE.ROUTING_ORPHAN_CONTROL_LINK,
-      message: `Control link ${systemId} is not covered by any projected UseCase pair.`,
       severity: IssueSeverity.Warning,
       impactedEntity: {entityType: ENTITY_TYPE.ControlLink, systemId},
     };
   },
 
   interUsecaseEndpointUncovered(
+    linkType: InterUsecaseLinkType,
     linkSystemId: number,
     subgraphSystemId: number,
-  ): LegacyIssue {
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_INTER_USECASE_ENDPOINT_UNCOVERED> {
     return {
       code: ISSUE_CODE.ROUTING_INTER_USECASE_ENDPOINT_UNCOVERED,
-      message:
-        `Inter-usecase link ${linkSystemId} has an endpoint that is not covered by a classified or preserved UseCase ` +
-        `(subgraphSystemId: ${subgraphSystemId}).`,
       severity: IssueSeverity.Error,
+      impactedEntity: {entityType: linkType, systemId: linkSystemId},
+      relatedEntities: {subgraph: subgraphRef(subgraphSystemId)},
     };
   },
 
   stagingPairEndpointMissing(
     sourceSubgraphSystemId: number,
     destSubgraphSystemId: number,
-  ): LegacyIssue {
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_STAGING_PAIR_ENDPOINT_MISSING> {
     return {
       code: ISSUE_CODE.ROUTING_STAGING_PAIR_ENDPOINT_MISSING,
-      message:
-        `Cannot stage UseCase pair ${sourceSubgraphSystemId}->${destSubgraphSystemId}: ` +
-        'one or both subgraph endpoints are absent from the resulting UseCase.',
       severity: IssueSeverity.Error,
+      relatedEntities: {
+        source: subgraphRef(sourceSubgraphSystemId),
+        destination: subgraphRef(destSubgraphSystemId),
+      },
     };
   },
 
   incompleteDataChain(
-    ssLinkSystemIds: readonly number[],
     startModuleSystemId: number,
-    lastReachableNodeSystemId: number,
-  ): LegacyIssue {
+    lastReachableNode: ChainNodeRef,
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_PHASE0_INCOMPLETE_DATA_CHAIN> {
     return {
       code: ISSUE_CODE.ROUTING_PHASE0_INCOMPLETE_DATA_CHAIN,
-      message:
-        `Subsystem data-link chain starting at module ${startModuleSystemId} is incomplete ` +
-        `(last reachable node: ${lastReachableNodeSystemId}; ` +
-        `segment IDs: [${ssLinkSystemIds.join(', ')}]). ` +
-        'Complete or delete the chain before routing.',
       severity: IssueSeverity.Error,
+      relatedEntities: {
+        startModule: {
+          entityType: ENTITY_TYPE.SpfModule,
+          systemId: startModuleSystemId,
+        },
+        lastReachableNode,
+      },
     };
   },
 
   incompleteControlChain(
-    ssLinksSystemIds: readonly number[],
-    reachableNodeIds: readonly number[],
-  ): LegacyIssue {
+    reachableNodes: readonly ChainNodeRef[],
+  ): IssueFact<typeof ISSUE_CODE.ROUTING_PHASE0_INCOMPLETE_CONTROL_CHAIN> {
     return {
       code: ISSUE_CODE.ROUTING_PHASE0_INCOMPLETE_CONTROL_CHAIN,
-      message:
-        'Subsystem control-link chain is incomplete ' +
-        `(reachable nodes: [${reachableNodeIds.join(', ')}]; ` +
-        `segment IDs: [${ssLinksSystemIds.join(', ')}]). ` +
-        'Complete or delete the chain before routing.',
       severity: IssueSeverity.Error,
+      relatedEntities: {reachableNodes},
     };
   },
 } as const;

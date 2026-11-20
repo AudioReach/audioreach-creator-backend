@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {IssueFact} from '../../../../domain/issues/issue-fact.js';
 import {Result} from '../../../../application/shared/result/result.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
@@ -15,9 +16,25 @@ import {CONTROL_LINK_TYPE} from '../../../../domain/entities/usecase-data/links/
 import {ChainResolutionService} from '../../../../domain/services/subsystem-data-links/datalink-chain-resolution.service.js';
 import {ControlChainResolutionService} from '../../../../domain/services/subsystem-control-links/control-chain-resolution.service.js';
 import {v4 as uuidv4} from 'uuid';
-import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
-import {IssueFactory} from '../../../../shared/issues/factories.js';
+import {
+  RoutingIssueFactory,
+  type ChainNodeRef,
+} from '../issues/routing-issue-factory.js';
+import {NodeType} from '../../../../domain/entities/usecase-data/node/node.js';
 import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
+
+/**
+ * The reference of a chain node. A node the topology read did not return is
+ * named as a subsystem, since chains only cross subsystems between modules.
+ */
+function chainNodeRef(
+  nodeTypeMap: ReadonlyMap<number, NodeType>,
+  systemId: number,
+): ChainNodeRef {
+  return nodeTypeMap.get(systemId) === NodeType.Module
+    ? {entityType: ENTITY_TYPE.SpfModule, systemId}
+    : {entityType: ENTITY_TYPE.Subsystem, systemId};
+}
 
 /**
  * Resolves subsystem link chains needed before routing input construction.
@@ -28,7 +45,7 @@ export class SubsystemLinkResolutionService {
   async resolveAllChains(
     uow: UnitOfWork,
     idGeneration: IdGenerationPort,
-  ): Promise<ResultType<void>> {
+  ): Promise<ResultType<void, IssueFact>> {
     const fileSystemId = uow.getWriteContext().session.fileSystemId;
     const dataLinkRepository = uow.getDataLinkRepository();
     const controlLinkRepository = uow.getControlLinkRepository();
@@ -60,15 +77,15 @@ export class SubsystemLinkResolutionService {
     const issues = [
       ...dataResult.incompleteChains.map(chain =>
         RoutingIssueFactory.incompleteDataChain(
-          chain.ssLinkSystemIds,
           chain.startModuleSystemId,
-          chain.lastReachableNodeSystemId,
+          chainNodeRef(nodeTypeMap, chain.lastReachableNodeSystemId),
         ),
       ),
       ...controlResult.incompleteChains.map(chain =>
         RoutingIssueFactory.incompleteControlChain(
-          chain.ssLinksSystemIds,
-          chain.reachableNodeIds,
+          chain.reachableNodeIds.map(systemId =>
+            chainNodeRef(nodeTypeMap, systemId),
+          ),
         ),
       ),
     ];
@@ -94,14 +111,14 @@ export class SubsystemLinkResolutionService {
       ]);
       if (sourceModule === null)
         return Result.fail(
-          IssueFactory.notFound(
+          RoutingIssueFactory.entityNotFound(
             ENTITY_TYPE.SpfModule,
             chain.sourceModuleSystemId,
           ),
         );
       if (destinationModule === null)
         return Result.fail(
-          IssueFactory.notFound(
+          RoutingIssueFactory.entityNotFound(
             ENTITY_TYPE.SpfModule,
             chain.destModuleSystemId,
           ),
@@ -154,14 +171,14 @@ export class SubsystemLinkResolutionService {
       ]);
       if (peerAModule === null)
         return Result.fail(
-          IssueFactory.notFound(
+          RoutingIssueFactory.entityNotFound(
             ENTITY_TYPE.SpfModule,
             chain.peerAModuleSystemId,
           ),
         );
       if (peerBModule === null)
         return Result.fail(
-          IssueFactory.notFound(
+          RoutingIssueFactory.entityNotFound(
             ENTITY_TYPE.SpfModule,
             chain.peerBModuleSystemId,
           ),

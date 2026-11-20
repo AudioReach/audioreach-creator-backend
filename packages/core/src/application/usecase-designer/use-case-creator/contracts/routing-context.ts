@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {LegacyIssue} from '../../../../shared/issues/issue.js';
+import type {IssueFact} from '../../../../domain/issues/issue-fact.js';
 import type {RoutingInput} from './routing-input.js';
 import type {RoutingOutcome} from './routing-outcome.js';
 import type {
@@ -55,7 +55,7 @@ export class RoutingContext {
   /** Phase 10 orphan candidates found by effective-graph validation. */
   readonly orphanCandidates: OrphanCandidate[] = [];
   /** Non-blocking issues accumulated by phases; warnings do not stop the engine. */
-  readonly warnings: LegacyIssue[] = [];
+  readonly warnings: IssueFact[] = [];
   /** Phase 11 canonical UC change descriptors returned in the routing outcome. */
   readonly emittedUcChanges: UsecaseChangeDescriptor[] = [];
   /** Phase 12 core result; this is not an HTTP response. */

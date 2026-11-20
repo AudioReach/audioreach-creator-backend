@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {IssueFact} from '../../../../../domain/issues/issue-fact.js';
 import {Result} from '../../../../../application/shared/result/result.js';
 import {ROUTING_MODE} from '../../contracts/routing-input.js';
 import type {RoutingContext} from '../../contracts/routing-context.js';
@@ -105,7 +106,7 @@ function isExactClassificationMatch(
   );
 }
 
-function classifyManualMode(context: RoutingContext): Result<void> {
+function classifyManualMode(context: RoutingContext): Result<void, IssueFact> {
   if (
     context.usecaseCandidates.automaticCandidates.length > 0 ||
     context.usecaseCandidates.ecBridgeCandidates.length > 0
@@ -127,7 +128,7 @@ export class ClassificationPhase {
     private readonly sameGkvCollisionService: SameGkvCollisionService = new SameGkvCollisionService(),
   ) {}
 
-  run(context: RoutingContext): Result<void> {
+  run(context: RoutingContext): Result<void, IssueFact> {
     const analysis = context.topologyChangeAnalysis;
     if (analysis === null)
       throw new Error('Topology change analysis must run before this phase');
@@ -163,14 +164,13 @@ export class ClassificationPhase {
     );
     const classifications: ClassifiedUsecase[] = [];
     const groups = [] as ReturnType<SameGkvCollisionService['createGroup']>[];
-    const issues = [] as ReturnType<
-      typeof RoutingIssueFactory.sameGkvChoiceRequired
-    >[];
+    const issues: IssueFact[] = [];
 
     for (const bucket of buckets) {
       if (bucket.manualOverrides.length > 1) {
         issues.push(
           RoutingIssueFactory.multipleManualGkvOverrides(
+            bucket.gkvValueSystemIds,
             bucket.manualOverrides,
           ),
         );
@@ -265,13 +265,11 @@ function classifyManualCandidates(
   candidates: readonly ManualUsecaseCandidate[],
 ): {
   readonly classifications: readonly ClassifiedUsecase[];
-  readonly issues: readonly ReturnType<
-    typeof RoutingIssueFactory.manualGkvConflict
-  >[];
+  readonly issues: readonly IssueFact[];
 } {
   const comparisonUsecases = manualComparisonUsecases(context);
   const classifications: ClassifiedUsecase[] = [];
-  const issues: ReturnType<typeof RoutingIssueFactory.manualGkvConflict>[] = [];
+  const issues: IssueFact[] = [];
   const manualOverridesByGkv = groupManualOverridesByGkv(
     context.input.activeManualUsecaseEdits,
   );
@@ -282,7 +280,10 @@ function classifyManualCandidates(
     if (manualOverrides.length <= 1) continue;
     duplicateManualGkvKeys.add(gkvKey);
     issues.push(
-      RoutingIssueFactory.multipleManualGkvOverrides(manualOverrides),
+      RoutingIssueFactory.multipleManualGkvOverrides(
+        manualOverrides[0].usecase.keyVector.valueSystemIds,
+        manualOverrides,
+      ),
     );
   }
 

@@ -8,7 +8,7 @@
  *
  * Used by `AutoRoutingPreparationService` and `CreateManualUsecasesHandler`.
  */
-import type {LegacyIssue} from '../../../../shared/issues/issue.js';
+import type {IssueFact} from '../../../../domain/issues/issue-fact.js';
 import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
 import type {
   GraphEditSummary,
@@ -41,7 +41,7 @@ function difference(
 export function validateAutoRoutingAdditionClosure(
   input: RoutingAdditionClosureInput,
   graphEdits: GraphEditSummary,
-): LegacyIssue[] {
+): IssueFact[] {
   const requestedSubgraphIds = new Set(
     input.activeSubgraphs.map(subgraph => subgraph.systemId),
   );

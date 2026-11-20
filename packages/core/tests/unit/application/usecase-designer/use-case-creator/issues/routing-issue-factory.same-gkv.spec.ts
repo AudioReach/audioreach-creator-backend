@@ -129,26 +129,119 @@ describe('RoutingIssueFactory same-GKV groups', () => {
     );
   });
 
+  it('names the existing UC as impacted and on every fix option', () => {
+    const group = service.createGroup({
+      gkvValueSystemIds: [100],
+      candidates: [candidate([1, 2]), candidate([3, 4])],
+      existingUsecase: existing([9, 10], 55),
+      manualOverrides: [],
+    });
+
+    const issue = RoutingIssueFactory.sameGkvChoiceRequired(
+      group,
+      routingSelection,
+    );
+
+    const existingUsecase = {entityType: 'UseCase', systemId: 55};
+    expect(issue.impactedUsecases).toEqual([existingUsecase]);
+    expect(issue.relatedEntities).toEqual({
+      gkvValues: [{entityType: 'ValueDefinition', systemId: 100}],
+    });
+    expect(issue.params).toEqual({collisionId: group.collisionId});
+    expect(
+      issue.fixOptions?.map(option => ({
+        kind: option.kind,
+        usecase: option.relatedEntities.usecase,
+        subgraphIds: option.relatedEntities.subgraphs.map(
+          subgraph => subgraph.systemId,
+        ),
+        params: option.params,
+      })),
+    ).toEqual([
+      // The candidates are numbered in alternative order, not input order.
+      {
+        kind: 'SELECT_CANDIDATE',
+        usecase: existingUsecase,
+        subgraphIds: expect.any(Array),
+        params: {candidateNumber: 1},
+      },
+      {
+        kind: 'SELECT_CANDIDATE',
+        usecase: existingUsecase,
+        subgraphIds: expect.any(Array),
+        params: {candidateNumber: 2},
+      },
+      {
+        kind: 'KEEP_EXISTING',
+        usecase: existingUsecase,
+        subgraphIds: [9, 10],
+        params: undefined,
+      },
+      {
+        kind: 'MERGE_ALL',
+        usecase: existingUsecase,
+        subgraphIds: [1, 2, 3, 4, 9, 10],
+        params: undefined,
+      },
+    ]);
+    expect(
+      issue.fixOptions
+        ?.filter(option => option.kind === 'SELECT_CANDIDATE')
+        .map(option =>
+          option.relatedEntities.subgraphs.map(subgraph => subgraph.systemId),
+        ),
+    ).toEqual(
+      expect.arrayContaining([
+        [1, 2],
+        [3, 4],
+      ]),
+    );
+  });
+
+  it('names no UC when the group has no existing UC', () => {
+    const group = service.createGroup({
+      gkvValueSystemIds: [100],
+      candidates: [candidate([1, 2]), candidate([3, 4])],
+      existingUsecase: null,
+      manualOverrides: [],
+    });
+
+    const issue = RoutingIssueFactory.sameGkvChoiceRequired(
+      group,
+      routingSelection,
+    );
+
+    expect(issue.impactedUsecases).toBeUndefined();
+    expect(
+      issue.fixOptions?.map(option => option.relatedEntities.usecase),
+    ).toEqual([undefined, undefined, undefined]);
+  });
+
   it('reports multiple MANUAL overrides as one blocking integrity issue', () => {
     const first = manualEdit(existing([1, 2], 61), 11);
     const second = manualEdit(existing([3, 4], 62), 12);
 
-    const issue = RoutingIssueFactory.multipleManualGkvOverrides([
-      first,
-      second,
-    ]);
+    const issue = RoutingIssueFactory.multipleManualGkvOverrides(
+      [100],
+      [first, second],
+    );
 
     expect(issue).toEqual(
       expect.objectContaining({
         code: 'ARC-ROUTING-MULTIPLE-MANUAL-GKV-OVERRIDES',
-        impactedUsecases: [61, 62],
+        impactedUsecases: [
+          {entityType: 'UseCase', systemId: 61},
+          {entityType: 'UseCase', systemId: 62},
+        ],
+        relatedEntities: {
+          gkvValues: [{entityType: 'ValueDefinition', systemId: 100}],
+        },
       }),
     );
     expect(issue.fixOptions).toBeUndefined();
-    expect(issue.message).toContain('changeIds: [11, 12]');
   });
 
-  it('manualGkvConflict includes canonical requested member and directed-pair IDs', () => {
+  it('manualGkvConflict names the requested members and the owners in order', () => {
     const manualCandidate: ManualUsecaseCandidate = {
       kind: USECASE_CANDIDATE_KIND.Manual,
       memberSubgraphSystemIds: [20, 10],
@@ -174,9 +267,14 @@ describe('RoutingIssueFactory same-GKV groups', () => {
 
     expect(issue.code).toBe('ARC-ROUTING-MANUAL-GKV-CONFLICT');
     expect(issue.severity).toBe('ERROR');
-    expect(issue.message).toContain('members: [10, 20]');
-    expect(issue.message).toContain('pairs: [10->20]');
-    expect(issue.impactedUsecases).toEqual([3, 5]);
+    expect(issue.relatedEntities.subgraphs).toEqual([
+      {entityType: 'Subgraph', systemId: 10},
+      {entityType: 'Subgraph', systemId: 20},
+    ]);
+    expect(issue.impactedUsecases).toEqual([
+      {entityType: 'UseCase', systemId: 3},
+      {entityType: 'UseCase', systemId: 5},
+    ]);
   });
 
   it('includes control-link pairs in collision alternative details', () => {

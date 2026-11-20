@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {IssueFact} from '../../../../domain/issues/issue-fact.js';
 import {DATA_LINK_TYPE} from '../../../../domain/entities/usecase-data/links/data-link-type.js';
 import {Result} from '../../../../application/shared/result/result.js';
 import type {RoutingContext} from '../contracts/routing-context.js';
@@ -142,7 +143,7 @@ function addOutOfSelectionSeeds(
  * requested topology is explicit.
  */
 export class SeedDetectionPhase {
-  run(context: RoutingContext): Result<void> {
+  run(context: RoutingContext): Result<void, IssueFact> {
     if (context.input.mode === ROUTING_MODE.Manual) return Result.ok();
     if (context.kvResolutions === null)
       throw new Error(

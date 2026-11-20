@@ -283,9 +283,13 @@ describe('PreValidationPhase', () => {
           expect.objectContaining({
             code: 'ARC-ROUTING-EC-MULTIPLE-LINKS',
             impactedEntity: {entityType: 'UseCase', systemId: 200},
-            message: expect.stringContaining(
-              'EC data-link systemIds: [10, 11, 12]',
-            ),
+            relatedEntities: {
+              ecDataLinks: [
+                {entityType: 'DataLink', systemId: 10},
+                {entityType: 'DataLink', systemId: 11},
+                {entityType: 'DataLink', systemId: 12},
+              ],
+            },
           }),
         ],
       }),
@@ -356,9 +360,12 @@ describe('PreValidationPhase', () => {
         issues: [
           expect.objectContaining({
             code: 'ARC-ROUTING-EC-MULTIPLE-LINKS',
-            message: expect.stringContaining(
-              'EC data-link systemIds: [10, 11]',
-            ),
+            relatedEntities: {
+              ecDataLinks: [
+                {entityType: 'DataLink', systemId: 10},
+                {entityType: 'DataLink', systemId: 11},
+              ],
+            },
           }),
         ],
       }),

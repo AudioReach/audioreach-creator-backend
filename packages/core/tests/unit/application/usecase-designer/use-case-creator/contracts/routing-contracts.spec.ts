@@ -121,7 +121,7 @@ describe('routing contracts', () => {
     });
   });
 
-  it('creates deterministic DFS-08 diagnostics in the existing singular Issue', () => {
+  it('reports each DFS-08 key conflict once, sorted by key and subgraph', () => {
     const issue = RoutingIssueFactory.noValidCombination({
       pathSubgraphSystemIds: [20, 30, 10],
       conflicts: [
@@ -146,9 +146,22 @@ describe('routing contracts', () => {
       entityType: ENTITY_TYPE.Subgraph,
       systemId: 20,
     });
-    expect(issue.message).toContain('keyDefinitionSystemIds: [3, 9]');
-    expect(issue.message).toContain('key 3: subgraphs [10, 30]');
-    expect(issue.message).toContain('key 9: subgraphs [20, 30]');
+    expect(issue.relatedEntities.conflicts).toEqual([
+      {
+        key: {entityType: ENTITY_TYPE.KeyDefinition, systemId: 3},
+        subgraphs: [
+          {entityType: ENTITY_TYPE.Subgraph, systemId: 10},
+          {entityType: ENTITY_TYPE.Subgraph, systemId: 30},
+        ],
+      },
+      {
+        key: {entityType: ENTITY_TYPE.KeyDefinition, systemId: 9},
+        subgraphs: [
+          {entityType: ENTITY_TYPE.Subgraph, systemId: 20},
+          {entityType: ENTITY_TYPE.Subgraph, systemId: 30},
+        ],
+      },
+    ]);
   });
 
   it('copies selection, snapshot collections, and nested requested SGKVs', () => {

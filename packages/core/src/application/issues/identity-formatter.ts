@@ -25,8 +25,9 @@ const LABELS: Partial<Record<EntityType, string>> = {
  *
  * A reference with an identity is written as its natural identity, starting
  * with the type label, and its `systemId` is not shown. A reference without
- * one is written as `<label> with systemId: 0x...`. The formatter is pure: it
- * never looks up an identity.
+ * one is written as `<label> with systemId: 0x...`. A port is written as its
+ * name, when it has one, and its natural ID: decimal for a data port, hex for
+ * a control port. The formatter is pure: it never looks up an identity.
  */
 export class IdentityFormatter {
   format(ref: EntityRef): string {
@@ -70,14 +71,20 @@ function formatIdentity(ref: EntityRef): string | undefined {
     case 'DataLink': {
       if (!ref.identity) return undefined;
       const {source, destination} = ref.identity;
-      return `${label(ref)} ${endpoint(source)} → ${endpoint(destination)}`;
+      return (
+        `${label(ref)} ${endpoint(source, dataPortId)} → ` +
+        endpoint(destination, dataPortId)
+      );
     }
     case 'ControlLink': {
       if (!ref.identity) return undefined;
       const [first, second] = [...ref.identity.endpoints].sort(
         compareEndpoints,
       );
-      return `${label(ref)} ${endpoint(first)} ↔ ${endpoint(second)}`;
+      return (
+        `${label(ref)} ${endpoint(first, controlPortId)} ↔ ` +
+        endpoint(second, controlPortId)
+      );
     }
     default:
       return undefined;
@@ -88,12 +95,20 @@ function named(typeLabel: string, {name, naturalId}: NamedNaturalId): string {
   return `${typeLabel} '${name}' (${hex(naturalId)})`;
 }
 
-function endpoint({node, port}: LinkEndpoint): string {
-  return `${formatRef(node)} / ${portText(port)}`;
+/** Writes a port natural ID: decimal for data ports, hex for control ports. */
+type PortIdText = (naturalId: number) => string;
+
+const dataPortId: PortIdText = String;
+const controlPortId: PortIdText = naturalId => hex(naturalId);
+
+function endpoint({node, port}: LinkEndpoint, portId: PortIdText): string {
+  return `${formatRef(node)} / ${portText(port, portId)}`;
 }
 
-function portText({name, naturalId}: PortIdentity): string {
-  return name === null ? `port ${hex(naturalId)}` : `port '${name}'`;
+/** `port 'name' (id)`, or `port id` when the port has no name. */
+function portText({name, naturalId}: PortIdentity, portId: PortIdText): string {
+  const id = portId(naturalId);
+  return name === null ? `port ${id}` : `port '${name}' (${id})`;
 }
 
 /**

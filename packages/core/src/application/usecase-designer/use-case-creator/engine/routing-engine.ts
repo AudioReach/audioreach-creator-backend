@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {IssueFact} from '../../../../domain/issues/issue-fact.js';
 import {
   RESULT_KIND,
   Result,
@@ -34,7 +35,7 @@ import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
  * and return synchronously. `await` resolves either shape, so the engine does not need
  * every phase to pretend to be asynchronous just to fit one closure signature.
  */
-type PhaseResult = Result<void> | Promise<Result<void>>;
+type PhaseResult = Result<void, IssueFact> | Promise<Result<void, IssueFact>>;
 
 /**
  * Runs the routing phases in dependency order and owns no business state between calls.
@@ -63,7 +64,7 @@ export class RoutingEngine {
     input: RoutingInput,
     uow: UnitOfWork,
     idGeneration: IdGenerationPort,
-  ): Promise<Result<RoutingOutcome>> {
+  ): Promise<Result<RoutingOutcome, IssueFact>> {
     const context = new RoutingContext(input);
     const phases: readonly (() => PhaseResult)[] = [
       () => this.preValidation.run(context),
@@ -94,8 +95,8 @@ export class RoutingEngine {
         createEmptyRoutingOutcome(
           uow.getWriteContext().groupId,
           context.emittedUcChanges,
-          context.warnings,
         ),
+      context.warnings,
     );
   }
 
@@ -103,7 +104,7 @@ export class RoutingEngine {
     input: RoutingInput,
     uow: UnitOfWork,
     collisionId: string,
-  ): Promise<Result<SameGkvCollisionGroup>> {
+  ): Promise<Result<SameGkvCollisionGroup, IssueFact>> {
     const context = new RoutingContext(input);
     const prerequisitePhases: readonly (() => PhaseResult)[] = [
       () => this.preValidation.run(context),

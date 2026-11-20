@@ -116,7 +116,7 @@ describe('IdentityFormatter', () => {
   });
 
   describe('DataLink', () => {
-    it('writes source to destination, with port names or port natural IDs', () => {
+    it('writes source to destination, with port names and decimal port natural IDs', () => {
       const ref: EntityRef = {
         entityType: 'DataLink',
         systemId: 5,
@@ -127,8 +127,8 @@ describe('IdentityFormatter', () => {
       };
 
       expect(formatter.format(ref)).toBe(
-        "DataLink Module 'Module32' (0x00000020) / port 'out' → " +
-          "Module 'Module16' (0x00000010) / port 0x00000002",
+        "DataLink Module 'Module32' (0x00000020) / port 'out' (1) → " +
+          "Module 'Module16' (0x00000010) / port 2",
       );
     });
 
@@ -146,18 +146,18 @@ describe('IdentityFormatter', () => {
       };
 
       expect(formatter.format(ref)).toBe(
-        "DataLink Subsystem with systemId: 0x0000002A / port 'out' → " +
-          "Module 'Module16' (0x00000010) / port 'in'",
+        "DataLink Subsystem with systemId: 0x0000002A / port 'out' (1) → " +
+          "Module 'Module16' (0x00000010) / port 'in' (1)",
       );
     });
   });
 
   describe('ControlLink', () => {
-    const a = moduleEndpoint(1, 0x20, 'ctrl');
-    const b = moduleEndpoint(2, 0x10, 'ctrl');
+    const a = moduleEndpoint(1, 0x20, null, 0x11);
+    const b = moduleEndpoint(2, 0x10, null, 0x12);
     const expected =
-      "ControlLink Module 'Module16' (0x00000010) / port 'ctrl' ↔ " +
-      "Module 'Module32' (0x00000020) / port 'ctrl'";
+      "ControlLink Module 'Module16' (0x00000010) / port 0x00000012 ↔ " +
+      "Module 'Module32' (0x00000020) / port 0x00000011";
 
     it.each([
       ['A, B', [a, b]],
@@ -187,8 +187,26 @@ describe('IdentityFormatter', () => {
       };
 
       expect(formatter.format(ref)).toBe(
-        "ControlLink Module 'Module32' (0x00000020) / port 'ctrl' ↔ " +
-          "Module with systemId: 0x00000003 / port 'ctrl'",
+        "ControlLink Module 'Module32' (0x00000020) / port 0x00000011 ↔ " +
+          "Module with systemId: 0x00000003 / port 'ctrl' (0x00000001)",
+      );
+    });
+
+    it('writes a named control port with its hex natural ID', () => {
+      const ref: EntityRef = {
+        entityType: 'ControlLink',
+        systemId: 9,
+        identity: {
+          endpoints: [
+            moduleEndpoint(1, 0x20, 'ctrl', 0x11),
+            moduleEndpoint(2, 0x10, null, 0x12),
+          ],
+        },
+      };
+
+      expect(formatter.format(ref)).toBe(
+        "ControlLink Module 'Module16' (0x00000010) / port 0x00000012 ↔ " +
+          "Module 'Module32' (0x00000020) / port 'ctrl' (0x00000011)",
       );
     });
   });

@@ -5,8 +5,9 @@
 
 import {DomainRuleViolationException} from '../../../shared/exceptions/domain-rule-violation.exception.js';
 import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
-import {RESULT_KIND} from '../../../shared/result/result.js';
-import type {Result} from '../../../shared/result/result.js';
+import {Result} from '../../../shared/result/result.js';
+import {IssueRenderer} from '../../../issues/issue-renderer.js';
+import {renderOrThrow} from '../../../issues/render-or-throw.js';
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
@@ -55,22 +56,25 @@ export class CreateManualUsecasesHandler implements CommandHandler<
         parseId(sg.systemId, 'activeSubgraphs.systemId'),
       ),
     );
+    const renderer = IssueRenderer.forUnitOfWork(this.uow);
     if (duplicateSubgraphIds.size > 0)
-      throw new DomainRuleViolationException([
-        RoutingIssueFactory.duplicateActiveSubgraphSelections(
-          duplicateSubgraphIds,
-        ),
-      ]);
+      throw new DomainRuleViolationException(
+        await renderer.render([
+          RoutingIssueFactory.duplicateActiveSubgraphSelections(
+            duplicateSubgraphIds,
+          ),
+        ]),
+      );
 
     await this.uow.startTransaction();
     try {
-      const resolution =
+      await renderOrThrow(
         await this.subsystemLinkResolutionService.resolveAllChains(
           this.uow,
           this.idGeneration,
-        );
-      if (resolution.kind === RESULT_KIND.Fail)
-        throw new DomainRuleViolationException(resolution.issues);
+        ),
+        renderer,
+      );
       const selection = await resolveRoutingLinkSelection(
         command.fileSystemId,
         command.input,
@@ -97,13 +101,14 @@ export class CreateManualUsecasesHandler implements CommandHandler<
         this.snapshotBuilder,
         this.uow,
       );
-      const topology = assembleManualTopology(
-        graphSnapshot.routableDataLinks,
-        graphSnapshot.routableControlLinks,
-        graphSnapshot.subgraphs.map(s => s.subgraph.systemId),
+      const topology = await renderOrThrow(
+        assembleManualTopology(
+          graphSnapshot.routableDataLinks,
+          graphSnapshot.routableControlLinks,
+          graphSnapshot.subgraphs.map(s => s.subgraph.systemId),
+        ),
+        renderer,
       );
-      if (topology.kind === RESULT_KIND.Fail)
-        throw new DomainRuleViolationException(topology.issues);
       const input = createManualRoutingInput({
         fileSystemId: command.fileSystemId,
         selection,
@@ -112,16 +117,17 @@ export class CreateManualUsecasesHandler implements CommandHandler<
         manualTopology: topology.data,
         activeManualUsecaseEdits,
       });
-      const result = await this.engine.run(input, this.uow, this.idGeneration);
-      if (result.kind === RESULT_KIND.Fail)
-        throw new DomainRuleViolationException(result.issues);
+      const result = await renderOrThrow(
+        await this.engine.run(input, this.uow, this.idGeneration),
+        renderer,
+      );
       const outcome = await attachChangeDetails(
         this.uow,
         command.fileSystemId,
         result,
       );
       await this.uow.commit();
-      return outcome;
+      return Result.ok(outcome);
     } catch (error) {
       if (this.uow.isInTransaction()) await this.uow.rollback();
       throw error;

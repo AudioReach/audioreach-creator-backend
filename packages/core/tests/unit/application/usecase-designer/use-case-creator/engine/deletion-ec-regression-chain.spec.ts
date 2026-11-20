@@ -286,7 +286,11 @@ describe('legacy deletion and EC routing regression chain', () => {
       expect(result.issues[0]).toEqual(
         expect.objectContaining({
           code: 'ARC-ROUTING-DEL-02',
-          impactedUsecases: [700, 701, 702],
+          impactedUsecases: [
+            {entityType: 'UseCase', systemId: 700},
+            {entityType: 'UseCase', systemId: 701},
+            {entityType: 'UseCase', systemId: 702},
+          ],
         }),
       );
     }

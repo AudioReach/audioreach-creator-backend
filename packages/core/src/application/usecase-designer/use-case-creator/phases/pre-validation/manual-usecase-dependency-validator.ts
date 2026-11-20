@@ -9,7 +9,7 @@ import {
   RoutingIssueFactory,
   type ManualUsecaseDependencyMissing,
 } from '../../issues/routing-issue-factory.js';
-import type {LegacyIssue} from '../../../../../shared/issues/issue.js';
+import type {IssueFact} from '../../../../../domain/issues/issue-fact.js';
 
 function sortedIds(ids: Iterable<number>): number[] {
   return [...new Set(ids)].sort((left, right) => left - right);
@@ -49,8 +49,6 @@ export class ManualUsecaseDependencyValidator {
     const referencedControlLinkIds =
       referencedComponents?.controlLinkSystemIds ?? [];
     const missing: ManualUsecaseDependencyMissing = {
-      effectiveUsecaseMissing,
-      referencedComponentsMissing,
       subgraphSystemIds: sortedIds(
         referencedSubgraphIds.filter(
           id => !effectiveSubgraphIds.has(id) || deletedSubgraphIds.has(id),
@@ -67,8 +65,8 @@ export class ManualUsecaseDependencyValidator {
         ),
       ),
     };
-    return missing.effectiveUsecaseMissing ||
-      missing.referencedComponentsMissing ||
+    return effectiveUsecaseMissing ||
+      referencedComponentsMissing ||
       missing.subgraphSystemIds.length > 0 ||
       missing.dataLinkSystemIds.length > 0 ||
       missing.controlLinkSystemIds.length > 0
@@ -79,8 +77,8 @@ export class ManualUsecaseDependencyValidator {
   run(
     edits: readonly ActiveManualUsecaseEdit[],
     graphSnapshot: RoutingGraphSnapshot,
-  ): LegacyIssue[] {
-    const issues: LegacyIssue[] = [];
+  ): IssueFact[] {
+    const issues: IssueFact[] = [];
     for (const edit of [...edits].sort(
       (left, right) => left.changeId - right.changeId,
     )) {

@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {IssueFact} from '../../../../../domain/issues/issue-fact.js';
 import {Result} from '../../../../../application/shared/result/result.js';
 import {USECASE_TYPE} from '../../../../../domain/entities/usecase-data/usecase/usecase-type.js';
 import type {
@@ -215,7 +216,7 @@ function collectIslandTransitionCandidates(
  * Phase 2 deletion-impact classification.
  */
 export class IslandTransitionPhase {
-  run(context: RoutingContext): Result<void> {
+  run(context: RoutingContext): Result<void, IssueFact> {
     const topologyChangeAnalysis = context.topologyChangeAnalysis;
     if (
       topologyChangeAnalysis === null ||

@@ -12,6 +12,7 @@ import {
   type UsecaseTopologyDecision,
 } from '../../contracts/routing-state.js';
 import {RoutingIssueFactory} from '../../issues/routing-issue-factory.js';
+import type {IssueFact} from '../../../../../domain/issues/issue-fact.js';
 
 /**
  * Guards automatic routing when a requested topology change affects existing UseCases.
@@ -64,7 +65,7 @@ export function deriveAffectedUsecaseSystemIds(
 //Checks if user input usecases inlcudes all impacted usecases
 function validateSelectedUsecases(
   input: AutoDeletionGateInput,
-): ReturnType<typeof Result.fail<void>> | null {
+): Result<void, IssueFact> | null {
   // Selection is optional for this command. Once supplied, however, it is an explicit
   // acknowledgement that every affected UseCase participates in the routing request.
   if (input.selectedUsecaseSystemIds === undefined) return null;
@@ -74,7 +75,7 @@ function validateSelectedUsecases(
     ),
   );
   if (missingUsecaseSystemIds.size === 0) return null;
-  return Result.fail<void>(
+  return Result.fail<void, IssueFact>(
     RoutingIssueFactory.deletionSelectionRequired(
       input.affectedUsecaseSystemIds,
       missingUsecaseSystemIds,
@@ -143,7 +144,7 @@ function findMissingDeletionScope(
 
 export function validateAutomaticDeletionGate(
   input: AutoDeletionGateInput,
-): ReturnType<typeof Result.fail<void>> | null {
+): Result<void, IssueFact> | null {
   // Prefer the explicit-selection error before reporting incomplete graph scope. A null
   // result is the contract that both safeguards passed and later phases may continue.
   const selectionFailure = validateSelectedUsecases(input);
@@ -155,7 +156,7 @@ export function validateAutomaticDeletionGate(
     missing.dataLinkSystemIds.size > 0 ||
     missing.controlLinkSystemIds.size > 0
   )
-    return Result.fail<void>(
+    return Result.fail<void, IssueFact>(
       RoutingIssueFactory.deletionScopeIncomplete(
         input.affectedUsecaseSystemIds,
         [...missing.subgraphSystemIds],

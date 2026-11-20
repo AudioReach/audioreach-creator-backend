@@ -7,10 +7,7 @@ import {describe, expect, it} from '@jest/globals';
 import {ControlLink} from '../../../../../../src/domain/entities/usecase-data/links/control-link.js';
 import {DataLink} from '../../../../../../src/domain/entities/usecase-data/links/data-link.js';
 import {type ManualTopologyPair} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
-import {RoutingIssueFactory} from '../../../../../../src/application/usecase-designer/use-case-creator/issues/routing-issue-factory.js';
 import {DirectedCycleDetector} from '../../../../../../src/application/usecase-designer/use-case-creator/shared/directed-cycle-detector.js';
-import {ISSUE_CODE} from '../../../../../../src/shared/issues/operational-codes.js';
-import {IssueSeverity} from '../../../../../../src/shared/issues/severity.js';
 
 function dataLink(
   systemId: number,
@@ -158,20 +155,5 @@ describe('DirectedCycleDetector', () => {
       dataLinkSystemIds: [12, 21],
     });
     expect(second).toEqual(first);
-  });
-
-  it('exposes a deterministic error issue for the selected cycle', () => {
-    const issue = RoutingIssueFactory.manualCycleDetected({
-      subgraphSystemIds: [1, 2, 1],
-      dataLinkSystemIds: [11, 12, 13, 14],
-    });
-
-    expect(issue).toEqual({
-      code: ISSUE_CODE.ROUTING_MANUAL_CYCLE,
-      message:
-        'Manual topology contains a data-link cycle: 1 -> 2 -> 1 ' +
-        '(supporting data links: [11, 12, 13, 14]).',
-      severity: IssueSeverity.Error,
-    });
   });
 });

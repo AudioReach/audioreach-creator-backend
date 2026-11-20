@@ -358,7 +358,9 @@ describe('DfsRoutingPhase', () => {
         issues: [
           expect.objectContaining({
             code: 'ARC-ROUTING-EC-05',
-            message: expect.stringContaining('first EC data link 10'),
+            relatedEntities: expect.objectContaining({
+              firstEcDataLink: {entityType: 'DataLink', systemId: 10},
+            }),
           }),
         ],
       }),

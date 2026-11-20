@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {IssueFact} from '../../../../../domain/issues/issue-fact.js';
 import {
   RESULT_KIND,
   Result,
@@ -35,7 +36,7 @@ export class RoutingChangeStagingPhase {
     context: RoutingContext,
     uow: UnitOfWork,
     idGenerator: IdGenerationPort,
-  ): Promise<Result<void>> {
+  ): Promise<Result<void, IssueFact>> {
     const analysis = context.topologyChangeAnalysis;
     if (analysis === null) {
       throw new Error('Topology change analysis must run before staging');
