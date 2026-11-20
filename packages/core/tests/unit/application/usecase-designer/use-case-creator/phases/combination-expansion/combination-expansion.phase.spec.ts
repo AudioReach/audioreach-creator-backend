@@ -204,8 +204,19 @@ describe('CombinationExpansionPhase', () => {
     expect(result.kind).toBe(RESULT_KIND.Fail);
     expect(result.issues).toHaveLength(1);
     expect(result.issues[0]?.code).toBe('ARC-ROUTING-DFS-08');
-    expect(result.issues[0]?.message).toContain('keyDefinitionSystemIds: [10]');
-    expect(result.issues[0]?.message).toContain('key 10: subgraphs [1, 2]');
+    expect(result.issues[0]?.relatedEntities).toEqual(
+      expect.objectContaining({
+        conflicts: [
+          {
+            key: {entityType: 'KeyDefinition', systemId: 10},
+            subgraphs: [
+              {entityType: 'Subgraph', systemId: 1},
+              {entityType: 'Subgraph', systemId: 2},
+            ],
+          },
+        ],
+      }),
+    );
     expect(context.usecaseCandidates.automaticCandidates).toEqual([]);
   });
 
@@ -458,7 +469,11 @@ describe('CombinationExpansionPhase', () => {
         impactedEntity: {entityType: 'DataLink', systemId: 10},
       }),
     ]);
-    expect(result.issues[0]?.message).toContain('physical EC data links [10]');
+    expect(result.issues[0]?.relatedEntities).toEqual(
+      expect.objectContaining({
+        ecDataLinks: [{entityType: 'DataLink', systemId: 10}],
+      }),
+    );
     expect(context.usecaseCandidates.automaticCandidates).toEqual([]);
     expect(context.usecaseCandidates.ecBridgeCandidates).toEqual([]);
     expect(context.warnings).toEqual([]);
@@ -675,7 +690,19 @@ describe('CombinationExpansionPhase', () => {
 
     expect(result.kind).toBe(RESULT_KIND.Fail);
     expect(result.issues).toHaveLength(1);
-    expect(result.issues[0]?.message).toContain('key 30: subgraphs [3, 4]');
+    expect(result.issues[0]?.relatedEntities).toEqual(
+      expect.objectContaining({
+        conflicts: [
+          {
+            key: {entityType: 'KeyDefinition', systemId: 30},
+            subgraphs: [
+              {entityType: 'Subgraph', systemId: 3},
+              {entityType: 'Subgraph', systemId: 4},
+            ],
+          },
+        ],
+      }),
+    );
     expect(context.usecaseCandidates.automaticCandidates).toEqual([]);
   });
 });

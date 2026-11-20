@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {DomainRuleViolationException} from '../../../shared/exceptions/domain-rule-violation.exception.js';
-import {RESULT_KIND} from '../../../shared/result/result.js';
+import {Result} from '../../../shared/result/result.js';
+import {IssueRenderer} from '../../../issues/issue-renderer.js';
+import {renderOrThrow} from '../../../issues/render-or-throw.js';
 import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {ActiveManualUsecaseEdit} from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
@@ -52,23 +53,27 @@ export async function prepareRoutingSnapshot(
       params.graphEdits,
     );
     if (additionIssues.length > 0)
-      throw new DomainRuleViolationException(additionIssues);
+      await renderOrThrow(
+        Result.fail(...additionIssues),
+        IssueRenderer.forUnitOfWork(uow),
+      );
   }
 
-  const snapshot = await snapshotBuilder.build(
-    {
-      fileSystemId: params.fileSystemId,
-      effectiveActiveSubgraphs,
-      includedDataLinkSystemIds: params.selection.includedDataLinkSystemIds,
-      includedControlLinkSystemIds:
-        params.selection.includedControlLinkSystemIds,
-      sessionEdits: params.graphEdits,
-      activeManualUsecaseEdits: params.activeManualUsecaseEdits,
-    },
-    uow,
+  const snapshot = await renderOrThrow(
+    await snapshotBuilder.build(
+      {
+        fileSystemId: params.fileSystemId,
+        effectiveActiveSubgraphs,
+        includedDataLinkSystemIds: params.selection.includedDataLinkSystemIds,
+        includedControlLinkSystemIds:
+          params.selection.includedControlLinkSystemIds,
+        sessionEdits: params.graphEdits,
+        activeManualUsecaseEdits: params.activeManualUsecaseEdits,
+      },
+      uow,
+    ),
+    IssueRenderer.forUnitOfWork(uow),
   );
-  if (snapshot.kind === RESULT_KIND.Fail)
-    throw new DomainRuleViolationException(snapshot.issues);
 
   return snapshot.data;
 }

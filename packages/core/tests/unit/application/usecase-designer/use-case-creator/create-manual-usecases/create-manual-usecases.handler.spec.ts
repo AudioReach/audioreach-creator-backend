@@ -5,6 +5,7 @@
 
 import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
 import {batchOf, notFoundBatch} from '../../../../../helpers/batch-read.js';
+import {NO_IDENTITY_READS} from '../../../../../helpers/identity-reads.js';
 import {describe, expect, it, jest} from '@jest/globals';
 import {Result} from '../../../../../../src/application/shared/result/result.js';
 import {
@@ -52,11 +53,16 @@ function createUow(events: string[]) {
     commit: jest.fn(async () => events.push('transaction:commit')),
     rollback: jest.fn(async () => events.push('transaction:rollback')),
     isInTransaction: jest.fn(() => true),
-    getWriteContext: () => ({session: {sessionId: 7}, groupId: 'group-1'}),
+    getWriteContext: () => ({
+      session: {sessionId: 7, fileSystemId: 1},
+      groupId: 'group-1',
+    }),
     getSubgraphRepository: () => ({
+      ...NO_IDENTITY_READS,
       findChangedInSession: jest.fn(async () => ({added: [], deleted: []})),
     }),
     getDataLinkRepository: () => ({
+      ...NO_IDENTITY_READS,
       findCanonicalLinks: jest.fn(
         async (_fileSystemId: number, systemIds: number[]) => {
           events.push('data-link:resolve');
@@ -68,13 +74,18 @@ function createUow(events: string[]) {
       findChangedInSession: jest.fn(async () => ({added: [], deleted: []})),
     }),
     getControlLinkRepository: () => ({
+      ...NO_IDENTITY_READS,
       findCanonicalLinks: jest.fn(
         async (_fileSystemId: number, systemIds: number[]) =>
           notFoundBatch(ENTITY_TYPE.ControlLink, ...systemIds),
       ),
       findChangedInSession: jest.fn(async () => ({added: [], deleted: []})),
     }),
+    getModuleRepository: () => NO_IDENTITY_READS,
+    getSubsystemRepository: () => NO_IDENTITY_READS,
+    getKeyValueDefinitionRepository: () => NO_IDENTITY_READS,
     getUsecaseRepository: () => ({
+      ...NO_IDENTITY_READS,
       findActiveManualUseCaseEdits: jest.fn(async () => []),
       findUseCaseChangeDetails: jest.fn(async () => {
         events.push('change-details:read');

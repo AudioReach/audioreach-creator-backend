@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {DomainRuleViolationException} from '../../../shared/exceptions/domain-rule-violation.exception.js';
 import {ResourceNotFoundException} from '../../../shared/exceptions/resource-not-found.exception.js';
 import {failedToIssues} from '../../../shared/result/failed-to-issues.js';
 import {SOURCE} from '../../../shared/change-vocabulary.js';
-import {RESULT_KIND} from '../../../shared/result/result.js';
+import {IssueRenderer} from '../../../issues/issue-renderer.js';
+import {renderOrThrow} from '../../../issues/render-or-throw.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {UsecaseRepository} from '../../../ports/persistence/repositories/usecase/usecase.repository.js';
@@ -67,13 +67,13 @@ export class AutoRoutingPreparationService {
     uow: UnitOfWork,
     idGeneration: IdGenerationPort,
   ): Promise<void> {
-    const resolution =
+    await renderOrThrow(
       await this.subsystemLinkResolutionService.resolveAllChains(
         uow,
         idGeneration,
-      );
-    if (resolution.kind === RESULT_KIND.Fail)
-      throw new DomainRuleViolationException(resolution.issues);
+      ),
+      IssueRenderer.forUnitOfWork(uow),
+    );
   }
 
   private async prepareCanonicalSelection(

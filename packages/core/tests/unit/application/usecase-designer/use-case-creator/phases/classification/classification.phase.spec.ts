@@ -389,7 +389,12 @@ describe('ClassificationPhase', () => {
                 subgraphSystemIds: [1, 2],
               }),
             }),
-            description: expect.stringContaining('SGs [1, 2]'),
+            relatedEntities: {
+              subgraphs: [
+                {entityType: 'Subgraph', systemId: 1},
+                {entityType: 'Subgraph', systemId: 2},
+              ],
+            },
           }),
         ]),
       }),
@@ -582,11 +587,17 @@ describe('ClassificationPhase', () => {
     expect(result.issues[0]).toEqual(
       expect.objectContaining({
         code: 'ARC-ROUTING-MANUAL-GKV-CONFLICT',
-        impactedUsecases: [13],
+        impactedUsecases: [{entityType: 'UseCase', systemId: 13}],
       }),
     );
-    expect(result.issues[0]?.message).toContain('members: [10, 20]');
-    expect(result.issues[0]?.message).toContain('pairs: [20->10]');
+    expect(result.issues[0]?.relatedEntities).toEqual(
+      expect.objectContaining({
+        subgraphs: [
+          {entityType: 'Subgraph', systemId: 10},
+          {entityType: 'Subgraph', systemId: 20},
+        ],
+      }),
+    );
     expect(routingContext.classifiedUcs).toEqual([]);
   });
 
@@ -634,8 +645,14 @@ describe('ClassificationPhase', () => {
     expect(result.issues[0]).toEqual(
       expect.objectContaining({code: 'ARC-ROUTING-MANUAL-GKV-CONFLICT'}),
     );
-    expect(result.issues[0]?.message).toContain('members: [10, 20]');
-    expect(result.issues[0]?.message).toContain('pairs: [20->10]');
+    expect(result.issues[0]?.relatedEntities).toEqual(
+      expect.objectContaining({
+        subgraphs: [
+          {entityType: 'Subgraph', systemId: 10},
+          {entityType: 'Subgraph', systemId: 20},
+        ],
+      }),
+    );
     expect(routingContext.classifiedUcs).toEqual([]);
   });
 
@@ -654,8 +671,15 @@ describe('ClassificationPhase', () => {
     expect(result.issues[0]).toEqual(
       expect.objectContaining({code: 'ARC-ROUTING-MANUAL-GKV-CONFLICT'}),
     );
-    expect(result.issues[0]?.message).toContain('members: [10, 20, 30]');
-    expect(result.issues[0]?.message).toContain('pairs: [10->20]');
+    expect(result.issues[0]?.relatedEntities).toEqual(
+      expect.objectContaining({
+        subgraphs: [
+          {entityType: 'Subgraph', systemId: 10},
+          {entityType: 'Subgraph', systemId: 20},
+          {entityType: 'Subgraph', systemId: 30},
+        ],
+      }),
+    );
     expect(routingContext.classifiedUcs).toEqual([]);
   });
 
@@ -737,7 +761,13 @@ describe('ClassificationPhase', () => {
     expect(result.issues).toEqual([
       expect.objectContaining({
         code: 'ARC-ROUTING-MULTIPLE-MANUAL-GKV-OVERRIDES',
-        impactedUsecases: [91, 92],
+        impactedUsecases: [
+          {entityType: 'UseCase', systemId: 91},
+          {entityType: 'UseCase', systemId: 92},
+        ],
+        relatedEntities: {
+          gkvValues: [{entityType: 'ValueDefinition', systemId: 100}],
+        },
       }),
     ]);
   });
@@ -758,7 +788,13 @@ describe('ClassificationPhase', () => {
     expect(result.issues).toEqual([
       expect.objectContaining({
         code: 'ARC-ROUTING-MULTIPLE-MANUAL-GKV-OVERRIDES',
-        impactedUsecases: [93, 94],
+        impactedUsecases: [
+          {entityType: 'UseCase', systemId: 93},
+          {entityType: 'UseCase', systemId: 94},
+        ],
+        relatedEntities: {
+          gkvValues: [{entityType: 'ValueDefinition', systemId: 100}],
+        },
       }),
     ]);
     expect(routingContext.classifiedUcs).toEqual([]);
@@ -780,11 +816,20 @@ describe('ClassificationPhase', () => {
     expect(result.issues[0]).toEqual(
       expect.objectContaining({
         code: 'ARC-ROUTING-MANUAL-GKV-CONFLICT',
-        impactedUsecases: [10, 11],
+        impactedUsecases: [
+          {entityType: 'UseCase', systemId: 10},
+          {entityType: 'UseCase', systemId: 11},
+        ],
       }),
     );
-    expect(result.issues[0]?.message).toContain('members: [10, 20]');
-    expect(result.issues[0]?.message).toContain('pairs: [10->20]');
+    expect(result.issues[0]?.relatedEntities).toEqual(
+      expect.objectContaining({
+        subgraphs: [
+          {entityType: 'Subgraph', systemId: 10},
+          {entityType: 'Subgraph', systemId: 20},
+        ],
+      }),
+    );
     expect(routingContext.classifiedUcs).toEqual([]);
   });
 

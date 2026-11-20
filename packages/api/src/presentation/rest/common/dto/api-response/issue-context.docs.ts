@@ -15,7 +15,6 @@ const ISSUE_CONTEXT_DOCS: Readonly<Record<IssueFactCode, string>> = {
   [ISSUE_CODE.ENTITY_NOT_FOUND]: '-',
   [ISSUE_CODE.ROUTING_PREVAL_DUPLICATE_ACTIVE_SUBGRAPH_SELECTION]:
     'subgraphs: Subgraph[]',
-  [ISSUE_CODE.ROUTING_PREVAL_SCOPE_INCOMPLETE]: 'subgraphs: Subgraph[]',
   [ISSUE_CODE.ROUTING_PREVAL_ADDITION_SCOPE_CONFLICT]:
     'subgraphs: Subgraph[], dataLinks: DataLink[], controlLinks: ControlLink[]',
   [ISSUE_CODE.ROUTING_PREVAL_DATALINK_INTEGRITY]:
@@ -51,7 +50,8 @@ const ISSUE_CONTEXT_DOCS: Readonly<Record<IssueFactCode, string>> = {
   [ISSUE_CODE.ROUTING_MANUAL_UC_BROKEN_DEPS]:
     'subgraphs: Subgraph[], dataLinks: DataLink[], controlLinks: ControlLink[]; ' +
     'fix options: DELETE_STALE_EDIT',
-  [ISSUE_CODE.ROUTING_MULTIPLE_MANUAL_GKV_OVERRIDES]: '-',
+  [ISSUE_CODE.ROUTING_MULTIPLE_MANUAL_GKV_OVERRIDES]:
+    'gkvValues: ValueDefinition[]',
   [ISSUE_CODE.ROUTING_SAME_GKV_CHOICE_REQUIRED]:
     'gkvValues: ValueDefinition[]; params: collisionId (string); ' +
     'fix options: SELECT_CANDIDATE (usecase?: UseCase, subgraphs: ' +

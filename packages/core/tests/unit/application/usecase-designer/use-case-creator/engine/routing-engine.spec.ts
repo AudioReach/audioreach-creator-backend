@@ -265,7 +265,7 @@ describe('RoutingEngine', () => {
       Array.from({length: 12}, (_, index) => `phase-${index + 1}`),
     );
     if (result.kind === RESULT_KIND.Ok)
-      expect(result.data?.issues).toEqual([
+      expect(result.issues).toEqual([
         expect.objectContaining({code: 'ARC-ROUTING-ISLAND-DETECTED'}),
       ]);
   });

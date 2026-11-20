@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {IssueFact} from '../../../../../domain/issues/issue-fact.js';
 import {
   RESULT_KIND,
   Result,
@@ -76,7 +77,9 @@ export interface TopologyChangeStagerInput {
 
 /** Applies finalized structural decisions in the existing persistence order. */
 export class TopologyChangeStager {
-  async stage(input: TopologyChangeStagerInput): Promise<Result<void>> {
+  async stage(
+    input: TopologyChangeStagerInput,
+  ): Promise<Result<void, IssueFact>> {
     const {analysis, islandTransitions, staging} = input;
     const deleteOrReconstructDecisions = analysis.decisions.filter(
       (decision): decision is DeleteOrReconstructDecision =>
@@ -217,7 +220,7 @@ export class TopologyChangeStager {
   private validatePairs(
     subgraphSystemIds: readonly number[],
     pairs: readonly SubgraphPair[],
-  ): Result<void> {
+  ): Result<void, IssueFact> {
     const ids = new Set(subgraphSystemIds);
     for (const pair of pairs) {
       if (
@@ -238,7 +241,7 @@ export class TopologyChangeStager {
   private async stageControlPairRemovals(
     staging: StagingState,
     decisions: readonly ControlPairRemovalDecision[],
-  ): Promise<Result<void>> {
+  ): Promise<Result<void, IssueFact>> {
     for (const decision of [...decisions].sort(
       (left, right) => left.usecase.systemId - right.usecase.systemId,
     )) {
@@ -259,7 +262,7 @@ export class TopologyChangeStager {
     delta: StructuralChangeDelta,
     operation: UsecaseChangeDescriptor['operation'] = CHANGE_OPERATION.Update,
     assignments?: readonly UsecaseSgkvAssignment[],
-  ): Promise<Result<void>> {
+  ): Promise<Result<void, IssueFact>> {
     const result = this.validatePairs(
       [
         ...usecase.subgraphSystemIds.filter(

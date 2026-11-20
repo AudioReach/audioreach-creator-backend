@@ -4,7 +4,7 @@
  */
 
 import {Result} from '../../../../../application/shared/result/result.js';
-import type {LegacyIssue} from '../../../../../shared/issues/issue.js';
+import type {IssueFact} from '../../../../../domain/issues/issue-fact.js';
 import type {RoutingContext} from '../../contracts/routing-context.js';
 import {
   ROUTING_MODE,
@@ -154,7 +154,7 @@ function expandEcBridges(
     ]),
   );
   const candidates: EcBridgeUsecaseCandidate[] = [];
-  const issues: LegacyIssue[] = [];
+  const issues: IssueFact[] = [];
   const expandedConnectionIds = new Set<number>();
   for (const boundaryPath of paths) {
     if (boundaryPath.termination !== PATH_TERMINATION.EcBoundary) continue;
@@ -219,7 +219,7 @@ export class CombinationExpansionPhase {
    * here does I/O. `RoutingEngine` awaits every phase's result regardless of whether it
    * returns a `Result` directly or a `Promise<Result>`.
    */
-  run(context: RoutingContext): Result<void> {
+  run(context: RoutingContext): Result<void, IssueFact> {
     if (!context.kvResolutions) {
       throw new Error(
         'CombinationExpansionPhase requires Phase 4 KV resolutions',

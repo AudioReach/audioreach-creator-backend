@@ -4,7 +4,7 @@
  */
 
 import {Result} from '../../../../application/shared/result/result.js';
-import type {LegacyIssue} from '../../../../shared/issues/issue.js';
+import type {IssueFact} from '../../../../domain/issues/issue-fact.js';
 import type {KvPair} from '../../../ports/persistence/repositories/shared/kv-pair.js';
 import type {SubgraphRepository} from '../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
 import type {KeyValueDefinitionRepository} from '../../../ports/persistence/repositories/key-value/key-value-definition.repository.js';
@@ -43,7 +43,7 @@ export class KvResolutionPhase {
     context: RoutingContext,
     subgraphRepository: SubgraphRepository,
     keyValueDefinitionRepository: KeyValueDefinitionRepository,
-  ): Promise<Result<void>> {
+  ): Promise<Result<void, IssueFact>> {
     const {fileSystemId, selectedUsecases, graphSnapshot} = context.input;
     const subgraphSystemIds = graphSnapshot.subgraphs.map(
       entry => entry.subgraph.systemId,
@@ -100,7 +100,7 @@ export class KvResolutionPhase {
     );
 
     const perSg = new Map<number, readonly SgkvInstance[]>();
-    const issues: LegacyIssue[] = [];
+    const issues: IssueFact[] = [];
     for (const routingSubgraph of graphSnapshot.subgraphs) {
       const subgraphSystemId = routingSubgraph.subgraph.systemId;
       const requestedSgkvs = routingSubgraph.requestedSgkvs;

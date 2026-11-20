@@ -92,11 +92,7 @@ describe('RoutingEngine Half C chain', () => {
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind === RESULT_KIND.Ok)
-      expect(Object.keys(result.data)).toEqual([
-        'emittedChanges',
-        'issues',
-        'groupId',
-      ]);
+      expect(Object.keys(result.data)).toEqual(['emittedChanges', 'groupId']);
     expect(calls).toEqual(
       Array.from({length: 12}, (_, index) => `phase-${index + 1}`),
     );

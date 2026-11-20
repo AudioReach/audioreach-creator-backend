@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {IssueFact} from '../../../../../domain/issues/issue-fact.js';
 import {Result} from '../../../../../application/shared/result/result.js';
 import type {SubgraphRepository} from '../../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
 import {FAILED_ENTITY_REASON} from '../../../../ports/persistence/batch-read.js';
@@ -304,7 +305,7 @@ export class DeletionReconstructionService {
   async run(
     request: DeletionReconstructionRequest,
     subgraphRepository: SubgraphRepository,
-  ): Promise<Result<readonly UsecaseTopologyDecision[]>> {
+  ): Promise<Result<readonly UsecaseTopologyDecision[], IssueFact>> {
     if (request.input.mode === ROUTING_MODE.Manual) {
       return Result.ok(request.decisions);
     }

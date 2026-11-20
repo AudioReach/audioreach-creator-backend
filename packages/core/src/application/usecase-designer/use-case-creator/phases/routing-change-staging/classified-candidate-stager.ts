@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {IssueFact} from '../../../../../domain/issues/issue-fact.js';
 import {
   RESULT_KIND,
   Result,
@@ -156,7 +157,9 @@ function reconcilePairs(
 
 /** Applies exact-match, extension, and create classifications in input order. */
 export class ClassifiedCandidateStager {
-  async stage(input: ClassifiedCandidateStagerInput): Promise<Result<void>> {
+  async stage(
+    input: ClassifiedCandidateStagerInput,
+  ): Promise<Result<void, IssueFact>> {
     const {classifications, staging, idGenerator} = input;
     if (input.input.mode === ROUTING_MODE.Manual) {
       return this.stageManual(
@@ -244,7 +247,7 @@ export class ClassifiedCandidateStager {
     staging: StagingState,
     input: ManualRoutingInput,
     idGenerator: IdGenerationPort,
-  ): Promise<Result<void>> {
+  ): Promise<Result<void, IssueFact>> {
     invariant(
       classifications.every(
         classification =>
@@ -322,7 +325,7 @@ export class ClassifiedCandidateStager {
   private validatePairs(
     subgraphSystemIds: readonly number[],
     pairs: readonly SubgraphPair[],
-  ): Result<void> {
+  ): Result<void, IssueFact> {
     const ids = new Set(subgraphSystemIds);
     for (const pair of pairs) {
       if (
@@ -346,7 +349,7 @@ export class ClassifiedCandidateStager {
     delta: StructuralChangeDelta,
     operation: UsecaseChangeDescriptor['operation'] = CHANGE_OPERATION.Update,
     assignments?: readonly UsecaseSgkvAssignment[],
-  ): Promise<Result<void>> {
+  ): Promise<Result<void, IssueFact>> {
     const result = this.validatePairs(
       [
         ...usecase.subgraphSystemIds.filter(

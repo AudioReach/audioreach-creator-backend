@@ -6,6 +6,7 @@
 import {FAILED_ENTITY_REASON} from '../../../../../../src/application/ports/persistence/batch-read.js';
 import type {EntityType} from '../../../../../../src/shared/entity-type.js';
 import {batchOf} from '../../../../../helpers/batch-read.js';
+import {NO_IDENTITY_READS} from '../../../../../helpers/identity-reads.js';
 import {describe, expect, it} from '@jest/globals';
 import {
   CHANGE_OPERATION,
@@ -244,6 +245,7 @@ function createManualRoutingFixture(seed: FixtureSeed) {
   };
 
   const usecaseRepository = {
+    ...NO_IDENTITY_READS,
     findActiveManualUseCaseEdits: async () => {
       const edits = activeManualEdits();
       activeManualReadSizes.push(edits.length);
@@ -318,6 +320,7 @@ function createManualRoutingFixture(seed: FixtureSeed) {
   };
 
   const subgraphRepository = {
+    ...NO_IDENTITY_READS,
     findChangedInSession: async () => ({added: [], deleted: []}),
     findSubgraphAggregates: async (
       _fileSystemId: number,
@@ -330,6 +333,7 @@ function createManualRoutingFixture(seed: FixtureSeed) {
     findSubgraphs: findSubgraphsWithSgkvs(),
   };
   const keyValueDefinitionRepository = {
+    ...NO_IDENTITY_READS,
     findKeyValuePairs: async (
       _fileSystemId: number,
       valueDefinitionSystemIds: readonly number[],
@@ -343,6 +347,7 @@ function createManualRoutingFixture(seed: FixtureSeed) {
       ),
   };
   const dataLinkRepository = {
+    ...NO_IDENTITY_READS,
     getAllLinks: async () => ({
       dataLinks: [...(seed.dataLinks ?? [])],
       unresolvedSubsystemDataLinks: [],
@@ -355,6 +360,7 @@ function createManualRoutingFixture(seed: FixtureSeed) {
     findIntraUcLinks: async () => [...(seed.dataLinks ?? [])],
   };
   const controlLinkRepository = {
+    ...NO_IDENTITY_READS,
     getAllLinks: async () => ({
       controlLinks: [...(seed.controlLinks ?? [])],
       unresolvedSubsystemControlLinks: [],
@@ -392,9 +398,13 @@ function createManualRoutingFixture(seed: FixtureSeed) {
     getDataLinkRepository: () => dataLinkRepository,
     getControlLinkRepository: () => controlLinkRepository,
     getUsecaseRepository: () => usecaseRepository,
-    getModuleRepository: () => ({findModulesBySubgraphIds: async () => []}),
+    getModuleRepository: () => ({
+      ...NO_IDENTITY_READS,
+      findModulesBySubgraphIds: async () => [],
+    }),
     getModuleDefinitionRepository: () => ({findUseCases: async () => []}),
     getSubsystemRepository: () => ({
+      ...NO_IDENTITY_READS,
       findOrphanSubsystemSystemIds: async () => [],
       getAllNodesWithParents: async () => [],
     }),
@@ -458,8 +468,7 @@ describe('manual routing chain', () => {
     );
     expect(second.kind).toBe(RESULT_KIND.Ok);
     expect(fixture.recordedWrites()).toEqual(writesAfterFirst);
-    if (second.kind === RESULT_KIND.Ok)
-      expect(second.data.emittedChanges).toEqual([]);
+    if (second.kind === RESULT_KIND.Ok) expect(second.data.changes).toEqual([]);
     expect(fixture.activeManualReadSizes).toEqual([0, 1]);
     expect(fixture.transactionCounts()).toEqual({commits: 2, rollbacks: 0});
   });
@@ -683,7 +692,6 @@ describe('manual routing chain', () => {
       updates: [],
       deletes: [],
     });
-    if (result.kind === RESULT_KIND.Ok)
-      expect(result.data.emittedChanges).toEqual([]);
+    if (result.kind === RESULT_KIND.Ok) expect(result.data.changes).toEqual([]);
   });
 });

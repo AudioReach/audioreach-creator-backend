@@ -123,11 +123,7 @@ export interface IssueContextMap {
   [ISSUE_CODE.ROUTING_PREVAL_DUPLICATE_ACTIVE_SUBGRAPH_SELECTION]: CodeContext<{
     subgraphs: Subgraphs;
   }>;
-  /** `subgraphs`: the selected subgraphs missing from the routing input. */
-  [ISSUE_CODE.ROUTING_PREVAL_SCOPE_INCOMPLETE]: CodeContext<{
-    subgraphs: Subgraphs;
-  }>;
-  /** The additions that are missing from the selected design. */
+  /** The entities added in this session that the request does not include. */
   [ISSUE_CODE.ROUTING_PREVAL_ADDITION_SCOPE_CONFLICT]: MissingComponents;
   /** `impactedEntity`: the data link; one or both endpoints are missing. */
   [ISSUE_CODE.ROUTING_PREVAL_DATALINK_INTEGRITY]: CodeContext<{
@@ -143,11 +139,11 @@ export interface IssueContextMap {
   }>;
   [ISSUE_CODE.ROUTING_MDF_KV_ASSIGNED]: CodeContext;
   [ISSUE_CODE.ROUTING_ISLAND_DETECTED]: CodeContext;
-  /** `unselectedUsecases`: affected use cases missing from the selection. */
+  /** `unselectedUsecases`: affected use cases the request does not include. */
   [ISSUE_CODE.ROUTING_DELETION_SELECTION_REQUIRED]: CodeContext<{
     unselectedUsecases: readonly EntityRef<'UseCase'>[];
   }>;
-  /** The surviving topology missing from the routing input. */
+  /** The remaining topology that the request does not include. */
   [ISSUE_CODE.ROUTING_DELETION_SCOPE_INCOMPLETE]: MissingComponents;
   /** `impactedEntity`: the link; `subgraph`: its uncovered endpoint. */
   [ISSUE_CODE.ROUTING_INTER_USECASE_ENDPOINT_UNCOVERED]: CodeContext<{
@@ -212,7 +208,10 @@ export interface IssueContextMap {
     NoContext,
     {DELETE_STALE_EDIT: Context}
   >;
-  [ISSUE_CODE.ROUTING_MULTIPLE_MANUAL_GKV_OVERRIDES]: CodeContext;
+  /** `gkvValues`: the key values that the manual edits share. */
+  [ISSUE_CODE.ROUTING_MULTIPLE_MANUAL_GKV_OVERRIDES]: CodeContext<{
+    gkvValues: ValueDefinitions;
+  }>;
   /**
    * Fix-option kinds are the `COLLISION_RESOLUTION_MODE` values, written as
    * literals because domain cannot import application. `usecase` is the

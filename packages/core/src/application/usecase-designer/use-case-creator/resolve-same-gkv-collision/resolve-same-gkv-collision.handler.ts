@@ -4,7 +4,9 @@
  */
 
 import {DomainRuleViolationException} from '../../../shared/exceptions/domain-rule-violation.exception.js';
-import {RESULT_KIND, Result} from '../../../shared/result/result.js';
+import {Result} from '../../../shared/result/result.js';
+import {IssueRenderer} from '../../../issues/issue-renderer.js';
+import {renderOrThrow} from '../../../issues/render-or-throw.js';
 import type {Result as ResultType} from '../../../shared/result/result.js';
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
@@ -66,17 +68,23 @@ export class ResolveSameGkvCollisionHandler implements CommandHandler<
         this.uow,
         this.idGeneration,
       );
-      const replay = await this.engine.resolveCollision(
-        input,
-        this.uow,
-        command.selection.collisionId,
+      const renderer = IssueRenderer.forUnitOfWork(this.uow);
+      const replay = await renderOrThrow(
+        await this.engine.resolveCollision(
+          input,
+          this.uow,
+          command.selection.collisionId,
+        ),
+        renderer,
       );
-      if (replay.kind === RESULT_KIND.Fail)
-        throw new DomainRuleViolationException(replay.issues);
       if (!selectionExists(replay.data, command.selection))
-        throw new DomainRuleViolationException([
-          RoutingIssueFactory.sameGkvChoiceStale(command.selection.collisionId),
-        ]);
+        throw new DomainRuleViolationException(
+          await renderer.render([
+            RoutingIssueFactory.sameGkvChoiceStale(
+              command.selection.collisionId,
+            ),
+          ]),
+        );
       const changes = await this.stager.stage(
         replay.data,
         command.selection,

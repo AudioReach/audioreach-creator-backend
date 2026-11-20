@@ -300,7 +300,9 @@ describe('KvResolutionPhase', () => {
           expect.objectContaining({
             code: 'ARC-ROUTING-SGKV-VALUE-NOT-FOUND',
             impactedEntity: {entityType: 'Subgraph', systemId: 20},
-            message: expect.stringContaining('[999]'),
+            relatedEntities: {
+              values: [{entityType: 'ValueDefinition', systemId: 999}],
+            },
           }),
         ],
       }),

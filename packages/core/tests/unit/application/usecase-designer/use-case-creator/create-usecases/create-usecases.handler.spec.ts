@@ -17,6 +17,7 @@ import {RoutingIssueFactory} from '../../../../../../src/application/usecase-des
 import {AutoRoutingPreparationService} from '../../../../../../src/application/usecase-designer/use-case-creator/services/auto-routing-preparation.service.js';
 import {DomainRuleViolationException} from '../../../../../../src/application/shared/exceptions/domain-rule-violation.exception.js';
 import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
+import {NO_IDENTITY_READS} from '../../../../../helpers/identity-reads.js';
 
 function snapshot(): RoutingGraphSnapshot {
   return {
@@ -30,6 +31,13 @@ function snapshot(): RoutingGraphSnapshot {
     sessionEdits: emptyGraphEdits(),
   };
 }
+
+/** The identity of subgraph 7, read when an issue about it is rendered. */
+const subgraphSeven = {
+  entityType: ENTITY_TYPE.Subgraph,
+  systemId: 7,
+  identity: {name: 'Mic Path', naturalId: 0x70},
+};
 
 const idGeneration = {getNextId: jest.fn(async () => 100)} as never;
 
@@ -65,22 +73,37 @@ function createUow(events: string[], options?: {addedSubgraph?: boolean}) {
       commit: jest.fn(async () => events.push('transaction:commit')),
       rollback: jest.fn(async () => events.push('transaction:rollback')),
       isInTransaction: jest.fn(() => true),
-      getWriteContext: () => ({session: {sessionId: 7}, groupId: 'group-1'}),
+      getWriteContext: () => ({
+        session: {sessionId: 7, fileSystemId: 1},
+        groupId: 'group-1',
+      }),
       getSessionRepository: () => ({
         deleteEditActionsBySource: jest.fn(async () =>
           events.push('auto-actions:clear'),
         ),
       }),
       getSubgraphRepository: () => ({
+        ...NO_IDENTITY_READS,
         findChangedInSession: changed('edits:read'),
+        findSubgraphIdentities: jest.fn(async () => ({
+          entityType: ENTITY_TYPE.Subgraph,
+          items: [subgraphSeven],
+          failed: [],
+        })),
       }),
       getDataLinkRepository: () => ({
+        ...NO_IDENTITY_READS,
         findChangedInSession: changed('edits:read'),
       }),
       getControlLinkRepository: () => ({
+        ...NO_IDENTITY_READS,
         findChangedInSession: changed('edits:read'),
       }),
+      getModuleRepository: () => NO_IDENTITY_READS,
+      getSubsystemRepository: () => NO_IDENTITY_READS,
+      getKeyValueDefinitionRepository: () => NO_IDENTITY_READS,
       getUsecaseRepository: () => ({
+        ...NO_IDENTITY_READS,
         findUseCases,
         findActiveManualUseCaseEdits,
         findUseCaseChangeDetails,
@@ -123,6 +146,14 @@ describe('CreateUsecasesHandler', () => {
       issues: [
         expect.objectContaining({
           code: 'ARC-ROUTING-PREVAL-DUPLICATE-ACTIVE-SUBGRAPH-SELECTION',
+          relatedEntities: {
+            subgraphs: [
+              expect.objectContaining({
+                systemId: 7,
+                displayName: "Subgraph 'Mic Path' (0x00000070)",
+              }),
+            ],
+          },
         }),
       ],
     });
@@ -293,7 +324,7 @@ describe('CreateUsecasesHandler', () => {
       {resolveAllChains: jest.fn(async () => Result.ok())} as never,
       {
         run: jest.fn(async () =>
-          Result.fail({code: 'ROUTING_FAILED', message: 'failed'} as never),
+          Result.fail(RoutingIssueFactory.cycleDetected(7)),
         ),
       } as never,
       {build: jest.fn(async () => Result.ok(snapshot()))} as never,
@@ -384,7 +415,7 @@ describe('CreateUsecasesHandler', () => {
     expect(catalog.findUseCaseChangeDetails).toHaveBeenCalledWith(1, emitted);
     expect(result).toMatchObject({
       kind: RESULT_KIND.Ok,
-      data: {groupId: 'group-1', emittedChanges: emitted, changes: details},
+      data: {groupId: 'group-1', changes: details, issues: []},
     });
   });
 

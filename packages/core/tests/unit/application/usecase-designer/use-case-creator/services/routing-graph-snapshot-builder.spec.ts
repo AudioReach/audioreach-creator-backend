@@ -124,9 +124,12 @@ describe('RoutingGraphSnapshotBuilder', () => {
         issues: [
           expect.objectContaining({
             code: 'ARC-ROUTING-PREVAL-DUPLICATE-ACTIVE-SUBGRAPH-SELECTION',
-            message:
-              'Duplicate active-subgraph selections are not allowed ' +
-              '(systemIds: [3, 7]).',
+            relatedEntities: {
+              subgraphs: [
+                {entityType: 'Subgraph', systemId: 3},
+                {entityType: 'Subgraph', systemId: 7},
+              ],
+            },
           }),
         ],
       }),

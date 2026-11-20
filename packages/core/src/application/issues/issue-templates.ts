@@ -55,9 +55,26 @@ function name(ref: RenderedEntityRef): string {
   return ref.displayName;
 }
 
-/** Joins the sentences that apply; a sentence of `false` is left out. */
-function sentences(...parts: readonly (string | false)[]): string {
-  return parts.filter((part): part is string => part !== false).join(' ');
+/** Joins words as `a`, `a and b`, or `a, b and c`. */
+function joinWithAnd(words: readonly string[]): string {
+  return words.length <= 1
+    ? words.join('')
+    : `${words.slice(0, -1).join(', ')} and ${words.at(-1)}`;
+}
+
+/** Names the lists that are not empty, e.g. `subgraphs and data links`. */
+function missingKinds(missing: {
+  readonly subgraphs: readonly unknown[];
+  readonly dataLinks: readonly unknown[];
+  readonly controlLinks: readonly unknown[];
+}): string {
+  return joinWithAnd(
+    [
+      missing.subgraphs.length > 0 && 'subgraphs',
+      missing.dataLinks.length > 0 && 'data links',
+      missing.controlLinks.length > 0 && 'control links',
+    ].filter((kind): kind is string => kind !== false),
+  );
 }
 
 /**
@@ -69,29 +86,12 @@ export const MESSAGE_TEMPLATES: MessageTemplates = {
     `${impacted(issue, 'The entity')} was not found.`,
 
   [ISSUE_CODE.ROUTING_PREVAL_DUPLICATE_ACTIVE_SUBGRAPH_SELECTION]: () =>
-    'Some subgraphs are selected more than once. Select each subgraph only once.',
+    'Some subgraphs are included more than once. Include each subgraph only once.',
 
-  [ISSUE_CODE.ROUTING_PREVAL_SCOPE_INCOMPLETE]: () =>
-    'Some subgraphs of the selected use cases are not in the routing input. ' +
-    'Include them, or exclude them explicitly, and submit the request again.',
-
-  [ISSUE_CODE.ROUTING_PREVAL_ADDITION_SCOPE_CONFLICT]: ({
-    relatedEntities: {subgraphs, dataLinks, controlLinks},
-  }) =>
-    sentences(
-      'The requested changes cannot be applied because the selected design ' +
-        'does not include everything needed to check the result.',
-      subgraphs.length > 0 &&
-        'Some subgraphs needed by the requested additions are not selected; ' +
-          'select them, or remove those additions.',
-      dataLinks.length > 0 &&
-        'Some added data links are not in the routing input; include them, ' +
-          'or remove those additions.',
-      controlLinks.length > 0 &&
-        'Some added control links are not in the routing input; include ' +
-          'them, or remove those additions.',
-      'Then submit the request again.',
-    ),
+  [ISSUE_CODE.ROUTING_PREVAL_ADDITION_SCOPE_CONFLICT]: ({relatedEntities}) =>
+    `Some ${missingKinds(relatedEntities)} added in this session are not ` +
+    'included in the request. Include them, or undo those additions, and ' +
+    'submit the request again.',
 
   [ISSUE_CODE.ROUTING_PREVAL_DATALINK_INTEGRITY]: issue =>
     `${impacted(issue, 'A data link')} connects ` +
@@ -119,12 +119,14 @@ export const MESSAGE_TEMPLATES: MessageTemplates = {
     'in its use case.',
 
   [ISSUE_CODE.ROUTING_DELETION_SELECTION_REQUIRED]: () =>
-    'Some use cases affected by the requested changes are not selected. ' +
-    'Select all affected use cases and submit the request again.',
+    'Some use cases affected by the changes in this session are not ' +
+    'included in the request. Include all affected use cases and submit ' +
+    'the request again.',
 
-  [ISSUE_CODE.ROUTING_DELETION_SCOPE_INCOMPLETE]: () =>
-    'The routing input does not include all remaining subgraphs and links ' +
-    'of the affected use cases. Include them and submit the request again.',
+  [ISSUE_CODE.ROUTING_DELETION_SCOPE_INCOMPLETE]: ({relatedEntities}) =>
+    `Some ${missingKinds(relatedEntities)} that remain in the affected use ` +
+    'cases are not included in the request. Include them and submit the ' +
+    'request again.',
 
   [ISSUE_CODE.ROUTING_INTER_USECASE_ENDPOINT_UNCOVERED]: issue =>
     `${impacted(issue, 'A link')} connects use cases, but its end at ` +
@@ -136,22 +138,23 @@ export const MESSAGE_TEMPLATES: MessageTemplates = {
     'data links it needed were deleted.',
 
   [ISSUE_CODE.ROUTING_SGKV_MALFORMED]: issue =>
-    `The key values for ${impacted(issue, 'a subgraph')} contain more than ` +
-    'one value for the same key.',
+    `${impacted(issue, 'A subgraph')} has more than one value for the same ` +
+    'key.',
 
   [ISSUE_CODE.ROUTING_SGKV_VALUE_NOT_FOUND]: issue =>
-    `The key values for ${impacted(issue, 'a subgraph')} refer to values ` +
-    'that do not exist in the file.',
+    `${impacted(issue, 'A subgraph')} has key values that do not exist in ` +
+    'the file.',
 
   [ISSUE_CODE.ROUTING_CYCLE_DETECTED]: issue =>
-    `Routing found a cycle of data links at ${impacted(issue, 'a subgraph')}.`,
+    `Routing found a cycle of data links at ${impacted(issue, 'a subgraph')}. ` +
+    'Routing still creates a use case for the path up to the last subgraph ' +
+    'before the cycle.',
 
   [ISSUE_CODE.ROUTING_MANUAL_CYCLE]: () =>
     'The manual topology contains a cycle of data links.',
 
   [ISSUE_CODE.ROUTING_MANUAL_GKV_CONFLICT]: () =>
-    'The manual use case conflicts with another topology that has the same ' +
-    'key values.',
+    'The manual use case has the same key values as other use cases.',
 
   [ISSUE_CODE.ROUTING_DFS_NO_VALID_COMBINATION]: issue =>
     'No combination of subgraph key values works for the routing path' +
@@ -188,7 +191,8 @@ export const MESSAGE_TEMPLATES: MessageTemplates = {
     'Choose which one to keep.',
 
   [ISSUE_CODE.ROUTING_SAME_GKV_CHOICE_STALE]: () =>
-    'The choice for these key values is out of date. Run routing again.',
+    'The chosen option for this same key-value collision is out of date. ' +
+    'Run routing again.',
 
   [ISSUE_CODE.ROUTING_ORPHAN_SUBGRAPH]: issue =>
     `${impacted(issue, 'A subgraph')} is not part of any use case.`,

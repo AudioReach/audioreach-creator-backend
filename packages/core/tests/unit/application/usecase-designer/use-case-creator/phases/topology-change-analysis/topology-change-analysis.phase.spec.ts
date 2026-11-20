@@ -437,7 +437,13 @@ describe('TopologyChangeAnalysisPhase', () => {
       issues: [
         expect.objectContaining({
           code: 'ARC-ROUTING-DEL-02',
-          message: expect.stringContaining('[102, 103, 104]'),
+          relatedEntities: {
+            unselectedUsecases: [
+              {entityType: 'UseCase', systemId: 102},
+              {entityType: 'UseCase', systemId: 103},
+              {entityType: 'UseCase', systemId: 104},
+            ],
+          },
         }),
       ],
     });

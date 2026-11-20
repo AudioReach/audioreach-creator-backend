@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {IssueFact} from '../../../../domain/issues/issue-fact.js';
 import type {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
 import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
 import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/subgraph.js';
 import {Result} from '../../../shared/result/result.js';
-import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {READ_MODE} from '../../../ports/persistence/repositories/shared/read-options.js';
@@ -65,7 +65,7 @@ export class RoutingGraphSnapshotBuilder {
   async build(
     input: RoutingGraphSnapshotBuildInput,
     uow: UnitOfWork,
-  ): Promise<Result<RoutingGraphSnapshot>> {
+  ): Promise<Result<RoutingGraphSnapshot, IssueFact>> {
     const duplicateSubgraphIds = findDuplicateActiveSubgraphSystemIds(
       input.effectiveActiveSubgraphs.map(sg => sg.systemId),
     );
@@ -116,10 +116,13 @@ export class RoutingGraphSnapshotBuilder {
     const subgraphsById = new Map(
       catalogSubgraphs.map(subgraph => [subgraph.systemId, subgraph]),
     );
-    const missingIssues = selections
+    const missingIssues: IssueFact[] = selections
       .filter(selection => !subgraphsById.has(selection.systemId))
       .map(selection =>
-        IssueFactory.notFound(ENTITY_TYPE.Subgraph, selection.systemId),
+        RoutingIssueFactory.entityNotFound(
+          ENTITY_TYPE.Subgraph,
+          selection.systemId,
+        ),
       );
     const integrityIssues = overlayDataLinks
       .filter(link => isInScope(link, effectiveIds))
