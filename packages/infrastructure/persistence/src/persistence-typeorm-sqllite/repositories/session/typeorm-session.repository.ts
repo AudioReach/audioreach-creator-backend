@@ -271,4 +271,36 @@ export class TypeOrmSessionRepository implements ISessionRepository {
 
     return foundIds;
   }
+
+  async updateChangeStatusByAggregateIds(
+    sessionId: number,
+    aggregateIds: readonly number[],
+    status: ChangeStatus,
+  ): Promise<readonly number[]> {
+    if (aggregateIds.length === 0) return [];
+
+    const ids = [...aggregateIds];
+
+    const found = await this.manager
+      .createQueryBuilder(EditActionSchema, 'ea')
+      .select('ea.aggregateId', 'aggregateId')
+      .distinct(true)
+      .where('ea.sessionId = :sessionId', {sessionId})
+      .andWhere('ea.aggregateId IN (:...ids)', {ids})
+      .getRawMany<{aggregateId: number}>();
+
+    const foundIds = found.map(r => Number(r.aggregateId));
+
+    if (foundIds.length > 0) {
+      await this.manager
+        .createQueryBuilder()
+        .update(EditActionSchema)
+        .set({changeStatus: status})
+        .where('sessionId = :sessionId', {sessionId})
+        .andWhere('aggregateId IN (:...foundIds)', {foundIds})
+        .execute();
+    }
+
+    return foundIds;
+  }
 }
