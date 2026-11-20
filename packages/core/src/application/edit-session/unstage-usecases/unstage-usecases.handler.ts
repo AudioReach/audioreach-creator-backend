@@ -11,7 +11,6 @@ import {DomainRuleViolationException} from '../../../shared/exceptions/index.js'
 import {ISSUE_CODE} from '../../../shared/issues/operational-codes.js';
 import {IssueSeverity} from '../../../shared/issues/severity.js';
 import {BinaryUtils} from '../../../shared/utilities/binary-utils.js';
-import {ENTITY_TYPE} from '../../../shared/entity-type.js';
 import type {UnstageUsecasesCommand} from './unstage-usecases.command.js';
 import type {UsecaseChangesetResult} from '../stage-usecases/stage-usecases-result.dto.js';
 
@@ -29,9 +28,8 @@ export class UnstageUsecasesHandler implements CommandHandler<
       const ctx = this.uow.getWriteContext();
       const found = await this.uow
         .getSessionRepository()
-        .updateChangeStatusByEntitySystemIds(
+        .updateChangeStatusByAggregateIds(
           ctx.session.sessionId,
-          ENTITY_TYPE.UseCase,
           command.systemIds,
           CHANGE_STATUS.Unstaged,
         );

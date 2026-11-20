@@ -120,4 +120,15 @@ export interface ISessionRepository {
     systemIds: readonly number[],
     status: ChangeStatus,
   ): Promise<readonly number[]>;
+
+  /**
+   * Sets change_status for ALL edit_actions rows in the session whose
+   * aggregateId is in the supplied list (regardless of targetTable).
+   * Returns the distinct aggregateIds that had at least one matching row.
+   */
+  updateChangeStatusByAggregateIds(
+    sessionId: number,
+    aggregateIds: readonly number[],
+    status: ChangeStatus,
+  ): Promise<readonly number[]>;
 }
