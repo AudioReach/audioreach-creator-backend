@@ -14,13 +14,23 @@ import type {
   ControlLink,
   SpfModuleDefinition,
 } from '@arc/core';
-import {EMPTY_PREFERENCES, SpfModule, KvData} from '@arc/core';
+import {
+  EMPTY_PREFERENCES,
+  SpfModule,
+  KvData,
+  Container,
+  ContainerPropertyValue,
+  PropertyDefinition,
+} from '@arc/core';
 import {TypeOrmValidationPreferencesRepository} from './typeorm-validation-preferences.repository.js';
 import {ArcDbFileSchema} from '../../entity-schema/project-data/arc-db-file.schema.js';
 import type {ArcDbFileRow} from '../../entity-schema/project-data/arc-db-file.schema.js';
 import {SpfModuleSchema} from '../../entity-schema/usecase-data/module/spf-module.schema.js';
 import type {SpfModuleRow} from '../../entity-schema/usecase-data/module/spf-module.schema.js';
 import type {CkvRow} from '../../entity-schema/usecase-data/module/spf-module-calibration-data.schema.js';
+import type {ContainerRow} from '../../entity-schema/usecase-data/container/container.schema.js';
+import type {ContainerPropertyDataRow} from '../../entity-schema/usecase-data/container/container-property-data.js';
+import type {ContainerPropertyRow} from '../../entity-schema/definitions/container/container-property-definition.schema.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 
 const CHUNK_SIZE = 999;
@@ -121,6 +131,75 @@ export class TypeOrmValidationQueryRepository implements ValidationQueryReposito
   // TODO: add async when real DB query is implemented
   findDefinitionsByFile(_fileSystemId: number): Promise<SpfModuleDefinition[]> {
     return Promise.resolve([]);
+  }
+
+  async findContainersByFile(fileSystemId: number): Promise<Container[]> {
+    const containerRows = (await this.dataSource
+      .getRepository(ENTITY_NAMES.Container)
+      .createQueryBuilder('c')
+      .where('c.fileSystemId = :fileSystemId', {fileSystemId})
+      .getMany()) as ContainerRow[];
+
+    if (containerRows.length === 0) return [];
+
+    const containerIds = containerRows.map(r => r.systemId);
+    const propDataRows: ContainerPropertyDataRow[] = [];
+
+    for (let i = 0; i < containerIds.length; i += CHUNK_SIZE) {
+      const chunk = containerIds.slice(i, i + CHUNK_SIZE);
+      const rows = (await this.dataSource
+        .getRepository(ENTITY_NAMES.ContainerPropertyData)
+        .createQueryBuilder('cpd')
+        .where('cpd.containerSystemId IN (:...ids)', {ids: chunk})
+        .getMany()) as ContainerPropertyDataRow[];
+      propDataRows.push(...rows);
+    }
+
+    const propDataByContainer = new Map<number, ContainerPropertyDataRow[]>();
+    for (const row of propDataRows) {
+      const existing = propDataByContainer.get(row.containerSystemId) ?? [];
+      existing.push(row);
+      propDataByContainer.set(row.containerSystemId, existing);
+    }
+
+    return containerRows.map(row => {
+      const container = new Container(
+        row.systemId,
+        row.naturalId,
+        row.containerTypeSystemId ?? 0,
+        row.fileSystemId,
+      );
+      for (const propRow of propDataByContainer.get(row.systemId) ?? []) {
+        container.properties.set(
+          propRow.propertySystemId,
+          new ContainerPropertyValue(propRow.propertySystemId, propRow.payload),
+        );
+      }
+      return container;
+    });
+  }
+
+  async findContainerPropertyDefinitionsByFile(
+    fileSystemId: number,
+  ): Promise<PropertyDefinition[]> {
+    const rows = (await this.dataSource
+      .getRepository(ENTITY_NAMES.ContainerProperty)
+      .createQueryBuilder('cp')
+      .where('cp.fileSystemId = :fileSystemId', {fileSystemId})
+      .getMany()) as ContainerPropertyRow[];
+    return rows.map(
+      row =>
+        new PropertyDefinition({
+          systemId: row.systemId,
+          fileSystemId: row.fileSystemId,
+          naturalId: row.naturalId,
+          name: row.name,
+          type: row.propertyType,
+          description: row.description,
+          elementsStructure: row.elementsStructure ?? '',
+          maxSize: row.maxSize,
+        }),
+    );
   }
 
   async getPreferences(fileSystemId: number): Promise<ValidationPreferences> {

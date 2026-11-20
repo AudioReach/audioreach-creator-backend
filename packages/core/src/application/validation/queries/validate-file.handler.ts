@@ -15,6 +15,9 @@ import {ValidationContextBuilder} from '../validation-context-builder.js';
 import {ValidationOrchestrator} from '../validation-orchestrator.js';
 import {MissingDefinitionRule} from '../../../domain/validation/rules/module/missing-definition.rule.js';
 import {ZeroCkvMixRule} from '../../../domain/validation/rules/module/zero-ckv-mix.rule.js';
+import {ContainerPropertyParseRule} from '../../../domain/validation/rules/container/container-property-parse.rule.js';
+import {containerPayloadParses} from '../container-payload-parses.js';
+import {MissingContainerPropertyRule} from '../../../domain/validation/rules/container/missing-container-property.rule.js';
 import {VALIDATION_RULE_GROUP} from '../../../domain/validation/validation-rule.js';
 
 /**
@@ -41,6 +44,8 @@ export class ValidateFileQueryHandler implements QueryHandler<
     const engine = new ValidationEngine([
       new MissingDefinitionRule(),
       new ZeroCkvMixRule(),
+      new ContainerPropertyParseRule(containerPayloadParses),
+      new MissingContainerPropertyRule(),
     ]);
     const contextBuilder = new ValidationContextBuilder(
       this.queryServices.validationQueryService,

@@ -9,6 +9,8 @@ import type {Subgraph} from '../../domain/entities/usecase-data/subgraph/subgrap
 import type {DataLink} from '../../domain/entities/usecase-data/links/data-link.js';
 import type {ControlLink} from '../../domain/entities/usecase-data/links/control-link.js';
 import type {SpfModuleDefinition} from '../../domain/entities/definitions/spf-module/spf-module-definition.js';
+import type {Container} from '../../domain/entities/usecase-data/container/container.js';
+import type {PropertyDefinition} from '../../domain/entities/definitions/common/entities/property-definition.js';
 import type {FileValidationContext} from '../../domain/validation/validation-context.js';
 import type {ValidationPreferences} from '../../domain/validation/validation-preferences.js';
 import {EMPTY_PREFERENCES} from '../../domain/validation/validation-preferences.js';
@@ -28,6 +30,10 @@ export interface FileEntities {
   dataLinks: DataLink[];
   controlLinks: ControlLink[];
   definitions: SpfModuleDefinition[];
+  /** Optional: not populated on the upload path (OQ-002). Defaults to [] in buildContext(). */
+  containers?: Container[];
+  /** Optional: not populated on the upload path (OQ-002). Defaults to [] in buildContext(). */
+  containerPropertyDefinitions?: PropertyDefinition[];
 }
 
 /**
@@ -73,6 +79,8 @@ export class ValidationContextBuilder {
    *   UseCase             → usecases + usecasesByModuleSystemId
    *   Subgraph            → subgraphs + subgraphsBySystemId
    *   SpfModuleDefinition → definitions
+   *   Container           → containers + containersBySystemId
+   *   ContainerPropertyDefinition → propDefBySystemId
    */
   async fromDb(
     fileSystemId: number,
@@ -85,6 +93,8 @@ export class ValidationContextBuilder {
       dataLinks,
       controlLinks,
       definitions,
+      containers,
+      containerPropertyDefinitions,
       preferences,
     ] = await Promise.all([
       requiredEntityTypes.has(ENTITY_TYPE.SpfModule)
@@ -105,6 +115,12 @@ export class ValidationContextBuilder {
       requiredEntityTypes.has(ENTITY_TYPE.SpfModuleDefinition)
         ? this.queryRepo.findDefinitionsByFile(fileSystemId)
         : Promise.resolve([] as SpfModuleDefinition[]),
+      requiredEntityTypes.has(ENTITY_TYPE.Container)
+        ? this.queryRepo.findContainersByFile(fileSystemId)
+        : Promise.resolve([] as Container[]),
+      requiredEntityTypes.has(ENTITY_TYPE.ContainerPropertyDefinition)
+        ? this.queryRepo.findContainerPropertyDefinitionsByFile(fileSystemId)
+        : Promise.resolve([] as PropertyDefinition[]),
       this.queryRepo
         .getPreferences(fileSystemId)
         .catch(() => EMPTY_PREFERENCES),
@@ -119,6 +135,8 @@ export class ValidationContextBuilder {
         dataLinks,
         controlLinks,
         definitions,
+        containers,
+        containerPropertyDefinitions,
       },
       preferences,
     );
@@ -166,6 +184,12 @@ function buildContext(
     }
   }
 
+  const containers = entities.containers ?? [];
+  const containersBySystemId = new Map(containers.map(c => [c.systemId, c]));
+  const propDefBySystemId = new Map(
+    (entities.containerPropertyDefinitions ?? []).map(d => [d.systemId, d]),
+  );
+
   return {
     fileSystemId,
     preferences,
@@ -179,5 +203,8 @@ function buildContext(
     subgraphsBySystemId,
     modulesBySubgraphSystemId,
     usecases,
+    containers,
+    containersBySystemId,
+    propDefBySystemId,
   };
 }

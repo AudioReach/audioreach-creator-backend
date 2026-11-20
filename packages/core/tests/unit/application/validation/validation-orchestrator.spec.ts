@@ -40,6 +40,8 @@ function makeMockQueryRepo(
     findDataLinksByFile: jest.fn().mockResolvedValue([]),
     findControlLinksByFile: jest.fn().mockResolvedValue([]),
     findDefinitionsByFile: jest.fn().mockResolvedValue([]),
+    findContainersByFile: jest.fn().mockResolvedValue([]),
+    findContainerPropertyDefinitionsByFile: jest.fn().mockResolvedValue([]),
     getPreferences: jest.fn().mockResolvedValue(EMPTY_PREFERENCES),
     findStoredDataLossIssues: jest.fn().mockResolvedValue(storedIssues),
   };
