@@ -31,6 +31,18 @@ export const NameValuePairSchema = z.object({
   value: z.string().describe('Encoded value'),
 });
 
+export const BitFieldSchema = z.object({
+  bitMask: z.string().describe('Bit mask for this field'),
+  bitName: z.string().describe('Display name of the bit field'),
+  description: z.string().optional(),
+  min: z.string().describe('Minimum value for the bit field'),
+  max: z.string().describe('Maximum value for the bit field'),
+  isHide: z.boolean().optional(),
+  isReadOnly: z.boolean().optional(),
+  rangeList: z.array(NameValuePairSchema).optional(),
+  groups: z.array(z.object({group: z.string()})).optional(),
+});
+
 // Summary schemas — write-side shape (type + name + value only)
 // Full read-side schemas — extend summary schemas to avoid duplicating type/name/value
 export const ConfigElementSchema =
@@ -49,6 +61,7 @@ export const ConfigElementSchema =
     min: z.number().optional(),
     max: z.number().optional(),
     allowedValues: z.array(NameValuePairSchema).optional(),
+    bitFields: z.array(BitFieldSchema).optional(),
   });
 
 // ElementTemplateArray and Struct use unknown[] for nested value/template to avoid infinite recursion
@@ -110,7 +123,7 @@ export function mapConfigElement(
     subgroup: e.subgroup,
     unit: e.unit,
     displayType: e.displayType
-      ? DISPLAY_TYPE_MAP[e.displayType as string]
+      ? (DISPLAY_TYPE_MAP[e.displayType as string] ?? e.displayType)
       : undefined,
     policy: e.policy,
     qFormat: e.qFormat,
@@ -118,6 +131,7 @@ export function mapConfigElement(
     min: e.min,
     max: e.max,
     allowedValues: e.rangeList?.map(r => ({name: r.name, value: r.value})),
+    bitFields: e.bitFields,
   };
 }
 
