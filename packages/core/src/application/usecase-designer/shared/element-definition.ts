@@ -7,6 +7,7 @@ import {
   PARAMETER_ELEMENT_TYPE,
   type DisplayType,
 } from '../../../domain/entities/definitions/common/types/element-type.js';
+import type {BitFieldData} from '../../../domain/entities/definitions/common/types/element-data.js';
 
 // ── DB-layer element type interfaces (used by the parameter-data parser) ──────
 
@@ -20,11 +21,13 @@ export interface ConfigElement {
   qFormat?: string;
   unitStr?: string;
   precision?: number;
+  uiValPrecision?: number;
   isReadOnly?: boolean;
   min?: string;
   max?: string;
   defaultValue?: string;
   rangeList?: Array<{name: string; value: string}>;
+  bitFields?: BitFieldData[];
   dependentOnElements?: Array<{name: string}>;
   group?: string;
   subgroup?: string;

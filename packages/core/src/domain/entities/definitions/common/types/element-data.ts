@@ -5,6 +5,18 @@
 import type {DataType} from './data-type.js';
 import {PARAMETER_ELEMENT_TYPE, type DisplayType} from './element-type.js';
 
+export interface BitFieldData {
+  bitMask: string;
+  bitName: string;
+  description?: string;
+  min: string;
+  max: string;
+  isHide?: boolean;
+  isReadOnly?: boolean;
+  rangeList?: Array<{name: string; value: string}>;
+  groups?: Array<{group: string}>;
+}
+
 // ── Shared base fields present on every element variant ───────────────────────
 
 export interface ElementDataBase {
@@ -35,6 +47,7 @@ export interface ConfigElementData extends ElementDataBase {
   min?: number;
   max?: number;
   rangeList?: Array<{name: string; value: string}>;
+  bitFields?: BitFieldData[];
   dependentOnElements?: Array<{name: string}>;
   displayName?: string;
   linkedByForFormula?: string[];

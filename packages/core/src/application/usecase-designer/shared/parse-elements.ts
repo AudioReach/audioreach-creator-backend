@@ -2,8 +2,12 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-import {PARAMETER_ELEMENT_TYPE} from '../../../domain/entities/definitions/common/types/element-type.js';
+import {
+  PARAMETER_ELEMENT_TYPE,
+  DISPLAY_TYPE,
+} from '../../../domain/entities/definitions/common/types/element-type.js';
 import {DATA_TYPE} from '../../../shared/dto/element-data/element-types.js';
+import type {DisplayType} from '../../../domain/entities/definitions/common/types/element-type.js';
 import type {
   ConfigElement,
   StructElement,
@@ -21,6 +25,36 @@ import type {
 import {BinaryDataReader} from './utils/binary-data-reader.js';
 import {evaluateFormula} from './utils/formular-evaluator.js';
 import {BinaryUtils} from '../../../shared/utilities/binary-utils.js';
+
+/**
+ * Maps AWSP mixed-case displayType values (e.g. "TextBox") to domain ALL_CAPS enum values (e.g. "TEXTBOX").
+ * AWSP files use mixed-case; the domain layer uses ALL_CAPS constants.
+ */
+const AWSP_TO_DOMAIN_DISPLAY_TYPE: Record<string, DisplayType> = {
+  TextBox: DISPLAY_TYPE.TEXTBOX,
+  DbTextBox: DISPLAY_TYPE.DB_TEXTBOX,
+  QFormattedValue: DISPLAY_TYPE.QFORMATTED_VALUE,
+  Slider: DISPLAY_TYPE.SLIDER,
+  CheckBox: DISPLAY_TYPE.CHECKBOX,
+  DropDown: DISPLAY_TYPE.DROPDOWN,
+  Dump: DISPLAY_TYPE.DUMP,
+  File: DISPLAY_TYPE.FILE,
+  BitField: DISPLAY_TYPE.BITFIELD,
+  Formula: DISPLAY_TYPE.FORMULA,
+  StringField: DISPLAY_TYPE.STRINGFIELD,
+};
+
+function normalizeDisplayType(
+  value: string | undefined,
+): DisplayType | undefined {
+  if (value === undefined) return undefined;
+  return (
+    AWSP_TO_DOMAIN_DISPLAY_TYPE[value] ??
+    (Object.values(DISPLAY_TYPE).includes(value as DisplayType)
+      ? (value as DisplayType)
+      : undefined)
+  );
+}
 
 /**
  * Converts a `Uint8Array` to a lowercase hex string (e.g. `[0x0a, 0xff]` → `"0aff"`).
@@ -339,14 +373,15 @@ function parseConfigElement(
     isReadOnly: element.isReadOnly ?? false,
     dataType: element.dataType,
     unit: element.unitStr,
-    displayType: element.displayType,
+    displayType: normalizeDisplayType(element.displayType),
     policy: element.policy,
     qFormat: element.qFormat,
-    precision: element.precision,
+    precision: element.precision ?? element.uiValPrecision,
     defaultValue: element.defaultValue,
     min: parseMinMax(element.min, element.dataType),
     max: parseMinMax(element.max, element.dataType),
     rangeList: element.rangeList,
+    bitFields: element.bitFields,
     dependentOnElements: element.dependentOnElements,
     alignment: element.alignment,
     channel: element.channel,
@@ -511,14 +546,15 @@ function buildTemplateElement(
         dataType: element.dataType,
         value: element.defaultValue ?? '',
         unit: element.unitStr,
-        displayType: element.displayType,
+        displayType: normalizeDisplayType(element.displayType),
         policy: element.policy,
         qFormat: element.qFormat,
-        precision: element.precision,
+        precision: element.precision ?? element.uiValPrecision,
         defaultValue: element.defaultValue,
         min: parseMinMax(element.min, element.dataType),
         max: parseMinMax(element.max, element.dataType),
         rangeList: element.rangeList,
+        bitFields: element.bitFields,
         dependentOnElements: element.dependentOnElements,
         alignment: element.alignment,
         channel: element.channel,
