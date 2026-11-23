@@ -758,9 +758,7 @@
             "required": true,
             "in": "path",
             "description": "Id of project",
-            "schema": {
-              "type": "string"
-            }
+            "schema": {}
           }
         ],
         "requestBody": {
@@ -856,9 +854,7 @@
             "required": true,
             "in": "path",
             "description": "Id of project",
-            "schema": {
-              "type": "string"
-            }
+            "schema": {}
           }
         ],
         "requestBody": {
@@ -4493,7 +4489,7 @@
     },
     "/arc-api/v1/projects/{projectId}/spf-modules/{spfModuleSystemId}/cal-data/{ckvSystemId}": {
       "get": {
-        "description": "Retrieves calibration data for a specific SPF module with configElements containing name, value, type, ranges etc.\n\n**Example Usage:**\n```\nGET /arc-api/v1/projects/proj123/spf-modules/12345/cal-data/101\nGET /arc-api/v1/projects/proj123/spf-modules/12345/cal-data/101?param-system-ids=1,2,3\n```\n\n**Required Parameters:**\n- `ckvSystemId`: CKV system ID for calibration data (path parameter)\n\n**Optional Parameters:**\n- `param-system-ids`: Comma-separated list of parameter system IDs\n\n**Parameter Filtering Logic:**\n- If `param-system-ids` are provided: Only return data for the specified parameter system IDs\n- If `param-system-ids` are not provided: Return all parameter data under the SPF module\n\n**Response Format:**\nJSON format including all configElements with name, value, type, ranges etc.\n\n**isActive Flag:**\n- Default: `false` (for RTGM - Real-Time Graph Manager)\n- Set to `true` only in RTC (Real-Time Control) context",
+        "description": "Retrieves calibration data for a specific SPF module with configElements containing name, value, type, ranges etc.\n\n**Example Usage:**\n```\nGET /arc-api/v1/projects/proj123/spf-modules/12345/cal-data/101\nGET /arc-api/v1/projects/proj123/spf-modules/12345/cal-data/101?param-system-ids=1,2,3\n```\n\n**Required Parameters:**\n- `ckvSystemId`: CKV system ID for calibration data (path parameter)\n\n**Optional Parameters:**\n- `param-system-ids`: Comma-separated list of parameter-definition system IDs\n\n**Parameter Filtering Logic:**\n- If `param-system-ids` are provided: Only return data for the specified parameter-definition system IDs\n- If `param-system-ids` are not provided: Return all parameter data under the SPF module\n\n**Response Format:**\nJSON format including configElements with name, value, type, ranges etc. Each parameter exposes `systemId` (payload ID for updates) and `parameterSystemId` (definition ID for GET filters).\n\n**isActive Flag:**\n- Default: `false` (for RTGM - Real-Time Graph Manager)\n- Set to `true` only in RTC (Real-Time Control) context",
         "operationId": "SpfModuleController_getCalibrationData",
         "parameters": [
           {
@@ -4530,7 +4526,7 @@
             "name": "param-system-ids",
             "required": false,
             "in": "query",
-            "description": "Optional comma-separated list of parameter system IDs. Example: ?param-system-ids=1,2,3 or omit for all parameter IDs under the SPF module.",
+            "description": "Optional comma-separated list of parameter-definition system IDs. systemId identifies the parameter definition in both GET responses and PUT updates.",
             "schema": {
               "example": "1,2,3",
               "type": "string"
@@ -4663,7 +4659,7 @@
     },
     "/arc-api/v1/projects/{projectId}/spf-modules/{spfModuleSystemId}/tag-data/{tagSystemId}/{tkvSystemId}": {
       "get": {
-        "description": "Retrieves tag-specific data for an SPF module with configElements containing name, value, type, ranges etc.\n\n**Example Usage:**\n```\nGET /arc-api/v1/projects/proj123/spf-modules/12345/tag-data/201/301\nGET /arc-api/v1/projects/proj123/spf-modules/12345/tag-data/201/301?param-system-ids=1,2,3\n```\n\n**Required Parameters:**\n- `tagSystemId`: Tag system ID for tag data (path parameter)\n- `tkvSystemId`: TKV system ID for tag data (path parameter)\n\n**Optional Parameters:**\n- `param-system-ids`: Comma-separated list of parameter system IDs\n\n**Parameter Filtering Logic:**\n- If `param-system-ids` are provided: Only return data for the specified parameter system IDs\n- If `param-system-ids` are not provided: Return all parameter data under the SPF module\n\n**Response Format:**\nJSON format including tagSystemId, tkvSystemId, and array of PID data with configElements.\n\n**Tag Context:**\nThe response includes tag-specific context (tagSystemId, tkvSystemId) along with the same\nPID data structure as calibration data, allowing for tag-specific configuration management.",
+        "description": "Retrieves tag-specific data for an SPF module with configElements containing name, value, type, ranges etc.\n\n**Example Usage:**\n```\nGET /arc-api/v1/projects/proj123/spf-modules/12345/tag-data/201/301\nGET /arc-api/v1/projects/proj123/spf-modules/12345/tag-data/201/301?param-system-ids=1,2,3\n```\n\n**Required Parameters:**\n- `tagSystemId`: Tag system ID for tag data (path parameter)\n- `tkvSystemId`: TKV system ID for tag data (path parameter)\n\n**Optional Parameters:**\n- `param-system-ids`: Comma-separated list of parameter-definition system IDs\n\n**Parameter Filtering Logic:**\n- If `param-system-ids` are provided: Only return data for the specified parameter-definition system IDs\n- If `param-system-ids` are not provided: Return all parameter data under the SPF module\n\n**Response Format:**\nJSON format including tagSystemId, tkvSystemId, and array of PID data with configElements.\n\n**Tag Context:**\nThe response includes tag-specific context (tagSystemId, tkvSystemId) along with the same\nPID data structure as calibration data, allowing for tag-specific configuration management.",
         "operationId": "SpfModuleController_getTagData",
         "parameters": [
           {
@@ -4710,7 +4706,7 @@
             "name": "param-system-ids",
             "required": false,
             "in": "query",
-            "description": "Optional comma-separated list of parameter system IDs. Example: ?param-system-ids=1,2,3 or omit for all parameter IDs under the SPF module.",
+            "description": "Optional comma-separated list of parameter-definition system IDs. systemId identifies the parameter definition in both GET responses and PUT updates.",
             "schema": {
               "example": "1,2,3",
               "type": "string"
@@ -9072,6 +9068,7 @@
           "ModuleManagerData",
           "SubgraphPropertyDefinition",
           "ContainerPropertyDefinition",
+          "DriverPropertyDefinition",
           "Ckv",
           "Tag",
           "Tkv",
@@ -13452,7 +13449,7 @@
           },
           "systemId": {
             "type": "string",
-            "description": "System identifier"
+            "description": "Parameter-definition system identifier"
           },
           "naturalId": {
             "type": "string",
@@ -13507,7 +13504,7 @@
               "properties": {
                 "systemId": {
                   "type": "string",
-                  "description": "System identifier"
+                  "description": "Parameter-definition system identifier"
                 },
                 "naturalId": {
                   "type": "string",
@@ -13618,6 +13615,79 @@
                               "required": [
                                 "name",
                                 "value"
+                              ]
+                            }
+                          },
+                          "bitFields": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "bitMask": {
+                                  "type": "string",
+                                  "description": "Bit mask for this field"
+                                },
+                                "bitName": {
+                                  "type": "string",
+                                  "description": "Display name of the bit field"
+                                },
+                                "description": {
+                                  "type": "string"
+                                },
+                                "min": {
+                                  "type": "string",
+                                  "description": "Minimum value for the bit field"
+                                },
+                                "max": {
+                                  "type": "string",
+                                  "description": "Maximum value for the bit field"
+                                },
+                                "isHide": {
+                                  "type": "boolean"
+                                },
+                                "isReadOnly": {
+                                  "type": "boolean"
+                                },
+                                "rangeList": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "name": {
+                                        "type": "string",
+                                        "description": "Display name"
+                                      },
+                                      "value": {
+                                        "type": "string",
+                                        "description": "Encoded value"
+                                      }
+                                    },
+                                    "required": [
+                                      "name",
+                                      "value"
+                                    ]
+                                  }
+                                },
+                                "groups": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "group": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "group"
+                                    ]
+                                  }
+                                }
+                              },
+                              "required": [
+                                "bitMask",
+                                "bitName",
+                                "min",
+                                "max"
                               ]
                             }
                           }
@@ -14515,6 +14585,79 @@
                           "value"
                         ]
                       }
+                    },
+                    "bitFields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "bitMask": {
+                            "type": "string",
+                            "description": "Bit mask for this field"
+                          },
+                          "bitName": {
+                            "type": "string",
+                            "description": "Display name of the bit field"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "min": {
+                            "type": "string",
+                            "description": "Minimum value for the bit field"
+                          },
+                          "max": {
+                            "type": "string",
+                            "description": "Maximum value for the bit field"
+                          },
+                          "isHide": {
+                            "type": "boolean"
+                          },
+                          "isReadOnly": {
+                            "type": "boolean"
+                          },
+                          "rangeList": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "description": "Display name"
+                                },
+                                "value": {
+                                  "type": "string",
+                                  "description": "Encoded value"
+                                }
+                              },
+                              "required": [
+                                "name",
+                                "value"
+                              ]
+                            }
+                          },
+                          "groups": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "group": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "group"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "bitMask",
+                          "bitName",
+                          "min",
+                          "max"
+                        ]
+                      }
                     }
                   },
                   "required": [
@@ -14984,7 +15127,7 @@
               "properties": {
                 "systemId": {
                   "type": "string",
-                  "description": "System identifier"
+                  "description": "Parameter-definition system identifier"
                 },
                 "naturalId": {
                   "type": "string",
@@ -15095,6 +15238,79 @@
                               "required": [
                                 "name",
                                 "value"
+                              ]
+                            }
+                          },
+                          "bitFields": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "bitMask": {
+                                  "type": "string",
+                                  "description": "Bit mask for this field"
+                                },
+                                "bitName": {
+                                  "type": "string",
+                                  "description": "Display name of the bit field"
+                                },
+                                "description": {
+                                  "type": "string"
+                                },
+                                "min": {
+                                  "type": "string",
+                                  "description": "Minimum value for the bit field"
+                                },
+                                "max": {
+                                  "type": "string",
+                                  "description": "Maximum value for the bit field"
+                                },
+                                "isHide": {
+                                  "type": "boolean"
+                                },
+                                "isReadOnly": {
+                                  "type": "boolean"
+                                },
+                                "rangeList": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "name": {
+                                        "type": "string",
+                                        "description": "Display name"
+                                      },
+                                      "value": {
+                                        "type": "string",
+                                        "description": "Encoded value"
+                                      }
+                                    },
+                                    "required": [
+                                      "name",
+                                      "value"
+                                    ]
+                                  }
+                                },
+                                "groups": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "group": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "group"
+                                    ]
+                                  }
+                                }
+                              },
+                              "required": [
+                                "bitMask",
+                                "bitName",
+                                "min",
+                                "max"
                               ]
                             }
                           }
@@ -15302,7 +15518,7 @@
               "properties": {
                 "systemId": {
                   "type": "string",
-                  "description": "System identifier"
+                  "description": "Parameter-definition system identifier"
                 },
                 "naturalId": {
                   "type": "string",
@@ -15413,6 +15629,79 @@
                               "required": [
                                 "name",
                                 "value"
+                              ]
+                            }
+                          },
+                          "bitFields": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "bitMask": {
+                                  "type": "string",
+                                  "description": "Bit mask for this field"
+                                },
+                                "bitName": {
+                                  "type": "string",
+                                  "description": "Display name of the bit field"
+                                },
+                                "description": {
+                                  "type": "string"
+                                },
+                                "min": {
+                                  "type": "string",
+                                  "description": "Minimum value for the bit field"
+                                },
+                                "max": {
+                                  "type": "string",
+                                  "description": "Maximum value for the bit field"
+                                },
+                                "isHide": {
+                                  "type": "boolean"
+                                },
+                                "isReadOnly": {
+                                  "type": "boolean"
+                                },
+                                "rangeList": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "name": {
+                                        "type": "string",
+                                        "description": "Display name"
+                                      },
+                                      "value": {
+                                        "type": "string",
+                                        "description": "Encoded value"
+                                      }
+                                    },
+                                    "required": [
+                                      "name",
+                                      "value"
+                                    ]
+                                  }
+                                },
+                                "groups": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "group": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "group"
+                                    ]
+                                  }
+                                }
+                              },
+                              "required": [
+                                "bitMask",
+                                "bitName",
+                                "min",
+                                "max"
                               ]
                             }
                           }
@@ -16607,8 +16896,7 @@
         "properties": {
           "systemId": {
             "type": "string",
-            "description": "System identifier of the property to update",
-            "example": "123"
+            "description": "System identifier of the property to update"
           },
           "elements": {
             "type": "array",

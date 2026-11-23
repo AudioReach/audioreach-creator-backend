@@ -12,11 +12,23 @@ import {
 } from '../common/entities/module-definition.js';
 import {assertNonNull, invariant} from '../../../../shared/assertions/index.js';
 import {BinaryUtils} from '../../../../shared/utilities/binary-utils.js';
+import type {MdfModuleType} from '../common/types/mdf-module-type.js';
+import type {MajorModuleType} from '../common/types/major-module-type.js';
+import type {ModuleBuildType} from '../common/types/build-type.js';
 
 export interface SpfModuleDefinitionInit extends ModuleDefinitionInit {
   modSearchKeys?: string;
   stackSize: number;
   isOffloadable?: boolean;
+  deprecated?: boolean;
+  vocoderModuleType?: string;
+  directionType?: string;
+  mdfModuleType?: MdfModuleType;
+  majorModuleType?: MajorModuleType;
+  buildType?: ModuleBuildType;
+  islandFriendly?: boolean;
+  rtmLogCode?: number;
+  hasNeuralNetParam?: boolean;
   dataPortGroups: DataPortGroupDefinition[];
   staticControlPorts: StaticControlPortDefinition[];
   dynamicIntents?: DynamicIntentDefinition[];
@@ -31,6 +43,15 @@ export class SpfModuleDefinition extends ModuleDefinition {
   modSearchKeys?: string;
   stackSize: number;
   isOffloadable?: boolean;
+  deprecated?: boolean;
+  vocoderModuleType?: string;
+  directionType?: string;
+  mdfModuleType?: MdfModuleType;
+  majorModuleType?: MajorModuleType;
+  buildType?: ModuleBuildType;
+  islandFriendly?: boolean;
+  rtmLogCode?: number;
+  hasNeuralNetParam?: boolean;
   readonly dataPortGroups: DataPortGroupDefinition[] = [];
   readonly staticControlPorts: StaticControlPortDefinition[] = [];
   readonly dynamicIntents: DynamicIntentDefinition[] = [];
@@ -48,6 +69,15 @@ export class SpfModuleDefinition extends ModuleDefinition {
     this.modSearchKeys = initParam.modSearchKeys;
     this.stackSize = initParam.stackSize;
     this.isOffloadable = initParam.isOffloadable;
+    this.deprecated = initParam.deprecated;
+    this.vocoderModuleType = initParam.vocoderModuleType;
+    this.directionType = initParam.directionType;
+    this.mdfModuleType = initParam.mdfModuleType;
+    this.majorModuleType = initParam.majorModuleType;
+    this.buildType = initParam.buildType;
+    this.islandFriendly = initParam.islandFriendly;
+    this.rtmLogCode = initParam.rtmLogCode;
+    this.hasNeuralNetParam = initParam.hasNeuralNetParam;
     this.processorSystemId = initParam.processorSystemId;
     for (const port of initParam.staticControlPorts) {
       this.AddStaticControlPort(port);

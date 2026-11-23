@@ -25,6 +25,19 @@ export interface SpfModuleDefinitionBase {
   name: string;
   displayName?: string;
   description?: string;
+  groupName?: string;
+  replacedBy?: number;
+  builtIn?: boolean;
+  isOffloadable?: boolean;
+  deprecated?: boolean;
+  vocoderModuleType?: string;
+  directionType?: string;
+  mdfModuleType?: string;
+  majorModuleType?: string;
+  buildType?: string;
+  islandFriendly?: boolean;
+  rtmLogCode?: number;
+  hasNeuralNetParam?: boolean;
   modSearchKeys?: string;
   stackSize: number;
   fileSystemId: number;
@@ -36,9 +49,18 @@ export interface SpfModuleDefinitionRow
   extends EntityBaseRow, SpfModuleDefinitionBase {
   description?: string;
   groupName?: string;
-  replacedBy?: number | null;
-  builtIn?: boolean | null;
-  isOffloadable?: boolean | null;
+  replacedBy?: number;
+  builtIn?: boolean;
+  isOffloadable?: boolean;
+  deprecated?: boolean;
+  vocoderModuleType?: string;
+  directionType?: string;
+  mdfModuleType?: string;
+  majorModuleType?: string;
+  buildType?: string;
+  islandFriendly?: boolean;
+  rtmLogCode?: number;
+  hasNeuralNetParam?: boolean;
   modSearchKeys?: string;
   metadata?: string;
   isLoadedAtBootup: boolean;
@@ -102,6 +124,56 @@ export const SpfModuleDefinitionSchema =
         type: 'boolean',
         nullable: true,
         name: 'is_offloadable',
+      },
+      deprecated: {
+        type: 'boolean',
+        nullable: true,
+        name: 'deprecated',
+      },
+      vocoderModuleType: {
+        type: 'varchar',
+        length: 50,
+        nullable: true,
+        name: 'vocoder_module_type',
+      },
+      directionType: {
+        type: 'varchar',
+        length: 50,
+        nullable: true,
+        name: 'direction_type',
+      },
+      mdfModuleType: {
+        type: 'varchar',
+        length: 50,
+        nullable: true,
+        name: 'mdf_module_type',
+      },
+      majorModuleType: {
+        type: 'varchar',
+        length: 50,
+        nullable: true,
+        name: 'major_module_type',
+      },
+      buildType: {
+        type: 'varchar',
+        length: 50,
+        nullable: true,
+        name: 'build_type',
+      },
+      islandFriendly: {
+        type: 'boolean',
+        nullable: true,
+        name: 'island_friendly',
+      },
+      rtmLogCode: {
+        type: 'int',
+        nullable: true,
+        name: 'rtm_log_code',
+      },
+      hasNeuralNetParam: {
+        type: 'boolean',
+        nullable: true,
+        name: 'has_neural_net_param',
       },
       modSearchKeys: {
         type: 'text',

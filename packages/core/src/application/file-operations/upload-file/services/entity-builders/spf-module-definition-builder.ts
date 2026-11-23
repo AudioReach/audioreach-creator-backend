@@ -23,6 +23,9 @@ import {PARAM_TYPE} from '../../../../../domain/entities/definitions/common/type
 import type {ToolPolicy} from '../../../../../domain/entities/definitions/common/types/tool-policy-type.js';
 import {TOOL_POLICY} from '../../../../../domain/entities/definitions/common/types/tool-policy-type.js';
 import {PORT_IO_TYPE} from '../../../../../domain/entities/common/enums/port-io-type.js';
+import {MDF_MODULE_TYPE} from '../../../../../domain/entities/definitions/common/types/mdf-module-type.js';
+import {MAJOR_MODULE_TYPE} from '../../../../../domain/entities/definitions/common/types/major-module-type.js';
+import {MODULE_BUILT_TYPE} from '../../../../../domain/entities/definitions/common/types/build-type.js';
 import {DataPortGroupDefinition} from '../../../../../domain/entities/definitions/spf-module/value-objects/data-port-group-definition.js';
 import {DataPortDefinition} from '../../../../../domain/entities/definitions/spf-module/value-objects/data-port-definition.js';
 import {StaticControlPortDefinition} from '../../../../../domain/entities/definitions/spf-module/value-objects/static-control-port-definition.js';
@@ -673,6 +676,27 @@ export class SpfModuleDefinitionBuilder {
           replacedBy: awsp.replacedBy,
           builtIn: awsp.builtIn,
           isOffloadable: awsp.isOffloadable,
+          deprecated: awsp.deprecated,
+          vocoderModuleType: awsp.vocoderModuleType,
+          directionType: awsp.directionType,
+          mdfModuleType:
+            awsp.mdfModuleType != null
+              ? MDF_MODULE_TYPE[awsp.mdfModuleType]
+              : undefined,
+          majorModuleType:
+            awsp.majorModuleType != null
+              ? MAJOR_MODULE_TYPE[awsp.majorModuleType]
+              : undefined,
+          buildType:
+            awsp.buildType != null
+              ? MODULE_BUILT_TYPE[awsp.buildType]
+              : undefined,
+          islandFriendly: awsp.islandFriendly,
+          rtmLogCode:
+            awsp.rtmLogCode != null
+              ? Number.parseInt(awsp.rtmLogCode, 16)
+              : undefined,
+          hasNeuralNetParam: awsp.hasNeuralNetParam,
           modSearchKeys: awsp.searchKeys,
           parameters,
           dataPortGroups: [inputDataPortsGroup, outputDataPortsGroup],

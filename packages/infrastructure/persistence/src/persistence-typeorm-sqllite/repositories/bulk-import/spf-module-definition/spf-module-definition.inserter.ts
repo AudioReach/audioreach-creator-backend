@@ -148,9 +148,18 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
       displayName: mod.displayName,
       description: mod.description,
       groupName: mod.groupName,
-      replacedBy: mod.replacedBy ?? null,
-      builtIn: mod.builtIn ?? null,
-      isOffloadable: mod.isOffloadable ?? null,
+      replacedBy: mod.replacedBy ?? undefined,
+      builtIn: mod.builtIn ?? undefined,
+      isOffloadable: mod.isOffloadable ?? undefined,
+      deprecated: mod.deprecated ?? undefined,
+      vocoderModuleType: mod.vocoderModuleType ?? undefined,
+      directionType: mod.directionType ?? undefined,
+      mdfModuleType: mod.mdfModuleType ?? undefined,
+      majorModuleType: mod.majorModuleType ?? undefined,
+      buildType: mod.buildType ?? undefined,
+      islandFriendly: mod.islandFriendly ?? undefined,
+      rtmLogCode: mod.rtmLogCode ?? undefined,
+      hasNeuralNetParam: mod.hasNeuralNetParam ?? undefined,
       modSearchKeys: mod.modSearchKeys,
       stackSize: mod.stackSize,
       fileSystemId: mod.fileSystemId,
@@ -202,8 +211,8 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
             isPersistent: param.isPersistent,
             elementsStructure: param.elementsStructure,
             isReadOnly: param.isReadOnly,
-            isHidden: param.isHidden ?? null,
-            deprecated: param.deprecated ?? null,
+            isHidden: param.isHidden ?? undefined,
+            deprecated: param.deprecated ?? undefined,
             toolPolicies:
               param.toolPolicies.length > 0
                 ? JSON.stringify(param.toolPolicies)
@@ -600,7 +609,7 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
             systemId,
             naturalId: intent.naturalId,
             name: intent.name,
-            maxPortCount: intent.maxPortCount ?? null,
+            maxPortCount: intent.maxPortCount ?? undefined,
             staticControlPortDefinitionSystemId: portSystemId,
           });
         }

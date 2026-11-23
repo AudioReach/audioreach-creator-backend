@@ -16,6 +16,8 @@ export interface BaseModuleDefinitionSummaryReadModel {
   readonly name: string;
   readonly displayName?: string;
   readonly description?: string;
+  readonly groupName?: string;
+  readonly replacedBy?: number;
   readonly parameterDefinitions: ParameterDefinitionSummaryReadModel[];
   readonly deprecated?: boolean;
 }
