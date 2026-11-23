@@ -77,7 +77,7 @@ async function seedModule(ds: DataSource, opts: {alias?: string} = {}) {
     [SUBGRAPH_ID, FILE_ID],
   );
   await ds.query(
-    `INSERT INTO containers (system_id, container_id, container_type_system_id, file_system_id) VALUES (?, 1, 5, ?)`,
+    `INSERT INTO containers (system_id, container_id, file_system_id) VALUES (?, 1, ?)`,
     [CONTAINER_ID, FILE_ID],
   );
   await ds.query(

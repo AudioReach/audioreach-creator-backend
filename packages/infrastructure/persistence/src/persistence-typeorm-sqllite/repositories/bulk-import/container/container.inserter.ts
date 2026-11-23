@@ -59,7 +59,6 @@ export class ContainerInserter implements BulkInserter<Container> {
     const rows: InsertRow<ContainerRow>[] = containers.map(c => ({
       systemId: c.systemId,
       naturalId: c.naturalId,
-      containerTypeSystemId: c.containerTypeSystemId,
       fileSystemId: c.fileSystemId,
     }));
 

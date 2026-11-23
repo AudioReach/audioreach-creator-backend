@@ -49,7 +49,6 @@ describe('buildContainerWithDefaults', () => {
       {
         systemId: 100,
         containerNaturalId: 1,
-        containerTypeSystemId: 50,
         fileSystemId: 10,
         procDomainNaturalId: 2,
         capabilitySystemIds: [50],
@@ -69,7 +68,6 @@ describe('buildContainerWithDefaults', () => {
       {
         systemId: 100,
         containerNaturalId: 1,
-        containerTypeSystemId: 50,
         fileSystemId: 10,
         procDomainNaturalId: 2,
         capabilitySystemIds: [50],
@@ -97,7 +95,6 @@ describe('buildContainerWithDefaults', () => {
         {
           systemId: 100,
           containerNaturalId: 1,
-          containerTypeSystemId: 50,
           fileSystemId: 10,
           stackSize: 0,
         },
@@ -112,7 +109,6 @@ describe('buildContainerWithDefaults', () => {
         {
           systemId: 100,
           containerNaturalId: 1,
-          containerTypeSystemId: 50,
           fileSystemId: 10,
           stackSize: 0,
         },
@@ -148,7 +144,6 @@ describe('buildContainerWithDefaults', () => {
       {
         systemId: 100,
         containerNaturalId: 1,
-        containerTypeSystemId: 50,
         fileSystemId: 10,
         procDomainNaturalId: 2,
         capabilitySystemIds: [50],

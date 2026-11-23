@@ -32,6 +32,28 @@ import {ControlPort} from '../../../../../../src/domain/entities/usecase-data/no
 const FILE_ID = 10;
 const MODULE_ID = 100;
 const GROUP_ID = 'test-group-uuid';
+const CAP_LIST_PROP_SID = 901; // system ID for CAPABILITY_LIST property def in tests
+const COMPATIBLE_DOMAIN_VALUE = 0xb001001; // domain value for container type system ID 5
+
+function makeCapabilityBlob(domainValue: number): Uint8Array {
+  const buf = new Uint8Array(8);
+  const view = new DataView(buf.buffer);
+  view.setUint32(0, 1, true);
+  view.setUint32(4, domainValue >>> 0, true);
+  return buf;
+}
+
+function makeCompatibleProperties(): Map<
+  number,
+  {getPayloadCopy: () => Uint8Array}
+> {
+  return new Map([
+    [
+      CAP_LIST_PROP_SID,
+      {getPayloadCopy: () => makeCapabilityBlob(COMPATIBLE_DOMAIN_VALUE)},
+    ],
+  ]);
+}
 
 function makeModule(
   overrides: {dataPorts?: DataPort[]; controlPorts?: ControlPort[]} = {},
@@ -71,16 +93,32 @@ function makeContainerRepo(
   return {
     containerExists: jest.fn().mockResolvedValue(true),
     getContainerById: jest.fn().mockResolvedValue(null),
-    getPropertyDefinitionByPropertyId: jest.fn().mockResolvedValue({
-      systemId: 900,
-      fileSystemId: FILE_ID,
-      propertyId: CONTAINER_PROP_ID_STACK_SIZE,
-      name: 'Stack Size',
-      description: undefined,
-      maxSize: 4,
-      type: 'SPF',
-      elementsStructure: '',
-    }),
+    getPropertyDefinitionByPropertyId: jest
+      .fn()
+      .mockImplementation((_fileId: number, propNaturalId: number) => {
+        if (propNaturalId === 0x08001011) {
+          return Promise.resolve({
+            systemId: CAP_LIST_PROP_SID,
+            fileSystemId: FILE_ID,
+            propertyId: propNaturalId,
+            name: 'Capability List',
+            description: undefined,
+            maxSize: 8,
+            type: 'SPF',
+            elementsStructure: '',
+          });
+        }
+        return Promise.resolve({
+          systemId: 900,
+          fileSystemId: FILE_ID,
+          propertyId: CONTAINER_PROP_ID_STACK_SIZE,
+          name: 'Stack Size',
+          description: undefined,
+          maxSize: 4,
+          type: 'SPF',
+          elementsStructure: '',
+        });
+      }),
     getPropertyData: jest.fn().mockResolvedValue(null),
     setPropertyData: jest.fn().mockResolvedValue(undefined),
     createContainer: jest.fn().mockResolvedValue(undefined),
@@ -94,6 +132,9 @@ function makeDefRepo(
   return {
     findBySystemId: jest.fn().mockResolvedValue(null),
     findByModuleIdAndProcId: jest.fn().mockResolvedValue(null),
+    getContainerTypeValues: jest
+      .fn()
+      .mockResolvedValue(new Map([[5, COMPATIBLE_DOMAIN_VALUE]])),
     ...overrides,
   };
 }
@@ -241,9 +282,8 @@ describe('PatchSpfModuleHandler', () => {
     const currentContainer = {
       systemId: 300,
       containerId: 1,
-      containerTypeSystemId: 5,
       fileSystemId: FILE_ID,
-      properties: new Map(),
+      properties: makeCompatibleProperties(),
     };
     const containerRepo = makeContainerRepo({
       getContainerById: jest
@@ -280,16 +320,14 @@ describe('PatchSpfModuleHandler', () => {
     const currentContainer = {
       systemId: 300,
       containerId: 1,
-      containerTypeSystemId: 5,
       fileSystemId: FILE_ID,
       properties: new Map(),
     };
     const targetContainer = {
       systemId: 42,
       containerId: 2,
-      containerTypeSystemId: 5,
       fileSystemId: FILE_ID,
-      properties: new Map(),
+      properties: makeCompatibleProperties(),
     };
     const containerRepo = makeContainerRepo({
       getContainerById: jest
@@ -327,16 +365,14 @@ describe('PatchSpfModuleHandler', () => {
     const currentContainer = {
       systemId: 300,
       containerId: 1,
-      containerTypeSystemId: 5,
       fileSystemId: FILE_ID,
       properties: new Map(),
     };
     const targetContainer = {
       systemId: 42,
       containerId: 2,
-      containerTypeSystemId: 9,
       fileSystemId: FILE_ID,
-      properties: new Map(),
+      properties: new Map(), // empty blob → no domain values match → incompatible
     };
     const containerRepo = makeContainerRepo({
       getContainerById: jest

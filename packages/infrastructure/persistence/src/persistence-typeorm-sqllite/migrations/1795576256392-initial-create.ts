@@ -5,8 +5,8 @@
 
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-export class InitialCreate1795505120709 implements MigrationInterface {
-  name = 'InitialCreate1795505120709';
+export class InitialCreate1795576256392 implements MigrationInterface {
+  name = 'InitialCreate1795576256392';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -193,7 +193,7 @@ export class InitialCreate1795505120709 implements MigrationInterface {
       `CREATE UNIQUE INDEX "uk_container_property_data" ON "container_property_data" ("container_system_id", "property_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "containers" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "container_type_system_id" integer, "container_id" integer NOT NULL, "file_system_id" integer NOT NULL)`,
+      `CREATE TABLE "containers" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "container_id" integer NOT NULL, "file_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uq_containers_container_id_file_system_id" ON "containers" ("container_id", "file_system_id") `,
@@ -952,10 +952,10 @@ export class InitialCreate1795505120709 implements MigrationInterface {
       `DROP INDEX "uq_containers_container_id_file_system_id"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "temporary_containers" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "container_type_system_id" integer, "container_id" integer NOT NULL, "file_system_id" integer NOT NULL, CONSTRAINT "FK_653656dc62acc1aad3344064cd4" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_containers" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "container_id" integer NOT NULL, "file_system_id" integer NOT NULL, CONSTRAINT "FK_653656dc62acc1aad3344064cd4" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_containers"("system_id", "version", "container_type_system_id", "container_id", "file_system_id") SELECT "system_id", "version", "container_type_system_id", "container_id", "file_system_id" FROM "containers"`,
+      `INSERT INTO "temporary_containers"("system_id", "version", "container_id", "file_system_id") SELECT "system_id", "version", "container_id", "file_system_id" FROM "containers"`,
     );
     await queryRunner.query(`DROP TABLE "containers"`);
     await queryRunner.query(
@@ -2280,10 +2280,10 @@ export class InitialCreate1795505120709 implements MigrationInterface {
       `ALTER TABLE "containers" RENAME TO "temporary_containers"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "containers" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "container_type_system_id" integer, "container_id" integer NOT NULL, "file_system_id" integer NOT NULL)`,
+      `CREATE TABLE "containers" ("system_id" integer PRIMARY KEY NOT NULL, "version" integer NOT NULL DEFAULT (1), "container_id" integer NOT NULL, "file_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `INSERT INTO "containers"("system_id", "version", "container_type_system_id", "container_id", "file_system_id") SELECT "system_id", "version", "container_type_system_id", "container_id", "file_system_id" FROM "temporary_containers"`,
+      `INSERT INTO "containers"("system_id", "version", "container_id", "file_system_id") SELECT "system_id", "version", "container_id", "file_system_id" FROM "temporary_containers"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_containers"`);
     await queryRunner.query(

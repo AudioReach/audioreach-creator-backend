@@ -14,7 +14,6 @@ import {encodeStackSize} from '../shared/utils/container-stack-size-codec.js';
  * Stack size is always initialized to 0 rather than copied — it must be
  * recalculated by the caller based on the modules that will be placed in
  * the new container.
- * The containerTypeSystemId is inherited from the source.
  *
  * Used by:
  *   - PatchSpfModuleHandler — PATCH auto-create case (containerId targeting a
@@ -27,12 +26,7 @@ export function buildContainerCopy(
   newContainerId: number,
   fileSystemId: number,
 ): ContainerClass {
-  const copy = new ContainerClass(
-    newSystemId,
-    newContainerId,
-    source.containerTypeSystemId,
-    fileSystemId,
-  );
+  const copy = new ContainerClass(newSystemId, newContainerId, fileSystemId);
   for (const [propId, propVal] of source.properties) {
     if (propId === CONTAINER_PROP_ID_STACK_SIZE) continue;
     copy.properties.set(

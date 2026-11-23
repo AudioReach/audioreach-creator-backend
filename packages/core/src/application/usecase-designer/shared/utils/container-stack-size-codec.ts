@@ -24,3 +24,21 @@ export function decodeStackSize(data: Uint8Array): number {
     true,
   );
 }
+
+/**
+ * Decodes a CAPABILITY_LIST property blob into an array of ContainerType domain values.
+ * Blob format: [count uint32 LE, val0 uint32 LE, val1 uint32 LE, ...]
+ * Returns empty array when the blob is missing or malformed.
+ */
+export function decodeCapabilityList(
+  blob: Uint8Array | null | undefined,
+): number[] {
+  if (!blob || blob.byteLength < 4) return [];
+  const view = new DataView(blob.buffer, blob.byteOffset, blob.byteLength);
+  const count = view.getUint32(0, true);
+  const ids: number[] = [];
+  for (let i = 0; i < count && (i + 1) * 4 + 4 <= blob.byteLength; i++) {
+    ids.push(view.getUint32((i + 1) * 4, true));
+  }
+  return ids;
+}

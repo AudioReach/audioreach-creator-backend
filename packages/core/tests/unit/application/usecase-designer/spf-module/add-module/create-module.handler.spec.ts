@@ -24,6 +24,30 @@ import {batchOf, notFoundBatch} from '../../../../../helpers/index.js';
 const FILE_ID = 10;
 const GROUP_ID = 'test-group-uuid';
 const MODULE_DEF_SYSTEM_ID = 200;
+const CAP_LIST_PROP_SID = 901; // system ID for CAPABILITY_LIST property def in tests
+const CAP_DOMAIN_VALUE = 0xb001001; // matches makeDefRepo mock Map([[50, 0xb001001]])
+
+function makeCapabilityBlob(domainValue: number): Uint8Array {
+  const buf = new Uint8Array(8);
+  const view = new DataView(buf.buffer);
+  view.setUint32(0, 1, true);
+  view.setUint32(4, domainValue >>> 0, true);
+  return buf;
+}
+
+function makeExistingContainerMock() {
+  return {
+    systemId: 88,
+    naturalId: 1,
+    fileSystemId: FILE_ID,
+    properties: new Map([
+      [
+        CAP_LIST_PROP_SID,
+        {getPayloadCopy: () => makeCapabilityBlob(CAP_DOMAIN_VALUE)},
+      ],
+    ]),
+  };
+}
 
 function makeDefinition(
   overrides: Partial<{
@@ -96,17 +120,22 @@ function makeContainerRepo(): ContainerRepository {
         maxSize: 4,
       }),
     ]),
-    getPropertyDefinitionByPropertyId: jest.fn().mockResolvedValue(
-      new PropertyDefinition({
-        systemId: 900,
-        fileSystemId: FILE_ID,
-        naturalId: 0x08_00_10_13,
-        name: 'Stack Size',
-        type: 'SPF',
-        elementsStructure: '',
-        maxSize: 4,
-      }),
-    ),
+    getPropertyDefinitionByPropertyId: jest
+      .fn()
+      .mockImplementation((_fileSystemId: number, naturalId: number) =>
+        Promise.resolve(
+          new PropertyDefinition({
+            systemId: naturalId === 0x08_00_10_11 ? CAP_LIST_PROP_SID : 900,
+            fileSystemId: FILE_ID,
+            naturalId,
+            name:
+              naturalId === 0x08_00_10_11 ? 'Capability List' : 'Stack Size',
+            type: 'SPF',
+            elementsStructure: '',
+            maxSize: naturalId === 0x08_00_10_11 ? 20 : 4,
+          }),
+        ),
+      ),
     getPropertyData: jest.fn().mockResolvedValue(null),
     setPropertyData: jest.fn().mockResolvedValue(undefined),
   };
@@ -248,7 +277,7 @@ describe('CreateModuleHandler — Variant 1 (auto-create subgraph + container)',
     const containerRepo = makeContainerRepo();
     (
       containerRepo.getContainerById as ReturnType<typeof jest.fn>
-    ).mockResolvedValue({containerTypeSystemId: 50});
+    ).mockResolvedValue(makeExistingContainerMock());
     const definition = makeDefinition({stackSize: 4096});
     const uow = makeUow({containerRepo, defRepo: makeDefRepo(definition)});
     const handler = new CreateModuleHandler(
@@ -268,7 +297,8 @@ describe('CreateModuleHandler — Variant 1 (auto-create subgraph + container)',
     const definition = makeDefinition({
       containerTypesSystemIds: new Set([77, 88]),
     });
-    const uow = makeUow({containerRepo, defRepo: makeDefRepo(definition)});
+    const defRepo = makeDefRepo(definition);
+    const uow = makeUow({containerRepo, defRepo});
     const handler = new CreateModuleHandler(
       uow,
       makeIdGen(),
@@ -277,10 +307,8 @@ describe('CreateModuleHandler — Variant 1 (auto-create subgraph + container)',
 
     await handler.handle(new CreateModuleCommand(42, 1, null, null, null));
 
-    const createdContainer = (
-      containerRepo.createContainer as ReturnType<typeof jest.fn>
-    ).mock.calls[0][0];
-    expect(createdContainer.containerTypeSystemId).toBe(77);
+    expect(containerRepo.createContainer).toHaveBeenCalledTimes(1);
+    expect(defRepo.getContainerTypeValues).toHaveBeenCalledWith([77]);
   });
 
   it('materialises static data ports from definition', async () => {
@@ -495,7 +523,7 @@ describe('CreateModuleHandler — container stack size (Step 4.5)', () => {
     const containerRepo = makeContainerRepo();
     (
       containerRepo.getContainerById as ReturnType<typeof jest.fn>
-    ).mockResolvedValue({containerTypeSystemId: 50});
+    ).mockResolvedValue(makeExistingContainerMock());
     (
       containerRepo.getPropertyData as ReturnType<typeof jest.fn>
     ).mockResolvedValue(existingStackSizeBuf);
@@ -526,7 +554,7 @@ describe('CreateModuleHandler — container stack size (Step 4.5)', () => {
     const containerRepo = makeContainerRepo();
     (
       containerRepo.getContainerById as ReturnType<typeof jest.fn>
-    ).mockResolvedValue({containerTypeSystemId: 50});
+    ).mockResolvedValue(makeExistingContainerMock());
     (
       containerRepo.getPropertyData as ReturnType<typeof jest.fn>
     ).mockResolvedValue(existingStackSizeBuf);

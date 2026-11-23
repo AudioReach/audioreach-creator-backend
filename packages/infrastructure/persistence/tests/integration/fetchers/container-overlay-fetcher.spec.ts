@@ -71,12 +71,11 @@ async function seedContainer(
   opts: {
     systemId: number;
     fileSystemId: number;
-    containerTypeSystemId?: number;
   },
 ) {
   await ds.query(
-    `INSERT INTO containers (system_id, container_id, container_type_system_id, file_system_id) VALUES (?, 1, ?, ?)`,
-    [opts.systemId, opts.containerTypeSystemId ?? 5, opts.fileSystemId],
+    `INSERT INTO containers (system_id, container_id, file_system_id) VALUES (?, 1, ?)`,
+    [opts.systemId, opts.fileSystemId],
   );
 }
 
@@ -145,11 +144,10 @@ describe('ContainerOverlayFetcher (integration)', () => {
     await seedContainer(ds, {
       systemId: CONTAINER_ID,
       fileSystemId: FILE_ID,
-      containerTypeSystemId: 5,
     });
     const result = await fetcher.fetchOne(CONTAINER_ID, FILE_ID, null);
     expect(result).not.toBeNull();
-    expect(result!.containerTypeSystemId).toBe(5);
+    expect(result!.systemId).toBe(CONTAINER_ID);
     expect(result!.properties).toHaveLength(0);
   });
 
@@ -163,41 +161,18 @@ describe('ContainerOverlayFetcher (integration)', () => {
       operation: CHANGE_OPERATION.Create,
       newValue: JSON.stringify({
         naturalId: 1,
-        containerTypeSystemId: 5,
         fileSystemId: FILE_ID,
       }),
     });
     const result = await fetcher.fetchOne(CONTAINER_ID, FILE_ID, sessionId);
     expect(result).not.toBeNull();
     expect(result!.systemId).toBe(CONTAINER_ID);
-    expect(result!.containerTypeSystemId).toBe(5);
-  });
-
-  it('applies UPDATE overlay to containerTypeSystemId', async () => {
-    await seedContainer(ds, {
-      systemId: CONTAINER_ID,
-      fileSystemId: FILE_ID,
-      containerTypeSystemId: 1,
-    });
-    const sessionId = await seedSession(ds);
-    await seedEditAction(ds, {
-      sessionId,
-      aggregateId: CONTAINER_ID,
-      targetSystemId: CONTAINER_ID,
-      targetTable: ENTITY_NAMES.Container,
-      operation: CHANGE_OPERATION.Update,
-      fieldPath: 'containerTypeSystemId',
-      newValue: '9',
-    });
-    const result = await fetcher.fetchOne(CONTAINER_ID, FILE_ID, sessionId);
-    expect(result!.containerTypeSystemId).toBe(9);
   });
 
   it('tombstones DELETE-staged container', async () => {
     await seedContainer(ds, {
       systemId: CONTAINER_ID,
       fileSystemId: FILE_ID,
-      containerTypeSystemId: 5,
     });
     const sessionId = await seedSession(ds);
     await seedEditAction(ds, {
@@ -215,7 +190,6 @@ describe('ContainerOverlayFetcher (integration)', () => {
     await seedContainer(ds, {
       systemId: CONTAINER_ID,
       fileSystemId: FILE_ID,
-      containerTypeSystemId: 5,
     });
     const sessionId = await seedSession(ds);
     const propSystemId = 300;

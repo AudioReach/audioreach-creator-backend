@@ -74,12 +74,11 @@ async function seedContainer(
   opts: {
     systemId: number;
     fileSystemId: number;
-    containerTypeSystemId?: number;
   },
 ) {
   await ds.query(
-    `INSERT INTO containers (system_id, container_id, container_type_system_id, file_system_id) VALUES (?, 1, ?, ?)`,
-    [opts.systemId, opts.containerTypeSystemId ?? 5, opts.fileSystemId],
+    `INSERT INTO containers (system_id, container_id, file_system_id) VALUES (?, 1, ?)`,
+    [opts.systemId, opts.fileSystemId],
   );
 }
 
@@ -170,14 +169,13 @@ describe('TypeOrmContainerRepository (integration)', () => {
     await seedContainer(ds, {
       systemId: CONTAINER_ID,
       fileSystemId: FILE_ID,
-      containerTypeSystemId: 7,
     });
     const sessionId = await seedSession(ds);
     const repo = makeRepo(qr, sessionId);
     const container = await repo.getContainerById(CONTAINER_ID, FILE_ID);
     expect(container).not.toBeNull();
     expect(container!.systemId).toBe(CONTAINER_ID);
-    expect(container!.containerTypeSystemId).toBe(7);
+    expect(container!.naturalId).toBe(1);
   });
 
   it('createContainer writes a CREATE edit_action row', async () => {
