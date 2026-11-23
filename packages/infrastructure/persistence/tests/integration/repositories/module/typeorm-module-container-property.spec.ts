@@ -102,8 +102,8 @@ async function seedModule(ds: DataSource): Promise<void> {
     [SUBGRAPH_ID, FILE_ID],
   );
   await ds.query(
-    `INSERT INTO containers (system_id, container_id, container_type_system_id, file_system_id) VALUES (?, 1, ?, ?)`,
-    [CONTAINER_ID, CONTAINER_TYPE_ID, FILE_ID],
+    `INSERT INTO containers (system_id, container_id, file_system_id) VALUES (?, 1, ?)`,
+    [CONTAINER_ID, FILE_ID],
   );
   await ds.query(
     `INSERT INTO nodes (system_id, type, parent_id, file_system_id) VALUES (?, 'module', NULL, ?)`,

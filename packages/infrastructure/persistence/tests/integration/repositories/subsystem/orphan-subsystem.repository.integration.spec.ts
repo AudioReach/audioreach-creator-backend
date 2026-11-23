@@ -116,8 +116,8 @@ async function seedGraph(ds: DataSource): Promise<void> {
   );
   await ds.query(
     `INSERT INTO containers
-       (system_id, container_id, container_type_system_id, file_system_id)
-     VALUES (920, 920, NULL, ?), (921, 921, NULL, ?)`,
+       (system_id, container_id, file_system_id)
+     VALUES (920, 920, ?), (921, 921, ?)`,
     [FILE_ID, OTHER_FILE_ID],
   );
   await ds.query(

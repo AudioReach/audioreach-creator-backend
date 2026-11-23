@@ -16,11 +16,9 @@ import {
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {ContainerOverlayFetcher} from '../../fetchers/container-overlay-fetcher.js';
 import {ContainerPropertyDataFetcher} from '../../fetchers/container-property-data-fetcher.js';
-import {ContainerTypeFetcher} from '../../fetchers/definitions/container/container-type-fetcher.js';
 
 export class DbContainerQueryService implements ContainerQueryService {
   private readonly containerFetcher: ContainerOverlayFetcher;
-  private readonly containerTypeFetcher: ContainerTypeFetcher;
 
   constructor(
     dataSource: DataSource,
@@ -31,10 +29,6 @@ export class DbContainerQueryService implements ContainerQueryService {
       dataSource.manager,
       editActionsSvc,
       new ContainerPropertyDataFetcher(dataSource.manager, editActionsSvc),
-    );
-    this.containerTypeFetcher = new ContainerTypeFetcher(
-      dataSource.manager,
-      editActionsSvc,
     );
   }
 
@@ -59,35 +53,15 @@ export class DbContainerQueryService implements ContainerQueryService {
           ? rows
           : rows.filter(row => systemIds.includes(row.systemId));
 
-      // Step 3 — resolve container type names via ContainerTypeFetcher (FR-3).
-      // ContainerType is session-mutable and must be overlay-aware.
-      const typeIds = [
-        ...new Set(
-          selectedRows
-            .map(r => r.containerTypeSystemId)
-            .filter((id): id is number => !!id),
-        ),
-      ];
-      const typeNameMap = new Map<number, string>();
-      if (typeIds.length > 0) {
-        const typeRows = await this.containerTypeFetcher.fetchMany(
-          typeIds,
-          session?.sessionId ?? null,
-        );
-        for (const t of typeRows) typeNameMap.set(t.systemId, t.name);
-      }
-
-      // Step 4 — assemble ContainerReadModel[]
+      // Step 3 — assemble ContainerReadModel[]
       return Result.ok(
         selectedRows.map(
           r =>
             ({
               systemId: r.systemId,
               naturalId: r.naturalId,
-              containerTypeSystemId: r.containerTypeSystemId ?? null,
-              containerTypeName: r.containerTypeSystemId
-                ? (typeNameMap.get(r.containerTypeSystemId) ?? null)
-                : null,
+              containerTypeSystemId: null,
+              containerTypeName: null,
             }) satisfies ContainerReadModel,
         ),
       );

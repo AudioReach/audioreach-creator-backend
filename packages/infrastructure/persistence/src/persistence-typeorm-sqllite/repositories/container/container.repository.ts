@@ -105,7 +105,6 @@ export class TypeOrmContainerRepository implements ContainerRepository {
     const container = new Container(
       overlaid.systemId,
       overlaid.naturalId,
-      overlaid.containerTypeSystemId,
       overlaid.fileSystemId,
     );
     for (const prop of overlaid.properties) {
@@ -130,7 +129,6 @@ export class TypeOrmContainerRepository implements ContainerRepository {
         aggregateId: container.systemId,
         payload: {
           naturalId: container.naturalId,
-          containerTypeSystemId: container.containerTypeSystemId,
           fileSystemId: container.fileSystemId,
         },
         ...options,

@@ -62,7 +62,7 @@ describe('DbCkvCalibrationQueryService definition filtering', () => {
       "INSERT INTO subgraphs (system_id, name, subgraph_id, is_imported, file_system_id) VALUES (410, 'sg2', 2, 0, 300)",
     );
     await ds.query(
-      'INSERT INTO containers (system_id, container_id, container_type_system_id, file_system_id) VALUES (510, 2, 5, 300)',
+      'INSERT INTO containers (system_id, container_id, file_system_id) VALUES (510, 2, 300)',
     );
     await ds.query(
       "INSERT INTO spf_module_definitions (system_id, module_definition_id, name, stack_size, file_system_id, is_loaded_at_bootup, processor_system_id) VALUES (310, 2, 'mod2', 0, 300, 0, 2)",

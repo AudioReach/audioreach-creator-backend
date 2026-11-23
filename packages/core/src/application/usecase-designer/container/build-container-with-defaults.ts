@@ -18,7 +18,6 @@ import type {Logger} from '../../../shared/types/logger.interface.js';
 export interface ContainerInit {
   systemId: number;
   containerNaturalId: number;
-  containerTypeSystemId: number;
   fileSystemId: number;
   procDomainNaturalId: number;
   capabilitySystemIds: number[];
@@ -40,7 +39,6 @@ export function buildContainerWithDefaults(
   const container = new Container(
     init.systemId,
     init.containerNaturalId,
-    init.containerTypeSystemId,
     init.fileSystemId,
   );
 

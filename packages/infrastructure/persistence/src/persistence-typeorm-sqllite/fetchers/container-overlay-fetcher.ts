@@ -23,7 +23,6 @@ import type {ContainerPropertyDataFetcher} from './container-property-data-fetch
  */
 export type ContainerFilters = {
   systemId?: number | number[];
-  containerTypeSystemId?: number | number[];
   $or?: ContainerFilters[];
 };
 

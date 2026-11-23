@@ -54,7 +54,7 @@ describe('ContainerQueryHandler', () => {
     }
   });
 
-  it('falls back to containerTypeSystemId as string when containerTypeName is null', async () => {
+  it('falls back to empty string when containerTypeName is null', async () => {
     const qs = makeQueryServices([
       {
         systemId: 7,
@@ -69,7 +69,7 @@ describe('ContainerQueryHandler', () => {
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind === RESULT_KIND.Ok) {
-      expect(result.data[0].name).toBe('3');
+      expect(result.data[0].name).toBe('');
     }
   });
 

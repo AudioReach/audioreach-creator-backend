@@ -18,6 +18,8 @@ import {DataPort} from '../../../../domain/entities/usecase-data/node/entities/d
 import {ControlPort} from '../../../../domain/entities/usecase-data/node/entities/control-port.js';
 import {buildSubgraphWithDefaults} from '../../subgraph/build-subgraph-with-defaults.js';
 import {buildContainerWithDefaults} from '../../container/build-container-with-defaults.js';
+import {decodeCapabilityList} from '../../shared/utils/container-stack-size-codec.js';
+import {CONTAINER_PROP_ID_CAPABILITY_LIST} from '../../../../domain/entities/definitions/container/container-property-ids.js';
 import {createZeroCkv} from '../shared/kv-seed-helpers.js';
 import type {CreateModuleCommand} from './create-module.command.js';
 import {CONFIGURATION_INCLUDES} from '../../../ports/persistence/query-services/configuration-includes.js';
@@ -244,7 +246,6 @@ export class CreateModuleHandler implements CommandHandler<
         {
           systemId: containerSystemId,
           containerNaturalId,
-          containerTypeSystemId: firstContainerTypeSystemId,
           fileSystemId,
           procDomainNaturalId: processorNaturalId,
           capabilitySystemIds:
@@ -266,11 +267,33 @@ export class CreateModuleHandler implements CommandHandler<
         `Container ${command.containerSystemId} not found.`,
       );
     }
-    if (!moduleContainerTypesSystemIds.has(container.containerTypeSystemId)) {
+
+    // Derive container capability from CAPABILITY_LIST property blob
+    const capPropDef = await containerRepo.getPropertyDefinitionByPropertyId(
+      fileSystemId,
+      CONTAINER_PROP_ID_CAPABILITY_LIST,
+    );
+    if (!capPropDef) {
+      throw new ResourceNotFoundException(
+        `Capability list property definition not found for file ${fileSystemId}.`,
+      );
+    }
+    const capBlob =
+      container.properties.get(capPropDef.systemId)?.getPayloadCopy() ?? null;
+    const containerCapValues = decodeCapabilityList(capBlob);
+
+    // Map module container type system IDs → domain values, then check intersection
+    const moduleTypeValuesMap = await this.uow
+      .getModuleDefinitionRepository()
+      .getContainerTypeValues([...moduleContainerTypesSystemIds]);
+    const moduleCapValueSet = new Set(moduleTypeValuesMap.values());
+    const hasMatch = containerCapValues.some(v => moduleCapValueSet.has(v));
+
+    if (!hasMatch) {
       throw new DomainRuleViolationException([
         IssueFactory.containerTypeIncompatible(
           command.containerSystemId,
-          container.containerTypeSystemId,
+          null,
           [...moduleContainerTypesSystemIds],
         ),
       ]);

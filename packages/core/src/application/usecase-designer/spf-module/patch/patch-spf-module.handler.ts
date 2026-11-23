@@ -19,6 +19,8 @@ import {
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
 import {CONTAINER_PROP_ID_STACK_SIZE} from '../../../../domain/entities/definitions/spf-ids.js';
+import {CONTAINER_PROP_ID_CAPABILITY_LIST} from '../../../../domain/entities/definitions/container/container-property-ids.js';
+import {decodeCapabilityList} from '../../shared/utils/container-stack-size-codec.js';
 import {buildContainerCopy} from '../../container/build-container-copy.js';
 import {DataPort} from '../../../../domain/entities/usecase-data/node/entities/data-port.js';
 import {ControlPort} from '../../../../domain/entities/usecase-data/node/entities/control-port.js';
@@ -206,17 +208,32 @@ export class PatchSpfModuleHandler implements CommandHandler<
       );
     }
 
-    if (
-      !definition.containerTypesSystemIds.has(
-        targetContainer.containerTypeSystemId,
-      )
-    ) {
+    // Derive container capability from CAPABILITY_LIST property blob
+    const capPropDef = await containerRepo.getPropertyDefinitionByPropertyId(
+      fileSystemId,
+      CONTAINER_PROP_ID_CAPABILITY_LIST,
+    );
+    if (!capPropDef) {
+      throw new ResourceNotFoundException(
+        `Capability list property definition not found for file ${fileSystemId}.`,
+      );
+    }
+    const capBlob =
+      targetContainer.properties.get(capPropDef.systemId)?.getPayloadCopy() ??
+      null;
+    const containerCapValues = decodeCapabilityList(capBlob);
+
+    const moduleTypeValuesMap = await defRepo.getContainerTypeValues([
+      ...definition.containerTypesSystemIds,
+    ]);
+    const moduleCapValueSet = new Set(moduleTypeValuesMap.values());
+    const hasMatch = containerCapValues.some(v => moduleCapValueSet.has(v));
+
+    if (!hasMatch) {
       throw new DomainRuleViolationException([
-        IssueFactory.containerTypeIncompatible(
-          newContainerId,
-          targetContainer.containerTypeSystemId,
-          [...definition.containerTypesSystemIds],
-        ),
+        IssueFactory.containerTypeIncompatible(newContainerId, null, [
+          ...definition.containerTypesSystemIds,
+        ]),
       ]);
     }
 

@@ -699,7 +699,7 @@ describe('TypeOrmDataLinkRepository (integration)', () => {
         [FILE_ID],
       );
       await ds.query(
-        `INSERT INTO containers (system_id, container_id, container_type_system_id, file_system_id) VALUES (600, 1, 5, ?)`,
+        `INSERT INTO containers (system_id, container_id, file_system_id) VALUES (600, 1, ?)`,
         [FILE_ID],
       );
       await ds.query(

@@ -13,7 +13,6 @@ import {EntitySchema} from 'typeorm';
 /** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
 export interface ContainerBase {
   systemId: number;
-  containerTypeSystemId: number;
   naturalId: number;
   fileSystemId: number;
 }
@@ -30,11 +29,6 @@ export const ContainerSchema = new EntitySchema<ContainerRow>({
   tableName: 'containers',
   columns: {
     ...BaseColumnSchemaPart,
-    containerTypeSystemId: {
-      name: 'container_type_system_id',
-      type: 'integer',
-      nullable: true,
-    },
     naturalId: {name: 'container_id', type: 'integer'},
     fileSystemId: {name: 'file_system_id', type: 'integer'},
   },

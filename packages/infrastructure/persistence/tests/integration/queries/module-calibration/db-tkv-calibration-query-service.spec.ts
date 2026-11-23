@@ -64,7 +64,7 @@ async function seedAll(ds: DataSource) {
     [SUBGRAPH_ID, FILE_ID],
   );
   await ds.query(
-    `INSERT INTO containers (system_id, container_id, container_type_system_id, file_system_id) VALUES (?, 2, 5, ?)`,
+    `INSERT INTO containers (system_id, container_id, file_system_id) VALUES (?, 2, ?)`,
     [CONTAINER_ID, FILE_ID],
   );
   await ds.query(
