@@ -87,8 +87,9 @@ export interface ContainerTypeSummaryReadModel {
 }
 
 export interface ModuleTypeInfoReadModel {
-  readonly majorModuleType: MajorModuleType;
-  readonly moduleBuildType: ModuleBuildType;
+  readonly mdfModuleType?: MdfModuleType;
+  readonly majorModuleType?: MajorModuleType;
+  readonly buildType?: ModuleBuildType;
   readonly islandFriendly?: boolean;
 }
 
@@ -102,11 +103,7 @@ export interface ModuleInfoSummaryReadModel {
   readonly outputDataPortInfo: DataPortGroupReadModel | null;
   readonly staticCtrlPorts: ControlPortDefinitionReadModel[];
   readonly dynamicIntents: DynamicIntentDefinitionReadModel[];
-  // moduleTypeInfo/mdfModuleType have no backing DB column yet — the
-  // DB-service implementation phase must add schema support before
-  // these can be populated with real data.
   readonly moduleTypeInfo?: ModuleTypeInfoReadModel;
-  readonly mdfModuleType?: MdfModuleType;
 }
 
 export interface SpfModuleDefinitionSummaryReadModel extends BaseModuleDefinitionSummaryReadModel {
@@ -116,6 +113,8 @@ export interface SpfModuleDefinitionSummaryReadModel extends BaseModuleDefinitio
   readonly builtIn: boolean;
   readonly vocoderModuleType?: string;
   readonly moduleDirectionType?: string;
+  readonly rtmLogCode?: number;
+  readonly hasNeuralNetParam?: boolean;
   readonly moduleInfo: ModuleInfoSummaryReadModel;
   readonly isLoadedAtBootup: boolean;
   readonly isCustomModule: boolean;

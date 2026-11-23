@@ -20,6 +20,9 @@ import type {
   ParameterDefinitionReadModel,
   CustomModuleMetadataReadModel,
   ConfigurationIncludes,
+  MdfModuleType,
+  MajorModuleType,
+  ModuleBuildType,
 } from '@arc/core';
 import {
   Result,
@@ -777,16 +780,20 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
       name: agg.root.name,
       displayName: agg.root.displayName ?? undefined,
       description: agg.root.description ?? undefined,
+      groupName: agg.root.groupName ?? undefined,
+      replacedBy: agg.root.replacedBy ?? undefined,
       parameterDefinitions: agg.parameters.map(p =>
         this.toParameterSummaryReadModel(p),
       ),
-      deprecated: undefined, // no column on spf_module_definitions yet
+      deprecated: agg.root.deprecated ?? undefined,
       processorInfo,
       modSearchKeys: agg.root.modSearchKeys ?? undefined,
-      isOffloadable: undefined, // no column yet
-      builtIn: false, // no column yet
-      vocoderModuleType: undefined, // no column yet
-      moduleDirectionType: undefined, // no column yet
+      isOffloadable: agg.root.isOffloadable ?? undefined,
+      builtIn: agg.root.builtIn ?? false,
+      vocoderModuleType: agg.root.vocoderModuleType ?? undefined,
+      moduleDirectionType: agg.root.directionType ?? undefined,
+      rtmLogCode: agg.root.rtmLogCode ?? undefined,
+      hasNeuralNetParam: agg.root.hasNeuralNetParam ?? undefined,
       moduleInfo: this.buildModuleInfoSummary(agg, containerTypeNameMap),
       isLoadedAtBootup: agg.root.isLoadedAtBootup,
       isCustomModule,
@@ -816,8 +823,18 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         portGroups.find(g => g.portIoType === PORT_IO_TYPE.Output) ?? null,
       staticCtrlPorts,
       dynamicIntents,
-      moduleTypeInfo: undefined, // no column yet
-      mdfModuleType: undefined, // no column yet
+      moduleTypeInfo: {
+        mdfModuleType: (agg.root.mdfModuleType ?? undefined) as
+          | MdfModuleType
+          | undefined,
+        majorModuleType: (agg.root.majorModuleType ?? undefined) as
+          | MajorModuleType
+          | undefined,
+        buildType: (agg.root.buildType ?? undefined) as
+          | ModuleBuildType
+          | undefined,
+        islandFriendly: agg.root.islandFriendly ?? undefined,
+      },
     };
   }
 

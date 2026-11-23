@@ -11,6 +11,18 @@ import {
   TOOL_POLICY,
   type ToolPolicy,
 } from '../../../../domain/entities/definitions/common/types/tool-policy-type.js';
+import {
+  MDF_MODULE_TYPE,
+  type MdfModuleType,
+} from '../../../../domain/entities/definitions/common/types/mdf-module-type.js';
+import {
+  MAJOR_MODULE_TYPE,
+  type MajorModuleType,
+} from '../../../../domain/entities/definitions/common/types/major-module-type.js';
+import {
+  MODULE_BUILT_TYPE,
+  type ModuleBuildType,
+} from '../../../../domain/entities/definitions/common/types/build-type.js';
 
 // ── Data type sub-schema (mirrors DataTypeDto in API) ──────────────────────
 
@@ -164,6 +176,42 @@ const ModuleInfoDtoSchema = z
       .array(StaticCtrlPortInfoDtoSchema)
       .describe('Static control ports'),
     dynamicIntents: z.array(IntentInfoDtoSchema).describe('Dynamic intents'),
+    moduleTypeInfo: z
+      .object({
+        mdfModuleType: z
+          .enum(
+            Object.values(MDF_MODULE_TYPE) as [
+              MdfModuleType,
+              ...MdfModuleType[],
+            ],
+          )
+          .optional()
+          .describe('MDF module type'),
+        majorModuleType: z
+          .enum(
+            Object.values(MAJOR_MODULE_TYPE) as [
+              MajorModuleType,
+              ...MajorModuleType[],
+            ],
+          )
+          .optional()
+          .describe('Major module type'),
+        buildType: z
+          .enum(
+            Object.values(MODULE_BUILT_TYPE) as [
+              ModuleBuildType,
+              ...ModuleBuildType[],
+            ],
+          )
+          .optional()
+          .describe('Build type'),
+        islandFriendly: z
+          .boolean()
+          .optional()
+          .describe('Indicates if the module is island friendly'),
+      })
+      .optional()
+      .describe('Module type information'),
   })
   .meta({id: 'ModuleInfo'});
 
@@ -176,6 +224,12 @@ export const SpfModuleDefinitionDtoSchema = z
     name: z.string().describe('Module name'),
     displayName: z.string().describe('Display name of the module'),
     description: z.string().describe('Description of the module'),
+    groupName: z.string().optional().describe('Group name for the module'),
+    replacedBy: z
+      .number()
+      .int()
+      .optional()
+      .describe('Natural ID of the module that replaces this one'),
     paramDefinitionsSummaryInfo: z
       .array(ParameterDefinitionSummaryInfoDtoSchema)
       .describe('Array of parameter definitions'),
@@ -192,6 +246,11 @@ export const SpfModuleDefinitionDtoSchema = z
       .string()
       .optional()
       .describe('Direction type of the module'),
+    rtmLogCode: z.number().int().optional().describe('RTM log code'),
+    hasNeuralNetParam: z
+      .boolean()
+      .optional()
+      .describe('Indicates if the module has neural network parameters'),
     moduleInfo: ModuleInfoDtoSchema.describe('Module information'),
     isLoadedAtBootup: z
       .boolean()
@@ -272,6 +331,8 @@ export function mapSpfModuleDefinition(
     name: row.name,
     displayName: row.displayName ?? '',
     description: row.description ?? '',
+    groupName: row.groupName ?? undefined,
+    replacedBy: row.replacedBy ?? undefined,
     paramDefinitionsSummaryInfo: row.parameterDefinitions.map(p => ({
       systemId: String(p.systemId),
       naturalId: p.naturalId,
@@ -294,6 +355,8 @@ export function mapSpfModuleDefinition(
     builtIn: row.builtIn ?? false,
     vocoderModuleType: row.vocoderModuleType,
     moduleDirectionType: row.moduleDirectionType,
+    rtmLogCode: row.rtmLogCode,
+    hasNeuralNetParam: row.hasNeuralNetParam,
     moduleInfo: {
       pidFramework: row.moduleInfo.pidFramework,
       stackSize: row.moduleInfo.stackSize,
@@ -320,6 +383,7 @@ export function mapSpfModuleDefinition(
         name: d.name,
         maxPorts: d.maxPort,
       })),
+      moduleTypeInfo: row.moduleInfo.moduleTypeInfo,
     },
     isLoadedAtBootup: row.isLoadedAtBootup,
     isCustomModule: row.isCustomModule,
