@@ -721,6 +721,7 @@ export class EntityBuilderService {
     parsedAcdb: ParsedAcdb,
     fileSystemId: number,
     parsedAwsp: ParsedAwsp,
+    dataLinks: readonly DataLink[],
   ): Promise<UseCase[]> {
     // Extract usecase data from ACDB
     const usecaseChunk = parsedAcdb.getChunk<UsecaseDataChunk>(
@@ -745,6 +746,7 @@ export class EntityBuilderService {
     const usecases = await usecaseBuilder.buildUsecases(
       usecaseChunk.usecases,
       fileSystemId,
+      dataLinks,
       gkvAliasChunk,
       parsedAwsp.getUiMetadata(),
     );

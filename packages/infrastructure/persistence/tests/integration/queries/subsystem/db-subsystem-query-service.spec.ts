@@ -90,8 +90,8 @@ async function seedUsecaseGraph(ds: DataSource): Promise<void> {
     [SOURCE_SUBGRAPH_ID, FILE_ID, DEST_SUBGRAPH_ID, FILE_ID],
   );
   await ds.query(
-    `INSERT INTO use_cases (system_id, alias_id, alias, file_system_id)
-     VALUES (?, 1, 'usecase', ?)`,
+    `INSERT INTO use_cases (system_id, alias_id, alias, type, file_system_id)
+     VALUES (?, 1, 'usecase', 'LINKED', ?)`,
     [USECASE_ID, FILE_ID],
   );
   await ds.query(

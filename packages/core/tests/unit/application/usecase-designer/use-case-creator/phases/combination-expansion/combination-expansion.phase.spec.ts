@@ -24,6 +24,7 @@ import {CombinationExpansionPhase} from '../../../../../../../src/application/us
 import {DATA_LINK_TYPE} from '../../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
 import type {DataLink} from '../../../../../../../src/domain/entities/usecase-data/links/data-link.js';
 import {UseCase} from '../../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
+import {USECASE_TYPE} from '../../../../../../../src/domain/entities/usecase-data/usecase/usecase-type.js';
 
 const FILE_ID = 1;
 
@@ -606,6 +607,7 @@ describe('CombinationExpansionPhase', () => {
       ],
       [
         new UseCase({
+          type: USECASE_TYPE.Linked,
           systemId: 200,
           fileSystemId: FILE_ID,
           keyVector: {valueSystemIds: [99]},

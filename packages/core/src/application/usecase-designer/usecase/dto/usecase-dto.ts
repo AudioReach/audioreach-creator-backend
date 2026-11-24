@@ -6,7 +6,6 @@
 import {z} from 'zod';
 import type {UseCaseReadModel} from '../../../ports/persistence/query-services/usecase/query-models/usecase-read-model.js';
 import type {KeyValuePairReadModel} from '../../../ports/persistence/query-services/usecase/query-models/key-vector-read-model.js';
-import {USECASE_TYPE} from '../../../../domain/entities/usecase-data/usecase/usecase-type.js';
 
 const KeyInfoDtoSchema = z.object({
   naturalId: z.number().int().describe('Key id'),
@@ -65,7 +64,7 @@ export function mapKeyValuePair(
 export function mapUseCase(uc: UseCaseReadModel): UseCaseDto {
   return {
     systemId: String(uc.systemId),
-    usecaseType: uc.type ?? USECASE_TYPE.Linked,
+    usecaseType: uc.type,
     keyValuePairs: uc.gkv.map(kv => mapKeyValuePair(kv)),
     usecaseAliasId: uc.aliasId,
     usecaseAliasName: uc.alias,

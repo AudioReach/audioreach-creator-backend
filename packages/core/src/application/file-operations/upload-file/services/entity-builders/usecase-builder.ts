@@ -7,14 +7,8 @@ import {
   type KeyVectorInput,
   type SubgraphPair,
 } from '../../../../../domain/entities/usecase-data/usecase/usecase.js';
-import {
-  USECASE_TYPE,
-  type UsecaseType,
-} from '../../../../../domain/entities/usecase-data/usecase/usecase-type.js';
-import {
-  AWSP_USECASE_TYPE,
-  type AwspUsecaseType,
-} from '../../../shared/awsp-serializers/v1/ui-metadata/ui-metadata.schema.js';
+import type {DataLink} from '../../../../../domain/entities/usecase-data/links/data-link.js';
+import {computeUsecaseType} from '../../../../usecase-designer/use-case-creator/shared/usecase-type-classifier.js';
 import type {UsecaseEntry} from '../../../shared/acdb-chunks/usecase-data-chunk.js';
 import type {GkvAliasChunk} from '../../../shared/acdb-chunks/gkv-alias-chunk.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
@@ -34,6 +28,7 @@ export class UsecaseBuilder {
   async buildUsecases(
     usecaseEntries: UsecaseEntry[],
     fileSystemId: number,
+    dataLinks: readonly DataLink[],
     gkvAliasChunk?: GkvAliasChunk,
     uiMetadata?: UiMetadata,
   ): Promise<UseCase[]> {
@@ -45,9 +40,9 @@ export class UsecaseBuilder {
     let successCount = 0;
     let errorCount = 0;
 
-    // Pre-resolve each ui-metadata usecase keyValue into a sorted set of valueSystemIds + type
+    // Pre-resolve each ui-metadata usecase keyValue into a sorted set of valueSystemIds.
+    // The UI metadata type is ignored: import derives the type from the data links.
     const resolvedUiUsecases: {
-      type: UsecaseType;
       orderedKeys?: Array<{naturalId: number}>;
       reviewedAt?: string;
       categoryName?: string;
@@ -67,7 +62,6 @@ export class UsecaseBuilder {
         .sort((a, b) => a - b);
       if (ids.length > 0) {
         resolvedUiUsecases.push({
-          type: mapAwspTypeToUsecaseType(uiUc.type),
           orderedKeys: uiUc.orderedKeys?.map(k => ({naturalId: k.id})),
           reviewedAt: uiUc.reviewedAt,
           categoryName: uiUc.categoryName,
@@ -82,6 +76,7 @@ export class UsecaseBuilder {
           usecaseEntry,
           i,
           fileSystemId,
+          dataLinks,
           gkvAliasChunk,
           resolvedUiUsecases,
         );
@@ -112,9 +107,9 @@ export class UsecaseBuilder {
     entry: UsecaseEntry,
     index: number,
     fileSystemId: number,
+    dataLinks: readonly DataLink[],
     gkvAliasChunk?: GkvAliasChunk,
     resolvedUiUsecases: {
-      type: UsecaseType;
       orderedKeys?: Array<{naturalId: number}>;
       reviewedAt?: string;
       categoryName?: string;
@@ -182,7 +177,7 @@ export class UsecaseBuilder {
       alias: aliasEntry?.usecaseName,
       aliasId: aliasEntry?.usecaseId,
       categories: matched?.categoryName ? [matched.categoryName] : undefined,
-      type: matched?.type,
+      type: computeUsecaseType(subgraphSystemIds, subgraphPairs, dataLinks),
       orderedKeys: matched?.orderedKeys,
     });
   }
@@ -234,16 +229,5 @@ export class UsecaseBuilder {
     }
 
     return {valueSystemIds};
-  }
-}
-
-function mapAwspTypeToUsecaseType(t: AwspUsecaseType): UsecaseType {
-  switch (t) {
-    case AWSP_USECASE_TYPE.Ec:
-      return USECASE_TYPE.Ec;
-    case AWSP_USECASE_TYPE.Linked:
-      return USECASE_TYPE.Linked;
-    case AWSP_USECASE_TYPE.Island:
-      return USECASE_TYPE.Island;
   }
 }

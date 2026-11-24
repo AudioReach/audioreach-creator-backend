@@ -20,7 +20,7 @@ export interface UseCaseBase {
   aliasId: number | null;
   alias: string | null;
   fileSystemId: number;
-  type?: UsecaseType;
+  type: UsecaseType;
   orderedKeys?: string;
 }
 
@@ -74,7 +74,7 @@ export const UseCaseSchema = new EntitySchema<UseCaseRow>({
     type: {
       type: 'simple-enum',
       enum: Object.values(USECASE_TYPE),
-      nullable: true,
+      nullable: false,
       name: 'type',
     },
     orderedKeys: {

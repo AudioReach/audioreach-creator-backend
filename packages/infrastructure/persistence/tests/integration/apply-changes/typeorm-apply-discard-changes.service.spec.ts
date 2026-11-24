@@ -3,7 +3,13 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {CHANGE_OPERATION, CHANGE_STATUS, SESSION_MODE, SOURCE} from '@arc/core';
+import {
+  CHANGE_OPERATION,
+  CHANGE_STATUS,
+  SESSION_MODE,
+  SOURCE,
+  USECASE_TYPE,
+} from '@arc/core';
 import {
   setupIntegrationTest,
   teardownIntegrationTest,
@@ -98,7 +104,7 @@ describe('TypeOrm apply/discard changes services', () => {
         newValue: {
           aliasId: 1,
           alias: 'committed',
-          type: null,
+          type: USECASE_TYPE.Linked,
           fileSystemId: 10,
         },
         source: SOURCE.Manual,
@@ -139,7 +145,7 @@ describe('TypeOrm apply/discard changes services', () => {
         newValue: {
           aliasId: 2,
           alias: 'pending',
-          type: null,
+          type: USECASE_TYPE.Linked,
           fileSystemId: 10,
         },
         source: SOURCE.AutoRouting,
@@ -245,7 +251,7 @@ describe('TypeOrm apply/discard changes services', () => {
       systemId: 100,
       aliasId: 1,
       alias: 'committed',
-      type: null,
+      type: USECASE_TYPE.Linked,
       fileSystemId: 10,
     });
     await manager.getRepository(UsecaseGkvValuesSchema).save({

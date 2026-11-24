@@ -27,7 +27,7 @@ export const UseCaseQueryMappers = {
       fileSystemId: uc.fileSystemId,
       alias: uc.alias ?? undefined,
       aliasId: uc.aliasId ?? undefined,
-      type: uc.type ?? undefined,
+      type: uc.type,
       categories: uc.categoryNames,
       subgraphSystemIds: uc.subgraphSystemIds,
       subgraphPairs: uc.subgraphPairs,

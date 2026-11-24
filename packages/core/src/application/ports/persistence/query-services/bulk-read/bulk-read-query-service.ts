@@ -533,7 +533,7 @@ export interface UiUsecaseDownloadModel {
   valueIds: number[];
   aliasNaturalId?: number;
   aliasName: string;
-  type?: UsecaseType;
+  type: UsecaseType;
   orderedKeys?: string;
   reviewedAt?: string;
   categoryName?: string;

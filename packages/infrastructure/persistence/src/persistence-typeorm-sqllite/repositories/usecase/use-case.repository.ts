@@ -230,7 +230,7 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
         payload: {
           ['aliasId']: uc.aliasId ?? 0,
           alias: uc.alias ?? '',
-          type: uc.type ?? null,
+          type: uc.type,
           fileSystemId: uc.fileSystemId,
           ...(referencedComponents ? {referencedComponents} : {}),
           ...(sgkvAssignments ? {sgkvAssignments} : {}),

@@ -4,6 +4,7 @@
  */
 
 import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
+import {USECASE_TYPE} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase-type.js';
 import {RoutingContext} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
 import {
   buildProjectedUsecaseTopology,
@@ -117,6 +118,9 @@ function manualCandidate(
           controlLinks: [],
         }),
       ),
+      isolatedSubgraphSystemIds: members.filter(
+        id => !pairs.some(([source, dest]) => id === source || id === dest),
+      ),
     },
     sgkvAssignment: new Map(
       members.map(systemId => [systemId, {keyValues: []}]),
@@ -129,6 +133,7 @@ function manualCandidate(
 describe('buildProjectedUsecaseTopology', () => {
   it('projects only an arbitrary MANUAL authority for a GKV with three automatic candidates', async () => {
     const committed = new UseCase({
+      type: USECASE_TYPE.Linked,
       systemId: 99,
       fileSystemId: 1,
       keyVector: {valueSystemIds: [100]},
@@ -136,6 +141,7 @@ describe('buildProjectedUsecaseTopology', () => {
       subgraphPairs: [],
     });
     const manual = new UseCase({
+      type: USECASE_TYPE.Linked,
       systemId: 99,
       fileSystemId: 1,
       keyVector: {valueSystemIds: [100]},
@@ -229,6 +235,7 @@ describe('buildProjectedUsecaseTopology', () => {
 
   it('projects an interior extension with the candidate control-link pair', () => {
     const existing = new UseCase({
+      type: USECASE_TYPE.Linked,
       systemId: 100,
       fileSystemId: 1,
       keyVector: {valueSystemIds: [99]},
@@ -268,6 +275,7 @@ describe('buildProjectedUsecaseTopology', () => {
     'replaces a committed UC with the effective manual overlay in %s mode without mutating either entity',
     mode => {
       const committed = new UseCase({
+        type: USECASE_TYPE.Linked,
         systemId: 7,
         fileSystemId: 1,
         keyVector: {valueSystemIds: [11]},
@@ -275,6 +283,7 @@ describe('buildProjectedUsecaseTopology', () => {
         subgraphPairs: [{sourceSubgraphSystemId: 10, destSubgraphSystemId: 20}],
       });
       const edited = new UseCase({
+        type: USECASE_TYPE.Linked,
         systemId: 7,
         fileSystemId: 1,
         keyVector: {valueSystemIds: [11]},

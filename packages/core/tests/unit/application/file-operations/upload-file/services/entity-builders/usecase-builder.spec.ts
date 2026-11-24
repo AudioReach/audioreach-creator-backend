@@ -22,6 +22,32 @@ import {
   KeyValuePairList,
 } from '../../../../../../../src/shared/types/key-value-pair.js';
 import {SubgraphPair} from '../../../../../../../src/shared/types/subgraph-pair.js';
+import {DataLink} from '../../../../../../../src/domain/entities/usecase-data/links/data-link.js';
+import {
+  DATA_LINK_TYPE,
+  type DataLinkType,
+} from '../../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
+
+const NO_DATA_LINKS: readonly DataLink[] = [];
+
+/** Data link between two subgraph system IDs; only the subgraphs and link type matter here. */
+function dataLink(
+  sourceSubgraphSystemId: number,
+  destSubgraphSystemId: number,
+  linkType: DataLinkType,
+): DataLink {
+  return new DataLink({
+    systemId: 1,
+    sourceNodeSystemId: 1,
+    destinationNodeSystemId: 2,
+    sourcePortSystemId: 1,
+    destinationPortSystemId: 2,
+    linkType,
+    sourceSubgraphSystemId,
+    destSubgraphSystemId,
+    fileSystemId: 123,
+  });
+}
 
 describe('UsecaseBuilder', () => {
   let builder: UsecaseBuilder;
@@ -84,6 +110,7 @@ describe('UsecaseBuilder', () => {
         const result = await builder.buildUsecases(
           usecaseEntries,
           TEST_FILE_SYSTEM_ID,
+          NO_DATA_LINKS,
         );
 
         expect(result).toHaveLength(2);
@@ -96,7 +123,11 @@ describe('UsecaseBuilder', () => {
       });
 
       it('should handle empty input arrays', async () => {
-        const result = await builder.buildUsecases([], TEST_FILE_SYSTEM_ID);
+        const result = await builder.buildUsecases(
+          [],
+          TEST_FILE_SYSTEM_ID,
+          NO_DATA_LINKS,
+        );
         expect(result).toEqual([]);
       });
 
@@ -110,7 +141,11 @@ describe('UsecaseBuilder', () => {
           },
         ];
 
-        await builder.buildUsecases(usecaseEntries, TEST_FILE_SYSTEM_ID);
+        await builder.buildUsecases(
+          usecaseEntries,
+          TEST_FILE_SYSTEM_ID,
+          NO_DATA_LINKS,
+        );
 
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -140,6 +175,7 @@ describe('UsecaseBuilder', () => {
         const result = await builder.buildUsecases(
           usecaseEntries,
           TEST_FILE_SYSTEM_ID,
+          NO_DATA_LINKS,
         );
 
         const systemIds = result.map(uc => uc.systemId);
@@ -159,6 +195,7 @@ describe('UsecaseBuilder', () => {
         const result = await builder.buildUsecases(
           usecaseEntries,
           TEST_FILE_SYSTEM_ID,
+          NO_DATA_LINKS,
         );
 
         expect(result[0].subgraphSystemIds).toHaveLength(2);
@@ -178,6 +215,7 @@ describe('UsecaseBuilder', () => {
         const result = await builder.buildUsecases(
           usecaseEntries,
           TEST_FILE_SYSTEM_ID,
+          NO_DATA_LINKS,
         );
 
         expect(result[0].subgraphPairs).toHaveLength(1);
@@ -200,6 +238,7 @@ describe('UsecaseBuilder', () => {
         const result = await builder.buildUsecases(
           usecaseEntries,
           TEST_FILE_SYSTEM_ID,
+          NO_DATA_LINKS,
         );
 
         expect(result).toHaveLength(1);
@@ -213,6 +252,7 @@ describe('UsecaseBuilder', () => {
         const result = await builder.buildUsecases(
           null as any,
           TEST_FILE_SYSTEM_ID,
+          NO_DATA_LINKS,
         );
         expect(result).toEqual([]);
       });
@@ -221,6 +261,7 @@ describe('UsecaseBuilder', () => {
         const result = await builder.buildUsecases(
           undefined as any,
           TEST_FILE_SYSTEM_ID,
+          NO_DATA_LINKS,
         );
         expect(result).toEqual([]);
       });
@@ -240,6 +281,7 @@ describe('UsecaseBuilder', () => {
         const result = await builder.buildUsecases(
           usecaseEntries,
           TEST_FILE_SYSTEM_ID,
+          NO_DATA_LINKS,
         );
 
         expect(result).toHaveLength(1);
@@ -270,6 +312,7 @@ describe('UsecaseBuilder', () => {
         const result = await builder.buildUsecases(
           usecaseEntries,
           TEST_FILE_SYSTEM_ID,
+          NO_DATA_LINKS,
         );
 
         expect(result).toHaveLength(0);
@@ -302,6 +345,7 @@ describe('UsecaseBuilder', () => {
         const result = await builder.buildUsecases(
           usecaseEntries,
           TEST_FILE_SYSTEM_ID,
+          NO_DATA_LINKS,
         );
 
         expect(result).toHaveLength(1);
@@ -330,7 +374,11 @@ describe('UsecaseBuilder', () => {
           },
         ];
 
-        await builder.buildUsecases(usecaseEntries, TEST_FILE_SYSTEM_ID);
+        await builder.buildUsecases(
+          usecaseEntries,
+          TEST_FILE_SYSTEM_ID,
+          NO_DATA_LINKS,
+        );
 
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -360,6 +408,7 @@ describe('UsecaseBuilder', () => {
           builderWithoutLogger.buildUsecases(
             usecaseEntries,
             TEST_FILE_SYSTEM_ID,
+            NO_DATA_LINKS,
           ),
         ).resolves.not.toThrow();
       });
@@ -382,7 +431,11 @@ describe('UsecaseBuilder', () => {
           },
         ];
 
-        await builder.buildUsecases(usecaseEntries, TEST_FILE_SYSTEM_ID);
+        await builder.buildUsecases(
+          usecaseEntries,
+          TEST_FILE_SYSTEM_ID,
+          NO_DATA_LINKS,
+        );
 
         expect(mockIdGenerator.getNextId).toHaveBeenCalledTimes(2);
         expect(mockIdGenerator.getNextId).toHaveBeenCalledWith(
@@ -404,7 +457,11 @@ describe('UsecaseBuilder', () => {
           },
         ];
 
-        await builder.buildUsecases(usecaseEntries, TEST_FILE_SYSTEM_ID);
+        await builder.buildUsecases(
+          usecaseEntries,
+          TEST_FILE_SYSTEM_ID,
+          NO_DATA_LINKS,
+        );
 
         expect(mockIdGenerator.getNextId).not.toHaveBeenCalled();
       });
@@ -424,6 +481,7 @@ describe('UsecaseBuilder', () => {
         const result = await builder.buildUsecases(
           usecaseEntries,
           TEST_FILE_SYSTEM_ID,
+          NO_DATA_LINKS,
         );
 
         expect(result[0]).toBeInstanceOf(UseCase);
@@ -442,6 +500,7 @@ describe('UsecaseBuilder', () => {
         const result = await builder.buildUsecases(
           usecaseEntries,
           TEST_FILE_SYSTEM_ID,
+          NO_DATA_LINKS,
         );
 
         expect(result[0].fileSystemId).toBe(TEST_FILE_SYSTEM_ID);
@@ -470,6 +529,7 @@ describe('UsecaseBuilder', () => {
         const result = await builder.buildUsecases(
           usecaseEntries,
           TEST_FILE_SYSTEM_ID,
+          NO_DATA_LINKS,
         );
 
         expect(result[0].keyVector.valueSystemIds).toEqual([501, 502, 503]);
@@ -477,61 +537,79 @@ describe('UsecaseBuilder', () => {
     });
   });
 
-  describe('UsecaseBuilder isEcLink from ui-metadata', () => {
-    it('should assign type=Ec when GKV set matches a ui-metadata usecase entry with type Ec', async () => {
-      mockForeignKeyMapper.getValueSystemId.mockReturnValue(asSystemId(999));
-      mockForeignKeyMapper.getSubgraphSystemId.mockReturnValue(asSystemId(100));
-
-      const uiMetadata = {
-        version: {major: 1, minor: 0},
-        payloadMap: [],
-        subsystems: [],
-        subgraphs: [],
-        modules: [],
-        dataLinks: [],
-        usecases: [{type: 'Ec', keyValue: '[0xA2000000: 0xA3000000]'}],
-      };
-
-      const usecaseEntry: UsecaseEntry = {
-        keyValuePairList: {
-          keyValueList: [{keyId: 0xa2000000, value: 0xa3000000}],
-        },
-        sgList: [],
-        sgPairList: [],
-      };
-
-      const usecases = await builder.buildUsecases(
-        [usecaseEntry],
-        TEST_FILE_SYSTEM_ID,
-        undefined,
-        uiMetadata as any,
-      );
-      expect(usecases[0].type).toBe(USECASE_TYPE.Ec);
+  describe('UseCase type at import', () => {
+    // Natural subgraph IDs 1, 2, 3 map to system IDs 1001, 1002, 1003.
+    const entry = (
+      sgList: number[],
+      sgPairList: SubgraphPair[],
+    ): UsecaseEntry => ({
+      keyValuePairList: new KeyValuePairList([new KeyValue(0xa2, 0xa3)]),
+      sgPropOffset: 0,
+      sgList,
+      sgPairList,
+    });
+    const uiMetadataWithType = (type: string) => ({
+      version: {major: 1, minor: 0},
+      payloadMap: [],
+      subsystems: [],
+      subgraphs: [],
+      modules: [],
+      dataLinks: [],
+      usecases: [{type, keyValue: '[0xA2: 0xA3]'}],
     });
 
-    it('should leave type undefined when no ui-metadata GKV match', async () => {
-      mockForeignKeyMapper.getValueSystemId.mockReturnValue(asSystemId(999));
-      const uiMetadata = {
-        version: {major: 1, minor: 0},
-        payloadMap: [],
-        subsystems: [],
-        subgraphs: [],
-        modules: [],
-        dataLinks: [],
-        usecases: [],
-      };
-      const usecaseEntry: UsecaseEntry = {
-        keyValuePairList: {keyValueList: [{keyId: 0xa2, value: 0xa3}]},
-        sgList: [],
-        sgPairList: [],
-      };
-      const usecases = await builder.buildUsecases(
-        [usecaseEntry],
+    it('derives EC when a pair is backed by an EC data link, over the UI metadata type', async () => {
+      const [usecase] = await builder.buildUsecases(
+        [entry([1, 2], [new SubgraphPair(1, 2)])],
         TEST_FILE_SYSTEM_ID,
+        [dataLink(1001, 1002, DATA_LINK_TYPE.Ec)],
+        undefined,
+        uiMetadataWithType('Linked') as any,
+      );
+
+      expect(usecase.type).toBe(USECASE_TYPE.Ec);
+    });
+
+    it('derives LINKED when normal data links connect every subgraph, over the UI metadata type', async () => {
+      const [usecase] = await builder.buildUsecases(
+        [entry([1, 2], [new SubgraphPair(1, 2)])],
+        TEST_FILE_SYSTEM_ID,
+        [dataLink(1001, 1002, DATA_LINK_TYPE.Normal)],
+        undefined,
+        uiMetadataWithType('Ec') as any,
+      );
+
+      expect(usecase.type).toBe(USECASE_TYPE.Linked);
+    });
+
+    it('derives ISLAND when a subgraph has no data link to the others', async () => {
+      const [usecase] = await builder.buildUsecases(
+        [entry([1, 2, 3], [new SubgraphPair(1, 2), new SubgraphPair(2, 3)])],
+        TEST_FILE_SYSTEM_ID,
+        [dataLink(1001, 1002, DATA_LINK_TYPE.Normal)],
+      );
+
+      expect(usecase.type).toBe(USECASE_TYPE.Island);
+    });
+
+    it('still reads other UI metadata fields when the use case matches', async () => {
+      const uiMetadata = {
+        ...uiMetadataWithType('Ec'),
+        usecases: [
+          {type: 'Ec', keyValue: '[0xA2: 0xA3]', categoryName: 'Voice'},
+        ],
+      };
+
+      const [usecase] = await builder.buildUsecases(
+        [entry([1], [])],
+        TEST_FILE_SYSTEM_ID,
+        NO_DATA_LINKS,
         undefined,
         uiMetadata as any,
       );
-      expect(usecases[0].type).toBeUndefined();
+
+      expect(usecase.categories).toEqual(['Voice']);
+      expect(usecase.type).toBe(USECASE_TYPE.Linked);
     });
   });
 });

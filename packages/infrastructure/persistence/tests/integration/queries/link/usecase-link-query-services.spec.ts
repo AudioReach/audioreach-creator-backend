@@ -11,6 +11,7 @@ import {
   DATA_LINK_TYPE,
   PORT_IO_TYPE,
   SOURCE,
+  USECASE_TYPE,
 } from '@arc/core';
 import {
   beforeAll,
@@ -76,6 +77,7 @@ async function seedGraph(ds: DataSource): Promise<void> {
       systemId,
       aliasId: index + 1,
       alias: `Usecase ${index + 1}`,
+      type: USECASE_TYPE.Linked,
       fileSystemId: FILE_ID,
     })),
   );

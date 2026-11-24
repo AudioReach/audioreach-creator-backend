@@ -5,7 +5,7 @@
 
 import type {DataSource, EntityManager} from 'typeorm';
 import {jest} from '@jest/globals';
-import {UseCase, type IdGenerationPort} from '@arc/core';
+import {UseCase, USECASE_TYPE, type IdGenerationPort} from '@arc/core';
 import {
   setupIntegrationTest,
   teardownIntegrationTest,
@@ -106,6 +106,7 @@ function buildUseCase(
     categories: opts.categories,
     subgraphSystemIds: opts.subgraphSystemIds ?? [],
     subgraphPairs: opts.subgraphPairs ?? [],
+    type: USECASE_TYPE.Linked,
   });
 }
 
@@ -469,6 +470,7 @@ describe('UseCaseInserter', () => {
       systemId: 1001,
       aliasId: 0,
       alias: 'existing',
+      type: USECASE_TYPE.Linked,
       fileSystemId: FILE_ID,
       version: 1,
     });

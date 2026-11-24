@@ -19,6 +19,7 @@ import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
 import {batchOf} from '../../../../../helpers/index.js';
 import {keyValuePairsOf, subgraphsWithSgkvs} from '../helpers/routing-reads.js';
 import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
+import {USECASE_TYPE} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase-type.js';
 import {Subgraph} from '../../../../../../src/domain/entities/usecase-data/subgraph/subgraph.js';
 import {RESULT_KIND} from '../../../../../../src/application/shared/result/result.js';
 import type {SubgraphRepository} from '../../../../../../src/application/ports/persistence/repositories/subgraph/subgraph.repository.js';
@@ -55,6 +56,7 @@ function makeUsecase(
   valueSystemIds: readonly number[],
 ): UseCase {
   return new UseCase({
+    type: USECASE_TYPE.Linked,
     systemId,
     fileSystemId: FILE_ID,
     keyVector: {valueSystemIds: [...valueSystemIds]},

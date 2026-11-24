@@ -11402,6 +11402,51 @@
               "$ref": "#/components/schemas/IntentInfo"
             },
             "description": "Dynamic intents"
+          },
+          "moduleTypeInfo": {
+            "description": "Module type information",
+            "type": "object",
+            "properties": {
+              "mdfModuleType": {
+                "description": "MDF module type",
+                "type": "string",
+                "enum": [
+                  "WR_CLIENT",
+                  "WREP",
+                  "RD_CLIENT",
+                  "RDEP"
+                ]
+              },
+              "majorModuleType": {
+                "description": "Major module type",
+                "type": "string",
+                "enum": [
+                  "GENERIC",
+                  "DECODER",
+                  "ENCODER",
+                  "CONVERTER",
+                  "PACKETIZER",
+                  "DEPACKETIZER",
+                  "DETECTOR",
+                  "GENERATOR",
+                  "PP",
+                  "END_POINT"
+                ]
+              },
+              "buildType": {
+                "description": "Build type",
+                "type": "string",
+                "enum": [
+                  "STATIC",
+                  "DYNAMIC",
+                  "STUB"
+                ]
+              },
+              "islandFriendly": {
+                "description": "Indicates if the module is island friendly",
+                "type": "boolean"
+              }
+            }
           }
         },
         "required": [
@@ -11438,6 +11483,16 @@
             "type": "string",
             "description": "Description of the module"
           },
+          "groupName": {
+            "description": "Group name for the module",
+            "type": "string"
+          },
+          "replacedBy": {
+            "description": "Natural ID of the module that replaces this one",
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
           "paramDefinitionsSummaryInfo": {
             "type": "array",
             "items": {
@@ -11472,6 +11527,16 @@
           "moduleDirectionType": {
             "description": "Direction type of the module",
             "type": "string"
+          },
+          "rtmLogCode": {
+            "description": "RTM log code",
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "hasNeuralNetParam": {
+            "description": "Indicates if the module has neural network parameters",
+            "type": "boolean"
           },
           "moduleInfo": {
             "description": "Module information",

@@ -16,6 +16,7 @@ import {ArcDbFileSchema} from '../../../src/persistence-typeorm-sqllite/entity-s
 import {ProjectSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {KeyDefinitionSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/definitions/key-value/key-definition.schema.js';
 import {ValueDefinitionSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/definitions/key-value/value-definition.schema.js';
+import {USECASE_TYPE} from '@arc/core';
 import {UseCaseSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/usecase-data/use-case.js';
 import {SubgraphSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/usecase-data/subgraph/subgraph.schema.js';
 import type {ArcDbFileRow} from '../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
@@ -129,6 +130,7 @@ describe('TypeOrmBulkReadQueryService - readUsecaseData', () => {
     // Create usecase
     const usecase = await usecaseRepository.save({
       systemId: nextId++,
+      type: USECASE_TYPE.Linked,
       fileSystemId: testFileSystemId,
       aliasId: 1,
       alias: 'TestUsecase',
@@ -194,6 +196,7 @@ describe('TypeOrmBulkReadQueryService - readUsecaseData', () => {
     // Create usecase with 2 keys (should come second)
     const usecase1 = await usecaseRepository.save({
       systemId: nextId++,
+      type: USECASE_TYPE.Linked,
       fileSystemId: testFileSystemId,
       aliasId: 1,
       alias: 'Usecase1',
@@ -202,6 +205,7 @@ describe('TypeOrmBulkReadQueryService - readUsecaseData', () => {
     // Create usecase with 1 key (should come first)
     const usecase2 = await usecaseRepository.save({
       systemId: nextId++,
+      type: USECASE_TYPE.Linked,
       fileSystemId: testFileSystemId,
       aliasId: 2,
       alias: 'Usecase2',
@@ -296,6 +300,7 @@ describe('TypeOrmBulkReadQueryService - readUsecaseData', () => {
     // Create usecase
     const usecase = await usecaseRepository.save({
       systemId: nextId++,
+      type: USECASE_TYPE.Linked,
       fileSystemId: testFileSystemId,
       aliasId: 1,
       alias: 'TestUsecase',

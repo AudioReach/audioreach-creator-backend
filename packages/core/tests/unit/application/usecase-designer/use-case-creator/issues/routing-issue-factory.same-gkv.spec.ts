@@ -14,6 +14,7 @@ import {
 import {SameGkvCollisionService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/classification/same-gkv-collision.service.js';
 import {RoutingIssueFactory} from '../../../../../../src/application/usecase-designer/use-case-creator/issues/routing-issue-factory.js';
 import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
+import {USECASE_TYPE} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase-type.js';
 
 const routingSelection = {
   selectedUsecaseSystemIds: [],
@@ -50,6 +51,7 @@ function candidate(
 
 function existing(path: number[], systemId: number): UseCase {
   return new UseCase({
+    type: USECASE_TYPE.Linked,
     systemId,
     fileSystemId: 1,
     keyVector: {valueSystemIds: [100]},

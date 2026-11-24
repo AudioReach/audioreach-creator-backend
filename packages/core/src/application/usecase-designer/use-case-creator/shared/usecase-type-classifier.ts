@@ -6,8 +6,8 @@
 /**
  * Computes the resulting UseCase type from pair support.
  *
- * Used by topology decision analysis, routing-change staging, and collision
- * resolution staging.
+ * Used by topology decision analysis, routing-change staging, collision
+ * resolution staging, the projected topology, and file import.
  */
 import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
 import {DATA_LINK_TYPE} from '../../../../domain/entities/usecase-data/links/data-link-type.js';
@@ -15,6 +15,14 @@ import type {UsecaseType} from '../../../../domain/entities/usecase-data/usecase
 import {USECASE_TYPE} from '../../../../domain/entities/usecase-data/usecase/usecase-type.js';
 import type {SubgraphPair} from '../../../ports/persistence/repositories/shared/links-for-pair.js';
 import type {ManualTopology} from '../contracts/routing-input.js';
+import {
+  USECASE_CANDIDATE_KIND,
+  type UsecaseCandidate,
+} from '../contracts/routing-state.js';
+import {
+  candidateDataLinkPairs,
+  candidateSubgraphSystemIds,
+} from './usecase-topology.js';
 
 export interface UsecasePairSupport {
   readonly isEc: boolean;
@@ -99,4 +107,27 @@ export function computeManualUsecaseType(
     return USECASE_TYPE.Island;
   }
   return USECASE_TYPE.Linked;
+}
+
+/**
+ * Type of the UseCase created from a routing candidate. Bridge intent is
+ * authoritative: a complete MDF-transparent Bridge is one logical EC crossing
+ * and stays EC regardless of generic pair support.
+ */
+export function candidateUsecaseType(
+  candidate: UsecaseCandidate,
+  routableDataLinks: readonly DataLink[],
+): UsecaseType {
+  switch (candidate.kind) {
+    case USECASE_CANDIDATE_KIND.EcBridge:
+      return USECASE_TYPE.Ec;
+    case USECASE_CANDIDATE_KIND.Manual:
+      return computeManualUsecaseType(candidate.topology);
+    case USECASE_CANDIDATE_KIND.Auto:
+      return computeUsecaseType(
+        candidateSubgraphSystemIds(candidate),
+        candidateDataLinkPairs(candidate),
+        routableDataLinks,
+      );
+  }
 }
