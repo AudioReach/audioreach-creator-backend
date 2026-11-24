@@ -7,6 +7,7 @@ import {describe, expect, it} from '@jest/globals';
 import {CHANGE_OPERATION} from '../../../../../../../src/application/shared/change-vocabulary.js';
 import {ManualMdfPrecedenceService} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/topology-change-analysis/manual-mdf-precedence.service.js';
 import {UseCase} from '../../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
+import {USECASE_TYPE} from '../../../../../../../src/domain/entities/usecase-data/usecase/usecase-type.js';
 import {
   MDF_TOPOLOGY_REWRITE_KIND,
   USECASE_TOPOLOGY_DECISION_KIND,
@@ -24,6 +25,7 @@ function usecase(
   }[],
 ): UseCase {
   return new UseCase({
+    type: USECASE_TYPE.Linked,
     systemId,
     fileSystemId: 1,
     keyVector: {valueSystemIds: []},

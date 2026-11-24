@@ -11,10 +11,7 @@ import {
 import {CHANGE_OPERATION} from '../../../../shared/change-vocabulary.js';
 import type {DataLink} from '../../../../../domain/entities/usecase-data/links/data-link.js';
 import {UseCase} from '../../../../../domain/entities/usecase-data/usecase/usecase.js';
-import {
-  USECASE_TYPE,
-  type UsecaseType,
-} from '../../../../../domain/entities/usecase-data/usecase/usecase-type.js';
+import type {UsecaseType} from '../../../../../domain/entities/usecase-data/usecase/usecase-type.js';
 import {invariant} from '../../../../../shared/assertions/index.js';
 import type {IdGenerationPort} from '../../../../ports/id-generation/id-generation.port.js';
 import type {
@@ -30,20 +27,17 @@ import {
   ROUTING_CLASSIFICATION_KIND,
   USECASE_CANDIDATE_KIND,
   type ClassifiedUsecase,
-  type RoutedUsecaseCandidate,
   type UsecaseChangeDescriptor,
 } from '../../contracts/routing-state.js';
 import {RoutingIssueFactory} from '../../issues/routing-issue-factory.js';
 import {collectUsecaseSgkvAdditions} from '../../shared/routing-sgkv-assignments.js';
 import {
-  computeManualUsecaseType,
-  computeUsecaseType,
+  candidateUsecaseType,
   hasDirectedDataLinkSupport,
 } from '../../shared/usecase-type-classifier.js';
 import type {StagingState} from './topology-change-stager.js';
 import type {SubgraphPair} from '../../../../ports/persistence/repositories/shared/links-for-pair.js';
 import {
-  candidateDataLinkPairs,
   candidatePairs,
   candidateSubgraphSystemIds,
   directedPairKeyOf,
@@ -64,25 +58,6 @@ interface StructuralChangeDelta {
   readonly removedPairs?: readonly SubgraphPair[];
   readonly newType?: UsecaseType;
   readonly cancelPendingDelete?: boolean;
-}
-
-/**
- * Bridge intent is authoritative for type. Complete MDF-transparent Bridge topology is
- * still one logical EC crossing and must remain EC regardless of generic pair support.
- */
-function automaticUsecaseType(
-  candidate: RoutedUsecaseCandidate,
-  memberSubgraphSystemIds: readonly number[],
-  dataLinkPairs: readonly SubgraphPair[],
-  routableDataLinks: readonly DataLink[],
-): UsecaseType {
-  return candidate.kind === USECASE_CANDIDATE_KIND.EcBridge
-    ? USECASE_TYPE.Ec
-    : computeUsecaseType(
-        memberSubgraphSystemIds,
-        dataLinkPairs,
-        routableDataLinks,
-      );
 }
 
 /**
@@ -211,7 +186,6 @@ export class ClassifiedCandidateStager {
       );
       const memberSubgraphSystemIds = candidateSubgraphSystemIds(candidate);
       const pairsToPersist = candidatePairs(candidate);
-      const dataLinkPairs = candidateDataLinkPairs(candidate);
       const pairResult = this.validatePairs(
         memberSubgraphSystemIds,
         pairsToPersist,
@@ -226,10 +200,8 @@ export class ClassifiedCandidateStager {
           },
           subgraphSystemIds: [...memberSubgraphSystemIds],
           subgraphPairs: [...pairsToPersist],
-          type: automaticUsecaseType(
+          type: candidateUsecaseType(
             candidate,
-            memberSubgraphSystemIds,
-            dataLinkPairs,
             graphSnapshot.routableDataLinks,
           ),
         }),
@@ -286,7 +258,10 @@ export class ClassifiedCandidateStager {
           ),
         ),
       };
-      const type = computeManualUsecaseType(candidate.topology);
+      const type = candidateUsecaseType(
+        candidate,
+        input.graphSnapshot.routableDataLinks,
+      );
       const systemId = await idGenerator.getNextId(input.fileSystemId);
       const ref = await staging.repository.create(
         new UseCase({

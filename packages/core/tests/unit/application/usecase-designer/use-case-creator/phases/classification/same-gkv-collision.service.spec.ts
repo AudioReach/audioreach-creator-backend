@@ -13,6 +13,7 @@ import {
 } from '../../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-state.js';
 import {SameGkvCollisionService} from '../../../../../../../src/application/usecase-designer/use-case-creator/phases/classification/same-gkv-collision.service.js';
 import {UseCase} from '../../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
+import {USECASE_TYPE} from '../../../../../../../src/domain/entities/usecase-data/usecase/usecase-type.js';
 
 function candidate(
   path: number[],
@@ -43,6 +44,7 @@ function candidate(
 
 function existing(path: number[], values = [100], systemId = 55): UseCase {
   return new UseCase({
+    type: USECASE_TYPE.Linked,
     systemId,
     fileSystemId: 1,
     subgraphSystemIds: path,

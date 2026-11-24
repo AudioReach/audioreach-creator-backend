@@ -407,9 +407,7 @@ export class UiMetadataBuilder {
   }
 }
 
-function mapUsecaseTypeToAwspType(
-  t: UsecaseType | undefined | null,
-): AwspUsecaseType {
+function mapUsecaseTypeToAwspType(t: UsecaseType): AwspUsecaseType {
   switch (t) {
     case USECASE_TYPE.Ec:
       return AWSP_USECASE_TYPE.Ec;

@@ -483,7 +483,7 @@ export class UploadFileOrchestrator {
       );
 
       // Phase 7: Build and Insert Usecases (depend on all value definitions)
-      await this.buildAndInsertUsecases(bulkRepo);
+      await this.buildAndInsertUsecases(bulkRepo, finalDataLinks);
 
       // Phase 7c: Build and insert entity reviewed-at side-table rows
       await this.buildAndInsertReviewedAtRows(bulkRepo);
@@ -1677,6 +1677,7 @@ export class UploadFileOrchestrator {
    */
   private async buildAndInsertUsecases(
     bulkRepo: BulkImportRepository,
+    dataLinks: readonly DataLink[],
   ): Promise<void> {
     // Profile building phase
     this.profiler?.start(PROFILER_OPERATIONS.USECASE_BUILDING);
@@ -1684,6 +1685,7 @@ export class UploadFileOrchestrator {
       this.parsedAcdb!,
       this.currentFileSystemId,
       this.parsedAwsp!,
+      dataLinks,
     );
     const buildMetrics = this.profiler?.end(
       PROFILER_OPERATIONS.USECASE_BUILDING,

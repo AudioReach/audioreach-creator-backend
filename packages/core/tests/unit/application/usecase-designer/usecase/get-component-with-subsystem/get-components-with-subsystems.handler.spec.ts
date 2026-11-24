@@ -21,6 +21,7 @@ import {
   RESULT_KIND,
 } from '../../../../../../src/application/shared/result/result.js';
 import {DATA_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
+import {USECASE_TYPE} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase-type.js';
 import {PORT_IO_TYPE} from '../../../../../../src/domain/entities/common/enums/port-io-type.js';
 import {ENTITY_TYPE} from '../../../../../../src/shared/entity-type.js';
 
@@ -210,7 +211,7 @@ type ServiceOverrides = {
 function makeServices(overrides: ServiceOverrides = {}): QueryServices {
   const {
     fileId = FILE_ID,
-    usecases = [new UseCaseReadModel(UC, [])],
+    usecases = [new UseCaseReadModel(UC, [], USECASE_TYPE.Linked)],
     failedUsecases = [],
     modules = [
       makeModule(M1),

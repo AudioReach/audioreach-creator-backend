@@ -4,6 +4,7 @@
  */
 
 import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
+import {USECASE_TYPE} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase-type.js';
 import {CONTROL_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/control-link-type.js';
 import {DATA_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
 import {RESULT_KIND} from '../../../../../../src/application/shared/result/result.js';
@@ -52,6 +53,9 @@ function manualCandidate(
           controlLinks: [],
         }),
       ),
+      isolatedSubgraphSystemIds: members.filter(
+        id => !pairs.some(([source, dest]) => id === source || id === dest),
+      ),
     },
     sgkvAssignment: new Map(
       members.map(systemId => [systemId, {keyValues: []}]),
@@ -94,6 +98,7 @@ function makeContext(
       ],
       committedUsecases: [
         new UseCase({
+          type: USECASE_TYPE.Linked,
           systemId: 1,
           fileSystemId: 1,
           keyVector: {valueSystemIds: [11]},
@@ -159,6 +164,7 @@ describe('OrphanValidationPhase', () => {
   it('uses the MANUAL authority and leaves discarded automatic topology eligible for orphan reporting', async () => {
     const context = makeContext();
     const committed = new UseCase({
+      type: USECASE_TYPE.Linked,
       systemId: 99,
       fileSystemId: 1,
       keyVector: {valueSystemIds: [100]},
@@ -166,6 +172,7 @@ describe('OrphanValidationPhase', () => {
       subgraphPairs: [],
     });
     const manual = new UseCase({
+      type: USECASE_TYPE.Linked,
       systemId: 99,
       fileSystemId: 1,
       keyVector: {valueSystemIds: [100]},

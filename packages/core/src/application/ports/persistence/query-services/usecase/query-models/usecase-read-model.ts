@@ -13,9 +13,9 @@ export class UseCaseReadModel {
   constructor(
     public readonly systemId: number,
     public readonly gkv: KeyValuePairReadModel[],
+    public readonly type: UsecaseType,
     public readonly alias?: string,
     public readonly aliasId?: number,
     public readonly categories?: string[],
-    public readonly type?: UsecaseType | null,
   ) {}
 }

@@ -4,6 +4,7 @@
  */
 
 import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
+import {USECASE_TYPE} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase-type.js';
 import {Subgraph} from '../../../../../../src/domain/entities/usecase-data/subgraph/subgraph.js';
 import {DataLink} from '../../../../../../src/domain/entities/usecase-data/links/data-link.js';
 import {RoutingIssueFactory} from '../../../../../../src/application/usecase-designer/use-case-creator/issues/routing-issue-factory.js';
@@ -28,6 +29,7 @@ import type {ActiveManualUsecaseEdit} from '../../../../../../src/application/po
 
 function createUsecase(systemId: number, subgraphSystemIds: number[]): UseCase {
   return new UseCase({
+    type: USECASE_TYPE.Linked,
     systemId,
     fileSystemId: 1,
     keyVector: {valueSystemIds: []},

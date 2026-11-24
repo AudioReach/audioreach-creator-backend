@@ -10,7 +10,9 @@
  */
 import {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
 import {USECASE_TYPE} from '../../../../domain/entities/usecase-data/usecase/usecase-type.js';
+import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
 import type {SubgraphPair} from '../../../ports/persistence/repositories/shared/links-for-pair.js';
+import {candidateUsecaseType} from './usecase-type-classifier.js';
 import type {RoutingContext} from '../contracts/routing-context.js';
 import {
   ROUTING_CLASSIFICATION_KIND,
@@ -114,6 +116,7 @@ function candidateUsecase(
   fileSystemId: number,
   systemId: number,
   subgraphPairs: readonly SubgraphPair[],
+  routableDataLinks: readonly DataLink[],
 ): UseCase {
   return new UseCase({
     systemId,
@@ -123,6 +126,7 @@ function candidateUsecase(
     },
     subgraphSystemIds: [...candidateSubgraphSystemIds(candidate)],
     subgraphPairs: [...subgraphPairs],
+    type: candidateUsecaseType(candidate, routableDataLinks),
   });
 }
 
@@ -173,6 +177,7 @@ function applyClassifiedUsecase(
   classification: ClassifiedUsecase,
   fileSystemId: number,
   subgraphPairs: readonly SubgraphPair[],
+  routableDataLinks: readonly DataLink[],
 ): void {
   if (classification.kind === ROUTING_CLASSIFICATION_KIND.ExactMatch) return;
   if (classification.kind === ROUTING_CLASSIFICATION_KIND.InteriorExtension) {
@@ -185,6 +190,7 @@ function applyClassifiedUsecase(
     fileSystemId,
     -Math.abs(systemId),
     subgraphPairs,
+    routableDataLinks,
   );
   projected.set(candidate.systemId, candidate);
 }
@@ -334,6 +340,7 @@ export function buildProjectedUsecaseTopology(
       classification,
       context.input.fileSystemId,
       candidatePairs(classification.candidate),
+      context.input.graphSnapshot.routableDataLinks,
     );
 
   const usecases = [...projected.values()].sort(

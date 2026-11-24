@@ -16,6 +16,7 @@ import {
 } from '../../../../src/application/services/subsystem-filtered-gkv-service.js';
 import type {UseCaseQueryService} from '../../../../src/application/ports/persistence/query-services/usecase/usecase-query-service.js';
 import {ENTITY_TYPE} from '../../../../src/shared/entity-type.js';
+import {USECASE_TYPE} from '../../../../src/domain/entities/usecase-data/usecase/usecase-type.js';
 
 const key = (systemId: number, valueSystemId: number) => ({
   key: {systemId, keyId: systemId, name: `Key ${systemId}`},
@@ -30,7 +31,7 @@ function usecase(
   systemId: number,
   gkv: UseCaseReadModel['gkv'],
 ): UseCaseReadModel {
-  return {systemId, gkv};
+  return {systemId, gkv, type: USECASE_TYPE.Linked};
 }
 
 function makeData(options: {

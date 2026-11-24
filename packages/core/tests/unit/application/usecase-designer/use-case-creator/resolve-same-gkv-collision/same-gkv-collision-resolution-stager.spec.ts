@@ -50,6 +50,7 @@ function candidate(
 
 function existing(path: number[]): UseCase {
   return new UseCase({
+    type: USECASE_TYPE.Linked,
     systemId: 55,
     fileSystemId: 1,
     keyVector: {valueSystemIds: [100]},

@@ -4,6 +4,7 @@
  */
 
 import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
+import {USECASE_TYPE} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase-type.js';
 import {Subgraph} from '../../../../../../src/domain/entities/usecase-data/subgraph/subgraph.js';
 import type {ControlLink} from '../../../../../../src/domain/entities/usecase-data/links/control-link.js';
 import type {DataLink} from '../../../../../../src/domain/entities/usecase-data/links/data-link.js';
@@ -45,6 +46,7 @@ function makeUsecase(
   subgraphSystemIds: readonly number[],
 ): UseCase {
   return new UseCase({
+    type: USECASE_TYPE.Linked,
     systemId,
     fileSystemId: FILE_ID,
     keyVector: {valueSystemIds: []},

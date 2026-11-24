@@ -32,10 +32,12 @@ describe('GetAllUseCasesHandler', () => {
   }
 
   it('returns the loaded use cases with an issue per use case that could not be resolved', async () => {
-    const qs = buildServices([new UseCaseReadModel(7, [])]);
+    const qs = buildServices([
+      new UseCaseReadModel(7, [], USECASE_TYPE.Linked),
+    ]);
     qs.useCaseQueryService.findUseCaseReadModels.mockResolvedValue({
       entityType: ENTITY_TYPE.UseCase,
-      items: [new UseCaseReadModel(7, [])],
+      items: [new UseCaseReadModel(7, [], USECASE_TYPE.Linked)],
       failed: [
         {
           systemId: 8,
@@ -62,7 +64,9 @@ describe('GetAllUseCasesHandler', () => {
   });
 
   it('maps use case systemId to string', async () => {
-    const qs = buildServices([new UseCaseReadModel(7, [])]);
+    const qs = buildServices([
+      new UseCaseReadModel(7, [], USECASE_TYPE.Linked),
+    ]);
     const result = await new GetAllUseCasesHandler(qs).handle(
       new GetAllUseCasesQuery(1, 'c'),
     );
@@ -76,7 +80,9 @@ describe('GetAllUseCasesHandler', () => {
       key: {keyId: 1, name: 'Device', systemId: 10},
       value: {valueId: 2, name: 'Speaker', systemId: 20},
     };
-    const qs = buildServices([new UseCaseReadModel(5, [kv])]);
+    const qs = buildServices([
+      new UseCaseReadModel(5, [kv], USECASE_TYPE.Linked),
+    ]);
     const result = await new GetAllUseCasesHandler(qs).handle(
       new GetAllUseCasesQuery(1, 'c'),
     );
@@ -98,7 +104,10 @@ describe('GetAllUseCasesHandler', () => {
 
   it('maps categories array to comma-separated string', async () => {
     const qs = buildServices([
-      new UseCaseReadModel(1, [], undefined, undefined, ['catA', 'catB']),
+      new UseCaseReadModel(1, [], USECASE_TYPE.Linked, undefined, undefined, [
+        'catA',
+        'catB',
+      ]),
     ]);
     const result = await new GetAllUseCasesHandler(qs).handle(
       new GetAllUseCasesQuery(1, 'c'),
@@ -108,16 +117,7 @@ describe('GetAllUseCasesHandler', () => {
   });
 
   it('maps the UseCase type from the read model', async () => {
-    const qs = buildServices([
-      new UseCaseReadModel(
-        1,
-        [],
-        undefined,
-        undefined,
-        undefined,
-        USECASE_TYPE.Ec,
-      ),
-    ]);
+    const qs = buildServices([new UseCaseReadModel(1, [], USECASE_TYPE.Ec)]);
     const result = await new GetAllUseCasesHandler(qs).handle(
       new GetAllUseCasesQuery(1, 'c'),
     );

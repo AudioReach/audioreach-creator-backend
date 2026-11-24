@@ -4,7 +4,6 @@
  */
 
 import type {EntityManager} from 'typeorm';
-import type {UsecaseType} from '@arc/core';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
 import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
@@ -51,8 +50,7 @@ export type OverlaidUseCasePair = {
  * corresponding fetchers to be provided at construction time and throw if they
  * are absent.
  */
-export interface OverlaidUseCase extends Omit<UseCaseBase, 'type'> {
-  type: UsecaseType | null;
+export interface OverlaidUseCase extends UseCaseBase {
   gkvEntries: UsecaseGkvValuesBase[];
   categoryNames: string[];
   subgraphSystemIds: number[];
@@ -610,7 +608,6 @@ export class UsecaseOverlayFetcher {
   ): OverlaidUseCase {
     return {
       ...uc,
-      type: uc.type ?? null,
       gkvEntries,
       categoryNames,
       subgraphSystemIds,
