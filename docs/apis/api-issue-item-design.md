@@ -6,10 +6,11 @@ SPDX-License-Identifier: BSD-3-Clause
 # ApiIssueItem: Unified Issue Shape for ApiResult
 
 **Date:** 2026-07-09  
-**Status:** Implemented  
+**Status:** Implemented (wire shape updated 2026-11-25 for rendered issues)  
 **Related documents:**
 - `api-error-handling-design.md` — exception hierarchy, AllExceptionsFilter, layer responsibilities
 - `../validation-framework-design.md` — ValidationIssue domain model
+- `../logging/design/human-readable-logging-and-errors-phase-1-design.md` §8 — issue facts, renderer, and entity references
 
 ---
 
@@ -50,32 +51,80 @@ class ApiIssueItem {
   message!: string;                   // always present
   severity!: IssueSeverity;           // always present
 
-  category?: IssueCategory;          // validation issues only
-  impactedEntity?: ApiImpactedEntityDto;  // validation issues only
-  impactedUsecases?: number[];        // validation issues only
-  fixOptions?: ApiFixOptionDto[];     // validation issues only
+  category?: IssueCategory;
+  impactedEntity?: ApiEntityRef;
+  impactedUsecases?: ApiEntityRef[];
+  relatedEntities?: ApiRelatedEntities;  // rendered issues only
+  params?: ApiIssueParams;               // rendered issues only
+  fixOptions?: ApiFixOptionDto[];
+}
+
+class ApiEntityRef {
+  entityType!: EntityType;   // OpenAPI enum name IssueEntityType
+  systemId!: string;         // decimal string
+  displayName?: string;      // natural identity, e.g. "Subgraph 'Mic capture' (0x00001234)"
+}
+
+type ApiRelatedEntities = Record<
+  string,                    // role, e.g. "subgraphs"
+  ApiEntityRef | ApiEntityRef[] | Record<string, ApiEntityRef | ApiEntityRef[]>[]
+>;
+type ApiIssueParams = Record<string, string | number>;
+```
+
+All fields after `severity` are optional. Operational failures (parse errors, bulk item
+failures) populate only `{code, message, severity}`.
+
+`ApiEntityRef` is used for `impactedEntity`, `impactedUsecases`, and every entity in
+`relatedEntities`. A role in `relatedEntities` holds one entity, a list, or a list of
+groups (entities that belong together, such as a key value and the subgraphs that
+conflict on it). `params` holds the machine context that is not an entity. The roles
+and params of each code are listed in the core `IssueContextMap`; there is one generic
+`ApiIssueItem` shape and no per-code OpenAPI union. Empty `relatedEntities` and
+`params` are omitted.
+
+### 2.2.1 ApiFixOptionDto
+
+```typescript
+class ApiFixOptionDto {
+  id!: string;                        // stable identifier
+  kind?: string;                      // rendered fix options only, e.g. SELECT_CANDIDATE
+  description!: string;
+  commandType!: string;
+  commandPayload!: Record<string, unknown>;  // unchanged; client inputs set to null
+  requiredClientInputs!: ApiClientInputSpecDto[];
+  relatedEntities?: ApiRelatedEntities;      // rendered fix options only
+  params?: ApiIssueParams;                   // rendered fix options only
 }
 ```
 
-Fields `category`, `impactedEntity`, `impactedUsecases`, and `fixOptions` are optional.
-Operational failures (parse errors, bulk item failures) populate only `{code, message, severity}`.
-Domain validation issues populate all fields.
+### 2.2.2 Rendered and legacy issues
+
+Core issues are either rendered `Issue`s (from issue facts, with `relatedEntities` and
+`params`) or `LegacyIssue`s (free-text message), until every producer is converted.
+The mapper maps both to the same shape:
+
+- a rendered issue sends every field, and each entity reference has a `displayName`;
+- a legacy issue has no `relatedEntities`, `params`, or fix-option `kind`; its
+  `impactedUsecases` carry only `entityType` and `systemId`, and a
+  `LegacyFixOption.systemId` is sent as `id`.
+
+Extra fields of subtypes such as `ValidationIssue` (`name`, `defaultSeverity`) are not
+sent.
 
 ### 2.3 Enums
 
-All closed value sets are named API-layer enums. Swagger generates named `$ref` schemas
+All closed value sets are named enums. Swagger generates named `$ref` schemas
 (not inlined strings), allowing code generators to produce typed client enums.
 
-| Enum | Values | File |
+| OpenAPI enum | Values | Core constant |
 |---|---|---|
-| `IssueSeverity` | `FATAL`, `ERROR`, `WARNING` | `enums/issue-severity.enum.ts` |
-| `IssueCategory` | `BLOCKING`, `NON_BLOCKING`, `DATA_LOSS` | `enums/issue-category.enum.ts` |
-| `IssueEntityType` | `SpfModule`, `DataLink`, `ControlLink`, `Subgraph`, `UseCase`, `Container`, `SpfModuleDefinition` | `enums/issue-entity-type.enum.ts` |
-| `ClientInputType` | `NUMBER`, `STRING`, `BOOLEAN` | `enums/client-input-type.enum.ts` |
+| `IssueSeverity` | `FATAL`, `ERROR`, `WARNING` | `IssueSeverity` in `shared/issues/severity.ts` |
+| `IssueCategory` | `BLOCKING`, `NON_BLOCKING`, `DATA_LOSS` | `IssueCategory` in `shared/issues/severity.ts` |
+| `IssueEntityType` | every `EntityType` | `ENTITY_TYPE` in `shared/entity-type.ts` |
+| `ClientInputType` | `NUMBER`, `STRING`, `BOOLEAN` | `CLIENT_INPUT_TYPE` in `shared/issues/fix-option.ts` |
 
-The API layer defines its own copies. Core domain enums (`IssueSeverity`, `IssueCategory`,
-`VALIDATION_ENTITY_TYPE` in `packages/core/src/domain/validation/issue.ts`) are NOT imported
-into DTOs — the architecture rule prohibits importing from `@arc/core` into DTO classes.
+The DTOs use these `@arc/core` constants directly; the API layer has no copies.
 
 ### 2.4 `code` Field
 
@@ -109,15 +158,18 @@ means save is blocked but normal reads are permitted.
 
 ## 4. Core Layer Bridge
 
-The core layer uses `ResultIssue` / `ResultFixOption` in `packages/core/src/shared/types/api-result.ts`.
-Fields that would need to be typed enums in the API layer are typed as `string` in core (to avoid
-importing API-layer enums into `@arc/core`).
+Core results carry `Issue | LegacyIssue` (`Result<T, I = Issue | LegacyIssue>`). `Issue`
+is in `packages/core/src/application/issues/issue.ts`; `LegacyIssue` is in
+`packages/core/src/shared/issues/issue.ts`.
 
-The mapper `api-issue-item.mapper.ts` performs the cast at the API boundary:
+The mapper `api-issue-item.mapper.ts` projects them at the API boundary:
 
 ```typescript
-toApiIssueItems(result.issues)  // ResultIssue[] → ApiIssueItem[]
+toApiIssueItems(result.issues)  // (Issue | LegacyIssue)[] → ApiIssueItem[] | undefined
 ```
+
+`toApiIssueItems` returns `undefined` for no issues, so `issues` is omitted rather than
+sent as `[]`.
 
 ---
 
@@ -130,7 +182,7 @@ const issues: ApiIssueItem[] = failedIds.map(id => ({
   code: 'PARAM_PAYLOAD_NOT_FOUND',
   message: `No calibration payload found for parameter system ID ${id}`,
   severity: IssueSeverity.Error,
-  // category, impactedEntity, fixOptions — omit
+  // category, impactedEntity, relatedEntities, params, fixOptions — omit
 }));
 ```
 
@@ -141,7 +193,7 @@ Use `toApiIssueItems()` from the mapper — do not construct manually:
 ```typescript
 import {toApiIssueItems} from '../../common/dto/api-response/api-issue-item.mapper.js';
 
-// In the handler, return issues?: ResultIssue[] on the result type
+// In the handler, return a Result whose issues are Issue | LegacyIssue
 // In the controller:
 const apiIssues = toApiIssueItems(result.issues);
 return {
@@ -154,8 +206,9 @@ return {
 
 ### 5.3 IssueCollector (upload-time parse/insert errors)
 
-`IssueCollector.formatForApi()` returns `{issues?: ResultIssue[]}`. Operational issues
-produced during file parsing get `severity: 'ERROR'` or `'WARNING'` — no `category` or
+`IssueCollector` collects `LegacyIssue`s; its output is returned through
+`Result.partial(data, collector.getIssues())`, and the API mapper projects it. Operational
+issues produced during file parsing get `severity: 'ERROR'` or `'WARNING'` — no `category` or
 `impactedEntity` (that information is not available at parse time).
 
 ---
@@ -164,24 +217,23 @@ produced during file parsing get `severity: 'ERROR'` or `'WARNING'` — no `cate
 
 ```
 packages/api/src/presentation/rest/common/dto/api-response/
-├── enums/
-│   ├── issue-severity.enum.ts
-│   ├── issue-category.enum.ts
-│   ├── issue-entity-type.enum.ts
-│   └── client-input-type.enum.ts
 ├── api-result.dto.ts            — ApiResult<T> with issues?: ApiIssueItem[]
-├── api-issue-item.dto.ts        — ApiIssueItem, ApiImpactedEntityDto
+├── api-issue-item.dto.ts        — ApiIssueItem, ApiEntityRef, ApiRelatedEntities, ApiIssueParams
 ├── api-fix-option.dto.ts        — ApiFixOptionDto, ApiClientInputSpecDto
+├── issue-context.docs.ts        — OpenAPI descriptions of relatedEntities and params
 └── api-issue-item.mapper.ts     — toApiIssueItem(), toApiIssueItems()
 
-packages/core/src/shared/types/
-└── api-result.ts                — ResultIssue, ResultFixOption, ResultClientInputSpec
+packages/core/src/
+├── application/issues/issue.ts  — Issue, RenderedEntityRef, RenderedFixOption
+├── domain/issues/               — IssueFact, FixOptionFact, IssueContextMap
+└── shared/issues/               — LegacyIssue, LegacyFixOption, IssueSeverity, IssueCategory
 ```
 
 ---
 
 ## 7. What Does NOT Change
 
-- `AllExceptionsFilter` — produces `ErrorResponse` for the fail-fast exception path, not `ApiResult`
+- `AllExceptionsFilter` — produces `ErrorResponse` for the fail-fast exception path, not `ApiResult`;
+  the issues of a domain exception go through the same `toApiIssueItems` mapper
 - `PartialSuccessInterceptor` — updated to check `issues[]` instead of `errors[]` for 207 determination
 - Domain layer (`ValidationReport`, `ValidationIssue`, `ValidationEngine`) — untouched
