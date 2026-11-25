@@ -561,30 +561,6 @@ export default [
       ],
     },
   },
-  {
-    files: ['packages/core/src/application/read-models/**/*.ts'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              group: [
-                '@arc/api',
-                '@arc/persistence',
-                '@arc/fs',
-                '@arc/logger',
-                '**/infrastructure/**',
-                '**/api/**',
-              ],
-              message:
-                'read models must not import infrastructure or API packages.',
-            },
-          ],
-        },
-      ],
-    },
-  },
   // No Result in persistence (see noResultInPersistence above).
   // TODO(item 2a): switch to 'error' once every service is converted, then
   // delete the converted-areas blocks below.

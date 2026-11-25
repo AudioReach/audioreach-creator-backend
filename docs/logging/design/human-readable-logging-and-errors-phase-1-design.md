@@ -81,11 +81,10 @@ without changing this call.
 - issue facts with an application-layer renderer, and the issue wire changes
   in §8.4;
 - complete stored data-loss issues (§8.5);
-- batched DataLink and ControlLink identity resolution;
+- batched identity reads (§5.2);
 - repositories extending query services, and read/write type placement (§5.4,
   §5.5);
-- the null-versus-optional field rule and the routing-scope field decisions,
-  including a required, derived `UseCase.type` (§5.6);
+- a required, derived `UseCase.type` (§5.6);
 - layer-boundary lint (§5.7);
 - regeneration of the single project-data migration (§11);
 - best-effort audit descriptions after successful commits;
@@ -288,10 +287,10 @@ interface EntityIdentityMap {
   Project: {readonly name: string; readonly uuid: string};
 }
 
-type IdentityFor<T extends IssueEntityType> =
+type IdentityFor<T extends EntityType> =
   T extends keyof EntityIdentityMap ? EntityIdentityMap[T] : never;
 
-type EntityRef<T extends IssueEntityType = IssueEntityType> = {
+type EntityRef<T extends EntityType = EntityType> = {
   [K in T]: {
     readonly entityType: K;
     readonly systemId: number;
@@ -351,125 +350,82 @@ depend on the logger.
 Ordinary entities are formatted from the entity or read model already held by
 the caller.
 
-### 5.2 Composite links
+### 5.2 Identity reads
 
-DataLink and ControlLink require endpoint identity that may not be present on
-the link aggregate. Batched identity reads are methods on the existing query
-services (§5.4), not a separate resolver port. Persistence implements them
-using the active file/project/session scope.
+Identity is read in batches, one read per entity type, through methods on
+the existing query services (§5.4). There is no separate resolver port.
+Each read takes the file and the system IDs and returns a `BatchRead`
+(`application/ports/persistence/batch-read.ts`):
 
 ```typescript
 interface DataLinkQueryService {
-  // ...existing query methods
+  // ...other reads
   findDataLinkIdentities(
-    scope: IdentityResolutionScope,
-    links: readonly DataLink[],
-  ): Promise<LinkIdentityResolution<'dataLink'>>;
-}
-
-interface ControlLinkQueryService {
-  // ...existing query methods
-  findControlLinkIdentities(
-    scope: IdentityResolutionScope,
-    links: readonly ControlLink[],
-  ): Promise<LinkIdentityResolution<'controlLink'>>;
+    fileSystemId: number,
+    systemIds: readonly number[],
+  ): Promise<BatchRead<IdentifiedEntityRef<'DataLink'>, 'DataLink'>>;
 }
 ```
+
+| Read | Declared on | Reached by commands through |
+|---|---|---|
+| `findUseCaseIdentities` | `UseCaseQueryService` | `getUsecaseRepository()` |
+| `findSubgraphIdentities` | `SubgraphQueryService` | `getSubgraphRepository()` |
+| `findDataLinkIdentities` | `DataLinkQueryService` | `getDataLinkRepository()` |
+| `findControlLinkIdentities` | `ControlLinkQueryService` | `getControlLinkRepository()` |
+| `findKeyDefinitionIdentities`, `findValueDefinitionIdentities` | `KeyValueDefQueryService` | `getKeyValueDefinitionRepository()` |
+| `findSpfModuleIdentities` | `ModuleRepository` | `getModuleRepository()` |
+| `findSubsystemIdentities` | `SubsystemRepository` | `getSubsystemRepository()` |
+
+`ModuleRepository` and `SubsystemRepository` do not extend their query
+services yet (§5.4), so their identity reads are declared on the repository.
 
 The identity reads:
 
-- accepts effective link aggregates, not unscoped IDs;
-- batches endpoint reads — in a single batched operation it resolves node type
-  (Module or Subsystem), node name and natural ID, and port name and natural ID
-  for every endpoint across all supplied links;
-- respects project, file, and active-session isolation;
-- returns resolved and unresolved results without changing business outcomes;
-- never performs one query per entity; and
-- does not run from inside a formatter or logger adapter.
+- load every requested entity, and the related data its §4.3 identity needs
+  (link endpoints, alias or definition name, GKV order), in batched queries,
+  never one query per entity;
+- respect project, file, and active-session isolation: through a unit of
+  work they see the session overlay;
+- read an entity that the session deleted from committed data, so it is
+  named as the user last saw it. There is no read option for this. The reads
+  are not existence checks;
+- list every ID they cannot load in `failed` (`NOT_FOUND` or
+  `UNRESOLVED_REFERENCE`, with the identity when the adapter still has it),
+  without affecting the other entities or the business outcome; and
+- never run from inside a formatter or logger adapter.
 
-Routing may build one immutable, request-local identity map after loading its
-effective graph. Pure phases consume that map and perform no persistence I/O.
-
-**Module and Subsystem identity reads.** Code that holds only node system IDs
-(for example topology from `getAllNodesWithParents()`, which returns
-`{systemId, parentSystemId, type}`) resolves identity through the concrete
-entity's query service. There is no node identity read:
-
-```typescript
-interface SpfModuleQueryService {
-  // ...existing query methods
-  findSpfModuleIdentities(
-    scope: IdentityResolutionScope,
-    spfModuleSystemIds: readonly number[],
-  ): Promise<ReadonlyMap<number, SpfModuleIdentity>>;
-}
-
-interface SubsystemQueryService {
-  // ...existing query methods
-  findSubsystemIdentities(
-    scope: IdentityResolutionScope,
-    subsystemSystemIds: readonly number[],
-  ): Promise<ReadonlyMap<number, SubsystemIdentity>>;
-}
-```
-
-The caller splits node IDs by the node type it already holds and calls both
-reads in parallel. Command handlers reach them through
-`uow.getModuleRepository()` (which returns SPF modules and extends
-`SpfModuleQueryService`) and `uow.getSubsystemRepository()` (which extends
-`SubsystemQueryService`), per §5.4. The empty placeholder `ModuleQueryService`
-is not used.
-
-References always carry the concrete entity type: `SpfModule` or `Subsystem`,
-never a generic `Module` or `Node`. Today a node of type `module` is an SPF
-module. Driver modules will have their own repository and query service, with
-a matching `findDriverModuleIdentities` and the `DriverModule` entity type. An ID missing from the returned map uses the §4.2
-fallback. The same session overlay used for the topology read applies, so
-identity is read from the same view that produced the IDs. The link identity
-reads above use the same per-entity resolution internally for their endpoints.
+**Nodes.** References always carry the concrete entity type, `SpfModule` or
+`Subsystem`, never a generic `Module` or `Node`. Today a node of type
+`module` is an SPF module. Driver modules will have their own repository and
+query service, with a matching `findDriverModuleIdentities` and the
+`DriverModule` entity type. The empty placeholder `ModuleQueryService` is not
+used.
 
 ### 5.3 Routing issue identity sources
 
-The §4.2 fallback is only for entities that are actually missing. If an entity
-exists but its identity has not been loaded yet, the code that creates the
-issue must load it with a batched identity read. Reads that are only needed
-for an issue run on the failure path only, so successful routing costs
-nothing extra.
+Issue creators produce facts (§8.3), not text. A fact's `EntityRef` carries
+`identity` only when the producer already holds the exact fields (for
+example an entity the command created or changed, §5.4 "Pending change
+cache"); otherwise it carries only the entity type and system ID.
 
-Every identity comes from one of these sources:
+`IssueRenderer` (§8.3) names the rest. It collects the references without
+identity, reads them with one batched identity read per entity type (§5.2),
+and formats them. A command renders inside its unit of work, before commit or
+rollback, so the reads see the session view. The reads run only when there
+are issues to render, so successful routing without issues costs nothing
+extra. Routing does not build an identity map, and its phases perform no
+identity reads.
 
-- **Snapshot:** the routing identity map (§5.2), built after the effective
-  graph is loaded. It covers subgraphs, UseCases, links, subsystems, and the
-  key and value definitions referenced by the graph.
-- **Pre-snapshot read:** a batched read in the producing service, for issues
-  raised before the snapshot exists.
-- **Committed read:** an entity deleted in the current session no longer
-  exists in the session view but still exists in committed data. Its identity
-  is read with `READ_MODE.Committed`.
-- **Fallback:** the entity is missing from both views (§4.2).
+Every identity therefore comes from one of these sources:
 
-| Producer | Entities in the message | Identity source |
-|---|---|---|
-| `IssueFactory.notFound` from `resolveRoutingLinkSelection` and `RoutingGraphSnapshotBuilder` | caller-supplied link or subgraph that was not found | fallback |
-| `duplicateActiveSubgraphSelections` | caller-selected subgraphs | snapshot; move the check after `getSubgraphRepository().getAggregates(...)`; fallback for any that do not exist |
-| `dataLinkIntegrity` | the data link; its missing endpoint subgraph | link: `findDataLinkIdentities`; endpoint: fallback |
-| `incompleteDataChain`, `incompleteControlChain` | start module, reachable modules and subsystems; subsystem-link segments | nodes: pre-snapshot read with `findSpfModuleIdentities` / `findSubsystemIdentities`; segment IDs move to structured context, not text |
-| `additionScopeConflict` | subgraphs and links added by the request but missing from the routing input | snapshot when they exist in the file; fallback otherwise |
-| `mdfKvAssigned`, `islandDetected`, `cycleDetected`, `orphanSubgraph`, `orphanSubgraphHasKvs` | subgraph | snapshot |
-| `orphanSubsystem` | subsystem | snapshot |
-| `orphanDataLink`, `orphanControlLink` | link | snapshot |
-| `multipleEcConnectionsInUsecase` | UseCase; EC data links | snapshot |
-| `multipleEcConnectionsOnPath`, `manualCycleDetected` | path subgraphs; data links | snapshot |
-| `ecBridgeIncompatible`, `noValidCombination` | path subgraphs; data links; key definitions | snapshot |
-| `sgkvMalformed` | subgraph; value definitions | snapshot |
-| `sgkvValuesNotFound` | subgraph; values missing from the file definitions | subgraph: snapshot; values: fallback |
-| `deletionSelectionRequired`, `deletionScopeIncomplete` | UseCases; subgraphs and links missing from the routing input | snapshot when present in the file; fallback otherwise |
-| `usecaseAutoIsland` | UseCase; subgraph pairs; data links deleted in this session | UseCase and subgraphs: snapshot; deleted links: committed read |
-| `manualUsecaseDependenciesBroken` | UseCase; subgraphs and links that no longer exist or were deleted in this session | UseCase: snapshot; deleted in session: committed read; otherwise fallback |
-| `sameGkvChoiceRequired` fix-option descriptions | UseCases; subgraphs and subgraph pairs | snapshot |
-| `manualGkvConflict` | GKV values; UseCases; requested subgraphs and pairs | snapshot |
-| `interUsecaseEndpointUncovered` | inter-UseCase link; endpoint subgraph | snapshot |
-| `stagingPairEndpointMissing` | subgraph pair absent from the resulting UseCase | snapshot (the subgraphs exist; they are missing from the UseCase, not from the file) |
+- **Inline:** the producer sets `identity` from data it holds.
+- **Session read:** the renderer's identity read, for entities in the
+  session view.
+- **Committed read:** the same read, for an entity the session deleted
+  (§5.2).
+- **Fallback:** the entity is in neither view, or its type has no identity
+  read yet (§4.2). This is usually a caller-supplied ID that is not found.
 
 **Values that are not entities.** Some messages include identifiers that are
 not entities. They are not shown as raw values:
@@ -486,106 +442,69 @@ Any system ID that does appear in text (fallback only) uses
 action move to `relatedEntities` or `commandPayload`; they are not repeated in
 the message.
 
-### 5.4 Where identity reads live (CQRS)
+### 5.4 Where reads live (CQRS)
 
 The existing CQRS split stays. `CommandBus.execute` keeps owning session
 policy, unit-of-work creation and release, `setWriteContext`, rollback, and
 command logging. Manual handler registration (needed for React Native) is
 unchanged.
 
-Command handlers must read identity that includes writes made earlier in the
-same transaction. To give them that without a second read port, each
-repository extends the full query service for its entity:
+Command handlers must read data that includes writes made earlier in the
+same transaction. To give them that without a second read port, a repository
+extends the full query service for its entity:
 
 ```typescript
 interface UsecaseRepository extends UseCaseQueryService {
-  // existing write methods
+  // write methods, and loads of entities the command changes
 }
 ```
 
-- **Commands** read identity through the repository obtained from their unit
-  of work, so they see their own writes already applied to the transaction
-  (see "Pending change cache" below).
+- **Commands** read through the repository obtained from their unit of work,
+  so they see their own writes already applied to the transaction (see
+  "Pending change cache" below).
 - **Queries** keep using the query services directly.
-- **Persistence** implements the shared query methods once, in the existing
-  overlay fetchers (for example `UsecaseOverlayFetcher`), and both the
-  TypeORM repository and the `Db*QueryService` delegate to them. No query logic
-  is duplicated.
+- **Persistence** implements each shared read once; the TypeORM repository
+  and the `Db*QueryService` both use it. No query logic is duplicated.
 
-**Repositories in scope.** These are the unit-of-work repositories that the
-routing handlers (`create-usecases`, `create-manual-usecases`,
-`resolve-same-gkv-collision`) and their services use, plus the one routing
-needs for key and value names. No method name is shared between a repository
-and its query service today, so extending does not conflict.
+**Where a find lives.** Every find is declared on the query service, and the
+repository extends the query service completely. A find that returns a
+domain entity that its callers then change may stay on the repository. The
+repository otherwise adds only write methods.
 
-| Unit-of-work getter | Repository | Extends | Persistence delegates to | Identity read added in Phase 5 |
-|---|---|---|---|---|
-| `getUsecaseRepository()` | `UsecaseRepository` | `UseCaseQueryService` | `UsecaseOverlayFetcher` | — |
-| `getSubgraphRepository()` | `SubgraphRepository` | `SubgraphQueryService` | `SubgraphOverlayFetcher` | — |
-| `getDataLinkRepository()` | `DataLinkRepository` | `DataLinkQueryService` | `LinkOverlayFetcher` | `findDataLinkIdentities` |
-| `getControlLinkRepository()` | `ControlLinkRepository` | `ControlLinkQueryService` | `LinkOverlayFetcher` | `findControlLinkIdentities` |
-| `getSubsystemRepository()` | `SubsystemRepository` | `SubsystemQueryService` | `SubsystemOverlayFetcher` | `findSubsystemIdentities` |
-| `getModuleRepository()` | `ModuleRepository` (SPF modules) | `SpfModuleQueryService` | `SpfModuleOverlayFetcher` | `findSpfModuleIdentities` |
-| `getKeyValueDefinitionRepository()` (**new**) | `KeyValueDefinitionRepository` (read-only) | `KeyValueDefQueryService` | `DbKeyValueDefQueryService` (no overlay) | — |
+These repositories extend their query services today:
 
-- **Key and value definitions.** No command reads them today; only two key
-  definition query handlers do. Routing needs them for UseCase GKV identity,
-  `ValueDefinition` references, and key definitions in
-  `ecBridgeIncompatible` and `noValidCombination`. Definitions are not edited
-  in a session, so the new repository has no write methods and no overlay
-  fetcher. It uses the existing `getKeyValueSummaryForGivenValues` (§4.3).
-- **SPF module identity** needs the module definition name (§4.3).
-  `findSpfModuleIdentities` reads it in the same batched query, so
-  `ModuleDefinitionRepository` does not change.
-- **One method per read (implementation note).** Extending must not leave two
-  methods that read the same thing. Today the repositories and query services
-  overlap, for example:
-  - `UsecaseRepository.findAll(fileSystemId)` and
-    `UseCaseQueryService.getAllUseCases(fileId)`;
-  - `UsecaseRepository.findBySystemIds(fileSystemId, ids)` and
-    `UseCaseQueryService.getUsecasesWithGkv(fileId, ids)`;
-  - `ModuleRepository.findModuleById(systemId, fileSystemId)` and
-    `SpfModuleQueryService.getSpfModule(...)` / `getSpfModules(...)`;
-  - `ModuleRepository.findModulesBySubgraphIds(ids, fileSystemId)` and
-    `SpfModuleQueryService.findBySubgraphId(id, fileSystemId)`.
+| Unit-of-work getter | Repository | Extends |
+|---|---|---|
+| `getUsecaseRepository()` | `UsecaseRepository` | `UseCaseQueryService` |
+| `getSubgraphRepository()` | `SubgraphRepository` | `SubgraphQueryService` |
+| `getDataLinkRepository()` | `DataLinkRepository` | `DataLinkQueryService` |
+| `getControlLinkRepository()` | `ControlLinkRepository` | `ControlLinkQueryService` |
+| `getKeyValueDefinitionRepository()` | `KeyValueDefinitionRepository` (read-only) | `KeyValueDefQueryService` |
 
-  They also differ in naming (`find` / `get`, `fileId` / `fileSystemId`),
-  parameter order, single versus batch input, and errors (`Result<T>` versus
-  throwing). Before each repository is changed, its plan lists every read
-  method on the repository and the query service, with its return shape and
-  callers, and decides for each overlap:
-  - **Same data:** keep one method, on the query service, and move the
-    callers to it. The repository inherits it.
-  - **Different data:** keep both only when the repository method loads an
-    aggregate that the command then changes (`UseCase`, `SpfModule`), and the
-    query method returns a read model for display or decisions. Name each for
-    what it returns, so the difference is visible.
-  - **Single and batch variants:** keep the batch form only.
-  - **Conventions:** applied to the methods that remain (see "Read method
-    naming" below).
+`ModuleRepository` and `SubsystemRepository` do not extend
+`SpfModuleQueryService` and `SubsystemQueryService` yet; that change is not
+needed now. Applying the rule to them, to the other repositories, and to the
+query-service ports that still return `Result` is decided later, one
+repository at a time.
 
-  The goal is small, clean interfaces: each read exists once, and a repository
-  adds only the write methods and aggregate loads that commands need.
-- **Read method naming.** The verb says what happens when data is missing:
+**Read rules.** They apply to every read a change touches:
 
-  | Prefix | Meaning | When an entity is missing | Example |
-  |---|---|---|---|
-  | `get…` | the caller expects it to exist | returns a not-found `Result` error | `getUseCases(scope, systemIds)` fails if any ID is missing |
-  | `find…` | it may not exist | returns `null`, an empty list, or a partial map | `findSpfModuleIdentities(scope, systemIds)` returns only the IDs it found |
-
-  `get` is the default; use `find` only when a missing result is normal. The
-  identity reads (`findDataLinkIdentities`, `findControlLinkIdentities`,
-  `findSpfModuleIdentities`, `findSubsystemIdentities`) are `find` reads
-  because missing IDs use the §4.2 fallback. In addition:
-  - batch reads have plural names (`getUseCases`) and are the only form;
-  - parameters are scope first, then IDs, then options;
-  - the file parameter is `fileSystemId`, never `fileId`; and
-  - each interface uses one error style for all its reads.
-- **Out of scope:** `ContainerRepository`, `ModuleDefinitionRepository`,
-  `VcpmDefinitionRepository`, `ProjectRepository`, `BulkImportRepository`,
-  `ValidationPreferencesRepository`, and `ISessionRepository`. Routing does not
-  report identities through them. Phase 6 extends one when a converted
-  producer needs a command-side identity read for that entity.
+- A read returns plain data or a `BatchRead<T, E>` (`{entityType, items,
+  failed}`); it never returns `Result`. A requested ID that does not exist is
+  `NOT_FOUND`; an entity whose parts cannot be resolved is
+  `UNRESOLVED_REFERENCE`. Reads that cannot fail return plain data.
+- Infrastructure errors are thrown and become a 500; there is no try/catch
+  per method.
+- Batch reads are named `find<Plural>` and are the only form. Parameters are
+  `fileSystemId` first, then IDs, then options; the file parameter is
+  `fileSystemId`, never `fileId`.
+- A caller that needs exactly one entity uses `requireOne`
+  (`application/shared/result/require-one.ts`), which throws when it is
+  missing.
+- Query handlers turn `failed` into issues and return a partial result.
+  Commands throw instead.
+- Extending must not leave two methods that read the same thing: keep one, on
+  the query service, and move the callers to it.
 
 No `CommandReadService` or identity-projection port is introduced. The
 existing lint rule `custom/no-query-services-in-command-handler` already
@@ -607,47 +526,32 @@ inside the command do not see mutations that are still cached. Therefore:
 
 ### 5.5 Type placement
 
-Types are split into a write group and a read group. Each lives in one place.
+Each group of types lives in one place.
 
 | Group | Contents | Location |
 |---|---|---|
-| Shared record | per-entity `XxxRecord` (the persisted field set shared by write and read types) | next to the entity, e.g. `domain/entities/usecase-data/usecase/usecase.record.ts` |
-| Write | entities, `*Init` (e.g. `UseCaseInit extends UsecaseRecord`), write inputs, write results | `domain/entities/...` and the owning application module |
-| Identity | `EntityRef<T>`, `EntityIdentityMap`, `IdentityFor<T>`, `NamedNaturalId`, `NamedKeyValue`, `PortIdentity`, `LinkEndpoint` (§4.4); used by issue facts and returned by read methods | `domain/identity/` |
-| Read | facets (`WithGkv`, `WithSubgraphs`, `WithLinks`), `ReadOptions` | `application/read-models/<entity>/`; shared types in `application/read-models/common/` |
+| Write | entities, `*Init`, write inputs, write results | `domain/entities/...` and the owning application module |
+| Identity | `EntityRef<T>`, `IdentifiedEntityRef<T>`, `EntityIdentityMap`, `IdentityFor<T>`, `NamedNaturalId`, `NamedKeyValue`, `PortIdentity`, `LinkEndpoint` (§4.4); used by issue facts and returned by identity reads | `domain/identity/` |
+| Read results | `BatchRead`, `FailedEntity`, `FAILED_ENTITY_REASON` | `application/ports/persistence/batch-read.ts` |
 | Persistence rows | TypeORM entity schemas | infrastructure only |
 | API DTOs | wire classes and mappers | API layer only |
 
-### 5.6 Null versus optional
+### 5.6 Required `UseCase.type`
 
-One rule applies to every field touched by this phase:
+`UseCase.type` is required (`type: UsecaseType`) in every layer, and the
+`use_cases.type` column is non-null (§11). Import always derives the type
+with `usecase-type-classifier.ts`, the same classifier routing uses
+(`computeUsecaseType` in `usecase-builder.ts`); the derived value wins over
+any type in UI metadata.
 
-- `field?: T` means the field is truly optional. It is omitted on the wire.
-- `field: T | null` means null has a domain meaning. It is sent as `null`.
-- A field never uses both (`field?: T | null` is not allowed).
-- No empty-string sentinel: a missing name is `null` (or omitted, for `?`
-  fields), never `''`. Mappers stop substituting `''`.
-
-Persistence rows follow their column: a nullable column is `T | null`, a
-non-null column is `T`, and row fields never use `?`. Mappers convert a row
-`null` to an omitted field when the domain field is optional.
-
-Decisions for the routing scope:
-
-| Field | Today | Phase 1 |
-|---|---|---|
-| `UseCase.type` | `UseCaseInit`/`UseCase` `type?`; `UseCaseReadModel` `type?: UsecaseType \| null`; `OverlaidUseCase` `UsecaseType \| null`; row `type?`, nullable column. Import leaves it unset when UI metadata has no match (`usecase-builder.ts`). | **Required** `type: UsecaseType` in every layer; non-null column (§11). Import always derives the type with `usecase-type-classifier.ts`, the same classifier routing uses; the derived value wins over any type in UI metadata. |
-| `UseCase.alias`, `UseCase.aliasId` | domain and read model `?`; row and change-details snapshot `\| null`. Independent: the parser accepts an alias ID without a name. | Domain, read model, wire: `alias?: string`, `aliasId?: number`, independent. Change-details snapshot keeps `T \| null` (null means "no alias in this before/after state"). Row: `T \| null`. |
-| `UseCase.orderedKeys` | domain `Array<{naturalId}>?`; row `string?`, nullable column | Domain `orderedKeys?` (absent means key-vector file order). Row `string \| null`. |
-| `SubsystemDataLink.dataLinkSystemId`, `SubsystemControlLink.controlLinkSystemId` | domain `number \| null`; row `number`, non-null column | Edit-action payloads keep `number \| null` (null means the chain is not resolved yet). Committed rows stay `number`; a committed segment always has a link. Both types document this. |
-| `SpfModule.alias` | domain `?`; row `string \| null`, nullable column; read model `string` via `alias ?? ''` | `alias: string \| null` in domain, read model, and row; sent as `null`. Remove the `?? ''` fallback. |
-| `DataPort.name`, `ControlPort.name` | `DataPort` `string \| null` (constructor `?: string \| null`); `ControlPort` `?`; node read model `string` via `''` fallback; SPF-port read model `string \| null`; API schema `string \| null` but mapper sends `''` | `name: string \| null` for both ports in domain, read models, row, and wire. Empty input is stored as `null`. Remove every `''` fallback, so the node read model and the API send `null` (**API change**). Import may still generate names, but a port name is not guaranteed. |
+Other null-versus-optional changes (for example port names `''` to `null`)
+are not part of this phase.
 
 ### 5.7 Layer boundaries (lint)
 
-The root `eslint.config.js` gains a `no-restricted-imports` configuration that
-enforces the placement in §5.5. It replaces the custom
-`custom/no-domain-infrastructure-deps` rule, whose bans move into the domain
+The root `eslint.config.js` has a `no-restricted-imports` configuration that
+enforces the layering. It replaces the custom
+`custom/no-domain-infrastructure-deps` rule, whose bans moved into the domain
 row; the built-in rule also covers `export … from` and package subpaths, which
 the custom rule missed:
 
@@ -655,19 +559,20 @@ the custom rule missed:
 |---|---|
 | `packages/core/src/domain/**` | `packages/core/src/application/**`; infrastructure and API packages; `typeorm`, `express` |
 | `packages/core/src/shared/**` | `packages/core/src/application/**`, `packages/core/src/domain/**` |
-| `packages/core/src/application/read-models/**` | infrastructure and API packages |
 
-The rule is added as `error` with no allowlist. The existing violations are
+The rule is `error` with no allowlist. The violations that existed were
 fixed in the same change by moving the imported types down a layer:
 
-- `domain/entities/common/entities/header.entity.ts` imports
+- `domain/entities/common/entities/header.entity.ts` imported
   `application/file-operations/shared/acdb-chunks/header-chunk.js`;
-- `domain/entities/definitions/common/types/element-data.ts` imports
-  `application/.../definitions/common/type/data-type.js` and
-  `application/usecase-designer/shared/element-definition.js`;
-- `shared/dto/property-dto.ts` imports
-  `application/usecase-designer/shared/element-definition.js` and
-  `property-read-model.js`.
+  `ACDBVersionInfo` and `CodecInfo` moved into `header.entity.ts`;
+- `domain/entities/definitions/common/types/element-data.ts` imported
+  `DataType` and the element types from `application/`; they moved to
+  `domain/entities/definitions/common/types/data-type.ts` and
+  `element-type.ts`;
+- `shared/dto/property-dto.ts` imported application types; the property DTO
+  and its mapper now live in
+  `application/usecase-designer/shared/dto/property.dto.ts`.
 
 ## 6. Core Logger Contract
 
@@ -952,20 +857,24 @@ Hexadecimal appears only in text: messages, log descriptions, and
 `displayName`. Clients treat `systemId` as opaque.
 
 ```typescript
-interface ApiEntityRef {
-  readonly entityType: IssueEntityType;
-  readonly systemId: string;    // decimal, String(systemId)
-  readonly displayName: string; // always filled by the renderer
+class ApiEntityRef {
+  entityType: EntityType;  // ENTITY_TYPE, OpenAPI enum name IssueEntityType
+  systemId: string;        // decimal, String(systemId)
+  displayName?: string;    // filled for every rendered issue
 }
 ```
 
 `displayName` is the §4.3 identity, or the §4.2 fallback, so it already
-contains the alias and natural IDs when they exist. A reference has no separate
-`alias` or `naturalId` field. This is the usual shape of a reference in an API
-response: an opaque ID for machines and one display string for people. A field
-can be added later if a client needs it; removing one would break clients.
+contains the alias and natural IDs when they exist. It is filled on every
+reference of a rendered issue; only references of a `LegacyIssue` (§13.1)
+can lack it. A reference has no separate `alias` or `naturalId` field. This
+is the usual shape of a reference in an API response: an opaque ID for
+machines and one display string for people. A field can be added later if a
+client needs it; removing one would break clients.
 
-`ISSUE_ENTITY_TYPE` gains `ValueDefinition` so GKV values can be referenced.
+The entity types are `ENTITY_TYPE` (`shared/entity-type.ts`, formerly
+`ISSUE_ENTITY_TYPE`); it includes `ValueDefinition` so GKV values can be
+referenced.
 
 ### 8.3 Issue facts and rendering
 
@@ -978,90 +887,82 @@ in every layer (`impactedEntity`, `relatedEntities`, `params`,
 |---|---|---|---|
 | Domain (`domain/issues/`) | `IssueFact<C>` | `EntityRef<T>` | `FixOptionFact<C>` |
 | Application (`application/issues/`) | `Issue<C>` | `RenderedEntityRef` | `RenderedFixOption<C>` |
-| API | per-code `ApiIssueItem` variant (§8.4) | `ApiEntityRef` | `ApiFixOption` |
+| API | `ApiIssueItem` (§8.4) | `ApiEntityRef` | `ApiFixOptionDto` |
 
-**Per-code context.** One map in `domain/issues/` declares, for each issue code
-that has context, its related entities, parameters, and fix-option kinds.
-Codes are keyed by their wire value (`ISSUE_CODE.*`):
+**Per-code context.** One map in `domain/issues/issue-context-map.ts`
+declares, for each issue code produced as a fact, its related entities,
+parameters, and fix-option kinds. Codes are keyed by their wire value
+(`ISSUE_CODE.*`); a code is added when its producer is converted:
 
 ```typescript
-// domain/issues/issue-context-map.ts
+// domain/issues/issue-context-map.ts (excerpt)
 type NoContext = Record<never, never>;
-type ParamValue = string | number | boolean | readonly (string | number)[];
+type ParamValue = string | number;
 
 interface IssueContextMap {
-  [ISSUE_CODE.ROUTING_MANUAL_GKV_CONFLICT]: {
-    relatedEntities: {
-      gkvValues: readonly EntityRef<'ValueDefinition'>[];
-      subgraphs: readonly EntityRef<'Subgraph'>[];
-    };
-    params: NoContext;
-    fixOptions: NoContext;
-  };
-  [ISSUE_CODE.ROUTING_SAME_GKV_CHOICE_REQUIRED]: {
-    relatedEntities: {gkvValues: readonly EntityRef<'ValueDefinition'>[]};
-    params: {collisionId: string};
-    fixOptions: {
-      SELECT_CANDIDATE: {
-        relatedEntities: {subgraphs: readonly EntityRef<'Subgraph'>[]};
-        params: {candidateNumber: number};
-      };
-      KEEP_EXISTING: {
-        relatedEntities: {
-          usecase: EntityRef<'UseCase'>;
-          subgraphs: readonly EntityRef<'Subgraph'>[];
-        };
-        params: NoContext;
-      };
-      MERGE_ALL: {
-        relatedEntities: {
-          usecase?: EntityRef<'UseCase'>;
-          subgraphs: readonly EntityRef<'Subgraph'>[];
-        };
-        params: NoContext;
-      };
-    };
-  };
-  // one entry per converted code
+  [ISSUE_CODE.ROUTING_MANUAL_GKV_CONFLICT]: CodeContext<{
+    gkvValues: ValueDefinitions;
+    subgraphs: Subgraphs;
+  }>;
+  [ISSUE_CODE.ROUTING_DFS_NO_VALID_COMBINATION]: CodeContext<{
+    path: Subgraphs;
+    conflicts: readonly {
+      readonly key: EntityRef<'KeyDefinition'>;
+      readonly subgraphs: Subgraphs;
+    }[];
+  }>;
+  [ISSUE_CODE.ROUTING_SAME_GKV_CHOICE_REQUIRED]: CodeContext<
+    {gkvValues: ValueDefinitions},
+    {collisionId: string},
+    {
+      SELECT_CANDIDATE: Context<
+        {usecase?: EntityRef<'UseCase'>; subgraphs: Subgraphs},
+        {candidateNumber: number}
+      >;
+      KEEP_EXISTING: Context<{usecase: EntityRef<'UseCase'>; subgraphs: Subgraphs}>;
+      MERGE_ALL: Context<{usecase?: EntityRef<'UseCase'>; subgraphs: Subgraphs}>;
+    }
+  >;
+  [ISSUE_CODE.ROUTING_ORPHAN_SUBGRAPH]: CodeContext; // no context
+  // ...one entry per converted code
 }
 
-type ContextFor<C extends IssueCode> = C extends keyof IssueContextMap
-  ? IssueContextMap[C]
-  : {relatedEntities: NoContext; params: NoContext; fixOptions: NoContext};
+type IssueFactCode = keyof IssueContextMap;
 ```
 
-`relatedEntities` values are `EntityRef` or arrays of them; `params` values
-are `ParamValue`. A code without an entry has no context. Fix-option kinds
-are the existing `COLLISION_RESOLUTION_MODE` values for same-GKV collisions,
+`CodeContext<R, P, F>` holds `relatedEntities: R`, `params: P`, and the
+fix-option kinds `F`, each defaulting to `NoContext`. A `relatedEntities`
+role holds one `EntityRef`, a list of them, or a list of groups; a group
+holds entities and lists of entities only and is not nested. Grouping keeps
+messages readable when entities belong together, for example a key and the
+subgraphs that conflict on it. `params` values are `ParamValue`. Fix-option
+kinds for same-GKV collisions are the `COLLISION_RESOLUTION_MODE` values,
 written as literals because domain cannot import application.
 
 **Facts.**
 
 ```typescript
-// domain/issues/ (EntityRef is imported from domain/identity/, §4.4)
-interface IssueFact<C extends IssueCode = IssueCode> {
+// domain/issues/issue-fact.ts (EntityRef is imported from domain/identity/, §4.4)
+type IssueFact<C extends IssueFactCode = IssueFactCode> = {
   readonly code: C;
   readonly severity: IssueSeverity;
   readonly category?: IssueCategory;
   readonly impactedEntity?: EntityRef;
-  readonly relatedEntities: ContextFor<C>['relatedEntities'];
-  readonly params: ContextFor<C>['params'];
   readonly impactedUsecases?: readonly EntityRef<'UseCase'>[];
   readonly fixOptions?: readonly FixOptionFact<C>[];
-}
+} & ContextFields<IssueContextMap[C]>;
 
-type FixOptionFact<C extends IssueCode = IssueCode> = {
-  [K in keyof ContextFor<C>['fixOptions']]: {
-    readonly id: string;               // e.g. "delete-duplicate-link"
-    readonly kind: K;                  // selects the description template
-    readonly relatedEntities: ContextFor<C>['fixOptions'][K]['relatedEntities'];
-    readonly params: ContextFor<C>['fixOptions'][K]['params'];
-    readonly commandType: string;
-    readonly commandPayload: Readonly<Record<string, unknown>>;
-    readonly requiredClientInputs: readonly ClientInputSpec[];
-  };
-}[keyof ContextFor<C>['fixOptions']];
+type FixOptionFact<C> = {   // one variant per kind K of code C
+  readonly id: string;      // e.g. "delete-duplicate-link"; not an entity ID
+  readonly kind: K;         // selects the description template
+  readonly commandType: string;
+  readonly commandPayload: Readonly<Record<string, unknown>>;
+  readonly requiredClientInputs: readonly ClientInputSpec[];
+} & ContextFields<FixOptionContext<C, K>>;
 ```
+
+`ContextFields` makes `relatedEntities` and `params` required, except that
+each may be left out when its context is `NoContext`.
 
 - The code fixes the shape of `relatedEntities`, `params`, and each fix
   option, so a code and its context cannot be mismatched.
@@ -1069,74 +970,92 @@ type FixOptionFact<C extends IssueCode = IssueCode> = {
   must set it for an entity that cannot be looked up later: an entity whose
   insert failed, or an entity created or changed by the current command whose
   write may still be in the pending change cache (§5.4).
-- The fix-option ID field is renamed from `systemId` to `id`, as on the wire;
-  it is not an entity system ID.
+- The fix-option ID field is `id`, as on the wire, not `systemId`; it is not
+  an entity system ID.
 - `ClientInputSpec.label` is fixed text that describes the input. It never
   names an entity.
 - `commandPayload` keeps numeric system IDs and is not rendered.
 - `domain/issues/` contains only fact types. Rendered types, `IssueRenderer`,
-  the per-code templates, and `IdentityFormatter` live in
+  the templates (`issue-templates.ts`), and `IdentityFormatter` live in
   `application/issues/`.
 
 **Rendered issue.** Same shape, with text added and every `EntityRef` replaced
 by a `RenderedEntityRef`:
 
 ```typescript
-// application/issues/
+// application/issues/issue.ts
 interface RenderedEntityRef {
-  readonly entityType: IssueEntityType;
+  readonly entityType: EntityType;
   readonly systemId: number;
   readonly displayName: string; // IdentityFormatter.format; always filled
 }
 
 type Rendered<T> = T extends EntityRef
   ? RenderedEntityRef
-  : T extends readonly EntityRef[]
-    ? readonly RenderedEntityRef[]
-    : {readonly [K in keyof T]: Rendered<T[K]>};
+  : T extends readonly (infer E)[]
+    ? readonly Rendered<E>[]
+    : T extends object
+      ? {readonly [K in keyof T]: Rendered<T[K]>}
+      : T;
 
-interface Issue<C extends IssueCode = IssueCode> {
+type Issue<C extends IssueFactCode = IssueFactCode> = {
   readonly code: C;
   readonly severity: IssueSeverity;
   readonly category?: IssueCategory;
   readonly message: string;
   readonly impactedEntity?: RenderedEntityRef;
-  readonly relatedEntities: Rendered<ContextFor<C>['relatedEntities']>;
-  readonly params: ContextFor<C>['params'];
+  readonly relatedEntities: Rendered<IssueContextMap[C]['relatedEntities']>;
+  readonly params: IssueContextMap[C]['params'];
   readonly impactedUsecases?: readonly RenderedEntityRef[];
   readonly fixOptions?: readonly RenderedFixOption<C>[];
-}
+};
 
 // FixOptionFact<C> with `description: string` added and its relatedEntities
 // rendered
-type RenderedFixOption<C extends IssueCode = IssueCode> = /* ... */;
+type RenderedFixOption<C extends IssueFactCode = IssueFactCode> = /* ... */;
 ```
 
-The API mapper converts `Issue` to its §8.4 wire variant only by changing
-representation: every `systemId` becomes `String(systemId)`, and empty
-`relatedEntities` and `params` are omitted.
+A rendered issue always has `relatedEntities` and `params` (possibly empty).
+The API mapper converts `Issue` to `ApiIssueItem` only by changing
+representation (§8.4).
 
-**Rendering.**
+**Rendering.** `IssueRenderer` (`application/issues/issue-renderer.ts`):
 
-- The renderer collects every `EntityRef` without `identity`, batches lookups
-  per entity type, then applies the code's template for `message` and each fix
-  option kind's template for `description`.
-- In a command, it runs inside the handler before commit or rollback, using the
-  unit-of-work repositories' read methods (§5.4). Queries render through query
-  services.
-- An entity that cannot be resolved uses the fallbacks in §4.2 and §5.3.
-- `Result<T>` accepts only rendered issues. During migration it also accepts a
-  deprecated `LegacyIssue` from producers not yet converted (§13.1).
+- collects every `EntityRef` without `identity`, reads them with one batched
+  identity read per entity type (§5.2), then applies the code's template
+  from `MESSAGE_TEMPLATES` for `message` and the fix-option kind's template
+  from `FIX_OPTION_TEMPLATES` for `description`;
+- takes its reads as `IdentityReads`, one `IdentityRead` per entity type.
+  `IssueRenderer.forUnitOfWork(uow)` uses the unit-of-work repositories, so
+  the reads see the session overlay (§5.4). A type without a read uses the
+  fallback;
+- names an entity the session deleted by the identity its read returns from
+  committed data, and an entity that is still unknown with the §4.2 fallback;
+  there is no retry.
 
-**Producers converted to facts.** Converted factories keep their current inputs,
-additionally receive the identity of each referenced entity (from the routing
-identity map or the reads in §5.3), and stop producing text:
+Commands render once, inside the unit of work, before commit or rollback,
+through `renderOrThrow` (`application/issues/render-or-throw.ts`): a failed
+fact result is thrown as `DomainRuleViolationException` with its rendered
+issues; any other result is returned with its warnings rendered.
 
-- `IssueFactory` (about 20 methods, about 44 call-site files);
-- `RoutingIssueFactory` (about 30 methods, about 19 call-site files);
+`Result<T, I = Issue | LegacyIssue>`: routing carries `Result<T, IssueFact>`
+until it renders, and other code returns rendered issues or, during
+migration, the `LegacyIssue` of producers not yet converted (§13.1). The
+exceptions in `application/shared/exceptions/` accept `Issue | LegacyIssue`.
+
+**Producers.** Converted factories keep their current inputs and stop
+producing text. Converted so far (Phase 4/5):
+
+- `RoutingIssueFactory`, and the `IssueFactory.notFound` calls routing
+  makes.
+
+Still producing `LegacyIssue` (Phase 6):
+
+- the other `IssueFactory` methods and call sites;
 - domain validation rules;
 - `newInsertFailureIssue`;
-- `ArcDbFile.dataLossIssues` (see §8.5).
+- `ArcDbFile.dataLossIssues` (see §8.5);
+- the routing checks that throw before entering routing.
 
 This split is a project design choice, not a named pattern. It applies the
 same idea as Fowler's
@@ -1149,36 +1068,37 @@ pattern: collect structured problems, present them at the boundary.
 
 | Field | Before | After |
 |---|---|---|
-| `code` | `string` | discriminator of the per-code variant (below) |
+| `code` | `string` | `string`, unchanged |
 | `impactedEntity` | `{entityType, systemId, displayName?}` | `ApiEntityRef` |
-| `relatedEntities` | — | per-code object of `ApiEntityRef` or `ApiEntityRef[]`; omitted when the code has none |
-| `params` | — | per-code object; omitted when the code has none |
+| `relatedEntities` | — | object of roles; each an `ApiEntityRef`, an `ApiEntityRef[]`, or a list of groups; omitted when empty |
+| `params` | — | object of `string` or `number` values; omitted when empty |
 | `impactedUsecases` | `number[]` | `ApiEntityRef[]`, **breaking** |
-| `fixOptions[].kind` | — | per-code fix kind |
-| `fixOptions[].relatedEntities`, `fixOptions[].params` | — | per fix kind, as on the issue |
+| `fixOptions[].id` | `systemId` on the error path | `id` everywhere |
+| `fixOptions[].kind` | — | fix kind of the code; absent for legacy issues |
+| `fixOptions[].relatedEntities`, `fixOptions[].params` | — | per fix kind, as on the issue; omitted when empty |
 | `fixOptions[].commandPayload` | numeric IDs | **unchanged** (machine contract) |
 
-**OpenAPI: discriminated union on `code`.** `ApiResult<T>.issues` is an array
-of `oneOf` per-code variants with `discriminator: {propertyName: 'code',
-mapping}`:
+**One generic shape.** There is one `ApiIssueItem` class, not a variant per
+code. `relatedEntities` and `params` are described as generic objects in
+OpenAPI (`ApiRelatedEntities`, `ApiIssueParams`); their keys per code are
+documented by `IssueContextMap`. A per-code discriminated union on `code`
+was considered and dropped (YAGNI): no client needs it yet, and it can be
+added later without changing the JSON. Clients branch on `code` and treat
+an unknown `code` as a plain issue (show `message`).
 
-- `ApiIssueItemBase` holds the shared fields (`code`, `severity`, `category`,
-  `message`, `impactedEntity`, `impactedUsecases`, `fixOptions`).
-- Each code with an `IssueContextMap` entry has its own DTO class that extends
-  the base, restricts `code` to its single value, and declares typed
-  `relatedEntities`, `params`, and fix-option classes.
-- All other codes share one `ApiPlainIssueItem` variant with no
-  `relatedEntities` or `params`. The discriminator `mapping` sends each of
-  those codes to it; OpenAPI allows several values to map to one schema.
-- One registry in the API layer, typed
-  `satisfies Record<IssueCode, Type<ApiIssueItemBase>>`, lists the variant for
-  every code. The `oneOf`, the `mapping`, and `@ApiExtraModels` are built from
-  it, so adding a code without a variant fails to compile.
-- Clients generated from the spec get a TypeScript union narrowed by `code`.
-  A client treats an unknown `code` as a plain issue (show `message`), so new
-  codes do not break older clients.
-- A code moves from the plain variant to its own variant in the PR that
-  converts its producer (Phase 4 or 6).
+**Mapper.** `toApiIssueItem(issue: Issue | LegacyIssue)`
+(`api-issue-item.mapper.ts`) is used for results and, through
+`toApiIssueItems`, by `all-exceptions.filter.ts` for error responses:
+
+- every `systemId` becomes `String(systemId)`;
+- a rendered issue maps its `relatedEntities`, `params`, `impactedUsecases`,
+  and fix options with `kind` and context; empty `relatedEntities` and
+  `params` are omitted;
+- a `LegacyIssue` has no `relatedEntities`, `params`, or fix-option `kind`;
+  its `impactedUsecases` become `ApiEntityRef`s with only `entityType` and
+  `systemId`, and its `LegacyFixOption.systemId` is sent as `id`; and
+- extra fields on subtypes such as `ValidationIssue` (`name`,
+  `defaultSeverity`) are not projected.
 
 **Worked example.** A manual use case is requested with subgraphs
 "Mic capture" and "Speaker out" and GKV `StreamType:Playback`, which existing
@@ -1190,6 +1110,7 @@ The factory creates a fact; no identities are set because every entity exists:
 {
   code: 'ARC-ROUTING-MANUAL-GKV-CONFLICT',
   severity: 'ERROR',
+  impactedUsecases: [{entityType: 'UseCase', systemId: 412}],
   relatedEntities: {
     gkvValues: [{entityType: 'ValueDefinition', systemId: 77}],
     subgraphs: [
@@ -1197,20 +1118,23 @@ The factory creates a fact; no identities are set because every entity exists:
       {entityType: 'Subgraph', systemId: 102},
     ],
   },
-  params: {},
-  impactedUsecases: [{entityType: 'UseCase', systemId: 412}],
 }
 ```
 
 The renderer batches one identity read per entity type, fills each
-`displayName`, and applies the template for `message`. The API mapper turns
-each `systemId` into a string and omits the empty `params`:
+`displayName`, and applies the template for `message`. Lists in
+`relatedEntities` are not repeated in the message. The API mapper turns each
+`systemId` into a string and omits the empty `params`:
 
 ```json
 {
   "code": "ARC-ROUTING-MANUAL-GKV-CONFLICT",
   "severity": "ERROR",
-  "message": "Manual UseCase topology conflicts with UseCase 'Playback' [StreamType:Playback, DeviceRx:Speaker] (requested: Subgraph 'Mic capture' (0x00000010), Subgraph 'Speaker out' (0x00000011); requested pair: Subgraph 'Mic capture' (0x00000010) -> Subgraph 'Speaker out' (0x00000011)).",
+  "message": "The manual use case has the same key values as other use cases.",
+  "impactedUsecases": [
+    {"entityType": "UseCase", "systemId": "412",
+     "displayName": "UseCase 'Playback' [StreamType:Playback, DeviceRx:Speaker]"}
+  ],
   "relatedEntities": {
     "gkvValues": [
       {"entityType": "ValueDefinition", "systemId": "77",
@@ -1220,27 +1144,23 @@ each `systemId` into a string and omits the empty `params`:
       {"entityType": "Subgraph", "systemId": "101", "displayName": "Subgraph 'Mic capture' (0x00000010)"},
       {"entityType": "Subgraph", "systemId": "102", "displayName": "Subgraph 'Speaker out' (0x00000011)"}
     ]
-  },
-  "impactedUsecases": [
-    {"entityType": "UseCase", "systemId": "412",
-     "displayName": "UseCase 'Playback' [StreamType:Playback, DeviceRx:Speaker]"}
-  ]
+  }
 }
 ```
 
-Today the same issue reads `Manual UseCase topology conflicts with another
+Before, the same issue read `Manual UseCase topology conflicts with another
 topology for GKV values [77] (requested members: [101, 102]; requested pairs:
-[101->102]).` and carries only `impactedUsecases: [412]`.
+[101->102]).` and carried only `impactedUsecases: [412]`.
 
 **How a client uses an issue.**
 
 | Field | Client use |
 |---|---|
-| `code` | Choose behaviour; narrows the TypeScript type. Never parse `message`. |
+| `code` | Choose behaviour. Never parse `message`. |
 | `severity`, `category` | Icon, and whether the issue blocks the user. |
 | `message` | Show as is. |
 | `impactedEntity.systemId` | Select or highlight the entity. |
-| `relatedEntities.<key>[].systemId` | Highlight the other entities involved. |
+| `relatedEntities.<role>` `systemId`s | Highlight the other entities involved. |
 | `displayName` | Labels in lists and tooltips. |
 | `impactedUsecases` | Mark the affected use cases. |
 | `params` | Code-specific values, for example `collisionId`. |
@@ -1248,8 +1168,8 @@ topology for GKV values [77] (requested members: [101, 102]; requested pairs:
 
 Rules:
 
-- `impactedUsecases` is sent only when it is not empty. The mapper treats `[]`
-  as absent, and creators stop setting `[]`.
+- Converted creators set `impactedUsecases` only when it is not empty; the
+  mapper sends what it receives.
 - Same-GKV collision issues have no `impactedEntity`. The colliding GKV values
   go in `relatedEntities.gkvValues`, and each fix option names its candidate's
   subgraphs in `relatedEntities.subgraphs`. Subgraph pairs stay in the
@@ -1268,6 +1188,9 @@ Rules:
 | Manual: candidate conflicts with an existing or staged use case | `ROUTING_MANUAL_GKV_CONFLICT` | that use case |
 
 ### 8.5 Data-loss issues: stored, not re-rendered
+
+Status: planned for Phase 6. Today `ArcDbFile.dataLossIssues` still holds
+`ValidationIssue`s in the old stored format.
 
 Data-loss issues are the one exception to "render at the end of the command".
 The entities they describe were never inserted, and the parsed file is gone
@@ -1519,13 +1442,13 @@ Logging schema changes (`log_entries`):
 
 Project-data schema changes in this phase (not logging):
 
-- `use_cases.type` becomes non-null, matching the required `UseCase.type`
-  (§5.6).
+- `use_cases.type` is non-null, matching the required `UseCase.type`
+  (§5.6). Done.
 - `files.data_loss_issues` stores the complete rendered issue JSON (§8.5). The
-  old stored format is dropped and no reader for it is kept.
-- The project keeps a **single** migration. The existing initial migration
-  (`1793004360309-initial-create.ts`) is regenerated rather than adding an
-  incremental one.
+  old stored format is dropped and no reader for it is kept. Phase 6.
+- The project keeps a **single** migration. The initial migration
+  (now `1795576256392-initial-create.ts`) is regenerated rather than adding
+  an incremental one.
 
 ## 12. Security and Reliability
 
@@ -1592,26 +1515,21 @@ changes with
 expand, migrate, contract. Code not yet migrated keeps compiling and behaving
 as today, and each later PR migrates one feature area.
 
-**Expand (issues, Phase 4).** The current `Issue` shape, with free-text
-`message`, is kept as a deprecated `LegacyIssue`. `Result<T>` accepts rendered
-issues and `LegacyIssue`. The API mapper maps a `LegacyIssue` to the
-`ApiPlainIssueItem` variant (§8.4), without `relatedEntities` or `params`; its
-code stays mapped to that variant until its producer is converted. A legacy
-`FixOption.systemId` is sent as `id` with no `kind`. Because `impactedUsecases`
-becomes `ApiEntityRef[]` (§8.4), the mapper gives each legacy use-case ID the
-§4.2 fallback `displayName` (`UseCase with systemId: 0x...`) until its producer
-is converted.
+**Expand (issues, Phase 4).** The old `Issue` shape, with free-text
+`message`, is kept as `LegacyIssue`. `Result<T, I = Issue | LegacyIssue>`
+accepts both. The API mapper maps a `LegacyIssue` without `relatedEntities`,
+`params`, or fix-option `kind`; a `LegacyFixOption.systemId` is sent as `id`.
+Because `impactedUsecases` is `ApiEntityRef[]` (§8.4), the mapper sends each
+legacy use-case ID as a reference with only `entityType` and `systemId`, until
+its producer is converted.
 
-**Guardrails (issues).** `@typescript-eslint/no-deprecated` is enabled as
-`warn` everywhere; Phase 4 adds a `files` override that makes it `error` for
-`LegacyIssue` in migrated areas. `sonarjs/deprecation`, enabled as `error` by
-the sonarjs recommended config, is turned off: it duplicates `no-deprecated`.
-If `no-deprecated` does not report a deprecated type, the fallback is a
-`no-restricted-syntax` rule for the migrated areas that rejects `LegacyIssue`
-(§18).
+**Guardrails (issues).** `LegacyIssue` is not marked `@deprecated`, so there
+is no lint override for migrated areas; the remaining uses are found by
+search. `@typescript-eslint/no-deprecated` is enabled as `warn` everywhere,
+and `sonarjs/deprecation` is turned off because it duplicates it.
 
-**Migrate (Phase 6).** Each PR converts one feature area's issue producers,
-and adds that area to the `error` override. It changes nothing else.
+**Migrate (Phase 6).** Each PR converts one feature area's issue producers.
+It changes nothing else.
 
 **Contract (Phase 7).** Delete the issue compatibility code (see Phase 7). The
 compiler then reports any remaining producer.
@@ -1620,8 +1538,7 @@ compiler then reports any remaining producer.
 in their own PR:
 
 - the stored data-loss format and the regenerated migration (§8.5, §11);
-- required `UseCase.type` and its non-null column (§5.6);
-- port names `''` to `null`, together with the UI (§5.6); and
+- required `UseCase.type` and its non-null column (§5.6); and
 - the `no-restricted-imports` boundaries with their violations fixed (§5.7).
 
 ### Phase 1: Contract boundary
@@ -1651,11 +1568,11 @@ in their own PR:
   step and add the event-name lint rule (§13.1). Event names keep their old
   values.
 
-### Phase 2: Identity kernel
+### Phase 2: Identity kernel (done)
 
 - Add `EntityRef`, `IdentityFor`, and the identity types in `domain/identity/`,
   with `EntityIdentityMap` entries for the eight routing types (§4.4). Add
-  `ValueDefinition` to `ISSUE_ENTITY_TYPE` (§8.2).
+  `ValueDefinition` to the entity types (now `ENTITY_TYPE`, §8.2).
 - Add `IdentityFormatter` (single `format` method) in `application/issues/`,
   with a case for each of those entries (§4.4).
 - Unit-test each §4.3 format and the hexadecimal system-ID fallback.
@@ -1663,48 +1580,40 @@ in their own PR:
 
 ### Phase 3: Read side, types, and boundaries
 
-- Add the `no-restricted-imports` boundaries and fix the existing violations
-  (§5.7).
-- Make the six repositories in the §5.4 "Repositories in scope" table extend
-  their query services, delegating to the shared overlay fetchers, and add the
-  read-only `KeyValueDefinitionRepository` with
+- Done: the `no-restricted-imports` boundaries, with the existing violations
+  fixed (§5.7).
+- Done: `UsecaseRepository`, `SubgraphRepository`, `DataLinkRepository`, and
+  `ControlLinkRepository` extend their query services, with overlapping reads
+  unified under the §5.4 read rules, and the read-only
+  `KeyValueDefinitionRepository` with
   `UnitOfWork.getKeyValueDefinitionRepository()` (§5.4).
-- For each repository, first audit the overlapping read methods and their
-  callers, and unify them under the §5.4 "one method per read" rule. One PR per
-  repository; it changes callers and implementations together.
-- Add `XxxRecord` types and the `application/read-models/` folder (§5.5).
-- Apply the §5.6 field decisions, including removing `''` name fallbacks.
-- Make `UseCase.type` required, derive it at import, change the column to
-  non-null, and regenerate the single migration (§5.6, §11).
+- Done: `UseCase.type` is required, derived at import, its column is
+  non-null, and the single migration is regenerated (§5.6, §11).
+- Later, decided one repository at a time: apply the §5.4 "where a find
+  lives" rule to `ModuleRepository`, `SubsystemRepository`, the other
+  repositories, and the query-service ports that still return `Result`.
 
-### Phase 4: Issue contract
+### Phases 4 and 5: Issue contract and routing (done)
+
+Phases 4 and 5 were delivered together for the routing codes.
 
 - Add `IssueFact`, `FixOptionFact`, and `IssueContextMap` in
-  `domain/issues/`, replacing `shared/issues/`; facts use the Phase 2
-  `EntityRef`.
-- Add `Issue`, `RenderedEntityRef`, `RenderedFixOption`, `IssueRenderer`, and
-  per-code templates in `application/issues/`.
-- Add `ApiIssueItemBase`, `ApiPlainIssueItem`, the per-code variant registry,
-  and the OpenAPI discriminated union (§8.4).
-- Add the deprecated `LegacyIssue` path in `Result<T>` and the API mapper
-  (§13.1).
-- Convert the producers used by routing to facts (`RoutingIssueFactory` and
-  the `IssueFactory` methods routing calls). The other producers listed in
-  §8.3 move in Phase 6.
-- Apply the wire changes in §8.4 and the data-loss storage in §8.5.
+  `domain/issues/`; facts use the Phase 2 `EntityRef`.
+- Add `Issue`, `RenderedEntityRef`, `RenderedFixOption`, `IssueRenderer`,
+  the templates, and `renderOrThrow` in `application/issues/` (§8.3).
+- Rename the old issue types to `LegacyIssue` and make `Result<T, I>` and
+  the exceptions accept `Issue | LegacyIssue` (§13.1). Move the exceptions
+  to `application/shared/exceptions/`.
+- Add the batched identity reads that return `BatchRead`, including the
+  committed-data read for entities the session deleted (§5.2).
+- Convert `RoutingIssueFactory` and routing's `notFound` calls to facts,
+  render once inside the unit of work, and delete the unused
+  `selectedScopeIncomplete`. The other producers listed in §8.3 move in
+  Phase 6.
+- Apply the wire changes in §8.4; `all-exceptions.filter.ts` sends error
+  issues through the same mapper.
 - Preserve existing issue code, severity, fix, blocking, and transaction
-  semantics.
-
-### Phase 5: Routing reference adoption
-
-- Add batched DataLink and ControlLink identity reads to the query services.
-- Add `findSpfModuleIdentities` to `SpfModuleQueryService` and
-  `findSubsystemIdentities` to `SubsystemQueryService` (§5.2).
-- Build the routing-local immutable identity map.
-- Convert every `RoutingIssueFactory` method per the §5.3 table, and delete the
-  unused `selectedScopeIncomplete`.
-- Migrate routing errors, warnings, and post-commit audit descriptions.
-- Verify partial enrichment does not alter routing outcomes.
+  semantics; partial enrichment does not alter routing outcomes.
 
 ### Phase 6: Incremental migration
 
@@ -1712,11 +1621,11 @@ in their own PR:
   replace them with natural identity, or with the §4.2 fallback when natural
   identity is missing.
 - Migrate features using the identity reads and `IdentityFormatter`. Add each
-  remaining entity type's `EntityIdentityMap` entry and formatter case with
-  its first producer (§4.4).
+  remaining entity type's `EntityIdentityMap` entry, formatter case, and
+  identity read with its first producer (§4.4).
 - Each PR migrates one feature area's issue producers (`LegacyIssue` to
-  facts), adds `IssueContextMap` entries and API variants for codes that gain
-  context, and adds the area to the `no-deprecated` `error` override (§13.1).
+  facts) and adds `IssueContextMap` entries and templates for its codes.
+- Store data-loss issues fully rendered (§8.5).
 - Rename event names to the §6.3 convention, and add each renamed area to the
   event-name rule's `error` override (§13.1). This can happen after the other
   phases.
@@ -1724,14 +1633,12 @@ in their own PR:
 
 ### Phase 7: Remove compatibility
 
-The logger has no compatibility code to remove (§13.1). Done when
-`no-deprecated` reports no `LegacyIssue` use. In one PR:
+The logger has no compatibility code to remove (§13.1). Done when a search
+finds no `LegacyIssue` use. In one PR:
 
-- delete `LegacyIssue`, its branch in `Result<T>`, and the legacy path and
-  `impactedUsecases` fallback in the API mapper;
-- remove the `LegacyIssue` `files` override and any fallback
-  `no-restricted-syntax` rule; and
-- confirm the build, lint, and test suites pass with no deprecated usage.
+- delete `LegacyIssue`, set `Result<T, I = Issue>`, and remove the legacy
+  path in the API mapper and the exceptions; and
+- confirm the build, lint, and test suites pass.
 
 When the event-name rule reports no warnings, make it `error` everywhere and
 remove its `files` override. This does not block Phase 7.
@@ -1751,18 +1658,18 @@ the OpenTelemetry LLD.
 - issue code and context types cannot be mismatched, and an `EntityRef` can
   only carry the identity of its own entity type;
 - a UseCase with an alias renders the alias followed by its GKV pairs;
-- `Result<T>` rejects unrendered issue facts at compile time (during migration
-  it also accepts `LegacyIssue`);
+- `Result<T>` with the default issue type rejects unrendered issue facts at
+  compile time (during migration it also accepts `LegacyIssue`);
 - data-loss facts without `identity` on every reference fail to compile;
 - command-side identity reads through a unit-of-work repository see writes
   already applied to the same transaction;
-- each §5.4 in-scope repository is assignable to its query service, and the
-  routing handlers read key and value names only through
+- each repository in the §5.4 table is assignable to its query service, and
+  the routing handlers read key and value names only through
   `getKeyValueDefinitionRepository()`;
-- no in-scope repository declares a read method that duplicates an inherited
+- no such repository declares a read method that duplicates an inherited
   query-service method;
-- in-scope read methods follow the §5.4 `get`/`find` naming and parameter
-  rules;
+- reads touched by this phase follow the §5.4 read rules;
+- identity reads name an entity the session deleted from committed data;
 - facts about entities created or changed by the current command carry
   `identity`, so rendering never depends on the pending change cache;
 - every use case created by import has a derived `type`, which overrides any
@@ -1774,17 +1681,17 @@ the OpenTelemetry LLD.
   passed `timestamp` is kept;
 - the event-name lint rule fails lint for a non-conforming `eventName` in
   renamed areas;
-- `no-deprecated` fails lint for `LegacyIssue` in migrated areas; and
 - after Phase 7, no `LegacyIssue` symbol remains.
 
 ### Persistence
 
-- link identity resolution is batched and scope-isolated;
+- identity reads are batched and scope-isolated;
 - active-session additions and deletions are respected;
-- partial endpoint data returns bounded fallback results;
+- an ID that cannot be loaded is listed in `failed` without affecting the
+  other entities;
 - the regenerated single migration creates `use_cases.type` as `NOT NULL`;
 - stored data-loss issues round-trip unchanged through
-  `findStoredDataLossIssues`; and
+  `findStoredDataLossIssues` (Phase 6); and
 - the regenerated logging migration creates `log_entries` with `event_name`,
   `service_name`, `service_instance_id`, `client_name`,
   `client_instance_id`, and no `source`;
@@ -1805,17 +1712,16 @@ the OpenTelemetry LLD.
 ### API
 
 - typed issue context is returned without requiring message parsing;
-- an entity reference has exactly `entityType`, `systemId`, and `displayName`;
+- an entity reference has exactly `entityType`, `systemId`, and
+  `displayName`, and `displayName` is filled for every rendered issue;
 - `systemId` in entity references is a decimal string, and `impactedUsecases`
-  is `ApiEntityRef[]` and omitted when empty;
-- the OpenAPI document describes `issues` as a `oneOf` discriminated on
-  `code`, every `IssueCode` appears in the mapping exactly once, and each
-  variant's context matches `ContextFor<C>`;
+  is `ApiEntityRef[]`;
+- empty `relatedEntities` and `params` are omitted;
 - `commandPayload` is unchanged;
-- a `LegacyIssue` maps to `ApiPlainIssueItem` without `relatedEntities` or
-  `params`, and its `impactedUsecases` use the fallback `displayName`;
-- port names and module aliases without a value are sent as `null`, never
-  `''`;
+- a `LegacyIssue` maps without `relatedEntities`, `params`, or fix-option
+  `kind`, and its `impactedUsecases` carry only `entityType` and `systemId`;
+- error responses use the same mapper, so fix options carry `id` and
+  `ValidationIssue` fields such as `name` are not sent;
 - known-entity messages contain natural identity and omit persistence system
   IDs;
 - registration requires a `clientName` of at most 256 characters other than
@@ -1860,16 +1766,15 @@ the OpenTelemetry LLD.
 |---|---|
 | Core logger types | Use `eventName`, separate write data from persisted/read fields, and remove `source` from writes |
 | Log call sites | Every `log*()` call moved to `LogData` in one commit; event-name lint rule (§13.1) |
-| Migration compatibility (temporary) | Deprecated `LegacyIssue` path and its `no-deprecated` lint override; removed in Phase 7 (§13.1) |
+| Migration compatibility (temporary) | `LegacyIssue` path in `Result<T, I>`, the exceptions, and the API mapper; removed in Phase 7 (§13.1) |
 | Core identity | Add `EntityRef`, identity types for the routing entities, and `IdentityFormatter` |
 | Core import | Derive `UseCase.type` with the routing classifier |
-| Lint and layering | Add `no-restricted-imports` boundaries; move types out of three violating files |
-| Core issues | Replace `shared/issues/` with `domain/issues/` facts; add `application/issues/` renderer, templates, and formatter; convert producers |
-| Core read side | Repositories extend query services; add `XxxRecord` types and `application/read-models/` |
-| Core routing | Consume an explicitly built identity map; emit facts |
-| Persistence | Delegate repository reads to overlay fetchers for the six §5.4 repositories; add `KeyValueDefinitionRepository` and its unit-of-work getter; add batched link, SPF module, and subsystem identity reads; non-null `use_cases.type`; regenerate the single migration; new `data_loss_issues` format |
-| API issues | `ApiEntityRef`, `relatedEntities`, `params`, `impactedUsecases` as `ApiEntityRef[]`; `ApiIssueItemBase`, per-code variants, `ApiPlainIssueItem`, variant registry, and the OpenAPI discriminated union on `code` |
-| API node/module DTOs | Port names and module aliases sent as `null` instead of `''` |
+| Lint and layering | Add `no-restricted-imports` boundaries; move types out of three violating files (§5.7) |
+| Core issues | Add `domain/issues/` facts and `IssueContextMap`; add `application/issues/` renderer, templates, `renderOrThrow`, and formatter; rename the old types to `LegacyIssue`; move exceptions to `application/shared/exceptions/`; convert producers |
+| Core read side | Repositories extend query services; reads return plain data or `BatchRead`; `requireOne`; batched identity reads (§5.2, §5.4) |
+| Core routing | Emit facts; render once inside the unit of work (§5.3, §8.3) |
+| Persistence | Share reads between repositories and query services for the §5.4 repositories; add `KeyValueDefinitionRepository` and its unit-of-work getter; add the batched identity reads with the committed-data fallback; non-null `use_cases.type`; regenerate the single migration; new `data_loss_issues` format (Phase 6) |
+| API issues | `ApiEntityRef`, generic `relatedEntities` and `params`, `impactedUsecases` as `ApiEntityRef[]`, new fix-option shape; one mapper for `Issue \| LegacyIssue`, also used by `all-exceptions.filter.ts` |
 | Logger infrastructure | `LogProducerIdentity`, `ActiveLogContextProvider` (`AsyncLocalStorage`), resource and client-instance enrichment in `PinoLogService`, `PinoClientLogWriter`, `description` as the Pino message |
 | API authentication | Required `clientName` at registration, signed into the token; `JwtStrategy` rejects tokens without it |
 | API client logs | New request DTO (`eventName`, `clientInstanceId`); client name from the token; `ClientLogWriter` instead of the core `Logger` |
@@ -1939,13 +1844,16 @@ work only adds fields; it does not migrate existing ones.
     LLD. Core gets no span or profiler port.
 13. CQRS stays. Repositories extend their query services so command handlers
     read writes already applied to their transaction; no extra read port is
-    added. Batched link identity reads are query-service methods. Log reads
-    are the one exception (decision 26).
+    added. Every find lives on the query service; a find that returns a
+    domain entity its callers change may stay on the repository. Batched
+    identity reads return `BatchRead`. Log reads are the one exception
+    (decision 26).
 14. The pending change cache is single-command and not readable. Facts about
     entities the command created or changed carry their identity; failed
     commands use caller input and the `systemId` fallback.
 15. Issue creators produce typed facts; an application-layer renderer produces
-    the messages. `Result<T>` carries only rendered issues. There is one
+    the messages. `Result<T>` carries rendered issues, and `LegacyIssue`
+    until Phase 7. There is one
     entity-reference type per layer: `EntityRef`, `RenderedEntityRef`,
     `ApiEntityRef`. Field names are the same in every layer, and context is
     typed per code through `IssueContextMap`.
@@ -1957,8 +1865,9 @@ work only adds fields; it does not migrate existing ones.
     Blocked edits will return `FILE_DATA_LOSS_UNACKNOWLEDGED` first.
 18. `UseCase.type` is required and always derived at import; the derived value
     wins. The single migration is regenerated.
-19. Fields follow the null-versus-optional rule in §5.6; missing names are
-    `null`, never `''`.
+19. The null-versus-optional field changes (for example port names `''` to
+    `null`) and the `XxxRecord` / `application/read-models/` types are not
+    part of this phase.
 20. Layer boundaries are enforced by `no-restricted-imports`, with existing
     violations fixed rather than allowlisted.
 21. Nodes always resolve to their concrete type (`SpfModule` or `Subsystem`),
@@ -1966,19 +1875,19 @@ work only adds fields; it does not migrate existing ones.
     is no Node or generic Module identity. Driver modules will get their own
     repository and identity read. The system-ID fallback is used only for
     entities that are missing; existing entities whose identity is not yet
-    loaded are read in batches on the failure path (§5.3).
+    loaded are read in batches by the renderer (§5.3).
 22. The logger contract changes in one step: one commit moves every log call
     to `LogData`, with no legacy shape. Event names are renamed later, tracked
-    by a lint rule. The issue contract changes by parallel change: the
-    deprecated `LegacyIssue` keeps unmigrated code working, lint blocks it in
-    migrated areas, and Phase 7 removes it in one PR (§13.1).
+    by a lint rule. The issue contract changes by parallel change:
+    `LegacyIssue` keeps unmigrated code working, and Phase 7 removes it in
+    one PR (§13.1).
 23. A reader can find every project log of one client launch, its own and the
     server's, with one `clientInstanceId` filter, because both sides store
     `client_instance_id` (§10). The request context is an infrastructure `AsyncLocalStorage` port that the
     OpenTelemetry context replaces later.
-24. The issue wire contract is an OpenAPI discriminated union on `code`.
-    Codes with context have their own variant; the rest share
-    `ApiPlainIssueItem`. Clients treat unknown codes as plain issues.
+24. The issue wire contract is one `ApiIssueItem` shape with generic
+    `relatedEntities` and `params` objects; there is no per-code OpenAPI
+    union (YAGNI). Clients treat unknown codes as plain issues.
 25. Identity types are plain data in `domain/identity/`, keyed by entity type
     in `EntityIdentityMap`. `EntityRef` lives there too, so Phase 2 can add
     the formatter before the Phase 4 issue facts. Phase 2 covers only the
@@ -2016,13 +1925,10 @@ work only adds fields; it does not migrate existing ones.
 
 These are verification steps for implementation, not open design questions:
 
-- Before planning Phase 3 for a repository, list the read methods of the
+- Before changing a repository's reads, list the read methods of the
   repository and its query service with their parameters, return shapes,
-  error style, and callers. Record the decision for each overlap (§5.4 "one
-  method per read") in the plan before writing code.
-- At the start of Phase 4, confirm `@typescript-eslint/no-deprecated` reports
-  uses of a deprecated type. If it does not, use the `no-restricted-syntax`
-  fallback in §13.1.
+  error style, and callers. Record the decision for each overlap (§5.4) in
+  the plan before writing code.
 - Confirm `AsyncLocalStorage.run(ctx, next)` in the Nest middleware keeps the
   context through guards, pipes, controllers, and the CQRS buses, that
   concurrent requests stay isolated, and that values added with `enrich` in
@@ -2030,10 +1936,3 @@ These are verification steps for implementation, not open design questions:
   log.
 - Confirm every place `NodeWorkerPoolAdapter` logs on behalf of a task runs in
   the bound context.
-
-- Confirm the inputs of `usecase-type-classifier.ts` (subgraph pairs, EC data
-  links, control links) are available in the import builder.
-- Find every place a port is created and confirm empty names are stored as
-  `null`.
-- Find every consumer of the node read model and the module/port DTOs that
-  relies on `''` names, including the UI.

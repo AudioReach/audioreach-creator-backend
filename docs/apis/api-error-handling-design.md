@@ -21,7 +21,7 @@ The AudioReach Creator Backend needs a unified, consistent error handling strate
 - Hexagonal (Ports & Adapters) + CQRS + DDD architecture
 - NestJS framework with Express underneath
 - NestJS `AllExceptionsFilter` at `packages/api/src/infrastructure-wrapper/filters/all-exceptions.filter.ts`
-- Domain exception hierarchy in `packages/core/src/shared/exceptions/`
+- Domain exception hierarchy in `packages/core/src/application/shared/exceptions/`
 - NestJS built-in exceptions from `@nestjs/common` for API-layer concerns
 - ESLint enforcement rules at `eslint-rules/`
 
@@ -328,11 +328,11 @@ Error (built-in)
 ```
 
 **File locations:**
-- `packages/core/src/shared/exceptions/domain-exception.ts` — Abstract base class
-- `packages/core/src/shared/exceptions/resource-not-found.exception.ts`
-- `packages/core/src/shared/exceptions/invalid-operation.exception.ts`
-- `packages/core/src/shared/exceptions/not-implemented.exception.ts`
-- `packages/core/src/shared/exceptions/index.ts` — Barrel export
+- `packages/core/src/application/shared/exceptions/domain-exception.ts` — Abstract base class
+- `packages/core/src/application/shared/exceptions/resource-not-found.exception.ts`
+- `packages/core/src/application/shared/exceptions/invalid-operation.exception.ts`
+- `packages/core/src/application/shared/exceptions/not-implemented.exception.ts`
+- `packages/core/src/application/shared/exceptions/index.ts` — Barrel export
 - `packages/api/src/infrastructure-wrapper/filters/all-exceptions.filter.ts` — Global exception filter
 
 ### 8.3 Error Response Contract

@@ -210,12 +210,16 @@ Used by two or more modules. Place in `packages/core/src/shared/dto/`.
 
 ```
 packages/core/src/shared/dto/
-├── property-dto.ts
+├── key-value-info-dto.ts
 └── element-data/
     ├── config-element-dto.ts
     ├── bit-field-dto.ts
     └── ...
 ```
+
+`shared/` must not import application types (layer-boundary lint). A shared
+DTO that needs them lives in the application layer instead; for example, the
+property DTO is `application/usecase-designer/shared/dto/property.dto.ts`.
 
 ### Tier 2 — Entity-level / composable DTOs
 
@@ -247,7 +251,7 @@ Examples:
 
 | DTO type | Path pattern | Example |
 |---|---|---|
-| Cross-feature primitive | `shared/dto/` | `shared/dto/property-dto.ts` |
+| Cross-feature primitive | `shared/dto/` | `shared/dto/key-value-info-dto.ts` |
 | Entity-level / composable | `<module>/dto/` | `container/dto/container-dto.ts` |
 | Operation-specific | `<module>/<operation>/` | `spf-module/get/module-compact-dto.ts` |
 
