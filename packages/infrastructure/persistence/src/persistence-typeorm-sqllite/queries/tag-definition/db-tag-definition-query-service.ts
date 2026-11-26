@@ -7,6 +7,7 @@ import type {EntityManager} from 'typeorm';
 import type {
   BatchRead,
   FailedEntity,
+  IdentifiedEntityRef,
   KeyDefinitionReadModel,
   KeyValueDefQueryService,
   TagDefinitionFilter,
@@ -18,6 +19,8 @@ import {FAILED_ENTITY_REASON, ENTITY_TYPE} from '@arc/core';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
 import {withNotFound} from '../../utils/with-not-found.js';
+import {withCommittedFallback} from '../../utils/with-committed-fallback.js';
+import {inRequestOrder} from '../../utils/in-request-order.js';
 import {
   TagDefinitionFetcher,
   type OverlaidTagDefinition,
@@ -85,6 +88,46 @@ export class DbTagDefinitionQueryService implements TagDefinitionQueryService {
       items,
       tag => tag.systemId,
       failed,
+    );
+  }
+
+  async findTagDefinitionIdentities(
+    fileSystemId: number,
+    tagSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.TagDefinition>,
+      typeof ENTITY_TYPE.TagDefinition
+    >
+  > {
+    const requested = [...new Set(tagSystemIds)];
+    if (requested.length === 0)
+      return {entityType: ENTITY_TYPE.TagDefinition, items: [], failed: []};
+
+    return withCommittedFallback(
+      await resolveActiveSessionId(this.manager, fileSystemId),
+      requested,
+      async (sessionId, ids) => {
+        const tags = await this.tagFetcher.fetchMany(
+          [...ids],
+          fileSystemId,
+          sessionId,
+        );
+        const items = inRequestOrder(
+          ids,
+          tags.map(tag => ({
+            entityType: ENTITY_TYPE.TagDefinition,
+            systemId: tag.systemId,
+            identity: {name: tag.name, naturalId: tag.naturalId},
+          })),
+        );
+        return withNotFound(
+          ENTITY_TYPE.TagDefinition,
+          ids,
+          items,
+          item => item.systemId,
+        );
+      },
     );
   }
 

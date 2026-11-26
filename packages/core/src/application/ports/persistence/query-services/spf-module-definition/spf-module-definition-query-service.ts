@@ -11,6 +11,9 @@ import type {ParameterDefinitionReadModel} from '../shared/parameter-definition-
 import type {CustomModuleMetadataReadModel} from './custom-module-metadata-read-model.js';
 import type {ConfigurationIncludes} from '../configuration-includes.js';
 import type {Result} from '../../../../shared/result/result.js';
+import type {BatchRead} from '../../batch-read.js';
+import type {IdentifiedEntityRef} from '../../../../../domain/identity/entity-identity.js';
+import type {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
 
 export interface SpfModuleDefinitionQueryService {
   /**
@@ -112,4 +115,36 @@ export interface SpfModuleDefinitionQueryService {
     moduleDefinitionSystemIds: number[],
     fileSystemId: number,
   ): Promise<Map<number, CustomModuleMetadataReadModel>>;
+
+  /**
+   * Reads the identities of the given SPF module definitions. A systemId
+   * that is not an SPF module definition of the file is `NOT_FOUND`. An
+   * entity deleted in the session is read from committed data, so it is
+   * named as the user last saw it; this is not an existence check.
+   */
+  findSpfModuleDefinitionIdentities(
+    fileSystemId: number,
+    definitionSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.SpfModuleDefinition>,
+      typeof ENTITY_TYPE.SpfModuleDefinition
+    >
+  >;
+
+  /**
+   * Reads the identities of the given SPF module parameter definitions. A
+   * systemId that is not a parameter definition of the file is `NOT_FOUND`.
+   * An entity deleted in the session is read from committed data, so it is
+   * named as the user last saw it; this is not an existence check.
+   */
+  findSpfModuleParameterDefinitionIdentities(
+    fileSystemId: number,
+    parameterSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.SpfModuleParameterDefinition>,
+      typeof ENTITY_TYPE.SpfModuleParameterDefinition
+    >
+  >;
 }

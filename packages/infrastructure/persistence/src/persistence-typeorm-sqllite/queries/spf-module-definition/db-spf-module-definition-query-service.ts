@@ -3,8 +3,10 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {DataSource} from 'typeorm';
+import type {EntityManager} from 'typeorm';
 import type {
+  BatchRead,
+  IdentifiedEntityRef,
   SpfModuleDefinitionQueryService,
   SpfModuleDefinitionReadModel,
   SpfModuleDefinitionSummaryReadModel,
@@ -30,10 +32,14 @@ import {
   PORT_IO_TYPE,
   CONFIGURATION_INCLUDES,
   IssueSeverity,
+  ENTITY_TYPE,
 } from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
+import {withCommittedFallback} from '../../utils/with-committed-fallback.js';
+import {withNotFound} from '../../utils/with-not-found.js';
+import {inRequestOrder} from '../../utils/in-request-order.js';
 import {
   ModuleType,
   InterfaceType,
@@ -90,53 +96,48 @@ interface DefinitionAggregate {
  */
 export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQueryService {
   private readonly defFetcher: SpfModuleDefinitionFetcher;
-  private readonly portGroupFetcher: DataPortGroupFetcher;
-  private readonly staticPortFetcher: StaticControlPortDefFetcher;
-  private readonly dynamicIntentFetcher: DynamicIntentDefFetcher;
+  // Protected: TypeOrmModuleDefinitionRepository uses these as well.
+  protected readonly portGroupFetcher: DataPortGroupFetcher;
+  protected readonly staticPortFetcher: StaticControlPortDefFetcher;
+  protected readonly dynamicIntentFetcher: DynamicIntentDefFetcher;
   private readonly paramFetcher: SpfModuleParameterDefinitionFetcher;
   private readonly spfModuleFetcher: SpfModuleOverlayFetcher;
   private readonly processorFetcher: ProcessorDefinitionFetcher;
-  private readonly containerTypeFetcher: ContainerTypeFetcher;
+  protected readonly containerTypeFetcher: ContainerTypeFetcher;
   private readonly moduleManagerFetcher: ModuleManagerDataFetcher;
 
   constructor(
-    private readonly dataSource: DataSource,
+    protected readonly manager: EntityManager,
     editActionsSvc: EditActionsQueryService,
   ) {
-    this.defFetcher = new SpfModuleDefinitionFetcher(
-      dataSource.manager,
-      editActionsSvc,
-    );
-    this.portGroupFetcher = new DataPortGroupFetcher(
-      dataSource.manager,
-      editActionsSvc,
-    );
+    this.defFetcher = new SpfModuleDefinitionFetcher(manager, editActionsSvc);
+    this.portGroupFetcher = new DataPortGroupFetcher(manager, editActionsSvc);
     this.staticPortFetcher = new StaticControlPortDefFetcher(
-      dataSource.manager,
+      manager,
       editActionsSvc,
     );
     this.dynamicIntentFetcher = new DynamicIntentDefFetcher(
-      dataSource.manager,
+      manager,
       editActionsSvc,
     );
     this.paramFetcher = new SpfModuleParameterDefinitionFetcher(
-      dataSource.manager,
+      manager,
       editActionsSvc,
     );
     this.spfModuleFetcher = new SpfModuleOverlayFetcher(
-      dataSource.manager,
+      manager,
       editActionsSvc,
     );
     this.processorFetcher = new ProcessorDefinitionFetcher(
-      dataSource.manager,
+      manager,
       editActionsSvc,
     );
     this.containerTypeFetcher = new ContainerTypeFetcher(
-      dataSource.manager,
+      manager,
       editActionsSvc,
     );
     this.moduleManagerFetcher = new ModuleManagerDataFetcher(
-      dataSource.manager,
+      manager,
       editActionsSvc,
     );
   }
@@ -200,7 +201,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
   ): Promise<Result<SpfModuleDefinitionReadModel>> {
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource.manager,
+        this.manager,
         fileSystemId,
       );
 
@@ -236,7 +237,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
   ): Promise<Result<ParameterDefinitionReadModel>> {
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource.manager,
+        this.manager,
         fileSystemId,
       );
 
@@ -302,7 +303,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
       if (defSystemIds.length === 0) return Result.ok([]);
 
       const sessionId = await resolveActiveSessionId(
-        this.dataSource.manager,
+        this.manager,
         fileSystemId,
       );
 
@@ -407,7 +408,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
   ): Promise<Result<SpfModuleDefinitionSummaryReadModel>> {
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource.manager,
+        this.manager,
         fileSystemId,
       );
 
@@ -474,7 +475,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
   ): Promise<Result<CustomModuleMetadataReadModel | null>> {
     try {
       const sessionId = await resolveActiveSessionId(
-        this.dataSource.manager,
+        this.manager,
         fileSystemId,
       );
       const row = await this.moduleManagerFetcher.fetchOne(
@@ -502,10 +503,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     const map = new Map<number, CustomModuleMetadataReadModel>();
     if (moduleDefinitionSystemIds.length === 0) return map;
 
-    const sessionId = await resolveActiveSessionId(
-      this.dataSource.manager,
-      fileSystemId,
-    );
+    const sessionId = await resolveActiveSessionId(this.manager, fileSystemId);
     const rows = await this.moduleManagerFetcher.fetchMany(
       moduleDefinitionSystemIds,
       fileSystemId,
@@ -529,7 +527,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     const resolvedSessionId =
       sessionId !== undefined
         ? sessionId
-        : await resolveActiveSessionId(this.dataSource.manager, fileSystemId);
+        : await resolveActiveSessionId(this.manager, fileSystemId);
 
     const params = await this.paramFetcher.fetchMany(
       [moduleDefSystemId],
@@ -557,6 +555,100 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     return result;
   }
 
+  async findSpfModuleDefinitionIdentities(
+    fileSystemId: number,
+    definitionSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.SpfModuleDefinition>,
+      typeof ENTITY_TYPE.SpfModuleDefinition
+    >
+  > {
+    const requested = [...new Set(definitionSystemIds)];
+    if (requested.length === 0) {
+      return {
+        entityType: ENTITY_TYPE.SpfModuleDefinition,
+        items: [],
+        failed: [],
+      };
+    }
+
+    return withCommittedFallback(
+      await resolveActiveSessionId(this.manager, fileSystemId),
+      requested,
+      async (sessionId, ids) => {
+        const definitions = await Promise.all(
+          ids.map(id => this.defFetcher.fetchOne(id, fileSystemId, sessionId)),
+        );
+        const items = definitions.flatMap(definition =>
+          definition === null
+            ? []
+            : [
+                {
+                  entityType: ENTITY_TYPE.SpfModuleDefinition,
+                  systemId: definition.systemId,
+                  identity: {
+                    name: definition.name,
+                    naturalId: definition.naturalId,
+                  },
+                },
+              ],
+        );
+        return withNotFound(
+          ENTITY_TYPE.SpfModuleDefinition,
+          ids,
+          items,
+          item => item.systemId,
+        );
+      },
+    );
+  }
+
+  async findSpfModuleParameterDefinitionIdentities(
+    fileSystemId: number,
+    parameterSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.SpfModuleParameterDefinition>,
+      typeof ENTITY_TYPE.SpfModuleParameterDefinition
+    >
+  > {
+    const requested = [...new Set(parameterSystemIds)];
+    if (requested.length === 0) {
+      return {
+        entityType: ENTITY_TYPE.SpfModuleParameterDefinition,
+        items: [],
+        failed: [],
+      };
+    }
+
+    return withCommittedFallback(
+      await resolveActiveSessionId(this.manager, fileSystemId),
+      requested,
+      async (sessionId, ids) => {
+        const parameters = await this.paramFetcher.fetchBySystemIds(
+          ids,
+          fileSystemId,
+          sessionId,
+        );
+        const items = inRequestOrder(
+          ids,
+          parameters.map(parameter => ({
+            entityType: ENTITY_TYPE.SpfModuleParameterDefinition,
+            systemId: parameter.systemId,
+            identity: {name: parameter.name, naturalId: parameter.naturalId},
+          })),
+        );
+        return withNotFound(
+          ENTITY_TYPE.SpfModuleParameterDefinition,
+          ids,
+          items,
+          item => item.systemId,
+        );
+      },
+    );
+  }
+
   /**
    * Resolves sessionId scoped to the file that owns the given module.
    * Used by getModuleDefinitionSystemId where fileSystemId is not available.
@@ -565,7 +657,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     moduleSystemId: number,
   ): Promise<{fileSystemId: number | null; sessionId: number | null}> {
     // Look up fileSystemId from the module baseline row, then resolve session.
-    const row = (await this.dataSource
+    const row = (await this.manager
       .getRepository(ENTITY_NAMES.SpfModule)
       .createQueryBuilder('m')
       .select('m.fileSystemId')
@@ -573,7 +665,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
       .getOne()) as {fileSystemId: number} | null;
     if (!row) return {fileSystemId: null, sessionId: null};
     const sessionId = await resolveActiveSessionId(
-      this.dataSource.manager,
+      this.manager,
       row.fileSystemId,
     );
     return {fileSystemId: row.fileSystemId, sessionId};

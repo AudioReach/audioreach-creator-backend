@@ -6,6 +6,7 @@
 import type {
   EntityRef,
   LinkEndpoint,
+  NamedKeyValue,
   NamedNaturalId,
   PortIdentity,
 } from '../../domain/identity/entity-identity.js';
@@ -15,9 +16,15 @@ import {BinaryUtils} from '../../shared/utilities/binary-utils.js';
 /** Text labels that differ from the entity type name. */
 const LABELS: Partial<Record<EntityType, string>> = {
   SpfModule: 'Module',
+  DataPort: 'Data port',
+  ControlPort: 'Control port',
+  Ckv: 'CKV',
+  Tkv: 'TKV',
   KeyDefinition: 'Key',
   ValueDefinition: 'Value',
   TagDefinition: 'Tag',
+  SpfModuleDefinition: 'Module definition',
+  SpfModuleParameterDefinition: 'Parameter',
 };
 
 /**
@@ -25,9 +32,12 @@ const LABELS: Partial<Record<EntityType, string>> = {
  *
  * A reference with an identity is written as its natural identity, starting
  * with the type label, and its `systemId` is not shown. A reference without
- * one is written as `<label> with systemId: 0x...`. A port is written as its
- * name, when it has one, and its natural ID: decimal for a data port, hex for
- * a control port. The formatter is pure: it never looks up an identity.
+ * one is written as `<label> with systemId: 0x...`. A port natural ID is
+ * decimal for a data port and hex for a control port. A port on its own is
+ * written after its node, as `<node> / <port name>`, or `<node> / port <id>`
+ * when it has no name. In a link, a port is written as its name, when it has
+ * one, and its natural ID.
+ * The formatter is pure: it never looks up an identity.
  */
 export class IdentityFormatter {
   format(ref: EntityRef): string {
@@ -42,23 +52,49 @@ function formatRef(ref: EntityRef): string {
 }
 
 /** The natural identity of `ref`, or `undefined` when it has none. */
+// eslint-disable-next-line sonarjs/cognitive-complexity -- One flat case per entity type
 function formatIdentity(ref: EntityRef): string | undefined {
   switch (ref.entityType) {
     case 'UseCase': {
       if (!ref.identity) return undefined;
       const {alias, gkv} = ref.identity;
-      const pairs = gkv.map(({key, value}) => `${key.name}:${value.name}`);
-      return `${label(ref)}${quoted(alias)} [${pairs.join(', ')}]`;
+      return `${label(ref)}${quoted(alias)} ${pairs(gkv)}`;
     }
     case 'SpfModule': {
       if (!ref.identity) return undefined;
       const {alias, definitionName, naturalId} = ref.identity;
       return `${label(ref)} '${alias ?? definitionName}' (${hex(naturalId)})`;
     }
+    case 'Container':
+      return ref.identity && `${label(ref)} ${hex(ref.identity.naturalId)}`;
+    case 'DataPort':
+      return ref.identity && portOfNode(ref.identity, dataPortId);
+    case 'ControlPort':
+      return ref.identity && portOfNode(ref.identity, controlPortId);
+    case 'Ckv': {
+      if (!ref.identity) return undefined;
+      const {module, values} = ref.identity;
+      return `${label(ref)} ${pairs(values)} of ${formatRef(module)}`;
+    }
+    case 'Tag': {
+      if (!ref.identity) return undefined;
+      const {module, tag} = ref.identity;
+      return `${named(label(ref), tag)} on ${formatRef(module)}`;
+    }
+    case 'Tkv': {
+      if (!ref.identity) return undefined;
+      const {module, tag, values} = ref.identity;
+      return (
+        `${label(ref)} ${pairs(values)} of ${named('tag', tag)} ` +
+        `on ${formatRef(module)}`
+      );
+    }
     case 'Subgraph':
     case 'Subsystem':
     case 'KeyDefinition':
     case 'TagDefinition':
+    case 'SpfModuleDefinition':
+    case 'SpfModuleParameterDefinition':
       return ref.identity && named(label(ref), ref.identity);
     case 'ValueDefinition': {
       if (!ref.identity) return undefined;
@@ -91,6 +127,12 @@ function formatIdentity(ref: EntityRef): string | undefined {
   }
 }
 
+/** Key:value pairs by name, `[Key:Value, …]`, in the given order. */
+function pairs(values: readonly NamedKeyValue[]): string {
+  const text = values.map(({key, value}) => key.name + ':' + value.name);
+  return `[${text.join(', ')}]`;
+}
+
 function named(typeLabel: string, {name, naturalId}: NamedNaturalId): string {
   return `${typeLabel} '${name}' (${hex(naturalId)})`;
 }
@@ -103,6 +145,12 @@ const controlPortId: PortIdText = naturalId => hex(naturalId);
 
 function endpoint({node, port}: LinkEndpoint, portId: PortIdText): string {
   return `${formatRef(node)} / ${portText(port, portId)}`;
+}
+
+/** A port on its own: `<node> / <name>`, or `<node> / port <id>`. */
+function portOfNode({node, port}: LinkEndpoint, portId: PortIdText): string {
+  const portName = port.name ?? 'port ' + portId(port.naturalId);
+  return `${formatRef(node)} / ${portName}`;
 }
 
 /** `port 'name' (id)`, or `port id` when the port has no name. */

@@ -13,27 +13,24 @@ import type {
 import {Container, ContainerPropertyValue, PropertyDefinition} from '@arc/core';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
-import {ContainerOverlayFetcher} from '../../fetchers/container-overlay-fetcher.js';
-import {ContainerPropertyDataFetcher} from '../../fetchers/container-property-data-fetcher.js';
 import {ContainerPropertyDefinitionFetcher} from '../../fetchers/definitions/container-property-definition-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
+import {DbContainerQueryService} from '../../queries/container/db-container-query-service.js';
 
-export class TypeOrmContainerRepository implements ContainerRepository {
-  private readonly containerFetcher: ContainerOverlayFetcher;
+export class TypeOrmContainerRepository
+  extends DbContainerQueryService
+  implements ContainerRepository
+{
   private readonly propertyDefinitionFetcher: ContainerPropertyDefinitionFetcher;
 
   constructor(
     private readonly writer: PendingChangeWriter,
-    private readonly manager: EntityManager,
+    manager: EntityManager,
     private readonly uow: UnitOfWork,
     private readonly idGeneration: IdGenerationPort,
   ) {
     const editActionsQs = new EditActionsQueryService(manager);
-    this.containerFetcher = new ContainerOverlayFetcher(
-      manager,
-      editActionsQs,
-      new ContainerPropertyDataFetcher(manager, editActionsQs),
-    );
+    super(manager, editActionsQs);
     this.propertyDefinitionFetcher = new ContainerPropertyDefinitionFetcher(
       manager,
       editActionsQs,

@@ -26,6 +26,9 @@ import {inRequestOrder} from '../../utils/in-request-order.js';
 
 type SpfModuleRef = IdentifiedEntityRef<typeof ENTITY_TYPE.SpfModule>;
 type SubsystemRef = IdentifiedEntityRef<typeof ENTITY_TYPE.Subsystem>;
+type PortEntityType =
+  | typeof ENTITY_TYPE.DataPort
+  | typeof ENTITY_TYPE.ControlPort;
 
 /** One link endpoint to resolve: the node and the port the link uses. */
 export interface EndpointKey {
@@ -42,10 +45,10 @@ export interface UnresolvedEndpoint {
 }
 
 /**
- * Identity reads of graph nodes (SPF modules and subsystems) and of link
- * endpoints, with the session overlay applied. The module, subsystem, and
- * link reads share it, so each identity is built in one place. The caller
- * passes the session it reads in.
+ * Identity reads of graph nodes (SPF modules and subsystems), of their
+ * ports, and of link endpoints, with the session overlay applied. The
+ * module, subsystem, port, and link reads share it, so each identity is
+ * built in one place. The caller passes the session it reads in.
  */
 export class NodeIdentityReader {
   private readonly spfModuleFetcher: SpfModuleOverlayFetcher;
@@ -170,6 +173,67 @@ export class NodeIdentityReader {
       requested,
       items,
       item => item.systemId,
+    );
+  }
+
+  /**
+   * The identity of each data or control port of any node: the port and
+   * its node. A port whose node, or the node's module definition, is
+   * missing is `UNRESOLVED_REFERENCE`, without identity.
+   */
+  async readPorts<E extends PortEntityType>(
+    fileSystemId: number,
+    sessionId: number | null,
+    entityType: E,
+    portSystemIds: readonly number[],
+  ): Promise<BatchRead<IdentifiedEntityRef<E>, E>> {
+    const requested = [...new Set(portSystemIds)];
+    const portKind = entityType === ENTITY_TYPE.DataPort ? 'data' : 'control';
+    const ports = await this.portFetcher.fetchPortsBySystemIds(
+      portKind,
+      requested,
+      fileSystemId,
+      sessionId,
+    );
+    const keys = ports.map(port => ({
+      nodeSystemId: port.nodeSystemId,
+      portSystemId: port.systemId,
+    }));
+    const endpoints = await this.readEndpoints(
+      fileSystemId,
+      sessionId,
+      portKind,
+      keys,
+    );
+
+    const items: IdentifiedEntityRef<E>[] = [];
+    const failed: FailedEntity<E>[] = [];
+    for (const key of keys) {
+      const endpoint = endpoints.get(endpointKeyOf(key));
+      if (endpoint === undefined) {
+        throw new Error('Endpoint was not passed to readEndpoints');
+      }
+      if ('node' in endpoint) {
+        // TypeScript cannot resolve the mapped ref type for a generic `E`.
+        items.push({
+          entityType,
+          systemId: key.portSystemId,
+          identity: endpoint,
+        } as IdentifiedEntityRef<E>);
+      } else {
+        failed.push({
+          systemId: key.portSystemId,
+          reason: FAILED_ENTITY_REASON.UnresolvedReference,
+          missingRef: endpoint.missingRef,
+        });
+      }
+    }
+    return withNotFound(
+      entityType,
+      requested,
+      inRequestOrder(requested, items),
+      item => item.systemId,
+      failed,
     );
   }
 

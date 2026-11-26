@@ -13,6 +13,9 @@ import {
   type KeyValueDefQueryService,
   type ISessionRepository,
   type LegacyIssue,
+  type BatchRead,
+  type IdentifiedEntityRef,
+  ENTITY_TYPE,
   PORT_IO_TYPE,
   Result,
   ERROR_CODES,
@@ -20,6 +23,9 @@ import {
   RESULT_KIND,
 } from '@arc/core';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
+import {CalibrationIdentityReader} from '../shared/calibration-identity-reader.js';
+import {resolveActiveSessionId} from '../shared/session-resolver.js';
+import {withCommittedFallback} from '../../utils/with-committed-fallback.js';
 import {
   SpfModuleOverlayFetcher,
   type OverlaidSpfModule,
@@ -105,9 +111,10 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
   private readonly portGroupFetcher: DataPortGroupFetcher;
   private readonly staticPortFetcher: StaticControlPortDefFetcher;
   private readonly linkFetcher: LinkOverlayFetcher;
+  private readonly calibrationIdentities: CalibrationIdentityReader;
 
   constructor(
-    dataSource: DataSource,
+    private readonly dataSource: DataSource,
     editActionsQuerySvc: EditActionsQueryService,
     tuningConfigSvc: SpfTuningConfigService,
     keyValueDefQuerySvc: KeyValueDefQueryService,
@@ -158,6 +165,67 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
     this.linkFetcher = new LinkOverlayFetcher(
       dataSource.manager,
       editActionsQuerySvc,
+    );
+    this.calibrationIdentities = new CalibrationIdentityReader(
+      dataSource.manager,
+      editActionsQuerySvc,
+    );
+  }
+
+  async findCkvIdentities(
+    fileSystemId: number,
+    ckvSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.Ckv>,
+      typeof ENTITY_TYPE.Ckv
+    >
+  > {
+    if (ckvSystemIds.length === 0)
+      return {entityType: ENTITY_TYPE.Ckv, items: [], failed: []};
+    return withCommittedFallback(
+      await resolveActiveSessionId(this.dataSource.manager, fileSystemId),
+      ckvSystemIds,
+      (sessionId, ids) =>
+        this.calibrationIdentities.readCkvs(fileSystemId, sessionId, ids),
+    );
+  }
+
+  async findTagIdentities(
+    fileSystemId: number,
+    tagSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.Tag>,
+      typeof ENTITY_TYPE.Tag
+    >
+  > {
+    if (tagSystemIds.length === 0)
+      return {entityType: ENTITY_TYPE.Tag, items: [], failed: []};
+    return withCommittedFallback(
+      await resolveActiveSessionId(this.dataSource.manager, fileSystemId),
+      tagSystemIds,
+      (sessionId, ids) =>
+        this.calibrationIdentities.readTags(fileSystemId, sessionId, ids),
+    );
+  }
+
+  async findTkvIdentities(
+    fileSystemId: number,
+    tkvSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.Tkv>,
+      typeof ENTITY_TYPE.Tkv
+    >
+  > {
+    if (tkvSystemIds.length === 0)
+      return {entityType: ENTITY_TYPE.Tkv, items: [], failed: []};
+    return withCommittedFallback(
+      await resolveActiveSessionId(this.dataSource.manager, fileSystemId),
+      tkvSystemIds,
+      (sessionId, ids) =>
+        this.calibrationIdentities.readTkvs(fileSystemId, sessionId, ids),
     );
   }
 

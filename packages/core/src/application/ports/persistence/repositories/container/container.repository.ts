@@ -5,9 +5,10 @@
 
 import type {EditOptions} from '../../edit-options.js';
 import type {Container} from '../../../../../domain/entities/usecase-data/container/container.js';
+import type {ContainerQueryService} from '../../query-services/container/container-query-service.js';
 import type {PropertyDefinition} from '../../../../../domain/entities/definitions/common/entities/property-definition.js';
 
-export interface ContainerRepository {
+export interface ContainerRepository extends ContainerQueryService {
   containerExists(systemId: number, fileSystemId: number): Promise<boolean>;
 
   deleteContainer(

@@ -19,6 +19,7 @@ import type {
   ControlLinkRepository,
   SubgraphRepository,
   KeyValueDefinitionRepository,
+  TagDefinitionRepository,
   SubsystemRepository,
   VcpmDefinitionRepository,
   UsecaseRepository,
@@ -38,6 +39,7 @@ import {
   TypeOrmControlLinkRepository,
   TypeOrmSubgraphRepository,
   TypeOrmKeyValueDefinitionRepository,
+  TypeOrmTagDefinitionRepository,
   TypeOrmSubsystemRepository,
   TypeOrmVcpmDefinitionRepository,
   TypeOrmUsecaseRepository,
@@ -225,6 +227,10 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
 
   getKeyValueDefinitionRepository(): KeyValueDefinitionRepository {
     return new TypeOrmKeyValueDefinitionRepository(this.queryRunner.manager);
+  }
+
+  getTagDefinitionRepository(): TagDefinitionRepository {
+    return new TypeOrmTagDefinitionRepository(this.queryRunner.manager);
   }
 
   getSubsystemRepository(): SubsystemRepository {

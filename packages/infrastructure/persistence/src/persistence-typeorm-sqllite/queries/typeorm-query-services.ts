@@ -163,7 +163,7 @@ export class DbQueryServices implements QueryServices {
 
     this.spfModuleDefinitionQueryService =
       new DbSpfModuleDefinitionQueryService(
-        dataSource,
+        dataSource.manager,
         editActionsQueryService,
       );
 
@@ -191,9 +191,8 @@ export class DbQueryServices implements QueryServices {
     );
 
     this.containerQueryService = new DbContainerQueryService(
-      dataSource,
+      dataSource.manager,
       editActionsQueryService,
-      sessionRepo,
     );
 
     this.subgraphQueryService = createSubgraphQueryService(dataSource.manager);

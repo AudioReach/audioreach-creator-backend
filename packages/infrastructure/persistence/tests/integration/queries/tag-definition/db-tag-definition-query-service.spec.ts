@@ -457,4 +457,161 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
       spy.mockRestore();
     }
   });
+
+  describe('findTagDefinitionIdentities', () => {
+    async function seedTags(fileSystemId: number): Promise<void> {
+      await tagDefinitionRepository.save([
+        {
+          systemId: 1,
+          fileSystemId,
+          naturalId: 100,
+          name: 'Mute',
+          isVoice: false,
+        },
+        {
+          systemId: 2,
+          fileSystemId,
+          naturalId: 200,
+          name: 'Gain',
+          isVoice: false,
+        },
+      ]);
+    }
+
+    function tagEdit(
+      sessionId: number,
+      operation: (typeof CHANGE_OPERATION)[keyof typeof CHANGE_OPERATION],
+      newValue: object,
+    ) {
+      return editActionRepository.save({
+        targetSystemId: 1,
+        aggregateId: 1,
+        sessionId,
+        targetTable: ENTITY_NAMES.TagDefinition,
+        operation,
+        fieldPath: null,
+        newValue,
+        source: SOURCE.Manual,
+        changeStatus: CHANGE_STATUS.Unstaged,
+        linkedEntityGroupId: null,
+      });
+    }
+
+    it('returns the name and natural ID of each tag in request order', async () => {
+      const {fileSystemId} = await createFileDependency();
+      await seedTags(fileSystemId);
+
+      const batch = await service.findTagDefinitionIdentities(
+        fileSystemId,
+        [2, 9999, 1, 2],
+      );
+
+      expect(batch).toEqual({
+        entityType: ENTITY_TYPE.TagDefinition,
+        items: [
+          {
+            entityType: ENTITY_TYPE.TagDefinition,
+            systemId: 2,
+            identity: {name: 'Gain', naturalId: 200},
+          },
+          {
+            entityType: ENTITY_TYPE.TagDefinition,
+            systemId: 1,
+            identity: {name: 'Mute', naturalId: 100},
+          },
+        ],
+        failed: [{systemId: 9999, reason: FAILED_ENTITY_REASON.NotFound}],
+      });
+    });
+
+    it('reports a tag of another file as not found', async () => {
+      const {fileSystemId} = await createFileDependency();
+      await seedTags(fileSystemId);
+
+      const batch = await service.findTagDefinitionIdentities(
+        fileSystemId + 1,
+        [1],
+      );
+
+      expect(batch.items).toEqual([]);
+      expect(batch.failed).toEqual([
+        {systemId: 1, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
+    });
+
+    it('shows a tag renamed in the session by its new name', async () => {
+      const {fileSystemId} = await createFileDependency();
+      await seedTags(fileSystemId);
+      const session = await createSession(fileSystemId);
+      await tagEdit(session.sessionId, CHANGE_OPERATION.Update, {
+        name: 'Muted',
+      });
+
+      const batch = await service.findTagDefinitionIdentities(
+        fileSystemId,
+        [1],
+      );
+
+      expect(batch.items.map(item => item.identity)).toEqual([
+        {name: 'Muted', naturalId: 100},
+      ]);
+    });
+
+    it('names a tag deleted in the session from committed data', async () => {
+      const {fileSystemId} = await createFileDependency();
+      await seedTags(fileSystemId);
+      const session = await createSession(fileSystemId);
+      await tagEdit(session.sessionId, CHANGE_OPERATION.Delete, {});
+
+      const batch = await service.findTagDefinitionIdentities(
+        fileSystemId,
+        [1],
+      );
+
+      expect(batch.items.map(item => item.identity)).toEqual([
+        {name: 'Mute', naturalId: 100},
+      ]);
+      expect(batch.failed).toEqual([]);
+    });
+
+    it('names a tag whose linked key was deleted in the session', async () => {
+      const {fileSystemId} = await createFileDependency();
+      await seedTags(fileSystemId);
+      await keyDefinitionRepository.save({
+        systemId: 10,
+        fileSystemId,
+        naturalId: 1000,
+        name: 'Key',
+      });
+      await tagKeyDefLinkRepository.save({
+        systemId: 11,
+        tagDefinitionSystemId: 1,
+        keyReferenceSystemId: 10,
+        tagEnumValue: 'TAG_KEY_ENUM',
+      });
+      const session = await createSession(fileSystemId);
+      await editActionRepository.save({
+        targetSystemId: 10,
+        aggregateId: 10,
+        sessionId: session.sessionId,
+        targetTable: ENTITY_NAMES.KeyDefinition,
+        operation: CHANGE_OPERATION.Delete,
+        fieldPath: null,
+        newValue: {},
+        source: SOURCE.Manual,
+        changeStatus: CHANGE_STATUS.Unstaged,
+        linkedEntityGroupId: null,
+      });
+
+      const batch = await service.findTagDefinitionIdentities(
+        fileSystemId,
+        [1],
+      );
+
+      expect(batch.items.map(item => item.identity)).toEqual([
+        {name: 'Mute', naturalId: 100},
+      ]);
+      expect(batch.failed).toEqual([]);
+    });
+  });
 });

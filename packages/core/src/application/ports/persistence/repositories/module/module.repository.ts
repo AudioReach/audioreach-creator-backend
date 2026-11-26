@@ -16,6 +16,8 @@ import type {ReadOptions} from '../shared/read-options.js';
 import type {IdentifiedEntityRef} from '../../../../../domain/identity/entity-identity.js';
 import type {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
 import type {BatchRead} from '../../batch-read.js';
+import type {SpfModuleQueryService} from '../../query-services/spf-module/spf-module-query-service.js';
+import type {NodeQueryService} from '../../query-services/node/node-query-service.js';
 
 export type {SpfModuleBase} from '../../../../../domain/entities/usecase-data/module/spf-module.js';
 
@@ -56,8 +58,21 @@ export interface TkvSummary {
  *
  * findModuleForPatch must load intents for each control port so the handler
  * can compute intent availability without an extra query.
+ *
+ * The identity reads come from the query services. The port reads cover
+ * ports of any node. The repository extends the whole
+ * `SpfModuleQueryService` once its reads return `BatchRead` (Q1).
  */
-export interface ModuleRepository {
+export interface ModuleRepository
+  extends
+    Pick<
+      SpfModuleQueryService,
+      'findCkvIdentities' | 'findTagIdentities' | 'findTkvIdentities'
+    >,
+    Pick<
+      NodeQueryService,
+      'findDataPortIdentities' | 'findControlPortIdentities'
+    > {
   findModuleById(
     systemId: number,
     fileSystemId: number,

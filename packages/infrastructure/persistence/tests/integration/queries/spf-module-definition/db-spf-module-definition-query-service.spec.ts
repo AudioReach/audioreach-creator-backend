@@ -24,6 +24,8 @@ import {
   CHANGE_OPERATION,
   CHANGE_STATUS,
   CONFIGURATION_INCLUDES,
+  ENTITY_TYPE,
+  FAILED_ENTITY_REASON,
   RESULT_KIND,
   SOURCE,
 } from '@arc/core';
@@ -140,7 +142,7 @@ describe('DbSpfModuleDefinitionQueryService Integration Tests', () => {
       ModuleManagerDataSchema,
     );
     service = new DbSpfModuleDefinitionQueryService(
-      dataSource,
+      dataSource.manager,
       new EditActionsQueryService(dataSource.manager),
     );
   });
@@ -603,7 +605,7 @@ describe('DbSpfModuleDefinitionQueryService Integration Tests', () => {
       const editActionsSvc = new EditActionsQueryService(dataSource.manager);
       const spy = jest.spyOn(editActionsSvc, 'getByAggregateId');
       const spiedService = new DbSpfModuleDefinitionQueryService(
-        dataSource,
+        dataSource.manager,
         editActionsSvc,
       );
 
@@ -756,6 +758,247 @@ describe('DbSpfModuleDefinitionQueryService Integration Tests', () => {
       );
 
       expect(result.size).toBe(0);
+    });
+  });
+
+  describe('identity reads', () => {
+    // createModuleDefinition(fileSystemId, 0) seeds these rows.
+    const DEFINITION_ID = 1001;
+    const PARAMETER_ID = 1007;
+
+    async function saveDeleteAction(
+      session: ProjectSessionRow,
+      targetSystemId: number,
+      aggregateId: number,
+      targetTable: EntityName,
+    ): Promise<void> {
+      await editActionRepository.save({
+        targetSystemId,
+        aggregateId,
+        sessionId: session.sessionId,
+        targetTable,
+        operation: CHANGE_OPERATION.Delete,
+        fieldPath: null,
+        newValue: {},
+        source: SOURCE.Manual,
+        changeStatus: CHANGE_STATUS.Unstaged,
+        linkedEntityGroupId: null,
+      });
+    }
+
+    describe('findSpfModuleDefinitionIdentities', () => {
+      it('returns the name and natural ID of each definition in request order', async () => {
+        const {fileSystemId} = await createFileDependency();
+        await createModuleDefinition(fileSystemId, 0);
+        await createModuleDefinition(fileSystemId, 1);
+
+        const batch = await service.findSpfModuleDefinitionIdentities(
+          fileSystemId,
+          [2001, 9999, DEFINITION_ID, 2001],
+        );
+
+        expect(batch).toEqual({
+          entityType: ENTITY_TYPE.SpfModuleDefinition,
+          items: [
+            {
+              entityType: ENTITY_TYPE.SpfModuleDefinition,
+              systemId: 2001,
+              identity: {name: 'Module1', naturalId: 2001},
+            },
+            {
+              entityType: ENTITY_TYPE.SpfModuleDefinition,
+              systemId: DEFINITION_ID,
+              identity: {name: 'Module0', naturalId: DEFINITION_ID},
+            },
+          ],
+          failed: [{systemId: 9999, reason: FAILED_ENTITY_REASON.NotFound}],
+        });
+      });
+
+      it('reports a definition of another file as not found', async () => {
+        const {fileSystemId} = await createFileDependency();
+        await createModuleDefinition(fileSystemId, 0);
+
+        const batch = await service.findSpfModuleDefinitionIdentities(
+          fileSystemId + 1,
+          [DEFINITION_ID],
+        );
+
+        expect(batch.items).toEqual([]);
+        expect(batch.failed).toEqual([
+          {systemId: DEFINITION_ID, reason: FAILED_ENTITY_REASON.NotFound},
+        ]);
+      });
+
+      it('shows a definition renamed in the session by its new name', async () => {
+        const {fileSystemId} = await createFileDependency();
+        await createModuleDefinition(fileSystemId, 0);
+        const session = await createSession(fileSystemId);
+        await saveUpdateAction(
+          session,
+          DEFINITION_ID,
+          DEFINITION_ID,
+          ENTITY_NAMES.SpfModuleDefinition,
+          {name: 'Renamed'},
+        );
+
+        const batch = await service.findSpfModuleDefinitionIdentities(
+          fileSystemId,
+          [DEFINITION_ID],
+        );
+
+        expect(batch.items.map(item => item.identity)).toEqual([
+          {name: 'Renamed', naturalId: DEFINITION_ID},
+        ]);
+      });
+
+      it('names a definition deleted in the session from committed data', async () => {
+        const {fileSystemId} = await createFileDependency();
+        await createModuleDefinition(fileSystemId, 0);
+        const session = await createSession(fileSystemId);
+        await saveDeleteAction(
+          session,
+          DEFINITION_ID,
+          DEFINITION_ID,
+          ENTITY_NAMES.SpfModuleDefinition,
+        );
+
+        const batch = await service.findSpfModuleDefinitionIdentities(
+          fileSystemId,
+          [DEFINITION_ID],
+        );
+
+        expect(batch.items.map(item => item.identity)).toEqual([
+          {name: 'Module0', naturalId: DEFINITION_ID},
+        ]);
+        expect(batch.failed).toEqual([]);
+      });
+    });
+
+    describe('findSpfModuleParameterDefinitionIdentities', () => {
+      it('returns the name and natural ID of each parameter in request order', async () => {
+        const {fileSystemId} = await createFileDependency();
+        await createModuleDefinition(fileSystemId, 0);
+        await createModuleDefinition(fileSystemId, 1);
+
+        const batch = await service.findSpfModuleParameterDefinitionIdentities(
+          fileSystemId,
+          [2007, 9999, PARAMETER_ID, 2007],
+        );
+
+        expect(batch).toEqual({
+          entityType: ENTITY_TYPE.SpfModuleParameterDefinition,
+          items: [
+            {
+              entityType: ENTITY_TYPE.SpfModuleParameterDefinition,
+              systemId: 2007,
+              identity: {name: 'Param1', naturalId: 2007},
+            },
+            {
+              entityType: ENTITY_TYPE.SpfModuleParameterDefinition,
+              systemId: PARAMETER_ID,
+              identity: {name: 'Param0', naturalId: PARAMETER_ID},
+            },
+          ],
+          failed: [{systemId: 9999, reason: FAILED_ENTITY_REASON.NotFound}],
+        });
+      });
+
+      it('reports a parameter of another file as not found', async () => {
+        const {fileSystemId} = await createFileDependency();
+        await createModuleDefinition(fileSystemId, 0);
+
+        const batch = await service.findSpfModuleParameterDefinitionIdentities(
+          fileSystemId + 1,
+          [PARAMETER_ID],
+        );
+
+        expect(batch.items).toEqual([]);
+        expect(batch.failed).toEqual([
+          {systemId: PARAMETER_ID, reason: FAILED_ENTITY_REASON.NotFound},
+        ]);
+      });
+
+      it('shows a parameter renamed in the session by its new name', async () => {
+        const {fileSystemId} = await createFileDependency();
+        await createModuleDefinition(fileSystemId, 0);
+        const session = await createSession(fileSystemId);
+        await saveUpdateAction(
+          session,
+          PARAMETER_ID,
+          DEFINITION_ID,
+          ENTITY_NAMES.SpfModuleParameterDefinition,
+          {name: 'RenamedParam'},
+        );
+
+        const batch = await service.findSpfModuleParameterDefinitionIdentities(
+          fileSystemId,
+          [PARAMETER_ID],
+        );
+
+        expect(batch.items.map(item => item.identity)).toEqual([
+          {name: 'RenamedParam', naturalId: PARAMETER_ID},
+        ]);
+      });
+
+      it('names a parameter deleted in the session from committed data', async () => {
+        const {fileSystemId} = await createFileDependency();
+        await createModuleDefinition(fileSystemId, 0);
+        const session = await createSession(fileSystemId);
+        await saveDeleteAction(
+          session,
+          PARAMETER_ID,
+          DEFINITION_ID,
+          ENTITY_NAMES.SpfModuleParameterDefinition,
+        );
+
+        const batch = await service.findSpfModuleParameterDefinitionIdentities(
+          fileSystemId,
+          [PARAMETER_ID],
+        );
+
+        expect(batch.items.map(item => item.identity)).toEqual([
+          {name: 'Param0', naturalId: PARAMETER_ID},
+        ]);
+        expect(batch.failed).toEqual([]);
+      });
+
+      it('includes a parameter that exists only as a session CREATE', async () => {
+        const {fileSystemId} = await createFileDependency();
+        await createModuleDefinition(fileSystemId, 0);
+        const session = await createSession(fileSystemId);
+        await editActionRepository.save({
+          targetSystemId: 1008,
+          aggregateId: DEFINITION_ID,
+          sessionId: session.sessionId,
+          targetTable: ENTITY_NAMES.SpfModuleParameterDefinition,
+          operation: CHANGE_OPERATION.Create,
+          fieldPath: null,
+          newValue: {
+            systemId: 1008,
+            spfModuleDefinitionSystemId: DEFINITION_ID,
+            naturalId: 1008,
+            name: 'NewParam',
+            maxSize: 4,
+            pidType: 'test',
+            isPersistent: false,
+            isReadOnly: false,
+          },
+          source: SOURCE.Manual,
+          changeStatus: CHANGE_STATUS.Unstaged,
+          linkedEntityGroupId: null,
+        });
+
+        const batch = await service.findSpfModuleParameterDefinitionIdentities(
+          fileSystemId,
+          [1008],
+        );
+
+        expect(batch.items.map(item => item.identity)).toEqual([
+          {name: 'NewParam', naturalId: 1008},
+        ]);
+        expect(batch.failed).toEqual([]);
+      });
     });
   });
 });

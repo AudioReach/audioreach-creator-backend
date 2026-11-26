@@ -125,6 +125,55 @@ export class CkvOverlayFetcher {
   }
 
   /**
+   * Returns the overlaid Ckv rows with the given systemIds, of any module of
+   * the file, with their values. A Ckv deleted in the session is left out.
+   */
+  async fetchBySystemIds(
+    ckvSystemIds: readonly number[],
+    fileSystemId: number,
+    sessionId: number | null,
+  ): Promise<OverlaidCkv[]> {
+    if (ckvSystemIds.length === 0) return [];
+
+    const baseRows = (await this.manager
+      .getRepository(ENTITY_NAMES.Ckv)
+      .createQueryBuilder('ckv')
+      .leftJoinAndSelect('ckv.values', 'ckvValues')
+      .innerJoin(
+        ENTITY_NAMES.Node,
+        'n',
+        'n.system_id = ckv.spf_module_system_id',
+      )
+      .where('ckv.systemId IN (:...ckvSystemIds)', {
+        ckvSystemIds: [...ckvSystemIds],
+      })
+      .andWhere('n.fileSystemId = :fileSystemId', {fileSystemId})
+      .getMany()) as CkvRow[];
+
+    if (sessionId === null) return baseRows.map(r => this.toOverlaidCkv(r));
+
+    const [ckvActions, valueActions] = await Promise.all([
+      this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.Ckv),
+      this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.CkvValues),
+    ]);
+    const requested = new Set(ckvSystemIds);
+    return this.overlay
+      .applyToCollection(baseRows, ckvActions, {
+        matchesEffective: row => requested.has(row.systemId),
+      })
+      .map(({effective: row}) =>
+        this.toOverlaidCkv(
+          row,
+          this.overlayValues(
+            baseRows.find(base => base.systemId === row.systemId)?.values ?? [],
+            valueActions,
+            row.systemId,
+          ),
+        ),
+      );
+  }
+
+  /**
    * Returns the overlaid Ckv row for the given ckvSystemId, or null if the
    * row was deleted in the session or does not exist.
    *

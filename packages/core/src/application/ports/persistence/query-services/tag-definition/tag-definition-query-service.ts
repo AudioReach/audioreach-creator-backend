@@ -5,6 +5,7 @@
 
 import type {TagDefinitionReadModel} from './tag-definition-read-model.js';
 import type {BatchRead} from '../../batch-read.js';
+import type {IdentifiedEntityRef} from '../../../../../domain/identity/entity-identity.js';
 import type {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
 
 /** Narrows `findAllTagDefinitions` to the tags that match every field. */
@@ -36,5 +37,21 @@ export interface TagDefinitionQueryService {
     tagSystemIds: readonly number[],
   ): Promise<
     BatchRead<TagDefinitionReadModel, typeof ENTITY_TYPE.TagDefinition>
+  >;
+
+  /**
+   * Reads the identities of the given tag definitions. A systemId that is not
+   * a tag definition of the file is `NOT_FOUND`.
+   * An entity deleted in the session is read from committed data, so it
+   * is named as the user last saw it; this is not an existence check.
+   */
+  findTagDefinitionIdentities(
+    fileSystemId: number,
+    tagSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.TagDefinition>,
+      typeof ENTITY_TYPE.TagDefinition
+    >
   >;
 }

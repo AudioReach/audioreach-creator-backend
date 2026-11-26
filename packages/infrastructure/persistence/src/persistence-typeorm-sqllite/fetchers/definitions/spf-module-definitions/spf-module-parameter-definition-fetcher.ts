@@ -78,6 +78,47 @@ export class SpfModuleParameterDefinitionFetcher {
   }
 
   /**
+   * Returns the overlaid parameter definitions with the given systemIds, of
+   * any module definition of the file. One deleted in the session is left
+   * out.
+   */
+  async fetchBySystemIds(
+    parameterSystemIds: readonly number[],
+    fileSystemId: number,
+    sessionId: number | null,
+  ): Promise<SpfModuleParameterDefinitionBase[]> {
+    if (parameterSystemIds.length === 0) return [];
+
+    const baseRows = (await this.manager
+      .getRepository(ENTITY_NAMES.SpfModuleParameterDefinition)
+      .createQueryBuilder('param')
+      .innerJoin(
+        ENTITY_NAMES.SpfModuleDefinition,
+        'def',
+        'def.system_id = param.spf_module_definition_system_id',
+      )
+      .where('param.systemId IN (:...parameterSystemIds)', {
+        parameterSystemIds: [...parameterSystemIds],
+      })
+      .andWhere('def.fileSystemId = :fileSystemId', {fileSystemId})
+      .getMany()) as SpfModuleParameterDefinitionBase[];
+
+    if (sessionId === null) return baseRows;
+
+    const requested = new Set(parameterSystemIds);
+    return this.overlay
+      .applyToCollection(
+        baseRows,
+        await this.editActionsSvc.getByTable(
+          sessionId,
+          ENTITY_NAMES.SpfModuleParameterDefinition,
+        ),
+        {matchesEffective: row => requested.has(row.systemId)},
+      )
+      .map(row => row.effective);
+  }
+
+  /**
    * Returns one overlaid parameter definition, or null when it is absent.
    * The owning definition is resolved first, then collection loading and
    * overlay remain owned by fetchMany.

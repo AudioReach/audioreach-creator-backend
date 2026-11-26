@@ -8,8 +8,16 @@ import type {
   DataPortReadModel,
   ControlPortReadModel,
   IntentReadModel,
+  BatchRead,
+  IdentifiedEntityRef,
 } from '@arc/core';
-import {Result, ERROR_CODES, NodeType, IssueSeverity} from '@arc/core';
+import {
+  Result,
+  ERROR_CODES,
+  NodeType,
+  IssueSeverity,
+  ENTITY_TYPE,
+} from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {OverlayMergeImpl} from '../edit-session/overlay-merge.js';
@@ -21,6 +29,8 @@ import {PortOverlayFetcher} from '../../fetchers/port-overlay-fetcher.js';
 import {IntentFetcher} from '../../fetchers/intent-fetcher.js';
 import type {IntentBase} from '../../entity-schema/usecase-data/node/control-port.js';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
+import {NodeIdentityReader} from '../shared/node-identity-reader.js';
+import {withCommittedFallback} from '../../utils/with-committed-fallback.js';
 
 /**
  * Centralized database implementation of NodeQueryService.
@@ -34,6 +44,7 @@ import {resolveActiveSessionId} from '../shared/session-resolver.js';
  */
 export class DbNodeQueryService implements NodeQueryService {
   private readonly portFetcher: PortOverlayFetcher;
+  private readonly nodeIdentities: NodeIdentityReader;
   private readonly overlay = new OverlayMergeImpl();
 
   constructor(
@@ -44,6 +55,56 @@ export class DbNodeQueryService implements NodeQueryService {
       dataSource.manager,
       editActionsSvc,
       new IntentFetcher(dataSource.manager, editActionsSvc),
+    );
+    this.nodeIdentities = new NodeIdentityReader(
+      dataSource.manager,
+      editActionsSvc,
+    );
+  }
+
+  // ── Port identities ────────────────────────────────────────────────────────
+
+  async findDataPortIdentities(
+    fileSystemId: number,
+    portSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.DataPort>,
+      typeof ENTITY_TYPE.DataPort
+    >
+  > {
+    return withCommittedFallback(
+      await resolveActiveSessionId(this.dataSource.manager, fileSystemId),
+      portSystemIds,
+      (sessionId, ids) =>
+        this.nodeIdentities.readPorts(
+          fileSystemId,
+          sessionId,
+          ENTITY_TYPE.DataPort,
+          ids,
+        ),
+    );
+  }
+
+  async findControlPortIdentities(
+    fileSystemId: number,
+    portSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.ControlPort>,
+      typeof ENTITY_TYPE.ControlPort
+    >
+  > {
+    return withCommittedFallback(
+      await resolveActiveSessionId(this.dataSource.manager, fileSystemId),
+      portSystemIds,
+      (sessionId, ids) =>
+        this.nodeIdentities.readPorts(
+          fileSystemId,
+          sessionId,
+          ENTITY_TYPE.ControlPort,
+          ids,
+        ),
     );
   }
 

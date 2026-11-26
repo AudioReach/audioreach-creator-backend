@@ -130,32 +130,16 @@ export class PortOverlayFetcher {
     fileSystemId: number,
     sessionId: number | null,
   ): Promise<OverlaidDataPort | null> {
-    const baseRows = (await this.manager
-      .getRepository(ENTITY_NAMES.DataPort)
-      .createQueryBuilder('dp')
-      .innerJoin(ENTITY_NAMES.Node, 'n', 'n.system_id = dp.node_system_id')
-      .where('dp.systemId = :portSystemId', {portSystemId})
-      .andWhere('n.fileSystemId = :fileSystemId', {fileSystemId})
-      .getMany()) as DataPortBase[];
-    const base = baseRows.map(row => ({
-      ...row,
-      isStatic: Boolean(row.isStatic),
+    const ports = await this.fetchPortsBySystemIds(
+      'data',
+      [portSystemId],
       fileSystemId,
-    }));
-
-    if (sessionId === null) return base[0] ?? null;
-
-    const actions = await this.editActionsSvc.getByTable(
       sessionId,
-      ENTITY_NAMES.DataPort,
     );
-    const effective = this.overlay
-      .applyToCollection(base, actions, {
-        matchesEffective: row => row.systemId === portSystemId,
-      })
-      .map(row => ({...row.effective, fileSystemId}));
-
-    return effective[0] ?? null;
+    // A data port read returns DataPort rows; none when the port is missing.
+    const port = ports[0] as DataPortBase | undefined;
+    if (port === undefined) return null;
+    return {...port, isStatic: Boolean(port.isStatic), fileSystemId};
   }
 
   async fetchControlPortsWithIntents(
@@ -250,6 +234,43 @@ export class PortOverlayFetcher {
       ...cp,
       intents: intents.filter(i => i.controlPortSystemId === cp.systemId),
     }));
+  }
+
+  /**
+   * The overlaid data or control port rows with the given systemIds, of any
+   * node of the file. A port created in the session is found by its edit
+   * action; a port deleted in it is left out.
+   */
+  async fetchPortsBySystemIds(
+    portKind: 'data' | 'control',
+    portSystemIds: readonly number[],
+    fileSystemId: number,
+    sessionId: number | null,
+  ): Promise<(DataPortBase | ControlPortBase)[]> {
+    if (portSystemIds.length === 0) return [];
+
+    const table =
+      portKind === 'data' ? ENTITY_NAMES.DataPort : ENTITY_NAMES.ControlPort;
+    const baseRows = (await this.manager
+      .getRepository(table)
+      .createQueryBuilder('port')
+      .innerJoin(ENTITY_NAMES.Node, 'n', 'n.system_id = port.node_system_id')
+      .where('port.systemId IN (:...portSystemIds)', {
+        portSystemIds: [...portSystemIds],
+      })
+      .andWhere('n.fileSystemId = :fileSystemId', {fileSystemId})
+      .getMany()) as (DataPortBase | ControlPortBase)[];
+
+    if (sessionId === null) return baseRows;
+
+    const requested = new Set(portSystemIds);
+    return this.overlay
+      .applyToCollection(
+        baseRows,
+        await this.editActionsSvc.getByTable(sessionId, table),
+        {matchesEffective: row => requested.has(row.systemId)},
+      )
+      .map(result => result.effective);
   }
 
   private filterPorts<T>(
