@@ -682,7 +682,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         aggregateId: module.systemId,
         payload: {
           naturalId: module.naturalId,
-          alias: module.alias ?? '',
+          ...(module.alias ? {alias: module.alias} : {}),
           subgraphSystemId: module.subgraphSystemId,
           containerSystemId: module.containerSystemId,
           definitionSystemId: module.definitionSystemId,

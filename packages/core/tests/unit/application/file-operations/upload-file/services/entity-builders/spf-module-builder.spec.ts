@@ -362,7 +362,7 @@ describe('SpfModuleBuilder', () => {
         expect(result.entities[1].fileSystemId).toBe(TEST_FILE_SYSTEM_ID);
       });
 
-      it('should use naming convention Module_{instanceId}', async () => {
+      it('should not synthesize an alias when none is provided', async () => {
         const spfModuleInfos: SpfModuleInfo[] = [
           {
             subgraphId: 1,
@@ -378,7 +378,7 @@ describe('SpfModuleBuilder', () => {
 
         const modulePropertyConfigs = [createModulePropertyConfig(123)];
 
-        // Use module definition without name to test fallback naming convention
+        // A module definition name is not an instance alias.
         const moduleDefinitionsWithoutName = [
           {
             id: 1001,
@@ -399,7 +399,7 @@ describe('SpfModuleBuilder', () => {
           defaultParsedAcdb,
         );
 
-        expect(result.entities[0].alias).toBe('Module_123');
+        expect(result.entities[0].alias).toBeUndefined();
       });
     });
 

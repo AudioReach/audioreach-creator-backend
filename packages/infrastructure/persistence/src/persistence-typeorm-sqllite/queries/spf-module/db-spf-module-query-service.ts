@@ -45,7 +45,7 @@ interface ModuleRootData {
   systemId: number;
   parentSystemId: number | null;
   naturalId: number;
-  alias: string;
+  alias?: string;
   definitionSystemId: number;
   subgraphSystemId: number;
   containerSystemId: number;
@@ -434,7 +434,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
         );
 
         defCapMap.set(defId, {
-          name: defRoot.name,
+          name: defRoot.displayName || defRoot.name,
           moduleNaturalId: defRoot.naturalId,
           maxInputPortsSupported: portGroups
             .filter(g => g.portIoType === PORT_IO_TYPE.Input)
@@ -566,7 +566,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
           systemId: m.systemId,
           parentSystemId: m.parentSystemId,
           naturalId: m.naturalId,
-          alias: m.alias ?? '',
+          alias: m.alias ?? undefined,
           definitionSystemId: m.definitionSystemId,
           subgraphSystemId: m.subgraphSystemId,
           containerSystemId: m.containerSystemId,
