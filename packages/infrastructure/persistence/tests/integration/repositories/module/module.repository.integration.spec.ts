@@ -29,11 +29,14 @@ import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqlli
 import {PendingChangeWriter} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
 import {PendingChangeCache} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
 import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
+import type {EntityName} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {EditActionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/edit-action.schema.js';
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 import {ProjectSessionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
 import {ControlPort, DataPort} from '@arc/core';
+import {KeyDefinitionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/definitions/key-value/key-definition.schema.js';
+import {ValueDefinitionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/definitions/key-value/value-definition.schema.js';
 import {
   describe,
   it,
@@ -130,6 +133,27 @@ async function seedIntent(
     `INSERT INTO intents (system_id, intent_id, control_port_system_id) VALUES (?, 1, ?)`,
     [intentSystemId, portSystemId],
   );
+}
+
+async function insertDeleteAction(
+  qr: QueryRunner,
+  sessionId: number,
+  targetTable: EntityName,
+  targetSystemId: number,
+  aggregateId: number,
+) {
+  await qr.manager.getRepository(EditActionSchema).insert({
+    sessionId,
+    aggregateId,
+    targetSystemId,
+    targetTable,
+    operation: CHANGE_OPERATION.Delete,
+    fieldPath: null,
+    newValue: {},
+    source: SOURCE.Manual,
+    changeStatus: CHANGE_STATUS.Unstaged,
+    linkedEntityGroupId: null,
+  });
 }
 
 function makeWriter(manager: QueryRunner['manager']): PendingChangeWriter {
@@ -432,6 +456,319 @@ describe('TypeOrmModuleRepository (integration)', () => {
           },
         },
       ]);
+    });
+  });
+
+  describe('port identity reads', () => {
+    const DATA_PORT_ID = 600;
+    const CONTROL_PORT_ID = 700;
+    const MODULE_REF = {
+      entityType: ENTITY_TYPE.SpfModule,
+      systemId: MODULE_ID,
+      identity: {alias: 'base-alias', definitionName: 'def', naturalId: 1},
+    };
+
+    async function seedPorts() {
+      await seedModule(ds);
+      await seedDataPort(ds, DATA_PORT_ID);
+      await seedControlPort(ds, CONTROL_PORT_ID);
+    }
+
+    it('returns a data port with its module, and reports other IDs as not found', async () => {
+      await seedPorts();
+      const sessionId = await seedSession(ds);
+
+      const batch = await makeRepo(
+        qr.manager,
+        sessionId,
+      ).findDataPortIdentities(FILE_ID, [DATA_PORT_ID, CONTROL_PORT_ID, 9999]);
+
+      expect(batch).toEqual({
+        entityType: ENTITY_TYPE.DataPort,
+        items: [
+          {
+            entityType: ENTITY_TYPE.DataPort,
+            systemId: DATA_PORT_ID,
+            identity: {node: MODULE_REF, port: {name: 'p', naturalId: 1}},
+          },
+        ],
+        failed: [
+          {systemId: CONTROL_PORT_ID, reason: FAILED_ENTITY_REASON.NotFound},
+          {systemId: 9999, reason: FAILED_ENTITY_REASON.NotFound},
+        ],
+      });
+    });
+
+    it('returns a control port with its module', async () => {
+      await seedPorts();
+      const sessionId = await seedSession(ds);
+
+      const batch = await makeRepo(
+        qr.manager,
+        sessionId,
+      ).findControlPortIdentities(FILE_ID, [CONTROL_PORT_ID]);
+
+      expect(batch.items).toEqual([
+        {
+          entityType: ENTITY_TYPE.ControlPort,
+          systemId: CONTROL_PORT_ID,
+          identity: {node: MODULE_REF, port: {name: null, naturalId: 1}},
+        },
+      ]);
+      expect(batch.failed).toEqual([]);
+    });
+
+    it('names a port deleted in the session from committed data', async () => {
+      await seedPorts();
+      const sessionId = await seedSession(ds);
+      await insertDeleteAction(
+        qr,
+        sessionId,
+        ENTITY_NAMES.DataPort,
+        DATA_PORT_ID,
+        MODULE_ID,
+      );
+
+      const batch = await makeRepo(
+        qr.manager,
+        sessionId,
+      ).findDataPortIdentities(FILE_ID, [DATA_PORT_ID]);
+
+      expect(batch.items.map(item => item.identity)).toEqual([
+        {node: MODULE_REF, port: {name: 'p', naturalId: 1}},
+      ]);
+      expect(batch.failed).toEqual([]);
+    });
+
+    it('reports a port whose module definition is deleted in the session as unresolved', async () => {
+      await seedPorts();
+      const sessionId = await seedSession(ds);
+      await insertDeleteAction(
+        qr,
+        sessionId,
+        ENTITY_NAMES.SpfModuleDefinition,
+        DEF_ID,
+        DEF_ID,
+      );
+
+      const batch = await makeRepo(
+        qr.manager,
+        sessionId,
+      ).findControlPortIdentities(FILE_ID, [CONTROL_PORT_ID]);
+
+      expect(batch.items).toEqual([]);
+      expect(batch.failed).toEqual([
+        {
+          systemId: CONTROL_PORT_ID,
+          reason: FAILED_ENTITY_REASON.UnresolvedReference,
+          missingRef: {
+            entityType: ENTITY_TYPE.SpfModuleDefinition,
+            systemId: DEF_ID,
+          },
+        },
+      ]);
+    });
+
+    it('reports a port of another file as not found', async () => {
+      await seedPorts();
+      const sessionId = await seedSession(ds);
+
+      const batch = await makeRepo(
+        qr.manager,
+        sessionId,
+      ).findDataPortIdentities(FILE_ID + 1, [DATA_PORT_ID]);
+
+      expect(batch.items).toEqual([]);
+      expect(batch.failed).toEqual([
+        {systemId: DATA_PORT_ID, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
+    });
+  });
+
+  describe('calibration identity reads', () => {
+    const KEY_ID = 70;
+    const LEFT_ID = 71;
+    const RIGHT_ID = 72;
+    const CKV_ID = 80;
+    const TAG_DEFINITION_ID = 90;
+    const TAG_ID = 91;
+    const TKV_ID = 92;
+    const MODULE_REF = {
+      entityType: ENTITY_TYPE.SpfModule,
+      systemId: MODULE_ID,
+      identity: {alias: 'base-alias', definitionName: 'def', naturalId: 1},
+    };
+    const SPEAKER = {name: 'Speaker', naturalId: 7};
+    const MUTE = {name: 'Mute', naturalId: 9};
+
+    /** A module with one CKV (Left), one tag (Mute), and one TKV (Right). */
+    async function seedCalibration() {
+      await seedModule(ds);
+      await getTestRepository(KeyDefinitionSchema).save({
+        systemId: KEY_ID,
+        fileSystemId: FILE_ID,
+        naturalId: 7,
+        name: 'Speaker',
+      });
+      await getTestRepository(ValueDefinitionSchema).save([
+        {systemId: LEFT_ID, keySystemId: KEY_ID, naturalId: 1, name: 'Left'},
+        {systemId: RIGHT_ID, keySystemId: KEY_ID, naturalId: 2, name: 'Right'},
+      ]);
+      await ds.query(
+        `INSERT INTO ckv (system_id, spf_module_system_id) VALUES (?, ?)`,
+        [CKV_ID, MODULE_ID],
+      );
+      await ds.query(
+        `INSERT INTO ckv_values (system_id, ckv_system_id, value_def_system_id) VALUES (?, ?, ?)`,
+        [81, CKV_ID, LEFT_ID],
+      );
+      await ds.query(
+        `INSERT INTO tag_definitions (system_id, tag_id, name, file_system_id, is_voice) VALUES (?, 9, 'Mute', ?, 0)`,
+        [TAG_DEFINITION_ID, FILE_ID],
+      );
+      await ds.query(
+        `INSERT INTO module_tag_id_map (system_id, spf_module_system_id, tag_definition_system_id) VALUES (?, ?, ?)`,
+        [TAG_ID, MODULE_ID, TAG_DEFINITION_ID],
+      );
+      await ds.query(
+        `INSERT INTO tkv (system_id, module_tag_id_map_system_id) VALUES (?, ?)`,
+        [TKV_ID, TAG_ID],
+      );
+      await ds.query(
+        `INSERT INTO tkv_values (system_id, tkv_system_id, value_def_system_id) VALUES (?, ?, ?)`,
+        [93, TKV_ID, RIGHT_ID],
+      );
+    }
+
+    it('returns each CKV with its module and values', async () => {
+      await seedCalibration();
+      const sessionId = await seedSession(ds);
+
+      const batch = await makeRepo(qr.manager, sessionId).findCkvIdentities(
+        FILE_ID,
+        [CKV_ID, 9999],
+      );
+
+      expect(batch).toEqual({
+        entityType: ENTITY_TYPE.Ckv,
+        items: [
+          {
+            entityType: ENTITY_TYPE.Ckv,
+            systemId: CKV_ID,
+            identity: {
+              module: MODULE_REF,
+              values: [{key: SPEAKER, value: {name: 'Left', naturalId: 1}}],
+            },
+          },
+        ],
+        failed: [{systemId: 9999, reason: FAILED_ENTITY_REASON.NotFound}],
+      });
+    });
+
+    it('returns each tag with its module and tag definition', async () => {
+      await seedCalibration();
+      const sessionId = await seedSession(ds);
+
+      const batch = await makeRepo(qr.manager, sessionId).findTagIdentities(
+        FILE_ID,
+        [TAG_ID],
+      );
+
+      expect(batch.items).toEqual([
+        {
+          entityType: ENTITY_TYPE.Tag,
+          systemId: TAG_ID,
+          identity: {module: MODULE_REF, tag: MUTE},
+        },
+      ]);
+      expect(batch.failed).toEqual([]);
+    });
+
+    it('returns each TKV with its module, tag, and values', async () => {
+      await seedCalibration();
+      const sessionId = await seedSession(ds);
+
+      const batch = await makeRepo(qr.manager, sessionId).findTkvIdentities(
+        FILE_ID,
+        [TKV_ID],
+      );
+
+      expect(batch.items).toEqual([
+        {
+          entityType: ENTITY_TYPE.Tkv,
+          systemId: TKV_ID,
+          identity: {
+            module: MODULE_REF,
+            tag: MUTE,
+            values: [{key: SPEAKER, value: {name: 'Right', naturalId: 2}}],
+          },
+        },
+      ]);
+      expect(batch.failed).toEqual([]);
+    });
+
+    it('names a CKV deleted in the session from committed data', async () => {
+      await seedCalibration();
+      const sessionId = await seedSession(ds);
+      await insertDeleteAction(
+        qr,
+        sessionId,
+        ENTITY_NAMES.Ckv,
+        CKV_ID,
+        MODULE_ID,
+      );
+
+      const batch = await makeRepo(qr.manager, sessionId).findCkvIdentities(
+        FILE_ID,
+        [CKV_ID],
+      );
+
+      expect(batch.items.map(item => item.systemId)).toEqual([CKV_ID]);
+      expect(batch.failed).toEqual([]);
+    });
+
+    it('reports calibration data as unresolved when its module cannot be named', async () => {
+      await seedCalibration();
+      const sessionId = await seedSession(ds);
+      await insertDeleteAction(
+        qr,
+        sessionId,
+        ENTITY_NAMES.SpfModuleDefinition,
+        DEF_ID,
+        DEF_ID,
+      );
+      const repo = makeRepo(qr.manager, sessionId);
+      const unresolved = (systemId: number) => ({
+        systemId,
+        reason: FAILED_ENTITY_REASON.UnresolvedReference,
+        missingRef: {entityType: ENTITY_TYPE.SpfModule, systemId: MODULE_ID},
+      });
+
+      const ckvs = await repo.findCkvIdentities(FILE_ID, [CKV_ID]);
+      const tags = await repo.findTagIdentities(FILE_ID, [TAG_ID]);
+      const tkvs = await repo.findTkvIdentities(FILE_ID, [TKV_ID]);
+
+      expect(ckvs).toMatchObject({items: [], failed: [unresolved(CKV_ID)]});
+      expect(tags).toMatchObject({items: [], failed: [unresolved(TAG_ID)]});
+      expect(tkvs).toMatchObject({items: [], failed: [unresolved(TKV_ID)]});
+    });
+
+    it('reports calibration data of another file as not found', async () => {
+      await seedCalibration();
+      const sessionId = await seedSession(ds);
+      const repo = makeRepo(qr.manager, sessionId);
+      const notFound = (systemId: number) => ({
+        systemId,
+        reason: FAILED_ENTITY_REASON.NotFound,
+      });
+
+      const ckvs = await repo.findCkvIdentities(FILE_ID + 1, [CKV_ID]);
+      const tags = await repo.findTagIdentities(FILE_ID + 1, [TAG_ID]);
+      const tkvs = await repo.findTkvIdentities(FILE_ID + 1, [TKV_ID]);
+
+      expect(ckvs).toMatchObject({items: [], failed: [notFound(CKV_ID)]});
+      expect(tags).toMatchObject({items: [], failed: [notFound(TAG_ID)]});
+      expect(tkvs).toMatchObject({items: [], failed: [notFound(TKV_ID)]});
     });
   });
 

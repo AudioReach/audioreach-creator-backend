@@ -15,6 +15,7 @@ import type {NodeType} from '../../../../../domain/entities/usecase-data/node/no
 import type {IdentifiedEntityRef} from '../../../../../domain/identity/entity-identity.js';
 import type {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
 import type {BatchRead} from '../../batch-read.js';
+import type {NodeQueryService} from '../../query-services/node/node-query-service.js';
 
 /** Identifies a subsystem control port without losing its aggregate owner. */
 export interface SubsystemControlPortRef {
@@ -34,7 +35,14 @@ export type SubsystemNodeTopology = {
   type: NodeType;
 };
 
-export interface SubsystemRepository {
+/**
+ * The port identity reads come from `NodeQueryService` and cover ports of
+ * any node.
+ */
+export interface SubsystemRepository extends Pick<
+  NodeQueryService,
+  'findDataPortIdentities' | 'findControlPortIdentities'
+> {
   getSubsystems(fileSystemId: number): Promise<SubsystemHierarchy[]>;
   getSubsystem(
     systemId: number,

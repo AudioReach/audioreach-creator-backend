@@ -29,13 +29,19 @@ export interface PortIdentity {
   readonly naturalId: number;
 }
 
-/** One end of a link: the node it connects to and the port it uses. */
+/**
+ * A port with the node that owns it. It is the identity of a data or control
+ * port, and one end of a link: the node it connects to and the port it uses.
+ */
 export interface LinkEndpoint {
   readonly node:
     | EntityRef<typeof ENTITY_TYPE.SpfModule>
     | EntityRef<typeof ENTITY_TYPE.Subsystem>;
   readonly port: PortIdentity;
 }
+
+/** The module that owns a CKV, a tag, or a TKV. */
+type OwningModule = EntityRef<typeof ENTITY_TYPE.SpfModule>;
 
 /**
  * The identity of each entity type that has one. A type without an entry has
@@ -52,13 +58,31 @@ export interface EntityIdentityMap {
     readonly definitionName: string;
     readonly naturalId: number;
   };
+  /** Containers have no name. */
+  Container: {readonly naturalId: number};
   Subsystem: NamedNaturalId;
-  KeyDefinition: NamedNaturalId;
-  ValueDefinition: NamedKeyValue;
-  TagDefinition: NamedNaturalId;
+  DataPort: LinkEndpoint;
+  ControlPort: LinkEndpoint;
   DataLink: {readonly source: LinkEndpoint; readonly destination: LinkEndpoint};
   /** A control link has no direction; the formatter orders its endpoints. */
   ControlLink: {readonly endpoints: readonly [LinkEndpoint, LinkEndpoint]};
+  /** Values in the order of the CKV's key vector. */
+  Ckv: {
+    readonly module: OwningModule;
+    readonly values: readonly NamedKeyValue[];
+  };
+  Tag: {readonly module: OwningModule; readonly tag: NamedNaturalId};
+  /** Values in the order of the TKV's key vector. */
+  Tkv: {
+    readonly module: OwningModule;
+    readonly tag: NamedNaturalId;
+    readonly values: readonly NamedKeyValue[];
+  };
+  KeyDefinition: NamedNaturalId;
+  ValueDefinition: NamedKeyValue;
+  TagDefinition: NamedNaturalId;
+  SpfModuleDefinition: NamedNaturalId;
+  SpfModuleParameterDefinition: NamedNaturalId;
 }
 
 /** The identity of entity type `T`, or `never` if `T` has none. */

@@ -190,48 +190,117 @@ export class TkvOverlayFetcher {
   }
 
   /**
-   * Returns the overlaid Tkv row for the given tkvSystemId.
-   * Returns null if the row does not exist or was deleted in the active session.
-   *
-   * Overlay actions are matched by targetSystemId — tkvSystemId is the table PK
-   * and is globally unique, so no aggregateId scoping is needed.
+   * Returns the overlaid Tkv row for the given tkvSystemId, of any module of
+   * the file. Returns null if the row does not exist or was deleted in the
+   * active session.
    */
   async fetchTkv(
     tkvSystemId: number,
+    fileSystemId: number,
     sessionId: number | null,
   ): Promise<OverlaidTkv | null> {
-    const baseRow = (await this.manager
+    const [tkv] = await this.fetchTkvsBySystemIds(
+      [tkvSystemId],
+      fileSystemId,
+      sessionId,
+    );
+    return tkv ?? null;
+  }
+
+  /**
+   * Returns the overlaid Tkv rows with the given systemIds, of any module of
+   * the file, with their values. A Tkv deleted in the session is left out.
+   */
+  async fetchTkvsBySystemIds(
+    tkvSystemIds: readonly number[],
+    fileSystemId: number,
+    sessionId: number | null,
+  ): Promise<OverlaidTkv[]> {
+    if (tkvSystemIds.length === 0) return [];
+
+    const baseRows = (await this.manager
       .getRepository(ENTITY_NAMES.Tkv)
       .createQueryBuilder('tkv')
       .leftJoinAndSelect('tkv.values', 'tkvValues')
-      .where('tkv.systemId = :tkvSystemId', {tkvSystemId})
-      .getOne()) as TkvRow | null;
+      .innerJoin(
+        ENTITY_NAMES.ModuleTagIdMap,
+        'tagMap',
+        'tagMap.system_id = tkv.module_tag_id_map_system_id',
+      )
+      .innerJoin(
+        ENTITY_NAMES.Node,
+        'n',
+        'n.system_id = tagMap.spf_module_system_id',
+      )
+      .where('tkv.systemId IN (:...tkvSystemIds)', {
+        tkvSystemIds: [...tkvSystemIds],
+      })
+      .andWhere('n.fileSystemId = :fileSystemId', {fileSystemId})
+      .getMany()) as TkvRow[];
 
-    if (sessionId === null) {
-      return baseRow ? this.toOverlaidTkv(baseRow) : null;
-    }
+    if (sessionId === null) return baseRows.map(r => this.toOverlaidTkv(r));
 
     const [tkvActions, valueActions] = await Promise.all([
       this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.Tkv),
       this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.TkvValues),
     ]);
-    const relevantActions = tkvActions.filter(
-      a => a.targetSystemId === tkvSystemId,
-    );
+    const requested = new Set(tkvSystemIds);
+    return this.overlay
+      .applyToCollection(baseRows, tkvActions, {
+        matchesEffective: row => requested.has(row.systemId),
+      })
+      .map(({effective: row}) =>
+        this.toOverlaidTkv(
+          row,
+          this.overlayValues(
+            baseRows.find(base => base.systemId === row.systemId)?.values ?? [],
+            valueActions,
+            row.systemId,
+          ),
+        ),
+      );
+  }
 
-    if (relevantActions.length === 0) {
-      return baseRow ? this.toOverlaidTkv(baseRow) : null;
-    }
+  /**
+   * Returns the overlaid ModuleTagIdMap rows with the given systemIds, of
+   * any module of the file. A row deleted in the session is left out.
+   */
+  async fetchTagMapsBySystemIds(
+    tagSystemIds: readonly number[],
+    fileSystemId: number,
+    sessionId: number | null,
+  ): Promise<ModuleTagIdMapBase[]> {
+    if (tagSystemIds.length === 0) return [];
 
-    const result = this.overlay.applyToSingle(baseRow, relevantActions, {
-      matchesEffective: row => row.systemId === tkvSystemId,
-    });
-    return result
-      ? this.toOverlaidTkv(
-          result.effective,
-          this.overlayValues(baseRow?.values ?? [], valueActions, tkvSystemId),
-        )
-      : null;
+    const baseRows = (await this.manager
+      .getRepository(ENTITY_NAMES.ModuleTagIdMap)
+      .createQueryBuilder('tagMap')
+      .innerJoin(
+        ENTITY_NAMES.Node,
+        'n',
+        'n.system_id = tagMap.spf_module_system_id',
+      )
+      .where('tagMap.systemId IN (:...tagSystemIds)', {
+        tagSystemIds: [...tagSystemIds],
+      })
+      .andWhere('n.fileSystemId = :fileSystemId', {fileSystemId})
+      .getMany()) as ModuleTagIdMapRow[];
+
+    const requested = new Set(tagSystemIds);
+    const rows =
+      sessionId === null
+        ? baseRows
+        : this.overlay
+            .applyToCollection(
+              baseRows,
+              await this.editActionsSvc.getByTable(
+                sessionId,
+                ENTITY_NAMES.ModuleTagIdMap,
+              ),
+              {matchesEffective: row => requested.has(row.systemId)},
+            )
+            .map(result => result.effective);
+    return rows.map(row => this.toModuleTagIdMapBase(row));
   }
 
   /**

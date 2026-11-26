@@ -220,6 +220,50 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     );
   }
 
+  async findDataPortIdentities(
+    fileSystemId: number,
+    portSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.DataPort>,
+      typeof ENTITY_TYPE.DataPort
+    >
+  > {
+    return withCommittedFallback(
+      this.uow.getWriteContext().session.sessionId,
+      portSystemIds,
+      (sessionId, ids) =>
+        this.nodeIdentities.readPorts(
+          fileSystemId,
+          sessionId,
+          ENTITY_TYPE.DataPort,
+          ids,
+        ),
+    );
+  }
+
+  async findControlPortIdentities(
+    fileSystemId: number,
+    portSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.ControlPort>,
+      typeof ENTITY_TYPE.ControlPort
+    >
+  > {
+    return withCommittedFallback(
+      this.uow.getWriteContext().session.sessionId,
+      portSystemIds,
+      (sessionId, ids) =>
+        this.nodeIdentities.readPorts(
+          fileSystemId,
+          sessionId,
+          ENTITY_TYPE.ControlPort,
+          ids,
+        ),
+    );
+  }
+
   async controlPortExists(
     portSystemId: number,
     fileSystemId: number,

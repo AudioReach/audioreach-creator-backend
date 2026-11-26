@@ -30,10 +30,13 @@ import {
 } from '../../../../shared/profiling/profiler-types.js';
 import {IssueCollector} from '../types/issue-collection.js';
 import {type LegacyIssue} from '../../../../shared/issues/index.js';
-import {ENTITY_TYPE, type EntityType} from '../../../../shared/entity-type.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import type {ValidationIssue} from '../../../../domain/validation/issue.js';
 import {newInsertFailureIssue} from '../../../../domain/validation/insert-failures/insert-failure.factory.js';
-import type {InsertFailureType} from '../../../../domain/validation/insert-failures/insert-failure-codes.js';
+import type {
+  InsertedEntityType,
+  InsertFailureType,
+} from '../../../../domain/validation/insert-failures/insert-failure-codes.js';
 import {HeaderChunk} from '../../shared/acdb-chunks/header-chunk.js';
 import {PARSED_CHUNK_TYPES} from '../../shared/constants/chunk-types.js';
 import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
@@ -585,18 +588,14 @@ export class UploadFileOrchestrator {
 
   private collectInsertionErrors(
     insertResult: BulkInsertResult,
-    entityType: EntityType,
+    entityType: InsertedEntityType,
   ): void {
     if (insertResult.ok) return;
 
     const failureType = this.resolveInsertFailureType(entityType);
     for (const err of insertResult.errors) {
-      const detail =
-        failureType === 'UnknownEntityInsertFailed'
-          ? `[${entityType}] ${err.details}`
-          : err.details;
       this.dataLossIssues.push(
-        newInsertFailureIssue(failureType, err.systemId, detail),
+        newInsertFailureIssue(failureType, err.systemId, err.details),
       );
     }
 
@@ -611,7 +610,9 @@ export class UploadFileOrchestrator {
     });
   }
 
-  private resolveInsertFailureType(entityType: string): InsertFailureType {
+  private resolveInsertFailureType(
+    entityType: InsertedEntityType,
+  ): InsertFailureType {
     switch (entityType) {
       case ENTITY_TYPE.SpfModule:
         return 'SpfModuleInsertFailed';
@@ -635,20 +636,22 @@ export class UploadFileOrchestrator {
         return 'SubgraphPropertyDefinitionInsertFailed';
       case ENTITY_TYPE.ContainerPropertyDefinition:
         return 'ContainerPropertyDefinitionInsertFailed';
+      case ENTITY_TYPE.DriverPropertyDefinition:
+        return 'DriverPropertyDefinitionInsertFailed';
       case ENTITY_TYPE.ModuleManagerData:
         return 'ModuleManagerDataInsertFailed';
       case ENTITY_TYPE.Subgraph:
         return 'SubgraphInsertFailed';
       case ENTITY_TYPE.Container:
         return 'ContainerInsertFailed';
+      case ENTITY_TYPE.Subsystem:
+        return 'SubsystemInsertFailed';
       case ENTITY_TYPE.DriverModule:
         return 'DriverModuleInsertFailed';
       case ENTITY_TYPE.ControlLink:
         return 'ControlLinkInsertFailed';
       case ENTITY_TYPE.UseCase:
         return 'UseCaseInsertFailed';
-      default:
-        return 'UnknownEntityInsertFailed';
     }
   }
 

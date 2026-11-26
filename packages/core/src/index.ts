@@ -96,6 +96,7 @@ export type {
 } from './application/ports/persistence/repositories/control-link/control-link.repository.js';
 export type {SubgraphRepository} from './application/ports/persistence/repositories/subgraph/subgraph.repository.js';
 export type {KeyValueDefinitionRepository} from './application/ports/persistence/repositories/key-value/key-value-definition.repository.js';
+export type {TagDefinitionRepository} from './application/ports/persistence/repositories/tag-definition/tag-definition.repository.js';
 export {VcpmInstance} from './domain/entities/usecase-data/subgraph/entities/vcpm-module-instance.js';
 export type {VcpmDefinitionRepository} from './application/ports/persistence/repositories/vcpm-definition/vcpm-definition.repository.js';
 export type {

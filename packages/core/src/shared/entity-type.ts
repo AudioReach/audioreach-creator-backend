@@ -36,7 +36,5 @@ export const ENTITY_TYPE = {
   Ckv: 'Ckv',
   Tag: 'Tag',
   Tkv: 'Tkv',
-  /** Sentinel used by the generic insert-failure fallback when an entity type has no catalog entry. */
-  Unknown: 'Unknown',
 } as const;
 export type EntityType = (typeof ENTITY_TYPE)[keyof typeof ENTITY_TYPE];

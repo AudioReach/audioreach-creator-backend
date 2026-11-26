@@ -5,6 +5,7 @@
 
 import type {SpfModuleDefinition} from '../../../../../domain/entities/definitions/spf-module/spf-module-definition.js';
 import type {ParameterDefinitionBase} from '../shared/parameter-definition-base.js';
+import type {SpfModuleDefinitionQueryService} from '../../query-services/spf-module-definition/spf-module-definition-query-service.js';
 import type {ToolPolicy} from '../../../../../domain/entities/definitions/common/types/tool-policy-type.js';
 
 export interface ModuleParameterDefinition extends ParameterDefinitionBase {
@@ -12,7 +13,7 @@ export interface ModuleParameterDefinition extends ParameterDefinitionBase {
   toolPolicy: ToolPolicy;
 }
 
-export interface ModuleDefinitionRepository {
+export interface ModuleDefinitionRepository extends SpfModuleDefinitionQueryService {
   /**
    * Looks up the definition by its system ID (FK stored on SpfModule.definitionSystemId).
    * Used by PatchSpfModuleHandler — direct FK lookup, no natural-key round-trip needed.

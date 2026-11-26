@@ -42,6 +42,7 @@ import {TkvOverlayFetcher} from '../../fetchers/tkv-overlay-fetcher.js';
 import {TkvParameterPayloadFetcher} from '../../fetchers/tkv-parameter-payload-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
 import {NodeIdentityReader} from '../../queries/shared/node-identity-reader.js';
+import {CalibrationIdentityReader} from '../../queries/shared/calibration-identity-reader.js';
 import {withCommittedFallback} from '../../utils/with-committed-fallback.js';
 
 interface ParameterPayloadRowIdentity {
@@ -58,6 +59,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
   private readonly tkvOverlayFetcher: TkvOverlayFetcher;
   private readonly editActionsQs: EditActionsQueryService;
   private readonly nodeIdentities: NodeIdentityReader;
+  private readonly calibrationIdentities: CalibrationIdentityReader;
 
   constructor(
     private readonly writer: PendingChangeWriter,
@@ -74,6 +76,10 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     );
     this.nodeFetcher = new NodeOverlayFetcher(manager, editActionsQs);
     this.nodeIdentities = new NodeIdentityReader(manager, editActionsQs);
+    this.calibrationIdentities = new CalibrationIdentityReader(
+      manager,
+      editActionsQs,
+    );
     this.portFetcher = new PortOverlayFetcher(
       manager,
       editActionsQs,
@@ -145,6 +151,107 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       spfModuleSystemIds,
       (sessionId, ids) =>
         this.nodeIdentities.readSpfModules(fileSystemId, sessionId, ids),
+    );
+  }
+
+  async findCkvIdentities(
+    fileSystemId: number,
+    ckvSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.Ckv>,
+      typeof ENTITY_TYPE.Ckv
+    >
+  > {
+    if (ckvSystemIds.length === 0)
+      return {entityType: ENTITY_TYPE.Ckv, items: [], failed: []};
+    return withCommittedFallback(
+      this.uow.getWriteContext().session.sessionId,
+      ckvSystemIds,
+      (sessionId, ids) =>
+        this.calibrationIdentities.readCkvs(fileSystemId, sessionId, ids),
+    );
+  }
+
+  async findTagIdentities(
+    fileSystemId: number,
+    tagSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.Tag>,
+      typeof ENTITY_TYPE.Tag
+    >
+  > {
+    if (tagSystemIds.length === 0)
+      return {entityType: ENTITY_TYPE.Tag, items: [], failed: []};
+    return withCommittedFallback(
+      this.uow.getWriteContext().session.sessionId,
+      tagSystemIds,
+      (sessionId, ids) =>
+        this.calibrationIdentities.readTags(fileSystemId, sessionId, ids),
+    );
+  }
+
+  async findTkvIdentities(
+    fileSystemId: number,
+    tkvSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.Tkv>,
+      typeof ENTITY_TYPE.Tkv
+    >
+  > {
+    if (tkvSystemIds.length === 0)
+      return {entityType: ENTITY_TYPE.Tkv, items: [], failed: []};
+    return withCommittedFallback(
+      this.uow.getWriteContext().session.sessionId,
+      tkvSystemIds,
+      (sessionId, ids) =>
+        this.calibrationIdentities.readTkvs(fileSystemId, sessionId, ids),
+    );
+  }
+
+  async findDataPortIdentities(
+    fileSystemId: number,
+    portSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.DataPort>,
+      typeof ENTITY_TYPE.DataPort
+    >
+  > {
+    return withCommittedFallback(
+      this.uow.getWriteContext().session.sessionId,
+      portSystemIds,
+      (sessionId, ids) =>
+        this.nodeIdentities.readPorts(
+          fileSystemId,
+          sessionId,
+          ENTITY_TYPE.DataPort,
+          ids,
+        ),
+    );
+  }
+
+  async findControlPortIdentities(
+    fileSystemId: number,
+    portSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.ControlPort>,
+      typeof ENTITY_TYPE.ControlPort
+    >
+  > {
+    return withCommittedFallback(
+      this.uow.getWriteContext().session.sessionId,
+      portSystemIds,
+      (sessionId, ids) =>
+        this.nodeIdentities.readPorts(
+          fileSystemId,
+          sessionId,
+          ENTITY_TYPE.ControlPort,
+          ids,
+        ),
     );
   }
 
@@ -807,8 +914,12 @@ export class TypeOrmModuleRepository implements ModuleRepository {
   }
 
   async tkvExists(tkvSystemId: number): Promise<boolean> {
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-    const row = await this.tkvOverlayFetcher.fetchTkv(tkvSystemId, sessionId);
+    const {session} = this.uow.getWriteContext();
+    const row = await this.tkvOverlayFetcher.fetchTkv(
+      tkvSystemId,
+      session.fileSystemId,
+      session.sessionId,
+    );
     return row !== null;
   }
 
@@ -1107,8 +1218,13 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     tkvSystemId: number,
     spfModuleSystemId: number,
   ): Promise<TkvSummary | null> {
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-    const tkv = await this.tkvOverlayFetcher.fetchTkv(tkvSystemId, sessionId);
+    const {session} = this.uow.getWriteContext();
+    const sessionId = session.sessionId;
+    const tkv = await this.tkvOverlayFetcher.fetchTkv(
+      tkvSystemId,
+      session.fileSystemId,
+      sessionId,
+    );
     if (!tkv) return null;
 
     const tagMap = await this.tkvOverlayFetcher.fetchTagMap(
@@ -1184,7 +1300,11 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       tkvSystemId,
       sessionId,
     );
-    const tkv = await this.tkvOverlayFetcher.fetchTkv(tkvSystemId, sessionId);
+    const tkv = await this.tkvOverlayFetcher.fetchTkv(
+      tkvSystemId,
+      session.fileSystemId,
+      sessionId,
+    );
     for (const payload of payloads) {
       await this.writeDeleteRow(
         'TkvParameterPayload',

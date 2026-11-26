@@ -62,6 +62,11 @@ export const INSERT_FAILURE = {
     name: 'Container Property Definition Insert Failed',
     entityType: ENTITY_TYPE.ContainerPropertyDefinition,
   },
+  DriverPropertyDefinitionInsertFailed: {
+    code: 'ARC-INSERT-DRVPROP-001',
+    name: 'Driver Property Definition Insert Failed',
+    entityType: ENTITY_TYPE.DriverPropertyDefinition,
+  },
   ModuleManagerDataInsertFailed: {
     code: 'ARC-INSERT-MMGR-001',
     name: 'Module Manager Data Insert Failed',
@@ -83,6 +88,11 @@ export const INSERT_FAILURE = {
     name: 'SPF Module Insert Failed',
     entityType: ENTITY_TYPE.SpfModule,
   },
+  SubsystemInsertFailed: {
+    code: 'ARC-INSERT-SUBSYS-001',
+    name: 'Subsystem Insert Failed',
+    entityType: ENTITY_TYPE.Subsystem,
+  },
   DriverModuleInsertFailed: {
     code: 'ARC-INSERT-DRVMOD-001',
     name: 'Driver Module Insert Failed',
@@ -103,15 +113,13 @@ export const INSERT_FAILURE = {
     name: 'Use Case Insert Failed',
     entityType: ENTITY_TYPE.UseCase,
   },
-  // Fallback — used when an entity type has no dedicated catalog entry
-  UnknownEntityInsertFailed: {
-    code: 'ARC-INSERT-UNK-001',
-    name: 'Entity Insert Failed — Unrecognized Type',
-    entityType: ENTITY_TYPE.Unknown,
-  },
 } as const satisfies Record<
   string,
   {code: string; name: string; entityType: EntityType}
 >;
 
 export type InsertFailureType = keyof typeof INSERT_FAILURE;
+
+/** An entity type that the upload inserts and so has a catalog entry. */
+export type InsertedEntityType =
+  (typeof INSERT_FAILURE)[InsertFailureType]['entityType'];

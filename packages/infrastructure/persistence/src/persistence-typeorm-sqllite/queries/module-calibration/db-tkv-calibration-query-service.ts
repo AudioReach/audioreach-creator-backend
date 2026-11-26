@@ -57,7 +57,11 @@ export class DbTkvCalibrationQueryService implements TkvQueryService {
       this.dataSource.manager,
       fileSystemId,
     );
-    const overlaid = await this.tkvFetcher.fetchTkv(tkvSystemId, sessionId);
+    const overlaid = await this.tkvFetcher.fetchTkv(
+      tkvSystemId,
+      fileSystemId,
+      sessionId,
+    );
     return overlaid
       ? this.transformToTkvReadModel(overlaid, fileSystemId)
       : null;

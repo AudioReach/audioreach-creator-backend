@@ -8,6 +8,9 @@ import type {SpfTuningConfigService} from './tuning/spf-tuning-config-service.js
 import type {Result} from '../../../../shared/result/result.js';
 import type {CkvQueryService} from './ckv/ckv-query-service.js';
 import type {TkvQueryService} from './tkv/tkv-query-service.js';
+import type {BatchRead} from '../../batch-read.js';
+import type {IdentifiedEntityRef} from '../../../../../domain/identity/entity-identity.js';
+import type {ENTITY_TYPE} from '../../../../../shared/entity-type.js';
 
 export interface SpfModuleQueryService {
   readonly ckvQueryService: CkvQueryService;
@@ -55,6 +58,60 @@ export interface SpfModuleQueryService {
     subgraphId: number,
     fileSystemId: number,
   ): Promise<Result<SpfModuleReadModel[]>>;
+
+  /**
+   * Reads the identities of the given CKVs. A systemId that is not
+   * a CKV of the file is `NOT_FOUND`.
+   * A CKV whose module or a value definition is missing is
+   * `UNRESOLVED_REFERENCE`, with that entity as `missingRef`.
+   * An entity deleted in the session is read from committed data, so it
+   * is named as the user last saw it; this is not an existence check.
+   */
+  findCkvIdentities(
+    fileSystemId: number,
+    ckvSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.Ckv>,
+      typeof ENTITY_TYPE.Ckv
+    >
+  >;
+
+  /**
+   * Reads the identities of the given module tags. A systemId that is not
+   * a tag on a module of the file is `NOT_FOUND`.
+   * A tag whose module or tag definition is missing is
+   * `UNRESOLVED_REFERENCE`, with that entity as `missingRef`.
+   * An entity deleted in the session is read from committed data, so it
+   * is named as the user last saw it; this is not an existence check.
+   */
+  findTagIdentities(
+    fileSystemId: number,
+    tagSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.Tag>,
+      typeof ENTITY_TYPE.Tag
+    >
+  >;
+
+  /**
+   * Reads the identities of the given TKVs. A systemId that is not
+   * a TKV of the file is `NOT_FOUND`.
+   * A TKV whose module tag, module, tag definition, or a value definition
+   * is missing is `UNRESOLVED_REFERENCE`, with that entity as `missingRef`.
+   * An entity deleted in the session is read from committed data, so it
+   * is named as the user last saw it; this is not an existence check.
+   */
+  findTkvIdentities(
+    fileSystemId: number,
+    tkvSystemIds: readonly number[],
+  ): Promise<
+    BatchRead<
+      IdentifiedEntityRef<typeof ENTITY_TYPE.Tkv>,
+      typeof ENTITY_TYPE.Tkv
+    >
+  >;
 
   // Sub-services — reusable directly by handlers that need tuning config or CKV
   readonly spfTuningConfigService: SpfTuningConfigService;

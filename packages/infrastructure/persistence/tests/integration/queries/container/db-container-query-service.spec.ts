@@ -19,10 +19,16 @@ import {
   getTestRepository,
   getTestDataSource,
 } from '../../helpers/test-database-setup.js';
-import {CHANGE_OPERATION, CHANGE_STATUS, RESULT_KIND, SOURCE} from '@arc/core';
+import {
+  CHANGE_OPERATION,
+  CHANGE_STATUS,
+  ENTITY_TYPE,
+  FAILED_ENTITY_REASON,
+  RESULT_KIND,
+  SOURCE,
+} from '@arc/core';
 import {DbContainerQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/container/db-container-query-service.js';
 import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
-import {TypeOrmSessionRepository} from '../../../../src/persistence-typeorm-sqllite/repositories/session/typeorm-session.repository.js';
 import {ContainerPropertyDefinitionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/definitions/container/container-property-definition.schema.js';
 import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {
@@ -67,9 +73,8 @@ describe('DbContainerQueryService.findPropertyPayloads Integration Tests', () =>
     projectSessionRepository =
       getTestRepository<ProjectSessionRow>(ProjectSessionSchema);
     service = new DbContainerQueryService(
-      dataSource,
+      dataSource.manager,
       new EditActionsQueryService(dataSource.manager),
-      new TypeOrmSessionRepository(dataSource.manager),
     );
   });
 
@@ -347,6 +352,129 @@ describe('DbContainerQueryService.findPropertyPayloads Integration Tests', () =>
       expect(result.data).toHaveLength(1);
       expect(result.data![0].systemId).toBe(200);
       expect(result.data![0].propertySystemId).toBe(75);
+    });
+  });
+
+  describe('findContainerIdentities', () => {
+    async function seedContainers(fileSystemId: number): Promise<void> {
+      await containerRepository.save([
+        {systemId: 1, naturalId: 10, containerTypeSystemId: 0, fileSystemId},
+        {systemId: 2, naturalId: 20, containerTypeSystemId: 0, fileSystemId},
+      ]);
+    }
+
+    it('returns the natural ID of each container in request order', async () => {
+      const {fileSystemId} = await createFileDependency();
+      await seedContainers(fileSystemId);
+
+      const batch = await service.findContainerIdentities(
+        fileSystemId,
+        [2, 9999, 1, 2],
+      );
+
+      expect(batch).toEqual({
+        entityType: ENTITY_TYPE.Container,
+        items: [
+          {
+            entityType: ENTITY_TYPE.Container,
+            systemId: 2,
+            identity: {naturalId: 20},
+          },
+          {
+            entityType: ENTITY_TYPE.Container,
+            systemId: 1,
+            identity: {naturalId: 10},
+          },
+        ],
+        failed: [{systemId: 9999, reason: FAILED_ENTITY_REASON.NotFound}],
+      });
+    });
+
+    it('reports a container of another file as not found', async () => {
+      const {fileSystemId} = await createFileDependency();
+      await seedContainers(fileSystemId);
+
+      const batch = await service.findContainerIdentities(
+        fileSystemId + 1,
+        [1],
+      );
+
+      expect(batch.items).toEqual([]);
+      expect(batch.failed).toEqual([
+        {systemId: 1, reason: FAILED_ENTITY_REASON.NotFound},
+      ]);
+    });
+
+    it('names a container deleted in the session from committed data', async () => {
+      const {fileSystemId} = await createFileDependency();
+      const session = await createSession(fileSystemId);
+      await seedContainers(fileSystemId);
+      await editActionRepository.save({
+        sessionId: session.sessionId,
+        targetTable: ENTITY_NAMES.Container,
+        targetSystemId: 1,
+        aggregateId: 1,
+        operation: CHANGE_OPERATION.Delete,
+        changeStatus: CHANGE_STATUS.Unstaged,
+        source: SOURCE.Manual,
+        fieldPath: null,
+        newValue: {},
+        linkedEntityGroupId: null,
+      });
+
+      const batch = await service.findContainerIdentities(fileSystemId, [1]);
+
+      expect(batch.items).toEqual([
+        {
+          entityType: ENTITY_TYPE.Container,
+          systemId: 1,
+          identity: {naturalId: 10},
+        },
+      ]);
+      expect(batch.failed).toEqual([]);
+    });
+
+    it('includes a container that exists only as a session CREATE', async () => {
+      const {fileSystemId} = await createFileDependency();
+      const session = await createSession(fileSystemId);
+      await editActionRepository.save({
+        sessionId: session.sessionId,
+        targetTable: ENTITY_NAMES.Container,
+        targetSystemId: 3,
+        aggregateId: 3,
+        operation: CHANGE_OPERATION.Create,
+        changeStatus: CHANGE_STATUS.Unstaged,
+        source: SOURCE.Manual,
+        fieldPath: null,
+        newValue: {
+          systemId: 3,
+          naturalId: 30,
+          containerTypeSystemId: 0,
+          fileSystemId,
+        },
+        linkedEntityGroupId: null,
+      });
+
+      const batch = await service.findContainerIdentities(fileSystemId, [3]);
+
+      expect(batch.items).toEqual([
+        {
+          entityType: ENTITY_TYPE.Container,
+          systemId: 3,
+          identity: {naturalId: 30},
+        },
+      ]);
+      expect(batch.failed).toEqual([]);
+    });
+
+    it('returns an empty read for an empty ID list', async () => {
+      const {fileSystemId} = await createFileDependency();
+
+      expect(await service.findContainerIdentities(fileSystemId, [])).toEqual({
+        entityType: ENTITY_TYPE.Container,
+        items: [],
+        failed: [],
+      });
     });
   });
 });
