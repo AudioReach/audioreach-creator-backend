@@ -148,7 +148,7 @@ describe('SPF Module Query E2E (GET /arc-api/v1/projects/{projectId}/spf-modules
       // Identity fields
       expect(typeof module.systemId).toBe('string');
       expect(typeof module.naturalId).toBe('number');
-      expect(typeof module.alias).toBe('string');
+      expect(module.alias).toBeUndefined();
       expect(typeof module.name).toBe('string');
       expect(typeof module.moduleDefinitionSystemId).toBe('string');
       expect(typeof module.subgraphSystemId).toBe('string');
@@ -248,7 +248,7 @@ describe('SPF Module Query E2E (GET /arc-api/v1/projects/{projectId}/spf-modules
       .expect(200);
 
     expect(beforeResponse.body.data.length).toBe(1);
-    const originalAlias: string = beforeResponse.body.data[0].alias;
+    const originalAlias: string | undefined = beforeResponse.body.data[0].alias;
 
     // Stage an alias UPDATE via edit session
     const newAlias = `e2e_alias_${Date.now()}`;

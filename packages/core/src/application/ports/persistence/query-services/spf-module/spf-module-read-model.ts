@@ -10,7 +10,7 @@ export interface SpfModuleReadModel {
   readonly systemId: number;
   readonly parentSystemId: number | null;
   readonly naturalId: number;
-  readonly alias: string;
+  readonly alias?: string;
   readonly definitionSystemId: number;
   readonly name: string;
   readonly moduleDefinitionNaturalId: number;

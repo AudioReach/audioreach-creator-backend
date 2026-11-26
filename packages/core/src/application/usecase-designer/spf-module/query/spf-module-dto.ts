@@ -261,7 +261,7 @@ export function mapSpfModule(
     naturalId: m.naturalId,
     moduleDefinitionSystemId: String(m.definitionSystemId),
     name: m.name,
-    alias: m.alias,
+    ...(m.alias ? {alias: m.alias} : {}),
     parentSystemId:
       m.parentSystemId != null ? String(m.parentSystemId) : undefined,
     subgraphSystemId: String(m.subgraphSystemId),

@@ -88,14 +88,11 @@ export class SpfModuleBuilder {
     });
 
     // Step 1: Build entities (systemId = 0)
-    const moduleDisplayNames =
-      this.buildDisplayNameLookup(spfModuleDefinitions);
     const result = this.convertSpfModuleInfos(
       spfModuleInfos,
       fileSystemId,
       portStrategy,
       modulePropertyConfigs,
-      moduleDisplayNames,
       spfModuleDefinitions,
       containerProcessorMap,
       activeControlPortInfo,
@@ -430,25 +427,6 @@ export class SpfModuleBuilder {
     }
   }
 
-  private buildDisplayNameLookup(
-    spfModuleDefinitions: AwspSpfModuleDefinition[],
-  ): Map<number, string> {
-    const moduleDisplayNames = new Map<number, string>();
-
-    if (!spfModuleDefinitions || spfModuleDefinitions.length === 0) {
-      return moduleDisplayNames;
-    }
-
-    for (const moduleDef of spfModuleDefinitions) {
-      const displayName = moduleDef.displayName || moduleDef.name;
-      if (displayName) {
-        moduleDisplayNames.set(moduleDef.id, displayName);
-      }
-    }
-
-    return moduleDisplayNames;
-  }
-
   /**
    * Convert SPF module infos sequentially in the main thread
    * Creates objects with systemId = 0 and fileSystemId set (to be assigned later)
@@ -458,7 +436,6 @@ export class SpfModuleBuilder {
     fileSystemId: number,
     portStrategy: ModulePortStrategy,
     modulePropertyConfigs: ModulePropertyConfig[],
-    moduleDisplayNames: Map<number, string>,
     spfModuleDefinitions: AwspSpfModuleDefinition[],
     containerProcessorMap: Map<number, number>,
     activeControlPortInfo: ActiveControlPortInfo,
@@ -472,7 +449,6 @@ export class SpfModuleBuilder {
         fileSystemId,
         portStrategy,
         modulePropertyConfigs,
-        moduleDisplayNames,
         spfModuleDefinitions,
         containerProcessorMap,
         activeControlPortInfo,
@@ -495,7 +471,6 @@ export class SpfModuleBuilder {
     fileSystemId: number,
     portStrategy: ModulePortStrategy,
     modulePropertyConfigs: ModulePropertyConfig[],
-    moduleDisplayNames: Map<number, string>,
     spfModuleDefinitions: AwspSpfModuleDefinition[],
     containerProcessorMap: Map<number, number>,
     activeControlPortInfo: ActiveControlPortInfo,
@@ -537,7 +512,6 @@ export class SpfModuleBuilder {
           moduleDefinition,
           activeControlPortInfo,
           modulePropertyConfig,
-          moduleDisplayNames,
         );
         modules.push(spfModule);
       } catch (error) {
@@ -591,7 +565,6 @@ export class SpfModuleBuilder {
     moduleDefinition: AwspSpfModuleDefinition,
     activeControlPortInfo: ActiveControlPortInfo,
     modulePropertyConfig: ModulePropertyConfig,
-    moduleDisplayNames?: Map<number, string>,
   ): SpfModule {
     // Get foreign key mappings
     const subgraphSystemId = this.getSubgraphSystemId(moduleInfo.subgraphId);
@@ -630,10 +603,6 @@ export class SpfModuleBuilder {
       activeControlPortInfo,
     );
 
-    // Get display name from module definition, fallback to default alias
-    const displayName = moduleDisplayNames?.get(moduleInstance.moduleId);
-    const alias = displayName || `Module_${moduleInstance.instanceId}`;
-
     // Create SpfModule entity
     return new SpfModule({
       systemId: 0, // Will be generated during insertion
@@ -642,7 +611,6 @@ export class SpfModuleBuilder {
       containerSystemId,
       subgraphSystemId,
       fileSystemId,
-      alias,
       dataPorts,
       controlPorts,
     });
