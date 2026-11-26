@@ -469,7 +469,7 @@ describe('control link use-case scope', () => {
     expect(result.controlLinks).toHaveLength(1);
   });
 
-  it('rejects a normal link when no single use case holds both subgraphs', async () => {
+  it('allows a normal link when subgraphs belong to different use cases', async () => {
     const uow = crossSubgraphUow([
       {subgraphSystemIds: [100]},
       {subgraphSystemIds: [200]},
@@ -480,9 +480,9 @@ describe('control link use-case scope', () => {
       makeQueryServices(),
     );
 
-    await expect(
-      handler.handle(commandOf(CONTROL_LINK_TYPE.Normal)),
-    ).rejects.toThrow('belong to different use cases');
+    const result = await handler.handle(commandOf(CONTROL_LINK_TYPE.Normal));
+
+    expect(result.controlLinks).toHaveLength(1);
   });
 
   it('rejects an inter-usecase link when the subgraphs share a use case', async () => {

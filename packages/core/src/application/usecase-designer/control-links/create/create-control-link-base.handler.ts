@@ -339,50 +339,20 @@ export abstract class ControlLinkCreationHandler<
             .getSubsystemRepository()
             .findControlPortsForLink(command.peerNodeBSystemId, fileSystemId),
     ]);
-    if (!portAResult)
-      throw new ResourceNotFoundException(
-        `Control ports for node ${command.peerNodeASystemId} not found`,
-      );
-    if (!portBResult)
-      throw new ResourceNotFoundException(
-        `Control ports for node ${command.peerNodeBSystemId} not found`,
-      );
-    const portA = portAResult.find(
-      port => port.systemId === command.nodeAPortSystemId,
-    );
-    const portB = portBResult.find(
-      port => port.systemId === command.nodeBPortSystemId,
-    );
-    if (!portA) {
-      if (
-        await this.uow
-          .getSubsystemRepository()
-          .controlPortExists(command.nodeAPortSystemId, fileSystemId)
-      )
-        throw new DomainRuleViolationException([
-          IssueFactory.clInvalidInput(
-            `Control port ${command.nodeAPortSystemId} is not owned by node ${command.peerNodeASystemId}`,
-          ),
-        ]);
-      throw new ResourceNotFoundException(
-        `Control port ${command.nodeAPortSystemId} not found`,
-      );
-    }
-    if (!portB) {
-      if (
-        await this.uow
-          .getSubsystemRepository()
-          .controlPortExists(command.nodeBPortSystemId, fileSystemId)
-      )
-        throw new DomainRuleViolationException([
-          IssueFactory.clInvalidInput(
-            `Control port ${command.nodeBPortSystemId} is not owned by node ${command.peerNodeBSystemId}`,
-          ),
-        ]);
-      throw new ResourceNotFoundException(
-        `Control port ${command.nodeBPortSystemId} not found`,
-      );
-    }
+    const [portA, portB] = await Promise.all([
+      this.resolvePort(
+        portAResult,
+        command.nodeAPortSystemId,
+        command.peerNodeASystemId,
+        fileSystemId,
+      ),
+      this.resolvePort(
+        portBResult,
+        command.nodeBPortSystemId,
+        command.peerNodeBSystemId,
+        fileSystemId,
+      ),
+    ]);
 
     const [canonicalPortA, canonicalPortB, canonicalNodeA, canonicalNodeB] =
       command.nodeAPortSystemId < command.nodeBPortSystemId
@@ -415,6 +385,25 @@ export abstract class ControlLinkCreationHandler<
       );
     }
 
+    if (
+      nodeA.type === NodeType.Module &&
+      nodeB.type === NodeType.Module &&
+      nodeA.subgraphId !== nodeB.subgraphId
+    ) {
+      const shareUsecase = await this.endpointsShareUsecase(
+        fileSystemId,
+        nodeA.subgraphId,
+        nodeB.subgraphId,
+      );
+      if (command.linkType === CONTROL_LINK_TYPE.InterUsecase && shareUsecase) {
+        throw new DomainRuleViolationException([
+          IssueFactory.clTopologyViolation(
+            'The endpoints share a use case and cannot be inter-usecase',
+          ),
+        ]);
+      }
+    }
+
     await this.validateLinkScope(command, nodeA, nodeB, fileSystemId);
     await this.validateMode(command, nodeA, nodeB, fileSystemId);
     const intents = await this.resolveIntents(
@@ -445,33 +434,46 @@ export abstract class ControlLinkCreationHandler<
     );
   }
 
+  private async resolvePort<T extends {systemId: number}>(
+    portResults: T[] | null | undefined,
+    portSystemId: number,
+    nodeSystemId: number,
+    fileSystemId: number,
+  ): Promise<T> {
+    if (!portResults)
+      throw new ResourceNotFoundException(
+        `Control ports for node ${nodeSystemId} not found`,
+      );
+    const port = portResults.find(p => p.systemId === portSystemId);
+    if (!port) {
+      if (
+        await this.uow
+          .getSubsystemRepository()
+          .controlPortExists(portSystemId, fileSystemId)
+      )
+        throw new DomainRuleViolationException([
+          IssueFactory.clInvalidInput(
+            `Control port ${portSystemId} is not owned by node ${nodeSystemId}`,
+          ),
+        ]);
+      throw new ResourceNotFoundException(
+        `Control port ${portSystemId} not found`,
+      );
+    }
+    return port;
+  }
+
   protected async validateLinkScope(
     command: ControlLinkCreationCommand,
     nodeA: {type: (typeof NodeType)[keyof typeof NodeType]; subgraphId: number},
     nodeB: {type: (typeof NodeType)[keyof typeof NodeType]; subgraphId: number},
     fileSystemId: number,
   ): Promise<void> {
-    if (nodeA.type !== NodeType.Module || nodeB.type !== NodeType.Module)
-      return;
-    if (command.linkType === CONTROL_LINK_TYPE.InterUsecase) {
-      if (
-        await this.endpointsShareUsecase(
-          fileSystemId,
-          nodeA.subgraphId,
-          nodeB.subgraphId,
-        )
-      ) {
-        throw new DomainRuleViolationException([
-          IssueFactory.clTopologyViolation(
-            'The endpoints share a use case and cannot be inter-usecase',
-          ),
-        ]);
-      }
-      return;
-    }
-    if (nodeA.subgraphId === nodeB.subgraphId) return;
     if (
-      !(await this.endpointsShareUsecase(
+      nodeA.type === NodeType.Module &&
+      nodeB.type === NodeType.Module &&
+      command.linkType === CONTROL_LINK_TYPE.InterUsecase &&
+      (await this.endpointsShareUsecase(
         fileSystemId,
         nodeA.subgraphId,
         nodeB.subgraphId,
@@ -479,7 +481,7 @@ export abstract class ControlLinkCreationHandler<
     ) {
       throw new DomainRuleViolationException([
         IssueFactory.clTopologyViolation(
-          'The endpoints belong to different use cases; use INTER_USECASE linkType',
+          'The endpoints share a use case and cannot be inter-usecase',
         ),
       ]);
     }
