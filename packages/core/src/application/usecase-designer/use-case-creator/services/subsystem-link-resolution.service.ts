@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import {EntityIssueFactory} from '../../../../domain/issues/entity-issue-factory.js';
 import type {IssueFact} from '../../../../domain/issues/issue-fact.js';
 import {Result} from '../../../../application/shared/result/result.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
@@ -111,17 +112,17 @@ export class SubsystemLinkResolutionService {
       ]);
       if (sourceModule === null)
         return Result.fail(
-          RoutingIssueFactory.entityNotFound(
-            ENTITY_TYPE.SpfModule,
-            chain.sourceModuleSystemId,
-          ),
+          EntityIssueFactory.notFound({
+            entityType: ENTITY_TYPE.SpfModule,
+            systemId: chain.sourceModuleSystemId,
+          }),
         );
       if (destinationModule === null)
         return Result.fail(
-          RoutingIssueFactory.entityNotFound(
-            ENTITY_TYPE.SpfModule,
-            chain.destModuleSystemId,
-          ),
+          EntityIssueFactory.notFound({
+            entityType: ENTITY_TYPE.SpfModule,
+            systemId: chain.destModuleSystemId,
+          }),
         );
       const systemId = await idGeneration.getNextId(fileSystemId);
       const dataLink = new DataLink({
@@ -171,17 +172,17 @@ export class SubsystemLinkResolutionService {
       ]);
       if (peerAModule === null)
         return Result.fail(
-          RoutingIssueFactory.entityNotFound(
-            ENTITY_TYPE.SpfModule,
-            chain.peerAModuleSystemId,
-          ),
+          EntityIssueFactory.notFound({
+            entityType: ENTITY_TYPE.SpfModule,
+            systemId: chain.peerAModuleSystemId,
+          }),
         );
       if (peerBModule === null)
         return Result.fail(
-          RoutingIssueFactory.entityNotFound(
-            ENTITY_TYPE.SpfModule,
-            chain.peerBModuleSystemId,
-          ),
+          EntityIssueFactory.notFound({
+            entityType: ENTITY_TYPE.SpfModule,
+            systemId: chain.peerBModuleSystemId,
+          }),
         );
       const systemId = await idGeneration.getNextId(fileSystemId);
       const controlLink = new ControlLink(

@@ -93,6 +93,8 @@ describe('IdentityFormatter', () => {
     ['Subsystem', "Subsystem 'Speaker' (0x00000004)"],
     ['KeyDefinition', "Key 'Speaker' (0x00000004)"],
     ['TagDefinition', "Tag 'Speaker' (0x00000004)"],
+    ['SpfModuleDefinition', "Module definition 'Speaker' (0x00000004)"],
+    ['SpfModuleParameterDefinition', "Parameter 'Speaker' (0x00000004)"],
   ] as const)('writes a %s as its name and natural ID', (entityType, text) => {
     const ref: EntityRef = {
       entityType,
@@ -113,6 +115,115 @@ describe('IdentityFormatter', () => {
     expect(formatter.format(ref)).toBe(
       'Value StreamType:Playback (0x0000A1B2:0x00000001)',
     );
+  });
+
+  it('writes a Container as its natural ID', () => {
+    const ref: EntityRef = {
+      entityType: 'Container',
+      systemId: 99,
+      identity: {naturalId: 5},
+    };
+
+    expect(formatter.format(ref)).toBe('Container 0x00000005');
+  });
+
+  describe('ports', () => {
+    it('writes a DataPort after its node, by name', () => {
+      const ref: EntityRef = {
+        entityType: 'DataPort',
+        systemId: 99,
+        identity: moduleEndpoint(1, 0x20, 'out'),
+      };
+
+      expect(formatter.format(ref)).toBe(
+        "Module 'Module32' (0x00000020) / out",
+      );
+    });
+
+    it('writes an unnamed DataPort with its decimal natural ID', () => {
+      const ref: EntityRef = {
+        entityType: 'DataPort',
+        systemId: 99,
+        identity: moduleEndpoint(1, 0x20, null, 12),
+      };
+
+      expect(formatter.format(ref)).toBe(
+        "Module 'Module32' (0x00000020) / port 12",
+      );
+    });
+
+    it('writes an unnamed ControlPort with its hex natural ID', () => {
+      const ref: EntityRef = {
+        entityType: 'ControlPort',
+        systemId: 99,
+        identity: moduleEndpoint(1, 0x20, null, 0x12),
+      };
+
+      expect(formatter.format(ref)).toBe(
+        "Module 'Module32' (0x00000020) / port 0x00000012",
+      );
+    });
+  });
+
+  describe('calibration', () => {
+    const mfc: EntityRef<'SpfModule'> = {
+      entityType: 'SpfModule',
+      systemId: 0x10000002,
+      identity: {alias: 'RX MFC', definitionName: 'MFC', naturalId: 0xa1b2},
+    };
+    const mute = {name: 'Mute', naturalId: 9};
+
+    it('writes a Ckv as its values in key-vector order and its module', () => {
+      const ref: EntityRef = {
+        entityType: 'Ckv',
+        systemId: 99,
+        identity: {module: mfc, values: [deviceRxSpeaker, streamTypePlayback]},
+      };
+
+      expect(formatter.format(ref)).toBe(
+        "CKV [DeviceRx:Speaker, StreamType:Playback] of Module 'RX MFC' (0x0000A1B2)",
+      );
+    });
+
+    it('writes a Tag as its name and natural ID on its module', () => {
+      const ref: EntityRef = {
+        entityType: 'Tag',
+        systemId: 99,
+        identity: {module: mfc, tag: mute},
+      };
+
+      expect(formatter.format(ref)).toBe(
+        "Tag 'Mute' (0x00000009) on Module 'RX MFC' (0x0000A1B2)",
+      );
+    });
+
+    it('writes a Tkv as its values, its tag and its module', () => {
+      const ref: EntityRef = {
+        entityType: 'Tkv',
+        systemId: 99,
+        identity: {module: mfc, tag: mute, values: [deviceRxSpeaker]},
+      };
+
+      expect(formatter.format(ref)).toBe(
+        "TKV [DeviceRx:Speaker] of tag 'Mute' (0x00000009) " +
+          "on Module 'RX MFC' (0x0000A1B2)",
+      );
+    });
+
+    it('writes a module without identity as its systemId fallback', () => {
+      const ref: EntityRef = {
+        entityType: 'Tag',
+        systemId: 99,
+        identity: {
+          module: {entityType: 'SpfModule', systemId: 0x10000002},
+          tag: mute,
+        },
+      };
+
+      expect(formatter.format(ref)).toBe(
+        "Tag 'Mute' (0x00000009) on Module with systemId: 0x10000002",
+      );
+    });
   });
 
   describe('DataLink', () => {
@@ -217,6 +328,8 @@ describe('IdentityFormatter', () => {
       ['UseCase', 'UseCase with systemId: 0x10000002'],
       ['ValueDefinition', 'Value with systemId: 0x10000002'],
       ['Container', 'Container with systemId: 0x10000002'],
+      ['DataPort', 'Data port with systemId: 0x10000002'],
+      ['Tkv', 'TKV with systemId: 0x10000002'],
     ] as const)(
       'writes a %s without identity as its label and hex systemId',
       (entityType, text) => {

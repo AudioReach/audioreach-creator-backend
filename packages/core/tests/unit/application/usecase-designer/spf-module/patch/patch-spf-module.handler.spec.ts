@@ -11,6 +11,8 @@ import {
   ResourceNotFoundException,
   InvalidInputException,
   DomainRuleViolationException,
+  ENTITY_TYPE,
+  ISSUE_CODE,
   PORT_IO_TYPE,
   MODULE_PORT_STRATEGIES,
   CONTAINER_PROP_ID_STACK_SIZE,
@@ -691,12 +693,22 @@ describe('PatchSpfModuleHandler — static port protection', () => {
     });
     const testUow = makeUow({moduleRepo, defRepo});
     const testHandler = new PatchSpfModuleHandler(testUow, idGeneration);
+    const cmd = new PatchSpfModuleCommand(MODULE_ID, undefined, undefined, 1);
 
-    await expect(
-      testHandler.handle(
-        new PatchSpfModuleCommand(MODULE_ID, undefined, undefined, 1),
-      ),
-    ).rejects.toThrow(DomainRuleViolationException);
+    await expect(testHandler.handle(cmd)).rejects.toThrow(
+      DomainRuleViolationException,
+    );
+    await expect(testHandler.handle(cmd)).rejects.toMatchObject({
+      issues: [
+        {
+          code: ISSUE_CODE.MOD_PORT_COUNT_BELOW_STATIC_MINIMUM,
+          impactedEntity: {
+            entityType: ENTITY_TYPE.SpfModule,
+            systemId: MODULE_ID,
+          },
+        },
+      ],
+    });
     expect(testUow.rollback).toHaveBeenCalled();
     // Static ports must not be removed
     expect(moduleRepo.deleteDataPort).not.toHaveBeenCalled();
@@ -725,19 +737,29 @@ describe('PatchSpfModuleHandler — static port protection', () => {
     });
     const testUow = makeUow({moduleRepo, defRepo});
     const testHandler = new PatchSpfModuleHandler(testUow, idGeneration);
+    const cmd = new PatchSpfModuleCommand(
+      MODULE_ID,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      0,
+    );
 
-    await expect(
-      testHandler.handle(
-        new PatchSpfModuleCommand(
-          MODULE_ID,
-          undefined,
-          undefined,
-          undefined,
-          undefined,
-          0,
-        ),
-      ),
-    ).rejects.toThrow(DomainRuleViolationException);
+    await expect(testHandler.handle(cmd)).rejects.toThrow(
+      DomainRuleViolationException,
+    );
+    await expect(testHandler.handle(cmd)).rejects.toMatchObject({
+      issues: [
+        {
+          code: ISSUE_CODE.MOD_PORT_COUNT_BELOW_STATIC_MINIMUM,
+          impactedEntity: {
+            entityType: ENTITY_TYPE.SpfModule,
+            systemId: MODULE_ID,
+          },
+        },
+      ],
+    });
     expect(testUow.rollback).toHaveBeenCalled();
     expect(moduleRepo.deleteControlPort).not.toHaveBeenCalled();
   });

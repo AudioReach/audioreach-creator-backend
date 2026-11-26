@@ -23,4 +23,17 @@ export const NO_IDENTITY_READS = {
   findValueDefinitionIdentities: noIdentities(ENTITY_TYPE.ValueDefinition),
   findDataLinkIdentities: noIdentities(ENTITY_TYPE.DataLink),
   findControlLinkIdentities: noIdentities(ENTITY_TYPE.ControlLink),
+  findContainerIdentities: noIdentities(ENTITY_TYPE.Container),
+  findDataPortIdentities: noIdentities(ENTITY_TYPE.DataPort),
+  findControlPortIdentities: noIdentities(ENTITY_TYPE.ControlPort),
+  findCkvIdentities: noIdentities(ENTITY_TYPE.Ckv),
+  findTagIdentities: noIdentities(ENTITY_TYPE.Tag),
+  findTkvIdentities: noIdentities(ENTITY_TYPE.Tkv),
+  findTagDefinitionIdentities: noIdentities(ENTITY_TYPE.TagDefinition),
+  findSpfModuleDefinitionIdentities: noIdentities(
+    ENTITY_TYPE.SpfModuleDefinition,
+  ),
+  findSpfModuleParameterDefinitionIdentities: noIdentities(
+    ENTITY_TYPE.SpfModuleParameterDefinition,
+  ),
 };

@@ -12,6 +12,7 @@ import type {IssueFactCode} from '../../domain/issues/issue-context-map.js';
 import type {IssueFact} from '../../domain/issues/issue-fact.js';
 import type {EntityType} from '../../shared/entity-type.js';
 import type {BatchRead, FailedEntity} from '../ports/persistence/batch-read.js';
+import type {QueryServices} from '../ports/persistence/query-services/query-services.js';
 import type {UnitOfWork} from '../ports/persistence/unit-of-work.js';
 import {IdentityFormatter} from './identity-formatter.js';
 import type {Issue, RenderedEntityRef} from './issue.js';
@@ -54,8 +55,24 @@ function unitOfWorkReads(uow: UnitOfWork): IdentityReads {
       uow.getSubgraphRepository().findSubgraphIdentities(fileId, ids),
     SpfModule: (fileId, ids) =>
       uow.getModuleRepository().findSpfModuleIdentities(fileId, ids),
+    Container: (fileId, ids) =>
+      uow.getContainerRepository().findContainerIdentities(fileId, ids),
     Subsystem: (fileId, ids) =>
       uow.getSubsystemRepository().findSubsystemIdentities(fileId, ids),
+    DataPort: (fileId, ids) =>
+      uow.getModuleRepository().findDataPortIdentities(fileId, ids),
+    ControlPort: (fileId, ids) =>
+      uow.getModuleRepository().findControlPortIdentities(fileId, ids),
+    DataLink: (fileId, ids) =>
+      uow.getDataLinkRepository().findDataLinkIdentities(fileId, ids),
+    ControlLink: (fileId, ids) =>
+      uow.getControlLinkRepository().findControlLinkIdentities(fileId, ids),
+    Ckv: (fileId, ids) =>
+      uow.getModuleRepository().findCkvIdentities(fileId, ids),
+    Tag: (fileId, ids) =>
+      uow.getModuleRepository().findTagIdentities(fileId, ids),
+    Tkv: (fileId, ids) =>
+      uow.getModuleRepository().findTkvIdentities(fileId, ids),
     KeyDefinition: (fileId, ids) =>
       uow
         .getKeyValueDefinitionRepository()
@@ -64,12 +81,67 @@ function unitOfWorkReads(uow: UnitOfWork): IdentityReads {
       uow
         .getKeyValueDefinitionRepository()
         .findValueDefinitionIdentities(fileId, ids),
-    DataLink: (fileId, ids) =>
-      uow.getDataLinkRepository().findDataLinkIdentities(fileId, ids),
-    ControlLink: (fileId, ids) =>
-      uow.getControlLinkRepository().findControlLinkIdentities(fileId, ids),
+    TagDefinition: (fileId, ids) =>
+      uow.getTagDefinitionRepository().findTagDefinitionIdentities(fileId, ids),
+    SpfModuleDefinition: (fileId, ids) =>
+      uow
+        .getModuleDefinitionRepository()
+        .findSpfModuleDefinitionIdentities(fileId, ids),
+    SpfModuleParameterDefinition: (fileId, ids) =>
+      uow
+        .getModuleDefinitionRepository()
+        .findSpfModuleParameterDefinitionIdentities(fileId, ids),
   };
 }
+
+/**
+ * The identity reads of the query services, for handlers without a unit of
+ * work. They see the active session of the file. Modules and subsystems have
+ * no query-service read yet (Q1, Q2), so they are named by the systemId
+ * fallback.
+ */
+function queryServiceReads(qs: QueryServices): IdentityReads {
+  return {
+    UseCase: (fileId, ids) =>
+      qs.useCaseQueryService.findUseCaseIdentities(fileId, ids),
+    Subgraph: (fileId, ids) =>
+      qs.subgraphQueryService.findSubgraphIdentities(fileId, ids),
+    Container: (fileId, ids) =>
+      qs.containerQueryService.findContainerIdentities(fileId, ids),
+    DataPort: (fileId, ids) =>
+      qs.nodeQueryService.findDataPortIdentities(fileId, ids),
+    ControlPort: (fileId, ids) =>
+      qs.nodeQueryService.findControlPortIdentities(fileId, ids),
+    DataLink: (fileId, ids) =>
+      qs.dataLinkQueryService.findDataLinkIdentities(fileId, ids),
+    ControlLink: (fileId, ids) =>
+      qs.controlLinkQueryService.findControlLinkIdentities(fileId, ids),
+    Ckv: (fileId, ids) =>
+      qs.spfModuleQueryService.findCkvIdentities(fileId, ids),
+    Tag: (fileId, ids) =>
+      qs.spfModuleQueryService.findTagIdentities(fileId, ids),
+    Tkv: (fileId, ids) =>
+      qs.spfModuleQueryService.findTkvIdentities(fileId, ids),
+    KeyDefinition: (fileId, ids) =>
+      qs.keyValueDefQueryService.findKeyDefinitionIdentities(fileId, ids),
+    ValueDefinition: (fileId, ids) =>
+      qs.keyValueDefQueryService.findValueDefinitionIdentities(fileId, ids),
+    TagDefinition: (fileId, ids) =>
+      qs.tagDefinitionQueryService.findTagDefinitionIdentities(fileId, ids),
+    SpfModuleDefinition: (fileId, ids) =>
+      qs.spfModuleDefinitionQueryService.findSpfModuleDefinitionIdentities(
+        fileId,
+        ids,
+      ),
+    SpfModuleParameterDefinition: (fileId, ids) =>
+      qs.spfModuleDefinitionQueryService.findSpfModuleParameterDefinitionIdentities(
+        fileId,
+        ids,
+      ),
+  };
+}
+
+const formatter = new IdentityFormatter();
 
 /**
  * Turns issue facts into issues people can read.
@@ -82,8 +154,6 @@ function unitOfWorkReads(uow: UnitOfWork): IdentityReads {
  * work, before commit or rollback.
  */
 export class IssueRenderer {
-  private readonly formatter = new IdentityFormatter();
-
   constructor(
     private readonly reads: IdentityReads,
     private readonly fileSystemId: number,
@@ -97,6 +167,26 @@ export class IssueRenderer {
     );
   }
 
+  /** A renderer that reads through the query services, for query handlers. */
+  static forQueryServices(
+    qs: QueryServices,
+    fileSystemId: number,
+  ): IssueRenderer {
+    return new IssueRenderer(queryServiceReads(qs), fileSystemId);
+  }
+
+  /**
+   * Renders `facts` without reading: each reference is named by its own
+   * identity, or by the systemId fallback. For producers that already have
+   * every identity they can know, such as the failures of a batch read.
+   */
+  static renderWithoutReads<C extends IssueFactCode>(
+    facts: readonly IssueFact<C>[],
+  ): Issue<C>[] {
+    const renderRef = refRenderer(new Map());
+    return facts.map(fact => renderFact(fact, renderRef));
+  }
+
   async render<C extends IssueFactCode>(
     facts: readonly IssueFact<C>[],
   ): Promise<Issue<C>[]> {
@@ -107,26 +197,9 @@ export class IssueRenderer {
     // 2. Read those identities, with one batched read per entity type.
     const found = await this.readIdentities(missing);
     // 3. Build the function that gives each reference its display name.
-    const renderRef = this.refRenderer(found);
+    const renderRef = refRenderer(found);
     // 4. Write each issue's message and fix-option descriptions.
     return facts.map(fact => renderFact(fact, renderRef));
-  }
-
-  /**
-   * A function that renders a reference. It names the reference by the
-   * identity read for it when there is one, and otherwise by the reference
-   * itself (its own identity, or the systemId fallback).
-   */
-  private refRenderer(
-    found: ReadonlyMap<string, EntityRef>,
-  ): (ref: EntityRef) => RenderedEntityRef {
-    return ref => ({
-      entityType: ref.entityType,
-      systemId: ref.systemId,
-      displayName: this.formatter.format(
-        found.get(refKey(ref.entityType, ref.systemId)) ?? ref,
-      ),
-    });
   }
 
   /**
@@ -204,6 +277,23 @@ function collectRefsWithoutIdentity<C extends IssueFactCode>(
     });
   }
   return missing;
+}
+
+/**
+ * A function that renders a reference. It names the reference by the
+ * identity read for it when there is one, and otherwise by the reference
+ * itself (its own identity, or the systemId fallback).
+ */
+function refRenderer(
+  found: ReadonlyMap<string, EntityRef>,
+): (ref: EntityRef) => RenderedEntityRef {
+  return ref => ({
+    entityType: ref.entityType,
+    systemId: ref.systemId,
+    displayName: formatter.format(
+      found.get(refKey(ref.entityType, ref.systemId)) ?? ref,
+    ),
+  });
 }
 
 function refKey(entityType: EntityType, systemId: number): string {

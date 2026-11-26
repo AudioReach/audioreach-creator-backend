@@ -84,5 +84,12 @@ describe('requireAll', () => {
         issue => issue.impactedEntity?.systemId,
       ),
     ).toEqual([7, 8]);
+    expect(
+      (thrown as ResourceNotFoundException).issues?.map(issue => issue.message),
+    ).toEqual([
+      "Subgraph 'Speaker' (0x00000004) was skipped: it references " +
+        'Value with systemId: 0x00000009, which was not found in this project.',
+      'Subgraph with systemId: 0x00000008 was not found in this project.',
+    ]);
   });
 });

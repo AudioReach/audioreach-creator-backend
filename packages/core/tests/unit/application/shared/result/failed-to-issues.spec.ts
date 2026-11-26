@@ -27,7 +27,27 @@ describe('failedToIssues', () => {
         systemId: 42,
         displayName: 'Subgraph with systemId: 0x0000002A',
       },
+      relatedEntities: {},
+      params: {},
     });
+  });
+
+  it('names a deleted entity by the identity its read returned', () => {
+    const [issue] = failedToIssues({
+      entityType: ENTITY_TYPE.Subgraph,
+      items: [],
+      failed: [
+        {
+          systemId: 42,
+          reason: FAILED_ENTITY_REASON.NotFound,
+          identity: {name: 'Speaker', naturalId: 4},
+        },
+      ],
+    });
+
+    expect(issue.message).toBe(
+      "Subgraph 'Speaker' (0x00000004) was not found in this project.",
+    );
   });
 
   it('names a skipped entity by its identity, not its systemId', () => {
@@ -54,6 +74,13 @@ describe('failedToIssues', () => {
       systemId: 7,
       displayName: "Subgraph 'Speaker' (0x00000004)",
     });
+    expect(issue.relatedEntities).toEqual({
+      missingEntity: {
+        entityType: ENTITY_TYPE.ValueDefinition,
+        systemId: 9,
+        displayName: 'Value with systemId: 0x00000009',
+      },
+    });
   });
 
   it('falls back to the systemId when a skipped entity has no identity', () => {
@@ -67,6 +94,7 @@ describe('failedToIssues', () => {
       'UseCase with systemId: 0x00000008 was skipped: ' +
         'a reference it uses was not found in this project.',
     );
+    expect(issue.relatedEntities).toEqual({});
   });
 
   it('returns no issues when nothing failed', () => {

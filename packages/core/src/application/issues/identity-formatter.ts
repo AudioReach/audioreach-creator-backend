@@ -10,7 +10,7 @@ import type {
   NamedNaturalId,
   PortIdentity,
 } from '../../domain/identity/entity-identity.js';
-import type {EntityType} from '../../shared/entity-type.js';
+import {ENTITY_TYPE, type EntityType} from '../../shared/entity-type.js';
 import {BinaryUtils} from '../../shared/utilities/binary-utils.js';
 
 /** Text labels that differ from the entity type name. */
@@ -55,33 +55,33 @@ function formatRef(ref: EntityRef): string {
 // eslint-disable-next-line sonarjs/cognitive-complexity -- One flat case per entity type
 function formatIdentity(ref: EntityRef): string | undefined {
   switch (ref.entityType) {
-    case 'UseCase': {
+    case ENTITY_TYPE.UseCase: {
       if (!ref.identity) return undefined;
       const {alias, gkv} = ref.identity;
       return `${label(ref)}${quoted(alias)} ${pairs(gkv)}`;
     }
-    case 'SpfModule': {
+    case ENTITY_TYPE.SpfModule: {
       if (!ref.identity) return undefined;
       const {alias, definitionName, naturalId} = ref.identity;
       return `${label(ref)} '${alias ?? definitionName}' (${hex(naturalId)})`;
     }
-    case 'Container':
+    case ENTITY_TYPE.Container:
       return ref.identity && `${label(ref)} ${hex(ref.identity.naturalId)}`;
-    case 'DataPort':
+    case ENTITY_TYPE.DataPort:
       return ref.identity && portOfNode(ref.identity, dataPortId);
-    case 'ControlPort':
+    case ENTITY_TYPE.ControlPort:
       return ref.identity && portOfNode(ref.identity, controlPortId);
-    case 'Ckv': {
+    case ENTITY_TYPE.Ckv: {
       if (!ref.identity) return undefined;
       const {module, values} = ref.identity;
       return `${label(ref)} ${pairs(values)} of ${formatRef(module)}`;
     }
-    case 'Tag': {
+    case ENTITY_TYPE.Tag: {
       if (!ref.identity) return undefined;
       const {module, tag} = ref.identity;
       return `${named(label(ref), tag)} on ${formatRef(module)}`;
     }
-    case 'Tkv': {
+    case ENTITY_TYPE.Tkv: {
       if (!ref.identity) return undefined;
       const {module, tag, values} = ref.identity;
       return (
@@ -89,14 +89,14 @@ function formatIdentity(ref: EntityRef): string | undefined {
         `on ${formatRef(module)}`
       );
     }
-    case 'Subgraph':
-    case 'Subsystem':
-    case 'KeyDefinition':
-    case 'TagDefinition':
-    case 'SpfModuleDefinition':
-    case 'SpfModuleParameterDefinition':
+    case ENTITY_TYPE.Subgraph:
+    case ENTITY_TYPE.Subsystem:
+    case ENTITY_TYPE.KeyDefinition:
+    case ENTITY_TYPE.TagDefinition:
+    case ENTITY_TYPE.SpfModuleDefinition:
+    case ENTITY_TYPE.SpfModuleParameterDefinition:
       return ref.identity && named(label(ref), ref.identity);
-    case 'ValueDefinition': {
+    case ENTITY_TYPE.ValueDefinition: {
       if (!ref.identity) return undefined;
       const {key, value} = ref.identity;
       return (
@@ -104,7 +104,7 @@ function formatIdentity(ref: EntityRef): string | undefined {
         `(${hex(key.naturalId)}:${hex(value.naturalId)})`
       );
     }
-    case 'DataLink': {
+    case ENTITY_TYPE.DataLink: {
       if (!ref.identity) return undefined;
       const {source, destination} = ref.identity;
       return (
@@ -112,7 +112,7 @@ function formatIdentity(ref: EntityRef): string | undefined {
         endpoint(destination, dataPortId)
       );
     }
-    case 'ControlLink': {
+    case ENTITY_TYPE.ControlLink: {
       if (!ref.identity) return undefined;
       const [first, second] = [...ref.identity.endpoints].sort(
         compareEndpoints,
