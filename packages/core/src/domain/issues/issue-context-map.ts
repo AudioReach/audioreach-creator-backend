@@ -119,6 +119,13 @@ type MissingComponents = CodeContext<{
  */
 export interface IssueContextMap {
   [ISSUE_CODE.ENTITY_NOT_FOUND]: CodeContext;
+  /**
+   * `impactedEntity`: the entity that was skipped. `missingEntity`: the
+   * entity it references that was not found, when the read knows it.
+   */
+  [ISSUE_CODE.ENTITY_UNRESOLVED_REFERENCE]: CodeContext<{
+    missingEntity?: EntityRef;
+  }>;
 
   [ISSUE_CODE.ROUTING_PREVAL_DUPLICATE_ACTIVE_SUBGRAPH_SELECTION]: CodeContext<{
     subgraphs: Subgraphs;

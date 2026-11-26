@@ -272,7 +272,6 @@ export class PatchSpfModuleHandler implements CommandHandler<
           module.systemId,
           requested,
           staticPorts.length,
-          ENTITY_TYPE.DataPort,
         ),
       ]);
     }
@@ -355,7 +354,6 @@ export class PatchSpfModuleHandler implements CommandHandler<
           module.systemId,
           requested,
           staticControlPorts.length,
-          ENTITY_TYPE.ControlPort,
         ),
       ]);
     }

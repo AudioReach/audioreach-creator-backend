@@ -5,7 +5,7 @@
 
 import type {EntityRef} from '../../../../domain/identity/entity-identity.js';
 import type {IssueFact} from '../../../../domain/issues/issue-fact.js';
-import {ENTITY_TYPE, type EntityType} from '../../../../shared/entity-type.js';
+import {ENTITY_TYPE} from '../../../../shared/entity-type.js';
 import {ISSUE_CODE} from '../../../../shared/issues/operational-codes.js';
 import {IssueSeverity} from '../../../../shared/issues/severity.js';
 import type {
@@ -310,17 +310,6 @@ function collisionFixOption(
 
 /** Creates issue facts owned by the use-case routing workflow. */
 export const RoutingIssueFactory = {
-  entityNotFound(
-    entityType: EntityType,
-    systemId: number,
-  ): IssueFact<typeof ISSUE_CODE.ENTITY_NOT_FOUND> {
-    return {
-      code: ISSUE_CODE.ENTITY_NOT_FOUND,
-      severity: IssueSeverity.Error,
-      impactedEntity: {entityType, systemId} as EntityRef,
-    };
-  },
-
   duplicateActiveSubgraphSelections(
     duplicateSubgraphSystemIds: Iterable<number>,
   ): IssueFact<

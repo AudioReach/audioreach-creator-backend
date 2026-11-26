@@ -9,58 +9,45 @@ import type {
 } from '../../ports/persistence/batch-read.js';
 import {FAILED_ENTITY_REASON} from '../../ports/persistence/batch-read.js';
 import type {EntityRef} from '../../../domain/identity/entity-identity.js';
-import {IdentityFormatter} from '../../issues/identity-formatter.js';
-import type {LegacyIssue} from '../../../shared/issues/issue.js';
+import {EntityIssueFactory} from '../../../domain/issues/entity-issue-factory.js';
+import type {IssueFact} from '../../../domain/issues/issue-fact.js';
+import type {Issue} from '../../issues/issue.js';
+import {IssueRenderer} from '../../issues/issue-renderer.js';
 import type {EntityType} from '../../../shared/entity-type.js';
-import {ISSUE_CODE} from '../../../shared/issues/operational-codes.js';
-import {IssueSeverity} from '../../../shared/issues/severity.js';
+import type {ISSUE_CODE} from '../../../shared/issues/operational-codes.js';
 
-const formatter = new IdentityFormatter();
+type FailedEntityCode =
+  | typeof ISSUE_CODE.ENTITY_NOT_FOUND
+  | typeof ISSUE_CODE.ENTITY_UNRESOLVED_REFERENCE;
 
 /**
  * Turns the `failed` list of a `BatchRead` into issues, so a query
  * handler can return `Result.partial(items, issues)`. To report only some
  * failures, pass `{...batch, failed: subset}`.
  *
- * Text shows the entity's natural identity when the read supplied it,
- * otherwise the `systemId` fallback; `impactedEntity` keeps the systemId.
+ * The read already returned every identity it knows, so the issues are
+ * rendered without another read: text shows the entity's natural identity
+ * when the read supplied it, otherwise the `systemId` fallback.
  */
 export function failedToIssues<E extends EntityType>(
   batch: BatchRead<unknown, E>,
-): LegacyIssue[] {
-  return batch.failed.map(entity =>
-    failedEntityToIssue(batch.entityType, entity),
+): Issue<FailedEntityCode>[] {
+  return IssueRenderer.renderWithoutReads(
+    batch.failed.map(entity => failedEntityToFact(batch.entityType, entity)),
   );
 }
 
-function failedEntityToIssue<E extends EntityType>(
+function failedEntityToFact<E extends EntityType>(
   entityType: E,
   entity: FailedEntity<E>,
-): LegacyIssue {
+): IssueFact<FailedEntityCode> {
   const ref = {
     entityType,
     systemId: entity.systemId,
     ...(entity.identity && {identity: entity.identity}),
   } as EntityRef;
-  const displayName = formatter.format(ref);
-  const impactedEntity = {entityType, systemId: entity.systemId, displayName};
 
-  if (entity.reason === FAILED_ENTITY_REASON.NotFound) {
-    return {
-      code: ISSUE_CODE.ENTITY_NOT_FOUND,
-      message: `${displayName} was not found in this project.`,
-      severity: IssueSeverity.Error,
-      impactedEntity,
-    };
-  }
-  const reason =
-    entity.missingRef === undefined
-      ? 'a reference it uses was not found in this project.'
-      : `it references ${formatter.format(entity.missingRef)}, which was not found in this project.`;
-  return {
-    code: ISSUE_CODE.ENTITY_UNRESOLVED_REFERENCE,
-    message: `${displayName} was skipped: ${reason}`,
-    severity: IssueSeverity.Error,
-    impactedEntity,
-  };
+  return entity.reason === FAILED_ENTITY_REASON.NotFound
+    ? EntityIssueFactory.notFound(ref)
+    : EntityIssueFactory.unresolvedReference(ref, entity.missingRef);
 }

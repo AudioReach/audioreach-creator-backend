@@ -9,10 +9,14 @@ import {
   type IdentityRead,
 } from '../../../../src/application/issues/issue-renderer.js';
 import {FAILED_ENTITY_REASON} from '../../../../src/application/ports/persistence/batch-read.js';
+import type {UnitOfWork} from '../../../../src/application/ports/persistence/unit-of-work.js';
+import type {QueryServices} from '../../../../src/application/ports/persistence/query-services/query-services.js';
 import type {EntityRef} from '../../../../src/domain/identity/entity-identity.js';
 import type {IssueFact} from '../../../../src/domain/issues/issue-fact.js';
+import type {EntityType} from '../../../../src/shared/entity-type.js';
 import {ISSUE_CODE} from '../../../../src/shared/issues/operational-codes.js';
 import {IssueSeverity} from '../../../../src/shared/issues/severity.js';
+import {notFoundBatch} from '../../../helpers/batch-read.js';
 
 const FILE_ID = 42;
 
@@ -256,5 +260,154 @@ describe('IssueRenderer', () => {
 
     expect(await renderer.render([])).toEqual([]);
     expect(read).not.toHaveBeenCalled();
+  });
+});
+
+describe('IssueRenderer.forUnitOfWork', () => {
+  it.each([
+    ['UseCase', 'getUsecaseRepository', 'findUseCaseIdentities'],
+    ['Subgraph', 'getSubgraphRepository', 'findSubgraphIdentities'],
+    ['SpfModule', 'getModuleRepository', 'findSpfModuleIdentities'],
+    ['Container', 'getContainerRepository', 'findContainerIdentities'],
+    ['Subsystem', 'getSubsystemRepository', 'findSubsystemIdentities'],
+    ['DataPort', 'getModuleRepository', 'findDataPortIdentities'],
+    ['ControlPort', 'getModuleRepository', 'findControlPortIdentities'],
+    ['DataLink', 'getDataLinkRepository', 'findDataLinkIdentities'],
+    ['ControlLink', 'getControlLinkRepository', 'findControlLinkIdentities'],
+    ['Ckv', 'getModuleRepository', 'findCkvIdentities'],
+    ['Tag', 'getModuleRepository', 'findTagIdentities'],
+    ['Tkv', 'getModuleRepository', 'findTkvIdentities'],
+    [
+      'KeyDefinition',
+      'getKeyValueDefinitionRepository',
+      'findKeyDefinitionIdentities',
+    ],
+    [
+      'ValueDefinition',
+      'getKeyValueDefinitionRepository',
+      'findValueDefinitionIdentities',
+    ],
+    [
+      'TagDefinition',
+      'getTagDefinitionRepository',
+      'findTagDefinitionIdentities',
+    ],
+    [
+      'SpfModuleDefinition',
+      'getModuleDefinitionRepository',
+      'findSpfModuleDefinitionIdentities',
+    ],
+    [
+      'SpfModuleParameterDefinition',
+      'getModuleDefinitionRepository',
+      'findSpfModuleParameterDefinitionIdentities',
+    ],
+  ] as const)(
+    'reads a %s through %s().%s',
+    async (entityType: EntityType, getter, method) => {
+      const read = jest.fn(async () => notFoundBatch(entityType, 7));
+      const uow = {
+        getWriteContext: () => ({
+          session: {sessionId: 1, fileSystemId: FILE_ID},
+        }),
+        [getter]: () => ({[method]: read}),
+      } as unknown as UnitOfWork;
+
+      await IssueRenderer.forUnitOfWork(uow).render([
+        {
+          code: ISSUE_CODE.ENTITY_NOT_FOUND,
+          severity: IssueSeverity.Error,
+          impactedEntity: {entityType, systemId: 7} as EntityRef,
+        },
+      ]);
+
+      expect(read).toHaveBeenCalledWith(FILE_ID, [7]);
+    },
+  );
+});
+
+describe('IssueRenderer.forQueryServices', () => {
+  it.each([
+    ['UseCase', 'useCaseQueryService', 'findUseCaseIdentities'],
+    ['Subgraph', 'subgraphQueryService', 'findSubgraphIdentities'],
+    ['Container', 'containerQueryService', 'findContainerIdentities'],
+    ['DataPort', 'nodeQueryService', 'findDataPortIdentities'],
+    ['ControlPort', 'nodeQueryService', 'findControlPortIdentities'],
+    ['DataLink', 'dataLinkQueryService', 'findDataLinkIdentities'],
+    ['ControlLink', 'controlLinkQueryService', 'findControlLinkIdentities'],
+    ['Ckv', 'spfModuleQueryService', 'findCkvIdentities'],
+    ['Tag', 'spfModuleQueryService', 'findTagIdentities'],
+    ['Tkv', 'spfModuleQueryService', 'findTkvIdentities'],
+    ['KeyDefinition', 'keyValueDefQueryService', 'findKeyDefinitionIdentities'],
+    [
+      'ValueDefinition',
+      'keyValueDefQueryService',
+      'findValueDefinitionIdentities',
+    ],
+    [
+      'TagDefinition',
+      'tagDefinitionQueryService',
+      'findTagDefinitionIdentities',
+    ],
+    [
+      'SpfModuleDefinition',
+      'spfModuleDefinitionQueryService',
+      'findSpfModuleDefinitionIdentities',
+    ],
+    [
+      'SpfModuleParameterDefinition',
+      'spfModuleDefinitionQueryService',
+      'findSpfModuleParameterDefinitionIdentities',
+    ],
+  ] as const)(
+    'reads a %s through %s.%s',
+    async (entityType: EntityType, service, method) => {
+      const read = jest.fn(async () => notFoundBatch(entityType, 7));
+      const qs = {[service]: {[method]: read}} as unknown as QueryServices;
+
+      await IssueRenderer.forQueryServices(qs, FILE_ID).render([
+        {
+          code: ISSUE_CODE.ENTITY_NOT_FOUND,
+          severity: IssueSeverity.Error,
+          impactedEntity: {entityType, systemId: 7} as EntityRef,
+        },
+      ]);
+
+      expect(read).toHaveBeenCalledWith(FILE_ID, [7]);
+    },
+  );
+
+  it.each(['SpfModule', 'Subsystem'] as const)(
+    'names a %s by the systemId fallback, without a read',
+    async entityType => {
+      const qs = {} as QueryServices;
+
+      const [issue] = await IssueRenderer.forQueryServices(qs, FILE_ID).render([
+        {
+          code: ISSUE_CODE.ENTITY_NOT_FOUND,
+          severity: IssueSeverity.Error,
+          impactedEntity: {entityType, systemId: 0x2a},
+        },
+      ]);
+
+      expect(issue.message).toMatch(
+        / with systemId: 0x0000002A was not found in this project\.$/,
+      );
+    },
+  );
+});
+
+describe('IssueRenderer.renderWithoutReads', () => {
+  it('names each reference by its own identity, or by the systemId fallback', () => {
+    const [issue] = IssueRenderer.renderWithoutReads([
+      dataLinkIntegrity(subgraph(5, 'Mic in'), subgraph(6)),
+    ]);
+
+    expect(issue.message).toBe(
+      'DataLink with systemId: 0x00000009 connects ' +
+        "Subgraph 'Mic in' (0x00000005) to " +
+        'Subgraph with systemId: 0x00000006, but one or both of these ' +
+        'subgraphs are missing from the use case.',
+    );
   });
 });

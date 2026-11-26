@@ -269,7 +269,6 @@ export const IssueFactory = {
     moduleSystemId: number,
     requested: number,
     staticCount: number,
-    portEntityType: EntityType,
   ): LegacyIssue {
     return {
       code: ISSUE_CODE.MOD_PORT_COUNT_BELOW_STATIC_MINIMUM,
@@ -278,7 +277,7 @@ export const IssueFactory = {
         `${staticCount}. Static ports are fixed by the module definition and cannot be removed.`,
       severity: IssueSeverity.Error,
       impactedEntity: {
-        entityType: portEntityType,
+        entityType: ENTITY_TYPE.SpfModule,
         systemId: moduleSystemId,
       },
     };

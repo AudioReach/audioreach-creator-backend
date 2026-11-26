@@ -83,7 +83,16 @@ function missingKinds(missing: {
  */
 export const MESSAGE_TEMPLATES: MessageTemplates = {
   [ISSUE_CODE.ENTITY_NOT_FOUND]: issue =>
-    `${impacted(issue, 'The entity')} was not found.`,
+    `${impacted(issue, 'The entity')} was not found in this project.`,
+
+  [ISSUE_CODE.ENTITY_UNRESOLVED_REFERENCE]: issue => {
+    const missing = issue.relatedEntities.missingEntity;
+    const reason =
+      missing === undefined
+        ? 'a reference it uses was not found in this project.'
+        : `it references ${name(missing)}, which was not found in this project.`;
+    return `${impacted(issue, 'An entity')} was skipped: ${reason}`;
+  },
 
   [ISSUE_CODE.ROUTING_PREVAL_DUPLICATE_ACTIVE_SUBGRAPH_SELECTION]: () =>
     'Some subgraphs are included more than once. Include each subgraph only once.',

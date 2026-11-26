@@ -13,6 +13,7 @@ import {ISSUE_CODE, type IssueFactCode} from '@arc/core';
  */
 const ISSUE_CONTEXT_DOCS: Readonly<Record<IssueFactCode, string>> = {
   [ISSUE_CODE.ENTITY_NOT_FOUND]: '-',
+  [ISSUE_CODE.ENTITY_UNRESOLVED_REFERENCE]: 'missingEntity?: any entity',
   [ISSUE_CODE.ROUTING_PREVAL_DUPLICATE_ACTIVE_SUBGRAPH_SELECTION]:
     'subgraphs: Subgraph[]',
   [ISSUE_CODE.ROUTING_PREVAL_ADDITION_SCOPE_CONFLICT]:

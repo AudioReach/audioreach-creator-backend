@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import {EntityIssueFactory} from '../../../../domain/issues/entity-issue-factory.js';
 import type {IssueFact} from '../../../../domain/issues/issue-fact.js';
 import type {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
 import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
@@ -119,10 +120,10 @@ export class RoutingGraphSnapshotBuilder {
     const missingIssues: IssueFact[] = selections
       .filter(selection => !subgraphsById.has(selection.systemId))
       .map(selection =>
-        RoutingIssueFactory.entityNotFound(
-          ENTITY_TYPE.Subgraph,
-          selection.systemId,
-        ),
+        EntityIssueFactory.notFound({
+          entityType: ENTITY_TYPE.Subgraph,
+          systemId: selection.systemId,
+        }),
       );
     const integrityIssues = overlayDataLinks
       .filter(link => isInScope(link, effectiveIds))

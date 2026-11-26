@@ -186,12 +186,19 @@ Use deterministic natural identities:
 | Container | container natural ID (containers have no name) |
 | Subsystem | name plus subsystem natural ID |
 | Module definition | name plus module-definition natural ID |
+| Module parameter definition | name plus parameter natural ID |
 | Key definition | name plus key natural ID |
 | Value definition | its GKV pair, `keyName:valueName (keyNaturalId:valueNaturalId)` |
+| Tag definition | name plus tag natural ID |
 | Property definition (subgraph, container) | name plus property natural ID |
-| DataLink | `endpoint / portName` → `endpoint / portName`, where each endpoint is the Module or Subsystem identity |
-| ControlLink | canonical `endpoint / portName` ↔ `endpoint / portName`, where each endpoint is the Module or Subsystem identity, ordered ascending by endpoint natural ID |
-| SGKV/CKV/TKV | owning entity plus ordered key/value identity |
+| DataPort | owning Module or Subsystem identity, then the port name, or `port` plus the decimal port natural ID |
+| ControlPort | owning Module or Subsystem identity, then the port name, or `port` plus the hex port natural ID |
+| DataLink | `endpoint / port` → `endpoint / port`, where each endpoint is the Module or Subsystem identity |
+| ControlLink | canonical `endpoint / port` ↔ `endpoint / port`, where each endpoint is the Module or Subsystem identity, ordered ascending by endpoint natural ID |
+| Tag (on a module) | tag name plus tag natural ID, then the owning module identity |
+| CKV | ordered key/value pairs by name, then the owning module identity |
+| TKV | ordered key/value pairs by name, the tag, then the owning module identity |
+| SGKV | owning entity plus ordered key/value identity |
 
 Optional aliases improve a canonical identity but do not replace it. An alias
 is a user-given label and may not be unique, so the natural ID or GKV pairs
@@ -207,7 +214,19 @@ for every pair would make the identity too long to read. Key and value names
 come from the definition file and identify the pair; the reference's
 `systemId` remains in structured context for machines.
 
-A port without a name is shown by its natural ID (`port 0x00000002`).
+A port natural ID is decimal for a data port and hex for a control port. On
+its own, a port is written after its node, as `<node> / <port name>`, or
+`<node> / port 2` (data) and `<node> / port 0x00000002` (control) when it has
+no name. In a link, which already names both nodes, a port is written as
+`port 'name' (id)`, or `port id` when it has no name:
+
+```text
+Module 'RX MFC' (0x0000A1B2) / out
+DataLink Module 'Gain' (0x00000020) / port 'out' (1) → Module 'MFC' (0x00000010) / port 2
+Tag 'Mute' (0x00000009) on Module 'RX MFC' (0x0000A1B2)
+CKV [DeviceRx:Speaker] of Module 'RX MFC' (0x0000A1B2)
+TKV [DeviceRx:Speaker] of tag 'Mute' (0x00000009) on Module 'RX MFC' (0x0000A1B2)
+```
 
 **No Node identity.** A node is never identified as "node". Every node
 reference resolves to its concrete type (`SpfModule` or `Subsystem`; later
