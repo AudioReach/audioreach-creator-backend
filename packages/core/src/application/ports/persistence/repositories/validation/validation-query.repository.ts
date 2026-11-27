@@ -11,6 +11,8 @@ import type {ControlLink} from '../../../../../domain/entities/usecase-data/link
 import type {SpfModuleDefinition} from '../../../../../domain/entities/definitions/spf-module/spf-module-definition.js';
 import type {ValidationPreferences} from '../../../../../domain/validation/validation-preferences.js';
 import type {ValidationIssue} from '../../../../../domain/validation/issue.js';
+import type {Container} from '../../../../../domain/entities/usecase-data/container/container.js';
+import type {PropertyDefinition} from '../../../../../domain/entities/definitions/common/entities/property-definition.js';
 
 /**
  * Read-only repository port for loading all entity types needed to build
@@ -30,6 +32,10 @@ export interface ValidationQueryRepository {
   findDataLinksByFile(fileSystemId: number): Promise<DataLink[]>;
   findControlLinksByFile(fileSystemId: number): Promise<ControlLink[]>;
   findDefinitionsByFile(fileSystemId: number): Promise<SpfModuleDefinition[]>;
+  findContainersByFile(fileSystemId: number): Promise<Container[]>;
+  findContainerPropertyDefinitionsByFile(
+    fileSystemId: number,
+  ): Promise<PropertyDefinition[]>;
   /** Returns stored preferences for the file, or EMPTY_PREFERENCES if none exist. */
   getPreferences(fileSystemId: number): Promise<ValidationPreferences>;
   /**
